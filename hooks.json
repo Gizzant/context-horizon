@@ -1,0 +1,26 @@
+{
+  "horizon-flightcheck-lifecycle": {
+    "enabled": true,
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "node ~/.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/session_start.mjs",
+        "timeout": 5
+      }
+    ],
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "node ~/.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/pre_invocation.mjs",
+        "timeout": 15
+      }
+    ],
+    "PostInvocation": [
+      {
+        "type": "command",
+        "command": "node ~/.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/post_invocation.mjs",
+        "timeout": 5
+      }
+    ]
+  }
+}

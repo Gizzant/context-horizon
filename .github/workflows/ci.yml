@@ -1,0 +1,41 @@
+name: CI Matrix (Windows, macOS, Linux)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Node ${{ matrix.node }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [20, 22]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Run 15-test Router, Sensor & Crash-Immunity Suite
+        run: npm test
+
+      - name: Run 6-Phase Architectural Verification Suite
+        run: npm run test:phases
+
+      - name: Run 200-Iteration Latency Benchmark
+        run: npm run bench
+
+      - name: Smoke Test CLI (--demo, --roast, init --dry-run)
+        run: |
+          node src/cli/init.mjs --demo
+          node src/cli/init.mjs --roast
+          node src/cli/init.mjs init --dry-run

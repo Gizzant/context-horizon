@@ -1,0 +1,64 @@
+{
+  "name": "context-horizon",
+  "version": "3.1.0",
+  "description": "htop for AI Coding Agents: 40-cell context window visualizer, $/turn Sludge Tax auditor, and <15ms PreInvocation Flight Check router for Google Antigravity.",
+  "type": "module",
+  "bin": {
+    "context-horizon": "./src/cli/init.mjs",
+    "ctxtop": "./src/cli/init.mjs",
+    "agy-horizon": "./src/cli/init.mjs",
+    "agy-horizon-flightcheck": "./src/cli/init.mjs"
+  },
+  "main": "./src/cli/horizon_hud.mjs",
+  "files": [
+    "plugin.json",
+    "hooks.json",
+    "config/",
+    "assets/",
+    "rules/",
+    "skills/",
+    "sidecars/",
+    "src/",
+    "tests/fixtures/"
+  ],
+  "scripts": {
+    "start": "node --no-warnings src/cli/init.mjs --demo",
+    "demo": "node --no-warnings src/cli/init.mjs --demo-animate",
+    "dev": "node --no-warnings src/cli/init.mjs --serve",
+    "hud": "node --no-warnings src/cli/horizon_hud.mjs --demo",
+    "roast": "node --no-warnings src/cli/init.mjs --roast",
+    "install-plugin": "node --no-warnings src/cli/init.mjs init",
+    "build:assets": "node --no-warnings scripts/generate_hero_svg.mjs && node --no-warnings scripts/build_demo_page.mjs",
+    "test": "node --test tests/test_router_and_sensors.mjs",
+    "test:phases": "node tests/verify_phase_1.mjs && node tests/verify_phase_2.mjs && node tests/verify_phase_3.mjs && node tests/verify_phase_4.mjs && node tests/verify_phase_5.mjs && node tests/verify_phase_6_roadmap.mjs",
+    "test:e2e": "node tests/verify_e2e_context_memory.mjs",
+    "bench": "node tests/bench_latency.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gizzant/context-horizon.git"
+  },
+  "homepage": "https://gizzant.github.io/context-horizon/",
+  "bugs": {
+    "url": "https://github.com/Gizzant/context-horizon/issues"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "ai-agents",
+    "context-window",
+    "llm-telemetry",
+    "antigravity",
+    "google-antigravity",
+    "mcp",
+    "sludge-tax",
+    "attention-horizon",
+    "ctxtop",
+    "developer-tools",
+    "tufte",
+    "cli"
+  ],
+  "author": "Gizzant <frankmiller@gmail.com>",
+  "license": "MIT"
+}

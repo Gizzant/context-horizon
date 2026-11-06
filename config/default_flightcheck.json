@@ -1,0 +1,25 @@
+{
+  "hook_level": "guard",
+  "cold_session_max_turns": 3,
+  "trust_decay_turn_threshold": 10,
+  "subagent_min_cache_tokens": 25000,
+  "subagent_min_purity_pct": 70.0,
+  "compact_halt_purity_pct": 45.0,
+  "amputation_token_threshold": 140000,
+  "quota_floor_fraction": 0.10,
+  "max_single_write_lines": 600,
+  "max_tool_payload_tokens": 25000,
+  "uncheckpointed_dirty_file_limit": 4,
+  "consecutive_error_strike_limit": 3,
+  "deprecated_paths": [
+    "**/legacy/**",
+    "**/deprecated/**",
+    "**/v1/**"
+  ],
+  "model_pricing_per_1m_input": {
+    "gemini-3.8-flash": 0.15,
+    "gemini-3.1-pro": 1.25,
+    "gemini-4-argon": 2.50,
+    "claude-opus-4-6-thinking": 5.00
+  }
+}

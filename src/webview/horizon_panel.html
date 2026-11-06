@@ -1,0 +1,2269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Context Memory</title>
+<script src="/preload.js"></script>
+<style>
+  :root {
+    --hz-bg: #0b0f17;
+    --hz-card: #111827;
+    --hz-card-alt: #161f33;
+    --hz-fg: #f8fafc;
+    --hz-muted: #94a3b8;         /* High-contrast slate text */
+    --hz-dim: #64748b;           /* Legible secondary muted */
+    --hz-border: rgba(255, 255, 255, 0.12);
+    --hz-border-subtle: rgba(255, 255, 255, 0.06);
+
+    /* Simple Semantic Colors */
+    --hz-useful: #10b981;        /* Green: Active code + rules */
+    --hz-clutter: #f59e0b;       /* Amber: Reclaimable noise */
+    --hz-danger: #ef4444;        /* Red: Over 140k limit / errors */
+    --hz-free: #1e293b;          /* Dark slate: Free headroom */
+    --hz-anchor: #38bdf8;        /* Cyan: Rules in timeline */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: #0b0f17; color-scheme: dark; }
+  body {
+    background: var(--hz-bg) !important;
+    color: var(--hz-fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", Helvetica, Arial, sans-serif;
+    font-size: 12.5px;
+    line-height: 1.45;
+    padding: 14px;
+    user-select: none;
+  }
+
+  .mono {
+    font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .wrap {
+    max-width: 540px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+  }
+
+  /* 1. Top Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--hz-useful);
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+  }
+  .dot.warn { background: var(--hz-clutter); box-shadow: 0 0 8px rgba(245, 158, 11, 0.5); }
+  .dot.danger { background: var(--hz-danger); box-shadow: 0 0 10px rgba(239, 68, 68, 0.7); }
+
+  h1 {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: #f8fafc !important;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(16, 185, 129, 0.14);
+    color: var(--hz-useful);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+  }
+  .badge.warn {
+    background: rgba(245, 158, 11, 0.14);
+    color: var(--hz-clutter);
+    border-color: rgba(245, 158, 11, 0.4);
+  }
+  .badge.danger {
+    background: rgba(239, 68, 68, 0.16);
+    color: var(--hz-danger);
+    border-color: rgba(239, 68, 68, 0.45);
+  }
+  .icon-btn {
+    background: var(--hz-card-alt);
+    border: 1px solid var(--hz-border);
+    color: var(--hz-fg) !important;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: all 0.15s ease;
+  }
+  .icon-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--hz-fg);
+  }
+
+  /* Conversation Switcher Bar */
+  .session-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--hz-card);
+    border: 1px solid var(--hz-border);
+    border-radius: 8px;
+    padding: 6px 10px;
+  }
+  .session-label {
+    font-size: 11px;
+    color: var(--hz-muted) !important;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .session-select {
+    flex: 1;
+    min-width: 0;
+    background: var(--hz-card-alt);
+    color: var(--hz-fg);
+    border: 1px solid var(--hz-border);
+    border-radius: 5px;
+    padding: 4px 8px;
+    font-size: 11.5px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    outline: none;
+  }
+
+  /* 2. Storage Bar Card */
+  .storage-card {
+    background: var(--hz-card);
+    border: 1px solid var(--hz-border);
+    border-radius: 10px;
+    padding: 13px 14px;
+  }
+  .storage-top {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 4px 10px;
+    margin-bottom: 6px;
+  }
+  .used-big {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #f8fafc !important;
+  }
+  .used-of {
+    font-size: 12px;
+    color: var(--hz-muted) !important;
+    font-weight: 400;
+    margin-left: 4px;
+  }
+  .free-label {
+    font-size: 11.5px;
+    color: var(--hz-muted) !important;
+  }
+  .delta-line {
+    font-size: 11px;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--hz-muted) !important;
+  }
+  .delta-line.up { color: #cbd5e1 !important; }
+  .delta-line.up.big { color: #f59e0b !important; }
+  .delta-line.down { color: #10b981 !important; }
+  .free-wrap { display: inline-flex; align-items: center; gap: 6px; }
+  .gear-btn {
+    background: transparent !important;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 4px;
+    color: #cbd5e1 !important;
+    font-size: 12px;
+    line-height: 1;
+    padding: 2px 5px;
+    cursor: pointer;
+  }
+  .gear-btn:hover { border-color: #f59e0b; color: #f59e0b !important; }
+  .settings-pop {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0 0 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: #0f1420 !important;
+    font-size: 11.5px;
+    color: #e2e8f0 !important;
+  }
+  .settings-pop[hidden] { display: none; }
+  .settings-pop label { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: #e2e8f0 !important; }
+  .settings-pop input {
+    width: 110px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    background: #1e293b !important;
+    color: #f8fafc !important;
+    font-family: ui-monospace, Consolas, monospace;
+  }
+  .settings-row { display: flex; align-items: center; gap: 8px; }
+  .settings-save, .settings-cancel {
+    padding: 4px 12px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid #f59e0b;
+  }
+  .settings-save { background: #f59e0b !important; color: #0b0f17 !important; }
+  .settings-cancel { background: transparent !important; color: #cbd5e1 !important; border-color: rgba(148, 163, 184, 0.4); }
+  .settings-msg { font-size: 10.5px; color: #94a3b8 !important; }
+  .settings-msg.err { color: #ef4444 !important; }
+  .base-rows { list-style: none; margin: 6px 0 0; padding: 0; font-size: 10.5px; }
+  .base-rows[hidden] { display: none; }
+  .base-rows li { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; border-bottom: 1px dotted rgba(148, 163, 184, 0.15); color: #cbd5e1 !important; }
+  .base-rows .base-src { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .base-rows .base-tok { flex: none; color: #e2e8f0 !important; }
+  .base-rows em { font-style: normal; color: #94a3b8 !important; font-size: 9.5px; }
+  .chronic-badge { font-size: 9.5px; padding: 1px 6px; border-radius: 9px; border: 1px solid rgba(148, 163, 184, 0.35); color: #cbd5e1 !important; white-space: nowrap; }
+  .chronic-badge.hot { border-color: rgba(245, 158, 11, 0.6); color: #f59e0b !important; }
+  .chip-btn.chronic { border-color: #f59e0b !important; color: #f59e0b !important; font-weight: 700; }
+  .tip-dismiss { background: transparent !important; border: none; color: #94a3b8 !important; cursor: pointer; font-size: 11px; padding: 0 2px; }
+  .tip-dismiss:hover { color: #f8fafc !important; }
+  #sipTipCard a { color: #38bdf8 !important; }
+
+  .bar-outer {
+    position: relative;
+    height: 22px;
+    width: 100%;
+    background: var(--hz-free);
+    border-radius: 6px;
+    margin-top: 20px;           /* reserved lane for the limit tag so it never overlaps the delta line */
+    margin-bottom: 8px;
+  }
+  .bar-track {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    border-radius: 6px;
+    overflow: hidden;
+    gap: 2px;
+  }
+  .seg-useful { background: var(--hz-useful); height: 100%; transition: width 0.3s ease; }
+  .seg-clutter { background: var(--hz-clutter); height: 100%; transition: width 0.3s ease; }
+  .seg-error { background: var(--hz-danger); height: 100%; transition: width 0.3s ease; }
+
+  .limit-line {
+    position: absolute;
+    left: 70%;
+    top: -5px;
+    bottom: -5px;
+    border-left: 2px dashed #f43f5e;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .limit-tag {
+    position: absolute;
+    right: 4px;
+    top: -13px;
+    font-size: 9.5px;
+    font-weight: 600;
+    color: #f43f5e;
+    white-space: nowrap;
+  }
+
+  .breakdown-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .b-item {
+    background: var(--hz-card-alt);
+    border: 1px solid var(--hz-border-subtle);
+    border-radius: 7px;
+    padding: 8px 10px;
+  }
+  .b-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10.5px;
+    color: var(--hz-muted) !important;
+    margin-bottom: 3px;
+  }
+  .b-swatch {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .b-val {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #f8fafc !important;
+  }
+  .b-sub {
+    font-size: 10px;
+    color: var(--hz-dim) !important;
+    margin-top: 1px;
+  }
+
+  /* 3. Action Center Card */
+  .action-card {
+    background: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 13px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    color: #f8fafc;
+  }
+  .action-card.warn {
+    background: #1d1a14 !important;   /* opaque dark amber tint: must not depend on what is behind it */
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    color: #f8fafc;
+  }
+  .action-card.danger {
+    background: #211418 !important;   /* opaque dark red tint */
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #f8fafc;
+  }
+  .action-msg {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: #f8fafc !important;
+  }
+  .action-msg strong {
+    color: #ffffff !important;
+  }
+  .action-icon {
+    font-size: 15px;
+    line-height: 1.2;
+    flex-shrink: 0;
+  }
+
+  /* Compact Guided Action Box */
+  .guided-step-box {
+    background: #0f1420 !important;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .action-card .action-icon, .action-card .action-msg { color: #f8fafc !important; }
+  .action-card { background-color: #111827; }
+  .action-card.danger .guided-step-box {
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+
+  .compact-instruction {
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.6;
+    border-left: 3px solid #f59e0b;
+    background: #0f1420 !important;
+    color: #f8fafc !important;
+    cursor: default;
+    user-select: text;
+  }
+  .compact-instruction kbd {
+    font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    background: #1e293b !important;
+    color: #e2e8f0 !important;
+  }
+  .compact-instruction kbd.cmd-kbd {
+    color: #f59e0b !important;
+    border-color: rgba(245, 158, 11, 0.55);
+    font-weight: 700;
+  }
+  .compact-reclaim {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 500;
+    color: #f59e0b !important;
+  }
+
+  /* Collapsible Secondary Actions */
+  .secondary-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 8px;
+  }
+  .btn-secondary {
+    flex: 1;
+    min-width: 140px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--hz-border);
+    background: var(--hz-card-alt);
+    color: #f8fafc !important;
+    text-align: center;
+    transition: all 0.15s ease;
+  }
+  .btn-secondary:hover {
+    filter: brightness(1.15);
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .feedback-toast {
+    display: none;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    color: var(--hz-fg);
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  /* 4. Diagnostic & Brain Playbook Cards */
+  .playbook-card {
+    background: var(--hz-card);
+    border: 1px solid var(--hz-border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .playbook-header {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--hz-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .playbook-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #f8fafc !important;
+  }
+  .playbook-sub {
+    font-size: 10.5px;
+    color: #94a3b8 !important;
+  }
+  .diag-item {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--hz-border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .diag-item:last-child { border-bottom: none; }
+  .diag-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .diag-name {
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #f8fafc !important;
+  }
+  .diag-impact {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--hz-clutter);
+    white-space: nowrap;
+  }
+  .diag-desc {
+    font-size: 11px;
+    color: var(--hz-muted) !important;
+    line-height: 1.45;
+  }
+  .diag-desc code {
+    background: rgba(255, 255, 255, 0.08);
+    padding: 1px 4px;
+    border-radius: 3px;
+    color: var(--hz-anchor);
+    font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    font-size: 10.5px;
+  }
+  .diag-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 3px;
+  }
+  .mini-btn {
+    padding: 4px 9px;
+    border-radius: 4px;
+    font-size: 10.5px;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--hz-card-alt);
+    border: 1px solid var(--hz-border);
+    color: var(--hz-anchor);
+    transition: all 0.15s ease;
+  }
+  .mini-btn:hover { background: rgba(56, 189, 248, 0.12); }
+  .mini-btn.danger { color: var(--hz-danger); }
+  .mini-btn.danger:hover { background: rgba(239, 68, 68, 0.12); }
+
+  .diag-pill {
+    font-size: 10px;
+    color: var(--hz-dim) !important;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 2px 7px;
+    border-radius: 4px;
+    border: 1px solid var(--hz-border-subtle);
+  }
+
+  details.file-drawer summary {
+    font-size: 10.5px;
+    color: var(--hz-anchor) !important;
+    cursor: pointer;
+    margin-top: 2px;
+  }
+  .file-sublist {
+    margin-top: 5px;
+    padding-left: 10px;
+    border-left: 2px solid var(--hz-border);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .file-subrow {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10.5px;
+    color: var(--hz-muted) !important;
+  }
+
+  /* Diagnostic groups */
+  .diag-group.reclaim { border-left: 3px solid var(--hz-clutter); }
+  .diag-group.spike {
+    border-left: 3px dashed var(--hz-dim);
+    background: rgba(148, 163, 184, 0.06);
+  }
+  .diag-group.tips { border-left: 3px solid var(--hz-anchor); }
+  .group-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--hz-border-subtle);
+  }
+  .group-title { font-size: 11px; font-weight: 700; letter-spacing: 0.01em; color: #94a3b8 !important; }
+  .group-pill {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--hz-border);
+    color: var(--hz-muted) !important;
+    white-space: nowrap;
+  }
+  .diag-group.reclaim .group-pill { color: var(--hz-clutter) !important; border-color: rgba(245, 158, 11, 0.4); }
+  .retained-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: var(--hz-muted) !important;
+    background: rgba(148, 163, 184, 0.12);
+    border: 1px dashed var(--hz-dim);
+  }
+  .prompt-btn.flash, .btn-secondary.flash {
+    color: var(--hz-useful) !important;
+    border-color: var(--hz-useful);
+  }
+
+  /* 5. Optional Collapsible 40-Block Timeline */
+  details.advanced-drawer {
+    background: var(--hz-card);
+    border: 1px solid var(--hz-border);
+    border-radius: 10px;
+    padding: 8px 14px;
+  }
+  details.advanced-drawer summary {
+    font-size: 11px;
+    color: var(--hz-muted) !important;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .mini-timeline {
+    display: flex;
+    gap: 2px;
+    height: 16px;
+    margin-top: 10px;
+    border-radius: 3px;
+    overflow: visible;
+  }
+  .mini-cell { flex: 1; height: 100%; background: var(--hz-free); position: relative; border-radius: 1px; }
+  .mini-cell.effort-shift {
+    border-top: 2px solid #f59e0b;
+    box-shadow: 0 -1px 4px rgba(245, 158, 11, 0.45);
+  }
+  .effort-shift-badge {
+    position: absolute;
+    top: -9px;
+    right: -2px;
+    font-size: 8.5px;
+    line-height: 1;
+    font-weight: 700;
+    color: #fbbf24;
+    background: #0f1420;
+    border: 1px solid rgba(245, 158, 11, 0.65);
+    border-radius: 3px;
+    padding: 0 2px;
+    pointer-events: none;
+    z-index: 3;
+  }
+  .limit-reason-tip {
+    display: inline-block;
+    margin-left: 4px;
+    font-size: 10px;
+    color: var(--hz-anchor);
+    cursor: help;
+    vertical-align: baseline;
+  }
+  .high-effort-sludge-banner {
+    background: #261619 !important;
+    border: 1px solid rgba(245, 158, 11, 0.55);
+    border-left: 3px solid #ef4444;
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #fde68a !important;
+  }
+  .high-effort-sludge-banner[hidden] { display: none !important; }
+  .mini-inspector { font-size: 10.5px; color: var(--hz-dim) !important; margin-top: 6px; }
+
+  .footer-meta {
+    text-align: center;
+    font-size: 10.5px;
+    color: var(--hz-dim) !important;
+    padding-top: 2px;
+  }
+    /* ---- Progressive disclosure & guardrails ---- */
+    .b-toggle { background: none; border: 0; padding: 0; margin: 0; text-align: left; font: inherit; cursor: pointer; color: var(--hz-muted) !important; }
+    .b-toggle:hover { color: var(--hz-anchor) !important; }
+    .b-toggle .caret { display: inline-block; font-size: 9px; transition: transform .15s; }
+    .b-toggle[aria-expanded="true"] .caret { transform: rotate(90deg); }
+    .signal-drawer { margin-top: 10px; border: 1px solid var(--hz-border); border-radius: 8px; padding: 8px 10px; background: rgba(56, 189, 248, 0.05); }
+    .signal-drawer[hidden] { display: none; }
+    .sig-row + .sig-row { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--hz-border); }
+    .sig-head { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 700; color: #f8fafc; }
+    .sig-val { color: var(--hz-useful); }
+    .sig-desc { font-size: 11px; color: var(--hz-muted); margin-top: 2px; }
+    .sig-desc code { font-family: ui-monospace, Consolas, monospace; color: var(--hz-anchor); }
+
+    /* Single footer row under primary compact button */
+    .action-footers-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 6px 14px;
+      margin-top: 4px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .action-footers-row details {
+      flex: 1 1 auto;
+      font-size: 11px;
+    }
+    .action-footers-row details[open] {
+      flex: 1 1 100%;
+    }
+    .action-footers-row details summary {
+      cursor: pointer;
+      color: var(--hz-anchor) !important;
+      font-size: 11px;
+      font-weight: 600;
+      list-style: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      user-select: none;
+    }
+    .action-footers-row details summary::-webkit-details-marker { display: none; }
+    .action-footers-row details summary::before {
+      content: '\25B6';
+      display: inline-block;
+      font-size: 8px;
+      transition: transform 0.15s ease;
+    }
+    .action-footers-row details[open] summary::before {
+      transform: rotate(90deg);
+    }
+    .action-footers-row details summary:hover {
+      color: #f8fafc !important;
+    }
+
+    .survive-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .survive-col { border: 1px solid var(--hz-border); border-radius: 6px; padding: 6px 8px; font-size: 11px; }
+    .survive-col.keep { background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.25); }
+    .survive-col.drop { background: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.25); }
+    .survive-title { font-weight: 700; margin-bottom: 3px; }
+    .survive-col.keep .survive-title { color: var(--hz-useful); }
+    .survive-col.drop .survive-title { color: var(--hz-clutter); }
+    .survive-col ul { margin: 0; padding-left: 16px; color: var(--hz-muted); }
+
+    .handoff-dot { font-size: 10.5px; font-weight: 700; margin-left: 4px; }
+    .handoff-dot.synced { color: var(--hz-useful); }
+    .handoff-dot.stale { color: var(--hz-clutter); }
+    .handoff-status { margin-top: 8px; font-size: 11.5px; font-weight: 600; }
+    .handoff-status[hidden], .handoff-confirm[hidden] { display: none; }
+    .handoff-status.synced { color: var(--hz-useful); }
+    .handoff-status.stale { color: var(--hz-clutter); }
+    .btn-secondary.emphasis { border-color: var(--hz-clutter); box-shadow: 0 0 0 1px var(--hz-clutter); }
+    .handoff-confirm { margin-top: 8px; padding: 8px 10px; border: 1px solid var(--hz-clutter); border-radius: 8px; background: rgba(245, 158, 11, 0.1); font-size: 11.5px; color: #f8fafc; }
+    .handoff-confirm-btns { display: flex; gap: 8px; margin-top: 6px; }
+    .mini-btn.muted { color: var(--hz-muted); }
+
+    /* Diagnostic item alignment & full-line drawers */
+    .diag-drawer-full { margin: 0; }
+    .diag-drawer-full summary {
+      font-size: 11px;
+      color: var(--hz-anchor) !important;
+      cursor: pointer;
+      list-style: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      user-select: none;
+    }
+    .diag-drawer-full summary::-webkit-details-marker { display: none; }
+    .diag-drawer-full summary::before { content: '\25B6'; font-size: 8px; }
+    .diag-drawer-full[open] summary::before { content: '\25BC'; }
+    .diag-footer-bar, .diag-actions-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+      padding-bottom: 4px;
+    }
+    .diag-actions-label {
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--hz-dim);
+    }
+    .diag-actions-buttons {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .diag-hint {
+      font-size: 10px;
+      color: var(--hz-muted);
+      user-select: none;
+      white-space: nowrap;
+      align-self: center;
+    }
+    .prompt-btn.flash, .btn-secondary.flash, .chip-btn.flash {
+      color: var(--hz-useful) !important;
+      border-color: var(--hz-useful) !important;
+    }
+    .file-subrow.rich { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+    .file-subrow.rich .fpath { flex: 1 1 140px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .chip-btn { font: inherit; font-size: 10.5px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--hz-border); background: transparent; color: var(--hz-muted); cursor: pointer; }
+    .chip-btn:hover { color: var(--hz-anchor); border-color: var(--hz-anchor); }
+    .chip-btn.noisy { color: var(--hz-clutter); border-color: var(--hz-clutter); }
+    .payload-box { margin-top: 6px; padding: 6px 8px; border: 1px solid var(--hz-border); border-radius: 6px; font-size: 11px; color: var(--hz-fg); word-break: break-all; }
+    .payload-box .payload-kind { color: var(--hz-muted); display: block; margin-bottom: 2px; }
+    .payload-box .chip-btn, .payload-box .mini-btn { margin-top: 6px; }
+    .quota-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px 10px;
+      padding: 6px 12px;
+      background: var(--hz-card);
+      border: 1px solid var(--hz-border);
+      border-radius: 8px;
+      font-size: 10.5px;
+      color: var(--hz-muted);
+    }
+    .quota-strip[hidden] { display: none !important; }
+    .quota-pills { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+    .quota-Forecast { color: var(--hz-anchor); font-weight: 600; }
+    .quota-warn { color: var(--hz-clutter) !important; font-weight: 700; }
+    .bucket-bars { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+    .bucket-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10.5px; color: var(--hz-muted); }
+    .bucket-track { flex: 1; height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; max-width: 110px; }
+    .bucket-fill { height: 100%; background: var(--hz-anchor); border-radius: 3px; }
+    .subagent-pills { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+    .subagent-pill { font-size: 10.5px; padding: 4px 8px; border-radius: 5px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); color: var(--hz-fg); }
+    .host-watchdog-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 10.5px;
+      color: var(--hz-muted);
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--hz-border-subtle);
+    }
+    .host-watchdog-bar.alert {
+      border-color: rgba(239, 68, 68, 0.5);
+      background: rgba(239, 68, 68, 0.1);
+      color: #fca5a5 !important;
+    }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <!-- 1. Header -->
+  <header>
+    <div class="title-group">
+      <div class="dot" id="statusDot"></div>
+      <h1>Context Memory</h1>
+    </div>
+    <div class="header-right">
+      <span class="badge" id="statusBadge">Healthy</span>
+      <button class="icon-btn" onclick="window.location.reload()" title="Reload panel">&#x21bb;</button>
+    </div>
+  </header>
+
+  <!-- Conversation Switcher Bar -->
+  <div class="session-bar">
+    <span class="session-label">&#x1F4AC; Chat:</span>
+    <select class="session-select" id="sessionSelect" title="Select which conversation's context memory to inspect">
+      <option value="auto">&#x26A1; Auto (Active Conversation)</option>
+    </select>
+    <button class="icon-btn" id="btnOpenChat" title="Switch IDE chat pane to the selected conversation">Open &#x2197;</button>
+  </div>
+
+  <!-- Dual-Pool Quota & Cache-Read Telemetry Strip (Rank #1) -->
+  <div class="quota-strip mono" id="quotaStrip" hidden>
+    <div class="quota-pills" id="quotaPills">5h Sprint: 0% &middot; 7d Weekly: 0% &middot; Cache Hit: 0%</div>
+    <div class="quota-Forecast" id="quotaForecast"></div>
+  </div>
+
+  <!-- 2. 200k/256k Token Bar & 3 Beginner-Friendly Breakdown Cards -->
+  <section class="storage-card">
+    <div class="storage-top">
+      <div>
+        <span class="used-big mono" id="usedBig">0k</span>
+        <span class="used-of mono">/ <span id="usedMaxTok">200k</span> tokens (<span id="usedPct">0%</span>)</span>
+      </div>
+      <div class="free-wrap">
+        <div class="free-label mono" id="freeLabel">140k safe limit</div>
+        <button class="gear-btn" id="btnSettings" type="button" title="Safe limit & reminder settings" aria-expanded="false" aria-controls="settingsPop">&#x2699;</button>
+      </div>
+    </div>
+    <form class="settings-pop" id="settingsPop" hidden>
+      <label>Safe limit (tokens)
+        <input type="number" id="setSafeLimit" min="20000" max="1000000" step="1000" required>
+      </label>
+      <label>Remind me at (% of limit)
+        <input type="number" id="setReminderPct" min="50" max="99" step="1" required>
+      </label>
+      <div class="settings-row">
+        <button type="submit" class="settings-save">Save</button>
+        <button type="button" class="settings-cancel" id="btnSettingsCancel">Cancel</button>
+        <span class="settings-msg" id="settingsMsg"></span>
+      </div>
+    </form>
+    <div class="delta-line mono" id="deltaLine" style="display:none;"></div>
+
+    <div class="bar-outer">
+      <div class="limit-line" id="limitLine" title="140k Safe Limit: Above this mark, earliest instructions start being forgotten">
+        <span class="limit-tag" id="limitTag">140k safe limit</span>
+      </div>
+      <div class="bar-track">
+        <div class="seg-useful" id="barUseful" style="width: 0%" title="Useful Memory"></div>
+        <div class="seg-clutter" id="barClutter" style="width: 0%" title="Old Clutter"></div>
+        <div class="seg-error" id="barError" style="width: 0%" title="Resolved Errors"></div>
+      </div>
+    </div>
+
+    <div class="breakdown-grid">
+      <div class="b-item" title="Rules, task plan, and active files the agent is working with right now">
+        <div class="b-head">
+          <span class="b-swatch" style="background:var(--hz-useful)"></span>
+          <span>Active Signal</span>
+        </div>
+        <div class="b-val mono" id="valUseful">0k (100%)</div>
+        <button class="b-sub b-toggle" id="btnSignalToggle" aria-expanded="false" aria-controls="signalDrawer" title="Click to see what is inside Active Signal"><span class="caret">&#x25B6;</span> Rules, plan &amp; work</button>
+      </div>
+
+      <div class="b-item" title="Old conversation steps and duplicate file snapshots that can be safely freed">
+        <div class="b-head">
+          <span class="b-swatch" style="background:var(--hz-clutter)"></span>
+          <span>Reclaimable</span>
+        </div>
+        <div class="b-val mono" id="valClutter">0k (0%)</div>
+        <div class="b-sub" id="subClutter">Can be cleared</div>
+      </div>
+
+      <div class="b-item" title="Available memory before the agent begins truncating earliest instructions">
+        <div class="b-head">
+          <span class="b-swatch" style="background:var(--hz-free); border: 1px solid var(--hz-border)"></span>
+          <span id="lblFree">Safe Headroom</span>
+        </div>
+        <div class="b-val mono" id="valFree">140k left</div>
+        <div class="b-sub" id="subFree">Until 140k safe limit</div>
+      </div>
+    </div>
+
+    <!-- Active Signal drawer (progressive disclosure) -->
+    <div class="signal-drawer" id="signalDrawer" hidden>
+      <div class="sig-row">
+        <div class="sig-head"><span class="sig-name">Workspace Baseline Overhead</span><span class="sig-val mono" id="sigBaseVal">0k (0%)</span></div>
+        <div class="sig-desc">AGENTS.md / .agents/rules/, active skills &amp; loaded MCP tool schemas. Loaded every turn; <code>/compact</code> keeps it.</div>
+        <div class="bucket-bars mono" id="bucketBars" hidden></div>
+        <ul class="base-rows mono" id="baseRows" hidden></ul>
+      </div>
+      <div class="sig-row">
+        <div class="sig-head"><span class="sig-name">Live Session Work</span><span class="sig-val mono" id="sigLiveVal">0k (0%)</span></div>
+        <div class="sig-desc">Pinned task.md state &amp; your most recent active turns.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Smart Action Center: Step-by-Step Guided Action -->
+  <section class="action-card" id="actionCard">
+    <div class="action-msg">
+      <span class="action-icon" id="actionIcon">&#x2713;</span>
+      <div id="actionText">
+        <strong>Memory is clean.</strong> Only active files and rules are loaded.
+      </div>
+    </div>
+
+    <!-- Recommended Action Box (Shown when cleanup is recommended) -->
+    <div class="guided-step-box" id="guidedStepBox" style="display:none;">
+      <div class="high-effort-sludge-banner" id="highEffortSludgeBanner" hidden></div>
+      <div class="compact-instruction" id="compactInstruction">
+        Type <kbd class="cmd-kbd">/compact</kbd> in the chat box and press <kbd>Enter</kbd>
+        <span class="compact-reclaim" id="compactReclaim"></span>
+      </div>
+
+      <div class="action-footers-row">
+        <details class="survive-drawer" id="surviveDrawer">
+          <summary>What survives /compact?</summary>
+          <div class="survive-grid">
+            <div class="survive-col keep">
+              <div class="survive-title">&#x2713; Preserved</div>
+              <ul>
+                <li>AGENTS.md &amp; rules</li>
+                <li>task.md state</li>
+                <li id="surviveRecent">Most recent active turns</li>
+              </ul>
+            </div>
+            <div class="survive-col drop">
+              <div class="survive-title" id="surviveDropTitle">Compressed</div>
+              <ul id="surviveDropList"></ul>
+            </div>
+          </div>
+        </details>
+
+        <details class="secondary-drawer" id="secondaryDrawer">
+          <summary>Other actions (Save checkpoint or start fresh) <span class="handoff-dot" id="handoffDot"></span> &#x25BE;</summary>
+          <div class="secondary-buttons">
+            <button class="btn-secondary" id="btnCheckpoint" title="Sends a prompt to the agent in this chat to save progress to task.md">&#x1F4AC; Ask Agent: Save task.md</button>
+            <button class="btn-secondary" id="btnCondenseAst" title="Condenses stale duplicate file reads into compact AST signature stubs and collapses resolved stack traces (Prefix-Cache Safe)">&#x2702;&#xFE0F; Condense Stale Reads (AST Fold)</button>
+            <button class="btn-secondary" id="btnNewChat" title="Opens a fresh chat session with handoff context from this conversation">&#x1F680; Resume in Clean Chat &#x2197;</button>
+          </div>
+          <div class="handoff-status" id="handoffStatus" hidden></div>
+          <div class="handoff-confirm" id="handoffConfirm" hidden>
+            <div id="handoffConfirmMsg"></div>
+            <div class="handoff-confirm-btns">
+              <button class="mini-btn" id="btnSyncFirst">Sync task.md first</button>
+              <button class="mini-btn muted" id="btnStartAnyway">Start anyway</button>
+            </div>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div class="feedback-toast" id="feedbackToast"></div>
+  </section>
+
+  <!-- 4. Actionable Brain Diagnostics -->
+  <section class="playbook-card">
+    <div class="playbook-header">
+      <span class="playbook-title">Why Memory Is Filling Up &amp; How to Fix It</span>
+      <span class="playbook-sub" id="playbookSub">Live Brain Analysis</span>
+    </div>
+    <div id="playbookList"></div>
+  </section>
+
+  <!-- 5. Optional Collapsible 40-Turn Timeline -->
+  <details class="advanced-drawer">
+    <summary>View session timeline</summary>
+    <div class="mini-timeline" id="miniTimeline"></div>
+    <div class="mini-inspector mono" id="miniInspector">Hover any block above to inspect 5k token slice</div>
+    <div class="subagent-pills mono" id="subagentPills" hidden></div>
+  </details>
+
+  <!-- Host Runtime Watchdog Bar (Rank #3) -->
+  <div class="host-watchdog-bar mono" id="hostWatchdogBar" hidden>
+    <span id="hostWatchdogText">Host RAM: 0.0 GB &middot; Orphans: 0</span>
+    <button class="mini-btn danger" id="btnReapOrphans" hidden title="Cleanly terminate detached language_server / MCP orphan processes">Reap Zombies</button>
+  </div>
+
+  <div class="footer-meta mono" id="footerMeta">Live updates active</div>
+</div>
+
+<script id="precomputedCatalogScript">
+  window.__PRECOMPUTED_SESSIONS__ = {};
+</script>
+
+<script>
+  let currentRenderedState = null;
+  // Temporary diagnostic (?debug=1): confirms whether banner dimming is in-panel or host-side.
+  let selectedSessionMode = 'auto';
+  let latestAutoState = null;
+  let currentWorkspaceBasename = '';
+
+  function roundK(n) {
+    if (!n || n <= 0) return 0;
+    return Math.round((n / 1000) * 10) / 10;
+  }
+
+  function fmtKVal(k) {
+    if (!k || k <= 0) return '0k';
+    return (Math.round(k * 10) / 10).toFixed(1).replace(/\.0$/, '') + 'k';
+  }
+
+  function fmtK(n) {
+    if (!n || n <= 0) return '0k';
+    return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  }
+
+  function formatShortPath(p) {
+    if (!p) return 'unknown';
+    const clean = p.replace(/\\/g, '/');
+    const segs = clean.split('/').filter(Boolean);
+    if (segs.length <= 2) return clean;
+    return '.../' + segs.slice(-2).join('/');
+  }
+
+  function showToast(html) {
+    const toast = document.getElementById('feedbackToast');
+    toast.innerHTML = html;
+    toast.style.display = 'block';
+  }
+
+  // ---- Prompt actions --------------------------------------------------------
+  // Inside the IDE panel the sidecar bridge (/preload.js) can submit a message into the chat
+  // directly. Outside the IDE (plain browser) it cannot, so the buttons fall back to copying.
+  // Labels and icons always reflect which of the two will actually happen.
+  let handoffState = null;
+  const CAN_INJECT = typeof window.sidecar?.agent?.sendMessage === 'function' && window.parent !== window;
+
+  const PROMPTS = {
+    checkpoint: {
+      short: 'Save task.md',
+      text: 'Please save a self-contained checkpoint of our current progress, completed items, and remaining next steps to task.md so I can safely run /compact or start a clean session.'
+    },
+    lines: {
+      short: 'Read line ranges',
+      text: 'To keep context memory lean, please use StartLine/EndLine when reading large files instead of reading full files repeatedly.'
+    },
+    subagent: {
+      short: 'Use subagent',
+      text: 'For broad codebase searches or multi-file exploration, please spawn a research subagent instead of reading many files in this chat, and bring back only a short summary of what it finds.'
+    },
+    truncate: {
+      short: 'Truncate Command Output',
+      text: 'The last very large command/file output filled my context window. From now on, truncate command output (for example pipe through Select-Object -First 50 or use head/tail, grep, or line ranges) so a single step never injects more than a few thousand tokens.'
+    },
+    loop: {
+      short: 'Break Loop & Re-Plan',
+      text: 'Pause modifying files. Summarize the root cause of the recent errors in 3 bullet points and propose a clean verification plan before making the next edit.'
+    },
+    rule: {
+      short: 'Save Rule to AGENTS.md',
+      text: 'Review the corrections I gave you during this conversation and propose a concise rule we can add to AGENTS.md (or via /learn) so future sessions follow these conventions automatically.'
+    }
+  };
+
+  function escAttr(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function promptLabel(key) {
+    return (CAN_INJECT ? '\u26A1 Send to Agent: ' : '\uD83D\uDCCB Copy Prompt: ') + PROMPTS[key].short;
+  }
+  function promptTitleRaw(key) {
+    const chat = currentRenderedState?.sessionTitle || 'the selected chat';
+    return CAN_INJECT
+      ? 'Sends this exact message into "' + chat + '" and submits it:\n\n' + PROMPTS[key].text
+      : 'Copies this prompt to your clipboard. Paste it into the chat box and press Enter:\n\n' + PROMPTS[key].text;
+  }
+  function promptTitle(key) { return escAttr(promptTitleRaw(key)); }
+
+  function ignorePromptText(path) {
+    return 'Please add "' + path + '" to .antigravityignore in the workspace root so it is not read into context again, and tell me when it is done.';
+  }
+  function isIgnorablePath(p) {
+    if (!p) return false;
+    const s = String(p).replace(/\\/g, '/');
+    if (/(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lock|Cargo\.lock|Gemfile\.lock|composer\.lock|\.lock)$/i.test(s)) return true;
+    if (/\.log$/i.test(s) || /(^|\/)logs?(\/|$)/i.test(s) || /\.jsonl$/i.test(s)) return true;
+    if (/(^|\/)(dist|build|out|target|\.next|\.nuxt|coverage|node_modules)(\/|$)/i.test(s)) return true;
+    if (/\.(min\.js|min\.css|map|pyc)$/i.test(s)) return true;
+    if (/(^|\/)(scratch|\.scratch|tmp|temp)(\/|$)/i.test(s)) return true;
+    return false;
+  }
+  function CAN_INJECT_LABEL_IGNORE(path) {
+    return (CAN_INJECT ? 'Sends this message to the agent: ' : 'Copies this prompt (paste it into the chat box): ') + ignorePromptText(path);
+  }
+
+  // One delegated handler for data-act buttons rendered inside the playbook
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-act]');
+    if (b && b.dataset.act === 'ignore') {
+      runPrompt('ignore', b, ignorePromptText(b.dataset.path));
+      return;
+    }
+    const toggle = e.target.closest && e.target.closest('[data-toggle-sublist]');
+    if (toggle) {
+      const targetId = toggle.dataset.toggleSublist;
+      const listEl = document.getElementById(targetId);
+      if (listEl) {
+        const nextOpen = listEl.hidden;
+        listEl.hidden = !nextOpen;
+        toggle.setAttribute('aria-expanded', String(nextOpen));
+        const caret = toggle.querySelector('.caret');
+        if (caret) caret.innerHTML = nextOpen ? '&#x25BC;' : '&#x25B6;';
+      }
+    }
+  });
+
+  function requestHostChatFocus() {
+    const targetId = currentRenderedState?.sessionId || window.sidecar?.conversationId || null;
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'focusChatInput', command: 'antigravity.focusChatInput', conversationId: targetId }, '*');
+      } else {
+        window.postMessage({ type: 'focusChatInput', command: 'antigravity.focusChatInput', conversationId: targetId }, '*');
+      }
+    } catch {}
+    try {
+      if (typeof window.acquireVsCodeApi === 'function') {
+        window._vscodeApi = window._vscodeApi || window.acquireVsCodeApi();
+        window._vscodeApi.postMessage({ type: 'focusChatInput', command: 'antigravity.focusChatInput', conversationId: targetId });
+      }
+    } catch {}
+    try { window.sidecar?.ui?.focusChatInput?.(targetId); } catch {}
+    try { window.sidecar?.ui?.focusChat?.(targetId); } catch {}
+  }
+
+  // Temporarily swap a button's label for a confirmation, then restore it
+  function flashButton(btn, html, ms) {
+    if (!btn) return;
+    if (btn.dataset.orig === undefined) btn.dataset.orig = btn.innerHTML;
+    btn.innerHTML = html;
+    btn.classList.add('flash');
+    clearTimeout(btn._flashTimer);
+    btn._flashTimer = setTimeout(() => {
+      btn.innerHTML = btn.dataset.orig;
+      btn.classList.remove('flash');
+      delete btn.dataset.orig;
+    }, ms || 2000);
+  }
+
+  async function runPrompt(key, btn, overrideText) {
+    const p = { short: PROMPTS[key]?.short || '', text: overrideText || PROMPTS[key].text };
+    const targetId = currentRenderedState?.sessionId || window.sidecar?.conversationId;
+    const chat = currentRenderedState?.sessionTitle || 'the chat';
+
+    if (CAN_INJECT) {
+      try {
+        await window.sidecar.agent.sendMessage(p.text, targetId);
+        flashButton(btn, '\u2713 Sent to agent', 2000);
+        showToast('&#x2713; <strong>Sent to "' + escAttr(chat) + '".</strong> Switch to that chat to see the reply.');
+        return;
+      } catch (err) {
+        console.warn('sidecar.agent.sendMessage failed, falling back to clipboard', err);
+      }
+    }
+    try { await navigator.clipboard?.writeText(p.text); } catch {}
+    requestHostChatFocus();
+    flashButton(btn, '\u2713 Copied! Press Ctrl+V in chat', 2000);
+    showToast(CAN_INJECT
+      ? '&#x26A0;&#xFE0F; Could not send automatically, so the prompt was <strong>copied</strong> instead. Press <strong>Ctrl+V</strong>, then <strong>Enter</strong> in chat.'
+      : '&#x2713; <strong>Prompt copied.</strong> Press <strong>Ctrl+V</strong>, then <strong>Enter</strong> in chat.');
+  }
+
+  function stripTokPrefix(t) {
+    return String(t || '').replace(/^\s*\[[^\]]*\]\s*/, '');
+  }
+
+  const EFFORT_PROFILES = {
+    HIGH: {
+      tier: 'HIGH',
+      safeLimit: 115000,
+      thinkingReserve: 25000,
+      label: 'High Effort',
+      shortLabel: 'High',
+      limitReason: '25k reserved for deep reasoning'
+    },
+    STANDARD: {
+      tier: 'STANDARD',
+      safeLimit: 140000,
+      thinkingReserve: 0,
+      label: 'Standard / Auto',
+      shortLabel: 'Auto',
+      limitReason: '140k recall ceiling'
+    },
+    FAST: {
+      tier: 'FAST',
+      safeLimit: 95000,
+      thinkingReserve: 0,
+      label: 'Fast / Low Effort',
+      shortLabel: 'Fast',
+      limitReason: 'Earlier middle-window dilution on fast tiers'
+    }
+  };
+
+  function resolveEffortProfile(turnMetadata) {
+    if (!turnMetadata) return { ...EFFORT_PROFILES.STANDARD };
+    if (typeof turnMetadata === 'object' && turnMetadata.tier && EFFORT_PROFILES[turnMetadata.tier]) {
+      return { ...EFFORT_PROFILES[turnMetadata.tier], ...turnMetadata };
+    }
+    let effortStr = '';
+    let modelStr = '';
+    if (typeof turnMetadata === 'string') {
+      const paren = turnMetadata.match(/\(([^)]+)\)/);
+      if (paren) {
+        effortStr = paren[1].trim();
+        modelStr = turnMetadata.replace(paren[0], '').trim();
+      } else {
+        effortStr = turnMetadata.trim();
+        modelStr = turnMetadata.trim();
+      }
+    } else if (typeof turnMetadata === 'object') {
+      const rawTier = turnMetadata.tier || turnMetadata.effortTier || '';
+      const rawEffort = turnMetadata.effort || turnMetadata.reasoningEffort || turnMetadata.reasoning_effort || '';
+      const rawModel = typeof turnMetadata.model === 'string'
+        ? turnMetadata.model
+        : (turnMetadata.model?.id || turnMetadata.modelId || turnMetadata.model_id || turnMetadata.modelName || turnMetadata.rawLabel || '');
+      const paren = String(rawModel).match(/\(([^)]+)\)/);
+      effortStr = String(rawTier || rawEffort || (paren ? paren[1] : '')).trim();
+      modelStr = String(rawModel).trim();
+    }
+    if (effortStr) {
+      if (/\b(high|max|thinking|deep)\b/i.test(effortStr)) return { ...EFFORT_PROFILES.HIGH };
+      if (/\b(low|fast|lite)\b/i.test(effortStr)) return { ...EFFORT_PROFILES.FAST };
+      if (/\b(medium|standard|normal|auto|default|none)\b/i.test(effortStr)) return { ...EFFORT_PROFILES.STANDARD };
+    }
+    const combined = `${effortStr} ${modelStr}`.trim();
+    if (/\b(high|max|thinking|deep)\b|-high\b/i.test(combined)) return { ...EFFORT_PROFILES.HIGH };
+    if (/\b(low|fast|flash|lite)\b/i.test(combined)) return { ...EFFORT_PROFILES.FAST };
+    return { ...EFFORT_PROFILES.STANDARD };
+  }
+
+  function tierShortName(val) {
+    const s = String(val || '').trim();
+    if (/\b(high|max|thinking|deep)\b/i.test(s)) return 'High';
+    if (/\blow\b/i.test(s)) return 'Low';
+    if (/\b(fast|flash|lite)\b/i.test(s)) return 'Fast';
+    if (/\bmed(ium)?\b/i.test(s)) return 'Medium';
+    return 'Auto';
+  }
+
+  function formatEffortRouteLabel(stateObj) {
+    if (!stateObj) return 'Auto';
+    const transitions = stateObj.effortTransitions || stateObj.effortHistory || [];
+    const activeProf = stateObj.activeEffortProfile ? resolveEffortProfile(stateObj.activeEffortProfile) : null;
+    if (transitions.length > 0) {
+      const first = transitions[0];
+      const last = transitions[transitions.length - 1];
+      const fromShort = tierShortName(first.fromLabel || first.fromTier || 'Auto');
+      const toShort = tierShortName(activeProf?.shortLabel || activeProf?.tier || last.toLabel || last.toTier || 'Auto');
+      if (fromShort !== toShort) {
+        return `${fromShort} \u2192 ${toShort}`;
+      }
+      return toShort;
+    }
+    if (activeProf && activeProf.tier && activeProf.tier !== 'STANDARD') {
+      return tierShortName(activeProf.shortLabel || activeProf.tier);
+    }
+    return 'Auto';
+  }
+
+  function populateSessionDropdown(activeId, recentSessions = [], liveTok = {}) {
+    const sel = document.getElementById('sessionSelect');
+    const catalog = window.__PRECOMPUTED_SESSIONS__ || {};
+    // Live value wins; the catalog snapshot is only a fallback for sessions we are not rendering
+    const tokensFor = (sid) => (liveTok[sid] != null ? liveTok[sid] : (catalog[sid]?.window?.totalActiveTokens || 0));
+
+    const sessions = (recentSessions && recentSessions.length > 0)
+      ? recentSessions
+      : Object.values(catalog).map(s => ({
+          sessionId: s.sessionId,
+          title: s.sessionTitle || s.sessionId.slice(0, 8),
+          stepCount: s.window?.turnCount || 0,
+          workspace: s.workspaceName || ''
+        }));
+
+    const autoState = latestAutoState || currentRenderedState;
+    const autoId = (autoState && autoState.sessionId) || activeId;
+    const autoMeta = sessions.find(s => s.sessionId === autoId);
+    const autoTok = tokensFor(autoId);
+    const routeLabel = formatEffortRouteLabel(autoState);
+    const fallbackTitle = stripTokPrefix(autoState?.sessionTitle || 'Active Conversation');
+    const autoTitle = autoMeta
+      ? `[${autoTok ? fmtK(autoTok) : '?'} \u2022 ${routeLabel}] ${stripTokPrefix(autoMeta.title)}`
+      : (autoTok ? `[${fmtK(autoTok)} \u2022 ${routeLabel}] ${fallbackTitle}` : '\u26A1 Auto (Active Conversation)');
+
+    let html = `<option value="auto">${autoTitle}</option>`;
+    for (const s of sessions) {
+      const tok = tokensFor(s.sessionId);
+      const tokStr = tok ? fmtK(tok) : `${s.stepCount}t`;
+      const sState = s.sessionId === currentRenderedState?.sessionId ? currentRenderedState : catalog[s.sessionId];
+      const sRoute = sState && (sState.effortTransitions?.length || sState.activeEffortProfile) ? formatEffortRouteLabel(sState) : '';
+      const badgeMid = sRoute && sRoute !== 'Auto' ? sRoute : (s.workspace || sRoute);
+      const prefix = badgeMid ? `${tokStr} \u2022 ${badgeMid}` : tokStr;
+      html += `<option value="${s.sessionId}">[${prefix}] ${stripTokPrefix(s.title)}</option>`;
+    }
+
+    // Skip DOM rewrite when nothing changed so an open dropdown is not collapsed by the live refresh
+    const sig = html + '|' + selectedSessionMode;
+    if (sel.dataset.sig === sig) return;
+    sel.dataset.sig = sig;
+    sel.innerHTML = html;
+    if (selectedSessionMode !== 'auto' && sessions.some(s => s.sessionId === selectedSessionMode)) {
+      sel.value = selectedSessionMode;
+    } else {
+      sel.value = 'auto';
+    }
+  }
+
+  // Tooling tip dismissal persists in localStorage (falls back to in-memory if storage is blocked)
+  let sipTipHiddenMem = false;
+  function sipTipDismissed() {
+    try { return sipTipHiddenMem || localStorage.getItem('hz.sipTipDismissed') === '1'; } catch { return sipTipHiddenMem; }
+  }
+  function dismissSipTip() {
+    sipTipHiddenMem = true;
+    try { localStorage.setItem('hz.sipTipDismissed', '1'); } catch {}
+    document.getElementById('sipTipCard')?.remove();
+  }
+
+  // Path key matching core/paths.mjs canonicalizePath (lowercase, forward slashes, no file:// prefix)
+  function normPath(p) {
+    return String(p || '').trim().replace(/^file:\/\/\/?/i, '').replace(/\\+/g, '/').replace(/^\/([a-zA-Z]:)/, '$1').replace(/\/+$/, '').toLowerCase();
+  }
+
+  // Safe-limit marker on the 200k bar follows the configured or effort-adjusted limit
+  function renderLimitLine(safeLimit, maxTokens, effortProfile = null) {
+    const line = document.getElementById('limitLine');
+    const tag = document.getElementById('limitTag');
+    if (!line || !tag) return;
+    const rawPct = Math.min(100, Math.max(0, (safeLimit / Math.max(1, maxTokens)) * 100));
+    const pct = Math.round(rawPct * 10) / 10;
+    line.style.left = pct + '%';
+    const labelSuffix = effortProfile && effortProfile.label ? ` (${effortProfile.label})` : '';
+    tag.textContent = `${fmtK(safeLimit)} safe limit${labelSuffix}`;
+    const reasonSuffix = effortProfile && effortProfile.limitReason ? ` — ${effortProfile.limitReason}` : '';
+    line.title = `${fmtK(safeLimit)} Safe Limit${labelSuffix}${reasonSuffix}: Above this mark, earliest instructions start being forgotten`;
+  }
+
+  // Settings popover (safe limit + reminder %), saved through the daemon's /api/settings
+  (function initSettings() {
+    const btn = document.getElementById('btnSettings');
+    const pop = document.getElementById('settingsPop');
+    const inLimit = document.getElementById('setSafeLimit');
+    const inPct = document.getElementById('setReminderPct');
+    const msg = document.getElementById('settingsMsg');
+    if (!btn || !pop) return;
+    const setMsg = (t, err) => { msg.textContent = t; msg.className = 'settings-msg' + (err ? ' err' : ''); };
+    const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+    btn.onclick = async () => {
+      if (!pop.hidden) { close(); return; }
+      const w = currentRenderedState?.window || {};
+      inLimit.value = w.safeLimit || 140000;
+      inPct.value = w.safeLimit && w.reminderAt ? Math.round((w.reminderAt / w.safeLimit) * 100) : 85;
+      setMsg('');
+      pop.hidden = false;
+      btn.setAttribute('aria-expanded', 'true');
+      try {
+        const r = await fetch('/api/settings');
+        if (r.ok) {
+          const { settings } = await r.json();
+          if (settings) { inLimit.value = settings.safeLimitTokens; inPct.value = settings.reminderAtPct; }
+        }
+      } catch { setMsg('Live daemon not reachable; saving is unavailable.', true); }
+    };
+    document.getElementById('btnSettingsCancel').onclick = close;
+    pop.onsubmit = async (e) => {
+      e.preventDefault();
+      setMsg('Saving\u2026');
+      try {
+        const r = await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ safeLimitTokens: Number(inLimit.value), reminderAtPct: Number(inPct.value) })
+        });
+        const data = await r.json();
+        if (!r.ok || !data.success) throw new Error(data.error || ('HTTP ' + r.status));
+        inLimit.value = data.settings.safeLimitTokens;
+        inPct.value = data.settings.reminderAtPct;
+        if (data.state) renderState(data.state);
+        setMsg(`Saved: ${fmtK(data.settings.safeLimitTokens)} limit, reminder at ${data.settings.reminderAtPct}%`);
+        setTimeout(close, 1200);
+      } catch (err) {
+        setMsg('Could not save: ' + (err?.message || err), true);
+      }
+    };
+  })();
+
+  // Per-source baseline rows + 5-Bucket Zero-Turn Customization bars (Rank #5)
+  function renderBaselineRows(baseline, measuredBaseTok) {
+    const ul = document.getElementById('baseRows');
+    const bucketContainer = document.getElementById('bucketBars');
+    if (bucketContainer) {
+      const buckets = baseline && baseline.buckets ? Object.values(baseline.buckets) : [];
+      if (buckets.length > 0) {
+        bucketContainer.hidden = false;
+        bucketContainer.innerHTML = buckets.map(b => `
+          <div class="bucket-row" title="${escAttr(b.label)}: ${fmtK(b.tokens)} / ${fmtK(b.budgetTokens)} (${b.usedPct}%)">
+            <span>${escAttr(b.label.split(' ')[0])}</span>
+            <div class="bucket-track"><div class="bucket-fill" style="width:${Math.min(100, b.usedPct)}%;background:${b.usedPct >= 60 ? 'var(--hz-clutter)' : 'var(--hz-anchor)'}"></div></div>
+            <span>${fmtK(b.tokens)} / 20k</span>
+          </div>
+        `).join('');
+      } else {
+        bucketContainer.hidden = true;
+        bucketContainer.innerHTML = '';
+      }
+    }
+    if (!ul) return;
+    const rows = baseline && Array.isArray(baseline.rows) ? baseline.rows : [];
+    if (!rows.length) { ul.hidden = true; ul.innerHTML = ''; return; }
+    const skills = rows.filter(r => r.kind === 'skill');
+    const items = rows.filter(r => r.kind !== 'skill').map(r => ({
+      label: r.kind === 'mcp' && r.toolCount ? `${r.source} (${r.toolCount} tools)` : r.source,
+      tokens: r.tokens,
+      title: r.kind === 'mcp' ? `Tool list ~${fmtK(r.tokens)}; full schemas ~${fmtK(r.schemaTokens || 0)} if loaded eagerly` : (r.path || '')
+    }));
+    if (skills.length) {
+      items.push({ label: `Skill list (${skills.length} skill${skills.length === 1 ? '' : 's'})`, tokens: skills.reduce((s, r) => s + r.tokens, 0),
+        title: skills.map(r => r.source.replace(/^skill: /, '')).join(', ') });
+    }
+    items.sort((a, b) => b.tokens - a.tokens);
+    const shown = items.slice(0, 8);
+    const rest = items.slice(8).reduce((s, r) => s + r.tokens, 0);
+    if (rest > 0) shown.push({ label: `${items.length - 8} more sources`, tokens: rest, title: '' });
+    const estTotal = items.reduce((s, r) => s + r.tokens, 0);
+    if (measuredBaseTok > estTotal + 500) {
+      shown.push({ label: 'Unattributed (system prompt, tool defs, older turns)', tokens: measuredBaseTok - estTotal, title: 'Baseline overhead not explained by the files above', unattributed: true });
+    }
+    const html = shown.map(r =>
+      `<li title="${escAttr(r.title || '')}"><span class="base-src">${escAttr(r.label)}</span><span class="base-tok">${fmtK(r.tokens)}${r.unattributed ? '' : ' <em>est.</em>'}</span></li>`).join('');
+    if (ul.dataset.sig !== html) { ul.innerHTML = html; ul.dataset.sig = html; }
+    ul.hidden = false;
+  }
+
+  // Turn-to-turn delta line (hidden when there is no previous-turn snapshot)
+  function renderDelta(delta) {
+    const el = document.getElementById('deltaLine');
+    if (!el) return;
+    if (!delta || typeof delta.tokens !== 'number' || Math.abs(delta.tokens) < 100) {
+      el.style.display = 'none';
+      el.textContent = '';
+      return;
+    }
+    el.style.display = 'block';
+    if (delta.tokens < 0) {
+      el.className = 'delta-line mono down';
+      const suffix = delta.rewound ? ' (rewound step)' : (delta.compacted ? ' (compacted)' : '');
+      el.textContent = `\u25BC \u2212${fmtK(-delta.tokens)} since last turn${suffix}`;
+      return;
+    }
+    el.className = 'delta-line mono up' + (delta.tokens > 5000 ? ' big' : '');
+    const src = delta.topSource && delta.topSource.label ? ` \u00B7 largest: ${delta.topSource.label} (~${fmtK(delta.topSource.tokens)})` : '';
+    el.textContent = `\u25B2 +${fmtK(delta.tokens)} since last turn${src}`;
+    el.title = 'Change in context size since the end of your previous message';
+  }
+
+  function renderState(raw, fromCatalog = false) {
+    if (!raw || (!raw.window && !raw.telemetry && !raw.cells)) return;
+    if (!fromCatalog) {
+      latestAutoState = raw;
+      if (selectedSessionMode !== 'auto') {
+        const catMatch = (window.__PRECOMPUTED_SESSIONS__ || {})[selectedSessionMode];
+        if (catMatch && raw.sessionId !== selectedSessionMode) {
+          raw = catMatch;
+        }
+      } else if (currentWorkspaceBasename && raw.workspace?.canonicalPath) {
+        const rawWs = raw.workspace.canonicalPath.split('/').pop();
+        if (rawWs && rawWs.toLowerCase() !== currentWorkspaceBasename.toLowerCase()) {
+          const matchByWs = Object.values(window.__PRECOMPUTED_SESSIONS__ || {}).find(
+            s => (s.workspaceName || '').toLowerCase() === currentWorkspaceBasename.toLowerCase()
+          );
+          if (matchByWs) raw = matchByWs;
+        }
+      }
+    }
+    currentRenderedState = raw;
+
+    const isV3 = Boolean(raw.telemetry && !raw.metrics);
+    const telemetry = raw.telemetry || {};
+    const metrics = raw.metrics || {};
+    const win = raw.window || {};
+    const sessionMeta = raw.sessionMeta || {};
+    const amputation = raw.amputation || raw.flags || {};
+    const cells = raw.cells || [];
+    const breakdown = raw.breakdown || raw.tokenBreakdown || {};
+    const signals = raw.brainSignals || {};
+
+
+    // 1. Token Totals (Dynamic 200k / 256k / 1M Ceiling)
+    const maxTokens = win.maxTokens || 200000;
+    const totalTokens = isV3 ? (telemetry.totalInputTokens || 0) : (win.totalActiveTokens || 0);
+    const usedPct = Math.min(100, Math.round((totalTokens / maxTokens) * 100));
+    const maxTokEl = document.getElementById('usedMaxTok');
+    if (maxTokEl) maxTokEl.textContent = fmtK(maxTokens);
+
+    // Dropdown badges are bound to the same live token value as the header counter
+    const liveTok = { [raw.sessionId]: totalTokens };
+    if (latestAutoState && latestAutoState.sessionId && latestAutoState.sessionId !== raw.sessionId) {
+      liveTok[latestAutoState.sessionId] = latestAutoState.window?.totalActiveTokens || 0;
+    }
+    populateSessionDropdown(raw.sessionId, raw.recentSessions, liveTok);
+
+    const clutterTokens = isV3
+      ? (telemetry.sludgeTokens || 0)
+      : ((breakdown.STALE_DUPLICATE || 0) + (breakdown.DEAD_ERROR || 0) + (breakdown.FOREIGN_BLEED || 0));
+
+    const usefulTokens = Math.max(0, totalTokens - clutterTokens);
+    const purePct = totalTokens > 0 ? (usefulTokens / totalTokens) * 100 : 100;
+    const pureRound = Math.round(purePct);
+    const clutterPct = totalTokens > 0 ? Math.round((clutterTokens / totalTokens) * 100) : 0;
+    const errorTokens = breakdown.DEAD_ERROR || 0;
+    const staleOnlyTokens = Math.max(0, clutterTokens - errorTokens);
+
+    // Precompute visible diagnostic rows for "Cleared by /compact" so that rounded row k-values
+    // sum identically to the header pill, Reclaimable card, and /compact button label.
+    const rawOffenders = raw.offenders || [];
+    const dupFilesRaw = signals.duplicateReads?.topFiles || rawOffenders
+      .filter(o => !String(o.target).startsWith('Conversational Turn') && o.target !== 'Older chat history (>25 turns ago)' && !String(o.category).includes('ERROR'))
+      .map(o => ({ path: o.target, occurrences: o.occurrences || 1, wastedTokens: o.wastedTokens || 0 }));
+    // Cross-session repeat offenders: files re-read in >= 3 recent sessions float to the top
+    const chronicMap = new Map((raw.chronicReads || []).map(c => [normPath(c.path), c]));
+    const chronicOf = f => chronicMap.get(normPath(f.path));
+    const isChronic = f => (chronicOf(f)?.sessions || 0) >= 3;
+    const dupFiles = dupFilesRaw.slice().sort((a, b) => (isChronic(b) ? 1 : 0) - (isChronic(a) ? 1 : 0));
+    const dupTotalTok = signals.duplicateReads?.reclaimableTokens ?? dupFiles.reduce((s, f) => s + f.wastedTokens, 0);
+
+    const oldTurnOff = rawOffenders.find(o => o.target === 'Older chat history (>25 turns ago)' || String(o.target).startsWith('Conversational Turn'));
+    const oldTurnCount = signals.oldHistory?.turnCount ?? (oldTurnOff ? oldTurnOff.occurrences : 0);
+    const oldTurnTok = signals.oldHistory?.reclaimableTokens ?? (oldTurnOff ? oldTurnOff.wastedTokens : 0);
+
+    const isErrLoop = Boolean(signals.deadErrors?.isErrorLoop);
+    const errTok = signals.deadErrors?.reclaimableTokens || errorTokens;
+
+    const hasDupRow = dupFiles.length > 0 && dupTotalTok > 0;
+    const hasOldTurnRow = oldTurnCount > 0 && oldTurnTok > 0;
+    const hasErrRow = isErrLoop || errTok > 0;
+
+    const dupRowK = hasDupRow ? roundK(dupTotalTok) : 0;
+    const oldTurnRowK = hasOldTurnRow ? roundK(oldTurnTok) : 0;
+    const errRowK = hasErrRow ? roundK(errTok) : 0;
+
+    const hasVisibleReclaimRows = hasDupRow || hasOldTurnRow || hasErrRow;
+    const reclaimSumK = hasVisibleReclaimRows
+      ? Math.round((dupRowK + oldTurnRowK + errRowK) * 10) / 10
+      : roundK(clutterTokens);
+    const reclaimSumStr = fmtKVal(reclaimSumK);
+
+    // 2. Top Storage Header & Bar Widths (Effort-Tier Aware)
+    const transitions = raw.effortTransitions || raw.effortHistory || [];
+    const hasEffortMeta = Boolean(
+      raw.activeEffortProfile || raw.effort || raw.effortTier || raw.turnMetadata || transitions.length > 0
+    );
+    const effortProfile = raw.activeEffortProfile
+      ? resolveEffortProfile(raw.activeEffortProfile)
+      : (hasEffortMeta
+          ? resolveEffortProfile(raw.turnMetadata || raw.effort || raw.effortTier || transitions[transitions.length - 1]?.toTier)
+          : { ...EFFORT_PROFILES.STANDARD });
+
+    // 2b. Dual-Pool Quota & Cache-Read Telemetry Strip (Rank #1)
+    const quotaStrip = document.getElementById('quotaStrip');
+    const quotaPills = document.getElementById('quotaPills');
+    const quotaForecast = document.getElementById('quotaForecast');
+    if (quotaStrip && raw.quota) {
+      const q = raw.quota;
+      const s5 = q.sprint5h?.usedPct ?? 0;
+      const w7 = q.weekly7d?.usedPct ?? 0;
+      const cHit = q.cache?.hitRatePct ?? 0;
+      const lockoutWarn = q.weekly7d?.lockoutRisk ? ' <span class="quota-warn" title="7-Day Weekly pool is depleting faster than 5h Sprint">&#x26A0; 7d Lockout Risk</span>' : '';
+      quotaStrip.hidden = false;
+      quotaPills.innerHTML = `5h Sprint: <strong>${s5}%</strong> &middot; 7d Weekly: <strong>${w7}%</strong> &middot; Cache Hit: <strong>${cHit}%</strong>${lockoutWarn}`;
+      quotaForecast.textContent = effortProfile?.tier === 'HIGH' && q.forecast?.nextTurnHighSprintPct
+        ? `Next High turn: ~${q.forecast.nextTurnHighSprintPct}% of 5h`
+        : (q.cache?.isCacheCold ? 'Prefix cache cold (idle >5m)' : `Cache TTL: ${q.cache?.ttlRemainingSec ?? 300}s`);
+    } else if (quotaStrip) {
+      quotaStrip.hidden = true;
+    }
+
+    document.getElementById('usedBig').textContent = fmtK(totalTokens);
+    document.getElementById('usedPct').textContent = `${usedPct}%`;
+    const safeLimit = (hasEffortMeta && effortProfile.safeLimit > 0 && (!win.safeLimit || win.safeLimit === 140000))
+      ? effortProfile.safeLimit
+      : (win.safeLimit > 0 ? win.safeLimit : (effortProfile.safeLimit || 140000));
+    const reminderAt = (win.reminderAt > 0 && win.safeLimit === safeLimit)
+      ? win.reminderAt
+      : Math.round(safeLimit * 0.85);
+    const limitK = fmtK(safeLimit);
+    const showProfileTag = hasEffortMeta || safeLimit === effortProfile.safeLimit;
+    renderLimitLine(safeLimit, win.maxTokens || 200000, showProfileTag ? effortProfile : null);
+    const toLimit = safeLimit - totalTokens;
+    document.getElementById('freeLabel').textContent = toLimit > 0
+      ? `${fmtK(toLimit)} below ${limitK} safe limit`
+      : `${fmtK(Math.abs(toLimit))} past ${limitK} safe limit!`;
+    renderDelta(raw.delta);
+
+    const usefulWidthPct = Math.min(100, (usefulTokens / maxTokens) * 100);
+    const clutterWidthPct = Math.min(100 - usefulWidthPct, (staleOnlyTokens / maxTokens) * 100);
+    const errorWidthPct = Math.min(100 - usefulWidthPct - clutterWidthPct, (errorTokens / maxTokens) * 100);
+
+    document.getElementById('barUseful').style.width = `${usefulWidthPct}%`;
+    document.getElementById('barClutter').style.width = `${clutterWidthPct}%`;
+    document.getElementById('barError').style.width = `${errorWidthPct}%`;
+
+    // 3. 3 Beginner-Friendly Breakdown Boxes
+    document.getElementById('valUseful').textContent = `${fmtK(usefulTokens)} (${pureRound}%)`;
+    document.getElementById('valClutter').textContent = `${reclaimSumStr} (${clutterPct}%)`;
+    // Reclaimable always stays amber (#F59E0B) so it matches the amber segment of the progress bar above it.
+    document.getElementById('valClutter').style.setProperty('color', '#f59e0b', 'important');
+    document.getElementById('subClutter').textContent = clutterTokens > 0
+      ? `Can be cleared`
+      : `Zero outdated noise`;
+
+    const valFreeEl = document.getElementById('valFree');
+    const lblFreeEl = document.getElementById('lblFree');
+    const subFreeEl = document.getElementById('subFree');
+    const fmtHeadroom = hasEffortMeta ? (n => ((Math.max(0, n) / 1000).toFixed(1) + 'k')) : fmtK;
+    const reasonTip = effortProfile?.limitReason
+      ? ` <span class="limit-reason-tip" title="${escAttr(effortProfile.limitReason)}" data-limit-reason="${escAttr(effortProfile.limitReason)}">&#x24D8;</span>`
+      : '';
+    subFreeEl.title = effortProfile?.limitReason || '';
+    if (totalTokens <= safeLimit) {
+      lblFreeEl.textContent = 'Safe Headroom';
+      valFreeEl.textContent = `${fmtHeadroom(safeLimit - totalTokens)} left`;
+      // Green when > 15k left, amber when 0.1k to 15k left, red when over limit
+      valFreeEl.style.setProperty('color', (safeLimit - totalTokens) > 15000 ? '#10b981' : '#f59e0b', 'important');
+      subFreeEl.innerHTML = `Until ${limitK} safe limit${reasonTip}`;
+    } else {
+      lblFreeEl.textContent = 'Safe Limit Exceeded';
+      valFreeEl.textContent = `+${fmtHeadroom(totalTokens - safeLimit)} over`;
+      valFreeEl.style.setProperty('color', '#ef4444', 'important');
+      subFreeEl.innerHTML = `Past ${limitK} safe limit${reasonTip}`;
+    }
+
+    // 4. Status & Action Center
+    const isOverLimit = totalTokens >= safeLimit || Boolean(amputation.amputationCrisis || telemetry.amputationRisk);
+    const isNeedsCleanup = totalTokens >= reminderAt || clutterTokens >= 30000 || pureRound < 65;
+
+    const dot = document.getElementById('statusDot');
+    const badge = document.getElementById('statusBadge');
+    const actionCard = document.getElementById('actionCard');
+    const actionIcon = document.getElementById('actionIcon');
+    const actionText = document.getElementById('actionText');
+    const guidedBox = document.getElementById('guidedStepBox');
+    const compactReclaim = document.getElementById('compactReclaim');
+    const highEffortBanner = document.getElementById('highEffortSludgeBanner');
+
+    if (highEffortBanner) {
+      if (effortProfile.tier === 'HIGH' && clutterTokens >= 30000) {
+        highEffortBanner.hidden = false;
+        highEffortBanner.textContent = `\u26A1 High Effort active with ${reclaimSumStr} of stale noise \u2014 compact now to prevent slow reasoning turns and thinking-token burn.`;
+      } else {
+        highEffortBanner.hidden = true;
+        highEffortBanner.textContent = '';
+      }
+    }
+
+    // Update Top Header Badge and /compact instruction subtitle in all states
+    const reclaimLine = (clutterTokens > 0 || reclaimSumK > 0)
+      ? `reclaims ~${reclaimSumStr} \u00B7 keeps rules, plan & code intact`
+      : '';
+    compactReclaim.textContent = reclaimLine;
+    if (clutterTokens > 0 || reclaimSumK > 0) {
+      badge.textContent = `${reclaimSumStr} can be cleared`;
+    } else {
+      badge.textContent = 'Healthy';
+    }
+
+    if (isOverLimit) {
+      dot.className = 'dot danger';
+      badge.className = 'badge danger';
+      actionCard.className = 'action-card danger';
+      actionIcon.textContent = '🚨';
+      actionText.innerHTML = `<strong>Memory is past the ${limitK} limit (${fmtK(totalTokens)} used).</strong> Earlier project rules risk being forgotten, and <strong>${reclaimSumStr} tokens (${clutterPct}%)</strong> are old clutter that can be freed.`;
+      guidedBox.style.display = 'flex';
+      compactReclaim.textContent = reclaimLine;
+    } else if (isNeedsCleanup) {
+      dot.className = 'dot warn';
+      badge.className = 'badge warn';
+      actionCard.className = 'action-card warn';
+      actionIcon.textContent = '⚠️';
+      actionText.innerHTML = `<strong>${reclaimSumStr} tokens (${clutterPct}% of memory)</strong> are old chat turns and repeated file reads. Freeing them gives the AI more room while keeping your current work intact:`;
+      guidedBox.style.display = 'flex';
+      compactReclaim.textContent = reclaimLine;
+    } else {
+      dot.className = 'dot';
+      badge.className = 'badge';
+      actionCard.className = 'action-card';
+      actionIcon.textContent = '✓';
+      actionText.innerHTML = `<strong>Memory is clean and focused.</strong> ${pureRound}% of context (${fmtK(usefulTokens)}) is active code and rules with ${fmtK( Math.max(0, toLimit) )} of room before earliest instructions could be affected.`;
+      guidedBox.style.display = 'none';
+    }
+
+    // 5. Build Actionable Brain Diagnostics Playbook
+    const playbookList = document.getElementById('playbookList');
+    const reclaimCards = [], spikeCards = [], tipCards = [];
+    let cards = reclaimCards;
+
+    // Card A: Duplicate File Reads
+    if (hasDupRow) {
+      const fileCountStr = dupFiles.length === 1 ? '1 file' : `${dupFiles.length} files`;
+      const NOISY = /(^|[\\/])(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lock|Cargo\.lock|dist|build|out|coverage|node_modules)([\\/]|$)|\.(log|min\.js|map|lock)$/i;
+      const fileRows = dupFiles.map(f => {
+        const noisy = NOISY.test(String(f.path));
+        const canIgnore = isIgnorablePath(f.path);
+        const ch = chronicOf(f);
+        const chronic = isChronic(f);
+        const badge = ch && ch.sessions >= 2
+          ? `<span class="chronic-badge${chronic ? ' hot' : ''}" title="Seen as a repeated read across recent sessions">&#x21BB; re-read in ${ch.sessions} of last ${ch.windowSessions} sessions</span>`
+          : '';
+        const ignoreBtn = canIgnore
+          ? `<button class="chip-btn${noisy ? ' noisy' : ''}${chronic ? ' chronic' : ''}" data-act="ignore" data-path="${escAttr(f.path)}" title="Add to .antigravityignore">Ignore file</button>`
+          : '';
+        return `
+        <div class="file-subrow rich mono">
+          <span class="fpath" title="${escAttr(f.path)}">${formatShortPath(f.path)}</span>
+          <span>${f.occurrences} ${f.occurrences === 1 ? 're-read' : 're-reads'} &middot; ${fmtK(f.wastedTokens)} tok</span>
+          ${badge}
+          ${ignoreBtn}
+        </div>
+      `;}).join('');
+
+      cards.push(`
+        <div class="diag-item">
+          <div class="diag-top">
+            <span class="diag-name">&#x1F501; Repeated File Reads (${fileCountStr})</span>
+            <span class="diag-impact mono">${fmtKVal(dupRowK)} reclaimable</span>
+          </div>
+          <div class="diag-desc">Older snapshots of re-read files stay in context; <code>/compact</code> drops them.</div>
+
+          <div class="diag-footer-bar diag-actions-row">
+            <details class="file-drawer diag-drawer-full" ontoggle="const el=this.closest('.diag-item').querySelector('.dup-file-sublist'); if(el) el.hidden=!this.open;">
+              <summary>Inspect ${fileCountStr}</summary>
+            </details>
+            <div class="diag-actions-buttons">
+              <span class="diag-hint">Prevent re-reads:</span>
+              <button class="mini-btn prompt-btn" onclick="runPrompt('lines', this)" title="${promptTitle('lines')}">${CAN_INJECT ? '&#x26A1;' : '&#x1F4CB;'} Tell agent: Read line ranges</button>
+              <button class="mini-btn prompt-btn" onclick="runPrompt('subagent', this)" title="${promptTitle('subagent')}">${CAN_INJECT ? '&#x26A1;' : '&#x1F4CB;'} Tell agent: Use subagent</button>
+            </div>
+          </div>
+          <div class="file-sublist dup-file-sublist" hidden>${fileRows}</div>
+        </div>
+      `);
+    }
+
+    // Card B: Earlier Chat History (>25 steps ago)
+    if (hasOldTurnRow) {
+      cards.push(`
+        <div class="diag-item">
+          <div class="diag-top">
+            <span class="diag-name">&#x1F4AC; Earlier Chat History (${oldTurnCount} old turn${oldTurnCount === 1 ? '' : 's'})</span>
+            <span class="diag-impact mono">${fmtKVal(oldTurnRowK)} reclaimable</span>
+          </div>
+          <div class="diag-desc">Completed steps are re-sent every turn; <code>/compact</code> summarizes them.</div>
+        </div>
+      `);
+    }
+
+    cards = spikeCards;
+    // Card C: Blowup Steps (Single massive outputs >= 8k tok)
+    const blowups = signals.blowupSteps || [];
+    let spikeIncluded = false, spikePill = 'Retained';
+    if (blowups.length > 0) {
+      const topBlowup = blowups[0];
+      const bp = topBlowup.payload || {};
+      const bpKind = bp.kind || 'other';
+      const spikeTurns = win.turnCount || sessionMeta.turnCount || 0;
+      const spikeStepsAgo = Math.max(0, spikeTurns - 1 - topBlowup.stepIndex);
+      spikeIncluded = spikeStepsAgo > 25 || /STALE|ERROR/.test(topBlowup.category || '');
+      spikePill = spikeIncluded ? 'Cleared by /compact' : 'Retained';
+      cards.push(`
+        <div class="diag-item">
+          <div class="diag-top">
+            <span class="diag-name">&#x26A1; Large Output at Turn #${topBlowup.stepIndex}</span>
+            <span class="diag-impact mono">${fmtK(topBlowup.tokens)} in 1 step</span>
+          </div>
+          <div class="diag-desc">Turn #${topBlowup.stepIndex} injected ${fmtK(topBlowup.tokens)} tokens in one go.</div>
+          <div class="diag-actions">
+            <details class="file-drawer">
+              <summary>View turn details</summary>
+              <div class="payload-box mono">
+                <span class="payload-kind">${bpKind === 'command' ? 'Command that produced this output:' : (bpKind === 'file' ? 'File read into context:' : 'Source of this output:')}</span>
+                ${escAttr(bp.detail || formatShortPath(topBlowup.target))}
+                <div>${bpKind === 'file' && bp.path && isIgnorablePath(bp.path)
+                  ? `<button class="chip-btn" data-act="ignore" data-path="${escAttr(bp.path)}" title="Add to .antigravityignore">Ignore file</button>`
+                  : `<button class="mini-btn prompt-btn" onclick="runPrompt('truncate', this)" title="${promptTitle('truncate')}">${promptLabel('truncate')}</button>`}</div>
+              </div>
+            </details>
+            <span class="retained-badge">${spikeIncluded
+              ? 'Included in Earlier Chat History total above'
+              : 'In active window (not cleared by /compact)'}</span>
+          </div>
+        </div>
+      `);
+    }
+
+    cards = reclaimCards;
+    // Card D: Dead Errors / Error Loop
+    if (hasErrRow) {
+      if (isErrLoop) {
+        cards.push(`
+          <div class="diag-item">
+            <div class="diag-top">
+              <span class="diag-name">&#x1F6A8; Repeated Tool / Command Error Loop</span>
+              <span class="diag-impact mono" style="color:var(--hz-clutter)">${fmtKVal(errRowK)} reclaimable</span>
+            </div>
+            <div class="diag-desc">Repeated failures keep broken approaches in context and can cause loops.</div>
+            <div class="diag-actions">
+              <span></span>
+              <button class="mini-btn danger prompt-btn" onclick="runPrompt('loop', this)" title="${promptTitle('loop')}">${promptLabel('loop')}</button>
+            </div>
+          </div>
+        `);
+      } else {
+        cards.push(`
+          <div class="diag-item">
+            <div class="diag-top">
+              <span class="diag-name">&#x26A0;&#xFE0F; Fixed Error Logs (${signals.deadErrors?.errorCount || 1} old error${(signals.deadErrors?.errorCount || 1) === 1 ? '' : 's'})</span>
+              <span class="diag-impact mono" style="color:var(--hz-clutter)">${fmtKVal(errRowK)} reclaimable</span>
+            </div>
+            <div class="diag-desc">Dead error output stays in context; <code>/compact</code> drops it.</div>
+          </div>
+        `);
+      }
+    }
+
+    cards = tipCards;
+    // Card D2: Chronic re-reads across sessions -> ignore or summarise once
+    const chronicList = (raw.chronicReads || []).filter(c => c.sessions >= 3).slice(0, 5);
+    if (chronicList.length) {
+      const rows = chronicList.map(c => {
+        const canIgnore = isIgnorablePath(c.path);
+        const ignoreBtn = canIgnore
+          ? `<button class="chip-btn chronic" data-act="ignore" data-path="${escAttr(c.path)}" title="Add to .antigravityignore">Ignore file</button>`
+          : '';
+        return `
+        <div class="file-subrow rich mono">
+          <span class="fpath" title="${escAttr(c.path)}">${formatShortPath(c.path)}</span>
+          <span class="chronic-badge hot">&#x21BB; ${c.sessions} of last ${c.windowSessions} sessions</span>
+          ${ignoreBtn}
+        </div>`;
+      }).join('');
+      cards.push(`
+        <div class="diag-item" id="chronicCard">
+          <div class="diag-top">
+            <span class="diag-name">&#x21BB; Chronic Re-reads (${chronicList.length} file${chronicList.length === 1 ? '' : 's'})</span>
+            <span class="diag-impact mono">Across sessions</span>
+          </div>
+          <div class="diag-desc">Re-read in 3 or more recent sessions. Ignore them, or keep a short summary in AGENTS.md so they aren't loaded in full each time.</div>
+          <div class="file-sublist">${rows}</div>
+        </div>
+      `);
+    }
+    // Card D3: Optional read-dedup tooling tip (dismissible; shown only when duplicate reads exist)
+    if (dupFiles.length > 0 && !sipTipDismissed()) {
+      cards.push(`
+        <div class="diag-item" id="sipTipCard">
+          <div class="diag-top">
+            <span class="diag-name">&#x1F9F0; Tooling Tip: Read De-duplication</span>
+            <button class="tip-dismiss" type="button" onclick="dismissSipTip()" title="Hide this tip">&#x2715;</button>
+          </div>
+          <div class="diag-desc"><a href="https://github.com/Anuj7411/sipcode" target="_blank" rel="noopener noreferrer">sipcode</a> (MIT, open source) is an MCP toolkit that catches repeated file reads before they enter context. It is built for Claude Code; compatibility with Antigravity is untested.</div>
+        </div>
+      `);
+    }
+    // Card E: User Corrections Detected -> Teach Agent Permanently
+    if ((signals.userCorrections || 0) >= 2) {
+      cards.push(`
+        <div class="diag-item">
+          <div class="diag-top">
+            <span class="diag-name">&#x1F9E0; ${signals.userCorrections} User Corrections in This Session</span>
+            <span class="diag-impact mono" style="color:var(--hz-anchor)">Can Teach Agent</span>
+          </div>
+          <div class="diag-desc">Turn repeated corrections into a permanent AGENTS.md rule.</div>
+          <div class="diag-actions">
+            <span></span>
+            <button class="mini-btn prompt-btn" onclick="runPrompt('rule', this)" title="${promptTitle('rule')}">${promptLabel('rule')}</button>
+          </div>
+        </div>
+      `);
+    }
+
+    const totalCards = reclaimCards.length + spikeCards.length + tipCards.length;
+    if (totalCards === 0) {
+      playbookList.dataset.sig = '';
+      playbookList.innerHTML = `
+        <div class="diag-item">
+          <div class="diag-name" style="color:var(--hz-useful)">&#x2713; Zero Context Bottlenecks Detected</div>
+          <div class="diag-desc">No duplicate file reads, oversized step outputs, or error loops in active memory.</div>
+        </div>
+      `;
+    } else {
+      const group = (cls, title, pill, items) => items.length
+        ? `<div class="diag-group ${cls}"><div class="group-head"><span class="group-title">${title}</span><span class="group-pill mono">${pill}</span></div>${items.join('')}</div>`
+        : '';
+      const html =
+        group('reclaim', 'Cleared by /compact', `${reclaimSumStr} total`, reclaimCards) +
+        group('spike', 'Biggest Single Turn', spikePill, spikeCards) +
+        group('tips', 'Improve future sessions', 'Optional', tipCards);
+      // Only rewrite when content changed so click confirmations are not wiped by the 2s live refresh
+      if (playbookList.dataset.sig !== html) {
+        playbookList.innerHTML = html;
+        playbookList.dataset.sig = html;
+      }
+    }
+
+    // 5b. Active Signal drawer: baseline overhead vs live session work
+    const pctOf = n => totalTokens > 0 ? Math.round((n / totalTokens) * 100) : 0;
+    const liveWorkTok = Math.min(usefulTokens, signals.activeSignal?.liveSessionTokens ?? Math.round(usefulTokens * 0.5));
+    const baseTok = Math.max(0, usefulTokens - liveWorkTok);
+    document.getElementById('sigBaseVal').textContent = `${fmtK(baseTok)} (${pctOf(baseTok)}%)`;
+    document.getElementById('sigLiveVal').textContent = `${fmtK(liveWorkTok)} (${pctOf(liveWorkTok)}%)`;
+    renderBaselineRows(raw.baseline, baseTok);
+
+    // 5c. "What survives /compact" preview (numbers match the reclaimable banner)
+    const errCount = signals.deadErrors?.errorCount || 0;
+    document.getElementById('surviveDropTitle').textContent = `Compressed (~${reclaimSumStr})`;
+    const dropItems = [];
+    if (dupFiles.length) dropItems.push(`${dupFiles.length} duplicate file snapshot${dupFiles.length === 1 ? '' : 's'}`);
+    if (oldTurnCount) dropItems.push(`${oldTurnCount} turns &gt;25 steps old`);
+    if (errCount) dropItems.push(`${errCount} resolved stack trace${errCount === 1 ? '' : 's'}`);
+    document.getElementById('surviveDropList').innerHTML = dropItems.length ? dropItems.map(t => `<li>${t}</li>`).join('') : '<li>Nothing to compress</li>';
+
+    // 5d. Handoff readiness: is task.md up to date with recent turns?
+    const handoffStatus = document.getElementById('handoffStatus');
+    const handoffDot = document.getElementById('handoffDot');
+    const btnCp = document.getElementById('btnCheckpoint');
+    if (btnCp) btnCp.title = promptTitleRaw('checkpoint');
+    const hs = signals.activeSignal;
+    if (hs && typeof hs.taskMdTurnsBehind === 'number') {
+      const behind = hs.taskMdTurnsBehind;
+      const synced = hs.taskMdSaved && behind <= 3;
+      handoffState = { synced, behind, saved: hs.taskMdSaved };
+      const txt = synced ? '&#x25CF; task.md synced'
+        : (hs.taskMdSaved ? `&#x25CF; task.md stale &bull; ${behind} turn${behind === 1 ? '' : 's'} behind` : '&#x25CF; task.md stale &bull; not saved yet');
+      handoffStatus.hidden = false;
+      handoffStatus.className = 'handoff-status ' + (synced ? 'synced' : 'stale');
+      handoffStatus.innerHTML = txt;
+      handoffDot.className = 'handoff-dot ' + (synced ? 'synced' : 'stale');
+      handoffDot.innerHTML = synced ? '&#x25CF; synced' : '&#x25CF; stale';
+      btnCp.classList.toggle('emphasis', !synced);
+      const drawer = document.getElementById('secondaryDrawer');
+      if (!synced && drawer.dataset.autoOpened !== '1') { drawer.open = true; drawer.dataset.autoOpened = '1'; }
+    } else {
+      handoffState = null;
+      handoffStatus.hidden = true;
+      handoffDot.innerHTML = '';
+    }
+
+    // 6. Optional Collapsible 40-Block Timeline
+    const turns = sessionMeta.turnCount || win.turnCount || 0;
+    const activeBlocks = Math.max(1, Math.min(40, Math.ceil(totalTokens / 5000)));
+    const transitionsByBlock = new Map();
+    for (const tr of transitions) {
+      const tStep = tr.stepNumber ?? tr.turnIndex ?? 0;
+      const tIdx = tr.turnIndex ?? tr.stepNumber ?? 0;
+      let bIdx = typeof tr.blockIndex === 'number' ? tr.blockIndex : -1;
+      if (bIdx < 0) {
+        for (let ci = 0; ci < cells.length; ci++) {
+          const rng = cells[ci]?.turnRange;
+          if (rng && rng[0] >= 0 && tIdx >= rng[0] && tIdx <= rng[1]) {
+            bIdx = ci;
+            break;
+          }
+        }
+      }
+      if (bIdx < 0) {
+        bIdx = Math.min(39, Math.max(0, Math.floor((tIdx / Math.max(1, turns || 1)) * activeBlocks)));
+      }
+      const list = transitionsByBlock.get(bIdx) || [];
+      list.push({ ...tr, stepNumber: tStep, turnIndex: tIdx, blockIndex: bIdx });
+      transitionsByBlock.set(bIdx, list);
+    }
+
+    const mini = document.getElementById('miniTimeline');
+    mini.innerHTML = '';
+    for (let i = 0; i < 40; i++) {
+      const c = cells[i] || { dominantCategory: 'FREE_HEADROOM', totalTokens: 0 };
+      const cat = c.dominantCategory || 'FREE_HEADROOM';
+      const el = document.createElement('div');
+      el.className = 'mini-cell';
+      if (cat.includes('ANCHOR') || cat.includes('MEMORY')) el.style.background = 'var(--hz-anchor)';
+      else if (cat.includes('ACTIVE')) el.style.background = 'var(--hz-useful)';
+      else if (cat.includes('ERROR')) el.style.background = 'var(--hz-danger)';
+      else if (cat.includes('STALE') || cat.includes('DIRTY')) el.style.background = 'var(--hz-clutter)';
+
+      const cellShifts = transitionsByBlock.get(i) || c.effortTransitions || [];
+      const shiftTooltip = cellShifts.length > 0
+        ? cellShifts.map(t => `Turn #${t.stepNumber ?? t.turnIndex}: Switched effort ${t.fromTier} \u2192 ${t.toTier}`).join(' | ')
+        : '';
+
+      if (shiftTooltip) {
+        el.classList.add('effort-shift');
+        el.title = shiftTooltip;
+        el.dataset.effortShift = shiftTooltip;
+        const badgeEl = document.createElement('span');
+        badgeEl.className = 'effort-shift-badge';
+        badgeEl.textContent = '\u21C4';
+        el.appendChild(badgeEl);
+      }
+
+      el.onmouseenter = () => {
+        const cellStepK = Math.round((maxTokens / 40) / 100) / 10;
+        const startK = fmtKVal(i * cellStepK).replace(/k$/, '');
+        const endK = fmtKVal((i + 1) * cellStepK);
+        document.getElementById('miniInspector').textContent =
+          `Block ${i + 1}/40 (${startK}k–${endK}) • ${cat.replace(/_/g, ' ')}${c.topTarget ? ' • ' + formatShortPath(c.topTarget) : ''}${shiftTooltip ? ' • ' + shiftTooltip : ''}`;
+      };
+      mini.appendChild(el);
+    }
+
+    // 6b. Multi-Agent (invoke_subagent) Context Tree Pills (Rank #4)
+    const subagentPillsEl = document.getElementById('subagentPills');
+    if (subagentPillsEl) {
+      const invs = raw.subagents?.invocations || [];
+      if (invs.length > 0) {
+        subagentPillsEl.hidden = false;
+        subagentPillsEl.innerHTML = invs.map(inv =>
+          `<div class="subagent-pill" title="Workspace mode: ${escAttr(inv.workspaceMode)} | Saved ${fmtK(inv.tokensSaved)} from parent window">${escAttr(inv.badgeLabel)}</div>`
+        ).join('');
+      } else {
+        subagentPillsEl.hidden = true;
+        subagentPillsEl.innerHTML = '';
+      }
+    }
+
+    // 6c. Host Runtime Watchdog Footer Pill (Rank #3)
+    const hostBar = document.getElementById('hostWatchdogBar');
+    const hostTxt = document.getElementById('hostWatchdogText');
+    const btnReap = document.getElementById('btnReapOrphans');
+    if (hostBar && raw.hostHealth) {
+      const hh = raw.hostHealth;
+      hostBar.hidden = false;
+      hostBar.className = 'host-watchdog-bar mono' + (hh.status !== 'HEALTHY' ? ' alert' : '');
+      hostTxt.textContent = `Host RAM: ${hh.rssGb ?? 0} GB · Orphans: ${hh.orphanCount ?? 0}`;
+      if (btnReap) btnReap.hidden = !(hh.orphanCount > 0);
+    } else if (hostBar) {
+      hostBar.hidden = true;
+    }
+
+    const tStr = raw.updatedAt ? new Date(raw.updatedAt).toLocaleTimeString() : new Date().toLocaleTimeString();
+    const titleStr = raw.sessionTitle || (window.__PRECOMPUTED_SESSIONS__?.[raw.sessionId]?.sessionTitle) || raw.sessionId?.slice(0, 8) || '';
+    const routeBadge = formatEffortRouteLabel(raw);
+    const routeMeta = (transitions.length > 0 || hasEffortMeta) ? `[${fmtK(totalTokens)} \u2022 ${routeBadge}] • ` : '';
+    document.getElementById('playbookSub').textContent = `${turns} turns analyzed`;
+    document.getElementById('footerMeta').textContent =
+      `${titleStr ? titleStr + ' • ' : ''}${routeMeta}Turn ${turns} • Updated ${tStr}`;
+  }
+
+  // Action Handlers
+
+  (function initPromptButtons() {
+    const b = document.getElementById('btnCheckpoint');
+    b.classList.add('prompt-btn');
+    b.innerHTML = promptLabel('checkpoint');
+    b.title = promptTitleRaw('checkpoint');
+    b.onclick = (e) => runPrompt('checkpoint', e.currentTarget);
+  })();
+
+  // Active Signal drawer toggle
+  document.getElementById('btnSignalToggle').onclick = () => {
+    const btn = document.getElementById('btnSignalToggle');
+    const drawer = document.getElementById('signalDrawer');
+    const open = drawer.hidden;
+    drawer.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+  };
+
+  async function startCleanChat() {
+    const title = currentRenderedState?.sessionTitle || 'Session Continuation';
+    const sid = currentRenderedState?.sessionId || '';
+    const seedPrompt = `Continue work from previous session "${title}" (brain ID: ${sid}). First read the existing artifacts (implementation_plan.md, walkthrough.md, or task.md) in that brain directory to restore context cleanly.`;
+
+    if (window.sidecar?.agent?.startConversation) {
+      try {
+        showToast(`&#x23F3; Starting a new clean conversation seeded from "${title}"...`);
+        await window.sidecar.agent.startConversation(seedPrompt, `Continue: ${title}`);
+        showToast(`&#x2713; <strong>Started new clean conversation!</strong> Check your IDE chat list.`);
+        return;
+      } catch {}
+    }
+    navigator.clipboard?.writeText(seedPrompt);
+    showToast(`&#x2713; <strong>Copied handoff prompt!</strong> Open a new chat (or type <code>/clear</code>) and paste (<code>Ctrl+V</code>) to continue with 0 wasted tokens.`);
+  }
+
+  // Guardrail: warn before a clean-chat handoff when task.md is stale
+  const hideHandoffConfirm = () => { document.getElementById('handoffConfirm').hidden = true; };
+  document.getElementById('btnNewChat').onclick = () => {
+    if (handoffState && !handoffState.synced) {
+      const n = handoffState.behind;
+      document.getElementById('handoffConfirmMsg').textContent = handoffState.saved
+        ? `task.md hasn't been updated in ${n} turn${n === 1 ? '' : 's'}. Sync before starting a clean chat?`
+        : `task.md hasn't been saved in this chat yet. Sync before starting a clean chat?`;
+      document.getElementById('handoffConfirm').hidden = false;
+      return;
+    }
+    startCleanChat();
+  };
+  document.getElementById('btnSyncFirst').onclick = (e) => {
+    hideHandoffConfirm();
+    runPrompt('checkpoint', document.getElementById('btnCheckpoint'));
+  };
+  document.getElementById('btnStartAnyway').onclick = () => { hideHandoffConfirm(); startCleanChat(); };
+
+  // Prefix-Safe AST Context Pruner handler (Rank #2)
+  const btnCondense = document.getElementById('btnCondenseAst');
+  if (btnCondense) {
+    btnCondense.onclick = async () => {
+      try {
+        flashButton(btnCondense, '&#x23F3; Condensing...', 2500);
+        const r = await fetch('/api/prune', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId, forceHotCache: true })
+        });
+        const data = await r.json();
+        if (data.success) {
+          if (data.state) renderState(data.state);
+          showToast(`&#x2713; <strong>Condensed ${data.prunedSteps || 0} stale steps (~${fmtK(data.savedTokens || 0)} saved).</strong> Backup saved automatically.`);
+        } else {
+          showToast(`&#x26A0;&#xFE0F; ${escAttr(data.error || 'Could not prune session.')}`);
+        }
+      } catch {
+        showToast('&#x26A0;&#xFE0F; Live daemon not reachable for AST pruning.');
+      }
+    };
+  }
+
+  // Host Zombie Process Reaper handler (Rank #3)
+  const btnReapOrphans = document.getElementById('btnReapOrphans');
+  if (btnReapOrphans) {
+    btnReapOrphans.onclick = async () => {
+      try {
+        const r = await fetch('/api/host/reap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data = await r.json();
+        if (data.success) {
+          if (data.state) renderState(data.state);
+          showToast(`&#x2713; <strong>Reaped ${data.reapedCount || 0} orphaned process(es).</strong>`);
+        }
+      } catch {
+        showToast('&#x26A0;&#xFE0F; Could not reap processes.');
+      }
+    };
+  }
+
+  document.getElementById('btnOpenChat').onclick = () => {
+    const targetId = currentRenderedState?.sessionId;
+    if (targetId && window.sidecar?.ui?.toggleConversation) {
+      window.sidecar.ui.toggleConversation(targetId);
+      showToast(`&#x2713; Switched IDE chat view to <strong>${currentRenderedState.sessionTitle || targetId.slice(0, 8)}</strong>.`);
+    } else {
+      showToast(`Select a conversation from the dropdown above to inspect its memory.`);
+    }
+  };
+
+  // Handle dropdown conversation selection
+  document.getElementById('sessionSelect').onchange = async (e) => {
+    selectedSessionMode = e.target.value;
+    document.getElementById('feedbackToast').style.display = 'none';
+    if (selectedSessionMode === 'auto') {
+      if (latestAutoState) renderState(latestAutoState, false);
+    } else if (window.__PRECOMPUTED_SESSIONS__ && window.__PRECOMPUTED_SESSIONS__[selectedSessionMode]) {
+      renderState(window.__PRECOMPUTED_SESSIONS__[selectedSessionMode], true);
+    }
+    try {
+      const r = await fetch(`/api/state?conversationId=${encodeURIComponent(selectedSessionMode)}`);
+      const d = await r.json();
+      if (d && d.sessionId === selectedSessionMode) renderState(d, true);
+    } catch {}
+  };
+
+  // Listen for IDE workspace-change events from /preload.js
+  if (window.sidecar && typeof window.sidecar.onWorkspaceChange === 'function') {
+    window.sidecar.onWorkspaceChange((uris) => {
+      if (Array.isArray(uris) && uris.length > 0) {
+        const clean = decodeURIComponent(uris[0]).replace(/\\/g, '/');
+        currentWorkspaceBasename = clean.split('/').filter(Boolean).pop() || '';
+        if (selectedSessionMode === 'auto' && latestAutoState) {
+          renderState(latestAutoState, false);
+        }
+      }
+    });
+  }
+
+  try {
+    const evtSource = new EventSource('/api/stream');
+    evtSource.onmessage = (e) => {
+      try { renderState(JSON.parse(e.data)); } catch {}
+    };
+  } catch {}
+
+  fetch('/api/state').then(r => r.json()).then(renderState).catch(() => {});
+</script>
+</body>
+</html>

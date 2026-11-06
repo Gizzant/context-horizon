@@ -1,0 +1,27 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "agy-horizon-flightcheck",
+  "displayName": "Context Horizon & Flight Check (ctxtop)",
+  "version": "3.1.0",
+  "description": "htop for AI Coding Agents: 40-cell chronological context telemetry HUD, 6-sensor hygiene auditor, and <15ms PreInvocation prompt router for Google Antigravity.",
+  "author": {
+    "name": "Gizzant (Antigravity Systems Architecture)"
+  },
+  "icon": "./assets/logo.svg",
+  "hooks": "./hooks.json",
+  "rules": [
+    "./rules/AGENTS.md"
+  ],
+  "skills": [
+    "./skills/horizon",
+    "./skills/precheck"
+  ],
+  "sidecars": [
+    "./sidecars/horizon-daemon"
+  ],
+  "suggestedPrompts": [
+    "/horizon Inspect my 40-cell Chrono-Attention Horizon and Sludge Tax",
+    "/precheck Audit my next architecture refactor prompt and context hygiene",
+    "Check for Dirty Snapshots, Unseen Callers, or Foreign KI Bleed"
+  ]
+}

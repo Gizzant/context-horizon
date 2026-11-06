@@ -1,0 +1,20 @@
+name: New Blind-Spot Sensor Proposal
+description: Propose a new PreInvocation context hygiene or safety sensor for AI coding sessions
+title: "[Sensor]: "
+labels: ["enhancement", "good first issue"]
+body:
+  - type: textarea
+    id: complaint
+    attributes:
+      label: The Real Developer Pain / Complaint
+      description: What annoying agent failure or token-waste pattern does this sensor prevent?
+      placeholder: "e.g., Agent reads a 5MB minified bundle.js file and blows 120k tokens in one turn."
+    validations:
+      required: true
+  - type: textarea
+    id: detection
+    attributes:
+      label: Deterministic Detection Logic (<3ms)
+      description: How can `src/core/blindspot_sensors.mjs` detect this condition from `stepEvents` or `sidecarState`?
+    validations:
+      required: true

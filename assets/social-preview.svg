@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#070a12"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <style>
+      .mono { font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace; }
+      .sans { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    </style>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect x="36" y="36" width="1208" height="568" rx="20" fill="#0b1120" stroke="#1e293b" stroke-width="3"/>
+
+  <!-- Top Pill -->
+  <rect x="84" y="82" width="440" height="38" rx="19" fill="#00d7ff" fill-opacity="0.12" stroke="#00d7ff" stroke-width="1.5"/>
+  <text x="304" y="107" text-anchor="middle" fill="#38bdf8" font-size="18" font-weight="700" class="mono">⚡ context-horizon (ctxtop v3.1)</text>
+
+  <!-- Main Headline -->
+  <text x="84" y="185" fill="#f8fafc" font-size="52" font-weight="800" class="sans">htop for AI Coding Agent</text>
+  <text x="84" y="248" fill="#38bdf8" font-size="52" font-weight="800" class="sans">200k Context Windows.</text>
+  <text x="84" y="302" fill="#94a3b8" font-size="24" class="sans">Stop silent AGENTS.md prefix amputation, stale-file overwrites, and 5-hour quota burn.</text>
+
+  <!-- 40-Cell Visual Bar -->
+  <g transform="translate(68, 340) scale(1.28)">
+    <rect x="12" y="0" width="19.5" height="32" rx="3" fill="#00d7ff" fill-opacity="1" class="pulse-danger" />
+      <rect x="34" y="0" width="19.5" height="32" rx="3" fill="#00d7ff" fill-opacity="1" class="pulse-danger" />
+      <rect x="56" y="0" width="19.5" height="32" rx="3" fill="#00d7ff" fill-opacity="1" class="pulse-danger" />
+      <rect x="78" y="0" width="19.5" height="32" rx="3" fill="#ff0087" fill-opacity="1" class="pulse-danger" />
+      <rect x="100" y="0" width="19.5" height="32" rx="3" fill="#ffaf00" fill-opacity="0.95" class="pulse-danger" />
+      <rect x="122" y="0" width="19.5" height="32" rx="3" fill="#ffaf00" fill-opacity="0.95" class="pulse-danger" />
+      <rect x="144" y="0" width="19.5" height="32" rx="3" fill="#ffaf00" fill-opacity="0.95" class="pulse-danger" />
+      <rect x="166" y="0" width="19.5" height="32" rx="3" fill="#ffaf00" fill-opacity="0.95" class="pulse-danger" />
+      <rect x="188" y="0" width="19.5" height="32" rx="3" fill="#f59e0b" fill-opacity="0.88" class="" />
+      <rect x="210" y="0" width="19.5" height="32" rx="3" fill="#f59e0b" fill-opacity="0.88" class="" />
+      <rect x="232" y="0" width="19.5" height="32" rx="3" fill="#f59e0b" fill-opacity="0.88" class="" />
+      <rect x="254" y="0" width="19.5" height="32" rx="3" fill="#ef4444" fill-opacity="0.95" class="" />
+      <rect x="276" y="0" width="19.5" height="32" rx="3" fill="#ef4444" fill-opacity="0.95" class="" />
+      <rect x="298" y="0" width="19.5" height="32" rx="3" fill="#f59e0b" fill-opacity="0.88" class="" />
+      <rect x="320" y="0" width="19.5" height="32" rx="3" fill="#f59e0b" fill-opacity="0.88" class="" />
+      <rect x="342" y="0" width="19.5" height="32" rx="3" fill="#f97316" fill-opacity="1" class="blink-amber" />
+      <rect x="364" y="0" width="19.5" height="32" rx="3" fill="#f59e0b" fill-opacity="0.88" class="" />
+      <rect x="386" y="0" width="19.5" height="32" rx="3" fill="#f59e0b" fill-opacity="0.88" class="" />
+      <rect x="408" y="0" width="19.5" height="32" rx="3" fill="#f59e0b" fill-opacity="0.88" class="" />
+      <rect x="430" y="0" width="19.5" height="32" rx="3" fill="#ef4444" fill-opacity="0.95" class="" />
+      <rect x="452" y="0" width="19.5" height="32" rx="3" fill="#f59e0b" fill-opacity="0.88" class="" />
+      <rect x="474" y="0" width="19.5" height="32" rx="3" fill="#f59e0b" fill-opacity="0.88" class="" />
+      <rect x="496" y="0" width="19.5" height="32" rx="3" fill="#f59e0b" fill-opacity="0.88" class="" />
+      <rect x="518" y="0" width="19.5" height="32" rx="3" fill="#f59e0b" fill-opacity="0.88" class="" />
+      <rect x="540" y="0" width="19.5" height="32" rx="3" fill="#22c55e" fill-opacity="1" class="" />
+      <rect x="562" y="0" width="19.5" height="32" rx="3" fill="#22c55e" fill-opacity="1" class="" />
+      <rect x="584" y="0" width="19.5" height="32" rx="3" fill="#22c55e" fill-opacity="1" class="" />
+      <rect x="606" y="0" width="19.5" height="32" rx="3" fill="#22c55e" fill-opacity="1" class="" />
+      <rect x="628" y="0" width="19.5" height="32" rx="3" fill="#22c55e" fill-opacity="1" class="" />
+      <rect x="650" y="0" width="19.5" height="32" rx="3" fill="#1e293b" fill-opacity="0.65" class="" />
+      <rect x="672" y="0" width="19.5" height="32" rx="3" fill="#1e293b" fill-opacity="0.65" class="" />
+      <rect x="694" y="0" width="19.5" height="32" rx="3" fill="#1e293b" fill-opacity="0.65" class="" />
+      <rect x="716" y="0" width="19.5" height="32" rx="3" fill="#1e293b" fill-opacity="0.65" class="" />
+      <rect x="738" y="0" width="19.5" height="32" rx="3" fill="#1e293b" fill-opacity="0.65" class="" />
+      <rect x="760" y="0" width="19.5" height="32" rx="3" fill="#1e293b" fill-opacity="0.65" class="" />
+      <rect x="782" y="0" width="19.5" height="32" rx="3" fill="#1e293b" fill-opacity="0.65" class="" />
+      <rect x="804" y="0" width="19.5" height="32" rx="3" fill="#1e293b" fill-opacity="0.65" class="" />
+      <rect x="826" y="0" width="19.5" height="32" rx="3" fill="#1e293b" fill-opacity="0.65" class="" />
+      <rect x="848" y="0" width="19.5" height="32" rx="3" fill="#1e293b" fill-opacity="0.65" class="" />
+      <rect x="870" y="0" width="19.5" height="32" rx="3" fill="#1e293b" fill-opacity="0.65" class="" />
+  </g>
+
+  <!-- Bottom Metrics Strip -->
+  <rect x="84" y="445" width="1112" height="108" rx="12" fill="#111827" stroke="#334155" stroke-width="1.5"/>
+  <text x="116" y="490" fill="#4ade80" font-size="24" font-weight="700" class="mono">$ npx context-horizon init</text>
+  <text x="116" y="528" fill="#cbd5e1" font-size="19" class="mono">40-Cell ANSI HUD  •  Edward Tufte Webview  •  6 Blind-Spot Sensors  •  0 Dependencies  •  &lt;15ms SLA</text>
+</svg>

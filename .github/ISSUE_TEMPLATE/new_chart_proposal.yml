@@ -1,0 +1,20 @@
+name: New Webview Small-Multiple Chart Proposal
+description: Propose a new Edward Tufte telemetry panel or CLI HUD indicator
+title: "[Chart]: "
+labels: ["enhancement", "webview"]
+body:
+  - type: textarea
+    id: metric
+    attributes:
+      label: Telemetry Metric to Visualize
+      description: Which fields from `/api/state` should this chart plot?
+      placeholder: "e.g., Token Velocity (tokens/minute) sparkline across the last 10 turns."
+    validations:
+      required: true
+  - type: textarea
+    id: visual_spec
+    attributes:
+      label: Visual Layout & Actionability
+      description: How does this visualization help the developer make a faster decision (/compact, /model, /effort)?
+    validations:
+      required: true

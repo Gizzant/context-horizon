@@ -1,0 +1,8 @@
+node_modules/
+.gemini/
+*.bak
+*.log
+.DS_Store
+Thumbs.db
+.env
+.env.*

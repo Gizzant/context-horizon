@@ -1,0 +1,198 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(__dirname, '..');
+const assetsDir = path.join(rootDir, 'assets');
+
+if (!fs.existsSync(assetsDir)) {
+  fs.mkdirSync(assetsDir, { recursive: true });
+}
+
+function buildCellsSvg(xStart, yStart, cellWidth, cellHeight, gap, mode = 'crisis') {
+  const rects = [];
+  for (let i = 0; i < 40; i++) {
+    let fill = '#1e293b'; // FREE_HEADROOM
+    let opacity = '0.65';
+    let extraClass = '';
+
+    if (mode === 'crisis') {
+      if (i < 3) { fill = '#00d7ff'; opacity = '1'; extraClass = 'pulse-danger'; } // ANCHOR_CORE in amputation zone
+      else if (i === 3) { fill = '#ff0087'; opacity = '1'; extraClass = 'pulse-danger'; } // MEMORY_BLEED
+      else if (i < 8) { fill = '#ffaf00'; opacity = '0.95'; extraClass = 'pulse-danger'; } // STALE in amputation zone
+      else if (i === 11 || i === 12 || i === 19) { fill = '#ef4444'; opacity = '0.95'; } // DEAD_ERROR
+      else if (i === 15) { fill = '#f97316'; opacity = '1'; extraClass = 'blink-amber'; } // DIRTY_SNAP
+      else if (i < 24) { fill = '#f59e0b'; opacity = '0.88'; } // STALE_DUP
+      else if (i < 29) { fill = '#22c55e'; opacity = '1'; } // ACTIVE_SET
+    } else {
+      // Recovered state after /compact + surgical prune (64k / 200k, 91% purity)
+      if (i < 3) { fill = '#00d7ff'; opacity = '1'; }
+      else if (i === 3) { fill = '#a855f7'; opacity = '0.95'; }
+      else if (i === 4) { fill = '#f59e0b'; opacity = '0.75'; }
+      else if (i < 13) { fill = '#22c55e'; opacity = '1'; }
+    }
+
+    const x = xStart + i * (cellWidth + gap);
+    rects.push(
+      `<rect x="${x}" y="${yStart}" width="${cellWidth}" height="${cellHeight}" rx="3" fill="${fill}" fill-opacity="${opacity}" class="${extraClass}" />`
+    );
+  }
+  return rects.join('\n      ');
+}
+
+const heroSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#090d16"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#131c2e"/>
+      <stop offset="100%" stop-color="#0b1120"/>
+    </linearGradient>
+    <style>
+      .mono { font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace; }
+      .sans { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif; }
+      @keyframes blinkAmber {
+        0%, 100% { fill-opacity: 1; stroke: #facc15; stroke-width: 1.5px; }
+        50% { fill-opacity: 0.35; stroke-width: 0px; }
+      }
+      @keyframes pulseDanger {
+        0%, 100% { filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.85)); }
+        50% { filter: drop-shadow(0 0 0px rgba(239, 68, 68, 0)); }
+      }
+      .blink-amber { animation: blinkAmber 1.4s infinite ease-in-out; }
+      .pulse-danger { animation: pulseDanger 1.8s infinite ease-in-out; }
+    </style>
+  </defs>
+
+  <!-- Outer Window Frame -->
+  <rect width="960" height="520" rx="12" fill="url(#bgGrad)" stroke="#1e293b" stroke-width="2"/>
+  <rect x="1" y="1" width="958" height="38" rx="11" fill="#111827"/>
+  <circle cx="22" cy="20" r="6" fill="#ef4444"/>
+  <circle cx="42" cy="20" r="6" fill="#f59e0b"/>
+  <circle cx="62" cy="20" r="6" fill="#22c55e"/>
+  <text x="480" y="25" text-anchor="middle" fill="#94a3b8" font-size="13" font-weight="600" class="mono">
+    context-horizon (ctxtop v3.1.0) — 40-Cell Context Telemetry HUD &amp; PreInvocation Flight Check
+  </text>
+
+  <!-- Section 1: Turn 50 Prefix Amputation & Sludge Crisis -->
+  <g transform="translate(24, 54)">
+    <rect width="912" height="205" rx="8" fill="url(#cardGrad)" stroke="#ef4444" stroke-opacity="0.55" stroke-width="1.5"/>
+
+    <!-- Top Status Strip -->
+    <rect x="16" y="14" width="218" height="22" rx="4" fill="#ef4444" fill-opacity="0.18" stroke="#ef4444" stroke-width="1"/>
+    <text x="26" y="29" fill="#fca5a5" font-size="11.5" font-weight="700" class="mono">🚨 AMPUTATION CRISIS (TURN 50)</text>
+    <text x="250" y="29" fill="#e2e8f0" font-size="12.5" font-weight="600" class="mono">Tokens: <tspan fill="#f87171">145k / 200k</tspan>  |  Purity: <tspan fill="#f87171">35%</tspan>  |  Sludge Tax: <tspan fill="#fbbf24">+$0.09/turn</tspan>  |  5h Quota: <tspan fill="#38bdf8">50%</tspan></text>
+
+    <!-- Amputation Bracket Label -->
+    <path d="M 16 54 L 16 47 L 188 47 L 188 54" fill="none" stroke="#ef4444" stroke-width="1.8"/>
+    <text x="102" y="44" text-anchor="middle" fill="#f87171" font-size="10" font-weight="700" class="mono">![ CELLS 1-8: AGENTS.md AT RISK ]!</text>
+
+    <!-- 40-Cell Chronological Bar -->
+    <g>
+      ${buildCellsSvg(16, 58, 19.5, 26, 2.5, 'crisis')}
+    </g>
+
+    <!-- Cell Zone Annotations -->
+    <text x="16" y="100" fill="#00d7ff" font-size="10.5" class="mono">█ Anchor Rules</text>
+    <text x="122" y="100" fill="#ff0087" font-size="10.5" class="mono">▓ Foreign KI Bleed</text>
+    <text x="255" y="100" fill="#f59e0b" font-size="10.5" class="mono">▒ 58k Duplicate File Reads</text>
+    <text x="442" y="100" fill="#ef4444" font-size="10.5" class="mono">▓ Dead Stack Traces</text>
+    <text x="585" y="100" fill="#f97316" font-size="10.5" class="mono">▒ Dirty Disk Snapshot</text>
+    <text x="735" y="100" fill="#22c55e" font-size="10.5" class="mono">█ Active Working Set</text>
+
+    <!-- 4-Line Flight Check Scorecard Box -->
+    <rect x="16" y="112" width="880" height="80" rx="6" fill="#090d16" stroke="#334155" stroke-width="1"/>
+    <text x="28" y="130" fill="#38bdf8" font-size="11.5" font-weight="700" class="mono">╭── Flight Check v3.1 PreInvocation Router (4.2ms) ── State: HALT_HYGIENE_OR_SAFETY ──────────────────╮</text>
+    <text x="28" y="146" fill="#cbd5e1" font-size="11.5" class="mono">│ 1. SENSORS: <tspan fill="#f87171">AMPUTATION_RISK (&gt;140k)</tspan> • <tspan fill="#fbbf24">DIRTY_SNAP (src/routes.mjs)</tspan> • <tspan fill="#f472b6">UNSEEN_CALLER (src/app.mjs)</tspan></text>
+    <text x="28" y="162" fill="#cbd5e1" font-size="11.5" class="mono">│ 2. ACTION : <tspan fill="#4ade80" font-weight="700">Type /compact in chat (or run Surgical Pruner) to reclaim 84,000 sludge tokens</tspan></text>
+    <text x="28" y="178" fill="#cbd5e1" font-size="11.5" class="mono">╰── Bypass once: prefix with <tspan fill="#fbbf24">!</tspan>  •  Lock model/effort: <tspan fill="#fbbf24">!lock</tspan>  •  Force scorecard rewrite: <tspan fill="#38bdf8">#check</tspan> ───────╯</text>
+  </g>
+
+  <!-- Section 2: Post-Compact & Surgical Pruner Recovery + Tufte Telemetry Strip -->
+  <g transform="translate(24, 274)">
+    <rect width="912" height="222" rx="8" fill="url(#cardGrad)" stroke="#22c55e" stroke-opacity="0.5" stroke-width="1.5"/>
+
+    <rect x="16" y="14" width="235" height="22" rx="4" fill="#22c55e" fill-opacity="0.16" stroke="#22c55e" stroke-width="1"/>
+    <text x="26" y="29" fill="#86efac" font-size="11.5" font-weight="700" class="mono">✓ AFTER /compact + SURGICAL PRUNE</text>
+    <text x="268" y="29" fill="#e2e8f0" font-size="12.5" font-weight="600" class="mono">Tokens: <tspan fill="#4ade80">64k / 200k (-81k reclaimed)</tspan>  |  Purity: <tspan fill="#4ade80">91%</tspan>  |  Sludge Tax: <tspan fill="#4ade80">$0.00/turn</tspan></text>
+
+    <!-- Recovered 40-Cell Bar -->
+    <g>
+      ${buildCellsSvg(16, 48, 19.5, 24, 2.5, 'healthy')}
+    </g>
+
+    <!-- Bottom 3 Small-Multiple Tufte Panels -->
+    <!-- Panel A: U-Shaped Attention Curve -->
+    <rect x="16" y="86" width="282" height="122" rx="6" fill="#090d16" stroke="#1e293b" stroke-width="1"/>
+    <text x="28" y="105" fill="#94a3b8" font-size="11" font-weight="700" class="mono">U-SHAPED ATTENTION RECALL CURVE</text>
+    <path d="M 32 120 Q 155 188 282 118" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
+    <circle cx="42" cy="126" r="4" fill="#00d7ff"/>
+    <circle cx="155" cy="154" r="4" fill="#f59e0b"/>
+    <circle cx="268" cy="124" r="4" fill="#22c55e"/>
+    <text x="32" y="196" fill="#64748b" font-size="10" class="mono">Turn 0 Anchors (96%)   Middle (42%)   Tail (98%)</text>
+
+    <!-- Panel B: Top Token Offenders Pruned -->
+    <rect x="314" y="86" width="292" height="122" rx="6" fill="#090d16" stroke="#1e293b" stroke-width="1"/>
+    <text x="326" y="105" fill="#94a3b8" font-size="11" font-weight="700" class="mono">SURGICAL PRUNER LEDGER (SAVED 81k)</text>
+    <text x="326" y="128" fill="#cbd5e1" font-size="11" class="mono">1. src/core/router.mjs (x6)   <tspan fill="#4ade80">-34.2k</tspan></text>
+    <text x="326" y="148" fill="#cbd5e1" font-size="11" class="mono">2. Dead test stack traces (x3)<tspan fill="#4ade80">-22.8k</tspan></text>
+    <text x="326" y="168" fill="#cbd5e1" font-size="11" class="mono">3. Stale chat turns (&gt;25 old) <tspan fill="#4ade80">-17.2k</tspan></text>
+    <text x="326" y="188" fill="#cbd5e1" font-size="11" class="mono">4. Unused MCP cold schemas    <tspan fill="#4ade80"> -6.8k</tspan></text>
+
+    <!-- Panel C: Instant CLI Quickstart -->
+    <rect x="622" y="86" width="274" height="122" rx="6" fill="#090d16" stroke="#1e293b" stroke-width="1"/>
+    <text x="634" y="105" fill="#94a3b8" font-size="11" font-weight="700" class="mono">ZERO-CONFIG CLI (NODE 20+)</text>
+    <text x="634" y="129" fill="#38bdf8" font-size="11" class="mono">$ npx context-horizon --demo</text>
+    <text x="634" y="151" fill="#4ade80" font-size="11" class="mono">$ npx context-horizon init</text>
+    <text x="634" y="173" fill="#f472b6" font-size="11" class="mono">$ npx ctxtop --roast</text>
+    <text x="634" y="195" fill="#64748b" font-size="10" class="mono">0 deps • &lt;15ms hooks • 100% local</text>
+  </g>
+</svg>
+`;
+
+const socialPreviewSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#070a12"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <style>
+      .mono { font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace; }
+      .sans { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    </style>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect x="36" y="36" width="1208" height="568" rx="20" fill="#0b1120" stroke="#1e293b" stroke-width="3"/>
+
+  <!-- Top Pill -->
+  <rect x="84" y="82" width="440" height="38" rx="19" fill="#00d7ff" fill-opacity="0.12" stroke="#00d7ff" stroke-width="1.5"/>
+  <text x="304" y="107" text-anchor="middle" fill="#38bdf8" font-size="18" font-weight="700" class="mono">⚡ context-horizon (ctxtop v3.1)</text>
+
+  <!-- Main Headline -->
+  <text x="84" y="185" fill="#f8fafc" font-size="52" font-weight="800" class="sans">htop for AI Coding Agent</text>
+  <text x="84" y="248" fill="#38bdf8" font-size="52" font-weight="800" class="sans">200k Context Windows.</text>
+  <text x="84" y="302" fill="#94a3b8" font-size="24" class="sans">Stop silent AGENTS.md prefix amputation, stale-file overwrites, and 5-hour quota burn.</text>
+
+  <!-- 40-Cell Visual Bar -->
+  <g transform="translate(68, 340) scale(1.28)">
+    ${buildCellsSvg(12, 0, 19.5, 32, 2.5, 'crisis')}
+  </g>
+
+  <!-- Bottom Metrics Strip -->
+  <rect x="84" y="445" width="1112" height="108" rx="12" fill="#111827" stroke="#334155" stroke-width="1.5"/>
+  <text x="116" y="490" fill="#4ade80" font-size="24" font-weight="700" class="mono">$ npx context-horizon init</text>
+  <text x="116" y="528" fill="#cbd5e1" font-size="19" class="mono">40-Cell ANSI HUD  •  Edward Tufte Webview  •  6 Blind-Spot Sensors  •  0 Dependencies  •  &lt;15ms SLA</text>
+</svg>
+`;
+
+const heroPath = path.join(assetsDir, 'hero-demo.svg');
+const socialPath = path.join(assetsDir, 'social-preview.svg');
+
+fs.writeFileSync(heroPath, heroSvg, 'utf8');
+fs.writeFileSync(socialPath, socialPreviewSvg, 'utf8');
+
+console.log(`[Assets] Generated ${heroPath} (${Buffer.byteLength(heroSvg)} bytes)`);
+console.log(`[Assets] Generated ${socialPath} (${Buffer.byteLength(socialPreviewSvg)} bytes)`);
