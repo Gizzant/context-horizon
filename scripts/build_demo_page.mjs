@@ -116,7 +116,7 @@ const demoInjector = `
         };
       }
       if (u.includes('/api/host/reap')) {
-        SCENARIOS[activeScenarioId].hostHealth = { orphanCount: 0, orphanRamMb: 0, orphans: [] };
+        SCENARIOS[activeScenarioId].hostHealth = { orphanCount: 0, orphanRamMb: 0, rssGb: 1.0, status: 'OK', orphans: [] };
         return {
           ok: true,
           status: 200,
@@ -125,6 +125,49 @@ const demoInjector = `
             reapedCount: 2,
             freedMb: 570,
             state: SCENARIOS[activeScenarioId]
+          })
+        };
+      }
+      if (u.includes('/api/handoff')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            relativePath: 'docs/HANDOFF_DEMO.md'
+          })
+        };
+      }
+      if (u.includes('/api/hooks/dampen')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true
+          })
+        };
+      }
+      if (u.includes('/api/rules/promote')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            insertedAtLine: 12,
+            totalLinesAfter: 84,
+            zoneUsed: 'primacy',
+            targetPath: 'AGENTS.md'
+          })
+        };
+      }
+      if (u.includes('/api/open-brain')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            surfaceTag: '[App]',
+            brainDir: '~/.gemini/antigravity/brain/demo'
           })
         };
       }
@@ -148,7 +191,7 @@ const demoInjector = `
       const m = META.find(x => x.id === Number(activeScenarioId)) || META[4];
       const el = document.getElementById('chComplaintText');
       if (el) {
-        el.textContent = 'Redditor Complaint: "' + m.complaint + '"  ->  Router Action: ' + m.recommendedAction;
+        el.textContent = 'Failure Mode: "' + m.complaint + '"  ->  Router Action: ' + m.recommendedAction;
       }
     }
 

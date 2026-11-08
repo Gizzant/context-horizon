@@ -52,7 +52,8 @@ export function evaluateProcessTable(processRecords = [], activePids = new Set()
     const cmd = String(proc.commandLine || '').toLowerCase();
     const rssBytes = Number(proc.rssBytes || 0);
 
-    const isLangServer = name.includes('language_server') || cmd.includes('language_server');
+    const isAgyHub = (name.includes('agy') || cmd.includes('agy')) && cmd.includes('--hub');
+    const isLangServer = name.includes('language_server') || cmd.includes('language_server') || isAgyHub;
     const isMcpServer = cmd.includes('mcp-server') || cmd.includes('@modelcontextprotocol') || name.includes('mcp');
 
     if (!isLangServer && !isMcpServer) continue;
@@ -67,7 +68,7 @@ export function evaluateProcessTable(processRecords = [], activePids = new Set()
       orphans.push({
         pid,
         ppid,
-        name: proc.name || 'language_server',
+        name: proc.name || (isAgyHub ? 'agy' : (isLangServer ? 'language_server' : 'mcp-server')),
         reason: isMulticallSchedule ? 'multicall_schedule_leak' : 'detached_parent_pid',
         rssMb: Math.round(rssBytes / (1024 * 1024))
       });

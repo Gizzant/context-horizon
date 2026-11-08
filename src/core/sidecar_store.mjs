@@ -84,8 +84,21 @@ export function createDefaultSidecar(conversationId = '', workspacePath = '') {
       quotaFloorBreached: false,
       planToFlashHandoffNeeded: false,
       threeStrikeLoop: false,
+      loopFingerprint: null,
       uncheckpointedGitDrift: false,
-      dirtyGitFileCount: 0
+      dirtyGitFileCount: 0,
+      planRevisions: 0,
+      planRevisionWarn: false,
+      proofQuality: 'None',
+      proofQualityReason: '',
+      splitRecommended: false,
+      splitReason: ''
+    },
+    handoff: {
+      result: 'MISSING',
+      targetFile: null,
+      failingChecks: [],
+      fixes: []
     },
     cursor: {
       filePath: null,
@@ -120,7 +133,7 @@ export function readSidecarSync(conversationId, baseDirOverride = null) {
  * Performs atomic rename with exponential backoff on Windows EPERM/EBUSY contention.
  */
 function renameWithBackoffSync(tmpPath, targetPath, fallbackPayloadStr) {
-  const delaysMs = [2, 5, 12];
+  const delaysMs = [1, 2];
   let renamed = false;
 
   for (let attempt = 0; attempt <= delaysMs.length; attempt++) {
@@ -144,38 +157,63 @@ function renameWithBackoffSync(tmpPath, targetPath, fallbackPayloadStr) {
 }
 
 /**
+ * Writes an arbitrary JSON object to disk atomically via temporary file and rename with backoff.
+ */
+export function writeJsonAtomicSync(filePath, dataObj) {
+  const targetDir = path.dirname(filePath);
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true });
+  }
+  const jsonStr = JSON.stringify(dataObj, null, 2);
+  const baseName = path.basename(filePath);
+  const tmpPath = path.join(
+    targetDir,
+    `${baseName}.${process.pid}.${process.hrtime.bigint()}.tmp`
+  );
+  try {
+    fs.writeFileSync(tmpPath, jsonStr, 'utf8');
+    renameWithBackoffSync(tmpPath, filePath, jsonStr);
+    return dataObj;
+  } catch {
+    try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch {}
+    fs.writeFileSync(filePath, jsonStr, 'utf8');
+    return dataObj;
+  }
+}
+
+/**
  * Performs lock-free atomic write via unique temp file + renameSync.
  * Includes Windows EPERM/EBUSY exponential backoff retry.
  */
 export function writeSidecarAtomicSync(conversationId, stateObj, baseDirOverride = null) {
   const filePath = getSidecarPath(conversationId, baseDirOverride);
-  const targetDir = path.dirname(filePath);
-
-  if (!fs.existsSync(targetDir)) {
-    fs.mkdirSync(targetDir, { recursive: true });
-  }
-
   const payload = {
     ...stateObj,
     conversationId: String(conversationId),
     updatedAtMs: Date.now()
   };
-  const jsonStr = JSON.stringify(payload, null, 2);
+  return writeJsonAtomicSync(filePath, payload);
+}
 
-  const tmpPath = path.join(
-    targetDir,
-    `${conversationId}.${process.pid}.${process.hrtime.bigint()}.tmp`
-  );
-
-  try {
-    fs.writeFileSync(tmpPath, jsonStr, 'utf8');
-    renameWithBackoffSync(tmpPath, filePath, jsonStr);
-    return payload;
-  } catch (outerErr) {
-    try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch {}
-    fs.writeFileSync(filePath, jsonStr, 'utf8');
-    return payload;
-  }
+/**
+ * Reads the freshest sidecar state immediately before write, merges only the targeted
+ * section (e.g. 'sessionMeta', 'telemetry'), and writes back atomically.
+ * Prevents race conditions and lost updates between concurrent writers.
+ */
+export function mergeSidecarSectionSync(conversationId, sectionName, patchObj, baseDirOverride = null) {
+  if (!conversationId || !sectionName) return null;
+  const current = readSidecarSync(conversationId, baseDirOverride);
+  const existingSection = (current[sectionName] && typeof current[sectionName] === 'object' && !Array.isArray(current[sectionName]))
+    ? current[sectionName]
+    : {};
+  const updated = {
+    ...current,
+    [sectionName]: {
+      ...existingSection,
+      ...patchObj
+    }
+  };
+  return writeSidecarAtomicSync(conversationId, updated, baseDirOverride);
 }
 
 /**

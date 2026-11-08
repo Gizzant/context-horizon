@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { HORIZON_WINDOW } from './constants.mjs';
+import os from 'node:os';
+import { HORIZON_WINDOW, resolvePatchedCliCeiling } from './constants.mjs';
 
 /**
  * User-editable Context Memory settings, stored at
@@ -78,4 +79,24 @@ export function resolveWindow(settings, modelId) {
     reminderAtPct: s.reminderAtPct,
     reminderAt: Math.round(safeLimit * s.reminderAtPct / 100)
   };
+}
+
+/**
+ * Phase 3 (Layer 3): Reads `~/.gemini/antigravity-cli/settings.json` (or a custom path)
+ * to inspect patched CLI context window overrides (512k or 900k whitelisted tiers).
+ */
+export function loadCliSurfaceSettings(customFilePath = null) {
+  const targetFile = customFilePath || path.join(os.homedir(), '.gemini', 'antigravity-cli', 'settings.json');
+  try {
+    if (!fs.existsSync(targetFile)) return null;
+    const parsed = JSON.parse(fs.readFileSync(targetFile, 'utf8'));
+    if (!parsed || typeof parsed !== 'object') return null;
+    const patchedTokens = resolvePatchedCliCeiling(parsed);
+    return {
+      ...parsed,
+      patchedCeilingTokens: patchedTokens
+    };
+  } catch {
+    return null;
+  }
 }

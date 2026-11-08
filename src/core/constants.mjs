@@ -8,6 +8,60 @@ export const HORIZON_WINDOW = {
   ACTIVE_SET_STEP_WINDOW: 8
 };
 
+export const SESSION_RISK_THRESHOLDS = Object.freeze({
+  SAFE_HORIZON_TOKENS: 179000,          // 70% of 256k Cortex hard clamp
+  CASCADE_SYNC_WATERMARK_TOKENS: 50000, // 50k Cascade checkpointer arming threshold
+  WARM_CACHE_LOCK_TOKENS: 50000,        // >50k cached tokens triggers prefix-lock warning
+  CACHE_TTL_EXPIRED_SECONDS: 0
+});
+
+export const SURFACE_TAGS = Object.freeze({
+  'antigravity': '[App]',
+  'antigravity-ide': '[IDE]',
+  'antigravity-cli': '[CLI]',
+  'app': '[App]',
+  'ide': '[IDE]',
+  'cli': '[CLI]'
+});
+
+export const PREFIX_LOCK_WARNING_TEXT =
+  'Active warm cache (>50k tokens). Changing reasoning effort or switching models rewrites the system prefix and triggers a 100% uncached KV cache rebuild.';
+
+export const CORTEX_CLAMPED_CEILING_LABEL =
+  '256k Clamped (1M Model Capped by Cortex 0x3E800)';
+
+export const PATCHED_CLI_CEILING_TIERS = Object.freeze([512000, 900000]);
+
+export const WATERMARK_TOOLTIPS = Object.freeze({
+  CASCADE_SYNC_ARMED:
+    '50k Cascade Sync Armed: Crossing 50k arms the automatic checkpointer. Completing a task.md item or switching subagents will trigger synchronous auto-compaction.',
+  ATTENTION_HORIZON:
+    'Attention Horizon (Safe Limit): Practical recall threshold (70% of ceiling, 179k on 256k).',
+  CORTEX_HARD_CLAMP:
+    'Hard assembly limit (cortex/utils.GetCheckpointConfig).'
+});
+
+export const STRANDED_SIGNAL_WARNING_TEXT =
+  'Stranded in Low-Attention Trough. Risk of recall decay during multi-file reasoning. Re-reference in active prompt or anchor to task.md.';
+
+export const ATTENTION_TROUGH_CONFIG = Object.freeze({
+  GAMMA: 0.6,
+  TROUGH_START_RATIO: 0.30,
+  TROUGH_END_RATIO: 0.70,
+  CANONICAL_TROUGH_START_CELL: 6, // 0-indexed (Cell #7 in 1-indexed UI, or Cell index 7..15)
+  CANONICAL_TROUGH_END_CELL: 15
+});
+
+/**
+ * Resolves a human-readable surface badge ('[App]' | '[IDE]' | '[CLI]') from a store name or path.
+ */
+export function resolveSurfaceTag(surfaceOrPath = 'antigravity') {
+  const s = String(surfaceOrPath || '').toLowerCase().trim();
+  if (s.includes('antigravity-cli') || s === 'cli' || s === '[cli]') return '[CLI]';
+  if (s.includes('antigravity-ide') || s === 'ide' || s === '[ide]') return '[IDE]';
+  return '[App]';
+}
+
 export const CATEGORIES = {
   ANCHOR: 'ANCHOR',
   MEMORY_KI: 'MEMORY_KI',
@@ -83,9 +137,13 @@ export const MODEL_PRICING_PER_MILLION = {
   'gemini-4-argon': 1.25,
   'gemini-4-argon-high': 1.25,
   'claude-opus-5.5': 3.00,
+  // Public list price at time of writing; verify before relying on cost figures.
+  'claude-sonnet-5.5': 2.00,
   'gemini-1.5-pro': 1.25,
+  'gemini-3.1-pro': 1.25,
   'gemini-pro': 1.25,
   'claude-3-5-sonnet': 3.00,
+  'claude-opus-4-6-thinking': 5.00,
   'default': 0.75
 };
 
@@ -94,33 +152,167 @@ export const MODEL_CEILINGS = Object.freeze({
   'gemini-4-argon': 256000,
   'gemini-4-argon-high': 256000,
   'gemini-4-argon-medium': 256000,
+  'claude-sonnet-4-6': 200000,
+  'claude-sonnet-4.6': 200000,
+  'claude-opus-4-6': 200000,
+  'claude-opus-4.6': 200000,
+  'claude-opus-4-6-thinking': 200000,
+  'claude-3-5-sonnet': 200000,
+  'claude-sonnet': 200000,
   'claude-opus-5.5': 256000,
-  'claude-3-5-sonnet': 256000,
+  // Claude Sonnet 5.5: native 1M window, clamped to 256k by Cortex checkpointing (verify against host).
+  'claude-sonnet-5.5': 256000,
   'gemini-1.5-pro-1m': 1000000,
   'gemini-2.5-pro-1m': 1000000,
   'default': 256000
 });
 
 /**
- * Resolves the native context window ceiling for a given model or host telemetry payload.
- * Preserves 200,000 when useLegacyDefault is true and no explicit ceiling is supplied.
+ * Extracts a whitelisted patched CLI ceiling (512,000 or 900,000) from CLI settings or overrides.
  */
-export function resolveModelCeiling(modelId = 'default', stdinContextWindow = null, { useLegacyDefault = false } = {}) {
+export function resolvePatchedCliCeiling(cliSettings = null) {
+  if (!cliSettings || typeof cliSettings !== 'object') return null;
+  const rawCandidate =
+    cliSettings.contextWindow ??
+    cliSettings.context_window ??
+    cliSettings.context_window_limit ??
+    cliSettings.maxContextTokens ??
+    cliSettings.max_tokens ??
+    cliSettings.maxTokens ??
+    cliSettings.cortexCheckpointLimit ??
+    cliSettings.patchedCeilingTokens ??
+    null;
+  if (rawCandidate === null || rawCandidate === undefined) return null;
+  if (typeof rawCandidate === 'string') {
+    const lower = rawCandidate.toLowerCase().trim();
+    if (lower === '512k' || lower === '512000' || lower === '512_000') return 512000;
+    if (lower === '900k' || lower === '900000' || lower === '900_000') return 900000;
+  }
+  const num = Number(rawCandidate);
+  if (PATCHED_CLI_CEILING_TIERS.includes(num)) return num;
+  return null;
+}
+
+function buildCeilingDescriptor(ceilingTokens, source, modelKey = '') {
+  const isArgon1M = modelKey.includes('argon') || modelKey.includes('gemini-4');
+  const isClamped1MModel = isArgon1M && ceilingTokens === 256000;
+  const patchedTier = PATCHED_CLI_CEILING_TIERS.includes(ceilingTokens)
+    ? `${Math.round(ceilingTokens / 1000)}k`
+    : null;
+  return {
+    ceilingTokens,
+    source,
+    isClamped1MModel,
+    clampedLabel: isClamped1MModel ? CORTEX_CLAMPED_CEILING_LABEL : '',
+    patchedTier
+  };
+}
+
+/**
+ * Normalizes a human-readable or raw model identifier into a canonical lookup key.
+ * "Claude Opus 5.5 (Medium)" -> "claude-opus-5.5"; "gemini-4-argon" -> "gemini-4-argon".
+ * Lowercases, strips a trailing parenthesized effort suffix, and turns whitespace into hyphens.
+ */
+export function normalizeModelId(modelId = '') {
+  let s = String(modelId ?? '').trim().toLowerCase();
+  // Strip trailing "(Medium)" / "(High, Thinking)" style suffixes (possibly repeated).
+  while (/\s*\([^()]*\)\s*$/.test(s)) {
+    s = s.replace(/\s*\([^()]*\)\s*$/, '');
+  }
+  s = s.replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  return s;
+}
+
+/**
+ * Resolves ceiling with explicit source origin tracking ('patched_cli' | 'host' | 'config' | 'family' | 'hint' | 'legacy_default' | 'fallback').
+ */
+export function resolveModelCeilingDetailed(modelId = 'default', stdinContextWindow = null, { useLegacyDefault = false, config = null, cliSettings = null } = {}) {
+  const key = normalizeModelId(modelId);
+
+  // 0. Patched CLI binary override (~/.gemini/antigravity-cli/settings.json or config.cliSettings)
+  const patchedCliTokens = resolvePatchedCliCeiling(cliSettings || config?.cliSettings || stdinContextWindow?.cliSettings);
+  if (patchedCliTokens) {
+    return buildCeilingDescriptor(patchedCliTokens, 'patched_cli', key);
+  }
+
   const explicitMax = Number(
     stdinContextWindow?.max_tokens ||
     stdinContextWindow?.maxTokens ||
     stdinContextWindow?.context_window_limit ||
     0
   );
-  if (explicitMax >= 20000) return explicitMax;
+  if (explicitMax >= 20000) {
+    const src = PATCHED_CLI_CEILING_TIERS.includes(explicitMax) ? 'patched_cli' : 'host';
+    return buildCeilingDescriptor(explicitMax, src, key);
+  }
 
-  const key = String(modelId || '').toLowerCase().trim();
-  if (/\b1m\b|1000k|1_000_000/.test(key)) return 1000000;
-  if (/\b200k\b/.test(key)) return 200000;
-  if (/\b256k\b/.test(key)) return 256000;
+  // 1. Exact match in config.model_ceilings
+  if (config?.model_ceilings && Object.prototype.hasOwnProperty.call(config.model_ceilings, key)) {
+    const val = Number(config.model_ceilings[key]);
+    if (val >= 20000) return buildCeilingDescriptor(val, 'config', key);
+  }
 
-  if (useLegacyDefault) return HORIZON_WINDOW.MAX_TOKENS;
-  return MODEL_CEILINGS[key] || MODEL_CEILINGS.default;
+  // 2. Exact match in built-in table
+  if (Object.prototype.hasOwnProperty.call(MODEL_CEILINGS, key)) {
+    return buildCeilingDescriptor(MODEL_CEILINGS[key], 'config', key);
+  }
+
+  // 3. Size hints in model name
+  if (/\b900k\b|900_000/.test(key)) return buildCeilingDescriptor(900000, 'patched_cli', key);
+  if (/\b512k\b|512_000/.test(key)) return buildCeilingDescriptor(512000, 'patched_cli', key);
+  if (/\b1m\b|1000k|1_000_000/.test(key)) return buildCeilingDescriptor(1000000, 'hint', key);
+  if (/\b200k\b/.test(key)) return buildCeilingDescriptor(200000, 'hint', key);
+  if (/\b256k\b/.test(key)) return buildCeilingDescriptor(256000, 'hint', key);
+
+  // 3b. Claude Sonnet / Opus 4.6 family -> 200,000 ceiling
+  if (key.includes('claude-sonnet') || key.includes('claude-opus-4-6') || key.includes('claude-opus-4.6') || key.includes('claude-3-5-sonnet') || key.includes('claude-3.5-sonnet')) {
+    return buildCeilingDescriptor(200000, 'family', key);
+  }
+
+  // 4. Prefix family matching against config and built-in keys
+  const mergedCeilings = { ...MODEL_CEILINGS, ...(config?.model_ceilings || {}) };
+  const familyKeys = Object.keys(mergedCeilings).filter(k => k !== 'default').sort((a, b) => b.length - a.length);
+  for (const candidate of familyKeys) {
+    if (key.startsWith(candidate) || key.includes(candidate)) {
+      return buildCeilingDescriptor(mergedCeilings[candidate], 'family', key);
+    }
+  }
+
+  if (useLegacyDefault) {
+    return buildCeilingDescriptor(HORIZON_WINDOW.MAX_TOKENS, 'legacy_default', key);
+  }
+
+  const fallback = (config?.model_ceilings && config.model_ceilings.default) || MODEL_CEILINGS.default;
+  return buildCeilingDescriptor(fallback, 'fallback', key);
+}
+
+/**
+ * Resolves the native context window ceiling for a given model or host telemetry payload.
+ * Preserves 200,000 when useLegacyDefault is true and no explicit ceiling is supplied.
+ */
+export function resolveModelCeiling(modelId = 'default', stdinContextWindow = null, { useLegacyDefault = false, config = null, cliSettings = null } = {}) {
+  return resolveModelCeilingDetailed(modelId, stdinContextWindow, { useLegacyDefault, config, cliSettings }).ceilingTokens;
+}
+
+/**
+ * Resolves pricing per million tokens with family fallback.
+ */
+export function resolvePricePerM(modelId = 'default', config = null) {
+  const key = normalizeModelId(modelId);
+  const pricingMap = { ...MODEL_PRICING_PER_MILLION, ...(config?.model_pricing_per_1m_input || {}) };
+
+  if (Object.prototype.hasOwnProperty.call(pricingMap, key)) {
+    return pricingMap[key];
+  }
+
+  const familyKeys = Object.keys(pricingMap).filter(k => k !== 'default').sort((a, b) => b.length - a.length);
+  for (const candidate of familyKeys) {
+    if (key.startsWith(candidate) || key.includes(candidate)) {
+      return pricingMap[candidate];
+    }
+  }
+
+  return pricingMap.default || 0.75;
 }
 
 /**
@@ -128,9 +320,23 @@ export function resolveModelCeiling(modelId = 'default', stdinContextWindow = nu
  * differs from the 200,000 baseline (e.g. 256,000 -> 120k Fast / 147k High / 180k Auto).
  */
 export function scaleEffortProfileForCeiling(profile, maxTokens = HORIZON_WINDOW.MAX_TOKENS) {
-  const base = profile || EFFORT_PROFILES.STANDARD;
+  const raw = profile || EFFORT_PROFILES.STANDARD;
+  const canonicalTier = raw.tier && EFFORT_PROFILES[raw.tier] ? EFFORT_PROFILES[raw.tier] : null;
+  // Prevent double-scaling if an already-scaled profile (with maxTokens set) is passed in again
+  const base = (raw.maxTokens && canonicalTier) ? { ...canonicalTier, ...raw, safeLimit: canonicalTier.safeLimit, thinkingReserve: canonicalTier.thinkingReserve } : raw;
   if (!maxTokens || maxTokens === HORIZON_WINDOW.MAX_TOKENS) {
-    return { ...base, maxTokens: HORIZON_WINDOW.MAX_TOKENS };
+    return {
+      ...base,
+      maxTokens: HORIZON_WINDOW.MAX_TOKENS,
+      limitReason: base.tier === 'HIGH'
+        ? `${Math.round(base.thinkingReserve / 1000)}k reserved for deep reasoning`
+        : (base.tier === 'STANDARD'
+          ? `${Math.round(base.safeLimit / 1000)}k recall ceiling`
+          : base.limitReason)
+    };
+  }
+  if (raw.maxTokens === maxTokens && typeof raw.safeLimit === 'number' && !canonicalTier) {
+    return { ...raw };
   }
   const ratio = maxTokens / HORIZON_WINDOW.MAX_TOKENS;
   const scaledSafe = Math.round((base.safeLimit * ratio) / 1000) * 1000;

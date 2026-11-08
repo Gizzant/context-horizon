@@ -207,3 +207,81 @@ describe('6. HUD Reliability & Crash-Immunity', () => {
     assert.ok(res.output.includes('Purity:'));
   });
 });
+
+describe('7. Router Ergonomics: Advisory Mode & Halt Cooldown', () => {
+  test('Advisory mode (hook_level: advisory) warns via systemMessage but never terminates', async () => {
+    const s = { ...SCENARIO_4_POLLUTED_REFACTOR, conversationId: `adv_test_${Date.now()}` };
+    writeSidecarAtomicSync(s.conversationId, s.sidecar);
+
+    const res = await handlePreInvocation({
+      ...s,
+      configOverride: { hook_level: 'advisory' }
+    });
+
+    assert.notEqual(res.terminationBehavior, 'terminate');
+    assert.ok(res.systemMessage?.includes('Flight Check v3.1'));
+  });
+
+  test('Halt cooldown downgrades repeat halts to systemMessage for 3 turns', async () => {
+    const cid = `cooldown_test_${Date.now()}`;
+    const sidecar = createDefaultSidecar(cid);
+    sidecar.sessionMeta.turnCount = 10;
+    sidecar.sensors.threeStrikeLoop = true; // Error loop condition
+    writeSidecarAtomicSync(cid, sidecar);
+
+    // Turn 10: First occurrence -> terminates
+    const res10 = await handlePreInvocation({
+      conversationId: cid,
+      prompt: 'Retry the build',
+      configOverride: { hook_level: 'guard', halt_cooldown_turns: 3 }
+    });
+    assert.equal(res10.terminationBehavior, 'terminate');
+    assert.ok(res10.userMessage.includes('3-Strike Error Loop'));
+
+    // Turn 11: 1 turn later -> within cooldown -> downgrades to systemMessage
+    sidecar.sessionMeta.turnCount = 11;
+    sidecar.sessionMeta.lastHalts = { THREE_STRIKE_LOOP: 10 };
+    writeSidecarAtomicSync(cid, sidecar);
+
+    const res11 = await handlePreInvocation({
+      conversationId: cid,
+      prompt: 'Retry the build again',
+      configOverride: { hook_level: 'guard', halt_cooldown_turns: 3 }
+    });
+    assert.notEqual(res11.terminationBehavior, 'terminate');
+    assert.ok(res11.systemMessage?.includes('3-Strike Error Loop'));
+
+    // Turn 14: 4 turns later (14 - 10 = 4 > 3) -> cooldown expired -> terminates again
+    sidecar.sessionMeta.turnCount = 14;
+    writeSidecarAtomicSync(cid, sidecar);
+
+    const res14 = await handlePreInvocation({
+      conversationId: cid,
+      prompt: 'Retry the build after 4 turns',
+      configOverride: { hook_level: 'guard', halt_cooldown_turns: 3 }
+    });
+    assert.equal(res14.terminationBehavior, 'terminate');
+    assert.ok(res14.userMessage.includes('3-Strike Error Loop'));
+  });
+
+  test('Amputation crisis is exempt from cooldown (always terminates to prevent rule loss)', async () => {
+    const cid = `amp_exempt_${Date.now()}`;
+    const sidecar = createDefaultSidecar(cid);
+    sidecar.sessionMeta.turnCount = 20;
+    sidecar.sessionMeta.lastHalts = { AMPUTATION_CRISIS: 19 }; // Was halted just 1 turn ago
+    sidecar.telemetry.totalInputTokens = 185000;
+    sidecar.telemetry.amputationRisk = true;
+    sidecar.telemetry.confidence = 'HIGH';
+    writeSidecarAtomicSync(cid, sidecar);
+
+    const res = await handlePreInvocation({
+      conversationId: cid,
+      prompt: 'Continue with next task',
+      configOverride: { hook_level: 'guard', halt_cooldown_turns: 3 }
+    });
+
+    // Must still terminate because amputation is exempt
+    assert.equal(res.terminationBehavior, 'terminate');
+    assert.ok(res.userMessage.includes('[Amputation Crisis]'));
+  });
+});

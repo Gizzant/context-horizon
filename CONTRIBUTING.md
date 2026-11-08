@@ -67,7 +67,8 @@ Run `npm test` and `npm run bench` to verify your sensor passes and total `PreIn
 
 ## Pull Request Checklist
 
-- [ ] `npm test` passes (15/15 router & sensor tests).
-- [ ] `npm run test:phases` passes (Phases 1-6 verification).
+- [ ] `npm test` passes (18/18 router & sensor tests).
+- [ ] `npm run test:phases` passes (Phases 1–7 Show-HN verification suites).
+- [ ] `npm run test:e2e` passes (all 6 End-to-End validation layers + 3-way SHA-256 mirror parity).
 - [ ] `npm run bench` confirms p95 `PreInvocation` latency `<15ms`.
-- [ ] Zero third-party runtime dependencies added to `package.json`.
+- [ ] Zero third-party runtime dependencies added to `package.json`, and all SQLite opens use `SQLITE_OPEN_READONLY_OPTIONS` (`{ readOnly: true }`).

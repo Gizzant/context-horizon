@@ -1,4 +1,5 @@
 import { isSameOrSubPath, canonicalizePath } from './path_canonicalizer.mjs';
+import { evaluateSmartFileReReads, isCompactionCheckpointStep } from './layer5_hygiene.mjs';
 
 export const CELL_CAPACITY_TOKENS = 5000;
 export const TOTAL_HORIZON_CELLS = 40;
@@ -69,16 +70,13 @@ export function classifyHorizonWindow(
     }
   }
 
-  // 2. Identify Dead Errors and Stale Duplicates
+  // 2. Identify Dead Errors and Smart Stale Duplicates (Phase 5 Layer 5)
   const totalSteps = stepEvents.length;
-  const latestReadStepPerPath = new Map();
+  const smartReReads = evaluateSmartFileReReads(stepEvents);
   let latestPassingCommandStep = -1;
 
   for (let i = 0; i < totalSteps; i++) {
     const ev = stepEvents[i];
-    if (ev.targetPath && (ev.toolName === 'view_file' || ev.toolName === 'read_file')) {
-      latestReadStepPerPath.set(ev.targetPath, i);
-    }
     if ((ev.toolName === 'run_command' || ev.type === 'COMMAND') && ev.exitCode === 0) {
       latestPassingCommandStep = i;
     }
@@ -98,6 +96,7 @@ export function classifyHorizonWindow(
 
     // Anchor check
     const isCoreAnchor = ev.role === 'system' ||
+      isCompactionCheckpointStep(ev) ||
       (ev.targetPath && (
         ev.targetPath.includes('rules/') ||
         ev.targetPath.endsWith('agents.md') ||
@@ -122,8 +121,7 @@ export function classifyHorizonWindow(
         cat = CATEGORIES.ACTIVE_SET;
       }
     } else if (ev.targetPath && (ev.toolName === 'view_file' || ev.toolName === 'read_file')) {
-      const lastReadIdx = latestReadStepPerPath.get(ev.targetPath);
-      if (typeof lastReadIdx === 'number' && lastReadIdx > i) {
+      if (smartReReads.wasteTargetByStep.has(i)) {
         cat = CATEGORIES.STALE_DUP;
         staleDupPaths.add(ev.targetPath);
       } else if (isRecentTurn) {

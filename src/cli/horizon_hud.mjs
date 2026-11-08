@@ -6,6 +6,7 @@ import { canonicalizePath } from '../core/path_canonicalizer.mjs';
 import {
   readSidecarSync,
   writeSidecarAtomicSync,
+  writeJsonAtomicSync,
   readToolUsageSync,
   createDefaultSidecar
 } from '../core/sidecar_store.mjs';
@@ -13,13 +14,16 @@ import { resolveAndReadTranscriptIncremental } from '../core/log_resolver.mjs';
 import { classifyHorizonWindow, CATEGORIES } from '../core/horizon_classifier.mjs';
 import { runAllBlindspotSensors } from '../core/blindspot_sensors.mjs';
 import { CATEGORIES as H_CATEGORIES, CATEGORY_METADATA, scaleEffortProfileForCeiling, resolveModelCeiling } from '../core/constants.mjs';
-import { findSessionDirectory, parseTranscriptIncremental, reconcileWorkspaceAndKIs } from '../core/parser.mjs';
+import { findSessionDirectory, parseTranscriptIncremental, reconcileWorkspaceAndKIs, resolveSessionModel } from '../core/parser.mjs';
 import { classifyHorizon } from '../core/classifier.mjs';
 import { getHomeDir } from '../core/paths.mjs';
 import { recordAndDelta } from '../core/history.mjs';
 import { loadSettings, resolveWindow } from '../core/settings.mjs';
 import { measureBaseline } from '../core/baseline.mjs';
 import { updateChronicReads } from '../core/offenders.mjs';
+import { computePlanChurn, gradeProofQuality, detectContextRot } from '../core/session_forensics.mjs';
+import { auditHandoff } from '../core/handoff_audit.mjs';
+import { loadFlightcheckConfig } from '../core/config.mjs';
 import { buildDemoHorizonState, DEMO_SCENARIOS } from '../../tests/fixtures/synthetic_states.mjs';
 
 const FALLBACK_BAR = '\x1b[38;5;244m[░░░░░░░░░░░░░░░░░░░░] Purity: 100% | Noise: 0k | Quota: 100% | Effort: OK\x1b[0m';
@@ -72,21 +76,6 @@ function parseJsonSafe(str) {
   }
 }
 
-function loadConfig() {
-  try {
-    const __dirname = path.dirname(fileURLToPath(import.meta.url));
-    const cfgPath = path.resolve(__dirname, '../../config/default_flightcheck.json');
-    if (fs.existsSync(cfgPath)) {
-      return JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
-    }
-  } catch {}
-  return {
-    amputation_token_threshold: 140000,
-    quota_floor_fraction: 0.10,
-    model_pricing_per_1m_input: { 'gemini-3.8-flash': 0.15 }
-  };
-}
-
 function scanKnowledgeItems() {
   const home = process.env.USERPROFILE || process.env.HOME || os.homedir();
   const kiRoot = path.join(home, '.gemini', 'antigravity', 'knowledge');
@@ -116,7 +105,7 @@ export async function runHud(options = {}) {
     const columns = options.columns || process.stdout.columns || 120;
     const conversationId = stdinData.conversation_id || stdinData.session_id || 'default_session';
     const workspacePath = canonicalizePath(stdinData.workspacePath || process.cwd());
-    const config = options.configOverride || loadConfig();
+    const config = options.configOverride || loadFlightcheckConfig();
 
     let sidecar = readSidecarSync(conversationId);
     if (!sidecar.conversationId) {
@@ -186,6 +175,9 @@ export async function runHud(options = {}) {
       signalPurityPct: classification.metrics.signalPurityPct,
       sludgeTaxUsdPerTurn: classification.metrics.sludgeTaxUsdPerTurn,
       amputationRisk: classification.flags.amputationRisk,
+      confidence: classification.confidence || 'HIGH',
+      parseHealth: classification.parseHealth || null,
+      ceilingSource: classification.model?.ceilingSource || 'fallback',
       agentState,
       mode,
       quota: {
@@ -211,6 +203,21 @@ export async function runHud(options = {}) {
       streamCutoffRiskFiles: sensorResults.streamCutoffRiskFiles,
       foreignBleedKiIds: classification.fileState.foreignBleedKiIds
     };
+    const planChurn = computePlanChurn(logState.parsedEvents, config);
+    const proofQuality = gradeProofQuality(logState.parsedEvents);
+    const contextRot = detectContextRot(logState.parsedEvents, {
+      totalActiveTokens: totalInputTokens,
+      correctionCount: 0,
+      lateStageTaskChurn: planChurn.lateStageTaskChurn,
+      signalPurityPct: classification.metrics.signalPurityPct
+    }, config);
+    const handoff = auditHandoff(workspacePath, {
+      planChurn,
+      errorLoop: { loop: sensorResults.threeStrikeLoop, fingerprint: sensorResults.loopFingerprint },
+      deadErrors: { isErrorLoop: sensorResults.threeStrikeLoop },
+      activeSignal: { taskMdTurnsBehind: 0 }
+    });
+
     sidecar.sensors = {
       schemaTaxPct: sensorResults.schemaTaxPct,
       unusedMcpServers: sensorResults.unusedMcpServers,
@@ -218,8 +225,22 @@ export async function runHud(options = {}) {
       quotaFloorBreached: sensorResults.quotaFloorBreached,
       planToFlashHandoffNeeded: sensorResults.planToFlashHandoffNeeded,
       threeStrikeLoop: sensorResults.threeStrikeLoop,
+      loopFingerprint: sensorResults.loopFingerprint || null,
       uncheckpointedGitDrift: sensorResults.uncheckpointedGitDrift,
-      dirtyGitFileCount: sensorResults.dirtyGitFileCount
+      dirtyGitFileCount: sensorResults.dirtyGitFileCount,
+      planRevisions: planChurn.planRevisions,
+      planRevisionWarn: planChurn.warn,
+      proofQuality: proofQuality.grade,
+      proofQualityReason: proofQuality.reason,
+      splitRecommended: contextRot.splitRecommended,
+      splitReason: contextRot.reason
+    };
+
+    sidecar.handoff = {
+      result: handoff.result,
+      targetFile: handoff.targetFile,
+      failingChecks: handoff.checks.filter(c => !c.pass).map(c => c.name),
+      fixes: handoff.fixes
     };
 
     writeSidecarAtomicSync(conversationId, sidecar);
@@ -252,7 +273,10 @@ export async function runHud(options = {}) {
 
     if (isFullMode) {
       const effortStatus = sensorResults.threeStrikeLoop ? 'LOOP_HALT' : (sensorResults.quotaFloorBreached ? 'QUOTA_LOW' : 'OK');
-      outputLine = `[${glyphStrip}] Purity: ${purity}% | Noise: ${noiseK}k tok | Quota: ${quotaPct}% | Effort: ${effortStatus}`;
+      let extraHints = '';
+      if (planChurn.warn) extraHints += ` | Plan: ${planChurn.planRevisions} revs ⚠`;
+      if (handoff.result === 'NEEDS_FIXES') extraHints += ' | Handoff: Needs fixes';
+      outputLine = `[${glyphStrip}] Purity: ${purity}% | Noise: ${noiseK}k tok | Quota: ${quotaPct}% | Effort: ${effortStatus}${extraHints}`;
     } else {
       outputLine = `[${glyphStrip}] P:${purity}% | N:${noiseK}k | Q:${quotaPct}%`;
     }
@@ -290,7 +314,7 @@ export function formatDemoScenarioAnsi(scenarioId = 5) {
 
   const lines = [
     `\x1b[1m\x1b[38;5;51m${meta.title}\x1b[0m`,
-    `\x1b[38;5;245mRedditor Complaint: "${meta.complaint}"\x1b[0m`,
+    `\x1b[38;5;245mFailure Mode: "${meta.complaint}"\x1b[0m`,
     `[${glyphStrip}] ${statusColor}${activeK}k/${maxK}k\x1b[0m | Purity: ${statusColor}${purity}%\x1b[0m | Sludge: \x1b[38;5;214m+$${meta.sludgeTaxUsd.toFixed(2)}/turn\x1b[0m (${noiseK}k tok) | Quota: ${quotaPct}%`,
     `\x1b[38;5;244m╭── Flight Check v3.1 (${meta.routerState}) ───────────────────────────────────────────╮\x1b[0m`,
     `\x1b[38;5;244m│\x1b[0m 1. PROMPT : [Score ${meta.score}/100] "${meta.fixture.prompt.slice(0, 56)}"`,
@@ -330,8 +354,17 @@ if (isMain) {
     runDemoShowcase({ scenarioId, animate: args.includes('--demo-animate') })
       .then(() => process.exit(0))
       .catch(() => safeExitFallback());
+  } else if (process.stdin.isTTY || args.includes('--live')) {
+    runCLI().then(() => process.exit(0)).catch(() => safeExitFallback());
   } else {
-    runHud().then(() => process.exit(0)).catch(() => safeExitFallback());
+    readStdinSafe(150).then((stdinData) => {
+      if (stdinData && Object.keys(stdinData).length > 0) {
+        return runHud({ stdinData });
+      }
+      // If non-TTY stdin had malformed content vs empty stdin:
+      // runHud handles fallback bar for statusLine contracts when --hud-legacy or piped
+      return runHud({ stdinData });
+    }).then(() => process.exit(0)).catch(() => safeExitFallback());
   }
 }
 
@@ -382,7 +415,13 @@ export async function runCLI(options = {}) {
   const reconciliation = await reconcileWorkspaceAndKIs(sessionInfo.sessionId, getHomeDir());
   const defaultCacheDir = path.join(getHomeDir(), '.gemini', 'antigravity', 'cache', 'agy-horizon');
   const cacheDir = cacheDirOverride || defaultCacheDir;
-  const modelId = stdinData?.model?.id || stdinData?.modelName || 'gemini-3.8-flash';
+  // Model precedence: stdin > gen_metadata.model > last USER_INPUT Model Selection > fallback.
+  const resolvedModel = resolveSessionModel({
+    stdinData,
+    genMetadata: reconciliation.sessionGenMetadata,
+    steps: parsed.steps
+  });
+  const modelId = resolvedModel.id;
   const loadedSettings = loadSettings(cacheDir);
   const win = resolveWindow(loadedSettings, modelId);
   const hasCustomLimit = Boolean(
@@ -406,6 +445,8 @@ export async function runCLI(options = {}) {
     modelId,
     stdinContextWindow: stdinData?.context_window,
     stdinQuota: stdinData?.quota,
+    genMetadata: reconciliation.sessionGenMetadata || null,
+    modelSource: resolvedModel.source,
     useNativeCeiling,
     cacheDir,
     safeLimitTokens: effectiveSafeLimit,
@@ -414,6 +455,10 @@ export async function runCLI(options = {}) {
     effortTransitions: parsed.effortTransitions
   });
   state.sessionTitle = reconciliation.sessionTitle || '';
+  if (state.model && typeof state.model === 'object') {
+    state.model.source = resolvedModel.source;
+    state.model.rawLabel = resolvedModel.raw;
+  }
   state.recentSessions = reconciliation.recentSessions || [];
   state.rewindDetected = Boolean(parsed.rewindDetected);
   try { state.baseline = measureBaseline(reconciliation.primaryWorkspace || ''); } catch { state.baseline = null; }
@@ -421,8 +466,7 @@ export async function runCLI(options = {}) {
 
   state.delta = recordAndDelta(cacheDir, sessionInfo.sessionId, state, parsed.steps).delta;
   try {
-    if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
-    fs.writeFileSync(path.join(cacheDir, 'latest.state.json'), JSON.stringify(state, null, 2), 'utf8');
+    writeJsonAtomicSync(path.join(cacheDir, 'latest.state.json'), state);
   } catch {}
 
   let cellCount = 40;
@@ -452,11 +496,17 @@ export async function runCLI(options = {}) {
   const maxK = Math.round(state.window.maxTokens / 1000);
   const purity = state.metrics.signalPurityPct;
   const noiseK = Math.round((state.metrics.sludgeTokens || 0) / 1000);
-  const recCmd = state.diagnostics.recommendedCommand;
+  const rawRecCmd = state.diagnostics.recommendedCommand || 'Ready';
+  const recCmd = rawRecCmd === '/fast' ? 'Ready' : rawRecCmd;
+  const isCacheCold = state.quota?.cache ? Boolean(state.quota.cache.isCacheCold) : false;
+  const ttlSec = Number(state.quota?.cache?.ttlRemainingSec || 0);
+  const cacheLabel = isCacheCold ? 'Cold' : (ttlSec > 0 ? `Warm(${ttlSec}s)` : 'Warm');
+  const strandedCnt = Number(state.attentionHeatmap?.strandedSignalCount || 0);
+  const strandedSuffix = strandedCnt > 0 ? ` | \u26A0 ${strandedCnt}/40 mid-window blocks` : '';
 
   let line1 = '';
   if (cellCount === 40) {
-    line1 = `${bar}  [ ${activeK}k / ${maxK}k ]  \x1b[1mPurity:\x1b[0m ${purity}% | \x1b[1mNoise:\x1b[0m ${noiseK}k tok  \x1b[38;5;51m-> ${recCmd}\x1b[0m`;
+    line1 = `${bar}  [ ${activeK}k / ${maxK}k ]  \x1b[1mPurity:\x1b[0m ${purity}% | \x1b[1mNoise:\x1b[0m ${noiseK}k tok | \x1b[1mCache:\x1b[0m ${cacheLabel}${strandedSuffix}  \x1b[38;5;51m-> ${recCmd}\x1b[0m`;
   } else if (cellCount === 20) {
     line1 = `${bar} [${activeK}k/${maxK}k] P:${purity}% Noise:${noiseK}k -> ${recCmd}`;
   } else {

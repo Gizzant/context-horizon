@@ -1,19 +1,316 @@
+import fs from 'node:fs';
 import path from 'node:path';
-import { HORIZON_WINDOW, CATEGORIES, MODEL_PRICING_PER_MILLION, EFFORT_PROFILES, resolveEffortProfile, resolveModelCeiling, scaleEffortProfileForCeiling } from './constants.mjs';
-import { canonicalizePath } from './paths.mjs';
+import {
+  HORIZON_WINDOW,
+  SESSION_RISK_THRESHOLDS,
+  PREFIX_LOCK_WARNING_TEXT,
+  CORTEX_CLAMPED_CEILING_LABEL,
+  WATERMARK_TOOLTIPS,
+  STRANDED_SIGNAL_WARNING_TEXT,
+  ATTENTION_TROUGH_CONFIG,
+  CATEGORIES,
+  MODEL_PRICING_PER_MILLION,
+  EFFORT_PROFILES,
+  resolveEffortProfile,
+  resolveModelCeiling,
+  resolveModelCeilingDetailed,
+  resolvePricePerM,
+  resolveSurfaceTag,
+  scaleEffortProfileForCeiling
+} from './constants.mjs';
+import { loadFlightcheckConfig } from './config.mjs';
+import { loadCliSurfaceSettings } from './settings.mjs';
+import { canonicalizePath, isIgnorablePath } from './paths.mjs';
 import { extractEffortTimeline } from './parser.mjs';
-import { computeQuotaAndCacheTelemetry } from './quota.mjs';
+import { computeQuotaAndCacheTelemetry, humanizeModelLabel } from './quota.mjs';
 import { inspectSubagentTree } from './subagents.mjs';
+import { computePlanChurn, gradeProofQuality, detectContextRot, fingerprintErrorLoop } from './session_forensics.mjs';
+import { auditHandoff } from './handoff_audit.mjs';
+import {
+  synthesizeParameterizedCompact,
+  evaluateCompactionCacheAdvisory,
+  synthesizeBatonPassHandoffCommand,
+  isInternalTelemetryPath,
+  isCompactionRelevant
+} from './prompt_rubric.mjs';
+import { auditMcpPrefixBloat } from './baseline.mjs';
+import {
+  CORTEX_STEP_TYPE_CHECKPOINT,
+  MEMORY_MD_TRUNCATION_THRESHOLD_LINES,
+  isCompactionCheckpointStep,
+  evaluateSmartFileReReads,
+  wrapNoisyCommandWithDampener,
+  registerCliDampeningHook,
+  computeAttentionZoneInsertionIndex,
+  auditRuleFileAttentionAndLineLimit,
+  promoteRuleWithAttentionZone
+} from './layer5_hygiene.mjs';
+
+export {
+  CORTEX_STEP_TYPE_CHECKPOINT,
+  MEMORY_MD_TRUNCATION_THRESHOLD_LINES,
+  STRANDED_SIGNAL_WARNING_TEXT,
+  ATTENTION_TROUGH_CONFIG,
+  isCompactionCheckpointStep,
+  evaluateSmartFileReReads,
+  wrapNoisyCommandWithDampener,
+  registerCliDampeningHook,
+  computeAttentionZoneInsertionIndex,
+  auditRuleFileAttentionAndLineLimit,
+  promoteRuleWithAttentionZone,
+  auditMcpPrefixBloat
+};
 
 /**
- * Calculates U-Shaped Attention Recall Curve weight A(i) for cell i in [0..totalCells-1]
+ * Parabolic U-Shaped Attention Curve & Low-Attention Trough Model.
+ *
+ * Models positional recall decay across N populated cells (gamma = 0.6):
+ * - U-shaped recall weight (1.0 at Primacy/Recency edges, minimum 1.0 - gamma at midpoint 0.5):
+ *     A_u(i) = (1.0 - gamma) + 4.0 * gamma * ((i / N) - 0.5)^2
+ * - Shades the middle 30% to 70% band (or Cells 7..15) as the Low-Attention Trough.
  */
-export function calculateAttentionWeight(cellIndex, activeCellCount) {
-  if (activeCellCount <= 1) return 1.0;
-  const leftDecay = Math.exp(-cellIndex / 4.5);
-  const rightDecay = Math.exp(-(activeCellCount - 1 - cellIndex) / 5.5);
-  const raw = 0.20 + 0.80 * Math.max(leftDecay, rightDecay);
-  return Math.min(1.0, Math.max(0.20, parseFloat(raw.toFixed(2))));
+export function calculateParabolicAttentionCurve(cellIndex, activeCellCount, gamma = ATTENTION_TROUGH_CONFIG.GAMMA) {
+  if (activeCellCount <= 1) {
+    return {
+      cellIndex,
+      activeCellCount,
+      gamma,
+      normalizedPosition: 0,
+      uShapedWeight: 1.0,
+      specFormulaValue: 1.0,
+      inTrough: false,
+      zone: 'PRIMACY'
+    };
+  }
+  const N = Math.max(1, activeCellCount - 1);
+  const clampedIdx = Math.max(0, Math.min(N, cellIndex));
+  const ratio = clampedIdx / N;
+  const distFromCenterSq = Math.pow(ratio - 0.5, 2);
+  const specFormulaValue = parseFloat((1.0 - 4.0 * gamma * distFromCenterSq).toFixed(3));
+  const uShapedWeight = parseFloat(Math.min(1.0, Math.max(0.20, (1.0 - gamma) + 4.0 * gamma * distFromCenterSq)).toFixed(2));
+
+  const inRatioTrough = activeCellCount >= 7 &&
+    ratio >= ATTENTION_TROUGH_CONFIG.TROUGH_START_RATIO &&
+    ratio <= ATTENTION_TROUGH_CONFIG.TROUGH_END_RATIO;
+  const inCanonicalCellTrough = activeCellCount >= 7 && cellIndex >= 6 && cellIndex <= 15 && cellIndex < activeCellCount;
+  const inTrough = inRatioTrough || inCanonicalCellTrough;
+
+  let zone = 'LOW_ATTENTION_TROUGH';
+  if (!inTrough) {
+    zone = ratio < 0.5 ? 'PRIMACY' : 'RECENCY';
+  }
+
+  return {
+    cellIndex,
+    activeCellCount,
+    gamma,
+    normalizedPosition: parseFloat(ratio.toFixed(3)),
+    uShapedWeight,
+    specFormulaValue,
+    inTrough,
+    zone
+  };
+}
+
+/**
+ * Calculates U-Shaped Attention Recall Curve weight A(i) for cell i in [0..activeCellCount-1]
+ */
+export function calculateAttentionWeight(cellIndex, activeCellCount, gamma = ATTENTION_TROUGH_CONFIG.GAMMA) {
+  return calculateParabolicAttentionCurve(cellIndex, activeCellCount, gamma).uShapedWeight;
+}
+
+/**
+ * Phase 1 (Layer 1): Evaluates Composite Operational Session Risk & Prefix-Lock Protection.
+ *
+ * Rules:
+ * - RED: Context >= 179k (safe horizon breached) OR 7d lockout risk active without AI Credit overages enabled.
+ * - AMBER: Cache TTL == 0s (cold cache window expired) OR context > 50k with pending checklist item OR task.md is >= 1 turn stale.
+ * - GREEN: Total tokens < 179k AND Cache TTL > 0s AND task.md is in sync (0 turns behind).
+ * - Prefix-Lock Protection Warning: Active when a session holds > 50k cached tokens with TTL > 0s.
+ */
+export function evaluateCompositeSessionRisk({
+  totalActiveTokens = 0,
+  safeHorizonTokens = SESSION_RISK_THRESHOLDS.SAFE_HORIZON_TOKENS,
+  cacheTtlRemainingSec = 300,
+  cacheReadTokens = 0,
+  cacheHitRatePct = 0,
+  taskMdTurnsBehind = 0,
+  hasPendingTaskItems = false,
+  weekly7dUsedPct = 0,
+  weekly7dLockoutRisk = false,
+  weekly7dSource = undefined,
+  aiCreditOveragesEnabled = false,
+  prefixBustDetected = false
+} = {}) {
+  const safeHorizon = Number(safeHorizonTokens) > 0
+    ? Number(safeHorizonTokens)
+    : SESSION_RISK_THRESHOLDS.SAFE_HORIZON_TOKENS;
+
+  const isSafeHorizonBreached = totalActiveTokens >= safeHorizon || totalActiveTokens >= SESSION_RISK_THRESHOLDS.SAFE_HORIZON_TOKENS;
+  // Local quota estimates never escalate to RED; only host-sourced (or legacy unsourced) 7d values do.
+  const is7dLockoutWithoutOverages = weekly7dSource !== 'estimate' &&
+    (weekly7dUsedPct >= 100 || Boolean(weekly7dLockoutRisk)) && !aiCreditOveragesEnabled;
+  const isCacheExpired = Number(cacheTtlRemainingSec) <= 0;
+  const isCascadeArmedWithPendingTask = totalActiveTokens > SESSION_RISK_THRESHOLDS.CASCADE_SYNC_WATERMARK_TOKENS && Boolean(hasPendingTaskItems);
+  const isTaskMdStale = Number(taskMdTurnsBehind) >= 1;
+
+  const reasons = [];
+  let band = 'GREEN';
+
+  if (isSafeHorizonBreached || is7dLockoutWithoutOverages) {
+    band = 'RED';
+    if (isSafeHorizonBreached) {
+      reasons.push(`Safe horizon breached (${Math.round(totalActiveTokens / 1000)}k >= ${Math.round(Math.min(safeHorizon, SESSION_RISK_THRESHOLDS.SAFE_HORIZON_TOKENS) / 1000)}k tokens)`);
+    }
+    if (is7dLockoutWithoutOverages) {
+      reasons.push('7d quota lockout risk active without AI Credit overages enabled');
+    }
+  } else if (isCacheExpired || isCascadeArmedWithPendingTask || isTaskMdStale) {
+    band = 'AMBER';
+    if (isCacheExpired) {
+      reasons.push('Cache TTL == 0s (cold cache window expired)');
+    }
+    if (isCascadeArmedWithPendingTask) {
+      reasons.push('Context > 50k with pending task.md checklist item (Cascade sync armed)');
+    }
+    if (isTaskMdStale) {
+      reasons.push(`task.md is ${taskMdTurnsBehind} turn${taskMdTurnsBehind === 1 ? '' : 's'} stale`);
+    }
+  } else {
+    band = 'GREEN';
+    reasons.push('Healthy (<179k tokens, warm KV cache TTL > 0s, task.md in sync)');
+  }
+
+  const effectiveCachedTokens = Math.max(
+    Number(cacheReadTokens || 0),
+    cacheHitRatePct > 0 ? Math.round(totalActiveTokens * (cacheHitRatePct / 100)) : 0,
+    !isCacheExpired ? totalActiveTokens : 0
+  );
+  // Hotfix: the Warm badge requires real cache-read evidence, not merely TTL > 0s.
+  const isCacheTrulyWarm = computeIsCacheTrulyWarm({
+    ttlRemainingSec: cacheTtlRemainingSec,
+    cacheReadTokens,
+    hitRatePct: cacheHitRatePct,
+    prefixBustDetected
+  });
+  const prefixLockWarning = isCacheTrulyWarm && effectiveCachedTokens > SESSION_RISK_THRESHOLDS.WARM_CACHE_LOCK_TOKENS;
+
+  return {
+    band,
+    isCacheTrulyWarm,
+    dotClass: band === 'RED' ? 'dot danger' : (band === 'AMBER' ? 'dot warn' : 'dot'),
+    reasons,
+    summary: reasons.join(' · '),
+    prefixLockWarning,
+    prefixLockCachedTokens: prefixLockWarning ? effectiveCachedTokens : 0,
+    prefixLockTooltip: prefixLockWarning ? PREFIX_LOCK_WARNING_TEXT : ''
+  };
+}
+
+/**
+ * Hotfix: strict cache warmth predicate. TTL > 0s alone is NOT proof of a warm cache —
+ * a session with 0 cache-read tokens or a 0% hit rate is cold regardless of the TTL clock.
+ */
+export function computeIsCacheTrulyWarm(cache = {}) {
+  return Boolean(
+    Number(cache?.ttlRemainingSec) > 0 &&
+    Number(cache?.cacheReadTokens) > 0 &&
+    Number(cache?.hitRatePct) > 0 &&
+    !cache?.prefixBustDetected
+  );
+}
+
+/**
+ * Hotfix: Tenth-of-a-Kilotoken Mathematical Parity.
+ * Derives the reclaimable display value from the rounded total and active values so that
+ * Active Signal + Reclaimable always equals the headline total to exactly 0.1k.
+ * If `anchorReclaimTenths` is supplied (sum of rounded reclaim rows), Reclaimable is pinned to it
+ * and Active absorbs the rounding remainder so rows, badge and card stay identical.
+ */
+export function computeDisplayTenthsParity(totalTokens = 0, activeSignalTokens = 0, anchorReclaimTenths = null) {
+  const displayTotalTenths = Math.round(Math.max(0, Number(totalTokens) || 0) / 100);
+  const hasAnchor = anchorReclaimTenths !== null && Number.isFinite(Number(anchorReclaimTenths)) && Number(anchorReclaimTenths) >= 0;
+  const displayActiveTenths = hasAnchor
+    ? displayTotalTenths - Math.min(displayTotalTenths, Math.round(Number(anchorReclaimTenths)))
+    : Math.min(displayTotalTenths, Math.round(Math.max(0, Number(activeSignalTokens) || 0) / 100));
+  const displayReclaimableTenths = Math.max(0, displayTotalTenths - displayActiveTenths);
+  return {
+    displayTotalTenths,
+    displayActiveTenths,
+    displayReclaimableTenths,
+    totalK: displayTotalTenths / 10,
+    activeK: displayActiveTenths / 10,
+    reclaimableK: displayReclaimableTenths / 10
+  };
+}
+
+/**
+ * Phase 3 (Layer 3): Evaluates State-Conditional Bar Coloring for the older history segment.
+ * - Muted Slate/Teal ('Cached History — 95% Discounted') while TTL > 0s and totalActiveTokens <= 179k.
+ * - Amber ('Reclaimable Cold Bloat') ONLY when TTL == 0s OR totalActiveTokens > 179k.
+ */
+export function evaluateHistoryBarState({
+  totalActiveTokens = 0,
+  safeHorizonTokens = SESSION_RISK_THRESHOLDS.SAFE_HORIZON_TOKENS,
+  cacheTtlRemainingSec = 300,
+  isCacheTrulyWarm,
+  nextTurnLikelyWarm
+} = {}) {
+  const safeHorizon = Number(safeHorizonTokens) > 0
+    ? Number(safeHorizonTokens)
+    : SESSION_RISK_THRESHOLDS.SAFE_HORIZON_TOKENS;
+  // When strict warmth evidence is supplied, a 0% hit / 0 cache-read session is COLD_BLOAT even if TTL > 0s.
+  // Phase 2: `nextTurnLikelyWarm` (fresh cache write after a miss) supersedes the strict predicate when supplied.
+  const warmEvidence = typeof nextTurnLikelyWarm === 'boolean' ? nextTurnLikelyWarm : isCacheTrulyWarm;
+  const isNotTrulyWarm = warmEvidence === false;
+  const isColdOrOverHorizon = isNotTrulyWarm || Number(cacheTtlRemainingSec) <= 0 || Number(totalActiveTokens) > safeHorizon;
+
+  if (isColdOrOverHorizon) {
+    return {
+      state: 'COLD_BLOAT',
+      domState: 'cold-bloat',
+      label: 'Reclaimable Cold Bloat',
+      colorHex: '#f59e0b'
+    };
+  }
+
+  return {
+    state: 'CACHED_WARM',
+    domState: 'cached-warm',
+    label: 'Cached History \u2014 95% Discounted',
+    colorHex: '#0d9488'
+  };
+}
+
+/**
+ * Phase 3 (Layer 3): Computes Dual-Watermark + Hard Ceiling visual markers for the context bar.
+ */
+export function computeWatermarks(maxTokens = 256000, safeLimit = 179000) {
+  const denom = Math.max(1, Number(maxTokens) || 256000);
+  const cascadeTokens = SESSION_RISK_THRESHOLDS.CASCADE_SYNC_WATERMARK_TOKENS;
+  const attentionHorizonTokens = Math.round(denom * 0.70);
+  return {
+    cascadeSync: {
+      tokens: cascadeTokens,
+      pct: parseFloat(Math.min(100, (cascadeTokens / denom) * 100).toFixed(1)),
+      label: 'Cascade Sync Armed',
+      tooltip: WATERMARK_TOOLTIPS.CASCADE_SYNC_ARMED
+    },
+    attentionHorizon: {
+      tokens: attentionHorizonTokens,
+      safeLimitTokens: safeLimit,
+      pct: parseFloat(Math.min(100, (attentionHorizonTokens / denom) * 100).toFixed(1)),
+      label: 'Attention Horizon (Safe Limit)',
+      tooltip: WATERMARK_TOOLTIPS.ATTENTION_HORIZON
+    },
+    hardCeiling: {
+      tokens: denom,
+      pct: 100,
+      label: `${Math.round(denom / 1000)}k Hard Assembly Limit`,
+      source: 'cortex/utils.GetCheckpointConfig',
+      tooltip: WATERMARK_TOOLTIPS.CORTEX_HARD_CLAMP
+    }
+  };
 }
 
 /**
@@ -40,16 +337,29 @@ export function classifyHorizon(rawSteps, options = {}) {
 
   let lastCheckpointIdx = -1;
   for (let i = rawSteps.length - 1; i >= 0; i--) {
-    if (rawSteps[i] && rawSteps[i].type === 'CHECKPOINT') {
+    if (rawSteps[i] && isCompactionCheckpointStep(rawSteps[i])) {
       lastCheckpointIdx = i;
       break;
     }
   }
   const steps = lastCheckpointIdx >= 0 ? rawSteps.slice(lastCheckpointIdx) : rawSteps;
+  const fullReReadEval = evaluateSmartFileReReads(rawSteps);
+  const smartReReads = lastCheckpointIdx >= 0 ? evaluateSmartFileReReads(steps) : fullReReadEval;
 
+  const activeConfig = options.config || loadFlightcheckConfig();
+  const cliSettings = options.cliSettings || (
+    options.cliSettingsPath || storeSource === 'antigravity-cli' || String(logFilePath).includes('antigravity-cli')
+      ? loadCliSurfaceSettings(options.cliSettingsPath)
+      : null
+  );
+  const ceilingDetails = resolveModelCeilingDetailed(modelId, stdinContextWindow, {
+    useLegacyDefault: !useNativeCeiling,
+    config: activeConfig,
+    cliSettings
+  });
   const resolvedMaxTokens = Number(maxTokensOverride) >= 20000
     ? Number(maxTokensOverride)
-    : resolveModelCeiling(modelId, stdinContextWindow, { useLegacyDefault: !useNativeCeiling });
+    : ceilingDetails.ceilingTokens;
 
   const parsedEffort = extractEffortTimeline(rawSteps);
   const rawEffortProfile = options.activeEffortProfile
@@ -62,6 +372,12 @@ export function classifyHorizon(rawSteps, options = {}) {
 
   const defaultSafeLimit = activeEffortProfile?.safeLimit || HORIZON_WINDOW.AMPUTATION_THRESHOLD_TOKENS;
   const safeLimit = Number(safeLimitTokens) > 0 ? Number(safeLimitTokens) : defaultSafeLimit;
+  if (activeEffortProfile && activeEffortProfile.safeLimit !== safeLimit) {
+    activeEffortProfile.safeLimit = safeLimit;
+    if (activeEffortProfile.tier === 'STANDARD') {
+      activeEffortProfile.limitReason = `${Math.round(safeLimit / 1000)}k recall ceiling`;
+    }
+  }
   const reminderAt = Math.round(safeLimit * (Number(reminderAtPct) > 0 ? Number(reminderAtPct) : 85) / 100);
 
   // Track file operations for stale duplicate detection & semantic reference pinning
@@ -83,7 +399,7 @@ export function classifyHorizon(rawSteps, options = {}) {
       const name = (call.name || '').toLowerCase();
       const args = call.args || {};
       const targetFile = args.Path || args.path || args.Target || args.target;
-      if (targetFile && typeof targetFile === 'string') {
+      if (targetFile && typeof targetFile === 'string' && !isInternalTelemetryPath(targetFile)) {
         const canon = canonicalizePath(targetFile);
         latestFileTouchStep.set(canon, idx);
         fileTouchCounts.set(canon, (fileTouchCounts.get(canon) || 0) + 1);
@@ -126,9 +442,10 @@ export function classifyHorizon(rawSteps, options = {}) {
 
   for (let idx = 0; idx < steps.length; idx++) {
     const step = steps[idx];
+    const estFromLength = Number(step.untruncatedLength) > 0 ? Math.round(step.untruncatedLength / 4) : 0;
     let tokens = step.inputTokens > 0 && step.outputTokens > 0
-      ? Math.max(step.outputTokens, Math.round(step.untruncatedLength / 4))
-      : (step.outputTokens || Math.round(step.untruncatedLength / 4) || 1000);
+      ? Math.max(step.outputTokens, estFromLength)
+      : (step.outputTokens || estFromLength || 1000);
 
     if (step.stepIndex === 0 && step.inputTokens > 0) {
       tokens = step.inputTokens;
@@ -144,7 +461,7 @@ export function classifyHorizon(rawSteps, options = {}) {
     // 1. Anchor detection
     if (
       step.stepIndex === 0 ||
-      step.type === 'CHECKPOINT' ||
+      isCompactionCheckpointStep(step) ||
       step.type === 'SYSTEM_PROMPT' ||
       contentStr.includes('rules/') ||
       contentStr.includes('task.md') ||
@@ -178,24 +495,21 @@ export function classifyHorizon(rawSteps, options = {}) {
       off.stepIndices.push(idx);
       offenderMap.set(target, off);
     }
-    // 4. Stale duplicate detection with Semantic Reference Pinning (T2.2)
+    // 4. Smart File Re-Read Classifier (Phase 5 Layer 5) & Semantic Reference Pinning (T2.2)
     else {
       let isStale = false;
       let stepFileBasename = '';
       for (const call of calls) {
-        const name = (call.name || '').toLowerCase();
         const args = call.args || {};
-        const targetFile = args.Path || args.path;
+        const targetFile = args.Path || args.path || args.Target || args.target || args.TargetFile || args.AbsolutePath;
         if (targetFile) {
-          const canon = canonicalizePath(targetFile);
           stepFileBasename = path.basename(String(targetFile)).toLowerCase();
-          const latestIdx = latestFileTouchStep.get(canon);
-          if (latestIdx !== undefined && latestIdx > idx) {
-            isStale = true;
-            target = targetFile;
-            break;
-          }
+          break;
         }
+      }
+      if (smartReReads.wasteTargetByStep.has(idx)) {
+        isStale = true;
+        target = smartReReads.wasteTargetByStep.get(idx);
       }
 
       let semanticallyPinned = false;
@@ -251,10 +565,24 @@ export function classifyHorizon(rawSteps, options = {}) {
     const scale = stdinContextWindow.total_input_tokens / Math.max(1, totalActiveTokens);
     totalActiveTokens = stdinContextWindow.total_input_tokens;
     for (const cat of Object.keys(categoryTotals)) {
-      categoryTotals[cat] = Math.round(categoryTotals[cat] * scale);
+      categoryTotals[cat] = 0;
     }
     for (const s of classifiedSteps) {
       s.tokens = Math.round(s.tokens * scale);
+      categoryTotals[s.category] = (categoryTotals[s.category] || 0) + s.tokens;
+    }
+    const scaledSum = Object.values(categoryTotals).reduce((acc, v) => acc + v, 0);
+    const residual = totalActiveTokens - scaledSum;
+    if (residual !== 0 && classifiedSteps.length > 0) {
+      let maxStep = classifiedSteps[0];
+      for (const s of classifiedSteps) {
+        if (s.tokens > maxStep.tokens) maxStep = s;
+      }
+      maxStep.tokens = Math.max(0, maxStep.tokens + residual);
+      categoryTotals[maxStep.category] = Math.max(0, (categoryTotals[maxStep.category] || 0) + residual);
+    }
+    for (const off of offenderMap.values()) {
+      off.wastedTokens = off.stepIndices.reduce((sum, sIdx) => sum + (classifiedSteps[sIdx]?.tokens || 0), 0);
     }
   }
 
@@ -290,6 +618,13 @@ export function classifyHorizon(rawSteps, options = {}) {
         isAmputationZone: false,
         isCrisisCell: false,
         attentionWeight: 0.20,
+        attentionZone: 'FREE_HEADROOM',
+        inAttentionTrough: false,
+        isStrandedSignal: false,
+        strandedWarning: '',
+        turnsDetail: [],
+        fractures: [],
+        hasFracture: false,
         tokensByCategory: { [CATEGORIES.FREE_HEADROOM]: effectiveCellSize },
         topTarget: 'Free Token Headroom'
       });
@@ -299,12 +634,14 @@ export function classifyHorizon(rawSteps, options = {}) {
     const bucketCategories = {};
     let bucketTokensRemaining = Math.min(effectiveCellSize, totalActiveTokens - cellStartToken);
     let cellTurns = [];
+    const cellTurnsDetailMap = new Map();
     let dominantCat = CATEGORIES.ACTIVE_WORKING_SET;
     let maxCatTokens = -1;
     let topTarget = '';
 
     while (bucketTokensRemaining > 0 && currentStepIdx < classifiedSteps.length) {
       const step = classifiedSteps[currentStepIdx];
+      const rawStep = steps[step.stepIndex] || {};
       const stepRemainingTokens = step.tokens - stepTokenOffset;
       const consume = Math.min(bucketTokensRemaining, stepRemainingTokens);
 
@@ -316,6 +653,24 @@ export function classifyHorizon(rawSteps, options = {}) {
       }
 
       cellTurns.push(step.stepIndex);
+      if (!cellTurnsDetailMap.has(step.stepIndex)) {
+        const rawCalls = rawStep.toolCalls || rawStep.tool_calls || [];
+        const toolCallLabels = rawCalls.map(c => {
+          const nm = c.name || c.tool || 'tool';
+          const arg = c.args?.Path || c.args?.path || c.args?.CommandLine || c.args?.ServerName || '';
+          return arg ? `${nm}(${String(arg).slice(0, 60)})` : nm;
+        });
+        cellTurnsDetailMap.set(step.stepIndex, {
+          stepIndex: step.stepIndex,
+          category: step.category,
+          tokens: consume,
+          target: step.target || 'Turn',
+          toolCalls: toolCallLabels
+        });
+      } else {
+        cellTurnsDetailMap.get(step.stepIndex).tokens += consume;
+      }
+
       bucketTokensRemaining -= consume;
       stepTokenOffset += consume;
 
@@ -326,7 +681,16 @@ export function classifyHorizon(rawSteps, options = {}) {
     }
 
     const isAmputationZone = totalActiveTokens > safeLimit && cellIdx < HORIZON_WINDOW.AMPUTATION_CELL_COUNT;
-    const attentionWeight = calculateAttentionWeight(cellIdx, Math.max(1, activeCellsCount));
+    const parabolic = calculateParabolicAttentionCurve(cellIdx, Math.max(1, activeCellsCount));
+    const attentionWeight = parabolic.uShapedWeight;
+    const meetsTokenFloor = totalActiveTokens >= 44800 && activeCellsCount >= 7;
+    const inTrough = meetsTokenFloor && parabolic.inTrough;
+    const hasActiveOrRuleBuffer =
+      dominantCat === CATEGORIES.ACTIVE_WORKING_SET ||
+      dominantCat === CATEGORIES.ANCHOR ||
+      (bucketCategories[CATEGORIES.ACTIVE_WORKING_SET] || 0) > 0 ||
+      (bucketCategories[CATEGORIES.ANCHOR] || 0) > 0;
+    const isStrandedSignal = inTrough && hasActiveOrRuleBuffer;
 
     cells.push({
       index: cellIdx,
@@ -336,6 +700,14 @@ export function classifyHorizon(rawSteps, options = {}) {
       isAmputationZone,
       isCrisisCell: false,
       attentionWeight,
+      attentionZone: parabolic.zone,
+      inAttentionTrough: inTrough,
+      parabolicAttention: parabolic,
+      isStrandedSignal,
+      strandedWarning: isStrandedSignal ? STRANDED_SIGNAL_WARNING_TEXT : '',
+      turnsDetail: Array.from(cellTurnsDetailMap.values()),
+      fractures: [],
+      hasFracture: false,
       tokensByCategory: bucketCategories,
       topTarget
     });
@@ -396,16 +768,21 @@ export function classifyHorizon(rawSteps, options = {}) {
   const signalTokens = categoryTotals[CATEGORIES.ANCHOR] + categoryTotals[CATEGORIES.ACTIVE_WORKING_SET];
   const signalPurityPct = Math.round((signalTokens / Math.max(1, totalActiveTokens)) * 100);
 
-  const pricePerM = MODEL_PRICING_PER_MILLION[modelId] || MODEL_PRICING_PER_MILLION.default;
+  const pricePerM = resolvePricePerM(modelId, activeConfig);
   const sludgeTokens = categoryTotals[CATEGORIES.STALE_DUPLICATE] + categoryTotals[CATEGORIES.DEAD_ERROR] + categoryTotals[CATEGORIES.FOREIGN_BLEED];
   const sludgeTaxPerTurnUsd = parseFloat(((sludgeTokens / 1000000) * pricePerM).toFixed(4));
   const totalTurnCostUsd = parseFloat(((totalActiveTokens / 1000000) * pricePerM).toFixed(4));
 
-  // Health band
+  // Health band (gated on compaction relevance so lean <50k sessions do not false-alarm)
+  const compactionRelevant = isCompactionRelevant({
+    totalActiveTokens,
+    sludgeTokens,
+    safeHorizonTokens: safeLimit
+  });
   let healthBand = 'OPTIMAL_FOCUS';
   if (amputationCrisis) healthBand = 'AMPUTATION_CRISIS';
-  else if (signalPurityPct < 40) healthBand = 'CRITICAL_SLUDGE';
-  else if (signalPurityPct < 75) healthBand = 'VISIBLE_CLUTTER';
+  else if (compactionRelevant && signalPurityPct < 40) healthBand = 'CRITICAL_SLUDGE';
+  else if (compactionRelevant && signalPurityPct < 75) healthBand = 'VISIBLE_CLUTTER';
 
   // Format Top Offenders Ledger
   const offenders = Array.from(offenderMap.values())
@@ -417,6 +794,20 @@ export function classifyHorizon(rawSteps, options = {}) {
       const recallPct = Math.round(calculateAttentionWeight(estCell, activeCellsCount) * 100);
       const costUsd = parseFloat(((off.wastedTokens / 1000000) * pricePerM).toFixed(4));
 
+      const wastedK = Math.max(0.1, parseFloat((off.wastedTokens / 1000).toFixed(1)));
+      const supersededSteps = off.stepIndices.length > 1 ? off.stepIndices.slice(0, -1) : off.stepIndices;
+      const stepListStr = supersededSteps.slice(0, 5).join(', ') + (supersededSteps.length > 5 ? '...' : '');
+      let remediation = `Deduplicate file reads via /compact`;
+      if (off.category === CATEGORIES.DEAD_ERROR) {
+        remediation = `Collapse ${off.occurrences} resolved error trace(s) at step(s) [${off.stepIndices.slice(0, 5).join(', ')}] (~${wastedK}k tok) via Surgical Pruner or /compact`;
+      } else if (off.target === 'Older chat history (>25 turns ago)') {
+        remediation = `Compress ${off.occurrences} stale turns at steps [${stepListStr}] (~${wastedK}k tok) via /compact`;
+      } else if (isIgnorablePath(off.target)) {
+        remediation = `echo "${off.target}" >> .antigravityignore && prune ${ Math.max(1, off.occurrences - 1)} read(s) at step(s) [${stepListStr}] (~${wastedK}k tok)`;
+      } else {
+        remediation = `Fold ${Math.max(1, off.occurrences - 1)} superseded read(s) of ${off.target} at step(s) [${stepListStr}] (~${wastedK}k tok) via Surgical Pruner or use read_file { Path: "${off.target}", StartLine: 1, EndLine: 200 }`;
+      }
+
       return {
         rank: rank + 1,
         target: off.target,
@@ -426,9 +817,7 @@ export function classifyHorizon(rawSteps, options = {}) {
         wastedTokens: off.wastedTokens,
         sludgeCostPerTurnUsd: costUsd,
         attentionRecallPct: recallPct,
-        remediation: off.category === CATEGORIES.DEAD_ERROR
-          ? 'Prune resolved stack traces via /compact'
-          : 'Deduplicate file reads via /compact'
+        remediation
       };
     });
 
@@ -437,19 +826,19 @@ export function classifyHorizon(rawSteps, options = {}) {
   let whatsHappening = '';
   let theSludgeTax = '';
   let actionPlan = '';
-  let recommendedCommand = '/fast';
+  let recommendedCommand = 'Ready';
 
   if (amputationCrisis) {
-    whatsHappening = `Prefix truncation alert! Total memory (> 180k tokens) or early task checkpoints are inside the ${Math.round(safeLimit / 1000)}k+ truncation zone.`;
+    whatsHappening = `Prefix truncation alert! Total memory (> ${Math.round(reminderAt / 1000)}k tokens) or early task checkpoints are inside the ${Math.round(safeLimit / 1000)}k+ truncation zone.`;
     theSludgeTax = `${reclaimK}k reclaimable noise tokens (${100 - signalPurityPct}% of active context) are pushing your earliest rules toward truncation.`;
     actionPlan = `Save progress to task.md and start a fresh chat or run /clear now.`;
     recommendedCommand = '/clear';
-  } else if (signalPurityPct < 40 || inAmputationZone) {
+  } else if (inAmputationZone || (compactionRelevant && signalPurityPct < 40)) {
     whatsHappening = `High context dilution: ${(100 - signalPurityPct)}% of active memory (${reclaimK}k tokens) consists of outdated turns and repeated file reads.`;
     theSludgeTax = `${reclaimK}k tokens can be reclaimed immediately via /compact. Middle-window recall has dropped to ~24%.`;
     actionPlan = `Run /compact to compress older history and drop duplicate file snapshots while keeping active rules intact.`;
     recommendedCommand = '/compact';
-  } else if (signalPurityPct < 75) {
+  } else if (compactionRelevant && (signalPurityPct < 75 || sludgeTokens >= 25000)) {
     whatsHappening = `Moderate context clutter (${reclaimK}k reclaimable tokens). Working set is healthy, but duplicate file reads are accumulating.`;
     theSludgeTax = `${reclaimK}k tokens of outdated history can be freed.`;
     actionPlan = `Run /compact when you finish the current step to reclaim ${reclaimK}k tokens.`;
@@ -458,13 +847,13 @@ export function classifyHorizon(rawSteps, options = {}) {
     whatsHappening = `High-efficiency session. Memory is clean and focused on active workspace files with plenty of safe headroom.`;
     theSludgeTax = `Minimal noise (${reclaimK}k tokens). Signal purity is optimal at ${signalPurityPct}%.`;
     actionPlan = `Memory is clean. Continue working normally.`;
-    recommendedCommand = '/fast';
+    recommendedCommand = 'Ready';
   }
 
   // Compute actionable Brain Signals from transcript forensics
   const allOffenders = Array.from(offenderMap.values());
   const dupFileOffenders = allOffenders
-    .filter(o => o.category === CATEGORIES.STALE_DUPLICATE && o.target !== 'Older chat history (>25 turns ago)' && !String(o.target).startsWith('Conversational Turn'))
+    .filter(o => o.category === CATEGORIES.STALE_DUPLICATE && o.target !== 'Older chat history (>25 turns ago)')
     .sort((a, b) => b.wastedTokens - a.wastedTokens);
   const oldHistOffender = allOffenders.find(o => o.target === 'Older chat history (>25 turns ago)');
   const errorOffenders = allOffenders.filter(o => o.category === CATEGORIES.DEAD_ERROR);
@@ -496,11 +885,14 @@ export function classifyHorizon(rawSteps, options = {}) {
   const recentErrors = recentSteps.filter(s => s.status === 'ERROR' || s.exitCode === 1).length;
 
   let correctionCount = 0;
+  const userCorrectionTexts = [];
   for (const s of steps) {
     if (s.source === 'USER_EXPLICIT' || s.type === 'USER_INPUT') {
-      const lower = String(s.content || '').toLowerCase();
+      const rawTxt = String(s.content || '').trim();
+      const lower = rawTxt.toLowerCase();
       if (/\b(no[, ]|don't|do not|instead|wrong|looks the same|shouldn't|broken|still not)\b/.test(lower)) {
         correctionCount++;
+        if (rawTxt) userCorrectionTexts.push(rawTxt.slice(0, 100));
       }
     }
   }
@@ -511,15 +903,85 @@ export function classifyHorizon(rawSteps, options = {}) {
     /write|edit|replace|create/i.test(c.name || '') &&
     /task\.md/i.test(String(c.args?.Path || c.args?.path || c.args?.TargetFile || c.args?.AbsolutePath || '')));
   let lastTaskWrite = -1;
-  steps.forEach((x, i) => { if (isTaskWrite(x)) lastTaskWrite = i; });
+  let lastTaskWritePath = null;
+  steps.forEach((x, i) => {
+    if (!isTaskWrite(x)) return;
+    lastTaskWrite = i;
+    for (const c of (x.toolCalls || [])) {
+      const p = String(c.args?.Path || c.args?.path || c.args?.TargetFile || c.args?.AbsolutePath || '');
+      if (/task\.md/i.test(p)) lastTaskWritePath = p;
+    }
+  });
   const taskTurnsBehind = steps.slice(lastTaskWrite + 1).filter(isUserTurn).length;
+  const isWorkspaceFileWrite = x => (x.toolCalls || []).some(c => {
+    if (!/write|edit|replace|create/i.test(c.name || '')) return false;
+    const p = String(c.args?.Path || c.args?.path || c.args?.TargetFile || c.args?.AbsolutePath || '');
+    return Boolean(p) && !isInternalTelemetryPath(p);
+  });
+  const sessionHasWorkspaceEdits = steps.some(isWorkspaceFileWrite);
+  // Phase 3: the set of workspace files this session wrote/edited (for session-scoped git drift).
+  const sessionWrittenPaths = new Set();
+  for (const x of steps) {
+    for (const c of (x.toolCalls || [])) {
+      if (!/write|edit|replace|create/i.test(c?.name || '')) continue;
+      const p = String(c?.args?.Path || c?.args?.path || c?.args?.TargetFile || c?.args?.AbsolutePath || '');
+      if (p && !isInternalTelemetryPath(p)) sessionWrittenPaths.add(p);
+    }
+  }
 
   const pinnedStepsCount = classifiedSteps.filter(s => s.semanticallyPinned).length;
+
+  // Session Forensics (plan churn, proof quality, context rot, error loop)
+  const planChurn = computePlanChurn(steps, options.config || {});
+  const proofQuality = gradeProofQuality(steps);
+  const contextRot = detectContextRot(steps, {
+    totalActiveTokens,
+    correctionCount,
+    lateStageTaskChurn: planChurn.lateStageTaskChurn,
+    signalPurityPct
+  }, options.config || {});
+  const errorLoop = fingerprintErrorLoop(steps);
+
+  let brainDir = options.brainDir || null;
+  if (!brainDir && logFilePath) {
+    try {
+      const parent2 = path.resolve(path.dirname(logFilePath), '..', '..');
+      if (path.basename(path.dirname(parent2)) === 'brain' || path.basename(parent2).length > 20) {
+        brainDir = parent2;
+      }
+    } catch {}
+  }
+  const handoff = auditHandoff(brainDir || canonicalWorkspace, {
+    planChurn,
+    errorLoop,
+    deadErrors: { isErrorLoop: recentErrors >= 3 || errorLoop.loop },
+    totalActiveTokens,
+    sludgeTokens,
+    sessionHasWorkspaceEdits,
+    activeSignal: {
+      taskMdTurnsBehind: taskTurnsBehind,
+      taskMdPathHint: lastTaskWritePath,
+      sessionHasWorkspaceEdits
+    }
+  }, {
+    workspacePath: canonicalWorkspace,
+    gitPorcelainOutput: options.gitPorcelainOutput,
+    sessionWrittenPaths: Array.from(sessionWrittenPaths)
+  });
+
+  const mcpAudit = auditMcpPrefixBloat({
+    workspaceDir: canonicalWorkspace,
+    homeDir: options.homeDir,
+    steps
+  });
+  const rulePromotion = auditRuleFileAttentionAndLineLimit(canonicalWorkspace);
+
   const brainSignals = {
     activeSignal: {
       liveSessionTokens: Math.round((rawLiveTokens / rawTotalTokens) * totalActiveTokens),
       taskMdSaved: lastTaskWrite >= 0,
       taskMdTurnsBehind: taskTurnsBehind,
+      sessionHasWorkspaceEdits,
       semanticallyPinnedTurns: pinnedStepsCount
     },
     duplicateReads: {
@@ -529,7 +991,8 @@ export function classifyHorizon(rawSteps, options = {}) {
         path: o.target,
         occurrences: o.occurrences,
         wastedTokens: o.wastedTokens
-      }))
+      })),
+      exemptedReReads: fullReReadEval.exemptedReReads
     },
     oldHistory: {
       turnCount: oldHistOffender ? oldHistOffender.occurrences : 0,
@@ -538,7 +1001,7 @@ export function classifyHorizon(rawSteps, options = {}) {
     deadErrors: {
       errorCount: errorOffenders.reduce((sum, o) => sum + o.occurrences, 0),
       reclaimableTokens: categoryTotals[CATEGORIES.DEAD_ERROR] || 0,
-      isErrorLoop: recentErrors >= 3,
+      isErrorLoop: recentErrors >= 3 || errorLoop.loop,
       topErrors: errorOffenders.slice(0, 3).map(o => ({
         target: o.target,
         occurrences: o.occurrences,
@@ -547,17 +1010,102 @@ export function classifyHorizon(rawSteps, options = {}) {
     },
     blowupSteps,
     userCorrections: correctionCount,
-    activeDaemons: activeBackgroundDaemons
+    userCorrectionTexts,
+    activeDaemons: activeBackgroundDaemons,
+    planChurn,
+    proofQuality,
+    contextRot,
+    errorLoop,
+    handoff,
+    mcpAudit,
+    rulePromotion
   };
 
-  // Compute Dual-Pool Quota & Cache-Read Telemetry (T2.1)
+  const aiCreditOveragesEnabled = Boolean(
+    options.aiCreditOveragesEnabled ??
+    stdinQuota?.enable_ai_credit_overages ??
+    stdinQuota?.aiCreditOveragesEnabled ??
+    false
+  );
+
+  // Compute Dual-Pool Quota & Cache-Read Telemetry (T2.1 + Phase 2 Layer 2)
   const quota = computeQuotaAndCacheTelemetry(steps, {
     sessionId,
+    modelId,
     totalActiveTokens,
     activeEffortProfile,
     stdinQuota,
+    genMetadata: options.genMetadata || null,
+    aiCreditOveragesEnabled,
     cacheDir
   });
+
+  // Detect pending checklist items in task.md (or recent task writes) for Cascade >50k checkpointer arming
+  let hasPendingTaskItems = false;
+  if (options.hasPendingTaskItems !== undefined) {
+    hasPendingTaskItems = Boolean(options.hasPendingTaskItems);
+  } else if (handoff?.targetFile && fs.existsSync(handoff.targetFile)) {
+    try {
+      const taskText = fs.readFileSync(handoff.targetFile, 'utf8');
+      hasPendingTaskItems = /^[-*]\s*\[ \]/m.test(taskText);
+    } catch {}
+  } else if (lastTaskWrite >= 0) {
+    hasPendingTaskItems = steps.slice(lastTaskWrite).some(s => String(s.content || '').includes('- [ ]'));
+  }
+  brainSignals.activeSignal.hasPendingTaskItems = hasPendingTaskItems;
+
+  const sessionRisk = evaluateCompositeSessionRisk({
+    totalActiveTokens,
+    safeHorizonTokens: Math.min(safeLimit, SESSION_RISK_THRESHOLDS.SAFE_HORIZON_TOKENS),
+    cacheTtlRemainingSec: quota.cache?.ttlRemainingSec ?? 300,
+    cacheReadTokens: quota.cache?.cacheReadTokens ?? 0,
+    cacheHitRatePct: quota.cache?.hitRatePct ?? 0,
+    taskMdTurnsBehind: taskTurnsBehind,
+    hasPendingTaskItems,
+    weekly7dUsedPct: quota.weekly7d?.usedPct ?? 0,
+    weekly7dLockoutRisk: Boolean(quota.weekly7d?.lockoutRisk),
+    weekly7dSource: quota.weekly7d?.source,
+    aiCreditOveragesEnabled,
+    prefixBustDetected: Boolean(quota.cache?.prefixBustDetected)
+  });
+  const surfaceTag = resolveSurfaceTag(storeSource || logFilePath);
+  const watermarks = computeWatermarks(effectiveMaxTokens, safeLimit);
+  const historyBarState = evaluateHistoryBarState({
+    totalActiveTokens,
+    safeHorizonTokens: SESSION_RISK_THRESHOLDS.SAFE_HORIZON_TOKENS,
+    cacheTtlRemainingSec: quota.cache?.ttlRemainingSec ?? 300,
+    isCacheTrulyWarm: sessionRisk.isCacheTrulyWarm,
+    nextTurnLikelyWarm: typeof quota.cache?.nextTurnLikelyWarm === 'boolean' ? quota.cache.nextTurnLikelyWarm : undefined
+  });
+
+  // Phase 4 (Layer 4): Parameterized /compact synthesizer, Cache-Aware Advisory & Baton Pass (/handoff)
+  const activeFileCandidates = Array.from(latestFileTouchStep.keys()).filter(p => !isInternalTelemetryPath(p));
+  const fallbackDupFiles = dupFileOffenders.map(o => o.target).filter(p => !isInternalTelemetryPath(p));
+  const cleanActiveFiles = activeFileCandidates.length > 0 ? activeFileCandidates : fallbackDupFiles;
+  const parameterizedCommand = synthesizeParameterizedCompact({
+    activeFiles: cleanActiveFiles,
+    userCorrections: userCorrectionTexts,
+    steps,
+    workspaceRoot: canonicalWorkspace
+  });
+  const cacheAdvisory = evaluateCompactionCacheAdvisory({
+    cacheTtlRemainingSec: quota.cache?.ttlRemainingSec ?? 300,
+    totalActiveTokens,
+    safeHorizonTokens: SESSION_RISK_THRESHOLDS.SAFE_HORIZON_TOKENS,
+    isCacheTrulyWarm: sessionRisk.isCacheTrulyWarm,
+    nextTurnLikelyWarm: typeof quota.cache?.nextTurnLikelyWarm === 'boolean' ? quota.cache.nextTurnLikelyWarm : undefined,
+    sludgeTokens
+  });
+  const batonPass = synthesizeBatonPassHandoffCommand({
+    activeFiles: cleanActiveFiles
+  });
+  const compaction = {
+    parameterizedCommand,
+    cacheAdvisory,
+    batonPass,
+    preCompactionWarning: Boolean(handoff?.preCompactionWarning),
+    preCompactionWarningMessage: handoff?.preCompactionWarningMessage || ''
+  };
 
   // Compute Multi-Agent (invoke_subagent) Context Tree & Handoff Compression (T2.3)
   const subagents = inspectSubagentTree(steps, { cacheDir });
@@ -571,10 +1119,115 @@ export function classifyHorizon(rawSteps, options = {}) {
     }
   }
 
+  // Phase 6 (Layer 6): Session Fracture Markers (⚡) & Stranded Signal Summary
+  const fractures = [];
+  const mapStepToCellIndex = (stepIdx) => {
+    for (const c of cells) {
+      if (c.turnRange && c.turnRange[0] >= 0 && stepIdx >= c.turnRange[0] && stepIdx <= c.turnRange[1]) {
+        return c.index;
+      }
+    }
+    return Math.min(39, Math.max(0, Math.floor((stepIdx / Math.max(1, totalTurns)) * Math.max(1, activeCellsCount))));
+  };
+
+  if (lastCheckpointIdx >= 0) {
+    fractures.push({
+      type: 'COMPACTION',
+      glyph: '\u26A1',
+      stepIndex: 0,
+      rawStepIndex: lastCheckpointIdx,
+      cellIndex: 0,
+      label: `Compaction Checkpoint (step_type == ${CORTEX_STEP_TYPE_CHECKPOINT}) at Turn #${lastCheckpointIdx}`
+    });
+  }
+  for (let i = 0; i < steps.length; i++) {
+    const st = steps[i];
+    if (i > 0 && isCompactionCheckpointStep(st)) {
+      const cIdx = mapStepToCellIndex(i);
+      fractures.push({
+        type: 'COMPACTION',
+        glyph: '\u26A1',
+        stepIndex: i,
+        cellIndex: cIdx,
+        label: `Compaction Checkpoint (step_type == ${CORTEX_STEP_TYPE_CHECKPOINT}) at Turn #${i}`
+      });
+    }
+    if (i > 0) {
+      const prev = steps[i - 1];
+      const currCache = Number(st?.cacheReadTokens || 0);
+      const prevCache = Number(prev?.cacheReadTokens || 0);
+      const currInput = Number(st?.inputTokens || st?.outputTokens || 0);
+      let deltaSec = 60;
+      if (st?.createdAt && prev?.createdAt) {
+        const dMs = Date.parse(st.createdAt) - Date.parse(prev.createdAt);
+        if (Number.isFinite(dMs) && dMs >= 0) deltaSec = dMs / 1000;
+      }
+      if (currCache === 0 && prevCache > 0 && currInput > 0 && deltaSec < 300) {
+        const cIdx = mapStepToCellIndex(i);
+        fractures.push({
+          type: 'PREFIX_BUST',
+          glyph: '\u26A1',
+          stepIndex: i,
+          cellIndex: cIdx,
+          deltaSec: Math.round(deltaSec),
+          label: `Mid-run Prefix Bust (cache_read_tokens == 0 at \u0394t = ${Math.round(deltaSec)}s < 300s) at Turn #${i}`
+        });
+      }
+    }
+  }
+  if (quota.cache?.prefixBustDetected && !fractures.some(f => f.type === 'PREFIX_BUST')) {
+    const lastActiveCellIdx = Math.max(0, activeCellsCount - 1);
+    fractures.push({
+      type: 'PREFIX_BUST',
+      glyph: '\u26A1',
+      stepIndex: Math.max(0, totalTurns - 1),
+      cellIndex: lastActiveCellIdx,
+      deltaSec: quota.cache?.prefixBustDeltaSec ?? 0,
+      label: quota.cache?.prefixBustLabel || '\u26A0\uFE0F Prefix Bust (system_message / config drift)'
+    });
+  }
+
+  for (const frac of fractures) {
+    const targetCell = cells[frac.cellIndex];
+    if (targetCell) {
+      targetCell.fractures = targetCell.fractures || [];
+      targetCell.fractures.push(frac);
+      targetCell.hasFracture = true;
+    }
+  }
+
+  const troughCells = cells.filter(c => c.inAttentionTrough);
+  const strandedSignals = cells
+    .filter(c => c.isStrandedSignal)
+    .map(c => ({
+      cellIndex: c.index,
+      cellNumber: c.index + 1,
+      dominantCategory: c.dominantCategory,
+      topTarget: c.topTarget,
+      attentionWeight: c.attentionWeight,
+      turnRange: c.turnRange,
+      warning: STRANDED_SIGNAL_WARNING_TEXT
+    }));
+
+  const attentionHeatmap = {
+    gamma: ATTENTION_TROUGH_CONFIG.GAMMA,
+    activeCellsCount,
+    troughStartRatio: ATTENTION_TROUGH_CONFIG.TROUGH_START_RATIO,
+    troughEndRatio: ATTENTION_TROUGH_CONFIG.TROUGH_END_RATIO,
+    troughCellIndices: troughCells.map(c => c.index),
+    strandedSignalCount: strandedSignals.length,
+    strandedSignals,
+    strandedWarningText: STRANDED_SIGNAL_WARNING_TEXT,
+    fractureCount: fractures.length,
+    fractures
+  };
+
   return {
     schemaVersion: '1.1.0',
     sessionId,
     storeSource,
+    surfaceTag,
+    brainDir: brainDir || null,
     logTierUsed,
     logFilePath,
     workspace: {
@@ -583,9 +1236,23 @@ export function classifyHorizon(rawSteps, options = {}) {
     },
     model: {
       id: modelId,
+      displayName: humanizeModelLabel(modelId),
+      source: options.modelSource || null,
       inputPricePerMillionUsd: pricePerM,
-      nativeCeilingTokens: resolveModelCeiling(modelId, stdinContextWindow, { useLegacyDefault: false })
+      nativeCeilingTokens: ceilingDetails.ceilingTokens,
+      ceilingSource: ceilingDetails.source,
+      isClamped1MModel: Boolean(ceilingDetails.isClamped1MModel),
+      clampedLabel: ceilingDetails.clampedLabel || '',
+      patchedTier: ceilingDetails.patchedTier || null
     },
+    parseHealth: options.parseHealth || rawSteps.health || {
+      totalLines: rawSteps.length,
+      parsedLines: rawSteps.length,
+      malformedLines: 0,
+      unknownShapeLines: 0,
+      confidence: 'HIGH'
+    },
+    confidence: (options.parseHealth || rawSteps.health)?.confidence || 'HIGH',
     window: {
       maxTokens: effectiveMaxTokens,
       cellSizeTokens: effectiveCellSize,
@@ -595,7 +1262,10 @@ export function classifyHorizon(rawSteps, options = {}) {
       exceeds200kTokens: totalActiveTokens >= 200000,
       turnCount: totalTurns,
       safeLimit,
-      reminderAt
+      safeHeadroomTokens: Math.max(0, safeLimit - totalActiveTokens),
+      reminderAt,
+      watermarks,
+      historyBarState
     },
     breakdown: categoryTotals,
     metrics: {
@@ -603,20 +1273,24 @@ export function classifyHorizon(rawSteps, options = {}) {
       sludgeTokens,
       sludgeTaxPerTurnUsd,
       totalTurnCostUsd,
-      healthBand
+      healthBand,
+      displayParity: computeDisplayTenthsParity(totalActiveTokens, Math.max(0, totalActiveTokens - sludgeTokens))
     },
     amputation: {
       inAmputationZone,
       bracketCells: [0, HORIZON_WINDOW.AMPUTATION_CELL_COUNT - 1],
       truncationRiskTokens: inAmputationZone ? HORIZON_WINDOW.AMPUTATION_CELL_COUNT * effectiveCellSize : 0,
       amputationCrisis,
-      anchorsAtRisk: earlySteps.filter(s => s.category === CATEGORIES.ANCHOR).map(s => s.target),
+      anchorsAtRisk: Array.from(new Set(earlySteps.filter(s => s.category === CATEGORIES.ANCHOR).map(s => s.target))),
       activeDaemonsAtRisk: daemonsAtRisk
     },
     cells,
+    attentionHeatmap,
     offenders,
     brainSignals,
     quota,
+    sessionRisk,
+    compaction,
     subagents,
     activeEffortProfile,
     effortTransitions,

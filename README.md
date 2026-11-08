@@ -1,225 +1,143 @@
 <div align="center">
 
-<img src="assets/logo.svg" alt="Context Horizon Logo" width="76" height="76" />
+# `ctxtop` — Context Horizon (v3.1.0)
 
-# Context Horizon (`ctxtop`)
+**Local Context Window Profiler, KV-Cache TTL Monitor & `<15ms` PreInvocation Router for Google Antigravity (`agy`)**
 
-### **`htop` for AI Coding Agents. See inside your 200k context window before it silently amputates your rules and burns your 5-hour quota.**
+[![Zero Runtime Dependencies](https://img.shields.io/badge/dependencies-0_runtime-brightgreen.svg)](#systems-architecture--zero-trust-security)
+[![Hook Latency](https://img.shields.io/badge/PreInvocation_hook-%3C15ms_p99-00e5ff.svg)](#deterministic-preinvocation-router--6-local-sensors)
+[![Node.js >= 22](https://img.shields.io/badge/node-%3E%3D22.5_builtin_sqlite-339933.svg)](#quick-start)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-[![CI Matrix](https://img.shields.io/github/actions/workflow/status/Gizzant/context-horizon/ci.yml?branch=main&label=CI%20%28Win%20%7C%20Mac%20%7C%20Linux%29&style=flat-square)](https://github.com/Gizzant/context-horizon/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](LICENSE)
-[![Zero Dependencies](https://img.shields.io/badge/Dependencies-0%20%28Pure%20Node%20ESM%29-00d7ff?style=flat-square)](package.json)
-[![Hook Latency](https://img.shields.io/badge/Hook%20Latency-%3C15ms%20p99-f59e0b?style=flat-square)](#benchmark--verification-suite)
-[![Privacy](https://img.shields.io/badge/Privacy-100%25%20Local%20%2F%200%20Network%20Calls-a855f7?style=flat-square)](SECURITY.md)
+[**Live Interactive WebView Demo**](https://gizzant.github.io/context-horizon/) • [**Quick Start**](#quick-start) • [**Systems Architecture**](#systems-architecture--zero-trust-security) • [**CLI & Forensics**](#cli-commands--forensic-postmortem)
 
-**[Launch Live Browser Demo](https://gizzant.github.io/context-horizon/)** • **[30-Second Quickstart](#30-second-quickstart)** • **[8 Reddit Complaints We Fix](#sound-familiar-8-real-redditor-complaints-we-fix)** • **[40-Cell Taxonomy](#the-40-cell-visual-taxonomy)** • **[Contributing](CONTRIBUTING.md)**
+<br/>
 
-<img src="assets/hero-demo.svg" alt="Context Horizon 40-Cell HUD and Flight Check Demo" width="100%" />
+<img src="assets/hero_terminal.svg" alt="Context Horizon 40-Cell ANSI HUD & PreInvocation Router" width="100%" />
 
 </div>
 
 ---
 
-## Why `context-horizon` (`ctxtop`) Exists
+## Why `ctxtop` Exists (vs. Cloud LLM Observability)
 
-Every developer pushing long-context coding agents (Google Antigravity, Gemini 3.1/3.8/4 Argon, Claude Opus/Sonnet) hits the same wall around Turn 25 to 40:
+Cloud trace platforms (Langfuse, Helicone, Arize) require proxying API keys over the network and only observe HTTP request/response payloads. They have **zero visibility into the local filesystem, git working tree, IDE process table, or local SQLite/JSONL session stores**.
 
-1. **Silent Prefix Amputation (`>140k` tokens):** Early turns containing `AGENTS.md`, architecture invariants, and `implementation_plan.md` get pushed into the server truncation zone or fall into the "Lost in the Middle" attention trough.
-2. **Invisible Sludge Tax (`$/turn`):** Your agent re-reads the same 600-line file 6 times and keeps 4 resolved compiler stack traces in memory. You pay for those dead tokens on *every single subsequent turn*.
-3. **Blind Stale-File Overwrites:** You edit a file in VS Code while the agent is thinking, and the agent overwrites your fix using a 15-minute-old snapshot.
-4. **5-Hour Quota Evaporation:** High-effort reasoning runs fire on polluted 40%-purity context, draining your 5-hour quota bucket in 40 minutes.
+`ctxtop` is a zero-dependency local systems profiler built on Node.js built-ins (`node:sqlite`, `node:fs`, `node:http`). It correlates local session transcripts and SQLite `gen_metadata` tables with live disk state to catch failure modes that cloud proxies cannot see:
 
-`context-horizon` (`ctxtop`) solves this with **zero external dependencies** and **`<15ms` hook latency** by combining a **40-Cell Chronological ANSI HUD**, an **Edward Tufte IDE Webview**, **6 Blind-Spot Sensors**, and an **8-State `PreInvocation` Flight Check Router**.
+| Failure Mode | Root Cause in Agentic Sessions | How `ctxtop` Detects & Remediates It Locally |
+| :--- | :--- | :--- |
+| **Stale File Overwrites (`DIRTY_SNAP`)** | Developer edits or runs `git pull` on a file the agent read 10 turns ago; the agent overwrites disk changes with its stale in-context snapshot. | Compares `fs.statSync(path).mtimeMs` on disk against the last `read_file` / `view_file` step timestamp in the JSONL transcript (`+1000ms` tolerance) and injects a pre-turn re-read guard. |
+| **Unseen Call-Site Breakage (`UNSEEN_CALLERS`)** | Agent modifies an exported function signature without reading downstream callers in the repo. | Runs a bounded `<8ms` regex import scan (`import ... from`, `require()`, Python `from ... import`) across workspace files (up to 250 files) and flags callers absent from the active working set. |
+| **Superseded Full-File Reads (`STALE_DUPLICATE`)** | Agent reads the same 800-line file 6 times across a session without intermediate edits, burning KV cache and diluting middle-window recall. | Tracks file reads per compaction epoch (`CORTEX_STEP_TYPE_CHECKPOINT = 23`), exempting legitimate `read -> edit -> read` and `read -> run_command -> read` verification cycles, and folds superseded reads into line-numbered declaration stubs. |
+| **Turn-0 MCP Schema Bloat (`SCHEMA_TAX`)** | Eagerly loaded MCP servers inject 15k–40k tokens of JSON tool schemas on Turn 0 even when never invoked. | Audits `~/.gemini/config/mcp_config.json`, `.agents/mcp_config.json`, and `~/.gemini/antigravity/mcp/` against actual `call_mcp_tool` invocations and identifies zero-call eager servers to switch to `"loading": "lazy"`. |
+| **KV-Cache Prefix Busts (`PREFIX_BUST`)** | Switching models or mutating system rules mid-session while the 5-minute KV cache is warm (`>50k` tokens) forces a 100% uncached prefix rebuild. | Inspects per-turn `cache_read_tokens` deltas and `<USER_SETTINGS_CHANGE>` events in `conversations/<id>.db` (`gen_metadata`) to distinguish natural 300s TTL expiry from config-induced prefix busts. |
+| **Prefix Truncation & Unsynced State** | Crossing the safe context ceiling (`140k–179k` tokens) while `task.md` is stale or git has uncommitted session edits risks losing early architectural constraints. | Cross-checks `git status --porcelain=v1 -z` (filtered to files written in the current session) against `task.md` freshness before `/compact` or session handoff. |
 
 ---
 
-## 30-Second Quickstart
+## Quick Start
 
-Requires **Node.js 20+** (Windows, macOS, or Linux). Zero npm dependencies installed.
-
+### 1. Inspect Live Sessions or Run a Forensic Postmortem
 ```bash
-# 1. Preview the 40-cell HUD & Flight Check Scorecard right now (no active session needed)
-npx context-horizon --demo
+# Audit the last 5 local Antigravity sessions for duplicate file reads, dead errors & MCP schema tax
+node src/cli/postmortem.mjs --last 5
 
-# 2. Watch a live 5-stage terminal replay (Cold Start -> Sludge -> Amputation -> Recovery)
-npx context-horizon --demo-animate
+# Run environment & transcript health diagnostics (hooks, SQLite/JSONL confidence, 3-way mirror SHA-256)
+node src/cli/doctor.mjs
 
-# 3. Install globally into Google Antigravity (copies plugin, fixes hooks.json, configures statusLine)
-npx context-horizon init
-
-# 4. Audit your local sessions & print a shareable "Context Roast Card"
-npx ctxtop --roast
-
-# 5. Launch the standalone Edward Tufte IDE Webview in your browser
-npx context-horizon --serve
+# Print the 40-cell ANSI status bar for the active Antigravity session
+node src/cli/horizon_hud.mjs --live
 ```
 
-*(Running from a cloned repo? Use `npm start`, `npm run install-plugin`, `npm run roast`, or `npm run dev`.)*
-
----
-
-## Sound Familiar? 8 Real Redditor Complaints We Fix
-
-We built `context-horizon` by cataloging the top recurring complaints from AI-assisted coding threads on `r/LocalLLaMA`, `r/ClaudeAI`, `r/Cursor`, `r/ChatGPTCoding`, and `r/GoogleGemini`, and engineering a deterministic sensor for each one.
-
-| # | The Real Developer Complaint | Root Cause in the 200k Window | How `context-horizon` Stops It |
-| :-: | :--- | :--- | :--- |
-| **1** | *"Why did the agent suddenly ignore my `AGENTS.md` rules at turn 35 and rewrite my folder structure?!"* | **Prefix Amputation:** Total tokens crossed `140,000` (`115k` on High effort), pushing Cells 1-8 (`AGENTS.md`, `task.md`) into the truncation zone. | Wraps Cells 1-8 in flashing red `![ 🚨 ]!` brackets, halts High/Max prompts (`HALT_HYGIENE_OR_SAFETY`), and calculates exact `/compact` token recovery. |
-| **2** | *"My 5-hour Pro/Opus quota vanished in 45 minutes and I have no idea what ate it!"* | **Compound Sludge Burn:** 60k+ tokens of duplicate file reads and dead errors are re-billed on every turn, compounded by High/Max effort multipliers. | Computes real-time **Sludge Tax (`$/turn`)** + **Dual-Pool Quota (5h Sprint / 7d Weekly)** and trips a circuit breaker when quota drops below `10%`. |
-| **3** | *"It read the same 700-line file 6 times and kept 4 old failing test logs in context!"* | **Lost-in-the-Middle Rot:** Older `view_file` outputs and resolved `run_command` errors (`exit != 0`) stay in the transcript forever. | Flags `STALE_DUP` (amber) and `DEAD_ERROR` (crimson) cells. One-click **Surgical Transcript Pruner** folds stale code into AST signature stubs and collapses resolved errors into 1-line tombstones. |
-| **4** | *"I fixed a bug in VS Code while the agent was running, and it overwrote my edit with an old snapshot!"* | **Dirty In-Memory Snapshot:** The agent's last `view_file` timestamp is older than the file's disk `fs.stat().mtimeMs`. | **Sensor 1 (`DIRTY_SNAP`)** compares `lastSessionTouchMs` vs disk `mtimeMs` (+500ms tolerance) in `<2ms` and injects a mandatory re-read guard before write. |
-| **5** | *"I added 5 MCP servers and now Turn 1 starts with 38,000 tokens burned before I even type hello!"* | **Cold-Start Schema Tax:** Static MCP and skill JSON schemas silently consume `>15%` of the context window on Turn 0. | **Sensor 2 (`SCHEMA_TAX`)** audits Turn-0 schema footprint and flags zombie MCP servers with `0` invocations across your last 15 sessions. |
-| **6** | *"It refactored `router.mjs` and said 'Done!', breaking 4 caller files it never bothered to read!"* | **Unseen Caller Blast Radius:** Files importing the modified module are missing from the recent 8-turn `ACTIVE_SET`. | **Sensor 3 (`UNSEEN_CALLERS`)** builds a fast reverse-import map (`importers(target) - ACTIVE_SET`) and warns the agent about unseen dependents. |
-| **7** | *"It copied deprecated patterns from `/v1/legacy/` and injected rules from a completely different repo!"* | **Legacy Contagion & Foreign KI Bleed:** Reading `@deprecated` files or loading a Knowledge Item (`metadata.json`) from another workspace. | **Sensor 4 (`LEGACY_POISON`)** & **`MEMORY_BLEED` (Pink `▓`)** reconcile every KI against the canonical workspace path and alert before pollution spreads. |
-| **8** | *"It looped 4 times on the same failing test, trashed 6 files without committing, and cut off mid-file on a 900-line rewrite!"* | **3-Strike Loop & Stream Cutoff:** Repeated identical `DEAD_ERROR` runs, uncheckpointed `git status` drift, or single-write outputs exceeding stream limits. | **Sensors 5 & 6 (`LOOP_AND_GIT_GUARD` + `STREAM_SHIELD`)** trip a 3-strike error breaker, enforce git checkpoints after 4 dirty files, and block full-file rewrites on files `>600` lines. |
-
----
-
-### Concrete Example 1: Catching a Turn-50 Prefix Amputation & Sludge Crisis
-
-When your session crosses 140k tokens with duplicate reads and an external file edit, `npx context-horizon --demo` (and your live CLI status line) renders:
-
-```text
-Scenario 5: Turn 50 Prefix Amputation Crisis (145k Tokens)
-Redditor Complaint: "Why did the agent suddenly ignore my AGENTS.md rules at turn 35 and break my architecture?!"
-[![███▓▒▒▒▒]!▓▒▒▓▒▒▒▒▓▒▒▓▒▒▒▒█████░░░░░░░░░░░] 145k/200k | Purity: 35% | Sludge: +$0.09/turn (94k tok) | Quota: 50%
-╭── Flight Check v3.1 (HALT_HYGIENE_OR_SAFETY) ───────────────────────────────────────────╮
-│ 1. PROMPT : [Score 31/100] "Add billing summary endpoint"
-│ 2. HORIZON: [Purity: 35% | Reclaimable: 84k tok | Tokens: 145k/200k | Quota: 50%]
-│ 3. ACTION : CRITICAL: Cells 1-8 (AGENTS.md) in Amputation Zone! Type /compact now
-│ 4. REWRITE: "HALT: Reclaim 84k sludge tokens via /compact before adding billing endpoint"
-╰─────────────────────────────────────────────────────────────────────────────────────────╯
+### 2. Launch the Local Telemetry WebView (`127.0.0.1`)
+```bash
+# Start the loopback sidecar daemon and open the Tufte WebView
+node sidecars/horizon-daemon/server.mjs
 ```
 
-### Concrete Example 2: Preventing a Blind Stale-File Overwrite (`DIRTY_SNAP`)
-
-You edit `src/routes.mjs` in an external editor while the session is active, then ask the agent to `"Update server routes"`:
-
-```text
-Scenario 6: External Editor Dirty Snapshot & Unseen Callers
-Redditor Complaint: "I edited routes.mjs in VS Code and the agent blindly overwrote my fix with a stale snapshot!"
-[█████▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 30k/200k | Purity: 80% | Sludge: +$0.02/turn (6k tok) | Quota: 80%
-╭── Flight Check v3.1 (INJECT_CONTEXT_GUARD) ─────────────────────────────────────────────╮
-│ 1. PROMPT : [Score 64/100] "Update server routes"
-│ 2. HORIZON: [Purity: 80% | Reclaimable: 6k tok | Tokens: 30k/200k | Quota: 80%]
-│ 3. ACTION : Re-read dirty @src/routes.mjs (modified on disk) & check unseen caller @src/app.mjs
-│ 4. REWRITE: "Re-read @src/routes.mjs and inspect caller @src/app.mjs before updating server routes"
-╰─────────────────────────────────────────────────────────────────────────────────────────╯
-```
-
-### Concrete Example 3: Roasting Your Local Context History (`npx ctxtop --roast`)
-
-Run `npx ctxtop --roast` to scan your local `.gemini/antigravity/brain` logs and generate a shareable hygiene scorecard:
-
-```text
-╭── 🔥 CONTEXT HORIZON ROAST CARD (ctxtop v3.1.0) ──────────────────────────╮
-│ Sessions Audited : 14 sessions (1.84M cumulative tokens inspected)
-│ Worst Purity     : 34.8% (Lost-in-the-Middle duplicate reads & stale turns)
-│ Redundant Reads  : 47 duplicate file reads + 19 dead stack traces kept in memory
-│ Sludge Tax Burned: $1.92 wasted re-sending stale context to the model
-│ Amputation Zones : 3 sessions crossed 140k tokens (AGENTS.md truncation risk)
-╰───────────────────────────────────────────────────────────────────────────╯
-```
-
----
-
-## The 40-Cell Visual Taxonomy
-
-The 200,000-token context window (or dynamic 256k / 1M ceiling) is partitioned chronologically from **Turn 0 (Left)** to **Current Turn (Right)** into 40 discrete cells:
-
-```text
-  TRUNCATION WARNING! [🚨 Amputation Risk >140k]
-           │
-  ╭────────┴────────╮
-  ![ █ █ █ ▓ ▒ ▒ ▒ ▒ ]! ▒ ▒ ▓ ▓ ▒ ▒ ▒ ▒ ▒ ▓ ▒ ▒ ▒ ▒ ▒ █ █ █ █ █ █ ░ ░ ░ ░ ░ ░ ░ ░ ░ ░ ░  [ 145k / 200k ]
-    ───┬─── ─┬ ───────────┬─────────── ───────┬─────── ────┬──── ──────────┬──────────
-       │     │            │                   │            │               │
-    ANCHORS  KI        SLUDGE            DEAD ERRORS    ACTIVE       FREE HEADROOM
-    (CYAN) (PINK)  (AMBER/ORANGE)         (CRIMSON)     (GREEN)       (SLATE GRAY)
-```
-
-| Glyph | Cell State | Color | Ground-Truth Match in Untruncated Logs |
-| :---: | :--- | :--- | :--- |
-| `█` | `ANCHOR_CORE` | Cyan | System prompt, `.agents/rules/*.md`, `AGENTS.md`, `implementation_plan.md`, `task.md`. |
-| `▒` | `ANCHOR_SCHEMA` | Dim Cyan | Cold-start MCP server and Skill JSON schemas at Turn 0 (`SCHEMA_TAX`). |
-| `▓` | `MEMORY_KI` | Violet | Valid repository Knowledge Items (`~/.gemini/antigravity/knowledge/`). |
-| `▓` | `MEMORY_BLEED` | Neon Pink | Foreign Knowledge Item whose canonical path belongs to another workspace. |
-| `▒` | `STALE_DUP` | Amber | Superseded `view_file` / `grep_search` reads or unpinned chat older than 25 steps. |
-| `▒` | `DIRTY_SNAP` | Flashing Amber | File modified on disk (`fs.statSync().mtimeMs`) after the agent's last `view_file`. |
-| `▒` | `LEGACY_POISON` | Orange | File matching `deprecated_paths` globs (`legacy/`, `v1/`) or `@deprecated` header. |
-| `▓` | `DEAD_ERROR` | Crimson | Failed `run_command` (`exitCode != 0`) or stack trace followed by a passing run. |
-| `█` | `ACTIVE_SET` | Emerald Green | Unique active file reads/edits and passing tests in the last 8 turns. |
-| `![...]!` | `AMPUTATION` | Red Brackets | Earliest 20% of context (Cells 1-8) at risk of server prefix truncation (`>140k`). |
-| `░` | `FREE_HEADROOM` | Slate Gray | Unfilled token capacity remaining in the model's context window. |
-
-### Core Telemetry Formulas
-
-$$\text{Signal Purity (\%)} = \frac{\text{Tokens}(\text{ANCHOR\_CORE} + \text{MEMORY\_KI} + \text{ACTIVE\_SET})}{\text{Total Active Input Tokens}} \times 100$$
-
-$$\text{Sludge Tax (\$/turn)} = \frac{\text{Tokens}(\text{STALE\_DUP} + \text{DEAD\_ERROR} + \text{Unused ANCHOR\_SCHEMA})}{1,000,000} \times \text{Model Input Rate (\$/1M)}$$
-
----
-
-## Flight Check v3.1 Control Flags & Slash Skills
-
-When installed into Google Antigravity, the `PreInvocation` router evaluates every prompt in **`<15ms`** across 8 deterministic states (`ALLOW_SILENT`, `ALLOW_ACTIVE_SET`, `ALLOW_PLAN_OR_SUBAGENT`, `INJECT_CONTEXT_GUARD`, `STEER_SUBAGENT`, `HALT_HYGIENE_OR_SAFETY`, `HALT_EFFORT_OR_QUOTA`, `HALT_REWRITE_SCORECARD`).
-
-* **`! <prompt>` or `!force <prompt>`**: Bypass Flight Check gating for one turn.
-* **`!lock <prompt>`**: Lock current `/model` and `/effort` for the remainder of the session.
-* **`#check <prompt>`**: Force Tier-2 semantic scoring, blast-radius check, and copy-paste prompt rewrite.
-* **`/horizon`**: Open the interactive 40-cell Chrono-Attention Horizon & Edward Tufte Side-Pane.
-* **`/precheck`**: Run an on-demand hygiene and model/effort audit before submitting a complex prompt.
-
----
-
-## Installation Options
-
-### Option 1: Automatic One-Liner (Recommended)
- works on **Windows 11 (PowerShell)**, **macOS**, and **Linux**:
+### 3. Install Lifecycle Hooks & CLI `statusLine`
 ```bash
 # Global install (~/.gemini/config/plugins/agy-horizon-flightcheck)
-npx context-horizon init
+node src/cli/init.mjs init
 
-# Or install into current workspace (.agents/plugins/agy-horizon-flightcheck)
-npx context-horizon init --workspace
-```
-
-### Option 2: Clone & Local Install
-```bash
-git clone https://github.com/Gizzant/context-horizon.git
-cd context-horizon
-npm run install-plugin
+# Workspace-local install (.agents/plugins/agy-horizon-flightcheck)
+node src/cli/init.mjs init --workspace
 ```
 
 ---
 
-## Benchmark & Verification Suite
+## Systems Architecture & Zero-Trust Security
 
-`context-horizon` ships with a deterministic, zero-dependency verification suite and a 200-iteration latency benchmark:
+`ctxtop` is engineered for strict operational safety alongside live IDE/CLI database writers:
+
+1. **Zero Outbound Network Connections**:
+   - **0 runtime `npm` dependencies** (`package.json` has no `dependencies` block).
+   - **0 external HTTP/HTTPS requests, telemetry beacons, or remote API calls**. All parsing, classification, and routing run 100% in-memory on the local machine.
+   - The local WebView daemon (`sidecars/horizon-daemon/server.mjs`) binds strictly to `127.0.0.1` (loopback only) and rejects cross-origin `Origin` or non-local `Host` headers (`HTTP 403`) to prevent DNS rebinding and drive-by localhost CSRF.
+2. **Read-Only Database & Transcript Introspection (`SQLITE_OPEN_READONLY`)**:
+   - Every connection to Antigravity's SQLite databases (`conversations/<uuid>.db` and `conversation_summaries.db`) is opened via Node's native `node:sqlite` `DatabaseSync` with `Object.freeze({ readOnly: true })` (`SQLITE_OPEN_READONLY`). `ctxtop` can never contend for write locks with the Antigravity IDE or CLI.
+   - Live JSONL transcripts (`transcript_full.jsonl` / `transcript.jsonl`) are read via `fs.openSync(filePath, 'r')` using byte-offset slicing (`O(Δbytes)` per turn), falling back to full re-parse only when a step-index regression (Undo/Rewind) is detected.
+3. **Multi-Surface Discovery (`[App]`, `[IDE]`, `[CLI]`)**:
+   - Automatically discovers and reconciles sessions across `~/.gemini/antigravity/` (`[App]`), `~/.gemini/antigravity-ide/` (`[IDE]`), and `~/.gemini/antigravity-cli/` (`[CLI]`).
+4. **Prefix-Safe Surgical Context Pruner (`src/core/pruner.mjs`)**:
+   - Opt-in transcript condensation writes an atomic `.pre_prune.<timestamp>.bak` backup before replacing superseded full-file reads with line-numbered declaration stubs (`SIGNATURE_LINE_RE`) and collapsing resolved error traces into 1-line `[Resolved Error at Turn #N]` tombstones.
+   - Guards against busting a warm 5-minute KV cache (`isCacheCold === false`) unless explicitly confirmed.
+
+---
+
+## Deterministic `PreInvocation` Router & 6 Local Sensors
+
+When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incoming prompts in **`< 15ms`** across 8 deterministic router states:
+
+1. `ALLOW_SILENT`: Immediate pass-through (`{}`) on `!` bypass prefix or healthy turns.
+2. `ALLOW_ACTIVE_SET`: Silent pass-through when referenced files are already warm in the last 5 turns.
+3. `ALLOW_PLAN_OR_SUBAGENT`: Silent pass-through during `/plan` mode or subagent delegation.
+4. `INJECT_CONTEXT_GUARD`: Appends a `systemMessage` warning when target files were modified externally on disk (`DIRTY_SNAP`), have unseen callers (`UNSEEN_CALLERS`), or touch deprecated paths (`LEGACY_POISON`).
+5. `STEER_SUBAGENT`: Advises `invoke_subagent` when a broad exploratory prompt would pollute a warm `>30k`-token parent context window.
+6. `HALT_HYGIENE_OR_SAFETY`: Halts execution (or warns in `advisory` mode) on context ceiling breach, 3-strike identical command error loops, or severe duplicate-read dilution.
+7. `HALT_EFFORT_OR_QUOTA`: Warns when 5-hour/7-day quota falls below the configured floor (`10%`) or when `>600`-line single-shot file rewrites risk output stream truncation.
+8. `HALT_REWRITE_SCORECARD`: Triggered via `#check` or vague cold-start prompts (`Turn <= 2`), outputting a 4-line prompt rewrite scorecard.
+
+### In-Chat Control Flags
+- `! <prompt>`: Bypass `PreInvocation` checks for a single turn.
+- `!lock <prompt>`: Lock current reasoning effort tier for the remainder of the session.
+- `#check <prompt>`: Force an explicit pre-flight scorecard and concrete prompt rewrite.
+
+---
+
+## CLI Commands & Forensic Postmortem
+
+| Command | Description |
+| :--- | :--- |
+| `npx ctxtop postmortem [--last N] [--json]` | Scans the last `N` real local sessions, classifies root causes (`CONTEXT_ROT_DECAY`, `VERIFICATION_CHURN`, `SPEC_AMBIGUITY`, `CLEAN`), lists top duplicate-read files with step indices, audits Turn-0 MCP schema overhead, and writes `session_analysis_report.md` + `conversation_diagnostics.jsonl`. |
+| `npx ctxtop --roast` | Prints a terminal forensic summary of recent sessions with top duplicate-read file offenders and copy-pasteable remediations. |
+| `npx ctxtop doctor` | Validates lifecycle hook registration, config overlays, dynamic model ceilings, sidecar storage, 3-way WebView SHA-256 parity, and live JSONL parser confidence. |
+| `npx ctxtop --serve` | Launches the local HTTP/SSE telemetry daemon (`127.0.0.1`) and interactive WebView. |
+| `npx ctxtop --demo-animate` | Plays the 5-stage terminal crisis simulation across synthetic fixtures. |
+
+---
+
+## Verification & Benchmarks
+
+Run the full zero-dependency test and verification suite:
 
 ```bash
-# Run the 15-test router, sensor, and crash-immunity suite (~170ms)
+# Unit tests: Path canonicalizer, atomic sidecar store, 40-cell classifier, 6 sensors, 8 router states
 npm test
 
-# Run all 6 architectural phase verification suites (256K/1M scaling, AST pruner, quota, watchdog)
+# Architectural verification suite (Phases 1-7: SQLite read-only locks, JSDOM UI invariants, MCP audit, pruner)
 npm run test:phases
 
-# Run the 200-iteration p95/p99 latency benchmark (<15ms PreInvocation SLA)
+# End-to-end context memory & live loopback daemon integration suite
+npm run test:e2e
+
+# Latency benchmark (<15ms PreInvocation p99, <45ms CLI statusLine p99)
 npm run bench
 ```
 
 ---
 
-## 100% Local & Private by Design
+## License
 
-* **Zero Outbound Network Calls:** `context-horizon` never opens an external socket, never phones home, and never uploads prompts, file paths, or telemetry.
-* **Local Loopback Only:** The optional Tufte IDE Webview binds strictly to `127.0.0.1`.
-* **Zero Supply-Chain Risk:** `0` runtime npm dependencies (`node:fs`, `node:path`, `node:http`, `node:crypto` only). See [SECURITY.md](SECURITY.md) for details.
-
----
-
-## Contributing & License
-
-Contributions, new blind-spot sensors, and new Tufte small-multiple charts are welcome! Read [CONTRIBUTING.md](CONTRIBUTING.md) for our **"Add a 7th Blind-Spot Sensor in 20 Lines"** guide.
-
-Licensed under the [MIT License](LICENSE).
+MIT © [Gizzant](https://github.com/Gizzant)

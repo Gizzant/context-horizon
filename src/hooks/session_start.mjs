@@ -6,15 +6,8 @@ import {
   writeToolUsageAtomicSync
 } from '../core/sidecar_store.mjs';
 import { canonicalizePath } from '../core/path_canonicalizer.mjs';
-
-function readStdinSync() {
-  try {
-    const fs = await import('node:fs');
-    return fs.readFileSync(0, 'utf8');
-  } catch {
-    return '';
-  }
-}
+import { loadFlightcheckConfig } from '../core/config.mjs';
+import { resolveModelCeiling } from '../core/constants.mjs';
 
 async function readStdinSafe() {
   if (process.stdin.isTTY) return {};
@@ -71,7 +64,9 @@ export async function handleSessionStart(inputData = {}) {
   }
 
   if (schemaTokens > 0) {
-    sidecar.sensors.schemaTaxPct = Number(((schemaTokens / 200000) * 100).toFixed(1));
+    const config = loadFlightcheckConfig();
+    const ceiling = resolveModelCeiling(modelId, inputData.context_window || inputData.contextWindow, { config });
+    sidecar.sensors.schemaTaxPct = Number(((schemaTokens / (ceiling || 256000)) * 100).toFixed(1));
   }
 
   writeSidecarAtomicSync(conversationId, sidecar);

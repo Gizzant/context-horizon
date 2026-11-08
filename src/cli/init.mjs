@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { getHomeDir, getBrainStores } from '../core/paths.mjs';
 import { runDemoShowcase } from './horizon_hud.mjs';
 import { startServer } from '../../sidecars/horizon-daemon/server.mjs';
+import { runPostmortem, printPostmortemSummary } from './postmortem.mjs';
+import { runDoctor } from './doctor.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(__dirname, '../..');
@@ -122,56 +124,40 @@ export function installPlugin(options = {}) {
   return { success: true, targetPluginDir, dryRun };
 }
 
-export function runContextRoast() {
-  const home = getHomeDir();
-  const candidates = getBrainStores(home);
-  let sessionCount = 0;
-  let totalLogBytes = 0;
-  let duplicateReads = 0;
-  let deadErrors = 0;
-  let amputationEvents = 0;
+export async function runContextRoast() {
+  const result = await runPostmortem({ last: 15, writeFiles: false });
+  const isSynthetic = result.isSynthetic;
+  const auditedSessions = result.sessionCount;
+  const estTokensM = result.estTokensM;
+  const dupCount = result.totalDuplicateReads;
+  const errCount = result.totalDeadErrors;
+  const ampCount = result.amputationSessionsCount;
+  const worstPurity = `${result.worstPurityPct}%`;
+  const sludgeUsd = result.sludgeUsdFormatted;
 
-  for (const c of candidates) {
-    if (!fs.existsSync(c.path)) continue;
-    try {
-      const dirs = fs.readdirSync(c.path, { withFileTypes: true }).filter(d => d.isDirectory());
-      for (const d of dirs.slice(0, 25)) {
-        const logDir = path.join(c.path, d.name, '.system_generated', 'logs');
-        const fullLog = path.join(logDir, 'transcript_full.jsonl');
-        const stdLog = path.join(logDir, 'transcript.jsonl');
-        const target = fs.existsSync(fullLog) ? fullLog : (fs.existsSync(stdLog) ? stdLog : null);
-        if (!target) continue;
-        sessionCount++;
-        const stat = fs.statSync(target);
-        totalLogBytes += stat.size;
-        if (stat.size > 560000) amputationEvents++;
-        const sample = fs.readFileSync(target, 'utf8').slice(0, 250000);
-        const reads = sample.match(/"(view_file|read_file)"/g);
-        const errs = sample.match(/"ERROR"|"exitCode":\s*[1-9]/g);
-        if (reads && reads.length > 6) duplicateReads += (reads.length - 6);
-        if (errs) deadErrors += errs.length;
-      }
-    } catch {}
-  }
-
-  const isSynthetic = sessionCount === 0;
-  const auditedSessions = isSynthetic ? 14 : sessionCount;
-  const estTokensM = isSynthetic ? '1.84M' : `${Math.max(0.12, (totalLogBytes / 4 / 1000000)).toFixed(2)}M`;
-  const dupCount = isSynthetic ? 47 : Math.max(4, duplicateReads);
-  const errCount = isSynthetic ? 19 : Math.max(2, deadErrors);
-  const ampCount = isSynthetic ? 3 : Math.max(1, amputationEvents);
-  const worstPurity = isSynthetic ? '34.8%' : `${Math.max(28, Math.min(74, 88 - dupCount)).toFixed(1)}%`;
-  const sludgeUsd = isSynthetic ? '$1.92' : `$${Math.max(0.18, ((dupCount * 3200 + errCount * 2100) / 1000000) * 1.25).toFixed(2)}`;
-
-  console.log('\n\x1b[1m\x1b[38;5;208m╭── 🔥 CONTEXT HORIZON ROAST CARD (ctxtop v3.1.0) ──────────────────────────╮\x1b[0m');
+  console.log('\n\x1b[1m\x1b[38;5;208m╭── CONTEXT HORIZON FORENSIC AUDIT (ctxtop v3.1.0) ─────────────────────────╮\x1b[0m');
   console.log(`\x1b[38;5;208m│\x1b[0m Sessions Audited : \x1b[1m${auditedSessions} sessions\x1b[0m (${estTokensM} cumulative tokens inspected)${isSynthetic ? ' [Demo]' : ''}`);
-  console.log(`\x1b[38;5;208m│\x1b[0m Worst Purity     : \x1b[38;5;196m\x1b[1m${worstPurity}\x1b[0m (Lost-in-the-Middle duplicate reads & stale turns)`);
+  console.log(`\x1b[38;5;208m│\x1b[0m Signal Purity    : \x1b[38;5;196m\x1b[1m${worstPurity} worst\x1b[0m (${result.avgPurityPct}% avg across sessions)`);
   console.log(`\x1b[38;5;208m│\x1b[0m Redundant Reads  : \x1b[38;5;214m${dupCount} duplicate file reads\x1b[0m + \x1b[38;5;196m${errCount} dead stack traces\x1b[0m kept in memory`);
   console.log(`\x1b[38;5;208m│\x1b[0m Sludge Tax Burned: \x1b[38;5;214m\x1b[1m${sludgeUsd}\x1b[0m wasted re-sending stale context to the model`);
-  console.log(`\x1b[38;5;208m│\x1b[0m Amputation Zones : \x1b[38;5;196m${ampCount} sessions crossed 140k tokens\x1b[0m (AGENTS.md truncation risk)`);
+  console.log(`\x1b[38;5;208m│\x1b[0m Over Safe Limit  : \x1b[38;5;196m${ampCount} sessions crossed safe horizon\x1b[0m (early-anchor truncation risk)`);
   console.log('\x1b[1m\x1b[38;5;208m╰───────────────────────────────────────────────────────────────────────────╯\x1b[0m');
-  console.log('\x1b[38;5;245mCopy & share on Reddit / X:\x1b[0m');
-  console.log(`\x1b[38;5;51m"Audited my AI coding sessions with npx ctxtop --roast: ${worstPurity} worst context purity, ${dupCount} duplicate file reads, and ${sludgeUsd} burned on context sludge. https://github.com/Gizzant/context-horizon"\x1b[0m\n`);
+
+  if (result.hotspots && result.hotspots.length > 0) {
+    console.log('\x1b[1mTop Duplicate-Read Offenders:\x1b[0m');
+    for (const h of result.hotspots.slice(0, 3)) {
+      const wastedK = Math.max(0.1, (h.wastedTokens / 1000).toFixed(1));
+      console.log(`  • ${h.path} (${h.occurrences}x reads, ~${wastedK}k tok wasted across ${h.sessionsAffected} session(s))`);
+    }
+  }
+
+  if (result.recommendations && result.recommendations.length > 0) {
+    console.log('\n\x1b[1mActionable Remediations:\x1b[0m');
+    for (const [idx, rec] of result.recommendations.slice(0, 3).entries()) {
+      console.log(`  ${idx + 1}. [\x1b[38;5;51m${rec.id}\x1b[0m] ${rec.change_to_make}`);
+    }
+  }
+  console.log('');
 }
 
 function printHelp() {
@@ -183,6 +169,8 @@ function printHelp() {
   npx context-horizon --demo [--scenario 1..8]         Preview 40-cell HUD & Flight Check Scorecard
   npx context-horizon --demo-animate                   Play live 5-stage terminal crisis animation
   npx ctxtop --roast                                   Audit local logs & print shareable Context Roast Card
+  npx ctxtop doctor                                    Diagnose hooks, configuration, mirrors & transcript health
+  npx ctxtop postmortem [--last N] [--json]            Generate forensic report & diagnostic dataset
   npx context-horizon --serve                          Launch Edward Tufte IDE Webview in browser
 `);
 }
@@ -208,6 +196,19 @@ if (isMain) {
     runDemoShowcase({ scenarioId: 5, animate: false });
   } else if (cmd === 'roast' || args.includes('--roast')) {
     runContextRoast();
+  } else if (cmd === 'doctor' || args.includes('--doctor')) {
+    runDoctor().then(res => {
+      process.exit(res.ok ? 0 : 1);
+    });
+  } else if (cmd === 'postmortem' || args.includes('--postmortem')) {
+    const lastIdx = args.indexOf('--last');
+    const last = lastIdx !== -1 ? Number(args[lastIdx + 1]) : 15;
+    const json = args.includes('--json');
+    runPostmortem({ last, json, writeFiles: true }).then(res => {
+      if (!json) {
+        printPostmortemSummary(res);
+      }
+    });
   } else if (cmd === 'serve' || args.includes('--serve')) {
     process.env.HORIZON_DEMO = '1';
     startServer().then(({ port }) => {

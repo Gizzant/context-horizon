@@ -1,5 +1,6 @@
 {
   "hook_level": "guard",
+  "halt_cooldown_turns": 3,
   "cold_session_max_turns": 3,
   "trust_decay_turn_threshold": 10,
   "subagent_min_cache_tokens": 25000,
@@ -11,15 +12,41 @@
   "max_tool_payload_tokens": 25000,
   "uncheckpointed_dirty_file_limit": 4,
   "consecutive_error_strike_limit": 3,
+  "plan_revision_warn": 3,
+  "split_recommend_minutes": 45,
+  "proof_quality_warn_on": [
+    "None"
+  ],
+  "handoff_audit_enabled": true,
   "deprecated_paths": [
     "**/legacy/**",
     "**/deprecated/**",
     "**/v1/**"
   ],
+  "recommended_models": {
+    "fast": "gemini-3.8-flash",
+    "deep": "gemini-3.1-pro"
+  },
+  "model_ceilings": {
+    "gemini-3.8-flash": 256000,
+    "gemini-4-argon": 256000,
+    "gemini-4-argon-high": 256000,
+    "gemini-4-argon-medium": 256000,
+    "claude-opus-5.5": 256000,
+    "claude-3-5-sonnet": 256000,
+    "gemini-1.5-pro-1m": 1000000,
+    "gemini-2.5-pro-1m": 1000000,
+    "default": 256000
+  },
   "model_pricing_per_1m_input": {
-    "gemini-3.8-flash": 0.15,
+    "gemini-3.8-flash": 0.75,
+    "gemini-2.0-flash": 0.75,
     "gemini-3.1-pro": 1.25,
-    "gemini-4-argon": 2.50,
-    "claude-opus-4-6-thinking": 5.00
+    "gemini-1.5-pro": 1.25,
+    "gemini-4-argon": 1.25,
+    "claude-3-5-sonnet": 3.00,
+    "claude-opus-5.5": 3.00,
+    "claude-opus-4-6-thinking": 5.00,
+    "default": 0.75
   }
 }

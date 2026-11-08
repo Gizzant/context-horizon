@@ -18,20 +18,13 @@ const CANONICAL_ROOT = path.resolve(__dirname, '..');
 const AGY_HORIZON_ROOT = path.join(homeDir, '.gemini', 'config', 'plugins', 'agy-horizon');
 const FLIGHTCHECK_ROOT = path.join(homeDir, '.gemini', 'config', 'plugins', 'agy-horizon-flightcheck');
 
-const CORE_FILES = [
-  'constants.mjs',
-  'parser.mjs',
-  'history.mjs',
-  'baseline.mjs',
-  'classifier.mjs',
-  'offenders.mjs',
-  'settings.mjs',
-  'paths.mjs',
-  'quota.mjs',
-  'subagents.mjs',
-  'pruner.mjs',
-  'host_watchdog.mjs'
-];
+function getCoreFiles() {
+  const coreDir = path.join(CANONICAL_ROOT, 'src', 'core');
+  if (!fs.existsSync(coreDir)) return [];
+  return fs.readdirSync(coreDir).filter(f => f.endsWith('.mjs')).sort();
+}
+
+const CORE_FILES = getCoreFiles();
 
 const HTML_TARGETS = [
   path.join(CANONICAL_ROOT, 'src', 'webview', 'horizon_panel.html'),

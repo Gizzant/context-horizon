@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { canonicalizePath } from './path_canonicalizer.mjs';
+import { fingerprintErrorLoop } from './session_forensics.mjs';
 
 /**
  * Sensor 1: detectDirtySnapshots (DIRTY_SNAP)
@@ -50,7 +51,8 @@ export function auditSchemaAndPayloads(stepEvents = [], toolUsageLedger = {}, co
     }
   }
 
-  const schemaTaxPct = Number(((schemaTokens / 200000) * 100).toFixed(1));
+  const baseCeiling = config.max_tokens || config.maxTokens || config.nativeCeilingTokens || 200000;
+  const schemaTaxPct = Number(((schemaTokens / baseCeiling) * 100).toFixed(1));
   const unusedMcpServers = [];
 
   if (schemaTaxPct > 15 && toolUsageLedger && toolUsageLedger.servers) {
@@ -117,9 +119,22 @@ export function buildReverseImportMap(workspacePath) {
             const canonicalImporter = canonicalizePath(full);
             // JS/TS imports
             const jsMatches = content.matchAll(/(?:import|require|from)\s*\(?['"]([^'"]+)['"]/g);
+            const importerDir = path.dirname(full);
             for (const m of jsMatches) {
-              const base = path.basename(m[1]).replace(/\.[^/.]+$/, '').toLowerCase();
-              if (base) {
+              const rawSpec = m[1];
+              const noExtSpec = rawSpec.replace(/\.[^/.]+$/, '');
+              const base = path.basename(noExtSpec).toLowerCase();
+              if (rawSpec.startsWith('.')) {
+                const resolvedNoExt = canonicalizePath(path.resolve(importerDir, noExtSpec));
+                if (!importMap.has(resolvedNoExt)) importMap.set(resolvedNoExt, new Set());
+                importMap.get(resolvedNoExt).add(canonicalImporter);
+              }
+              const dirBase = path.posix.join(path.basename(path.dirname(noExtSpec)).toLowerCase(), base);
+              if (dirBase && dirBase !== `.` && !dirBase.startsWith('./')) {
+                if (!importMap.has(dirBase)) importMap.set(dirBase, new Set());
+                importMap.get(dirBase).add(canonicalImporter);
+              }
+              if (base && base !== 'index') {
                 if (!importMap.has(base)) importMap.set(base, new Set());
                 importMap.get(base).add(canonicalImporter);
               }
@@ -153,13 +168,21 @@ export function detectUnseenCallers(targetFiles = [], activeSetPaths = [], works
 
   for (const target of targetFiles) {
     const canonicalTarget = canonicalizePath(target);
+    const targetNoExt = canonicalTarget.replace(/\.[^/.]+$/, '');
     const baseName = path.basename(target).replace(/\.[^/.]+$/, '').toLowerCase();
-    const callers = reverseMap.get(baseName);
+    const dirBase = path.posix.join(path.basename(path.dirname(canonicalTarget)).toLowerCase(), baseName);
+    const candidateSets = [
+      reverseMap.get(targetNoExt),
+      reverseMap.get(dirBase),
+      baseName !== 'index' ? reverseMap.get(baseName) : null
+    ];
 
-    if (callers) {
-      for (const caller of callers) {
-        if (!activeSet.has(caller) && caller !== canonicalTarget) {
-          unseen.add(caller);
+    for (const callers of candidateSets) {
+      if (callers) {
+        for (const caller of callers) {
+          if (!activeSet.has(caller) && caller !== canonicalTarget) {
+            unseen.add(caller);
+          }
         }
       }
     }
@@ -251,19 +274,22 @@ export function evaluateLoopAndGitGuard(stepEvents = [], sidecarState = {}, work
     }
   }
 
-  const threeStrikeLoop = trailingErrorStreak >= limit;
+  const loopFp = fingerprintErrorLoop(stepEvents);
+  const threeStrikeLoop = trailingErrorStreak >= limit || Boolean(sidecarState.brainSignals?.errorLoop?.loop) || loopFp.loop;
+  const loopFingerprint = loopFp.fingerprint || sidecarState.brainSignals?.errorLoop?.fingerprint || null;
   const turnsSincePassing = sidecarState.sessionMeta?.turnsSinceLastPassingTest || 0;
   const fileLimit = config.uncheckpointed_dirty_file_limit || 4;
 
   // If passing tests are recent (<3 turns), git drift is false by definition
   if (turnsSincePassing < 3 || !workspacePath) {
-    return { threeStrikeLoop, uncheckpointedGitDrift: false, dirtyGitFileCount: 0 };
+    return { threeStrikeLoop, loopFingerprint, uncheckpointedGitDrift: false, dirtyGitFileCount: 0 };
   }
 
   const now = Date.now();
   if (cachedGitResult.workspace === workspacePath && (now - cachedGitResult.timestampMs) < 3000) {
     return {
       threeStrikeLoop,
+      loopFingerprint,
       uncheckpointedGitDrift: cachedGitResult.uncheckpointedGitDrift,
       dirtyGitFileCount: cachedGitResult.dirtyGitFileCount
     };
@@ -323,7 +349,7 @@ export function runAllBlindspotSensors(params = {}) {
   const unseenCallers = detectUnseenCallers(targetFiles, activeSetPaths, workspacePath);
   const legacyPoisonPaths = detectLegacyPoison(stepEvents, config);
   const { quotaFloorBreached, planToFlashHandoffNeeded, streamCutoffRiskFiles } = evaluateQuotaAndStreamShield(sidecarState, targetFiles, promptText, config);
-  const { threeStrikeLoop, uncheckpointedGitDrift, dirtyGitFileCount } = evaluateLoopAndGitGuard(stepEvents, sidecarState, workspacePath, config);
+  const { threeStrikeLoop, loopFingerprint, uncheckpointedGitDrift, dirtyGitFileCount } = evaluateLoopAndGitGuard(stepEvents, sidecarState, workspacePath, config);
 
   return {
     dirtySnapshotPaths,
@@ -336,6 +362,7 @@ export function runAllBlindspotSensors(params = {}) {
     planToFlashHandoffNeeded,
     streamCutoffRiskFiles,
     threeStrikeLoop,
+    loopFingerprint,
     uncheckpointedGitDrift,
     dirtyGitFileCount
   };

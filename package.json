@@ -1,6 +1,6 @@
 {
   "name": "context-horizon",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "htop for AI Coding Agents: 40-cell context window visualizer, $/turn Sludge Tax auditor, and <15ms PreInvocation Flight Check router for Google Antigravity.",
   "type": "module",
   "bin": {
@@ -11,6 +11,9 @@
   },
   "main": "./src/cli/horizon_hud.mjs",
   "files": [
+    "README.md",
+    "SECURITY.md",
+    "LICENSE",
     "plugin.json",
     "hooks.json",
     "config/",
@@ -27,10 +30,13 @@
     "dev": "node --no-warnings src/cli/init.mjs --serve",
     "hud": "node --no-warnings src/cli/horizon_hud.mjs --demo",
     "roast": "node --no-warnings src/cli/init.mjs --roast",
+    "postmortem": "node --no-warnings src/cli/init.mjs postmortem",
+    "doctor": "node --no-warnings src/cli/init.mjs doctor",
     "install-plugin": "node --no-warnings src/cli/init.mjs init",
+    "build:bundles": "node scripts/build_evaluation_bundles.mjs",
     "build:assets": "node --no-warnings scripts/generate_hero_svg.mjs && node --no-warnings scripts/build_demo_page.mjs",
     "test": "node --test tests/test_router_and_sensors.mjs",
-    "test:phases": "node tests/verify_phase_1.mjs && node tests/verify_phase_2.mjs && node tests/verify_phase_3.mjs && node tests/verify_phase_4.mjs && node tests/verify_phase_5.mjs && node tests/verify_phase_6_roadmap.mjs",
+    "test:phases": "node tests/verify_phase_1.mjs && node tests/verify_phase_2.mjs && node tests/verify_phase_3.mjs && node tests/verify_phase_4.mjs && node tests/verify_phase_5.mjs && node tests/verify_phase_6.mjs && node tests/verify_phase_6_roadmap.mjs && node tests/verify_phase_7.mjs",
     "test:e2e": "node tests/verify_e2e_context_memory.mjs",
     "bench": "node tests/bench_latency.mjs"
   },

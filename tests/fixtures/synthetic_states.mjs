@@ -323,6 +323,7 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
     breakdown: {
       ANCHOR: 15000,
       INJECTED_MEMORY: 5000,
+      STALE_DUPLICATE: Math.round(sludgeTokens * 0.80),
       DUPLICATE_READ: Math.round(sludgeTokens * 0.65),
       STALE_TURN: Math.round(sludgeTokens * 0.15),
       DEAD_ERROR: Math.round(sludgeTokens * 0.20),
@@ -345,22 +346,31 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
       activeDaemonsAtRisk: []
     },
     cells,
-    offenders: [
+    offenders: sludgeTokens === 0 ? [
+      {
+        category: 'ANCHOR',
+        target: 'Turn-0 System & Workspace Rules (AGENTS.md)',
+        wastedTokens: 0,
+        occurrences: 1,
+        stepIndices: [0],
+        remediation: 'Baseline clean (3.5k tokens); specify @src/cache.mjs in prompt before execution'
+      }
+    ] : [
       {
         category: 'DUPLICATE_READ',
         target: 'src/core/router.mjs',
-        wastedTokens: Math.max(4200, Math.round(sludgeTokens * 0.42)),
-        occurrences: 6,
-        stepIndices: [3, 7, 14, 19, 26, 31],
-        remediation: 'Prune 5 superseded full-file reads via Surgical Pruner or /compact'
+        wastedTokens: Math.max(2400, Math.round(sludgeTokens * 0.42)),
+        occurrences: Math.max(2, Math.min(6, Math.floor((sc.sessionMeta.turnCount || 18) / 4))),
+        stepIndices: [3, 7, 14, 19, 26, 31].filter(s => s <= (sc.sessionMeta.turnCount || 32)),
+        remediation: 'Fold superseded reads of src/core/router.mjs via Surgical Pruner or use read_file { Path: "src/core/router.mjs", StartLine: 1, EndLine: 200 }'
       },
       {
         category: 'DEAD_ERROR',
         target: 'npm test (Resolved TypeError stack trace)',
-        wastedTokens: Math.max(3100, Math.round(sludgeTokens * 0.28)),
-        occurrences: 3,
-        stepIndices: [11, 12, 13],
-        remediation: 'Collapse resolved error logs into 1-line tombstones'
+        wastedTokens: Math.max(1200, Math.round(sludgeTokens * 0.28)),
+        occurrences: Math.max(1, Math.min(3, Math.floor((sc.sessionMeta.turnCount || 18) / 6))),
+        stepIndices: [11, 12, 13].filter(s => s <= (sc.sessionMeta.turnCount || 32)),
+        remediation: 'Collapse resolved error traces at steps [11, 12, 13] into 1-line tombstones via Surgical Pruner or /compact'
       },
       {
         category: 'ANCHOR',
@@ -368,29 +378,38 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
         wastedTokens: 6800,
         occurrences: 1,
         stepIndices: [0],
-        remediation: 'Disable 2 zero-call MCP servers consuming 16.5% Turn-0 schema tax'
+        remediation: 'Set unused MCP servers to "loading": "lazy" in ~/.gemini/config/mcp_config.json (saving ~6.8k Turn-0 tokens)'
       }
     ],
     brainSignals: {
       activeSignal: {
         liveSessionTokens: totalActiveTokens - sludgeTokens,
         taskMdSaved: !isCrisis,
-        taskMdTurnsBehind: isCrisis ? 9 : 1,
-        semanticallyPinnedTurns: 3
+        taskMdTurnsBehind: isCrisis ? 9 : (sludgeTokens === 0 ? 0 : 1),
+        semanticallyPinnedTurns: sludgeTokens === 0 ? 0 : 3
       },
-      duplicateReads: {
-        fileCount: 3,
+      duplicateReads: sludgeTokens === 0 ? {
+        fileCount: 0,
+        reclaimableTokens: 0,
+        topFiles: []
+      } : {
+        fileCount: 2,
         reclaimableTokens: Math.round(sludgeTokens * 0.65),
         topFiles: [
-          { path: 'src/core/router.mjs', occurrences: 6, wastedTokens: Math.round(sludgeTokens * 0.42) },
-          { path: 'src/webview/horizon_panel.html', occurrences: 4, wastedTokens: Math.round(sludgeTokens * 0.23) }
+          { path: 'src/core/router.mjs', occurrences: Math.max(2, Math.min(6, Math.floor((sc.sessionMeta.turnCount || 18) / 4))), wastedTokens: Math.round(sludgeTokens * 0.42) },
+          { path: 'src/webview/horizon_panel.html', occurrences: Math.max(2, Math.min(4, Math.floor((sc.sessionMeta.turnCount || 18) / 5))), wastedTokens: Math.round(sludgeTokens * 0.23) }
         ]
       },
       oldHistory: {
         turnCount: Math.max(0, (sc.sessionMeta.turnCount || 20) - 12),
         reclaimableTokens: Math.round(sludgeTokens * 0.15)
       },
-      deadErrors: {
+      deadErrors: sludgeTokens === 0 ? {
+        errorCount: 0,
+        reclaimableTokens: 0,
+        isErrorLoop: false,
+        topErrors: []
+      } : {
         errorCount: 3,
         reclaimableTokens: Math.round(sludgeTokens * 0.20),
         isErrorLoop: meta.id === 5,
@@ -398,10 +417,10 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
           { target: 'node --test (exit 1)', occurrences: 3, wastedTokens: Math.round(sludgeTokens * 0.20) }
         ]
       },
-      blowupSteps: [
+      blowupSteps: sludgeTokens === 0 ? [] : [
         {
-          stepIndex: 14,
-          tokens: 18400,
+          stepIndex: Math.min(14, Math.max(1, (sc.sessionMeta.turnCount || 18) - 2)),
+          tokens: Math.min(18400, Math.round(totalActiveTokens * 0.35)),
           category: 'DUPLICATE_READ',
           target: 'src/webview/horizon_panel.html',
           payload: { kind: 'file', tool: 'read_file', detail: 'src/webview/horizon_panel.html (unclipped read)', path: 'src/webview/horizon_panel.html' }
@@ -415,14 +434,21 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
         remainingPct: quotaRem,
         usedPct: 100 - quotaRem,
         poolUnits: 5000000,
-        resetInMinutes: 142
+        resetInMinutes: 142,
+        resetLabel: '2h 22m'
       },
       weekly7d: {
         remainingPct: Math.min(100, quotaRem + 15),
-        sprintToWeeklyMultiplier: 2.8
+        usedPct: Math.max(0, 100 - Math.min(100, quotaRem + 15)),
+        sprintToWeeklyMultiplier: 2.8,
+        resetLabel: '4d 12h'
       },
       cache: {
         hitRatePct: purity > 70 ? 86.4 : 41.2,
+        cacheReadTokens: (meta.id === 2 || meta.id === 3 || meta.id === 6 || meta.id === 8) ? Math.round(totalActiveTokens * 0.62) : 0,
+        ttlRemainingSec: (meta.id === 2 || meta.id === 3 || meta.id === 6 || meta.id === 8) ? 215 : 0,
+        isCacheCold: !(meta.id === 2 || meta.id === 3 || meta.id === 6 || meta.id === 8),
+        nextTurnLikelyWarm: (meta.id === 2 || meta.id === 3 || meta.id === 6 || meta.id === 8),
         cachedTokens: Math.round(totalActiveTokens * 0.62),
         freshTokens: Math.round(totalActiveTokens * 0.38)
       },
@@ -437,14 +463,25 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
       totalParentSummaryTokens: 1800,
       overallCompressionRatio: 35.6,
       invocations: [
-        { stepIndex: 8, role: 'Codebase Researcher', typeName: 'research', workspace: 'inherit', childTokens: 38000, summaryTokens: 950, compressionRatio: 40.0 }
+        {
+          stepIndex: 8,
+          role: 'Codebase Researcher',
+          typeName: 'research',
+          workspace: 'inherit',
+          workspaceMode: 'inherit',
+          childTokens: 38000,
+          summaryTokens: 950,
+          tokensSaved: 37050,
+          compressionRatio: 40.0,
+          badgeLabel: '[Subagent: research | 38.0k isolated -> 1.0k handoff (40x)]'
+        }
       ]
     },
     diagnostics: {
       status: isCrisis ? 'AMPUTATION_CRISIS' : (purity < 60 ? 'SLUDGE_HEAVY' : 'HEALTHY'),
       headline: meta.title,
       summary: `Complaint: "${meta.complaint}" — ${meta.recommendedAction}`,
-      recommendedCommand: isCrisis || purity < 55 ? '/compact' : '/precheck',
+      recommendedCommand: isCrisis || purity < 55 ? '/compact' : 'Ready',
       reclaimableTokens: meta.reclaimTokens,
       foreignBleedDetected: meta.id === 5,
       dirtySnapshotPaths: sc.fileState?.dirtySnapshotPaths || (meta.id === 6 ? ['src/routes.mjs'] : []),
@@ -461,6 +498,8 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
       reason: meta.recommendedAction
     },
     hostHealth: {
+      rssGb: meta.id === 5 ? 2.14 : 0.84,
+      status: meta.id === 5 ? 'ZOMBIE_LEAK' : 'HEALTHY',
       orphanCount: meta.id === 5 ? 2 : 0,
       orphanRamMb: meta.id === 5 ? 570 : 0,
       orphans: meta.id === 5 ? [

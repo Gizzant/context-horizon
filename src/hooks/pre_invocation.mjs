@@ -1,28 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readSidecarSync, writeSidecarAtomicSync } from '../core/sidecar_store.mjs';
+import { readSidecarSync, getSidecarPath } from '../core/sidecar_store.mjs';
 import { canonicalizePath } from '../core/path_canonicalizer.mjs';
-
-function loadConfig() {
-  try {
-    const __dirname = path.dirname(fileURLToPath(import.meta.url));
-    const cfgPath = path.resolve(__dirname, '../../config/default_flightcheck.json');
-    if (fs.existsSync(cfgPath)) {
-      return JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
-    }
-  } catch {}
-  return {
-    hook_level: 'guard',
-    cold_session_max_turns: 3,
-    trust_decay_turn_threshold: 10,
-    subagent_min_cache_tokens: 25000,
-    subagent_min_purity_pct: 70.0,
-    compact_halt_purity_pct: 45.0,
-    amputation_token_threshold: 140000,
-    quota_floor_fraction: 0.10
-  };
-}
+import { scorePromptSufficiency } from '../core/prompt_rubric.mjs';
+import { loadFlightcheckConfig } from '../core/config.mjs';
+import { resolveModelCeiling } from '../core/constants.mjs';
 
 async function readStdinSafe() {
   if (process.stdin.isTTY) return {};
@@ -59,7 +42,7 @@ function formatScorecard(p1, p2, p3, p4) {
 }
 
 export async function handlePreInvocation(inputData = {}) {
-  const config = loadConfig();
+  const config = inputData.configOverride || loadFlightcheckConfig();
   const rawPrompt = String(inputData.prompt || inputData.user_input || inputData.message || '').trim();
   const conversationId = inputData.conversationId || inputData.session_id || inputData.conversation_id || 'default_session';
 
@@ -76,7 +59,11 @@ export async function handlePreInvocation(inputData = {}) {
 
   if (rawPrompt.includes('!lock')) {
     sessionMeta.effortLocked = true;
-    writeSidecarAtomicSync(conversationId, sidecar);
+    sidecar.sessionMeta = sessionMeta;
+    try {
+      const filePath = getSidecarPath(conversationId);
+      fs.writeFileSync(filePath, JSON.stringify(sidecar, null, 2), 'utf8');
+    } catch {}
     return {};
   }
 
@@ -89,8 +76,33 @@ export async function handlePreInvocation(inputData = {}) {
   const purity = telemetry.signalPurityPct ?? 100.0;
   const tokens = telemetry.totalInputTokens || 0;
   const activeEffort = inputData.effort || sessionMeta.activeEffort || 'high';
-  const activeModel = inputData.modelName || sessionMeta.activeModel || 'gemini-3.8-flash';
+  const activeModel = inputData.modelName || sessionMeta.activeModel || (config.recommended_models?.fast || 'gemini-3.8-flash');
   const quotaFrac = telemetry.quota?.remaining_fraction ?? 1.0;
+  const ceiling = resolveModelCeiling(activeModel, null, { config }) || 256000;
+  const ceilingK = Math.round(ceiling / 1000);
+
+  const hookLevel = config.hook_level || 'guard';
+  const cooldownTurns = config.halt_cooldown_turns ?? 3;
+  const lastHalts = { ...(sessionMeta.lastHalts || {}) };
+  const isTelemetryReliable = telemetry.confidence !== 'LOW';
+
+  function haltOrAdvise(stateKey, card, { exemptFromCooldown = false } = {}) {
+    const lastFiredTurn = lastHalts[stateKey];
+    const isWithinCooldown = typeof lastFiredTurn === 'number' && ((turnCount - lastFiredTurn) <= cooldownTurns);
+
+    if (hookLevel === 'advisory' || (isWithinCooldown && !exemptFromCooldown)) {
+      return { systemMessage: card };
+    }
+
+    lastHalts[stateKey] = turnCount;
+    sessionMeta.lastHalts = lastHalts;
+    sidecar.sessionMeta = sessionMeta;
+    try {
+      const filePath = getSidecarPath(conversationId);
+      fs.writeFileSync(filePath, JSON.stringify(sidecar, null, 2), 'utf8');
+    } catch {}
+    return { terminationBehavior: 'terminate', userMessage: card };
+  }
 
   // 2. ALLOW_PLAN_OR_SUBAGENT
   if (!hasCheckTag && (sessionMeta.inPlanMode || sessionMeta.lastTurnUsedSubagent)) {
@@ -101,24 +113,35 @@ export async function handlePreInvocation(inputData = {}) {
 
   // 3. HALT_HYGIENE_OR_SAFETY
   const isHighOrMaxEffort = activeEffort === 'high' || activeEffort === 'max';
-  if (telemetry.amputationRisk) {
+  if (telemetry.amputationRisk && isTelemetryReliable) {
+    const handoff = sidecar.handoff || {};
+    const handoffAction = handoff.result === 'NEEDS_FIXES'
+      ? `Handoff NEEDS FIXES: ${(handoff.failingChecks || []).slice(0, 2).join('; ') || 'update task.md'}`
+      : `/clear or /compact`;
+    const rewriteCmd = handoff.result === 'NEEDS_FIXES'
+      ? `"Update task.md checkpoint (/handoff), then type /compact or /clear"`
+      : `"Save progress to task.md and start a clean session with /clear (or /compact)"`;
+
     const card = formatScorecard(
-      `[Amputation Crisis] Tokens: ${Math.round(tokens / 1000)}k/200k`,
+      `[Amputation Crisis] Tokens: ${Math.round(tokens / 1000)}k/${ceilingK}k`,
       `[Purity: ${purity}% | Amputation: Earliest cells at risk]`,
-      `/clear or /compact`,
-      `"Save progress to task.md and start a clean session with /clear"`
+      handoffAction,
+      rewriteCmd
     );
-    return { terminationBehavior: 'terminate', userMessage: card };
+    return haltOrAdvise('AMPUTATION_CRISIS', card, { exemptFromCooldown: true });
   }
 
   if (sensors.threeStrikeLoop) {
+    const loopInfo = sensors.loopFingerprint
+      ? `Loop: ${sensors.loopFingerprint.slice(0, 48)}`
+      : 'Consecutive command failures detected';
     const card = formatScorecard(
-      `[3-Strike Error Loop] Consecutive command failures detected`,
+      `[3-Strike Error Loop] ${loopInfo}`,
       `[Purity: ${purity}% | Errors: 3 strikes]`,
       `Break loop: isolate with subagent or compact`,
       `"Diagnose previous errors using invoke_subagent or run /compact"`
     );
-    return { terminationBehavior: 'terminate', userMessage: card };
+    return haltOrAdvise('THREE_STRIKE_LOOP', card);
   }
 
   if (fileState.foreignBleedKiIds && fileState.foreignBleedKiIds.length > 0 && sessionMeta.inPlanMode) {
@@ -128,17 +151,17 @@ export async function handlePreInvocation(inputData = {}) {
       `/context`,
       `"Eject foreign knowledge items in /context before planning"`
     );
-    return { terminationBehavior: 'terminate', userMessage: card };
+    return haltOrAdvise('FOREIGN_BLEED', card);
   }
 
-  if (purity < (config.compact_halt_purity_pct || 45.0) && isHighOrMaxEffort) {
+  if (isTelemetryReliable && purity < (config.compact_halt_purity_pct || 45.0) && isHighOrMaxEffort) {
     const card = formatScorecard(
       `[Low Signal Purity] ${purity}% pure on ${activeEffort} effort`,
       `[Sludge: +$${(telemetry.sludgeTaxUsdPerTurn || 0).toFixed(2)}/turn]`,
       `/compact`,
       `"Run /compact to compress stale reads before high-effort execution"`
     );
-    return { terminationBehavior: 'terminate', userMessage: card };
+    return haltOrAdvise('LOW_PURITY', card);
   }
 
   if (sensors.uncheckpointedGitDrift) {
@@ -148,35 +171,41 @@ export async function handlePreInvocation(inputData = {}) {
       `git commit or run test`,
       `"Run unit tests and commit working changes before editing further"`
     );
-    return { terminationBehavior: 'terminate', userMessage: card };
+    return haltOrAdvise('GIT_DRIFT', card);
   }
 
   // 4. HALT_EFFORT_OR_QUOTA
-  if (sensors.quotaFloorBreached && (activeModel.includes('pro') || activeModel.includes('argon') || activeEffort === 'max')) {
+  const fastModel = config.recommended_models?.fast || 'gemini-3.8-flash';
+  const deepModel = config.recommended_models?.deep || 'gemini-3.1-pro';
+
+  if (isTelemetryReliable && sensors.quotaFloorBreached && (activeModel.includes('pro') || activeModel.includes('argon') || activeEffort === 'max')) {
     const card = formatScorecard(
       `[Quota Floor Breached] 5h Quota: ${Math.round(quotaFrac * 100)}% (<10%)`,
       `[Tokens: ${Math.round(tokens / 1000)}k | Risk: 0% lockout]`,
-      `/model gemini-3.8-flash  •  /effort low`,
-      `"Switch to gemini-3.8-flash on low effort to preserve remaining quota"`
+      `/model ${fastModel}  •  /effort low`,
+      `"Switch to ${fastModel} on low effort to preserve remaining quota"`
     );
-    return { terminationBehavior: 'terminate', userMessage: card };
+    return haltOrAdvise('QUOTA_FLOOR', card);
   }
 
   const promptTokenEst = Math.max(1, Math.ceil(rawPrompt.length / 4));
   const isColdCache = tokens < 10000;
   const isTrivial = promptTokenEst < 15;
-  if (!sessionMeta.effortLocked && isTrivial && (sessionMeta.consecutiveTrivialOnMax >= 2 || (isColdCache && (activeModel.includes('pro') || activeModel.includes('argon')) && activeEffort === 'max'))) {
+  if (isTelemetryReliable && !sessionMeta.effortLocked && isTrivial && (sessionMeta.consecutiveTrivialOnMax >= 2 || (isColdCache && (activeModel.includes('pro') || activeModel.includes('argon')) && activeEffort === 'max'))) {
     const card = formatScorecard(
       `[Effort Overkill] Trivial edit (${promptTokenEst} tokens) on max effort`,
       `[Cold cache / trivial turn]`,
-      `/model gemini-3.8-flash  •  /effort low`,
-      `"Run trivial single-file edit on gemini-3.8-flash / low effort"`
+      `/model ${fastModel}  •  /effort low`,
+      `"Run trivial single-file edit on ${fastModel} / low effort"`
     );
-    return { terminationBehavior: 'terminate', userMessage: card };
+    return haltOrAdvise('EFFORT_OVERKILL', card);
   }
 
   // 5. INJECT_CONTEXT_GUARD
   const guards = [];
+  if (!isTelemetryReliable) {
+    guards.push('Telemetry confidence DEGRADED (parser schema drift detected) — running fail-open');
+  }
   if (fileState.dirtySnapshotPaths && fileState.dirtySnapshotPaths.length > 0) {
     guards.push(`Dirty Snapshots modified externally: ${fileState.dirtySnapshotPaths.slice(0, 2).join(', ')} — re-read with view_file before editing`);
   }
@@ -222,27 +251,34 @@ export async function handlePreInvocation(inputData = {}) {
 
   // 8. HALT_REWRITE_SCORECARD (Explicit #check or Cold Session Vague Multi-File Prompt)
   const isColdSession = turnCount <= (config.cold_session_max_turns || 3);
+  const promptSufficiency = scorePromptSufficiency(rawPrompt, { activeSetPaths: fileState.activeSetPaths });
   const isVagueMultiFile = /(refactor everything|fix all|update the whole project|caching)/i.test(rawPrompt) && !rawPrompt.includes('@');
 
-  if (hasCheckTag || (isColdSession && isVagueMultiFile)) {
+  // Ground rule: "Short prompts are not bad by default" - concise scoped instructions shouldn't trigger vague halt
+  if (hasCheckTag || (isColdSession && isVagueMultiFile && !promptSufficiency.shortPrompt)) {
     const cleanedPrompt = rawPrompt.replace(/#check\b/gi, '').trim();
-    const recommendedModel = tokens > 50000 ? 'gemini-3.1-pro' : 'gemini-3.8-flash';
+    const recommendedModel = tokens > 50000 ? deepModel : fastModel;
     const recommendedEffort = isComplexTopic ? 'high' : 'medium';
     const targetHint = (fileState.activeSetPaths && fileState.activeSetPaths[0]) || 'src/index.js';
+    const missingSnippet = promptSufficiency.missing.length > 0 ? ` | Missing: ${promptSufficiency.missing[0]}` : '';
+
+    const rewriteSuggestion = promptSufficiency.missing.includes('testability & expected outcome')
+      ? `"In @${targetHint}, ${cleanedPrompt || 'implement updates'} and run automated tests to verify"`
+      : `"In @${targetHint}, ${cleanedPrompt || 'implement surgical updates with unit test'}"`;
 
     const card = formatScorecard(
-      `[Score 65/100] Scope: Vague/Multi-module | Target: ${targetHint}`,
+      `[Sufficiency ${promptSufficiency.score}/12 ${promptSufficiency.band}]${missingSnippet}`,
       `[Purity: ${purity}% | Sludge: +$${(telemetry.sludgeTaxUsdPerTurn || 0).toFixed(2)}/t | Tokens: ${Math.round(tokens / 1000)}k]`,
       `/model ${recommendedModel}  •  /effort ${recommendedEffort}`,
-      `"In @${targetHint}, ${cleanedPrompt || 'implement surgical updates with unit test'}"`
+      rewriteSuggestion
     );
-    return { terminationBehavior: 'terminate', userMessage: card };
+    return haltOrAdvise('REWRITE_SCORECARD', card);
   }
 
   return {};
 }
 
-// Auto-run if executed directly
+// Auto-run when executed directly by Antigravity Hook Harness
 const isMain = process.argv[1] && (process.argv[1].endsWith('pre_invocation.mjs') || process.argv[1].endsWith('pre_invocation.js'));
 if (isMain) {
   readStdinSafe().then(input => {
@@ -251,7 +287,7 @@ if (isMain) {
     console.log(JSON.stringify(output || {}));
     process.exit(0);
   }).catch(() => {
-    console.log('{}');
+    console.log(JSON.stringify({}));
     process.exit(0);
   });
 }
