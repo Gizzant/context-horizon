@@ -1,7 +1,7 @@
 # Source File: tests/verify_e2e_context_memory.mjs
 
 ```javascript
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -15,11 +15,10 @@ import { parseRawJsonl, parseTranscriptIncremental, readSessionGenMetadataSync, 
 import { syncAndVerifyMirrors } from '../scripts/sync_mirrors.mjs';
 import { EFFORT_PROFILES, scaleEffortProfileForCeiling } from '../src/core/constants.mjs';
 import { isInternalTelemetryPath, synthesizeParameterizedCompact, synthesizeBatonPassHandoffCommand, evaluateCompactionCacheAdvisory } from '../src/core/prompt_rubric.mjs';
-import { computeQuotaAndCacheTelemetry, extractHubProcessInfo } from '../src/core/quota.mjs';
+import { computeQuotaAndCacheTelemetry } from '../src/core/quota.mjs';
 import { evaluateProcessTable } from '../src/core/host_watchdog.mjs';
 import { runCLI as runPluginCLI } from 'file:///C:/Users/frank/.gemini/config/plugins/agy-horizon/src/cli/horizon_hud.mjs';
 import { handleHook } from 'file:///C:/Users/frank/.gemini/config/plugins/agy-horizon/src/cli/horizon_hook.mjs';
-import { syncSessionCatalog } from 'file:///C:/Users/frank/.gemini/config/plugins/agy-horizon/src/core/catalog.mjs';
 
 const require = createRequire(import.meta.url);
 const { JSDOM } = require('C:/Users/frank/AppData/Local/Temp/node_modules/jsdom');
@@ -47,11 +46,13 @@ const htmlPath = 'C:/Projects/ga-visualizer-v2/src/webview/horizon_panel.html';
 const html = fs.readFileSync(htmlPath, 'utf8');
 
 const apiCalls = [];
+const confirmCalls = [];
 const dom = new JSDOM(html, {
   runScripts: 'dangerously',
   pretendToBeVisual: true,
   url: 'http://127.0.0.1:62935/',
   beforeParse(w) {
+    w.confirm = (msg) => { confirmCalls.push(String(msg)); return true; };
     w.fetch = async (url, opts = {}) => {
       apiCalls.push({ url, method: opts.method || 'GET', body: opts.body ? JSON.parse(opts.body) : null });
       if (url === '/api/prune') {
@@ -170,6 +171,10 @@ const richRoadmapState = {
     rssGb: 2.45,
     languageServerCount: 4,
     orphanCount: 2,
+    orphans: [
+      { pid: 4242, ppid: 1, name: 'language_server', reason: 'detached_parent_pid' },
+      { pid: 4343, ppid: 1, name: 'mcp-server', reason: 'detached_parent_pid' }
+    ],
     status: 'ZOMBIE_LEAK'
   },
   brainSignals: {
@@ -215,7 +220,12 @@ assert.equal(d.getElementById('bucketBars').children.length, 5, '5-Bucket Zero-T
 assert.equal(d.getElementById('subagentPills').hidden, false, 'Subagent pills container must be visible');
 assert.ok(d.getElementById('subagentPills').textContent.includes('48.2k isolated -> 1.2k handoff (40x)'), 'Subagent pill must render compression ratio');
 assert.equal(d.getElementById('hostWatchdogBar').hidden, false, 'Host Watchdog footer bar must be visible');
-assert.equal(d.getElementById('btnReapOrphans').hidden, false, 'Reap Zombies button must be visible when orphanCount > 0');
+assert.equal(d.getElementById('btnReapOrphans').hidden, false, 'Clean-up orphans button must be visible when orphanCount > 0');
+assert.ok(/^Turn 38 \u00B7 Updated /.test(d.getElementById('footerMeta').textContent), 'Footer must show only "Turn N · Updated T"');
+assert.ok(d.getElementById('valUseful').textContent.includes('% of used'), 'Active card sublabel must say "% of used"');
+assert.ok(d.getElementById('valClutter').textContent.includes('% of used'), 'Reclaimable card sublabel must say "% of used"');
+assert.ok(!d.body.textContent.includes('100% constraint retention'), 'Marketing copy "100% constraint retention" must be gone');
+assert.ok(d.getElementById('batonPassRow').textContent.includes('Start fresh'), 'Baton Pass blurb must explain what the button does');
 
 // Click Condense Stale Reads (AST Fold) button & Reap Zombies button
 d.getElementById('btnCondenseAst').click();
@@ -225,7 +235,12 @@ assert.ok(d.getElementById('feedbackToast').textContent.includes('Condensed 4 st
 
 d.getElementById('btnReapOrphans').click();
 await new Promise(r => setTimeout(r, 30));
-assert.ok(apiCalls.some(c => c.url === '/api/host/reap' && c.method === 'POST'), 'Clicking #btnReapOrphans must POST to /api/host/reap');
+assert.equal(d.getElementById('btnReapOrphans').textContent.trim(), 'Clean up 2 orphans\u2026', 'Reap button must read "Clean up N orphans…"');
+assert.equal(confirmCalls.length, 1, 'Reap button must ask for confirmation');
+assert.ok(confirmCalls[0].includes('language_server (4242)') && confirmCalls[0].includes('mcp-server (4343)'), 'Confirm dialog must list each orphan as name (PID)');
+const reapCall = apiCalls.find(c => c.url === '/api/host/reap' && c.method === 'POST');
+assert.ok(reapCall, 'Clicking #btnReapOrphans must POST to /api/host/reap');
+assert.deepEqual(reapCall.body, { pids: [4242, 4343] }, 'Reap must POST the explicit confirmed PIDs');
 assert.ok(d.getElementById('feedbackToast').textContent.includes('Reaped 2 orphaned process(es)'), 'Toast must confirm reaped processes');
 
 dom.window.close();
@@ -407,6 +422,25 @@ try {
   assert.equal(openBrainJson.fallbackUsed, true, 'POST /api/open-brain must use fallback when brain/<id> does not exist');
   assert.ok(openBrainJson.brainDir.includes('conversations') || openBrainJson.brainDir.includes('antigravity'), 'Fallback directory must point to conversations or surface directory');
   openBrainFallbackVerified = openBrainJson.fallbackUsed === true;
+
+  // 4i. Phase 0 security: foreign Origin and foreign Host must be rejected with 403.
+  const evilOriginRes = await fetch(`${baseUrl}/api/prune`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'http://evil.example' },
+    body: JSON.stringify({ dryRun: true })
+  });
+  assert.equal(evilOriginRes.status, 403, 'Daemon must reject cross-origin POST (Origin: http://evil.example) with 403');
+  assert.equal(evilOriginRes.headers.get('access-control-allow-origin'), null, 'Daemon must not emit Access-Control-Allow-Origin');
+  const httpMod = await import('node:http');
+  const badHostStatus = await new Promise((resolve, reject) => {
+    const r = httpMod.request({ host: '127.0.0.1', port, path: '/api/state', method: 'GET', headers: { Host: 'evil.example' } }, (resp) => {
+      resp.resume();
+      resolve(resp.statusCode);
+    });
+    r.on('error', reject);
+    r.end();
+  });
+  assert.equal(badHostStatus, 403, 'Daemon must reject a non-local Host header (DNS rebinding) with 403');
 } finally {
   if (server.closeAllConnections) server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));
@@ -441,10 +475,27 @@ console.log(`  âœ“ Active conversation verified: ${cliRes.state.window.total
 // ---------------------------------------------------------------------------
 // 6. Refresh Precomputed Session Catalog & Enforce 3-Way SHA-256 Mirror Parity
 // ---------------------------------------------------------------------------
-console.log('[6/7] Syncing Precomputed Session Catalog & Verifying 3-Way SHA-256 Mirror Parity...');
-await syncSessionCatalog(8);
+console.log('[6/7] Privacy Guard (no embedded session data) & Verifying 3-Way SHA-256 Mirror Parity...');
+// Privacy: tracked HTML must never embed real session state. Live sessions come only
+// from the daemon's same-origin /api/* endpoints. (The out-of-repo plugin catalog sync
+// is intentionally NOT invoked against the tracked HTML anymore.)
+{
+  const trackedHtmlPaths = [
+    path.resolve('src/webview/horizon_panel.html'),
+    path.resolve('docs/index.html')
+  ];
+  const privacyRe = /[A-Za-z]:\\\\Users\\\\|[A-Za-z]:\\Users\\|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+  for (const p of trackedHtmlPaths) {
+    if (!fs.existsSync(p)) continue;
+    const html = fs.readFileSync(p, 'utf8');
+    const m = html.match(/window\.__PRECOMPUTED_SESSIONS__\s*=\s*(\{.*?\});/);
+    assert.ok(m, `Privacy guard: ${path.basename(p)} must declare window.__PRECOMPUTED_SESSIONS__`);
+    assert.equal(m[1], '{}', `Privacy guard: ${path.basename(p)} must ship an empty __PRECOMPUTED_SESSIONS__ catalog`);
+    assert.ok(!privacyRe.test(m[1]), `Privacy guard: ${path.basename(p)} __PRECOMPUTED_SESSIONS__ must not contain local paths or session UUIDs`);
+  }
+}
 const mirrorCheck = syncAndVerifyMirrors();
-assert.equal(mirrorCheck.parityOk, true, '3-Way SHA-256 parity must hold after catalog refresh');
+assert.equal(mirrorCheck.parityOk, true, '3-Way SHA-256 parity must hold');
 console.log(`  âœ“ 3-Way SHA-256 mirror parity verified (${mirrorCheck.sha256.slice(0, 16)}...).\n`);
 
 // ---------------------------------------------------------------------------
@@ -567,11 +618,8 @@ try {
   try { fs.rmSync(dummyDbDir, { recursive: true, force: true }); } catch {}
 }
 
-// --- Fix #8: agy --hub Process Command-Line Extraction & Watchdog Recognition ---
-const hubInfo = extractHubProcessInfo('C:\\Users\\user\\AppData\\Local\\Programs\\Antigravity\\agy.exe --hub --port 18920 --csrf_token secret-token-42');
-assert.ok(hubInfo, 'extractHubProcessInfo must match agy --hub');
-assert.equal(hubInfo.port, 18920);
-assert.equal(hubInfo.csrfToken, 'secret-token-42');
+// --- Fix #8: agy --hub Watchdog Recognition ---
+// (CSRF-token extraction from local process command lines was removed with the dead local probe.)
 
 const watchdogProcEval = evaluateProcessTable([
   { pid: 101, ppid: 1, name: 'agy.exe', commandLine: 'agy.exe --hub --port 18920', rssBytes: 50 * 1024 * 1024 }
@@ -748,6 +796,33 @@ assert.equal(paramDetails.open, false, 'Hotfix #6: Simple mode must collapse the
 // Invariants: no /compact copy button
 assert.equal(d.getElementById('btnCompactPrimary'), null, 'Invariant: #btnCompactPrimary must never render');
 assert.ok(!fs.readFileSync(htmlPath, 'utf8').includes('copyCompactWithGuidance'), 'Invariant: copyCompactWithGuidance must not exist');
+
+// Stage 3 Remediation Matrix (UIA-01..UIA-06) Falsifiable Verification Checks:
+// UIA-01: Lean session (20.4k total, 8.9k clutter) must not open #guidedStepBox in warning state
+w.renderState(makeHotfixState({ totalTokens: 20400, clutterTokens: 8900, hitRatePct: 90, cacheReadTokens: 15000, ttlRemainingSec: 180, isCacheCold: false }));
+await new Promise(r => setTimeout(r, 30));
+assert.equal(d.getElementById('actionCard').className, 'action-card', 'UIA-01: lean 20.4k session must not apply warning/critical class to #actionCard');
+assert.equal(d.getElementById('guidedStepBox').style.display, 'none', 'UIA-01: lean 20.4k session must keep #guidedStepBox hidden');
+
+// UIA-03: Status badge text, 40-cell timeline, and top riskiest cells list
+assert.equal(d.getElementById('statusBadge').hidden, false, 'UIA-03: #statusBadge must be visible');
+assert.ok(d.getElementById('miniTimeline'), 'UIA-03: #miniTimeline must exist');
+assert.equal(d.getElementById('timelineLegend'), null, 'UIA-03: dead hidden #timelineLegend must not exist in DOM');
+assert.ok(d.getElementById('topRiskyCellsList'), 'UIA-03: #topRiskyCellsList must exist beneath #miniTimeline');
+
+// UIA-05: Host Watchdog surfaces orphan MB when orphans are present
+const leanWithOrphan = makeHotfixState({ totalTokens: 20400, clutterTokens: 2000 });
+leanWithOrphan.hostHealth = { orphanCount: 1, orphanRamMb: 420 };
+w.renderState(leanWithOrphan);
+await new Promise(r => setTimeout(r, 30));
+assert.ok(d.getElementById('hostWatchdogText').textContent.includes('Orphans: 1 (420 MB)'), 'UIA-05: #hostWatchdogText must surface orphan count and MB');
+
+// UIA-06: CLI HUD 40-cell output includes Cache state and never outputs -> /fast
+const { runCLI } = await import('../src/cli/horizon_hud.mjs');
+const cliRes = await runCLI({ silent: true });
+assert.ok(cliRes.output.includes('Cache:'), 'UIA-06: CLI HUD must include Cache state');
+assert.ok(!cliRes.output.includes('-> /fast'), 'UIA-06: CLI HUD must never output invalid -> /fast');
+
 hotfixDom.window.close();
 }
 

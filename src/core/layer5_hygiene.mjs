@@ -42,7 +42,7 @@ export function isCompactionCheckpointStep(step) {
 }
 
 /**
- * Phase 5 (Layer 5): Smart File Re-Read Classifier.
+ * Smart File Re-Read Classifier.
  *
  * Inspects transcript steps between consecutive `view_file` / `read_file` calls for the same file path.
  * Does NOT classify a repeat read as waste if:
@@ -506,3 +506,132 @@ export function promoteRuleWithAttentionZone(targetFileOrWorkspace, ruleText, {
     content: updatedContent
   };
 }
+
+/**
+ * Quantifies the exact "Context Re-Read Tax" whenever an unmodified file inspected before
+ * a `compact_boundary` / `CORTEX_STEP_TYPE_CHECKPOINT` / `prompt-suggestion-compact` is re-read after compaction.
+ */
+export function evaluatePostCompactionReReadTax(rawSteps = []) {
+  const list = Array.isArray(rawSteps) ? rawSteps : [];
+  let compactionSeen = false;
+  let compactionStepIndex = null;
+  const preCompactionReads = new Map(); // canonPath -> { rawPath, stepIndex, tokens }
+  const editedSincePreRead = new Set();
+  const postCompactionReReads = [];
+  let totalReReadTaxTokens = 0;
+
+  for (let i = 0; i < list.length; i++) {
+    const s = list[i] || {};
+    const typeStr = String(s.type || s.subtype || '').toLowerCase();
+    const isBoundary = Boolean(
+      isCompactionCheckpointStep(s) ||
+      typeStr.includes('compact') ||
+      s.compactMetadata ||
+      String(s.content || '').includes('<CONTEXT_SUMMARY>')
+    );
+
+    if (isBoundary) {
+      compactionSeen = true;
+      compactionStepIndex = s.stepIndex ?? i;
+      continue;
+    }
+
+    const calls = Array.isArray(s.toolCalls)
+      ? s.toolCalls
+      : (Array.isArray(s.tool_calls) ? s.tool_calls : []);
+
+    for (const c of calls) {
+      const name = String(c.name || c.tool || '').toLowerCase();
+      const args = c.args || c.parameters || c.Arguments || {};
+      const fp = args.Path || args.path || args.TargetFile || args.AbsolutePath;
+      if (!fp || typeof fp !== 'string') continue;
+      const canon = canonicalizePath(fp);
+
+      if (EDIT_TOOLS.has(name)) {
+        editedSincePreRead.add(canon);
+      } else if (READ_TOOLS.has(name)) {
+        const tok = Number(s.outputTokens ?? s.output_tokens ?? Math.max(500, Math.ceil(String(s.content || '').length / 4)));
+        if (!compactionSeen) {
+          preCompactionReads.set(canon, { rawPath: fp, stepIndex: s.stepIndex ?? i, tokens: tok });
+          editedSincePreRead.delete(canon);
+        } else if (preCompactionReads.has(canon) && !editedSincePreRead.has(canon)) {
+          const prev = preCompactionReads.get(canon);
+          totalReReadTaxTokens += tok;
+          postCompactionReReads.push({
+            path: fp,
+            canonicalPath: canon,
+            preCompactionStepIndex: prev.stepIndex,
+            compactionStepIndex,
+            postCompactionStepIndex: s.stepIndex ?? i,
+            wastedTokens: tok
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    compactionDetected: compactionSeen,
+    compactionStepIndex,
+    reReadCount: postCompactionReReads.length,
+    totalReReadTaxTokens,
+    reReads: postCompactionReReads
+  };
+}
+
+/**
+ * Analyzes per-turn ratios of reasoning tokens (`thinkingTokens`) and `thinkingDurationMs`
+ * to classify `unused_effort`, `loop_tax`, `housekeeping`, and `thrashing`.
+ */
+export function detectEffortThrashing(steps = []) {
+  const list = Array.isArray(steps) ? steps : [];
+  const flaggedTurns = [];
+  let totalWastedThinkingTokens = 0;
+  let consecutiveHighSimple = 0;
+
+  for (let i = 0; i < list.length; i++) {
+    const s = list[i] || {};
+    const thinkingTokens = Number(s.thinkingTokens ?? s.thinking_tokens ?? s.usage?.thinking_tokens ?? 0);
+    const outputTokens = Number(s.outputTokens ?? s.output_tokens ?? s.usage?.output_tokens ?? Math.ceil(String(s.content || '').length / 4));
+    const thinkingDurationMs = Number(s.thinkingDurationMs ?? s.thinking_duration_ms ?? 0);
+    const calls = Array.isArray(s.toolCalls)
+      ? s.toolCalls
+      : (Array.isArray(s.tool_calls) ? s.tool_calls : []);
+    const toolNames = calls.map(c => String(c.name || c.tool || '').toLowerCase());
+
+    if (thinkingTokens <= 0 && thinkingDurationMs <= 0) continue;
+
+    const isError = Boolean(s.status === 'ERROR' || (typeof s.exitCode === 'number' && s.exitCode !== 0));
+    const isHousekeepingOnly = toolNames.length > 0 && toolNames.every(n => /todowrite|list_dir|find_by_name|glob/i.test(n));
+
+    let classification = null;
+    if (isError && thinkingTokens >= 2000) {
+      classification = 'loop_tax';
+    } else if (isHousekeepingOnly && thinkingTokens >= 1500) {
+      classification = 'housekeeping';
+    } else if (thinkingTokens >= 3000 && outputTokens > 0 && (thinkingTokens / Math.max(1, outputTokens)) >= 6) {
+      consecutiveHighSimple += 1;
+      classification = consecutiveHighSimple >= 2 ? 'thrashing' : 'unused_effort';
+    } else {
+      consecutiveHighSimple = 0;
+    }
+
+    if (classification) {
+      totalWastedThinkingTokens += thinkingTokens;
+      flaggedTurns.push({
+        stepIndex: s.stepIndex ?? i,
+        classification,
+        thinkingTokens,
+        outputTokens,
+        thinkingDurationMs
+      });
+    }
+  }
+
+  return {
+    thrashingDetected: flaggedTurns.some(t => t.classification === 'thrashing' || t.classification === 'loop_tax'),
+    totalWastedThinkingTokens,
+    flaggedTurns
+  };
+}
+

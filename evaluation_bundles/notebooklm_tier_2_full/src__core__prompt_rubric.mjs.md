@@ -152,8 +152,20 @@ export const COMPACTION_ADVISORY_MESSAGES = Object.freeze({
   DEFER_WARM:
     'Cache is currently warm (95% token cost discount). Defer compaction until work pause to avoid 70s execution stall and complete KV cache invalidation.',
   COMPACT_NOW:
-    'Cache expired. Run parameterized compaction now before firing next turn.'
+    'Cache expired. Run parameterized compaction now before firing next turn.',
+  LEAN_NO_COMPACT:
+    'Session is lean \u2014 no compaction needed until >50k tokens'
 });
+
+export const LEAN_SESSION_MIN_TOKENS = 50000;
+export const LEAN_SESSION_MIN_SLUDGE = 25000;
+
+/** True when compaction is worth its ~70s stall: >=50k active, >=25k reclaimable, or past the safe horizon. */
+export function isCompactionRelevant({ totalActiveTokens = 0, sludgeTokens = 0, safeHorizonTokens = 179000 } = {}) {
+  return Number(totalActiveTokens) > Number(safeHorizonTokens || 179000) ||
+    Number(totalActiveTokens) >= LEAN_SESSION_MIN_TOKENS ||
+    Number(sludgeTokens) >= LEAN_SESSION_MIN_SLUDGE;
+}
 
 /**
  * Returns true if a file path is an internal Antigravity telemetry/hydration log
@@ -176,7 +188,7 @@ const WORKSPACE_TOP_LEVEL_DIRS = new Set([
 ]);
 
 /**
- * Hotfix: formats a file path as a clean workspace-relative path (no `.../` prefixes).
+ * formats a file path as a clean workspace-relative path (no `.../` prefixes).
  * Prefers stripping `workspaceRoot`; otherwise anchors on a well-known top-level directory
  * (src/, tests/, scripts/, ...); otherwise falls back to the last two path segments.
  */
@@ -206,7 +218,7 @@ export function toWorkspaceRelativePath(p, workspaceRoot = '') {
 }
 
 /**
- * Hotfix: sanitizes a raw user message into a concise constraint clause.
+ * sanitizes a raw user message into a concise constraint clause.
  * Strips `/plan` (and other slash-command) headers, artifact/file URIs, XML-ish wrapper tags and
  * markdown headers, then truncates cleanly at a word boundary within `maxLen` characters.
  * Returns '' when nothing meaningful remains.
@@ -233,7 +245,7 @@ export function sanitizeUserConstraintText(raw, maxLen = 90) {
 }
 
 /**
- * Phase 4 (Layer 4): Synthesizes a parameterized, context-preserving /compact command
+ * Synthesizes a parameterized, context-preserving /compact command
  * pulling in active file paths and extracted in-chat user corrections.
  */
 export function synthesizeParameterizedCompact({
@@ -295,18 +307,30 @@ export function synthesizeParameterizedCompact({
 }
 
 /**
- * Phase 4 (Layer 4): Evaluates Cache-Aware Compaction Advisory.
+ * Evaluates Cache-Aware Compaction Advisory.
  * - If Cache TTL > 0s and totalActiveTokens <= 179k: Defer compaction until work pause.
  * - If Cache TTL == 0s OR totalActiveTokens > 179k: Run parameterized compaction now.
- * - Hotfix: when `isCacheTrulyWarm === false` (0 cache reads / 0% hit / prefix bust), never DEFER_WARM.
+ * - when `isCacheTrulyWarm === false` (0 cache reads / 0% hit / prefix bust), never DEFER_WARM.
  */
 export function evaluateCompactionCacheAdvisory({
   cacheTtlRemainingSec = 300,
   totalActiveTokens = 0,
   safeHorizonTokens = 179000,
-  isCacheTrulyWarm
+  isCacheTrulyWarm,
+  nextTurnLikelyWarm,
+  sludgeTokens = 0
 } = {}) {
-  const isExpiredOrOverHorizon = isCacheTrulyWarm === false ||
+  if (!isCompactionRelevant({ totalActiveTokens, sludgeTokens, safeHorizonTokens })) {
+    return {
+      state: 'LEAN_NO_COMPACT',
+      domState: 'lean-no-compact',
+      message: COMPACTION_ADVISORY_MESSAGES.LEAN_NO_COMPACT
+    };
+  }
+  // a turn that missed the cache wrote a fresh prefix, so the *next* turn is likely warm.
+  // When `nextTurnLikelyWarm` is supplied it supersedes the strict badge predicate for this advisory.
+  const warmEvidence = typeof nextTurnLikelyWarm === 'boolean' ? nextTurnLikelyWarm : isCacheTrulyWarm;
+  const isExpiredOrOverHorizon = warmEvidence === false ||
     Number(cacheTtlRemainingSec) <= 0 || Number(totalActiveTokens) > Number(safeHorizonTokens || 179000);
   if (isExpiredOrOverHorizon) {
     return {
@@ -323,7 +347,7 @@ export function evaluateCompactionCacheAdvisory({
 }
 
 /**
- * Phase 4 (Layer 4): Synthesizes The Baton Pass (/handoff) workflow command and target path.
+ * Synthesizes The Baton Pass (/handoff) workflow command and target path.
  */
 export function synthesizeBatonPassHandoffCommand({
   timestamp = null,
@@ -342,7 +366,7 @@ export function synthesizeBatonPassHandoffCommand({
     ? pendingTasks.slice(0, 3).join('; ')
     : 'remaining checklist items in task.md';
 
-  const command = `/handoff Summarize active AST contracts (${filesSummary}), latest test verification states, and pending task.md items (${tasksSummary}) into ${handoffFile} so the next session starts with zero conversational debt and 100% constraint retention.`;
+  const command = `/handoff Summarize active AST contracts (${filesSummary}), latest test verification states, and pending task.md items (${tasksSummary}) into ${handoffFile} so a fresh chat can pick up from a written summary.`;
   return {
     timestamp: ts,
     handoffFile,

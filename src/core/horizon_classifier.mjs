@@ -70,7 +70,7 @@ export function classifyHorizonWindow(
     }
   }
 
-  // 2. Identify Dead Errors and Smart Stale Duplicates (Phase 5 Layer 5)
+  // 2. Identify Dead Errors and Smart Stale Duplicates
   const totalSteps = stepEvents.length;
   const smartReReads = evaluateSmartFileReReads(stepEvents);
   let latestPassingCommandStep = -1;

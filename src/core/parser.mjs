@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { canonicalizePath, getHomeDir, getBrainStores, getAntigravitySurfaces } from './paths.mjs';
 import { EFFORT_PROFILES, resolveEffortProfile, resolveSurfaceTag, normalizeModelId } from './constants.mjs';
+import { stitchAntigravityCliTrajectory } from './trajectory_stitcher.mjs';
 
 /**
  * Zero-Trust Read-Only Filesystem Lock Configuration (SQLITE_OPEN_READONLY).
@@ -500,12 +501,22 @@ export function findSessionDirectory(sessionId, homeDir = getHomeDir()) {
   return latest;
 }
 
+const genMetaMemo = new Map();
+
 /**
  * Reads exact token telemetry (input_tokens + cache_read_tokens) and mid-run Prefix Bust
  * events from a session's conversations/<uuid>.db SQLite store (gen_metadata table) in strict read-only mode.
  */
 export function readSessionGenMetadataSync(dbPath, DatabaseSyncClass = null) {
   if (!dbPath || !fs.existsSync(dbPath) || !DatabaseSyncClass) return null;
+  let sig = '';
+  try {
+    const st = fs.statSync(dbPath);
+    sig = `${dbPath}|${st.mtimeMs}|${st.size}`;
+    if (genMetaMemo.has(sig)) return genMetaMemo.get(sig);
+  } catch {
+    return null;
+  }
   let db = null;
   try {
     db = new DatabaseSyncClass(dbPath, SQLITE_OPEN_READONLY_OPTIONS);
@@ -545,7 +556,7 @@ export function readSessionGenMetadataSync(dbPath, DatabaseSyncClass = null) {
       }
     }
 
-    return {
+    const result = {
       inputTokens,
       cacheReadTokens,
       outputTokens,
@@ -555,17 +566,24 @@ export function readSessionGenMetadataSync(dbPath, DatabaseSyncClass = null) {
       createdAt: row.created_at || null,
       prefixBustDetected,
       prefixBustDeltaSec,
-      // Phase 2: attribute a bust to a model switch when gen_metadata shows one.
+      // Attribute a bust to a model switch when gen_metadata shows one.
       prefixBustCause: (prefixBustDetected && modelChanged)
         ? { cause: 'model_switch', from: prevRow.model, to: row.model }
         : null
     };
+    if (sig) {
+      if (genMetaMemo.size > 64) genMetaMemo.clear();
+      genMetaMemo.set(sig, result);
+    }
+    return result;
   } catch {
     return null;
   } finally {
     try { if (db && typeof db.close === 'function') db.close(); } catch {}
   }
 }
+
+const incrementalMemCache = new Map();
 
 /**
  * Reads transcript incrementally using byte offsets and inode cache
@@ -611,12 +629,20 @@ export function parseTranscriptIncremental(sessionDir, cacheDir = null) {
 
   let cached = { lastByteOffset: 0, steps: [], mtimeMs: 0, schemaRev: 0 };
   let rewindDetected = false;
-  if (fs.existsSync(cacheFile)) {
+  const memCached = incrementalMemCache.get(cacheFile);
+  if (memCached && memCached.filePath === filePath && fs.existsSync(cacheFile)) {
+    if (memCached.lastByteOffset <= stat.size) {
+      cached = memCached;
+    } else {
+      rewindDetected = true;
+    }
+  } else if (fs.existsSync(cacheFile)) {
     try {
       const cachedData = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
       if (cachedData.schemaRev === 2 && cachedData.filePath === filePath) {
         if (cachedData.lastByteOffset <= stat.size) {
           cached = cachedData;
+          incrementalMemCache.set(cacheFile, cachedData);
         } else {
           // File shrank due to IDE Undo/Rewind or surgical prune
           rewindDetected = true;
@@ -626,7 +652,7 @@ export function parseTranscriptIncremental(sessionDir, cacheDir = null) {
   }
 
   if (cached.lastByteOffset === stat.size && cached.schemaRev === 2) {
-    const effortInfo = extractEffortTimeline(cached.steps);
+    const effortInfo = cached.effortInfo || extractEffortTimeline(cached.steps);
     return {
       tier: resolved.tier,
       steps: cached.steps,
@@ -665,19 +691,23 @@ export function parseTranscriptIncremental(sessionDir, cacheDir = null) {
   }
   const effortInfo = extractEffortTimeline(allSteps);
 
+  const updatedCachePayload = {
+    schemaRev: 2,
+    filePath,
+    sessionId,
+    lastByteOffset: stat.size,
+    mtimeMs: stat.mtimeMs,
+    steps: allSteps
+  };
+  if (incrementalMemCache.size > 24) incrementalMemCache.clear();
+  incrementalMemCache.set(cacheFile, { ...updatedCachePayload, effortInfo });
+
   // Save updated cache
   try {
     if (!fs.existsSync(actualCacheDir)) {
       fs.mkdirSync(actualCacheDir, { recursive: true });
     }
-    fs.writeFileSync(cacheFile, JSON.stringify({
-      schemaRev: 2,
-      filePath,
-      sessionId,
-      lastByteOffset: stat.size,
-      mtimeMs: stat.mtimeMs,
-      steps: allSteps
-    }), 'utf8');
+    fs.writeFileSync(cacheFile, JSON.stringify(updatedCachePayload), 'utf8');
   } catch {}
 
   return {
@@ -805,18 +835,39 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
         // Also inspect per-conversation SQLite stores: ~/.gemini/<surface>/conversations/*.db
         if (fs.existsSync(surface.conversationsDir)) {
           try {
-            const dbFiles = fs.readdirSync(surface.conversationsDir).filter(f => f.endsWith('.db'));
-            for (const file of dbFiles) {
-              const sid = file.replace(/\.db$/i, '');
-              const fullDbPath = path.join(surface.conversationsDir, file);
+            const dbCandidates = fs.readdirSync(surface.conversationsDir)
+              .filter(f => f.endsWith('.db'))
+              .map(file => {
+                const sid = file.replace(/\.db$/i, '');
+                const fullDbPath = path.join(surface.conversationsDir, file);
+                let mtimeMs = 0;
+                try { mtimeMs = fs.statSync(fullDbPath).mtimeMs; } catch {}
+                return { file, sid, fullDbPath, mtimeMs };
+              })
+              .sort((a, b) => b.mtimeMs - a.mtimeMs);
+            const topDbCandidates = dbCandidates.slice(0, 12);
+            if (sessionId && !topDbCandidates.some(c => c.sid === sessionId)) {
+              const targetEntry = dbCandidates.find(c => c.sid === sessionId);
+              if (targetEntry) topDbCandidates.push(targetEntry);
+            }
+            for (const { sid, fullDbPath, mtimeMs } of topDbCandidates) {
               const genMeta = readSessionGenMetadataSync(fullDbPath, DatabaseSync);
               if (sessionId && sid === sessionId && genMeta && !sessionGenMetadata) {
                 sessionGenMetadata = genMeta;
               }
-              let mtimeIso = '';
-              try {
-                mtimeIso = new Date(fs.statSync(fullDbPath).mtimeMs).toISOString();
-              } catch {}
+              if (sessionId && sid === sessionId && workspaceUris.length === 0) {
+                try {
+                  const pbtxtPath = path.join(path.dirname(surface.conversationsDir), 'annotations', `${sid}.pbtxt`);
+                  const stitched = await stitchAntigravityCliTrajectory(fullDbPath, {
+                    sessionId: sid,
+                    pbtxtPath,
+                    DatabaseSync
+                  });
+                  if (stitched.workspaceUri) workspaceUris.push(stitched.workspaceUri);
+                  if (stitched.title && !sessionTitle) sessionTitle = stitched.title;
+                } catch {}
+              }
+              const mtimeIso = mtimeMs > 0 ? new Date(mtimeMs).toISOString() : '';
               upsertDiscoveredSession(sid, {
                 sessionId: sid,
                 title: sid.slice(0, 8),

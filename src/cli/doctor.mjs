@@ -7,12 +7,50 @@ import { resolveModelCeilingDetailed, resolvePricePerM } from '../core/constants
 import { getFlightcheckDir } from '../core/sidecar_store.mjs';
 import { syncAndVerifyMirrors } from '../../scripts/sync_mirrors.mjs';
 import { findSessionDirectory, parseTranscriptIncremental, parseRawJsonl } from '../core/parser.mjs';
+import { executeToolOutputSurgery } from '../core/tool_surgeon.mjs';
+import { compactCursorVscdbStreaming, recoverAntigravityBrainMigration } from '../core/storage_doctor.mjs';
+
+/**
+ * Parses CLI flags (`--prune-tools`, `--storage-gc`, `--transcript <path>`, `--vscdb <path>`, `--dry-run`)
+ */
+export function parseDoctorArgs(argv = process.argv.slice(2)) {
+  const pruneTools = argv.includes('--prune-tools');
+  const storageGc = argv.includes('--storage-gc');
+  const dryRun = argv.includes('--dry-run');
+  const tIdx = argv.indexOf('--transcript');
+  const transcriptPath = tIdx !== -1 && argv[tIdx + 1] ? argv[tIdx + 1] : null;
+  const vIdx = argv.indexOf('--vscdb');
+  const vscdbPath = vIdx !== -1 && argv[vIdx + 1] ? argv[vIdx + 1] : null;
+  return { pruneTools, storageGc, dryRun, transcriptPath, vscdbPath };
+}
 
 /**
  * Runs a comprehensive diagnosis of the Context Horizon (ctxtop) environment.
  */
-export async function runDoctor({ workspacePath = process.cwd() } = {}) {
+export async function runDoctor({ workspacePath = process.cwd(), pruneTools = false, storageGc = false, dryRun = false, transcriptPath = null, vscdbPath = null } = {}) {
   const home = process.env.USERPROFILE || process.env.HOME || os.homedir();
+  if (pruneTools) {
+    let resolvedTranscript = transcriptPath;
+    if (!resolvedTranscript) {
+      const sessionInfo = findSessionDirectory(null, home);
+      if (sessionInfo && sessionInfo.sessionDir) {
+        const candidateFull = path.join(sessionInfo.sessionDir, '.system_generated', 'logs', 'transcript_full.jsonl');
+        const candidateCompact = path.join(sessionInfo.sessionDir, '.system_generated', 'logs', 'transcript.jsonl');
+        if (fs.existsSync(candidateFull)) resolvedTranscript = candidateFull;
+        else if (fs.existsSync(candidateCompact)) resolvedTranscript = candidateCompact;
+      }
+    }
+    if (!resolvedTranscript || !fs.existsSync(resolvedTranscript)) {
+      return { ok: false, success: false, error: 'No active session transcript found to prune' };
+    }
+    const res = executeToolOutputSurgery(resolvedTranscript, { dryRun });
+    return { ok: Boolean(res.success), ...res };
+  }
+  if (storageGc) {
+    const migration = recoverAntigravityBrainMigration(home, { dryRun });
+    const vscdbRes = vscdbPath ? await compactCursorVscdbStreaming(vscdbPath, { dryRun }) : null;
+    return { ok: true, migration, vscdb: vscdbRes };
+  }
   const results = [];
 
   function record(title, status, detail = '') {
@@ -154,8 +192,9 @@ export async function runDoctor({ workspacePath = process.cwd() } = {}) {
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 if (isMain) {
-  runDoctor().then(res => {
-    process.exit(res.ok ? 0 : 1);
+  const cliOpts = parseDoctorArgs(process.argv.slice(2));
+  runDoctor(cliOpts).then(res => {
+    process.exit(res.ok === false ? 1 : 0);
   }).catch(err => {
     console.error('Doctor fatal error:', err);
     process.exit(1);

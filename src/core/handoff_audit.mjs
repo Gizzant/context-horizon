@@ -167,7 +167,7 @@ export function auditHandoff(brainDirOrPath = '', sessionSignals = {}, options =
 }
 
 /**
- * Phase 4 (Layer 4): Verifies all three brain artifacts (`task.md`, `implementation_plan.md`, `walkthrough.md`)
+ * Verifies all three brain artifacts (`task.md`, `implementation_plan.md`, `walkthrough.md`)
  * and checks `git status --porcelain` in the workspace. Raises `preCompactionWarning` when uncommitted
  * git modifications exist alongside a stale or missing `task.md`.
  */
@@ -206,7 +206,7 @@ export function checkBrainArtifactsAndGitDrift(brainDir = null, workspacePath = 
   }
   dirtyFiles = dirtyEntries.map(e => `${e.status} ${e.path}`);
 
-  // Phase 3: session-scoped drift — only files this session wrote/edited count toward the warning.
+  // session-scoped drift — only files this session wrote/edited count toward the warning.
   const hasSessionScope = Array.isArray(options.sessionWrittenPaths);
   let sessionDirtyFiles = [];
   if (hasSessionScope) {
@@ -316,7 +316,7 @@ export function readGitStatusCached(workspacePath, { nowMs = Date.now(), ttlMs =
 }
 
 /**
- * Phase 4 (Layer 4): Generates the Baton Pass (`/handoff`) Markdown file summarizing
+ * Generates the Baton Pass (`/handoff`) Markdown file summarizing
  * active AST contracts, test states, brain artifact status, and pending `task.md` tasks.
  */
 export function generateHandoffMarkdown(state = {}, options = {}) {
@@ -400,3 +400,150 @@ export function generateHandoffMarkdown(state = {}, options = {}) {
     markdown
   };
 }
+
+/**
+ * Deterministically extracts a rotating `.handoff.md` file at >=80% context saturation
+ * (or on explicit 1-click/hook invocation) without LLM calls, containing:
+ *  (1) Modified and inspected file paths (`toolUseResult.filePath`, `structuredPatch`, `edited_text_file`, `codeBlockDiff`)
+ *  (2) Active checklist items (`TodoWrite`, `goal_status`, `task.md.resolved`)
+ *  (3) Last 3 user prompts + unresolved `stderr`/`errorDetails`
+ */
+export function distillPreCompactionHandoff(steps = [], state = {}, options = {}) {
+  const list = Array.isArray(steps) ? steps : [];
+  const totalTok = Number(state?.window?.totalActiveTokens || options.totalActiveTokens || 0);
+  const maxTok = Number(state?.window?.maxTokens || options.maxTokens || 256000);
+  const saturationPct = maxTok > 0 ? Math.round((totalTok / maxTok) * 100) : 0;
+  const shouldTrigger = Boolean(options.force || saturationPct >= 80);
+
+  const modifiedPaths = new Set();
+  const inspectedPaths = new Set();
+  const checklistItems = [];
+  const userPrompts = [];
+  const unresolvedErrors = [];
+
+  for (let i = 0; i < list.length; i++) {
+    const s = list[i] || {};
+    const type = String(s.type || s.role || '').toUpperCase();
+    const calls = Array.isArray(s.toolCalls)
+      ? s.toolCalls
+      : (Array.isArray(s.tool_calls) ? s.tool_calls : []);
+
+    if (type === 'USER_INPUT' || type === 'USER') {
+      const promptText = String(s.content || s.text || '').trim();
+      if (promptText) userPrompts.push(promptText.slice(0, 240));
+    }
+
+    if (s.toolUseResult?.filePath) {
+      const fp = String(s.toolUseResult.filePath);
+      if (s.toolUseResult.structuredPatch || s.structuredPatch) modifiedPaths.add(fp);
+      else inspectedPaths.add(fp);
+    }
+    if (s.edited_text_file) modifiedPaths.add(String(s.edited_text_file));
+    if (s.codeBlockDiff?.filePath) modifiedPaths.add(String(s.codeBlockDiff.filePath));
+
+    for (const c of calls) {
+      const name = String(c.name || c.tool || '').toLowerCase();
+      const args = c.args || c.parameters || c.Arguments || {};
+      const fp = args.Path || args.path || args.TargetFile || args.AbsolutePath;
+      if (fp && typeof fp === 'string' && !isInternalTelemetryPath(fp)) {
+        if (/edit|write|replace/i.test(name)) modifiedPaths.add(fp);
+        else if (/read|view/i.test(name)) inspectedPaths.add(fp);
+      }
+      if (name === 'todowrite' && Array.isArray(args.todos)) {
+        for (const td of args.todos) {
+          if (td && td.content) {
+            const box = td.status === 'completed' ? '[x]' : (td.status === 'in_progress' ? '[/]' : '[ ]');
+            checklistItems.push(`- ${box} ${td.content}`);
+          }
+        }
+      }
+    }
+
+    if (s.goal_status && typeof s.goal_status === 'string') {
+      checklistItems.push(`- [/] ${s.goal_status.trim()}`);
+    }
+
+    const isErr = Boolean(
+      s.status === 'ERROR' ||
+      (typeof s.exitCode === 'number' && s.exitCode !== 0) ||
+      s.errorDetails ||
+      s.stderr
+    );
+    if (isErr) {
+      const errMsg = String(s.errorDetails || s.stderr || s.content || '').trim().split(/\r?\n/).slice(0, 3).join(' | ');
+      if (errMsg) unresolvedErrors.push(`Turn #${s.stepIndex ?? i}: ${errMsg.slice(0, 200)}`);
+    } else if (calls.some(c => /run_command|bash/i.test(String(c.name || ''))) && s.exitCode === 0) {
+      // Later passing test run clears earlier transient command errors
+      unresolvedErrors.length = 0;
+    }
+  }
+
+  const brainDir = options.brainDir || state?.brainDir || '';
+  if (brainDir) {
+    for (const fname of ['task.md.resolved', 'task.md']) {
+      const p = path.join(brainDir, fname);
+      if (fs.existsSync(p)) {
+        try {
+          const lines = fs.readFileSync(p, 'utf8').split(/\r?\n/).filter(l => /^[-*]\s*\[[ x/]\]/i.test(l.trim()));
+          for (const l of lines.slice(0, 12)) checklistItems.push(l.trim());
+          break;
+        } catch {}
+      }
+    }
+  }
+
+  const recentUserPrompts = userPrompts.slice(-3);
+  const modList = Array.from(modifiedPaths);
+  const inspList = Array.from(inspectedPaths).filter(p => !modifiedPaths.has(p));
+
+  const wsPath = options.workspacePath || state?.workspace?.canonicalPath || process.cwd();
+  const handoffPath = options.outputPath || path.join(wsPath, '.handoff.md');
+
+  const markdown = [
+    `# Pre-Compaction Deterministic Handoff (\`.handoff.md\`)`,
+    ``,
+    `- **Context Saturation**: ${saturationPct}% (${Math.round(totalTok / 1000)}k / ${Math.round(maxTok / 1000)}k tokens)`,
+    `- **Distilled At**: ${new Date().toISOString()}`,
+    ``,
+    `## 1. Modified & Inspected Files`,
+    `### Modified (${modList.length})`,
+    ...(modList.length > 0 ? modList.map(p => `- \`${p}\``) : ['- None']),
+    `### Inspected (${inspList.length})`,
+    ...(inspList.length > 0 ? inspList.slice(0, 15).map(p => `- \`${p}\``) : ['- None']),
+    ``,
+    `## 2. Active Checklist & Goal State`,
+    ...(checklistItems.length > 0 ? Array.from(new Set(checklistItems)) : ['- [ ] Continue active implementation task']),
+    ``,
+    `## 3. Last 3 User Prompts`,
+    ...(recentUserPrompts.length > 0 ? recentUserPrompts.map((p, idx) => `${idx + 1}. "${p}"`) : ['1. (No user prompts recorded)']),
+    ``,
+    `## 4. Unresolved Errors / Stderr`,
+    ...(unresolvedErrors.length > 0 ? unresolvedErrors.slice(-5).map(e => `- ${e}`) : ['- Zero unresolved errors']),
+    ``
+  ].join('\n');
+
+  let written = false;
+  if (shouldTrigger && options.writeToDisk !== false) {
+    try {
+      fs.mkdirSync(path.dirname(handoffPath), { recursive: true });
+      const tmp = `${handoffPath}.${process.pid}.tmp`;
+      fs.writeFileSync(tmp, markdown, 'utf8');
+      fs.renameSync(tmp, handoffPath);
+      written = true;
+    } catch {}
+  }
+
+  return {
+    triggered: shouldTrigger,
+    written,
+    saturationPct,
+    handoffPath,
+    modifiedFiles: modList,
+    inspectedFiles: inspList,
+    checklistItems: Array.from(new Set(checklistItems)),
+    lastUserPrompts: recentUserPrompts,
+    unresolvedErrors,
+    markdown
+  };
+}
+

@@ -269,6 +269,10 @@ export async function runHud(options = {}) {
     const quotaPct = Math.round(minQuotaFraction * 100);
     const purity = classification.metrics.signalPurityPct;
     const noiseK = Math.round((classification.metrics.sludgeTokens || 0) / 1000);
+    const activeK = Math.round((classification.totalInputTokens || 0) / 1000);
+    const maxK = Math.round((classification.model?.maxTokens || 256000) / 1000);
+    const usedPct = maxK > 0 ? Math.round((activeK / maxK) * 100) : 0;
+    const modeTag = classification.workloadMode?.tag || '[Mode: Read-Heavy Audit]';
     let outputLine = '';
 
     if (isFullMode) {
@@ -276,9 +280,9 @@ export async function runHud(options = {}) {
       let extraHints = '';
       if (planChurn.warn) extraHints += ` | Plan: ${planChurn.planRevisions} revs ⚠`;
       if (handoff.result === 'NEEDS_FIXES') extraHints += ' | Handoff: Needs fixes';
-      outputLine = `[${glyphStrip}] Purity: ${purity}% | Noise: ${noiseK}k tok | Quota: ${quotaPct}% | Effort: ${effortStatus}${extraHints}`;
+      outputLine = `[${glyphStrip}] ${activeK}k / ${maxK}k · ${usedPct}% | Purity: ${purity}% | Waste: ${noiseK}k tok | Noise: ${noiseK}k tok | Quota: ${quotaPct}% | ${modeTag} | Effort: ${effortStatus}${extraHints}`;
     } else {
-      outputLine = `[${glyphStrip}] P:${purity}% | N:${noiseK}k | Q:${quotaPct}%`;
+      outputLine = `[${glyphStrip}] ${activeK}k/${maxK}k·${usedPct}% | P:${purity}% | N:${noiseK}k | Q:${quotaPct}%`;
     }
 
     if (!options.silent) {
@@ -307,18 +311,22 @@ export function formatDemoScenarioAnsi(scenarioId = 5) {
 
   const activeK = Math.round(state.window.totalActiveTokens / 1000);
   const maxK = Math.round(state.window.maxTokens / 1000);
+  const usedPct = maxK > 0 ? Math.round((activeK / maxK) * 100) : 0;
   const purity = state.metrics.signalPurityPct;
   const noiseK = Math.round(state.metrics.sludgeTokens / 1000);
   const quotaPct = state.quota.sprint5h.remainingPct;
+  const cacheHitPct = state.quota?.cache?.hitRatePct ?? 92;
+  const ttlSec = state.quota?.cache?.ttlRemainingSec ?? 300;
+  const modeTag = state.workloadMode?.tag || '[Mode: Read-Heavy Audit]';
   const statusColor = isAmputation ? '\x1b[38;5;196m' : (purity < 60 ? '\x1b[38;5;214m' : '\x1b[38;5;82m');
 
   const lines = [
-    `\x1b[1m\x1b[38;5;51m${meta.title}\x1b[0m`,
+    `\x1b[1m\x1b[38;5;51m${meta.title}\x1b[0m  ${modeTag}`,
     `\x1b[38;5;245mFailure Mode: "${meta.complaint}"\x1b[0m`,
-    `[${glyphStrip}] ${statusColor}${activeK}k/${maxK}k\x1b[0m | Purity: ${statusColor}${purity}%\x1b[0m | Sludge: \x1b[38;5;214m+$${meta.sludgeTaxUsd.toFixed(2)}/turn\x1b[0m (${noiseK}k tok) | Quota: ${quotaPct}%`,
+    `[${glyphStrip}] ${statusColor}${activeK}k / ${maxK}k · ${usedPct}%\x1b[0m | Cache Hit: ${cacheHitPct}% | Waste: ${noiseK}k tok | TTL: ${ttlSec}s | Purity: ${statusColor}${purity}%\x1b[0m | Quota: ${quotaPct}%`,
     `\x1b[38;5;244m╭── Flight Check v3.1 (${meta.routerState}) ───────────────────────────────────────────╮\x1b[0m`,
-    `\x1b[38;5;244m│\x1b[0m 1. PROMPT : [Score ${meta.score}/100] "${meta.fixture.prompt.slice(0, 56)}"`,
-    `\x1b[38;5;244m│\x1b[0m 2. HORIZON: [Purity: ${purity}% | Reclaimable: ${Math.round(meta.reclaimTokens / 1000)}k tok | Tokens: ${activeK}k/${maxK}k | Quota: ${quotaPct}%]`,
+    `\x1b[38;5;244m│\x1b[0m 1. PROMPT : "${meta.fixture.prompt.slice(0, 56)}"`,
+    `\x1b[38;5;244m│\x1b[0m 2. HORIZON: [${activeK}k / ${maxK}k · ${usedPct}% | Cache Hit: ${cacheHitPct}% | Waste: ${Math.round(meta.reclaimTokens / 1000)}k tok | TTL: ${ttlSec}s | Quota: ${quotaPct}%]`,
     `\x1b[38;5;244m│\x1b[0m 3. ACTION : \x1b[38;5;82m${meta.recommendedAction}\x1b[0m`,
     `\x1b[38;5;244m│\x1b[0m 4. REWRITE: \x1b[38;5;51m"${meta.rewrite}"\x1b[0m`,
     `\x1b[38;5;244m╰────────────────────────────────────────────────────────────────────────────────────────╯\x1b[0m`
@@ -494,21 +502,24 @@ export async function runCLI(options = {}) {
 
   const activeK = Math.round(state.window.totalActiveTokens / 1000);
   const maxK = Math.round(state.window.maxTokens / 1000);
+  const usedPct = maxK > 0 ? Math.round((activeK / maxK) * 100) : 0;
   const purity = state.metrics.signalPurityPct;
   const noiseK = Math.round((state.metrics.sludgeTokens || 0) / 1000);
   const rawRecCmd = state.diagnostics.recommendedCommand || 'Ready';
   const recCmd = rawRecCmd === '/fast' ? 'Ready' : rawRecCmd;
   const isCacheCold = state.quota?.cache ? Boolean(state.quota.cache.isCacheCold) : false;
   const ttlSec = Number(state.quota?.cache?.ttlRemainingSec || 0);
+  const cacheHitPct = Number(state.quota?.cache?.hitRatePct || 0);
   const cacheLabel = isCacheCold ? 'Cold' : (ttlSec > 0 ? `Warm(${ttlSec}s)` : 'Warm');
+  const modeTag = state.workloadMode?.tag || '[Mode: Read-Heavy Audit]';
   const strandedCnt = Number(state.attentionHeatmap?.strandedSignalCount || 0);
   const strandedSuffix = strandedCnt > 0 ? ` | \u26A0 ${strandedCnt}/40 mid-window blocks` : '';
 
   let line1 = '';
   if (cellCount === 40) {
-    line1 = `${bar}  [ ${activeK}k / ${maxK}k ]  \x1b[1mPurity:\x1b[0m ${purity}% | \x1b[1mNoise:\x1b[0m ${noiseK}k tok | \x1b[1mCache:\x1b[0m ${cacheLabel}${strandedSuffix}  \x1b[38;5;51m-> ${recCmd}\x1b[0m`;
+    line1 = `${bar}  [ ${activeK}k / ${maxK}k · ${usedPct}% ]  \x1b[1mPurity:\x1b[0m ${purity}% | \x1b[1mCache Hit:\x1b[0m ${cacheHitPct}% | \x1b[1mWaste:\x1b[0m ${noiseK}k tok | \x1b[1mCache:\x1b[0m ${cacheLabel} | ${modeTag}${strandedSuffix}  \x1b[38;5;51m-> ${recCmd}\x1b[0m`;
   } else if (cellCount === 20) {
-    line1 = `${bar} [${activeK}k/${maxK}k] P:${purity}% Noise:${noiseK}k -> ${recCmd}`;
+    line1 = `${bar} [${activeK}k/${maxK}k·${usedPct}%] P:${purity}% Waste:${noiseK}k -> ${recCmd}`;
   } else {
     line1 = `${bar} ${activeK}k P:${purity}% ${recCmd}`;
   }

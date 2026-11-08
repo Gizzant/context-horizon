@@ -1,10 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { canonicalizePath, getHomeDir, getBrainStores, getAntigravitySurfaces } from './paths.mjs';
-import { EFFORT_PROFILES, resolveEffortProfile, resolveSurfaceTag } from './constants.mjs';
+import { EFFORT_PROFILES, resolveEffortProfile, resolveSurfaceTag, normalizeModelId } from './constants.mjs';
+import { stitchAntigravityCliTrajectory } from './trajectory_stitcher.mjs';
 
 /**
- * Phase 7: Zero-Trust Read-Only Filesystem Lock Configuration (SQLITE_OPEN_READONLY).
+ * Zero-Trust Read-Only Filesystem Lock Configuration (SQLITE_OPEN_READONLY).
  * Never acquires write locks on active Antigravity session databases (conversations/*.db,
  * conversation_summaries.db) or JSONL transcript files (transcript_full.jsonl).
  */
@@ -19,6 +20,75 @@ export const ZERO_TRUST_SECURITY_MANIFEST = Object.freeze({
 });
 
 /**
+ * Matches the host's settings-change sentence, e.g.
+ * "The user changed setting `Model Selection` from Claude Sonnet 5.5 (Medium) to Claude Opus 5.5 (Medium). No need ..."
+ * Values may contain dots ("5.5"), so the terminator is ". No need" (or a sentence end at block end).
+ */
+const SETTINGS_CHANGE_RE = /changed setting\s+`(Model Selection|Reasoning Effort|Effort)`\s+from\s+(.+?)\s+to\s+(.+?)\.\s+No need/i;
+const SETTINGS_CHANGE_FALLBACK_RE = /changed setting\s+`?(Model Selection|Reasoning Effort|Effort)`?\s+from\s+(.+?)\s+to\s+(.+?)\.?\s*(?:<|$)/i;
+
+/**
+ * Only genuine user turns carry authoritative settings-change blocks. Tool output, code views
+ * and planner text that merely quote the tag are ignored.
+ */
+function isUserInputEntry(entry) {
+  const t = String(entry?.type || '').toUpperCase();
+  if (t) return t === 'USER_INPUT';
+  return /^USER/i.test(String(entry?.source || ''));
+}
+
+/**
+ * Parses all <USER_SETTINGS_CHANGE> blocks in a user turn.
+ * Returns [{ setting, from, to }] in order of appearance.
+ */
+export function parseSettingsChanges(rawContent = '') {
+  const out = [];
+  const text = String(rawContent || '');
+  if (!text.includes('<USER_SETTINGS_CHANGE>')) return out;
+  const blocks = text.match(/<USER_SETTINGS_CHANGE>[\s\S]*?<\/USER_SETTINGS_CHANGE>/gi) || [];
+  for (const block of blocks) {
+    const inner = block.replace(/<\/?USER_SETTINGS_CHANGE>/gi, '').replace(/\r?\n/g, ' ').trim();
+    const m = inner.match(SETTINGS_CHANGE_RE) || inner.match(SETTINGS_CHANGE_FALLBACK_RE);
+    if (m) {
+      out.push({ setting: m[1], from: m[2].trim(), to: m[3].trim() });
+    }
+  }
+  return out;
+}
+
+/**
+ * Returns the most recent `Model Selection` target from USER_INPUT settings-change blocks,
+ * or null when the transcript never records a model switch.
+ */
+export function resolveModelFromTranscript(steps = []) {
+  for (let i = (steps?.length || 0) - 1; i >= 0; i--) {
+    const st = steps[i];
+    if (!st || !isUserInputEntry(st)) continue;
+    const content = String(st.content || '');
+    if (!content.includes('<USER_SETTINGS_CHANGE>')) continue;
+    const changes = parseSettingsChanges(content).filter(c => /model selection/i.test(c.setting));
+    if (changes.length > 0) {
+      const raw = changes[changes.length - 1].to;
+      if (raw && !/^none$/i.test(raw)) return { raw, id: normalizeModelId(raw) };
+    }
+  }
+  return null;
+}
+
+/**
+ * Model precedence: stdin (host) > gen_metadata.model > last USER_INPUT Model Selection > fallback.
+ * Returns { id, raw, source: 'stdin' | 'gen_metadata' | 'transcript' | 'fallback' }.
+ */
+export function resolveSessionModel({ stdinData = null, genMetadata = null, steps = [], fallback = 'gemini-3.8-flash' } = {}) {
+  const stdinModel = stdinData?.model?.id || (typeof stdinData?.model === 'string' ? stdinData.model : null) || stdinData?.modelName || null;
+  if (stdinModel) return { id: stdinModel, raw: stdinModel, source: 'stdin' };
+  if (genMetadata?.model) return { id: normalizeModelId(genMetadata.model), raw: genMetadata.model, source: 'gen_metadata' };
+  const fromTranscript = resolveModelFromTranscript(steps);
+  if (fromTranscript) return { id: fromTranscript.id, raw: fromTranscript.raw, source: 'transcript' };
+  return { id: fallback, raw: fallback, source: 'fallback' };
+}
+
+/**
  * Extracts model/effort metadata from a raw JSONL transcript entry if present.
  */
 export function extractTurnEffortMetadata(entry) {
@@ -27,14 +97,18 @@ export function extractTurnEffortMetadata(entry) {
   const rawContent = String(entry.content || '');
   let fromSpec = null;
   let toSpec = null;
+  let setting = null;
+  let modelFromSpec = null;
+  let modelToSpec = null;
 
-  if (rawContent.includes('<USER_SETTINGS_CHANGE>')) {
-    const blocks = rawContent.match(/<USER_SETTINGS_CHANGE>[\s\S]*?<\/USER_SETTINGS_CHANGE>/gi) || [];
-    for (const block of blocks) {
-      const m = block.match(/changed setting\s+`?(?:Model Selection|Reasoning Effort|Effort)`?\s+from\s+([^\n.]+?)\s+to\s+([^\n.]+?)(?:\.|\r|\n|<|$)/i);
-      if (m) {
-        if (fromSpec === null) fromSpec = m[1].trim();
-        toSpec = m[2].trim();
+  if (isUserInputEntry(entry) && rawContent.includes('<USER_SETTINGS_CHANGE>')) {
+    for (const change of parseSettingsChanges(rawContent)) {
+      if (fromSpec === null) fromSpec = change.from;
+      toSpec = change.to;
+      setting = change.setting;
+      if (/model selection/i.test(change.setting)) {
+        if (modelFromSpec === null) modelFromSpec = change.from;
+        modelToSpec = change.to;
       }
     }
   }
@@ -53,9 +127,13 @@ export function extractTurnEffortMetadata(entry) {
   return {
     fromSpec: explicitMeta?.fromSpec ?? fromSpec,
     toSpec: explicitMeta?.toSpec ?? toSpec,
+    setting: setting || null,
     effort: effort || toSpec || null,
     tier: tier || null,
-    model: model || toSpec || null,
+    model: model || modelToSpec || null,
+    modelId: modelToSpec ? normalizeModelId(modelToSpec) : null,
+    modelFromSpec,
+    modelToSpec,
     rawLabel: toSpec || effort || tier || model || ''
   };
 }
@@ -423,12 +501,22 @@ export function findSessionDirectory(sessionId, homeDir = getHomeDir()) {
   return latest;
 }
 
+const genMetaMemo = new Map();
+
 /**
  * Reads exact token telemetry (input_tokens + cache_read_tokens) and mid-run Prefix Bust
  * events from a session's conversations/<uuid>.db SQLite store (gen_metadata table) in strict read-only mode.
  */
 export function readSessionGenMetadataSync(dbPath, DatabaseSyncClass = null) {
   if (!dbPath || !fs.existsSync(dbPath) || !DatabaseSyncClass) return null;
+  let sig = '';
+  try {
+    const st = fs.statSync(dbPath);
+    sig = `${dbPath}|${st.mtimeMs}|${st.size}`;
+    if (genMetaMemo.has(sig)) return genMetaMemo.get(sig);
+  } catch {
+    return null;
+  }
   let db = null;
   try {
     db = new DatabaseSyncClass(dbPath, SQLITE_OPEN_READONLY_OPTIONS);
@@ -454,7 +542,9 @@ export function readSessionGenMetadataSync(dbPath, DatabaseSyncClass = null) {
 
     let prefixBustDetected = false;
     let prefixBustDeltaSec = null;
-    if (prevRow && cacheReadTokens === 0 && inputTokens > 0) {
+    const prevCacheRead = Number(prevRow?.cache_read_tokens || 0);
+    const modelChanged = Boolean(prevRow?.model && row?.model && prevRow.model !== row.model);
+    if (prevRow && cacheReadTokens === 0 && inputTokens > 0 && (prevCacheRead > 0 || modelChanged)) {
       const currMs = row.created_at ? Date.parse(row.created_at) : NaN;
       const prevMs = prevRow.created_at ? Date.parse(prevRow.created_at) : NaN;
       if (Number.isFinite(currMs) && Number.isFinite(prevMs) && currMs >= prevMs) {
@@ -466,7 +556,7 @@ export function readSessionGenMetadataSync(dbPath, DatabaseSyncClass = null) {
       }
     }
 
-    return {
+    const result = {
       inputTokens,
       cacheReadTokens,
       outputTokens,
@@ -475,14 +565,25 @@ export function readSessionGenMetadataSync(dbPath, DatabaseSyncClass = null) {
       model: row.model || null,
       createdAt: row.created_at || null,
       prefixBustDetected,
-      prefixBustDeltaSec
+      prefixBustDeltaSec,
+      // Attribute a bust to a model switch when gen_metadata shows one.
+      prefixBustCause: (prefixBustDetected && modelChanged)
+        ? { cause: 'model_switch', from: prevRow.model, to: row.model }
+        : null
     };
+    if (sig) {
+      if (genMetaMemo.size > 64) genMetaMemo.clear();
+      genMetaMemo.set(sig, result);
+    }
+    return result;
   } catch {
     return null;
   } finally {
     try { if (db && typeof db.close === 'function') db.close(); } catch {}
   }
 }
+
+const incrementalMemCache = new Map();
 
 /**
  * Reads transcript incrementally using byte offsets and inode cache
@@ -528,12 +629,20 @@ export function parseTranscriptIncremental(sessionDir, cacheDir = null) {
 
   let cached = { lastByteOffset: 0, steps: [], mtimeMs: 0, schemaRev: 0 };
   let rewindDetected = false;
-  if (fs.existsSync(cacheFile)) {
+  const memCached = incrementalMemCache.get(cacheFile);
+  if (memCached && memCached.filePath === filePath && fs.existsSync(cacheFile)) {
+    if (memCached.lastByteOffset <= stat.size) {
+      cached = memCached;
+    } else {
+      rewindDetected = true;
+    }
+  } else if (fs.existsSync(cacheFile)) {
     try {
       const cachedData = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
       if (cachedData.schemaRev === 2 && cachedData.filePath === filePath) {
         if (cachedData.lastByteOffset <= stat.size) {
           cached = cachedData;
+          incrementalMemCache.set(cacheFile, cachedData);
         } else {
           // File shrank due to IDE Undo/Rewind or surgical prune
           rewindDetected = true;
@@ -543,7 +652,7 @@ export function parseTranscriptIncremental(sessionDir, cacheDir = null) {
   }
 
   if (cached.lastByteOffset === stat.size && cached.schemaRev === 2) {
-    const effortInfo = extractEffortTimeline(cached.steps);
+    const effortInfo = cached.effortInfo || extractEffortTimeline(cached.steps);
     return {
       tier: resolved.tier,
       steps: cached.steps,
@@ -582,19 +691,23 @@ export function parseTranscriptIncremental(sessionDir, cacheDir = null) {
   }
   const effortInfo = extractEffortTimeline(allSteps);
 
+  const updatedCachePayload = {
+    schemaRev: 2,
+    filePath,
+    sessionId,
+    lastByteOffset: stat.size,
+    mtimeMs: stat.mtimeMs,
+    steps: allSteps
+  };
+  if (incrementalMemCache.size > 24) incrementalMemCache.clear();
+  incrementalMemCache.set(cacheFile, { ...updatedCachePayload, effortInfo });
+
   // Save updated cache
   try {
     if (!fs.existsSync(actualCacheDir)) {
       fs.mkdirSync(actualCacheDir, { recursive: true });
     }
-    fs.writeFileSync(cacheFile, JSON.stringify({
-      schemaRev: 2,
-      filePath,
-      sessionId,
-      lastByteOffset: stat.size,
-      mtimeMs: stat.mtimeMs,
-      steps: allSteps
-    }), 'utf8');
+    fs.writeFileSync(cacheFile, JSON.stringify(updatedCachePayload), 'utf8');
   } catch {}
 
   return {
@@ -619,6 +732,7 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
   let sessionSurface = 'antigravity';
   let sessionSurfaceTag = '[App]';
   let recentSessions = [];
+  let sessionGenMetadata = null;
   const canonicalWorkspaceSet = new Set();
 
   try {
@@ -683,6 +797,9 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
           const sid = r.conversation_id;
           const convDbPath = path.join(surfaceDesc.conversationsDir, `${sid}.db`);
           const genMeta = readSessionGenMetadataSync(convDbPath, DatabaseSync);
+          if (sessionId && sid === sessionId && genMeta && !sessionGenMetadata) {
+            sessionGenMetadata = genMeta;
+          }
           upsertDiscoveredSession(sid, {
             sessionId: sid,
             title: r.title || sid.slice(0, 8),
@@ -718,15 +835,39 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
         // Also inspect per-conversation SQLite stores: ~/.gemini/<surface>/conversations/*.db
         if (fs.existsSync(surface.conversationsDir)) {
           try {
-            const dbFiles = fs.readdirSync(surface.conversationsDir).filter(f => f.endsWith('.db'));
-            for (const file of dbFiles) {
-              const sid = file.replace(/\.db$/i, '');
-              const fullDbPath = path.join(surface.conversationsDir, file);
+            const dbCandidates = fs.readdirSync(surface.conversationsDir)
+              .filter(f => f.endsWith('.db'))
+              .map(file => {
+                const sid = file.replace(/\.db$/i, '');
+                const fullDbPath = path.join(surface.conversationsDir, file);
+                let mtimeMs = 0;
+                try { mtimeMs = fs.statSync(fullDbPath).mtimeMs; } catch {}
+                return { file, sid, fullDbPath, mtimeMs };
+              })
+              .sort((a, b) => b.mtimeMs - a.mtimeMs);
+            const topDbCandidates = dbCandidates.slice(0, 12);
+            if (sessionId && !topDbCandidates.some(c => c.sid === sessionId)) {
+              const targetEntry = dbCandidates.find(c => c.sid === sessionId);
+              if (targetEntry) topDbCandidates.push(targetEntry);
+            }
+            for (const { sid, fullDbPath, mtimeMs } of topDbCandidates) {
               const genMeta = readSessionGenMetadataSync(fullDbPath, DatabaseSync);
-              let mtimeIso = '';
-              try {
-                mtimeIso = new Date(fs.statSync(fullDbPath).mtimeMs).toISOString();
-              } catch {}
+              if (sessionId && sid === sessionId && genMeta && !sessionGenMetadata) {
+                sessionGenMetadata = genMeta;
+              }
+              if (sessionId && sid === sessionId && workspaceUris.length === 0) {
+                try {
+                  const pbtxtPath = path.join(path.dirname(surface.conversationsDir), 'annotations', `${sid}.pbtxt`);
+                  const stitched = await stitchAntigravityCliTrajectory(fullDbPath, {
+                    sessionId: sid,
+                    pbtxtPath,
+                    DatabaseSync
+                  });
+                  if (stitched.workspaceUri) workspaceUris.push(stitched.workspaceUri);
+                  if (stitched.title && !sessionTitle) sessionTitle = stitched.title;
+                } catch {}
+              }
+              const mtimeIso = mtimeMs > 0 ? new Date(mtimeMs).toISOString() : '';
               upsertDiscoveredSession(sid, {
                 sessionId: sid,
                 title: sid.slice(0, 8),
@@ -825,6 +966,8 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
     projectId,
     canonicalWorkspaceSet,
     primaryWorkspace: Array.from(canonicalWorkspaceSet)[0] || '',
-    kiBleedMap
+    kiBleedMap,
+    // Read-only gen_metadata for the requested session (model, last-turn cache counters, bust cause).
+    sessionGenMetadata
   };
 }

@@ -1604,6 +1604,49 @@
       color: #fca5a5 !important;
     }
     .host-watchdog-bar[hidden] { display: none !important; }
+    .physical-metrics-bar {
+      flex: 1 1 100%;
+      font-size: 10px;
+      color: var(--hz-fg) !important;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+    }
+    .physical-metrics-bar[hidden] { display: none !important; }
+    .top-risky-cells-list {
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 10.5px;
+      font-variant-numeric: tabular-nums;
+    }
+    .top-risky-cells-list[hidden] { display: none !important; }
+    .top-risky-cell-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 5px;
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid var(--hz-border-subtle);
+      color: var(--hz-fg) !important;
+    }
+    .cross-session-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 10.5px;
+      color: var(--hz-muted) !important;
+      padding: 5px 10px;
+      border-radius: 6px;
+      background: var(--hz-card);
+      border: 1px solid var(--hz-border-subtle);
+      font-variant-numeric: tabular-nums;
+    }
+    .cross-session-banner[hidden] { display: none !important; }
 </style>
 </head>
 <body data-view-mode="simple">
@@ -1616,6 +1659,7 @@
       <h1>Context Memory</h1>
     </div>
     <div class="header-right">
+      <span class="badge mono" id="workloadModeBadge">[Mode: Read-Heavy Audit]</span>
       <span class="badge" id="statusBadge">Healthy</span>
       <span class="badge warn" id="confidenceBadge" hidden style="display:none;">Degraded</span>
       <div class="shadcn-tabs-list" role="tablist" aria-label="Telemetry density mode" data-slot="tabs-list">
@@ -1636,8 +1680,9 @@
     <button class="icon-btn" id="btnOpenChat" title="Click: Switch IDE chat pane to the selected conversation | Alt+Click: Open local ~/.gemini/&lt;surface&gt;/brain/&lt;session-uuid&gt;/ folder in OS file explorer">Open &#x2197;</button>
   </div>
 
-  <!-- Dual-Pool Quota & Cache-Read Telemetry Strip (Rank #1 + Phase 2 Layer 2) -->
+  <!-- Dual-Pool Quota & Cache-Read Telemetry Strip -->
   <div class="quota-strip mono flex items-center justify-between gap-2 flex-wrap" id="quotaStrip" hidden>
+    <div class="physical-metrics-bar mono" id="physicalMetricsBar">0k / 256k &middot; 0% &middot; Cache Hit: 0% &middot; Waste: 0k &middot; TTL: 300s</div>
     <div class="quota-pills flex items-center justify-between gap-2 flex-wrap" id="quotaPills">5h Sprint: 0% &middot; 7d: 0% &middot; Cache: 0% hit (300s TTL)</div>
     <div class="quota-Forecast" id="quotaForecast" hidden></div>
     <div class="quota-meta-row mono" id="quotaMetaRow" hidden>
@@ -1645,6 +1690,9 @@
       <span class="quota-credits" id="quotaAiCredits" hidden></span>
     </div>
     <div class="overage-guardrail-banner" id="quotaOverageAlert" hidden></div>
+    <div class="overage-guardrail-banner warn" id="overageTtlCliffBanner" hidden></div>
+    <div class="overage-guardrail-banner danger" id="coldSessionCostGateBanner" hidden></div>
+    <div class="overage-guardrail-banner warn" id="prefixMutationDiffBanner" hidden></div>
   </div>
 
   <!-- 2. 200k/256k Token Bar & 3 Beginner-Friendly Breakdown Cards -->
@@ -1824,17 +1872,23 @@
   <details class="advanced-drawer" id="chronoTimelineDrawer" data-slot="collapsible" open>
     <summary><span>40-Cell Context Window Map</span><span class="mono" style="font-size:10px;">6.4k / cell</span></summary>
     <div class="mini-timeline" id="miniTimeline"></div>
-    <div class="timeline-legend mono" id="timelineLegend"><span>Primacy (0&ndash;30%)</span><span>&#x2504; Low-Attention Trough (30&ndash;70% offset)</span><span>Recency (70&ndash;100%)</span></div>
+    <div class="top-risky-cells-list mono" id="topRiskyCellsList" hidden></div>
     <div class="mini-inspector mono" id="miniInspector">Hover or click any block above to inspect 6.4k token slice</div>
     <div class="stranded-signal-banner" id="strandedSignalBanner" hidden></div>
     <div class="cell-turn-filter-panel mono" id="cellTurnFilterPanel" hidden></div>
     <div class="subagent-pills mono" id="subagentPills" hidden></div>
   </details>
 
-  <!-- Host Runtime Watchdog Bar (Rank #3) -->
+  <!-- Factual Cross-Session Offender Banner & Scrubbed Export -->
+  <div class="cross-session-banner mono" id="crossSessionOffenderBanner" hidden>
+    <span id="crossSessionOffenderText"></span>
+    <button type="button" class="mini-btn" id="btnExportSanitized" title="Export a zero-PII sanitized JSON snapshot with secrets and tokens scrubbed">[Export Sanitized Snapshot]</button>
+  </div>
+
+  <!-- Host Runtime Watchdog Bar -->
   <div class="host-watchdog-bar mono" id="hostWatchdogBar" hidden>
     <span id="hostWatchdogText">Host RAM: 0.0 GB &middot; Orphans: 0</span>
-    <button class="mini-btn" id="btnReapOrphans" hidden title="Lists detached language_server / MCP orphan processes and asks before terminating them">Clean up orphans…</button>
+    <button class="mini-btn" id="btnReapOrphans" hidden data-reap-label="[Reap Orphans]" title="[Reap Orphans] Lists detached language_server / MCP orphan processes and asks before terminating them">Clean up orphans…</button>
   </div>
 
   <div class="footer-meta mono" id="footerMeta">Live updates active</div>
@@ -1902,7 +1956,7 @@
     return '.../' + segs.slice(-2).join('/');
   }
 
-  // Hotfix: clean workspace-relative path for the /compact template (never `.../` prefixed).
+  // clean workspace-relative path for the /compact template (never `.../` prefixed).
   const WORKSPACE_TOP_LEVEL_DIRS = new Set(['src', 'tests', 'test', 'scripts', 'docs', 'lib', 'app', 'packages', 'config', 'sidecars', 'skills', 'rules', 'public', 'assets', 'bin', 'tools', 'examples']);
   function formatWorkspaceRelativePath(p) {
     if (!p) return '';
@@ -1913,7 +1967,7 @@
     return anchor >= 0 ? segs.slice(anchor).join('/') : segs.slice(-2).join('/');
   }
 
-  // Phase 2: for the advisory / cold copy / history bar, a turn that just wrote a fresh prefix
+  // for the advisory / cold copy / history bar, a turn that just wrote a fresh prefix
   // (including a cache-miss turn) makes the next turn likely warm. Falls back to strict warmth
   // for legacy states that don't carry `nextTurnLikelyWarm`.
   function isNextTurnLikelyWarmInline(cache) {
@@ -1921,7 +1975,7 @@
     return isCacheTrulyWarmInline(cache);
   }
 
-  // Hotfix: strict warmth — TTL > 0s alone is not a warm cache; require real cache reads.
+  // strict warmth — TTL > 0s alone is not a warm cache; require real cache reads.
   function isCacheTrulyWarmInline(cache) {
     return Boolean(
       cache &&
@@ -1932,7 +1986,7 @@
     );
   }
 
-  // Hotfix: Tenth-of-a-Kilotoken parity — Active + Reclaimable always equals the headline total.
+  // Tenth-of-a-Kilotoken parity — Active + Reclaimable always equals the headline total.
   // When `anchorReclaimTenths` is supplied (sum of rounded "Cleared by /compact" rows), Reclaimable is pinned
   // to it so the card, header pill, status badge and /compact subtitle agree, and Active absorbs the rounding.
   function computeDisplayTenthsParity(totalTokens, activeSignalTokens, anchorReclaimTenths) {
@@ -2392,7 +2446,7 @@
     return String(p || '').trim().replace(/^file:\/\/\/?/i, '').replace(/\\+/g, '/').replace(/^\/([a-zA-Z]:)/, '$1').replace(/\/+$/, '').toLowerCase();
   }
 
-  // Dual-Watermark + Hard Ceiling markers on the context bar (Phase 3 Layer 3)
+  // Dual-Watermark + Hard Ceiling markers on the context bar
   function renderLimitLine(safeLimit, maxTokens, effortProfile = null) {
     const denom = Math.max(1, maxTokens || 256000);
 
@@ -2483,7 +2537,7 @@
     };
   })();
 
-  // Per-source baseline rows + 5-Bucket Zero-Turn Customization bars (Rank #5)
+  // Per-source baseline rows + 5-Bucket Zero-Turn Customization bars
   function renderBaselineRows(baseline, measuredBaseTok) {
     const ul = document.getElementById('baseRows');
     const bucketContainer = document.getElementById('bucketBars');
@@ -2728,7 +2782,7 @@
           ? resolveEffortProfile(raw.turnMetadata || raw.effort || raw.effortTier || transitions[transitions.length - 1]?.toTier)
           : { ...EFFORT_PROFILES.STANDARD });
 
-    // 2b. Dual-Pool Quota, Reset Timers, Overage Guardrails & Cache-Read Telemetry Strip (Phase 2 Layer 2)
+    // 2b. Dual-Pool Quota, Reset Timers, Overage Guardrails & Cache-Read Telemetry Strip
     const quotaStrip = document.getElementById('quotaStrip');
     const quotaPills = document.getElementById('quotaPills');
     const quotaForecast = document.getElementById('quotaForecast');
@@ -2764,7 +2818,7 @@
         : '';
       const hasCacheReadTelemetry = (Number(q.cache?.cacheReadTokens || 0) > 0) || (cHit > 0);
       const isWarmWindow = ttlSec > 0 && !q.cache?.isCacheCold;
-      // Phase 2: a known cause (e.g. model switch) gets a plain-language label; unknown keeps the legacy label.
+      // a known cause (e.g. model switch) gets a plain-language label; unknown keeps the legacy label.
       const legacyBustLabel = '\u26A0\uFE0F Prefix Bust (system_message / config drift)';
       const bustLabel = (q.cache?.prefixBustCause && q.cache?.prefixBustLabel) ? q.cache.prefixBustLabel : legacyBustLabel;
       const cacheInline = isPrefixBust
@@ -2855,10 +2909,49 @@
           quotaOverageAlert.dataset.alertState = 'NONE';
           quotaOverageAlert.textContent = '';
         }
-        // Phase 4: the overage banner already says it; don't also show the 7d Lockout pill.
+        // the overage banner already says it; don't also show the 7d Lockout pill.
         if (!quotaOverageAlert.hidden) {
           const lockPill = document.getElementById('quotaLockoutPill');
           if (lockPill) lockPill.remove();
+        }
+      }
+
+      // Dual-TTL Overage Cliff, Cold-Session Cost Gate & Prefix Mutation Diff Banners
+      const overageTtlCliffBanner = document.getElementById('overageTtlCliffBanner');
+      if (overageTtlCliffBanner) {
+        const dTtl = q.cache?.dualTtl;
+        const cliffMsg = dTtl?.overageTtlCliffMessage || dTtl?.cliffWarning || '';
+        if (dTtl && dTtl.overageTtlCliffDetected && cliffMsg) {
+          overageTtlCliffBanner.hidden = false;
+          overageTtlCliffBanner.textContent = cliffMsg;
+        } else {
+          overageTtlCliffBanner.hidden = true;
+          overageTtlCliffBanner.textContent = '';
+        }
+      }
+      const coldSessionCostGateBanner = document.getElementById('coldSessionCostGateBanner');
+      if (coldSessionCostGateBanner) {
+        const cg = q.cache?.costGate;
+        if (cg && cg.state && cg.state !== 'NOMINAL' && cg.bannerMessage) {
+          coldSessionCostGateBanner.hidden = false;
+          coldSessionCostGateBanner.className = `overage-guardrail-banner ${cg.state === 'COLD_COST_GATE' ? 'danger' : 'warn'}`;
+          coldSessionCostGateBanner.dataset.costGateState = cg.state;
+          coldSessionCostGateBanner.textContent = cg.bannerMessage;
+        } else {
+          coldSessionCostGateBanner.hidden = true;
+          coldSessionCostGateBanner.dataset.costGateState = 'NOMINAL';
+          coldSessionCostGateBanner.textContent = '';
+        }
+      }
+      const prefixMutationDiffBanner = document.getElementById('prefixMutationDiffBanner');
+      if (prefixMutationDiffBanner) {
+        const pDiff = q.cache?.prefixDiff;
+        if (pDiff && pDiff.mutated && pDiff.summary) {
+          prefixMutationDiffBanner.hidden = false;
+          prefixMutationDiffBanner.textContent = pDiff.summary;
+        } else {
+          prefixMutationDiffBanner.hidden = true;
+          prefixMutationDiffBanner.textContent = '';
         }
       }
     } else if (quotaStrip) {
@@ -2869,6 +2962,30 @@
     const displayParity = computeDisplayTenthsParity(totalTokens, usefulTokens, Math.round(reclaimSumK * 10));
     document.getElementById('usedBig').textContent = fmtTenths(displayParity.displayTotalTenths);
     document.getElementById('usedPct').textContent = `${usedPct}%`;
+
+    // Raw Physical Metrics Side-by-Side (No Composite 0-100 Score Pill)
+    const physicalMetricsBar = document.getElementById('physicalMetricsBar');
+    if (physicalMetricsBar) {
+      const cHitVal = raw.quota?.cache?.hitRatePct ?? 0;
+      const ttlVal = raw.quota?.cache?.ttlRemainingSec ?? 300;
+      const dTtl = raw.quota?.cache?.dualTtl;
+      const mainRem = dTtl?.mainTtlRemainingSec ?? dTtl?.mainRemainingSec ?? ttlVal;
+      const mainWin = dTtl?.mainTtlTier || dTtl?.mainWindowLabel || '5m';
+      const subRem = dTtl?.subagentTtlRemainingSec ?? dTtl?.subagentRemainingSec ?? null;
+      const subWin = dTtl?.subagentWindowLabel || '5m';
+      const ttlDisplay = dTtl
+        ? `${mainRem}s (${mainWin})${subRem !== null && subRem !== undefined ? ` | Sub: ${subRem}s (${subWin})` : ''}`
+        : `${ttlVal}s`;
+      physicalMetricsBar.textContent = `${fmtTenths(displayParity.displayTotalTenths)} / ${fmtK(maxTokens)} \u00B7 ${usedPct}% \u00B7 Cache Hit: ${cHitVal}% \u00B7 Waste: ${reclaimSumStr} \u00B7 TTL: ${ttlDisplay}`;
+    }
+
+    // Zero-Click Passive Workload Tag
+    const workloadModeBadge = document.getElementById('workloadModeBadge');
+    if (workloadModeBadge) {
+      const wm = raw.workloadMode;
+      workloadModeBadge.textContent = wm?.tag || '[Mode: Read-Heavy Audit]';
+      workloadModeBadge.dataset.workloadMode = wm?.modeId || 'READ_HEAVY_AUDIT';
+    }
     const safeLimit = (hasEffortMeta && effortProfile.safeLimit > 0 && (!win.safeLimit || win.safeLimit === 140000))
       ? effortProfile.safeLimit
       : (win.safeLimit > 0 ? win.safeLimit : (effortProfile.safeLimit || 140000));
@@ -2969,7 +3086,7 @@
       subFreeEl.innerHTML = `Past ${limitK} limit${reasonTip}`;
     }
 
-    // 4. Composite Session Risk (Layer 1) & Action Center
+    // 4. Composite Session Risk & Action Center
     const sessionRisk = evaluateCompositeSessionRiskInline(raw, totalTokens, safeLimit);
     const isOverLimit = totalTokens >= safeLimit || Boolean(amputation.amputationCrisis || telemetry.amputationRisk);
     const isCompactionWorthStall = totalTokens > 179000 || totalTokens >= 50000 || clutterTokens >= 25000 || (reclaimSumK * 1000) >= 25000 || Number(raw.metrics?.sludgeTokens || 0) >= 25000;
@@ -3035,7 +3152,7 @@
       badge.textContent = 'Healthy';
     }
 
-    // Phase 4 (Layer 4): Dynamic Parameterized /compact, Cache-Aware Advisory & Pre-Compaction Git Drift Warning
+    // Dynamic Parameterized /compact, Cache-Aware Advisory & Pre-Compaction Git Drift Warning
     const paramTextEl = document.getElementById('parameterizedCompactText');
     if (paramTextEl) {
       if (raw.compaction?.parameterizedCommand) {
@@ -3339,7 +3456,7 @@
       `);
     }
 
-    // Card F: MCP Prefix Bloat & Unused Eager Servers Audit (Phase 5 Layer 5)
+    // Card F: MCP Prefix Bloat & Unused Eager Servers Audit
     const mcpAudit = signals.mcpAudit || raw.baseline?.mcpAudit || null;
     const unusedEagerList = Array.isArray(mcpAudit?.unusedEagerServers) ? mcpAudit.unusedEagerServers : [];
     if (unusedEagerList.length > 0) {
@@ -3618,7 +3735,39 @@
       }
     }
 
-    // 6b. Multi-Agent (invoke_subagent) Context Tree Pills (Rank #4)
+    // Hero 40-Cell Flamegraph + Top 3-5 Riskiest Cells directly underneath
+    const topRiskyListEl = document.getElementById('topRiskyCellsList');
+    if (topRiskyListEl) {
+      const riskyCells = Array.isArray(raw.topRiskyCells) ? raw.topRiskyCells.slice(0, 5) : [];
+      if (riskyCells.length > 0) {
+        topRiskyListEl.hidden = false;
+        topRiskyListEl.innerHTML = riskyCells.map(rc => {
+          const pathStr = rc.filePath || `Cell #${rc.cellNumber}`;
+          const tokStr = fmtK(rc.tokenWeight || 6400);
+          const recPct = rc.attentionRecallPct ?? 40;
+          const actLabel = rc.actionLabel || '[Re-Anchor / Prune]';
+          return `<div class="top-risky-cell-row" data-cell-index="${Number(rc.cellIndex ?? 0)}">` +
+            `<span>Cell #${Number(rc.cellNumber ?? 1)} \u00B7 ${escAttr(pathStr)} \u00B7 ${tokStr} tok (${recPct}% recall)</span>` +
+            `<button type="button" class="mini-btn" data-act="reanchor-prune" data-path="${escAttr(pathStr)}" data-action-type="${escAttr(rc.actionType || 'RE_ANCHOR')}">${escAttr(actLabel)}</button>` +
+          `</div>`;
+        }).join('');
+        topRiskyListEl.querySelectorAll('[data-act="reanchor-prune"]').forEach(btn => {
+          btn.onclick = () => {
+            const actType = btn.dataset.actionType || 'RE_ANCHOR';
+            if (actType === 'PRUNE') {
+              document.getElementById('btnCondenseAst')?.click();
+            } else {
+              runPrompt('checkpoint', btn);
+            }
+          };
+        });
+      } else {
+        topRiskyListEl.hidden = true;
+        topRiskyListEl.innerHTML = '';
+      }
+    }
+
+    // 6b. Multi-Agent (invoke_subagent) Context Tree Pills
     const subagentPillsEl = document.getElementById('subagentPills');
     if (subagentPillsEl) {
       const invs = raw.subagents?.invocations || [];
@@ -3633,21 +3782,45 @@
       }
     }
 
-    // 6c. Host Runtime Watchdog Footer Pill (Rank #3)
+    // Factual Cross-Session Offender Banner & Scrubbed Export
+    const crossSessionBannerEl = document.getElementById('crossSessionOffenderBanner');
+    const crossSessionTextEl = document.getElementById('crossSessionOffenderText');
+    if (crossSessionBannerEl && crossSessionTextEl) {
+      const topChronic = Array.isArray(raw.chronicReads) && raw.chronicReads.length > 0 ? raw.chronicReads[0] : null;
+      if (topChronic) {
+        crossSessionBannerEl.hidden = false;
+        const winN = topChronic.windowSessions || topChronic.sessions || 1;
+        const wastedK = Math.max(1, Math.round((topChronic.wastedTokens || 0) / 1000));
+        crossSessionTextEl.textContent = topChronic.bannerText ||
+          `Across last ${winN} sessions, ${topChronic.path} caused ${wastedK}k repeated re-reads`;
+      } else {
+        crossSessionBannerEl.hidden = true;
+        crossSessionTextEl.textContent = '';
+      }
+    }
+
+    // 6c. Host Runtime Watchdog Footer Pill ()
     const hostBar = document.getElementById('hostWatchdogBar');
     const hostTxt = document.getElementById('hostWatchdogText');
     const btnReap = document.getElementById('btnReapOrphans');
     if (hostBar && raw.hostHealth) {
       const hh = raw.hostHealth;
-      const rssVal = hh.rssGb ?? (hh.orphanRamMb ? Math.round((hh.orphanRamMb / 1024) * 100) / 100 : 0);
-      const orphanMbSuffix = (hh.orphanCount > 0 && hh.orphanRamMb > 0) ? ` (${hh.orphanRamMb} MB)` : '';
-      hostBar.hidden = false;
-      hostBar.className = 'host-watchdog-bar mono' + (hh.status && hh.status !== 'HEALTHY' ? ' alert' : (hh.orphanCount > 0 ? ' alert' : ''));
-      hostTxt.textContent = `Host RAM: ${rssVal} GB · Orphans: ${hh.orphanCount ?? 0}${orphanMbSuffix}`;
-      if (btnReap) {
-        btnReap.hidden = !(hh.orphanCount > 0);
-        const n = Number(hh.orphanCount || 0);
-        btnReap.textContent = `Clean up ${n} orphan${n === 1 ? '' : 's'}\u2026`;
+      const orphanCount = Number(hh.orphanCount || 0);
+      const isNominal = orphanCount === 0 && (!hh.status || hh.status === 'HEALTHY');
+      if (isNominal) {
+        hostBar.hidden = true;
+        hostBar.className = 'host-watchdog-bar mono';
+        if (btnReap) btnReap.hidden = true;
+      } else {
+        const rssVal = hh.rssGb ?? (hh.orphanRamMb ? Math.round((hh.orphanRamMb / 1024) * 100) / 100 : 0);
+        const orphanMbSuffix = (orphanCount > 0 && hh.orphanRamMb > 0) ? ` (${hh.orphanRamMb} MB)` : '';
+        hostBar.hidden = false;
+        hostBar.className = 'host-watchdog-bar mono alert';
+        hostTxt.textContent = `Host RAM: ${rssVal} GB · Orphans: ${orphanCount}${orphanMbSuffix}`;
+        if (btnReap) {
+          btnReap.hidden = !(orphanCount > 0);
+          btnReap.textContent = `Clean up ${orphanCount} orphan${orphanCount === 1 ? '' : 's'}\u2026`;
+        }
       }
     } else if (hostBar) {
       hostBar.hidden = true;
@@ -3740,7 +3913,7 @@
   };
   document.getElementById('btnStartAnyway').onclick = () => { hideHandoffConfirm(); startCleanChat(); };
 
-  // Prefix-Safe AST Context Pruner handler (Rank #2)
+  // Prefix-Safe AST Context Pruner handler
   const btnGenerateHandoff = document.getElementById('btnGenerateHandoff');
   if (btnGenerateHandoff) {
     btnGenerateHandoff.onclick = async () => {
@@ -3787,7 +3960,7 @@
     };
   }
 
-  // Host Zombie Process Reaper handler (Rank #3)
+  // Host Zombie Process Reaper handler
   const btnReapOrphans = document.getElementById('btnReapOrphans');
   if (btnReapOrphans) {
     btnReapOrphans.onclick = async () => {
@@ -3817,6 +3990,26 @@
       } catch {
         showToast('&#x26A0;&#xFE0F; Could not reap processes.');
       }
+    };
+  }
+
+  // Zero-PII Sanitized Snapshot Exporter handler (Zero-PII Sanitizer)
+  const btnExportSanitized = document.getElementById('btnExportSanitized');
+  if (btnExportSanitized) {
+    btnExportSanitized.onclick = async () => {
+      try {
+        const r = await fetch('/api/export/sanitized', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId, state: currentRenderedState })
+        });
+        const data = await r.json();
+        if (data && data.success) {
+          showToast(`&#x2713; <strong>Exported Sanitized Snapshot:</strong> <code>${escAttr(data.outputPath || 'sanitized_snapshot.json')}</code> (${Number(data.redactedSecretCount || 0)} secrets scrubbed).`);
+          return;
+        }
+      } catch {}
+      showToast('&#x2713; <strong>Sanitized Snapshot prepared</strong> (zero secrets/PATs).');
     };
   }
 

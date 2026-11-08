@@ -200,13 +200,16 @@ export function detectLegacyPoison(stepEvents = [], config = {}) {
   const legacyPoison = new Set();
 
   for (const ev of stepEvents) {
-    if (ev.isDeprecatedContent && ev.targetPath) {
-      legacyPoison.add(canonicalizePath(ev.targetPath));
-    } else if (ev.targetPath) {
-      const lower = ev.targetPath.toLowerCase();
-      const isDeprecated = deprecatedGlobs.some(g => lower.includes(g.replace(/\*/g, '')));
+    if (!ev.targetPath) continue;
+    const canon = canonicalizePath(ev.targetPath);
+    const hasDeprecatedTag = Boolean(ev.isDeprecatedContent) ||
+      /@deprecated/i.test(String(ev.content || '').split(/\r?\n/).slice(0, 30).join('\n'));
+    if (hasDeprecatedTag) {
+      legacyPoison.add(canon);
+    } else {
+      const isDeprecated = deprecatedGlobs.some(g => canon.includes(g.replace(/\*/g, '').toLowerCase()));
       if (isDeprecated) {
-        legacyPoison.add(canonicalizePath(ev.targetPath));
+        legacyPoison.add(canon);
       }
     }
   }

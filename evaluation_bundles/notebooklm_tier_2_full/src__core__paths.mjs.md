@@ -54,7 +54,10 @@ export function getHomeDir() {
  */
 export function isIgnorablePath(p) {
   if (!p) return false;
-  const s = String(p).replace(/\\/g, '/');
+  const raw = String(p).replace(/\\/g, '/');
+  const s = raw
+    .replace(/^[a-z]:\/users\/[^/]+\/appdata\/local\/temp\/[^/]+\//i, '')
+    .replace(/^\/(?:private\/)?tmp\/[^/]+\//i, '');
   if (/(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lock|Cargo\.lock|Gemfile\.lock|composer\.lock|\.lock)$/i.test(s)) return true;
   if (/\.log$/i.test(s) || /(^|\/)logs?(\/|$)/i.test(s) || /\.jsonl$/i.test(s)) return true;
   if (/(^|\/)(dist|build|out|target|\.next|\.nuxt|coverage|node_modules)(\/|$)/i.test(s)) return true;

@@ -58,12 +58,31 @@ export function estimateStepTokens(step) {
   return step.outputTokens || Math.round((step.untruncatedLength || 0) / 4) || 0;
 }
 
+/**
+ * Picks the meaningful executable from a compound shell command line, skipping
+ * directory/env prelude segments: `cd`, `Set-Location`, `pushd`, `$env:X=...`, `set X=...`.
+ * "cd c:\x; node tests/a.mjs" -> "node".
+ */
+export function primaryCommandName(commandLine = '') {
+  const segments = String(commandLine || '').split(/;|&&|\|\|/).map(s => s.trim()).filter(Boolean);
+  const isPrelude = (seg) =>
+    /^(cd|chdir|set-location|sl|pushd|popd)(\s|$)/i.test(seg) ||
+    /^\$env:/i.test(seg) ||
+    /^(set|export)\s+\w+=/i.test(seg);
+  const chosen = segments.find(s => !isPrelude(s)) || segments[0] || '';
+  const first = chosen.replace(/^[&.]\s+/, '').split(/\s+/)[0] || '';
+  return first.replace(/^["']|["']$/g, '').split(/[\\/]/).pop();
+}
+
 export function describeStep(step) {
+  if (typeof step === 'string') {
+    return `run_command ${primaryCommandName(step).slice(0, 40)}`;
+  }
   const call = (step?.toolCalls || [])[0];
   if (call) {
     const a = call.args || {};
     if (a.CommandLine) {
-      const cmd = String(a.CommandLine).trim().split(/\s+/)[0].split(/[\\/]/).pop();
+      const cmd = primaryCommandName(a.CommandLine);
       return `${call.name || 'run_command'} ${cmd.slice(0, 40)}`;
     }
     const target = a.Path || a.path || a.AbsolutePath || a.TargetFile || a.query || '';

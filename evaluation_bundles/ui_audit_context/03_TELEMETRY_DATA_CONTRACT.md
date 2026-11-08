@@ -48,7 +48,7 @@
  */
 
 /**
- * Phase 5 (Layer 5): MCP Prefix Bloat & Schema Audit.
+ * MCP Prefix Bloat & Schema Audit.
  *
  * - Parses `~/.gemini/config/mcp_config.json` and `.agents/mcp_config.json`.
  * - Calculates static token overhead of registered tool schemas.
@@ -69,27 +69,19 @@
   const legacyPoison = new Set();
 
   for (const ev of stepEvents) {
-    if (ev.isDeprecatedContent && ev.targetPath) {
-      legacyPoison.add(canonicalizePath(ev.targetPath));
-    } else if (ev.targetPath) {
-      const lower = ev.targetPath.toLowerCase();
-      const isDeprecated = deprecatedGlobs.some(g => lower.includes(g.replace(/\*/
+    if (!ev.targetPath) continue;
+    const canon = canonicalizePath(ev.targetPath);
+    const hasDeprecatedTag = Boolean(ev.isDeprecatedContent) ||
+      /@deprecated/i.test(String(ev.content || '').split(/\r?\n/).slice(0, 30).join('\n'));
+    if (hasDeprecatedTag) {
+      legacyPoison.add(canon);
+    } else {
+      const isDeprecated = deprecatedGlobs.some(g => canon.includes(g.replace(/\*/
 
 ```
 
 ## Source: src/core/classifier.mjs
 ```javascript
-/**
- * Phase 6 (Layer 6): Parabolic U-Shaped Attention Curve & Low-Attention Trough Model.
- *
- * Models transformer attention across N populated cells using a parabolic curve with gamma ~= 0.6:
- * - Literal algebraic expression from specification:
- *     A_spec(i) = 1.0 - 4.0 * gamma * ((i / N) - 0.5)^2
- * - U-shaped recall weight (1.0 at Primacy/Recency edges, minimum 1.0 - gamma at midpoint 0.5):
- *     A_u(i) = (1.0 - gamma) + 4.0 * gamma * ((i / N) - 0.5)^2
- * - Shades the middle 30% to 70% band (or Cells 7..15) as the Low-Attention Trough.
- */
-
 /**
  * Phase 1 (Layer 1): Evaluates Composite Operational Session Risk & Prefix-Lock Protection.
  *
@@ -175,11 +167,6 @@
 ## Source: src/core/layer5_hygiene.mjs
 ```javascript
 /**
- * Phase 5 (Layer 5): Filtered Waste Classification, Fail-Open CLI Dampening Hook,
- * and Attention-Aware Rule Promotion.
- */
-
-/**
  * Determines whether a parsed step or stepEvent represents a Cortex compaction checkpoint
  * (`CORTEX_STEP_TYPE_CHECKPOINT = 23`).
  */
@@ -257,8 +244,8 @@
 ## Source: src/core/quota.mjs
 ```javascript
 /**
- * Rank #1 & Phase 2 (Layer 2): Dual-Pool Quota (5-Hour Sprint vs. 7-Day Weekly Marathon),
- * Live Model Pool Reset Timers, AI Credit Overage Guardrails, Prefix Bust Detection &
+ * Dual-Pool Quota Estimator (5-Hour Sprint / 7-Day Weekly),
+ * Pool Reset Countdown Formatter, Prefix Bust Detector &
  * Cache-Read Telemetry Engine.
  */
 

@@ -13,6 +13,11 @@ import { pruneSessionTranscript } from '../../src/core/pruner.mjs';
 import { inspectHostProcesses, reapOrphanProcesses } from '../../src/core/host_watchdog.mjs';
 import { generateHandoffMarkdown } from '../../src/core/handoff_audit.mjs';
 import { registerCliDampeningHook, promoteRuleWithAttentionZone } from '../../src/core/layer5_hygiene.mjs';
+import { exportSanitizedSnapshot } from '../../src/core/sanitizer.mjs';
+import { executeToolOutputSurgery } from '../../src/core/tool_surgeon.mjs';
+import { buildGitCommitTokenLedger } from '../../src/core/git_ledger.mjs';
+import { synthesizeResumeHerePack } from '../../src/core/episodic_memory.mjs';
+import { getFlightcheckDir } from '../../src/core/sidecar_store.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 if (process.argv.includes('--demo')) {
@@ -101,6 +106,10 @@ async function refreshLiveState(force = false, explicitConvId = null) {
     if (resLive && resLive.state) {
       resLive.state.pinnedConversationId = pinnedConversationId;
       resLive.state.hostHealth = hostHealth;
+      try {
+        const wsPath = resLive.state.workspace?.canonicalPath || process.cwd();
+        resLive.state.gitLedger = buildGitCommitTokenLedger(wsPath, []);
+      } catch {}
       cachedLiveState = resLive.state;
       lastEvalMs = now;
       return cachedLiveState;
@@ -297,7 +306,8 @@ const server = http.createServer(async (req, res) => {
     if (qConv) {
       pinnedConversationId = qConv === 'auto' ? null : qConv;
     }
-    const state = await refreshLiveState(true, pinnedConversationId);
+    const forceEval = Boolean(qConv || qScenario || url.searchParams.get('force') === '1');
+    const state = await refreshLiveState(forceEval, pinnedConversationId);
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(state || {}));
     return;
@@ -365,7 +375,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Route: POST /api/prune (Rank #2: Prefix-Safe Surgical Context Pruner & AST Folder)
+  // Route: POST /api/prune (Prefix-Safe Surgical Context Pruner & AST Folder)
   if (url.pathname === '/api/prune' && req.method === 'POST') {
     let bodyStr = '';
     req.on('data', chunk => { bodyStr += chunk; });
@@ -392,7 +402,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Route: POST /api/host/reap (Rank #3: Host Process & Zombie Subagent/MCP Watchdog)
+  // Route: POST /api/host/reap (Host Process & Zombie Subagent/MCP Watchdog)
   if (url.pathname === '/api/host/reap' && req.method === 'POST') {
     let bodyStr = '';
     req.on('data', chunk => { bodyStr += chunk; });
@@ -408,7 +418,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Route: POST /api/open-brain (Phase 1 Dual-Target Session Jump: Alt+Click opens ~/.gemini/<surface>/brain/<uuid>/)
+  // Route: POST /api/open-brain (Dual-Target Session Jump: Alt+Click opens ~/.gemini/<surface>/brain/<uuid>/)
   if (url.pathname === '/api/open-brain' && req.method === 'POST') {
     let bodyStr = '';
     req.on('data', chunk => { bodyStr += chunk; });
@@ -480,7 +490,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Route: POST /api/handoff or /api/handoff/generate (Phase 4 Layer 4: The Baton Pass /handoff Markdown Generator)
+  // Route: POST /api/handoff or /api/handoff/generate (The Baton Pass /handoff Markdown Generator)
   if ((url.pathname === '/api/handoff' || url.pathname === '/api/handoff/generate') && req.method === 'POST') {
     let bodyStr = '';
     req.on('data', chunk => { bodyStr += chunk; });
@@ -500,7 +510,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Route: POST /api/hooks/dampen (Phase 5 Layer 5: Fail-Open CLI Command Dampening Hook in .agents/hooks.json)
+  // Route: POST /api/hooks/dampen (Fail-Open CLI Command Dampening Hook in .agents/hooks.json)
   if (url.pathname === '/api/hooks/dampen' && req.method === 'POST') {
     let bodyStr = '';
     req.on('data', chunk => { bodyStr += chunk; });
@@ -520,7 +530,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Route: POST /api/rules/promote (Phase 5 Layer 5: Attention-Aware Rule Promotion in Primacy/Recency zones)
+  // Route: POST /api/rules/promote (Attention-Aware Rule Promotion in Primacy/Recency zones)
   if (url.pathname === '/api/rules/promote' && req.method === 'POST') {
     let bodyStr = '';
     req.on('data', chunk => { bodyStr += chunk; });
@@ -549,6 +559,54 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(promoRes));
     });
+    return;
+  }
+
+  // Route: POST /api/export/sanitized (Zero-PII Sanitized Snapshot Exporter)
+  if (url.pathname === '/api/export/sanitized' && req.method === 'POST') {
+    let bodyStr = '';
+    req.on('data', chunk => { bodyStr += chunk; });
+    req.on('end', async () => {
+      let body = {};
+      try { body = JSON.parse(bodyStr || '{}'); } catch {}
+      const targetState = body.state || cachedLiveState || (await refreshLiveState(true, pinnedConversationId)) || {};
+      const outPath = path.join(defaultCacheDir, `sanitized_snapshot_${Date.now()}.json`);
+      const expRes = exportSanitizedSnapshot(targetState, {
+        format: body.format || 'json',
+        outputPath: outPath
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(expRes));
+    });
+    return;
+  }
+
+  // Route: POST /api/surgeon (Offline Tool-Output Surgeon)
+  if (url.pathname === '/api/surgeon' && req.method === 'POST') {
+    let bodyStr = '';
+    req.on('data', chunk => { bodyStr += chunk; });
+    req.on('end', async () => {
+      let body = {};
+      try { body = JSON.parse(bodyStr || '{}'); } catch {}
+      const targetConvId = body.conversationId || pinnedConversationId || cachedLiveState?.sessionId || null;
+      const sessionInfo = findSessionDirectory(targetConvId);
+      const transcriptFile = body.transcriptPath ||
+        (sessionInfo?.sessionDir ? path.join(sessionInfo.sessionDir, '.system_generated', 'logs', 'transcript_full.jsonl') : null);
+      const surgRes = executeToolOutputSurgery(transcriptFile, { dryRun: Boolean(body.dryRun) });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(surgRes));
+    });
+    return;
+  }
+
+  // Route: GET /api/memory/resume (SQLite FTS5 Episodic Memory Resume Pack)
+  if (url.pathname === '/api/memory/resume' && req.method === 'GET') {
+    const query = url.searchParams.get('q') || '';
+    const wsPath = url.searchParams.get('workspace') || cachedLiveState?.workspace?.canonicalPath || process.cwd();
+    const epDbPath = path.join(getFlightcheckDir(), 'episodic_memory.db');
+    const pack = await synthesizeResumeHerePack(epDbPath, { workspacePath: wsPath, query });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(pack));
     return;
   }
 

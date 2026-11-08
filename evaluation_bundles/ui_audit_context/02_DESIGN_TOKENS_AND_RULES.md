@@ -1096,6 +1096,16 @@
   }
   .high-effort-sludge-banner[hidden] { display: none !important; }
   .mini-inspector { font-size: 10.5px; color: var(--hz-muted) !important; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .timeline-legend {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    margin-top: 5px;
+    font-size: 9.5px;
+    color: var(--hz-muted) !important;
+    font-variant-numeric: tabular-nums;
+  }
 
   .footer-meta {
     text-align: center;
@@ -2562,6 +2572,16 @@
   }
   .high-effort-sludge-banner[hidden] { display: none !important; }
   .mini-inspector { font-size: 10.5px; color: var(--hz-muted) !important; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .timeline-legend {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    margin-top: 5px;
+    font-size: 9.5px;
+    color: var(--hz-muted) !important;
+    font-variant-numeric: tabular-nums;
+  }
 
   .footer-meta {
     text-align: center;

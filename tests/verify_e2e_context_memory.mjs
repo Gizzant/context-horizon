@@ -801,10 +801,11 @@ await new Promise(r => setTimeout(r, 30));
 assert.equal(d.getElementById('actionCard').className, 'action-card', 'UIA-01: lean 20.4k session must not apply warning/critical class to #actionCard');
 assert.equal(d.getElementById('guidedStepBox').style.display, 'none', 'UIA-01: lean 20.4k session must keep #guidedStepBox hidden');
 
-// UIA-03: Status badge text, 40-cell timeline, and parabolic attention legend visible
+// UIA-03: Status badge text, 40-cell timeline, and top riskiest cells list
 assert.equal(d.getElementById('statusBadge').hidden, false, 'UIA-03: #statusBadge must be visible');
 assert.ok(d.getElementById('miniTimeline'), 'UIA-03: #miniTimeline must exist');
-assert.ok(d.getElementById('timelineLegend')?.textContent.includes('Low-Attention Trough'), 'UIA-03: #timelineLegend must explain parabolic trough');
+assert.equal(d.getElementById('timelineLegend'), null, 'UIA-03: dead hidden #timelineLegend must not exist in DOM');
+assert.ok(d.getElementById('topRiskyCellsList'), 'UIA-03: #topRiskyCellsList must exist beneath #miniTimeline');
 
 // UIA-05: Host Watchdog surfaces orphan MB when orphans are present
 const leanWithOrphan = makeHotfixState({ totalTokens: 20400, clutterTokens: 2000 });

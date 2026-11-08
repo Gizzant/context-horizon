@@ -11,6 +11,8 @@ import { parseTranscriptIncremental } from '../core/parser.mjs';
 import { classifyHorizon } from '../core/classifier.mjs';
 import { measureBaseline } from '../core/baseline.mjs';
 import { getFlightcheckDir } from '../core/sidecar_store.mjs';
+import { buildGitCommitTokenLedger } from '../core/git_ledger.mjs';
+import { upsertEpisodicMemory } from '../core/episodic_memory.mjs';
 
 export const ROOT_CAUSES = {
   CONTEXT_ROT_DECAY: 'CONTEXT_ROT_DECAY',
@@ -81,6 +83,7 @@ export async function runPostmortem(options = {}) {
 
   const diagnostics = [];
   const hotspotMap = new Map(); // path -> { path, occurrences, wastedTokens, sessions: Set, sampleSteps: number[] }
+  let latestSessionSteps = [];
   let totalTokensInspected = 0;
   let totalSludgeUsd = 0;
   let amputationSessionsCount = 0;
@@ -120,6 +123,9 @@ export async function runPostmortem(options = {}) {
       }
 
       if (!horizon) continue;
+      if (latestSessionSteps.length === 0) {
+        latestSessionSteps = parsed.steps;
+      }
 
       const purity = horizon.metrics?.signalPurityPct ?? 100;
       const tokens = horizon.window?.totalActiveTokens || 0;
@@ -235,8 +241,25 @@ export async function runPostmortem(options = {}) {
         evidence_for: evidenceFor,
         evidence_against: evidenceAgainst
       });
+
+      if (writeFiles) {
+        try {
+          const epDbPath = path.join(getFlightcheckDir(), 'episodic_memory.db');
+          await upsertEpisodicMemory(epDbPath, {
+            sessionId: candidate.id,
+            workspacePath: workspace || process.cwd(),
+            title: `Session ${candidate.id.slice(0, 8)} (${reworkShape})`,
+            summary: `Purity ${purity}%, ${tokens.toLocaleString()} tokens, root cause: ${rootCause}.`,
+            decisions: evidenceFor,
+            modifiedFiles: dupOffenders.map(f => f.path).slice(0, 6),
+            updatedAt: new Date(candidate.mtimeMs).toISOString()
+          });
+        } catch {}
+      }
     }
   }
+
+  const gitLedger = buildGitCommitTokenLedger(workspace || process.cwd(), latestSessionSteps);
 
   const sessionCount = diagnostics.length;
   const isSynthetic = demo || sessionCount === 0;
@@ -413,6 +436,7 @@ export async function runPostmortem(options = {}) {
     hotspots: hotspotsSummary,
     worstSessionOffender,
     recommendations: cappedRecommendations,
+    gitLedger,
     reportPath: writeFiles && !isSynthetic ? path.join(outDir, 'session_analysis_report.md') : null,
     diagnostics
   };

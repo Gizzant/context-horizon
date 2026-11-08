@@ -6,7 +6,7 @@ import { getHomeDir, getBrainStores } from '../core/paths.mjs';
 import { runDemoShowcase } from './horizon_hud.mjs';
 import { startServer } from '../../sidecars/horizon-daemon/server.mjs';
 import { runPostmortem, printPostmortemSummary } from './postmortem.mjs';
-import { runDoctor } from './doctor.mjs';
+import { runDoctor, parseDoctorArgs } from './doctor.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(__dirname, '../..');
@@ -197,8 +197,9 @@ if (isMain) {
   } else if (cmd === 'roast' || args.includes('--roast')) {
     runContextRoast();
   } else if (cmd === 'doctor' || args.includes('--doctor')) {
-    runDoctor().then(res => {
-      process.exit(res.ok ? 0 : 1);
+    const cliOpts = parseDoctorArgs(args);
+    runDoctor(cliOpts).then(res => {
+      process.exit(res.ok === false ? 1 : 0);
     });
   } else if (cmd === 'postmortem' || args.includes('--postmortem')) {
     const lastIdx = args.indexOf('--last');

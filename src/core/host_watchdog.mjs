@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import os from 'node:os';
 
 /**
- * Rank #3: Host Process & Zombie Subagent/MCP Watchdog.
+ * Host Process & Zombie Subagent/MCP Watchdog.
  *
  * Polls the OS process table (memoized for 10s) to detect:
  * 1. Orphaned `language_server*` processes spawned with `multicall schedule`

@@ -185,7 +185,7 @@ const WORKSPACE_TOP_LEVEL_DIRS = new Set([
 ]);
 
 /**
- * Hotfix: formats a file path as a clean workspace-relative path (no `.../` prefixes).
+ * formats a file path as a clean workspace-relative path (no `.../` prefixes).
  * Prefers stripping `workspaceRoot`; otherwise anchors on a well-known top-level directory
  * (src/, tests/, scripts/, ...); otherwise falls back to the last two path segments.
  */
@@ -215,7 +215,7 @@ export function toWorkspaceRelativePath(p, workspaceRoot = '') {
 }
 
 /**
- * Hotfix: sanitizes a raw user message into a concise constraint clause.
+ * sanitizes a raw user message into a concise constraint clause.
  * Strips `/plan` (and other slash-command) headers, artifact/file URIs, XML-ish wrapper tags and
  * markdown headers, then truncates cleanly at a word boundary within `maxLen` characters.
  * Returns '' when nothing meaningful remains.
@@ -242,7 +242,7 @@ export function sanitizeUserConstraintText(raw, maxLen = 90) {
 }
 
 /**
- * Phase 4 (Layer 4): Synthesizes a parameterized, context-preserving /compact command
+ * Synthesizes a parameterized, context-preserving /compact command
  * pulling in active file paths and extracted in-chat user corrections.
  */
 export function synthesizeParameterizedCompact({
@@ -304,10 +304,10 @@ export function synthesizeParameterizedCompact({
 }
 
 /**
- * Phase 4 (Layer 4): Evaluates Cache-Aware Compaction Advisory.
+ * Evaluates Cache-Aware Compaction Advisory.
  * - If Cache TTL > 0s and totalActiveTokens <= 179k: Defer compaction until work pause.
  * - If Cache TTL == 0s OR totalActiveTokens > 179k: Run parameterized compaction now.
- * - Hotfix: when `isCacheTrulyWarm === false` (0 cache reads / 0% hit / prefix bust), never DEFER_WARM.
+ * - when `isCacheTrulyWarm === false` (0 cache reads / 0% hit / prefix bust), never DEFER_WARM.
  */
 export function evaluateCompactionCacheAdvisory({
   cacheTtlRemainingSec = 300,
@@ -324,7 +324,7 @@ export function evaluateCompactionCacheAdvisory({
       message: COMPACTION_ADVISORY_MESSAGES.LEAN_NO_COMPACT
     };
   }
-  // Phase 2: a turn that missed the cache wrote a fresh prefix, so the *next* turn is likely warm.
+  // a turn that missed the cache wrote a fresh prefix, so the *next* turn is likely warm.
   // When `nextTurnLikelyWarm` is supplied it supersedes the strict badge predicate for this advisory.
   const warmEvidence = typeof nextTurnLikelyWarm === 'boolean' ? nextTurnLikelyWarm : isCacheTrulyWarm;
   const isExpiredOrOverHorizon = warmEvidence === false ||
@@ -344,7 +344,7 @@ export function evaluateCompactionCacheAdvisory({
 }
 
 /**
- * Phase 4 (Layer 4): Synthesizes The Baton Pass (/handoff) workflow command and target path.
+ * Synthesizes The Baton Pass (/handoff) workflow command and target path.
  */
 export function synthesizeBatonPassHandoffCommand({
   timestamp = null,

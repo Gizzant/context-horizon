@@ -120,7 +120,155 @@ export function calculateAttentionWeight(cellIndex, activeCellCount, gamma = ATT
 }
 
 /**
- * Phase 1 (Layer 1): Evaluates Composite Operational Session Risk & Prefix-Lock Protection.
+ * Locked v2.0 UI Law 3: Zero-Click Passive Workload Tag.
+ * Passively classifies session state from tool-call ratios without manual dropdowns or buttons,
+ * and adjusts warning thresholds automatically.
+ */
+export function classifyWorkloadMode(steps = []) {
+  let readCalls = 0;
+  let editCalls = 0;
+  let subagentCalls = 0;
+  let totalCalls = 0;
+  let subagentSteps = 0;
+  const editedFiles = new Set();
+
+  for (const s of (Array.isArray(steps) ? steps : [])) {
+    if (!s || typeof s !== 'object') continue;
+    if (s.isSidechain || (s.agentId && s.agentId !== 'parent') || s.hasSubtrajectory) {
+      subagentSteps++;
+    }
+    const calls = Array.isArray(s.toolCalls) ? s.toolCalls : (Array.isArray(s.tool_calls) ? s.tool_calls : []);
+    if (calls.length === 0 && s.toolName) {
+      calls.push({ name: s.toolName, args: s.targetPath ? { Path: s.targetPath } : {} });
+    }
+    for (const c of calls) {
+      const name = String(c?.name || c?.tool || '').toLowerCase();
+      if (!name) continue;
+      totalCalls++;
+      if (name.includes('subagent') || name === 'agent' || name === 'task') {
+        subagentCalls++;
+      } else if (/write|edit|replace|create|patch/i.test(name)) {
+        editCalls++;
+        const f = c?.args?.Path || c?.args?.path || c?.args?.TargetFile || c?.args?.AbsolutePath || s.targetPath;
+        if (f) editedFiles.add(String(f).toLowerCase());
+      } else if (/read|view|grep|find|search|glob|list/i.test(name)) {
+        readCalls++;
+      }
+    }
+  }
+
+  const readRatio = totalCalls > 0 ? parseFloat((readCalls / totalCalls).toFixed(2)) : 1.0;
+  const editRatio = totalCalls > 0 ? parseFloat((editCalls / totalCalls).toFixed(2)) : 0.0;
+  const subagentStepRatio = steps.length > 0 ? subagentSteps / steps.length : 0;
+
+  if (subagentCalls >= 2 || (subagentCalls >= 1 && subagentSteps >= 2) || subagentStepRatio >= 0.20) {
+    return {
+      modeId: 'SUBAGENT_SWARM',
+      tag: '[Mode: Subagent Swarm]',
+      readRatio,
+      editRatio,
+      subagentCount: Math.max(subagentCalls, subagentSteps > 0 ? 1 : 0),
+      safeLimitMultiplier: 1.05,
+      reReadTolerance: 2,
+      thresholds: { safeLimitDeltaTokens: 10000, duplicateReadTolerance: 2 }
+    };
+  }
+
+  if (editCalls >= 2 && (editRatio >= 0.25 || editedFiles.size >= 3)) {
+    return {
+      modeId: 'MULTI_FILE_REFACTOR',
+      tag: '[Mode: Multi-File Refactor]',
+      readRatio,
+      editRatio,
+      subagentCount: subagentCalls,
+      safeLimitMultiplier: 0.95,
+      reReadTolerance: 3,
+      thresholds: { safeLimitDeltaTokens: -10000, duplicateReadTolerance: 3 }
+    };
+  }
+
+  return {
+    modeId: 'READ_HEAVY_AUDIT',
+    tag: '[Mode: Read-Heavy Audit]',
+    readRatio,
+    editRatio,
+    subagentCount: subagentCalls,
+    safeLimitMultiplier: 1.0,
+    reReadTolerance: 2,
+    thresholds: { safeLimitDeltaTokens: 0, duplicateReadTolerance: 2 }
+  };
+}
+
+/**
+ * Locked v2.0 UI Law 2: Hero 40-Cell Flamegraph + Top 3-5 Riskiest Cells.
+ * Ranks the top 3-5 riskiest cells with exact file paths, token weights, attention recall %,
+ * and a 1-click `[Re-Anchor / Prune]` action when critical specs (`task.md`) drift into the trough.
+ */
+export function rankRiskiestCells(cells = [], { totalActiveTokens = 0, safeLimit = 140000, cellSizeTokens = 6400 } = {}) {
+  if (!Array.isArray(cells) || cells.length === 0) return [];
+  const scored = [];
+
+  for (const c of cells) {
+    if (!c || c.dominantCategory === CATEGORIES.FREE_HEADROOM) continue;
+    const catMap = c.tokensByCategory || {};
+    const cellTokens = Object.values(catMap).reduce((s, v) => s + Number(v || 0), 0) || Number(c.totalTokens) || cellSizeTokens;
+    if (cellTokens <= 0) continue;
+
+    const target = String(c.topTarget || c.primaryPath || `Cell #${(c.index ?? 0) + 1}`);
+    const isCriticalSpec = /task\.md|implementation_plan\.md|agents\.md|context\.md|state\.md/i.test(target);
+    const inTrough = Boolean(c.inAttentionTrough || (c.index >= 6 && c.index <= 15));
+    const isStrandedSpec = (Boolean(c.isStrandedSignal) || inTrough) && (isCriticalSpec || c.dominantCategory === CATEGORIES.ANCHOR || c.dominantCategory === CATEGORIES.ACTIVE_WORKING_SET);
+    const wasteTokens = (catMap[CATEGORIES.STALE_DUPLICATE] || 0) + (catMap[CATEGORIES.DEAD_ERROR] || 0) + (catMap[CATEGORIES.FOREIGN_BLEED] || 0);
+    const isAmputation = Boolean(c.isAmputationZone || (totalActiveTokens > safeLimit && c.index < 8));
+    const recallPct = Math.round((Number(c.attentionWeight) || 0.4) * 100);
+
+    let riskScore = 0;
+    let riskReason = 'HIGH_SLUDGE_DENSITY';
+    let actionType = 'PRUNE';
+
+    if (isStrandedSpec && isCriticalSpec) {
+      riskScore = 100000 + cellTokens + (100 - recallPct) * 500;
+      riskReason = 'TROUGH_STRANDED_SPEC';
+      actionType = 'REANCHOR';
+    } else if (isStrandedSpec) {
+      riskScore = 70000 + cellTokens + (100 - recallPct) * 300;
+      riskReason = 'TROUGH_STRANDED_SPEC';
+      actionType = 'REANCHOR';
+    } else if (isAmputation) {
+      riskScore = 50000 + cellTokens;
+      riskReason = 'AMPUTATION_ZONE';
+      actionType = isCriticalSpec ? 'REANCHOR' : 'PRUNE';
+    } else if (wasteTokens > 0 || String(c.dominantCategory).includes('STALE') || String(c.dominantCategory).includes('ERROR')) {
+      riskScore = 20000 + (wasteTokens || cellTokens);
+      riskReason = 'HIGH_SLUDGE_DENSITY';
+      actionType = 'PRUNE';
+    } else {
+      riskScore = cellTokens * (1 - (Number(c.attentionWeight) || 0.5));
+    }
+
+    scored.push({
+      cellIndex: c.index ?? 0,
+      cellNumber: (c.index ?? 0) + 1,
+      filePath: target,
+      tokenWeight: cellTokens,
+      wasteTokens,
+      attentionRecallPct: recallPct,
+      inTrough,
+      riskScore,
+      riskReason,
+      actionType,
+      actionLabel: '[Re-Anchor / Prune]'
+    });
+  }
+
+  return scored
+    .sort((a, b) => b.riskScore - a.riskScore)
+    .slice(0, 5)
+    .map(({ riskScore, ...rest }) => rest);
+}
+
+/**
+ * Evaluates Composite Operational Session Risk & Prefix-Lock Protection.
  *
  * Rules:
  * - RED: Context >= 179k (safe horizon breached) OR 7d lockout risk active without AI Credit overages enabled.
@@ -186,7 +334,7 @@ export function evaluateCompositeSessionRisk({
     cacheHitRatePct > 0 ? Math.round(totalActiveTokens * (cacheHitRatePct / 100)) : 0,
     !isCacheExpired ? totalActiveTokens : 0
   );
-  // Hotfix: the Warm badge requires real cache-read evidence, not merely TTL > 0s.
+  // the Warm badge requires real cache-read evidence, not merely TTL > 0s.
   const isCacheTrulyWarm = computeIsCacheTrulyWarm({
     ttlRemainingSec: cacheTtlRemainingSec,
     cacheReadTokens,
@@ -208,7 +356,7 @@ export function evaluateCompositeSessionRisk({
 }
 
 /**
- * Hotfix: strict cache warmth predicate. TTL > 0s alone is NOT proof of a warm cache —
+ * strict cache warmth predicate. TTL > 0s alone is NOT proof of a warm cache —
  * a session with 0 cache-read tokens or a 0% hit rate is cold regardless of the TTL clock.
  */
 export function computeIsCacheTrulyWarm(cache = {}) {
@@ -221,7 +369,7 @@ export function computeIsCacheTrulyWarm(cache = {}) {
 }
 
 /**
- * Hotfix: Tenth-of-a-Kilotoken Mathematical Parity.
+ * Tenth-of-a-Kilotoken Mathematical Parity.
  * Derives the reclaimable display value from the rounded total and active values so that
  * Active Signal + Reclaimable always equals the headline total to exactly 0.1k.
  * If `anchorReclaimTenths` is supplied (sum of rounded reclaim rows), Reclaimable is pinned to it
@@ -245,7 +393,7 @@ export function computeDisplayTenthsParity(totalTokens = 0, activeSignalTokens =
 }
 
 /**
- * Phase 3 (Layer 3): Evaluates State-Conditional Bar Coloring for the older history segment.
+ * Evaluates State-Conditional Bar Coloring for the older history segment.
  * - Muted Slate/Teal ('Cached History — 95% Discounted') while TTL > 0s and totalActiveTokens <= 179k.
  * - Amber ('Reclaimable Cold Bloat') ONLY when TTL == 0s OR totalActiveTokens > 179k.
  */
@@ -260,7 +408,7 @@ export function evaluateHistoryBarState({
     ? Number(safeHorizonTokens)
     : SESSION_RISK_THRESHOLDS.SAFE_HORIZON_TOKENS;
   // When strict warmth evidence is supplied, a 0% hit / 0 cache-read session is COLD_BLOAT even if TTL > 0s.
-  // Phase 2: `nextTurnLikelyWarm` (fresh cache write after a miss) supersedes the strict predicate when supplied.
+  // `nextTurnLikelyWarm` (fresh cache write after a miss) supersedes the strict predicate when supplied.
   const warmEvidence = typeof nextTurnLikelyWarm === 'boolean' ? nextTurnLikelyWarm : isCacheTrulyWarm;
   const isNotTrulyWarm = warmEvidence === false;
   const isColdOrOverHorizon = isNotTrulyWarm || Number(cacheTtlRemainingSec) <= 0 || Number(totalActiveTokens) > safeHorizon;
@@ -283,7 +431,7 @@ export function evaluateHistoryBarState({
 }
 
 /**
- * Phase 3 (Layer 3): Computes Dual-Watermark + Hard Ceiling visual markers for the context bar.
+ * Computes Dual-Watermark + Hard Ceiling visual markers for the context bar.
  */
 export function computeWatermarks(maxTokens = 256000, safeLimit = 179000) {
   const denom = Math.max(1, Number(maxTokens) || 256000);
@@ -495,7 +643,7 @@ export function classifyHorizon(rawSteps, options = {}) {
       off.stepIndices.push(idx);
       offenderMap.set(target, off);
     }
-    // 4. Smart File Re-Read Classifier (Phase 5 Layer 5) & Semantic Reference Pinning (T2.2)
+    // 4. Smart File Re-Read Classifier & Semantic Reference Pinning
     else {
       let isStale = false;
       let stepFileBasename = '';
@@ -919,7 +1067,7 @@ export function classifyHorizon(rawSteps, options = {}) {
     return Boolean(p) && !isInternalTelemetryPath(p);
   });
   const sessionHasWorkspaceEdits = steps.some(isWorkspaceFileWrite);
-  // Phase 3: the set of workspace files this session wrote/edited (for session-scoped git drift).
+  // the set of workspace files this session wrote/edited (for session-scoped git drift).
   const sessionWrittenPaths = new Set();
   for (const x of steps) {
     for (const c of (x.toolCalls || [])) {
@@ -1028,7 +1176,7 @@ export function classifyHorizon(rawSteps, options = {}) {
     false
   );
 
-  // Compute Dual-Pool Quota & Cache-Read Telemetry (T2.1 + Phase 2 Layer 2)
+  // Compute Dual-Pool Quota & Cache-Read Telemetry
   const quota = computeQuotaAndCacheTelemetry(steps, {
     sessionId,
     modelId,
@@ -1078,7 +1226,7 @@ export function classifyHorizon(rawSteps, options = {}) {
     nextTurnLikelyWarm: typeof quota.cache?.nextTurnLikelyWarm === 'boolean' ? quota.cache.nextTurnLikelyWarm : undefined
   });
 
-  // Phase 4 (Layer 4): Parameterized /compact synthesizer, Cache-Aware Advisory & Baton Pass (/handoff)
+  // Parameterized /compact synthesizer, Cache-Aware Advisory & Baton Pass (/handoff)
   const activeFileCandidates = Array.from(latestFileTouchStep.keys()).filter(p => !isInternalTelemetryPath(p));
   const fallbackDupFiles = dupFileOffenders.map(o => o.target).filter(p => !isInternalTelemetryPath(p));
   const cleanActiveFiles = activeFileCandidates.length > 0 ? activeFileCandidates : fallbackDupFiles;
@@ -1107,7 +1255,7 @@ export function classifyHorizon(rawSteps, options = {}) {
     preCompactionWarningMessage: handoff?.preCompactionWarningMessage || ''
   };
 
-  // Compute Multi-Agent (invoke_subagent) Context Tree & Handoff Compression (T2.3)
+  // Compute Multi-Agent (invoke_subagent) Context Tree & Handoff Compression
   const subagents = inspectSubagentTree(steps, { cacheDir });
   for (const inv of subagents.invocations) {
     for (const c of cells) {
@@ -1119,7 +1267,7 @@ export function classifyHorizon(rawSteps, options = {}) {
     }
   }
 
-  // Phase 6 (Layer 6): Session Fracture Markers (⚡) & Stranded Signal Summary
+  // Session Fracture Markers (⚡) & Stranded Signal Summary
   const fractures = [];
   const mapStepToCellIndex = (stepIdx) => {
     for (const c of cells) {
@@ -1222,11 +1370,20 @@ export function classifyHorizon(rawSteps, options = {}) {
     fractures
   };
 
+  const workloadMode = classifyWorkloadMode(steps);
+  const topRiskyCells = rankRiskiestCells(cells, {
+    totalActiveTokens,
+    safeLimit,
+    cellSizeTokens: effectiveCellSize
+  });
+
   return {
     schemaVersion: '1.1.0',
     sessionId,
     storeSource,
     surfaceTag,
+    workloadMode,
+    topRiskyCells,
     brainDir: brainDir || null,
     logTierUsed,
     logFilePath,

@@ -16,6 +16,11 @@ import { pruneSessionTranscript } from '../../src/core/pruner.mjs';
 import { inspectHostProcesses, reapOrphanProcesses } from '../../src/core/host_watchdog.mjs';
 import { generateHandoffMarkdown } from '../../src/core/handoff_audit.mjs';
 import { registerCliDampeningHook, promoteRuleWithAttentionZone } from '../../src/core/layer5_hygiene.mjs';
+import { exportSanitizedSnapshot } from '../../src/core/sanitizer.mjs';
+import { executeToolOutputSurgery } from '../../src/core/tool_surgeon.mjs';
+import { buildGitCommitTokenLedger } from '../../src/core/git_ledger.mjs';
+import { synthesizeResumeHerePack } from '../../src/core/episodic_memory.mjs';
+import { getFlightcheckDir } from '../../src/core/sidecar_store.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 if (process.argv.includes('--demo')) {
@@ -104,6 +109,10 @@ async function refreshLiveState(force = false, explicitConvId = null) {
     if (resLive && resLive.state) {
       resLive.state.pinnedConversationId = pinnedConversationId;
       resLive.state.hostHealth = hostHealth;
+      try {
+        const wsPath = resLive.state.workspace?.canonicalPath || process.cwd();
+        resLive.state.gitLedger = buildGitCommitTokenLedger(wsPath, []);
+      } catch {}
       cachedLiveState = resLive.state;
       lastEvalMs = now;
       return cachedLiveState;
@@ -138,10 +147,81 @@ async function refreshLiveState(force = false, explicitConvId = null) {
   return cachedLiveState;
 }
 
+const LOCAL_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
+
+/**
+ * Allows only requests addressed to this loopback daemon (Host check blocks DNS rebinding)
+ * and, when a browser sends an Origin header, only local loopback pages or IDE webview schemes.
+ */
+export function isAllowedLocalRequest(req) {
+  const hostHeader = String(req.headers.host || '').toLowerCase();
+  const hostMatch = hostHeader.match(/^(\[[^\]]+\]|[^:]+)(?::(\d+))?$/);
+  if (!hostMatch || !LOCAL_HOSTNAMES.has(hostMatch[1])) return false;
+
+  const sidecarToken = process.env.ANTIGRAVITY_SIDECAR_UI_TOKEN;
+  if (sidecarToken && req.headers['x-sidecar-token'] === sidecarToken) {
+    return true;
+  }
+
+  const origin = req.headers.origin;
+  if (origin === undefined || origin === '' || origin === 'null') return true;
+
+  // Allow IDE webview schemes & CDNs (Antigravity, VS Code, Electron)
+  if (
+    origin.startsWith('vscode-webview://') ||
+    origin.startsWith('vscode-file://') ||
+    origin.startsWith('antigravity://')
+  ) {
+    return true;
+  }
+
+  try {
+    const o = new URL(origin);
+    const host = o.hostname.toLowerCase();
+    if (LOCAL_HOSTNAMES.has(host)) return true;
+    if (host.endsWith('.vscode-cdn.net') || host.endsWith('.antigravity.dev')) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+const RULE_FILE_RE = /(^|[\\/])(AGENTS\.md|GEMINI\.md)$|[\\/]\.agents[\\/]rules[\\/][^\\/]+\.md$/i;
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || '127.0.0.1'}`);
 
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const isStaticUiAsset = req.method === 'GET' && (
+    url.pathname === '/' ||
+    url.pathname === '/index.html' ||
+    url.pathname === '/widget' ||
+    url.pathname === '/widget.html' ||
+    url.pathname === '/preload.js' ||
+    url.pathname === '/favicon.ico'
+  );
+
+  // Host header is always verified (blocks DNS rebinding).
+  // Origin is strictly enforced for API / mutation endpoints.
+  const hostHeader = String(req.headers.host || '').toLowerCase();
+  const hostMatch = hostHeader.match(/^(\[[^\]]+\]|[^:]+)(?::(\d+))?$/);
+  const isHostValid = hostMatch && LOCAL_HOSTNAMES.has(hostMatch[1]);
+  const sidecarToken = process.env.ANTIGRAVITY_SIDECAR_UI_TOKEN;
+  const hasValidTokenQuery = Boolean(sidecarToken && url.searchParams.get('token') === sidecarToken);
+
+  if (!isHostValid || (!isStaticUiAsset && !hasValidTokenQuery && !isAllowedLocalRequest(req))) {
+    res.writeHead(403, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: false, error: 'Forbidden: cross-origin or non-local request' }));
+    return;
+  }
+
+  // Emit CORS headers only on verified allowed local requests
+  const origin = req.headers.origin;
+  if (origin && origin !== 'null') {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Sidecar-Token');
 
@@ -182,14 +262,25 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === '/' || url.pathname === '/index.html') {
+    const qConv = url.searchParams.get('conversationId');
+    if (qConv && qConv !== 'auto') {
+      pinnedConversationId = qConv;
+    }
+    const initState = await refreshLiveState(false, pinnedConversationId);
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-store, no-cache, must-revalidate'
     });
-    if (fs.existsSync(sidePaneHtml)) {
-      res.end(fs.readFileSync(sidePaneHtml));
-    } else if (fs.existsSync(horizonPanelHtml)) {
-      res.end(fs.readFileSync(horizonPanelHtml));
+    const rawHtmlPath = fs.existsSync(sidePaneHtml)
+      ? sidePaneHtml
+      : (fs.existsSync(horizonPanelHtml) ? horizonPanelHtml : null);
+    if (rawHtmlPath) {
+      let html = fs.readFileSync(rawHtmlPath, 'utf8');
+      if (initState) {
+        const stateScript = `<script id="liveInitialState">window.__LIVE_INITIAL_STATE__ = ${JSON.stringify(initState).replace(/</g, '\\u003c')};</script>`;
+        html = html.replace('<script id="precomputedCatalogScript">', `${stateScript}\n<script id="precomputedCatalogScript">`);
+      }
+      res.end(html);
     } else {
       res.end('<h1>Chrono-Attention Horizon Side-Pane</h1>');
     }
@@ -218,7 +309,8 @@ const server = http.createServer(async (req, res) => {
     if (qConv) {
       pinnedConversationId = qConv === 'auto' ? null : qConv;
     }
-    const state = await refreshLiveState(true, pinnedConversationId);
+    const forceEval = Boolean(qConv || qScenario || url.searchParams.get('force') === '1');
+    const state = await refreshLiveState(forceEval, pinnedConversationId);
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(state || {}));
     return;
@@ -286,7 +378,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Route: POST /api/prune (Rank #2: Prefix-Safe Surgical Context Pruner & AST Folder)
+  // Route: POST /api/prune (Prefix-Safe Surgical Context Pruner & AST Folder)
   if (url.pathname === '/api/prune' && req.method === 'POST') {
     let bodyStr = '';
     req.on('data', chunk => { bodyStr += chunk; });
@@ -313,7 +405,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Route: POST /api/host/reap (Rank #3: Host Process & Zombie Subagent/MCP Watchdog)
+  // Route: POST /api/host/reap (Host Process & Zombie Subagent/MCP Watchdog)
   if (url.pathname === '/api/host/reap' && req.method === 'POST') {
     let bodyStr = '';
     req.on('data', chunk => { bodyStr += chunk; });
@@ -329,7 +421,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Route: POST /api/open-brain (Phase 1 Dual-Target Session Jump: Alt+Click opens ~/.gemini/<surface>/brain/<uuid>/)
+  // Route: POST /api/open-brain (Dual-Target Session Jump: Alt+Click opens ~/.gemini/<surface>/brain/<uuid>/)
   if (url.pathname === '/api/open-brain' && req.method === 'POST') {
     let bodyStr = '';
     req.on('data', chunk => { bodyStr += chunk; });
@@ -401,8 +493,8 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Route: POST /api/handoff (Phase 4 Layer 4: The Baton Pass /handoff Markdown Generator)
-  if (url.pathname === '/api/handoff' && req.method === 'POST') {
+  // Route: POST /api/handoff or /api/handoff/generate (The Baton Pass /handoff Markdown Generator)
+  if ((url.pathname === '/api/handoff' || url.pathname === '/api/handoff/generate') && req.method === 'POST') {
     let bodyStr = '';
     req.on('data', chunk => { bodyStr += chunk; });
     req.on('end', async () => {
@@ -421,7 +513,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Route: POST /api/hooks/dampen (Phase 5 Layer 5: Fail-Open CLI Command Dampening Hook in .agents/hooks.json)
+  // Route: POST /api/hooks/dampen (Fail-Open CLI Command Dampening Hook in .agents/hooks.json)
   if (url.pathname === '/api/hooks/dampen' && req.method === 'POST') {
     let bodyStr = '';
     req.on('data', chunk => { bodyStr += chunk; });
@@ -441,7 +533,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Route: POST /api/rules/promote (Phase 5 Layer 5: Attention-Aware Rule Promotion in Primacy/Recency zones)
+  // Route: POST /api/rules/promote (Attention-Aware Rule Promotion in Primacy/Recency zones)
   if (url.pathname === '/api/rules/promote' && req.method === 'POST') {
     let bodyStr = '';
     req.on('data', chunk => { bodyStr += chunk; });
@@ -449,6 +541,16 @@ const server = http.createServer(async (req, res) => {
       let body = {};
       try { body = JSON.parse(bodyStr || '{}'); } catch {}
       const wsPath = body.targetPath || body.workspacePath || cachedLiveState?.workspace?.canonicalPath || process.cwd();
+      // Only rule files may be written: a directory target, or an explicit AGENTS.md / GEMINI.md / .agents/rules/*.md file.
+      let isDirTarget = false;
+      try { isDirTarget = fs.existsSync(wsPath) && fs.statSync(wsPath).isDirectory(); } catch {}
+      const badTarget = !isDirTarget && !RULE_FILE_RE.test(String(wsPath));
+      const badFileName = body.targetFileName != null && !/^[\w.-]+\.md$/i.test(String(body.targetFileName));
+      if (badTarget || badFileName) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Rule promotion target must be a rule file (AGENTS.md, GEMINI.md, .agents/rules/*.md)' }));
+        return;
+      }
       const fallbackRule = cachedLiveState?.brainSignals?.userCorrectionTexts?.[0] ||
         'Follow all in-chat user corrections and architectural constraints.';
       const promoRes = promoteRuleWithAttentionZone(wsPath, body.ruleText || fallbackRule, {
@@ -460,6 +562,54 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(promoRes));
     });
+    return;
+  }
+
+  // Route: POST /api/export/sanitized (Zero-PII Sanitized Snapshot Exporter)
+  if (url.pathname === '/api/export/sanitized' && req.method === 'POST') {
+    let bodyStr = '';
+    req.on('data', chunk => { bodyStr += chunk; });
+    req.on('end', async () => {
+      let body = {};
+      try { body = JSON.parse(bodyStr || '{}'); } catch {}
+      const targetState = body.state || cachedLiveState || (await refreshLiveState(true, pinnedConversationId)) || {};
+      const outPath = path.join(defaultCacheDir, `sanitized_snapshot_${Date.now()}.json`);
+      const expRes = exportSanitizedSnapshot(targetState, {
+        format: body.format || 'json',
+        outputPath: outPath
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(expRes));
+    });
+    return;
+  }
+
+  // Route: POST /api/surgeon (Offline Tool-Output Surgeon)
+  if (url.pathname === '/api/surgeon' && req.method === 'POST') {
+    let bodyStr = '';
+    req.on('data', chunk => { bodyStr += chunk; });
+    req.on('end', async () => {
+      let body = {};
+      try { body = JSON.parse(bodyStr || '{}'); } catch {}
+      const targetConvId = body.conversationId || pinnedConversationId || cachedLiveState?.sessionId || null;
+      const sessionInfo = findSessionDirectory(targetConvId);
+      const transcriptFile = body.transcriptPath ||
+        (sessionInfo?.sessionDir ? path.join(sessionInfo.sessionDir, '.system_generated', 'logs', 'transcript_full.jsonl') : null);
+      const surgRes = executeToolOutputSurgery(transcriptFile, { dryRun: Boolean(body.dryRun) });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(surgRes));
+    });
+    return;
+  }
+
+  // Route: GET /api/memory/resume (SQLite FTS5 Episodic Memory Resume Pack)
+  if (url.pathname === '/api/memory/resume' && req.method === 'GET') {
+    const query = url.searchParams.get('q') || '';
+    const wsPath = url.searchParams.get('workspace') || cachedLiveState?.workspace?.canonicalPath || process.cwd();
+    const epDbPath = path.join(getFlightcheckDir(), 'episodic_memory.db');
+    const pack = await synthesizeResumeHerePack(epDbPath, { workspacePath: wsPath, query });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(pack));
     return;
   }
 

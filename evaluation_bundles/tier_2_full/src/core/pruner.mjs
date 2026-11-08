@@ -6,10 +6,10 @@ import { classifyHorizon } from './classifier.mjs';
 import { CATEGORIES, HORIZON_WINDOW } from './constants.mjs';
 
 /**
- * Rank #2: Prefix-Safe Surgical Context Pruner & AST Signature Folder.
+ * Prefix-Safe Surgical Context Pruner & Regex Signature Folder.
  *
- * Condenses `STALE_DUPLICATE` full-file reads into compact AST signature stubs
- * (preserving imports, exports, class/function/interface/type/def signatures and
+ * Condenses `STALE_DUPLICATE` full-file reads into compact declaration signature stubs
+ * (preserving imports, exports, class/function/interface/type/def declarations and
  * original line numbers) and collapses `DEAD_ERROR` stack traces into 1-line
  * `[Resolved Error at Turn #N]` tombstones.
  *

@@ -3,7 +3,7 @@ import { getHomeDir } from './paths.mjs';
 import { findSessionDirectory, parseTranscriptIncremental } from './parser.mjs';
 
 /**
- * Rank #4: Multi-Agent (`invoke_subagent`) Context Tree & Handoff Inspector.
+ * Multi-Agent (`invoke_subagent`) Context Tree & Handoff Inspector.
  *
  * Scans parent transcript steps for `invoke_subagent` tool calls, resolves child
  * session transcripts across `inherit`, `branch`, and `share` workspace modes,
@@ -129,3 +129,73 @@ export function inspectSubagentTree(steps = [], {
     invocations
   };
 }
+
+/**
+ * Builds a parent -> subagent worktree DAG (`inherit`, `branch`, `share`),
+ * tracking isolated vs handoff tokens, `cacheCreationEphemeral5mInputTokens` TTL countdowns,
+ * and detecting concurrent `fileCollisions` when >= 2 active subagents edit the same file path.
+ */
+export function buildSubagentWorktreeDag(steps = [], { childTranscripts = [], nowMs = Date.now() } = {}) {
+  const baseTree = inspectSubagentTree(steps);
+  const editsByAgent = new Map(); // canonPath -> Set<agentId>
+  const nodes = [];
+
+  for (const child of (childTranscripts || [])) {
+    const agentId = String(child.agentId || child.conversationId || `sub-${nodes.length}`);
+    const workspaceMode = child.workspaceMode || 'inherit';
+    const childSteps = Array.isArray(child.steps) ? child.steps : [];
+    let isolatedTokens = 0;
+    let latestTs = 0;
+    const modifiedFiles = new Set();
+
+    for (const cs of childSteps) {
+      isolatedTokens += Number(cs.outputTokens ?? cs.output_tokens ?? 600);
+      const ts = cs.createdAt ? Date.parse(cs.createdAt) : (cs.timestamp ? Date.parse(cs.timestamp) : 0);
+      if (Number.isFinite(ts) && ts > latestTs) latestTs = ts;
+
+      const calls = Array.isArray(cs.toolCalls) ? cs.toolCalls : (Array.isArray(cs.tool_calls) ? cs.tool_calls : []);
+      for (const c of calls) {
+        const name = String(c.name || c.tool || '').toLowerCase();
+        const args = c.args || c.parameters || c.Arguments || {};
+        const fp = args.Path || args.path || args.TargetFile || args.AbsolutePath;
+        if (fp && /edit|write|replace/i.test(name)) {
+          const norm = String(fp).replace(/\\/g, '/').toLowerCase();
+          modifiedFiles.add(norm);
+          if (!editsByAgent.has(norm)) editsByAgent.set(norm, new Set());
+          editsByAgent.get(norm).add(agentId);
+        }
+      }
+    }
+
+    const idleSec = latestTs > 0 ? Math.max(0, Math.round((nowMs - latestTs) / 1000)) : 0;
+    const ttlRemainingSec = latestTs > 0 ? Math.max(0, 300 - idleSec) : 300;
+
+    nodes.push({
+      agentId,
+      workspaceMode,
+      isolatedTokens,
+      ttlWindowSec: 300,
+      ttlRemainingSec,
+      modifiedFiles: Array.from(modifiedFiles)
+    });
+  }
+
+  const fileCollisions = [];
+  for (const [filePath, agentsSet] of editsByAgent.entries()) {
+    if (agentsSet.size >= 2) {
+      fileCollisions.push({
+        filePath,
+        agents: Array.from(agentsSet),
+        severity: 'CONCURRENT_EDIT_COLLISION'
+      });
+    }
+  }
+
+  return {
+    parentInvocationCount: baseTree.count,
+    nodes,
+    fileCollisions,
+    hasFileCollision: fileCollisions.length > 0
+  };
+}
+

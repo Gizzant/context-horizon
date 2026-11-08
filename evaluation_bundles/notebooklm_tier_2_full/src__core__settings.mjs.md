@@ -85,7 +85,7 @@ export function resolveWindow(settings, modelId) {
 }
 
 /**
- * Phase 3 (Layer 3): Reads `~/.gemini/antigravity-cli/settings.json` (or a custom path)
+ * Reads `~/.gemini/antigravity-cli/settings.json` (or a custom path)
  * to inspect patched CLI context window overrides (512k or 900k whitelisted tiers).
  */
 export function loadCliSurfaceSettings(customFilePath = null) {

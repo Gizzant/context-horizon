@@ -137,6 +137,8 @@ export const MODEL_PRICING_PER_MILLION = {
   'gemini-4-argon': 1.25,
   'gemini-4-argon-high': 1.25,
   'claude-opus-5.5': 3.00,
+  // Public list price at time of writing; verify before relying on cost figures.
+  'claude-sonnet-5.5': 2.00,
   'gemini-1.5-pro': 1.25,
   'gemini-3.1-pro': 1.25,
   'gemini-pro': 1.25,
@@ -158,6 +160,8 @@ export const MODEL_CEILINGS = Object.freeze({
   'claude-3-5-sonnet': 200000,
   'claude-sonnet': 200000,
   'claude-opus-5.5': 256000,
+  // Claude Sonnet 5.5: native 1M window, clamped to 256k by Cortex checkpointing (verify against host).
+  'claude-sonnet-5.5': 256000,
   'gemini-1.5-pro-1m': 1000000,
   'gemini-2.5-pro-1m': 1000000,
   'default': 256000
@@ -205,10 +209,25 @@ function buildCeilingDescriptor(ceilingTokens, source, modelKey = '') {
 }
 
 /**
+ * Normalizes a human-readable or raw model identifier into a canonical lookup key.
+ * "Claude Opus 5.5 (Medium)" -> "claude-opus-5.5"; "gemini-4-argon" -> "gemini-4-argon".
+ * Lowercases, strips a trailing parenthesized effort suffix, and turns whitespace into hyphens.
+ */
+export function normalizeModelId(modelId = '') {
+  let s = String(modelId ?? '').trim().toLowerCase();
+  // Strip trailing "(Medium)" / "(High, Thinking)" style suffixes (possibly repeated).
+  while (/\s*\([^()]*\)\s*$/.test(s)) {
+    s = s.replace(/\s*\([^()]*\)\s*$/, '');
+  }
+  s = s.replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  return s;
+}
+
+/**
  * Resolves ceiling with explicit source origin tracking ('patched_cli' | 'host' | 'config' | 'family' | 'hint' | 'legacy_default' | 'fallback').
  */
 export function resolveModelCeilingDetailed(modelId = 'default', stdinContextWindow = null, { useLegacyDefault = false, config = null, cliSettings = null } = {}) {
-  const key = String(modelId || '').toLowerCase().trim();
+  const key = normalizeModelId(modelId);
 
   // 0. Patched CLI binary override (~/.gemini/antigravity-cli/settings.json or config.cliSettings)
   const patchedCliTokens = resolvePatchedCliCeiling(cliSettings || config?.cliSettings || stdinContextWindow?.cliSettings);
@@ -279,7 +298,7 @@ export function resolveModelCeiling(modelId = 'default', stdinContextWindow = nu
  * Resolves pricing per million tokens with family fallback.
  */
 export function resolvePricePerM(modelId = 'default', config = null) {
-  const key = String(modelId || '').toLowerCase().trim();
+  const key = normalizeModelId(modelId);
   const pricingMap = { ...MODEL_PRICING_PER_MILLION, ...(config?.model_pricing_per_1m_input || {}) };
 
   if (Object.prototype.hasOwnProperty.call(pricingMap, key)) {

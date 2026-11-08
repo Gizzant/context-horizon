@@ -164,7 +164,7 @@ export function parseMcpConfigFiles(workspaceDir = '', homeDir = getHomeDir()) {
         if (!rawCfg || typeof rawCfg !== 'object' || Array.isArray(rawCfg)) continue;
         if (rawCfg.disabled === true || rawCfg.enabled === false) continue;
 
-        const modeRaw = String(rawCfg.loading || rawCfg.loadMode || rawCfg.mode || '').toLowerCase().trim();
+        const modeRaw = String(rawCfg.loading || rawCfg.loadingMode || rawCfg.loadMode || rawCfg.mode || '').toLowerCase().trim();
         const isLazy =
           modeRaw === 'lazy' ||
           rawCfg.lazy === true ||
@@ -237,8 +237,10 @@ export function countMcpServerCallsInSession(steps = [], stepEvents = []) {
   return counts;
 }
 
+const mcpDirMemo = new Map();
+
 /**
- * Phase 5 (Layer 5): MCP Prefix Bloat & Schema Audit.
+ * MCP Prefix Bloat & Schema Audit.
  *
  * - Parses `~/.gemini/config/mcp_config.json` and `.agents/mcp_config.json`.
  * - Calculates static token overhead of registered tool schemas.
@@ -254,20 +256,27 @@ export function auditMcpPrefixBloat({
   const { configPaths, serverMap } = parseMcpConfigFiles(workspaceDir, homeDir);
   const callCounts = countMcpServerCallsInSession(steps, stepEvents);
   const mcpDirRoot = path.join(homeDir, '.gemini', 'antigravity', 'mcp');
-  const dirServers = new Map();
+  const rootStat = statSafe(mcpDirRoot);
+  const rootSig = `${mcpDirRoot}|${rootStat ? rootStat.mtimeMs : -1}`;
+  let dirServers = mcpDirMemo.get(rootSig);
 
-  for (const dir of listDirs(mcpDirRoot)) {
-    const serverName = path.basename(dir);
-    const m = measureSource({ path: dir, mode: 'mcp' });
-    if (m) {
-      dirServers.set(serverName, {
-        name: serverName,
-        dirPath: dir,
-        listingTokens: m.tokens,
-        schemaTokens: m.schemaTokens,
-        toolCount: m.toolCount
-      });
+  if (!dirServers) {
+    dirServers = new Map();
+    for (const dir of listDirs(mcpDirRoot)) {
+      const serverName = path.basename(dir);
+      const m = measureSource({ path: dir, mode: 'mcp' });
+      if (m) {
+        dirServers.set(serverName, {
+          name: serverName,
+          dirPath: dir,
+          listingTokens: m.tokens,
+          schemaTokens: m.schemaTokens,
+          toolCount: m.toolCount
+        });
+      }
     }
+    if (mcpDirMemo.size > 16) mcpDirMemo.clear();
+    mcpDirMemo.set(rootSig, dirServers);
   }
 
   const allServerNames = new Set([
@@ -449,3 +458,96 @@ export function measureBaseline(workspaceDir, homeDir = getHomeDir(), options = 
   }
   return result;
 }
+
+/**
+ * Computes per-MCP-server Token ROI (`calls / schemaTokens`, `tokensPerCall`, `IDLE_BLOAT_TAX`, `LOW_ROI`)
+ * and tracks dynamic `deferred_tools_delta` / `mcp_instructions_delta` expansion across turns.
+ */
+export function computeMcpTokenRoiMatrix({
+  workspaceDir = '',
+  homeDir = getHomeDir(),
+  steps = [],
+  stepEvents = []
+} = {}) {
+  const audit = auditMcpPrefixBloat({ workspaceDir, homeDir, steps, stepEvents });
+  let dynamicDeltaTokens = 0;
+
+  for (const s of (steps || [])) {
+    const mcpDelta = String(s?.mcp_instructions_delta || s?.attachment?.mcp_instructions_delta || '');
+    const defDelta = String(s?.deferred_tools_delta || s?.attachment?.deferred_tools_delta || '');
+    if (mcpDelta) dynamicDeltaTokens += Math.ceil(mcpDelta.length / 4);
+    if (defDelta) dynamicDeltaTokens += Math.ceil(defDelta.length / 4);
+  }
+
+  const matrix = audit.servers.map(srv => {
+    const calls = Number(srv.sessionCallCount || 0);
+    const schemaTok = Number(srv.schemaTokens || 0);
+    const tokensPerCall = calls > 0 ? Math.round(schemaTok / calls) : schemaTok;
+    const status = (srv.loadingMode === 'eager' && calls === 0)
+      ? 'IDLE_BLOAT_TAX'
+      : (tokensPerCall > 3500 ? 'LOW_ROI' : 'HEALTHY_ROI');
+    return {
+      name: srv.name,
+      loadingMode: srv.loadingMode,
+      schemaTokens: schemaTok,
+      sessionCallCount: calls,
+      tokensPerCall,
+      status,
+      recommendation: srv.recommendation
+    };
+  });
+
+  return {
+    matrix,
+    dynamicDeltaTokens,
+    idleBloatServers: matrix.filter(m => m.status === 'IDLE_BLOAT_TAX'),
+    totalEagerSchemaTokens: audit.totalEagerSchemaTokens,
+    reclaimableEagerSchemaTokens: audit.reclaimableEagerSchemaTokens
+  };
+}
+
+/**
+ * Audits workspace instruction files (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`) for static rot:
+ * broken `@path` references to non-existent files and oversized instruction files.
+ */
+export function auditInstructionStaticRot(workspaceDir = '', homeDir = getHomeDir()) {
+  const ws = workspaceDir || process.cwd();
+  const candidates = [
+    path.join(ws, 'AGENTS.md'),
+    path.join(ws, 'CLAUDE.md'),
+    path.join(ws, '.cursorrules'),
+    path.join(ws, '.agents', 'CONTEXT.md')
+  ];
+
+  const brokenReferences = [];
+  const inspectedFiles = [];
+
+  for (const filePath of candidates) {
+    if (!fs.existsSync(filePath)) continue;
+    try {
+      const content = fs.readFileSync(filePath, 'utf8');
+      const tokens = est(Buffer.byteLength(content, 'utf8'));
+      inspectedFiles.push({ path: filePath, tokens });
+
+      const refs = content.match(/@([A-Za-z0-9_./\\-]+\.(?:mjs|cjs|js|ts|tsx|json|md|py|sh|ps1|html|css))/g) || [];
+      for (const rawRef of refs) {
+        const rel = rawRef.slice(1);
+        const resolved = path.resolve(ws, rel);
+        if (!fs.existsSync(resolved)) {
+          brokenReferences.push({
+            ruleFile: path.basename(filePath),
+            reference: rawRef,
+            resolvedPath: resolved
+          });
+        }
+      }
+    } catch {}
+  }
+
+  return {
+    inspectedFiles,
+    brokenReferences,
+    hasStaticRot: brokenReferences.length > 0
+  };
+}
+

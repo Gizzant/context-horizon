@@ -43,18 +43,22 @@ export function pruneSessions(entries, { maxSessions, maxDays } = OFFENDER_RETEN
 
 function sameFiles(a, b) {
   if (!a || a.length !== b.length) return false;
-  return a.every((f, i) => f.path === b[i].path && f.reads === b[i].reads);
+  return a.every((f, i) => f.path === b[i].path && f.reads === b[i].reads && (f.wastedTokens || 0) === (b[i].wastedTokens || 0));
 }
 
 /**
  * Upserts this session's duplicate-read list. `duplicateFiles` items are
- * `{ path, occurrences }` (classifier `brainSignals.duplicateReads.topFiles`).
+ * `{ path, occurrences, wastedTokens }` (classifier `brainSignals.duplicateReads.topFiles`).
  * Skips the disk write when nothing changed. Returns the pruned entry list.
  */
 export function recordSession(cacheDir, sessionId, duplicateFiles = [], opts = OFFENDER_RETENTION, now = Date.now()) {
   const files = (duplicateFiles || [])
     .filter(f => f && f.path && (f.occurrences || 0) >= 2)
-    .map(f => ({ path: String(f.path), reads: f.occurrences }))
+    .map(f => ({
+      path: String(f.path),
+      reads: f.occurrences,
+      wastedTokens: Number(f.wastedTokens || ((f.occurrences - 1) * 2000) || 0)
+    }))
     .sort((a, b) => a.path.localeCompare(b.path));
   const entries = readSessions(cacheDir);
   const existing = entries.find(e => e.sid === sessionId);
@@ -75,22 +79,43 @@ export function recordSession(cacheDir, sessionId, duplicateFiles = [], opts = O
   return next;
 }
 
-/** Aggregates entries into `[{ path, sessions, totalReads, windowSessions }]`, most chronic first. */
+/** Aggregates entries into `[{ path, sessions, totalReads, totalWastedTokens, windowSessions, bannerText }]`, most chronic first. */
 export function aggregate(entries, opts = OFFENDER_RETENTION, now = Date.now()) {
   const kept = pruneSessions(entries, opts, now);
   const map = new Map();
   for (const e of kept) {
     for (const f of e.files) {
       const key = canonicalizePath(f.path);
-      const agg = map.get(key) || { path: f.path, key, sessions: 0, totalReads: 0 };
+      const agg = map.get(key) || { path: f.path, key, sessions: 0, totalReads: 0, totalWastedTokens: 0 };
       agg.sessions += 1;
       agg.totalReads += f.reads || 0;
+      agg.totalWastedTokens += Number(f.wastedTokens || ((f.reads || 1) * 1800) || 0);
       map.set(key, agg);
     }
   }
   return [...map.values()]
-    .map(a => ({ ...a, windowSessions: kept.length }))
-    .sort((a, b) => b.sessions - a.sessions || b.totalReads - a.totalReads);
+    .map(a => {
+      const wastedK = Math.max(1, Math.round((a.totalWastedTokens || a.totalReads * 1500) / 1000));
+      const baseName = path.basename(String(a.path || 'file'));
+      return {
+        ...a,
+        windowSessions: kept.length,
+        bannerText: `Across last ${kept.length} sessions, ${baseName} caused ${wastedK}k repeated re-reads`
+      };
+    })
+    .sort((a, b) => b.sessions - a.sessions || b.totalWastedTokens - a.totalWastedTokens || b.totalReads - a.totalReads);
+}
+
+/** Formats Law 5 quiet factual banner for the top cross-session offender. */
+export function formatCrossSessionBanner(chronicReads = []) {
+  const list = Array.isArray(chronicReads) ? chronicReads : [];
+  const top = list.find(c => (c.sessions || 0) >= 2) || list[0];
+  if (!top || !top.path) return '';
+  if (top.bannerText) return top.bannerText;
+  const n = top.windowSessions || top.sessions || 3;
+  const wastedK = Math.max(1, Math.round((top.totalWastedTokens || (top.totalReads || 2) * 1500) / 1000));
+  const baseName = path.basename(String(top.path));
+  return `Across last ${n} sessions, ${baseName} caused ${wastedK}k repeated re-reads`;
 }
 
 /** Records the current session and returns the top-N chronic re-read list for `state.chronicReads`. */

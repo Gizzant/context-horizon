@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { getHomeDir } from './paths.mjs';
 import { EFFORT_PROFILES, normalizeModelId } from './constants.mjs';
 import { parseSettingsChanges } from './parser.mjs';
@@ -126,7 +127,7 @@ export function hasExplicitPrefixMutation(step = {}, prevStep = null) {
 }
 
 /**
- * Phase 2: attributes a prefix bust to a model switch when the busting step (or the step
+ * attributes a prefix bust to a model switch when the busting step (or the step
  * just before it) is a USER_INPUT carrying a `Model Selection` settings change, or when
  * consecutive steps carry different model ids.
  */
@@ -286,6 +287,15 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
   }
 
   if (sessionId && sessionId !== 'unknown') {
+    const prev = ledger.sessions[sessionId];
+    const unchanged = Boolean(
+      prev &&
+      prev.weightedUnits === weightedUnits &&
+      prev.cacheReadTokens === sessionCacheReadTokens &&
+      prev.inputTokens === sessionInputTokens &&
+      prev.outputTokens === sessionOutputTokens &&
+      prev.thinkingTokens === sessionThinkingTokens
+    );
     ledger.sessions[sessionId] = {
       updatedAtMs: latestStepTimestampMs || nowMs,
       weightedUnits,
@@ -294,7 +304,9 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
       outputTokens: sessionOutputTokens,
       thinkingTokens: sessionThinkingTokens
     };
-    saveQuotaLedger(ledger, cacheDir);
+    if (!unchanged) {
+      saveQuotaLedger(ledger, cacheDir);
+    }
   }
 
   let sprintUnitsUsed = 0;
@@ -388,7 +400,7 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
     ? (genMetadata?.prefixBustCause || stepPrefixBustCause || null)
     : null;
   const prefixBustLabel = prefixBustDetected ? formatPrefixBustLabel(prefixBustCause) : '';
-  // Phase 2: a turn that read OR wrote the prefix cache (including a busting turn, which writes a
+  // a turn that read OR wrote the prefix cache (including a busting turn, which writes a
   // fresh prefix) leaves the next turn likely warm while the TTL is still running.
   const nextTurnLikelyWarm = Boolean(
     cacheTtlRemainingSec > 0 &&
@@ -436,6 +448,17 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
   const sprintResetLabel = formatResetCountdown(sprintResetInSec);
   const weeklyResetLabel = formatResetCountdown(weeklyResetInSec);
   const formattedAiCredits = aiCreditsBalance !== null ? aiCreditsBalance.toLocaleString('en-US') : null;
+
+  const subagentSteps = steps.filter(s => s && (s.isSidechain || (s.agentId && s.agentId !== 'parent')));
+  const dualTtl = computeDualTtlState(steps, { nowMs, subagentSteps });
+  const prefixDiff = computePrefixMutationDiff(steps);
+  const effectiveTtlSec = dualTtl.mainTtlTier === '1h' ? dualTtl.mainTtlRemainingSec : cacheTtlRemainingSec;
+  const costGate = evaluateColdSessionCostGate({
+    ttlRemainingSec: effectiveTtlSec,
+    totalActiveTokens,
+    modelId,
+    isCacheCold: isCacheCold || effectiveTtlSec <= 0
+  });
 
   return {
     sprint5h: {
@@ -487,7 +510,10 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
       prefixBustLabel,
       lastTurnCacheReadTokens: lastTurnCacheRead,
       lastTurnCacheCreationTokens: lastTurnCacheCreation,
-      nextTurnLikelyWarm
+      nextTurnLikelyWarm,
+      dualTtl,
+      prefixDiff,
+      costGate
     },
     forecast: {
       nextTurnHighSprintPct,
@@ -496,3 +522,344 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
     }
   };
 }
+
+function formatSecondsCompact(sec) {
+  const s = Math.max(0, Math.round(Number(sec || 0)));
+  if (s <= 0) return '0s';
+  if (s >= 60) {
+    const m = Math.floor(s / 60);
+    const rem = s % 60;
+    return rem > 0 ? `${m}m ${rem}s` : `${m}m`;
+  }
+  return `${s}s`;
+}
+
+/**
+ * Computes live dual-TTL countdown timers (main-thread 1h vs 5m + active subagent 5m)
+ * and fires an immediate Overage TTL Cliff Alert when a session shifts from 1h to 5m
+ * ephemeral cache creation tokens.
+ */
+export function computeDualTtlState(steps = [], { nowMs = Date.now(), subagentSteps = [] } = {}) {
+  let ephemeral1hTokens = 0;
+  let ephemeral5mTokens = 0;
+  let saw1hEarlier = false;
+  let overageTtlCliffDetected = false;
+  let overageTtlCliffStepIndex = null;
+  let mainTtlTier = '5m';
+  let latestMainTs = 0;
+  let latestSubagentTs = 0;
+
+  for (let i = 0; i < steps.length; i++) {
+    const s = steps[i] || {};
+    const modelUsage = s.costState?.modelUsage || s['cost-state']?.modelUsage || s.modelUsage || {};
+    let turn1h = Number(
+      s.cacheCreationEphemeral1hInputTokens ??
+      s.usage?.cache_creation_ephemeral_1h_input_tokens ??
+      modelUsage.cacheCreationEphemeral1hInputTokens ??
+      0
+    );
+    let turn5m = Number(
+      s.cacheCreationEphemeral5mInputTokens ??
+      s.usage?.cache_creation_ephemeral_5m_input_tokens ??
+      modelUsage.cacheCreationEphemeral5mInputTokens ??
+      0
+    );
+
+    for (const val of Object.values(modelUsage)) {
+      if (val && typeof val === 'object') {
+        turn1h += Number(val.cacheCreationEphemeral1hInputTokens || 0);
+        turn5m += Number(val.cacheCreationEphemeral5mInputTokens || 0);
+      }
+    }
+
+    if (turn1h > 0) {
+      ephemeral1hTokens += turn1h;
+      saw1hEarlier = true;
+      mainTtlTier = '1h';
+    }
+    if (turn5m > 0) {
+      ephemeral5mTokens += turn5m;
+      if (saw1hEarlier && turn1h === 0) {
+        overageTtlCliffDetected = true;
+        overageTtlCliffStepIndex = s.stepIndex ?? i;
+      }
+      if (turn1h === 0) {
+        mainTtlTier = '5m';
+      }
+    }
+
+    const ts = s.createdAt ? Date.parse(s.createdAt) : (s.timestamp ? Date.parse(s.timestamp) : 0);
+    const isSub = Boolean(s.isSidechain || (s.agentId && s.agentId !== 'parent'));
+    if (Number.isFinite(ts) && ts > 0) {
+      if (isSub) {
+        if (ts > latestSubagentTs) latestSubagentTs = ts;
+      } else if (ts > latestMainTs) {
+        latestMainTs = ts;
+      }
+    }
+  }
+
+  for (const sub of (subagentSteps || [])) {
+    const ts = sub?.createdAt ? Date.parse(sub.createdAt) : (sub?.timestamp ? Date.parse(sub.timestamp) : 0);
+    if (Number.isFinite(ts) && ts > latestSubagentTs) {
+      latestSubagentTs = ts;
+    }
+  }
+
+  const mainTtlMaxSec = mainTtlTier === '1h' ? 3600 : 300;
+  const mainIdleSec = latestMainTs > 0 ? Math.max(0, Math.round((nowMs - latestMainTs) / 1000)) : 0;
+  const mainTtlRemainingSec = latestMainTs > 0
+    ? Math.max(0, mainTtlMaxSec - mainIdleSec)
+    : mainTtlMaxSec;
+
+  let subagentTtlRemainingSec = null;
+  if (latestSubagentTs > 0) {
+    const subIdleSec = Math.max(0, Math.round((nowMs - latestSubagentTs) / 1000));
+    subagentTtlRemainingSec = Math.max(0, 300 - subIdleSec);
+  }
+
+  const overageTtlCliffMessage = overageTtlCliffDetected
+    ? `⚠️ Overage TTL Cliff Alert: Session shifted from 1h to 5m ephemeral cache TTL at Turn #${overageTtlCliffStepIndex} (12.5x–20x rewrite risk on >5m pauses).`
+    : '';
+
+  return {
+    mainTtlTier,
+    mainTtlMaxSec,
+    mainTtlRemainingSec,
+    mainTtlFormatted: `${formatSecondsCompact(mainTtlRemainingSec)} (${mainTtlTier})`,
+    subagentTtlRemainingSec,
+    subagentTtlFormatted: subagentTtlRemainingSec !== null ? `${formatSecondsCompact(subagentTtlRemainingSec)} (5m subagent)` : null,
+    ephemeral1hTokens,
+    ephemeral5mTokens,
+    overageTtlCliffDetected,
+    overageTtlCliffStepIndex,
+    overageTtlCliffMessage
+  };
+}
+
+function sha256Short(str) {
+  return crypto.createHash('sha256').update(String(str || ''), 'utf8').digest('hex').slice(0, 12);
+}
+
+function firstDiffByteOffset(a = '', b = '') {
+  const s1 = String(a || '');
+  const s2 = String(b || '');
+  const minLen = Math.min(s1.length, s2.length);
+  for (let i = 0; i < minLen; i++) {
+    if (s1.charCodeAt(i) !== s2.charCodeAt(i)) {
+      return Buffer.byteLength(s1.slice(0, i), 'utf8');
+    }
+  }
+  return Buffer.byteLength(s1.slice(0, minLen), 'utf8');
+}
+
+/**
+ * Computes rolling hashes across consecutive turns over `api-request-shape` (`shapeHash`),
+ * `attachment` deltas (`mcp_instructions_delta`, `deferred_tools_delta`), and message arrays
+ * to pinpoint the exact block and byte/token offset that mutated during an unexpected cache miss.
+ */
+export function computePrefixMutationDiff(steps = []) {
+  if (!Array.isArray(steps) || steps.length < 2) {
+    return {
+      mutated: false,
+      turnIndex: null,
+      mutatedComponent: null,
+      blockIndex: null,
+      byteOffset: 0,
+      tokenOffset: 0,
+      prevHash: null,
+      currHash: null,
+      prevShapeHash: null,
+      currShapeHash: null,
+      summary: ''
+    };
+  }
+
+  for (let i = steps.length - 1; i >= 1; i--) {
+    const curr = steps[i] || {};
+    const prev = steps[i - 1] || {};
+
+    const prevShape = prev.shapeHash || prev['api-request-shape']?.shapeHash || null;
+    const currShape = curr.shapeHash || curr['api-request-shape']?.shapeHash || null;
+    const prevMcp = String(prev.mcpInstructions || prev.mcp_instructions_delta || prev.attachment?.mcp_instructions_delta || '');
+    const currMcp = String(curr.mcpInstructions || curr.mcp_instructions_delta || curr.attachment?.mcp_instructions_delta || '');
+    const prevDef = String(prev.deferredTools || prev.deferred_tools_delta || prev.attachment?.deferred_tools_delta || '');
+    const currDef = String(curr.deferredTools || curr.deferred_tools_delta || curr.attachment?.deferred_tools_delta || '');
+
+    if ((prevMcp || currMcp) && prevMcp !== currMcp) {
+      const byteOffset = firstDiffByteOffset(prevMcp, currMcp);
+      const tokenOffset = Math.ceil(byteOffset / 4);
+      const pHash = sha256Short(prevMcp);
+      const cHash = sha256Short(currMcp);
+      return {
+        mutated: true,
+        turnIndex: curr.stepIndex ?? i,
+        mutatedComponent: 'MCP_INSTRUCTIONS',
+        blockIndex: 0,
+        byteOffset,
+        tokenOffset,
+        prevHash: pHash,
+        currHash: cHash,
+        prevShapeHash: prevShape || pHash,
+        currShapeHash: currShape || cHash,
+        summary: `Prefix mutated at Turn #${curr.stepIndex ?? i} in MCP_INSTRUCTIONS (block #0, byte +${byteOffset}, ~token +${tokenOffset})`
+      };
+    }
+
+    if ((prevDef || currDef) && prevDef !== currDef) {
+      const byteOffset = firstDiffByteOffset(prevDef, currDef);
+      const tokenOffset = Math.ceil(byteOffset / 4);
+      const pHash = sha256Short(prevDef);
+      const cHash = sha256Short(currDef);
+      return {
+        mutated: true,
+        turnIndex: curr.stepIndex ?? i,
+        mutatedComponent: 'DEFERRED_TOOLS',
+        blockIndex: 1,
+        byteOffset,
+        tokenOffset,
+        prevHash: pHash,
+        currHash: cHash,
+        prevShapeHash: prevShape || pHash,
+        currShapeHash: currShape || cHash,
+        summary: `Prefix mutated at Turn #${curr.stepIndex ?? i} in DEFERRED_TOOLS (block #1, byte +${byteOffset}, ~token +${tokenOffset})`
+      };
+    }
+
+    if (prevShape && currShape && prevShape !== currShape) {
+      const prevBody = String(prev.content || '');
+      const currBody = String(curr.content || '');
+      const byteOffset = firstDiffByteOffset(prevBody, currBody);
+      const tokenOffset = Math.ceil(byteOffset / 4);
+      return {
+        mutated: true,
+        turnIndex: curr.stepIndex ?? i,
+        mutatedComponent: 'SYSTEM_SHAPE',
+        blockIndex: 0,
+        byteOffset,
+        tokenOffset,
+        prevHash: prevShape,
+        currHash: currShape,
+        prevShapeHash: prevShape,
+        currShapeHash: currShape,
+        summary: `Prefix shapeHash mutated at Turn #${curr.stepIndex ?? i} (${prevShape.slice(0, 8)} -> ${currShape.slice(0, 8)}, byte +${byteOffset}, ~token +${tokenOffset})`
+      };
+    }
+
+    const prevBlocks = Array.isArray(prev.prefixBlocks || prev.messageRequestContext) ? (prev.prefixBlocks || prev.messageRequestContext) : null;
+    const currBlocks = Array.isArray(curr.prefixBlocks || curr.messageRequestContext) ? (curr.prefixBlocks || curr.messageRequestContext) : null;
+    if (prevBlocks && currBlocks) {
+      let runningBytes = 0;
+      const minBlocks = Math.min(prevBlocks.length, currBlocks.length);
+      for (let bIdx = 0; bIdx < minBlocks; bIdx++) {
+        const pb = typeof prevBlocks[bIdx] === 'string' ? prevBlocks[bIdx] : JSON.stringify(prevBlocks[bIdx]);
+        const cb = typeof currBlocks[bIdx] === 'string' ? currBlocks[bIdx] : JSON.stringify(currBlocks[bIdx]);
+        if (pb !== cb) {
+          const innerByte = firstDiffByteOffset(pb, cb);
+          const byteOffset = runningBytes + innerByte;
+          const tokenOffset = Math.ceil(byteOffset / 4);
+          const pHash = sha256Short(pb);
+          const cHash = sha256Short(cb);
+          return {
+            mutated: true,
+            turnIndex: curr.stepIndex ?? i,
+            mutatedComponent: 'MESSAGE_PREFIX',
+            blockIndex: bIdx,
+            byteOffset,
+            tokenOffset,
+            prevHash: pHash,
+            currHash: cHash,
+            prevShapeHash: pHash,
+            currShapeHash: cHash,
+            summary: `Prefix message block #${bIdx} mutated at Turn #${curr.stepIndex ?? i} (byte +${byteOffset}, ~token +${tokenOffset})`
+          };
+        }
+        runningBytes += Buffer.byteLength(pb, 'utf8');
+      }
+    }
+  }
+
+  return {
+    mutated: false,
+    turnIndex: null,
+    mutatedComponent: null,
+    blockIndex: null,
+    byteOffset: 0,
+    tokenOffset: 0,
+    prevHash: null,
+    currHash: null,
+    prevShapeHash: null,
+    currShapeHash: null,
+    summary: ''
+  };
+}
+
+/**
+ * Cold-Session Cost Gate & Optional Keepwarm Controller.
+ * At `TTL <= 120s` on contexts >50k tokens, compares warm compaction cost vs cold rewrite.
+ * When expired (`TTL === 0s`), renders a Cold Session Cost Gate banner with exact dollar/quota penalty.
+ */
+export function evaluateColdSessionCostGate({
+  ttlRemainingSec = 300,
+  totalActiveTokens = 0,
+  modelId = 'gemini-4-argon',
+  pricePerMillionUsd = 3.0,
+  isCacheCold = false
+} = {}) {
+  const activeTok = Math.max(0, Number(totalActiveTokens) || 0);
+  const ttlSec = Math.max(0, Math.round(Number(ttlRemainingSec ?? 300)));
+  const price = Number(pricePerMillionUsd) > 0 ? Number(pricePerMillionUsd) : 3.0;
+
+  // Warm cache read (0.1x) + compact summary vs Cold 5m/1h cache write (1.25x - 2.0x = 12.5x - 20x warm read)
+  const warmCompactionCostUsd = parseFloat(Math.max(0.01, (activeTok / 1_000_000) * price * 0.125).toFixed(2));
+  const coldRewriteCostUsd = parseFloat(Math.max(0.05, (activeTok / 1_000_000) * price * 3.125).toFixed(2));
+  const costMultiplier = parseFloat((coldRewriteCostUsd / Math.max(0.01, warmCompactionCostUsd)).toFixed(1));
+  const quotaPenaltyUnits = Math.round(activeTok * (QUOTA_CONSTANTS.UNCACHED_INPUT_WEIGHT - QUOTA_CONSTANTS.CACHE_READ_WEIGHT));
+
+  if (activeTok <= 50000) {
+    return {
+      state: 'NOMINAL',
+      ttlRemainingSec: ttlSec,
+      warmCompactionCostUsd,
+      coldRewriteCostUsd,
+      costMultiplier,
+      quotaPenaltyUnits,
+      bannerMessage: ''
+    };
+  }
+
+  if (isCacheCold || ttlSec === 0) {
+    return {
+      state: 'COLD_COST_GATE',
+      ttlRemainingSec: 0,
+      warmCompactionCostUsd,
+      coldRewriteCostUsd,
+      costMultiplier,
+      quotaPenaltyUnits,
+      bannerMessage: `🛑 Cold Session Cost Gate: Prefix cache expired (0s TTL). Sending next message cold costs ~$${coldRewriteCostUsd.toFixed(2)} (+${Math.round(quotaPenaltyUnits / 1000)}k quota units, ${costMultiplier}x warm rate) vs $0.00 1-Click Handoff Distillation (.handoff.md).`
+    };
+  }
+
+  if (ttlSec <= 120) {
+    return {
+      state: 'KEEPWARM_WARNING',
+      ttlRemainingSec: ttlSec,
+      warmCompactionCostUsd,
+      coldRewriteCostUsd,
+      costMultiplier,
+      quotaPenaltyUnits,
+      bannerMessage: `⏱️ Cache Expiring (${ttlSec}s left): Warm compaction now costs ~$${warmCompactionCostUsd.toFixed(2)} vs ~$${coldRewriteCostUsd.toFixed(2)} cold rewrite after TTL expires.`
+    };
+  }
+
+  return {
+    state: 'NOMINAL',
+    ttlRemainingSec: ttlSec,
+    warmCompactionCostUsd,
+    coldRewriteCostUsd,
+    costMultiplier,
+    quotaPenaltyUnits,
+    bannerMessage: ''
+  };
+}
+
