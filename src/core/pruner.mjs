@@ -159,7 +159,10 @@ export function pruneSessionTranscript(sessionDir, {
 
     const content = String(entry.content || '');
     const calls = entry.tool_calls || entry.toolCalls || [];
-    const isError = entry.status === 'ERROR' || entry.exitCode === 1 || content.includes('Traceback (most recent call last)');
+    const isReadOnlyFileCall = calls.length > 0 && calls.every(c => /^(view_file|read_file|view_file_outline|view_code_item)$/i.test(String(c.name || c.tool || '')));
+    const isError = entry.status === 'ERROR' ||
+      (typeof entry.exitCode === 'number' && entry.exitCode !== 0) ||
+      (!isReadOnlyFileCall && content.includes('Traceback (most recent call last)'));
 
     let modified = false;
     if (isError && content.length > 400) {

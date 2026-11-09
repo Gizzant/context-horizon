@@ -259,7 +259,7 @@ export function registerCliDampeningHook(workspacePath, {
     `let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{`,
     `try{const j=JSON.parse(d||'{}');const cmd=String(j.tool_input?.CommandLine||j.tool_input?.command||j.CommandLine||'');`,
     `if(cmd&&cmd.length>0&&!cmd.includes('head -n')&&!cmd.includes('Select-Object')){`,
-    `process.stdout.write(JSON.stringify({systemMessage:'[CLI Output Dampener] Pipe large command output through head -n ${limit} or ${logFile} to prevent >20k single-turn context bloat.'}));`,
+    `process.stdout.write(JSON.stringify({systemMessage:'[CLI Output Dampener] Pipe large command output through head -n ${limit} (or Select-Object -First ${limit} on PowerShell) or redirect to ${logFile} to prevent >20k single-turn context bloat.'}));`,
     `}}catch{}process.exit(0);});`
   ].join('');
   const hookEntry = {
@@ -327,7 +327,7 @@ export function computeAttentionZoneInsertionIndex(lines = [], zone = 'primacy')
   const normalizedZone = String(zone || 'primacy').toLowerCase() === 'recency' ? 'recency' : 'primacy';
 
   if (total <= 3) {
-    return normalizedZone === 'primacy' ? Math.min(1, total) : total;
+    return normalizedZone === 'primacy' ? (total <= 2 ? 0 : 1) : total;
   }
 
   if (normalizedZone === 'primacy') {
@@ -584,6 +584,7 @@ export function evaluatePostCompactionReReadTax(rawSteps = []) {
             postCompactionStepIndex: s.stepIndex ?? i,
             wastedTokens: tok
           });
+          preCompactionReads.delete(canon);
         }
       }
     }

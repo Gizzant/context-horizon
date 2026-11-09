@@ -18,14 +18,17 @@ export function detectDirtySnapshots(stepEvents = [], workspacePath = '') {
 
   for (const ev of stepEvents) {
     if (ev.targetPath && (fileTools.has(ev.toolName) || ev.type === 'FILE_ACCESS')) {
+      const ts = Number(ev.timestampMs || (ev.createdAt ? Date.parse(ev.createdAt) : 0));
+      if (!Number.isFinite(ts) || ts <= 0) continue;
       const canonical = canonicalizePath(ev.targetPath);
       const prev = lastTouchMap.get(canonical) || 0;
-      lastTouchMap.set(canonical, Math.max(prev, ev.timestampMs));
+      lastTouchMap.set(canonical, Math.max(prev, ts));
     }
   }
 
   const dirtySnapshotPaths = [];
   for (const [filePath, lastTouchMs] of lastTouchMap.entries()) {
+    if (!Number.isFinite(lastTouchMs) || lastTouchMs <= 0) continue;
     try {
       if (fs.existsSync(filePath)) {
         const stat = fs.statSync(filePath);
@@ -283,8 +286,17 @@ export function evaluateLoopAndGitGuard(stepEvents = [], sidecarState = {}, work
   const turnsSincePassing = sidecarState.sessionMeta?.turnsSinceLastPassingTest || 0;
   const fileLimit = config.uncheckpointed_dirty_file_limit || 4;
 
-  // If passing tests are recent (<3 turns), git drift is false by definition
-  if (turnsSincePassing < 3 || !workspacePath) {
+  const editTools = new Set(['write_to_file', 'write_file', 'replace_file_content', 'multi_replace_file_content', 'edit_file']);
+  const sessionEditedPaths = new Set();
+  for (const ev of stepEvents) {
+    if (ev?.targetPath && (editTools.has(String(ev.toolName || '').toLowerCase()) || ev.type === 'FILE_WRITE')) {
+      sessionEditedPaths.add(canonicalizePath(ev.targetPath));
+    }
+  }
+  const sessionHasEdits = sessionEditedPaths.size > 0 || Boolean(sidecarState.brainSignals?.activeSignal?.sessionHasWorkspaceEdits);
+
+  // If passing tests are recent (<3 turns) or session made 0 workspace edits, git drift is false by definition
+  if (turnsSincePassing < 3 || !workspacePath || !sessionHasEdits) {
     return { threeStrikeLoop, loopFingerprint, uncheckpointedGitDrift: false, dirtyGitFileCount: 0 };
   }
 
@@ -312,7 +324,16 @@ export function evaluateLoopAndGitGuard(stepEvents = [], sidecarState = {}, work
         stdio: ['ignore', 'pipe', 'ignore']
       });
       const lines = stdout.split(/\r?\n/).filter(l => l.trim().length > 0);
-      dirtyGitFileCount = lines.length;
+      if (sessionEditedPaths.size > 0) {
+        const matched = lines.filter(rawLine => {
+          const rel = rawLine.slice(3).trim().replace(/^"(.*)"$/, '$1');
+          const abs = canonicalizePath(path.isAbsolute(rel) ? rel : path.join(workspacePath, rel));
+          return sessionEditedPaths.has(abs);
+        });
+        dirtyGitFileCount = matched.length;
+      } else {
+        dirtyGitFileCount = lines.length;
+      }
 
       if (dirtyGitFileCount >= fileLimit && turnsSincePassing >= 3) {
         uncheckpointedGitDrift = true;
@@ -329,7 +350,7 @@ export function evaluateLoopAndGitGuard(stepEvents = [], sidecarState = {}, work
     workspace: workspacePath
   };
 
-  return { threeStrikeLoop, uncheckpointedGitDrift, dirtyGitFileCount };
+  return { threeStrikeLoop, loopFingerprint, uncheckpointedGitDrift, dirtyGitFileCount };
 }
 
 /**

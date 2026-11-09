@@ -17,4 +17,7 @@ __pycache__/
 docs/*_PLAN.md
 docs/archive/
 docs/specs/stage_*_prompt.md
+.agents/hooks.json
+.agents/tmp/
+
 

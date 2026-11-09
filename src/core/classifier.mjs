@@ -95,7 +95,10 @@ export function calculateParabolicAttentionCurve(cellIndex, activeCellCount, gam
   const inRatioTrough = activeCellCount >= 7 &&
     ratio >= ATTENTION_TROUGH_CONFIG.TROUGH_START_RATIO &&
     ratio <= ATTENTION_TROUGH_CONFIG.TROUGH_END_RATIO;
-  const inCanonicalCellTrough = activeCellCount >= 7 && cellIndex >= 6 && cellIndex <= 15 && cellIndex < activeCellCount;
+  const inCanonicalCellTrough = activeCellCount >= 23 &&
+    cellIndex >= ATTENTION_TROUGH_CONFIG.CANONICAL_TROUGH_START_CELL &&
+    cellIndex <= ATTENTION_TROUGH_CONFIG.CANONICAL_TROUGH_END_CELL &&
+    ratio <= ATTENTION_TROUGH_CONFIG.TROUGH_END_RATIO;
   const inTrough = inRatioTrough || inCanonicalCellTrough;
 
   let zone = 'LOW_ATTENTION_TROUGH';
@@ -219,7 +222,9 @@ export function rankRiskiestCells(cells = [], { totalActiveTokens = 0, safeLimit
 
     const target = String(c.topTarget || c.primaryPath || `Cell #${(c.index ?? 0) + 1}`);
     const isCriticalSpec = /task\.md|implementation_plan\.md|agents\.md|context\.md|state\.md/i.test(target);
-    const inTrough = Boolean(c.inAttentionTrough || (c.index >= 6 && c.index <= 15));
+    const inTrough = typeof c.inAttentionTrough === 'boolean'
+      ? c.inAttentionTrough
+      : Boolean(totalActiveTokens >= 44800 && (cells?.length || 0) >= 23 && c.index >= 6 && c.index <= 15);
     const isStrandedSpec = (Boolean(c.isStrandedSignal) || inTrough) && (isCriticalSpec || c.dominantCategory === CATEGORIES.ANCHOR || c.dominantCategory === CATEGORIES.ACTIVE_WORKING_SET);
     const wasteTokens = (catMap[CATEGORIES.STALE_DUPLICATE] || 0) + (catMap[CATEGORIES.DEAD_ERROR] || 0) + (catMap[CATEGORIES.FOREIGN_BLEED] || 0);
     const isAmputation = Boolean(c.isAmputationZone || (totalActiveTokens > safeLimit && c.index < 8));
@@ -287,6 +292,8 @@ export function evaluateCompositeSessionRisk({
   cacheReadTokens = 0,
   cacheHitRatePct = 0,
   taskMdTurnsBehind = 0,
+  taskMdExists = true,
+  sessionHasWorkspaceEdits = true,
   hasPendingTaskItems = false,
   weekly7dUsedPct = 0,
   weekly7dLockoutRisk = false,
@@ -302,9 +309,10 @@ export function evaluateCompositeSessionRisk({
   // Local quota estimates never escalate to RED; only host-sourced (or legacy unsourced) 7d values do.
   const is7dLockoutWithoutOverages = weekly7dSource !== 'estimate' &&
     (weekly7dUsedPct >= 100 || Boolean(weekly7dLockoutRisk)) && !aiCreditOveragesEnabled;
-  const isCacheExpired = Number(cacheTtlRemainingSec) <= 0;
+  const isCacheExpired = Number(cacheTtlRemainingSec) <= 0 &&
+    totalActiveTokens >= SESSION_RISK_THRESHOLDS.LEAN_SESSION_TOKENS;
   const isCascadeArmedWithPendingTask = totalActiveTokens > SESSION_RISK_THRESHOLDS.CASCADE_SYNC_WATERMARK_TOKENS && Boolean(hasPendingTaskItems);
-  const isTaskMdStale = Number(taskMdTurnsBehind) >= 1;
+  const isTaskMdStale = Boolean(taskMdExists) && Boolean(sessionHasWorkspaceEdits) && Number(taskMdTurnsBehind) >= 1;
 
   const reasons = [];
   let band = 'GREEN';
@@ -513,7 +521,7 @@ export function classifyHorizon(rawSteps, options = {}) {
     ? Number(maxTokensOverride)
     : ceilingDetails.ceilingTokens;
 
-  const parsedEffort = extractEffortTimeline(rawSteps);
+  const parsedEffort = extractEffortTimeline(steps);
   const rawEffortProfile = options.activeEffortProfile
     ? { ...options.activeEffortProfile }
     : (options.turnMetadata ? resolveEffortProfile(options.turnMetadata) : parsedEffort.activeEffortProfile);
@@ -608,7 +616,10 @@ export function classifyHorizon(rawSteps, options = {}) {
 
     const contentStr = String(step.content || '');
     const calls = step.toolCalls || [];
-    const isError = step.status === 'ERROR' || step.exitCode === 1 || contentStr.includes('Traceback (most recent call last)');
+    const isReadOnlyFileCall = calls.length > 0 && calls.every(c => /^(view_file|read_file|view_file_outline|view_code_item)$/i.test(String(c.name || '')));
+    const isError = step.status === 'ERROR' ||
+      (typeof step.exitCode === 'number' && step.exitCode !== 0) ||
+      (!isReadOnlyFileCall && contentStr.includes('Traceback (most recent call last)'));
 
     // 1. Anchor detection
     if (
@@ -654,7 +665,7 @@ export function classifyHorizon(rawSteps, options = {}) {
       for (const call of calls) {
         const args = call.args || {};
         const targetFile = args.Path || args.path || args.Target || args.target || args.TargetFile || args.AbsolutePath;
-        if (targetFile) {
+        if (targetFile && !isInternalTelemetryPath(targetFile)) {
           stepFileBasename = path.basename(String(targetFile)).toLowerCase();
           break;
         }
@@ -725,13 +736,17 @@ export function classifyHorizon(rawSteps, options = {}) {
     }
     const scaledSum = Object.values(categoryTotals).reduce((acc, v) => acc + v, 0);
     const residual = totalActiveTokens - scaledSum;
-    if (residual !== 0 && classifiedSteps.length > 0) {
-      let maxStep = classifiedSteps[0];
-      for (const s of classifiedSteps) {
-        if (s.tokens > maxStep.tokens) maxStep = s;
+    if (residual !== 0) {
+      if (classifiedSteps.length > 0) {
+        let maxStep = classifiedSteps[0];
+        for (const s of classifiedSteps) {
+          if (s.tokens > maxStep.tokens) maxStep = s;
+        }
+        maxStep.tokens = Math.max(0, maxStep.tokens + residual);
+        categoryTotals[maxStep.category] = Math.max(0, (categoryTotals[maxStep.category] || 0) + residual);
+      } else {
+        categoryTotals[CATEGORIES.ANCHOR] = Math.max(0, (categoryTotals[CATEGORIES.ANCHOR] || 0) + residual);
       }
-      maxStep.tokens = Math.max(0, maxStep.tokens + residual);
-      categoryTotals[maxStep.category] = Math.max(0, (categoryTotals[maxStep.category] || 0) + residual);
     }
     for (const off of offenderMap.values()) {
       off.wastedTokens = off.stepIndices.reduce((sum, sIdx) => sum + (classifiedSteps[sIdx]?.tokens || 0), 0);
@@ -832,6 +847,11 @@ export function classifyHorizon(rawSteps, options = {}) {
       }
     }
 
+    const cellUsedTokens = Object.values(bucketCategories).reduce((s, v) => s + v, 0);
+    if (cellUsedTokens < effectiveCellSize) {
+      bucketCategories[CATEGORIES.FREE_HEADROOM] = (bucketCategories[CATEGORIES.FREE_HEADROOM] || 0) + (effectiveCellSize - cellUsedTokens);
+    }
+
     const isAmputationZone = totalActiveTokens > safeLimit && cellIdx < HORIZON_WINDOW.AMPUTATION_CELL_COUNT;
     const parabolic = calculateParabolicAttentionCurve(cellIdx, Math.max(1, activeCellsCount));
     const attentionWeight = parabolic.uShapedWeight;
@@ -917,7 +937,7 @@ export function classifyHorizon(rawSteps, options = {}) {
   }
 
   // Metrics computation
-  const signalTokens = categoryTotals[CATEGORIES.ANCHOR] + categoryTotals[CATEGORIES.ACTIVE_WORKING_SET];
+  const signalTokens = categoryTotals[CATEGORIES.ANCHOR] + categoryTotals[CATEGORIES.ACTIVE_WORKING_SET] + (categoryTotals[CATEGORIES.MEMORY_KI] || 0);
   const signalPurityPct = Math.round((signalTokens / Math.max(1, totalActiveTokens)) * 100);
 
   const pricePerM = resolvePricePerM(modelId, activeConfig);
@@ -1015,17 +1035,21 @@ export function classifyHorizon(rawSteps, options = {}) {
     .sort((a, b) => b.tokens - a.tokens)
     .slice(0, 3)
     .map(s => {
-      const call = (steps[s.stepIndex]?.toolCalls || [])[0];
+      const rawStep = steps[s.stepIndex] || {};
+      const call = (rawStep.toolCalls || [])[0];
       const args = call?.args || {};
-      const filePath = args.Path || args.path || args.AbsolutePath || null;
-      const command = args.CommandLine || null;
+      const toolName = String(call?.name || rawStep.toolName || '').toLowerCase();
+      const filePath = args.Path || args.path || args.TargetFile || args.Target || args.target || args.AbsolutePath || args.file_path || rawStep.targetPath || null;
+      const command = args.CommandLine || args.command || null;
+      const isFileTool = Boolean(filePath) || /^(view_file|read_file|view_file_outline|view_code_item|replace_file_content|multi_replace_file_content|write_to_file|write_file|edit_file)$/.test(toolName);
+      const isCmdTool = Boolean(command) || /^(run_command|bash|execute_command)$/.test(toolName);
       return {
         stepIndex: s.stepIndex,
         tokens: s.tokens,
         category: s.category,
         target: s.target || `Step ${s.stepIndex}`,
         payload: {
-          kind: command ? 'command' : (filePath ? 'file' : 'other'),
+          kind: isCmdTool ? 'command' : (isFileTool ? 'file' : 'other'),
           tool: call?.name || null,
           detail: String(command || filePath || call?.name || 'Model/tool output').slice(0, 300),
           path: filePath
@@ -1034,7 +1058,7 @@ export function classifyHorizon(rawSteps, options = {}) {
     });
 
   const recentSteps = steps.slice(-10);
-  const recentErrors = recentSteps.filter(s => s.status === 'ERROR' || s.exitCode === 1).length;
+  const recentErrors = recentSteps.filter(s => s.status === 'ERROR' || (typeof s.exitCode === 'number' && s.exitCode !== 0)).length;
 
   let correctionCount = 0;
   const userCorrectionTexts = [];
@@ -1065,13 +1089,16 @@ export function classifyHorizon(rawSteps, options = {}) {
       if (/task\.md/i.test(p)) lastTaskWritePath = p;
     }
   });
-  const taskTurnsBehind = steps.slice(lastTaskWrite + 1).filter(isUserTurn).length;
   const isWorkspaceFileWrite = x => (x.toolCalls || []).some(c => {
     if (!/write|edit|replace|create/i.test(c.name || '')) return false;
     const p = String(c.args?.Path || c.args?.path || c.args?.TargetFile || c.args?.AbsolutePath || '');
     return Boolean(p) && !isInternalTelemetryPath(p);
   });
   const sessionHasWorkspaceEdits = steps.some(isWorkspaceFileWrite);
+  const rawTaskTurnsBehind = steps.slice(lastTaskWrite + 1).filter(isUserTurn).length;
+  const taskTurnsBehind = (lastTaskWrite >= 0 || sessionHasWorkspaceEdits)
+    ? rawTaskTurnsBehind
+    : 0;
   // the set of workspace files this session wrote/edited (for session-scoped git drift).
   const sessionWrittenPaths = new Set();
   for (const x of steps) {
@@ -1161,6 +1188,9 @@ export function classifyHorizon(rawSteps, options = {}) {
         wastedTokens: o.wastedTokens
       }))
     },
+    foreignBleed: {
+      reclaimableTokens: categoryTotals[CATEGORIES.FOREIGN_BLEED] || 0
+    },
     blowupSteps,
     userCorrections: correctionCount,
     userCorrectionTexts,
@@ -1217,6 +1247,8 @@ export function classifyHorizon(rawSteps, options = {}) {
     cacheReadTokens: quota.cache?.cacheReadTokens ?? 0,
     cacheHitRatePct: quota.cache?.hitRatePct ?? 0,
     taskMdTurnsBehind: taskTurnsBehind,
+    taskMdExists: Boolean(lastTaskWrite >= 0 || handoff?.artifacts?.taskMd?.exists),
+    sessionHasWorkspaceEdits,
     hasPendingTaskItems,
     weekly7dUsedPct: quota.weekly7d?.usedPct ?? 0,
     weekly7dLockoutRisk: Boolean(quota.weekly7d?.lockoutRisk),
@@ -1313,12 +1345,12 @@ export function classifyHorizon(rawSteps, options = {}) {
       const currCache = Number(st?.cacheReadTokens || 0);
       const prevCache = Number(prev?.cacheReadTokens || 0);
       const currInput = Number(st?.inputTokens || st?.outputTokens || 0);
-      let deltaSec = 60;
+      let deltaSec = null;
       if (st?.createdAt && prev?.createdAt) {
         const dMs = Date.parse(st.createdAt) - Date.parse(prev.createdAt);
         if (Number.isFinite(dMs) && dMs >= 0) deltaSec = dMs / 1000;
       }
-      if (currCache === 0 && prevCache > 0 && currInput > 0 && deltaSec < 300) {
+      if (currCache === 0 && prevCache > 0 && currInput > 0 && deltaSec !== null && deltaSec < 300) {
         const cIdx = mapStepToCellIndex(i);
         fractures.push({
           type: 'PREFIX_BUST',
@@ -1450,7 +1482,14 @@ export function classifyHorizon(rawSteps, options = {}) {
       sludgeTaxPerTurnUsd,
       totalTurnCostUsd,
       healthBand,
-      displayParity: computeDisplayTenthsParity(totalActiveTokens, Math.max(0, totalActiveTokens - sludgeTokens))
+      displayParity: computeDisplayTenthsParity(
+        totalActiveTokens,
+        Math.max(0, totalActiveTokens - sludgeTokens),
+        Math.round((brainSignals.duplicateReads.reclaimableTokens || 0) / 100) +
+          Math.round((brainSignals.oldHistory.reclaimableTokens || 0) / 100) +
+          Math.round((brainSignals.deadErrors.reclaimableTokens || 0) / 100) +
+          Math.round(((categoryTotals[CATEGORIES.FOREIGN_BLEED] || 0)) / 100)
+      )
     },
     amputation: {
       inAmputationZone,

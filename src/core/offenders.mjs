@@ -13,6 +13,7 @@ import { canonicalizePath } from './paths.mjs';
 
 export const OFFENDER_RETENTION = { maxSessions: 20, maxDays: 14 };
 export const CHRONIC_MIN_SESSIONS = 3;
+const FALLBACK_TOKENS_PER_WASTED_READ = 2000;
 
 export function offendersFile(cacheDir) {
   return path.join(cacheDir, 'offenders.jsonl');
@@ -50,11 +51,11 @@ function sameFiles(a, b) {
  */
 export function recordSession(cacheDir, sessionId, duplicateFiles = [], opts = OFFENDER_RETENTION, now = Date.now()) {
   const files = (duplicateFiles || [])
-    .filter(f => f && f.path && (f.occurrences || 0) >= 2)
+    .filter(f => f && f.path && (f.occurrences || 0) >= 1)
     .map(f => ({
       path: String(f.path),
       reads: f.occurrences,
-      wastedTokens: Number(f.wastedTokens || ((f.occurrences - 1) * 2000) || 0)
+      wastedTokens: Number(f.wastedTokens || (Math.max(1, f.occurrences - 1) * FALLBACK_TOKENS_PER_WASTED_READ) || 0)
     }))
     .sort((a, b) => a.path.localeCompare(b.path));
   const entries = readSessions(cacheDir);
@@ -86,13 +87,13 @@ export function aggregate(entries, opts = OFFENDER_RETENTION, now = Date.now()) 
       const agg = map.get(key) || { path: f.path, key, sessions: 0, totalReads: 0, totalWastedTokens: 0 };
       agg.sessions += 1;
       agg.totalReads += f.reads || 0;
-      agg.totalWastedTokens += Number(f.wastedTokens || ((f.reads || 1) * 1800) || 0);
+      agg.totalWastedTokens += Number(f.wastedTokens || (Math.max(1, (f.reads || 2) - 1) * FALLBACK_TOKENS_PER_WASTED_READ) || 0);
       map.set(key, agg);
     }
   }
   return [...map.values()]
     .map(a => {
-      const wastedK = Math.max(1, Math.round((a.totalWastedTokens || a.totalReads * 1500) / 1000));
+      const wastedK = Math.max(1, Math.round((a.totalWastedTokens || Math.max(1, a.totalReads - a.sessions) * FALLBACK_TOKENS_PER_WASTED_READ) / 1000));
       const baseName = path.basename(String(a.path || 'file'));
       return {
         ...a,
@@ -110,7 +111,7 @@ export function formatCrossSessionBanner(chronicReads = []) {
   if (!top || !top.path) return '';
   if (top.bannerText) return top.bannerText;
   const n = top.windowSessions || top.sessions || 3;
-  const wastedK = Math.max(1, Math.round((top.totalWastedTokens || (top.totalReads || 2) * 1500) / 1000));
+  const wastedK = Math.max(1, Math.round((top.totalWastedTokens || Math.max(1, (top.totalReads || 2) - 1) * FALLBACK_TOKENS_PER_WASTED_READ) / 1000));
   const baseName = path.basename(String(top.path));
   return `Across last ${n} sessions, ${baseName} caused ${wastedK}k repeated re-reads`;
 }

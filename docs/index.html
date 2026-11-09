@@ -303,14 +303,17 @@
   /* 1. Top Header */
   header {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
+    gap: 6px 8px;
     padding-bottom: 2px;
   }
   .title-group {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
   }
   .dot {
     width: 8px;
@@ -327,12 +330,16 @@
     font-weight: 600;
     letter-spacing: -0.015em;
     color: var(--hz-fg) !important;
+    white-space: nowrap;
   }
 
   .header-right {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
+    justify-content: flex-end;
     gap: 6px;
+    min-width: 0;
   }
 
   /* shadcn/ui Tabs Primitive for Simple / Advanced View Mode */
@@ -383,6 +390,8 @@
     color: var(--hz-useful);
     border: 1px solid rgba(16, 185, 129, 0.35);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   .badge.warn {
     background: rgba(245, 158, 11, 0.12);
@@ -576,8 +585,8 @@
   .base-rows[hidden] { display: none; }
   .base-rows li { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--hz-border-subtle); color: #cbd5e1 !important; }
   .base-rows li:last-child { border-bottom: none; }
-  .base-rows .base-src { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
-  .base-rows .base-tok { flex: none; color: #f8fafc !important; text-align: right; font-variant-numeric: tabular-nums; }
+  .base-rows .base-src { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+  .base-rows .base-tok { flex: 0 0 auto; color: #f8fafc !important; text-align: right; font-variant-numeric: tabular-nums; }
   .base-rows em { font-style: normal; color: #94a3b8 !important; font-size: 9.5px; }
   .chronic-badge { font-size: 9.5px; padding: 1px 6px; border-radius: 9px; border: 1px solid rgba(148, 163, 184, 0.35); color: #cbd5e1 !important; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .chronic-badge.hot { border-color: rgba(245, 158, 11, 0.6); color: #f59e0b !important; }
@@ -699,6 +708,11 @@
     color: #fda4af; /* text-rose-300 */
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
+  }
+  .limit-tag.flip-right {
+    left: 4px;
+    right: auto;
+    transform: none;
   }
 
   /* Flattened Horizontal Metric Band (No Nested Boxes-Within-Boxes) */
@@ -1441,6 +1455,8 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
     color: var(--hz-fg) !important;
   }
   .diag-caret {
@@ -1460,6 +1476,7 @@
     white-space: nowrap;
     text-align: right;
     min-width: 44px;
+    flex-shrink: 0;
     font-variant-numeric: tabular-nums;
   }
   .diag-desc {
@@ -1798,8 +1815,8 @@
     .chip-btn { font: inherit; font-size: 10.5px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--hz-border); background: transparent; color: var(--hz-muted) !important; cursor: pointer; }
     .chip-btn:hover { color: var(--hz-anchor) !important; border-color: var(--hz-anchor); }
     .chip-btn.noisy { color: var(--hz-clutter) !important; border-color: var(--hz-clutter); }
-    .payload-box { margin-top: 6px; padding: 6px 8px; border: 1px solid var(--hz-border); border-radius: 6px; font-size: 11px; color: var(--hz-fg) !important; word-break: break-all; }
-    .payload-box .payload-kind { color: var(--hz-muted) !important; display: block; margin-bottom: 2px; }
+    .payload-box { margin-top: 6px; padding: 6px 8px; border: 1px solid var(--hz-border); border-radius: 6px; font-size: 11px; color: var(--hz-fg) !important; overflow-wrap: break-word; word-break: normal; }
+    .payload-box .payload-kind { color: var(--hz-muted) !important; display: block; margin-bottom: 2px; word-break: normal; overflow-wrap: break-word; }
     .payload-box .chip-btn, .payload-box .mini-btn { margin-top: 6px; }
     .quota-strip {
       display: flex;
@@ -2027,6 +2044,14 @@
       border: 1px solid var(--hz-border-subtle);
       color: var(--hz-fg) !important;
     }
+    .top-risky-cell-row > span {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .top-risky-cell-row > button { flex-shrink: 0; }
     .cross-session-banner {
       display: flex;
       align-items: center;
@@ -2077,9 +2102,9 @@
     }
     .aq-row {
       display: grid;
-      grid-template-columns: auto minmax(130px, 1fr) auto;
+      grid-template-columns: auto minmax(0, 1fr) auto;
       align-items: center;
-      gap: 10px;
+      gap: 6px 8px;
       padding: 4px 6px;
       border-radius: 4px;
       background: rgba(15, 23, 42, 0.55);
@@ -2285,6 +2310,18 @@
       </div>
       <!-- Tier 2: Priority Action Rows (Google Material 3 Tonal Surface Layering) -->
       <div class="action-rows-stack" id="actionRowsStack">
+        <!-- Action 1 (Pre-requisite when stale/missing): Checkpoint Hygiene (task.md Sync) -->
+        <div class="m3-action-row" id="actionRowCheckpoint" hidden>
+          <div class="m3-action-content">
+            <span class="m3-action-icon dot" id="actionCheckpointDot">&#x25CF;</span>
+            <div class="m3-action-text">
+              <span class="m3-action-title" id="actionCheckpointTitle">Update task.md checkpoint before compacting</span>
+              <span class="m3-action-sub mono" id="actionCheckpointSub">currently 1 turn behind</span>
+            </div>
+            <button type="button" class="mini-btn m3-action-btn" id="btnActionSaveTask" title="Ask Agent to save progress to task.md">Save task.md</button>
+          </div>
+        </div>
+
         <!-- Action 1: /compact instruction (Strictly preserves UI Invariant 1) -->
         <div class="m3-action-row" id="actionRowCompact">
           <div class="compact-instruction" id="compactInstruction">
@@ -2294,18 +2331,6 @@
               <span class="compact-reclaim" id="compactReclaim"></span>
             </div>
             <span class="m3-impact-badge amber mono" id="compactImpactBadge">~0k</span>
-          </div>
-        </div>
-
-        <!-- Action 2: Checkpoint Hygiene (task.md Sync) -->
-        <div class="m3-action-row" id="actionRowCheckpoint" hidden>
-          <div class="m3-action-content">
-            <span class="m3-action-icon dot" id="actionCheckpointDot">&#x25CF;</span>
-            <div class="m3-action-text">
-              <span class="m3-action-title" id="actionCheckpointTitle">Update task.md checkpoint before compacting</span>
-              <span class="m3-action-sub mono" id="actionCheckpointSub">currently 1 turn behind</span>
-            </div>
-            <button type="button" class="mini-btn m3-action-btn" id="btnActionSaveTask" title="Ask Agent to save progress to task.md">Save task.md</button>
           </div>
         </div>
 
@@ -2372,9 +2397,9 @@
         </details>
       </div>
     </div>
-
-    <div class="feedback-toast" id="feedbackToast"></div>
   </section>
+
+  <div class="feedback-toast" id="feedbackToast"></div>
 
   <!-- Tier 3A (Upper Box): User-Friendly Session Health Summary (Information Only — Fixed 3 Bullets) -->
   <section class="health-summary-card simple-only" id="sessionHealthSummary">
@@ -2478,7 +2503,15 @@
   // Temporary diagnostic (?debug=1): confirms whether banner dimming is in-panel or host-side.
   let selectedSessionMode = 'auto';
   let latestAutoState = null;
+  let initialHostSurface = window.sidecar?.surface || null;
   let currentWorkspaceBasename = '';
+
+  function isCurrentSessionForeignSurface() {
+    const selOpt = document.getElementById('sessionSelect')?.selectedOptions?.[0];
+    const targetSurface = currentRenderedState?.storeSource || selOpt?.dataset?.surface || 'antigravity';
+    const hostSurface = window.sidecar?.surface || initialHostSurface || latestAutoState?.storeSource || 'antigravity';
+    return Boolean(targetSurface && hostSurface && targetSurface !== hostSurface);
+  }
 
   // Propagate Antigravity sidecar gateway token (?token= / X-Sidecar-Token) to all /api/* requests
   const __sidecarSearchParams = (() => {
@@ -2524,8 +2557,9 @@
   }
 
   function formatShortPath(p) {
-    if (!p) return 'unknown';
-    const clean = p.replace(/\\/g, '/');
+    if (!p) return 'workspace file';
+    const clean = String(p).replace(/\\/g, '/');
+    if (/\.system_generated(\/|$)|(^|\/)steps\/\d+\/output\.txt$/i.test(clean)) return 'tool output';
     const segs = clean.split('/').filter(Boolean);
     if (segs.length <= 2) return clean;
     return '.../' + segs.slice(-2).join('/');
@@ -2798,7 +2832,7 @@
     const targetId = currentRenderedState?.sessionId || window.sidecar?.conversationId;
     const chat = currentRenderedState?.sessionTitle || 'the chat';
 
-    if (CAN_INJECT) {
+    if (CAN_INJECT && !isCurrentSessionForeignSurface()) {
       try {
         await window.sidecar.agent.sendMessage(p.text, targetId);
         flashButton(btn, '\u2713 Sent to agent', 2000);
@@ -2857,9 +2891,10 @@
     const isSafeHorizonBreached = totalTokens >= safeHorizon || totalTokens >= 179000 || Boolean(rawState?.amputation?.amputationCrisis || rawState?.telemetry?.amputationRisk);
     // Local quota estimates never escalate to RED.
     const is7dLockoutWithoutOverages = !w7IsEstimate && (w7Used >= 100 || w7Lockout) && !overagesEnabled;
-    const isCacheExpired = ttlSec <= 0;
+    const isCacheExpired = ttlSec <= 0 || Boolean(q.cache?.isCacheCold);
     const isCascadeArmedWithPendingTask = totalTokens > 50000 && hasPendingTaskItems;
-    const isTaskMdStale = turnsBehind >= 1;
+    const taskMdExists = Boolean(hs.taskMdSaved || signals.handoff?.artifacts?.taskMd?.exists);
+    const isTaskMdStale = taskMdExists && (turnsBehind >= 3 || (turnsBehind >= 1 && Boolean(signals.handoff?.gitDrift?.dirtyFileCount > 0)));
 
     const reasons = [];
     let band = 'GREEN';
@@ -3117,6 +3152,7 @@
       const pct = Math.round(rawPct * 10) / 10;
       line.style.left = pct + '%';
       line.dataset.tokens = String(safeLimit);
+      tag.classList.toggle('flip-right', pct < 52);
       const labelSuffix = effortProfile && effortProfile.label ? ` (${effortProfile.label})` : '';
       tag.textContent = `${fmtK(safeLimit)} Safe Limit (${(effortProfile && effortProfile.shortLabel) || 'Auto'})`;
       tag.style.whiteSpace = 'nowrap';
@@ -3316,7 +3352,7 @@
         payoff: `reclaims ${ramStr}`,
         reclaimTokens: 0,
         reclaimRamGb,
-        commandToCopy: 'node src/cli/doctor.mjs',
+        commandToCopy: 'npx ctxtop doctor --reap-orphans',
         apiAction: 'reap-orphans'
       });
     }
@@ -3326,7 +3362,7 @@
     const turns = Number(raw?.metrics?.totalTurns || raw?.turns || 0);
     const eligibleEager = unusedEager.filter(s => (s.schemaTokens || 0) >= 1000 && (s.sessionCallCount || 0) === 0);
     if (eligibleEager.length > 0 && turns >= 5) {
-      const totalSchemaTok = eligibleEager.reduce((s, r) => s + (r.schemaTokens || 0), 0);
+      const totalSchemaTok = eligibleEager.reduce((s, r) => s + Math.max(0, (r.schemaTokens || 0) - (r.listingTokens || 0)), 0);
       const serverNames = eligibleEager.map(s => s.name).join(', ');
       items.push({
         id: 'aq-idle-mcp',
@@ -3338,7 +3374,7 @@
         payoff: `saves ${(totalSchemaTok / 1000).toFixed(1)}k tok/turn (0 calls in ${turns}t)`,
         reclaimTokens: totalSchemaTok,
         reclaimRamGb: 0,
-        commandToCopy: `// Switch "${serverNames}" to lazy loading in mcp_config.json`,
+        commandToCopy: `Please update ~/.gemini/config/mcp_config.json (or .agents/mcp_config.json) to set "${serverNames}" to "loading": "lazy" so unused schemas do not bloat Turn-0 prefix tokens.`,
         apiAction: 'mcp-switch-lazy'
       });
     }
@@ -3346,7 +3382,8 @@
     const dupTok = Number(raw?.brainSignals?.duplicateReads?.reclaimableTokens || 0);
     const deadErrTok = Number(raw?.brainSignals?.deadErrors?.reclaimableTokens || 0);
     const oldHistTok = Number(raw?.brainSignals?.oldHistory?.reclaimableTokens || 0);
-    const totalReclaimableToolTok = dupTok + deadErrTok + oldHistTok;
+    const totalReclaimableToolK = Math.round((roundK(dupTok) + roundK(deadErrTok) + roundK(oldHistTok)) * 10) / 10;
+    const totalReclaimableToolTok = Math.round(totalReclaimableToolK * 1000);
     const staleTurnCount = Number(raw?.brainSignals?.oldHistory?.turnCount || 0) +
       Number(raw?.brainSignals?.deadErrors?.errorCount || 0) +
       Number(raw?.brainSignals?.duplicateReads?.fileCount || 0);
@@ -3359,7 +3396,7 @@
         pinnedSlot1: false,
         actionLabel: `[Prune ${countLabel}]`,
         target: 'Tool Surgeon (--prune-tools)',
-        payoff: `reclaims ~${(totalReclaimableToolTok / 1000).toFixed(1)}k tok (zero LLM loss)`,
+        payoff: `reclaims ~${fmtKFixed1(totalReclaimableToolK)} tok (zero LLM loss)`,
         reclaimTokens: totalReclaimableToolTok,
         reclaimRamGb: 0,
         commandToCopy: 'npx ctxtop prune',
@@ -3384,7 +3421,7 @@
         actionLabel: '[Re-Anchor Spec Cell]',
         target: `Cell #${cellNum} (${baseFile})`,
         payoff: `restores recall weight (+${recallGain}% attention)`,
-        reclaimTokens: Number(troughSpecCell.tokenWeight || 6400),
+        reclaimTokens: 0,
         reclaimRamGb: 0,
         commandToCopy: `Re-anchor ${baseFile} checklist to active turn`,
         apiAction: 'reanchor-spec'
@@ -3394,7 +3431,7 @@
     const cache = raw?.quota?.cache || {};
     const ttlSec = Number(cache.ttlRemainingSec ?? cache.cacheTtlRemainingSec ?? -1);
     const warmTokens = Number(raw?.window?.totalActiveTokens || raw?.metrics?.totalInputTokens || 0);
-    const isCacheWarm = Number(cache.hitPercent || 0) > 0 || Number(cache.cacheReadTokens || 0) > 0;
+    const isCacheWarm = isCacheTrulyWarmInline(cache) || Number(cache.hitRatePct ?? cache.hitPercent ?? 0) > 0 || Number(cache.cacheReadTokens || 0) > 0;
     if (ttlSec > 0 && ttlSec <= 120 && warmTokens >= 50000 && isCacheWarm) {
       items.push({
         id: 'aq-cold-cliff',
@@ -3404,9 +3441,9 @@
         actionLabel: '[Distill Handoff Now]',
         target: `TTL expires in ${ttlSec}s`,
         payoff: 'avoids 12.5x cold cache rewrite',
-        reclaimTokens: warmTokens,
+        reclaimTokens: 0,
         reclaimRamGb: 0,
-        commandToCopy: 'node src/cli/doctor.mjs --handoff',
+        commandToCopy: 'npx ctxtop doctor --handoff',
         apiAction: 'generate-handoff'
       });
     }
@@ -3431,14 +3468,17 @@
       }
     }
     if (!fromCatalog) {
-      latestAutoState = raw;
+      if (selectedSessionMode === 'auto' && !raw.pinnedConversationId) {
+        latestAutoState = raw;
+        if (!initialHostSurface && raw.storeSource) initialHostSurface = raw.storeSource;
+      }
       if (selectedSessionMode !== 'auto') {
         const catMatch = (window.__PRECOMPUTED_SESSIONS__ || {})[selectedSessionMode];
         if (catMatch && raw.sessionId !== selectedSessionMode) {
           raw = catMatch;
         }
       } else if (currentWorkspaceBasename && raw.workspace?.canonicalPath) {
-        const rawWs = raw.workspace.canonicalPath.split('/').pop();
+        const rawWs = String(raw.workspace.canonicalPath).replace(/\\/g, '/').split('/').filter(Boolean).pop();
         if (rawWs && rawWs.toLowerCase() !== currentWorkspaceBasename.toLowerCase()) {
           const matchByWs = Object.values(window.__PRECOMPUTED_SESSIONS__ || {}).find(
             s => (s.workspaceName || '').toLowerCase() === currentWorkspaceBasename.toLowerCase()
@@ -3540,7 +3580,9 @@
     const chronicMap = new Map((raw.chronicReads || []).map(c => [normPath(c.path), c]));
     const chronicOf = f => chronicMap.get(normPath(f.path));
     const isChronic = f => (chronicOf(f)?.sessions || 0) >= 3;
-    const dupFiles = dupFilesRaw.slice().sort((a, b) => (isChronic(b) ? 1 : 0) - (isChronic(a) ? 1 : 0));
+    const dupFiles = dupFilesRaw.slice().sort((a, b) =>
+      ((b.wastedTokens || 0) - (a.wastedTokens || 0)) || ((isChronic(b) ? 1 : 0) - (isChronic(a) ? 1 : 0))
+    );
     const dupTotalTok = signals.duplicateReads?.reclaimableTokens ?? dupFiles.reduce((s, f) => s + f.wastedTokens, 0);
 
     const oldTurnOff = rawOffenders.find(o => o.target === 'Older chat history (>25 turns ago)' || String(o.target).startsWith('Conversational Turn'));
@@ -3643,8 +3685,12 @@
                 : `Cache: <strong>Cold (0s TTL)</strong>`));
       const s5IsEstimate = q.sprint5h?.source === 'estimate';
       const w7IsEstimate = q.weekly7d?.source === 'estimate';
-      // Estimates never show a lockout pill (they are a local guess, not host quota).
-      const lockoutWarn = (q.weekly7d?.lockoutRisk && !w7IsEstimate) ? '<span class="quota-warn" id="quotaLockoutPill" title="7-Day Weekly pool is depleting faster than 5h Sprint">&#x26A0; 7d Lockout Risk</span>' : '';
+      const hasOverageBanner = !w7IsEstimate && Boolean(
+        (q.overageAlert && q.overageAlert.state && q.overageAlert.state !== 'NONE') ||
+        (w7 >= 100)
+      );
+      // Estimates never show a lockout pill (they are a local guess, not host quota), nor when the overage banner is active.
+      const lockoutWarn = (q.weekly7d?.lockoutRisk && !w7IsEstimate && !hasOverageBanner) ? '<span class="quota-warn" id="quotaLockoutPill" title="7-Day Weekly pool is depleting faster than 5h Sprint">&#x26A0; 7d Lockout Risk</span>' : '';
       quotaStrip.hidden = false;
       const estTooltip = 'Local estimate from transcript token counts; Antigravity does not expose quota to this panel.';
       const s5WarnCls = s5 >= 99 ? ' style="color:var(--hz-danger) !important;font-weight:700;"' : (s5 >= 85 ? ' style="color:var(--hz-clutter) !important;font-weight:700;"' : '');
@@ -3808,10 +3854,12 @@
     const limitK = fmtK(safeLimit);
     const showProfileTag = hasEffortMeta || safeLimit === effortProfile.safeLimit;
     renderLimitLine(safeLimit, win.maxTokens || 200000, showProfileTag ? effortProfile : null);
+    const safeLimitTenths = Math.round(Math.max(0, Number(safeLimit) || 0) / 100);
+    const toLimitTenths = safeLimitTenths - displayParity.displayTotalTenths;
     const toLimit = safeLimit - totalTokens;
-    document.getElementById('freeLabel').textContent = toLimit > 0
-      ? `${fmtK(toLimit)} below ${limitK} safe limit`
-      : `${fmtK(Math.abs(toLimit))} past ${limitK} safe limit!`;
+    document.getElementById('freeLabel').textContent = toLimit >= 0
+      ? `${fmtTenths(Math.max(0, toLimitTenths))} below ${limitK} safe limit`
+      : `${fmtTenths(Math.max(1, -toLimitTenths))} past ${limitK} safe limit!`;
     renderDelta(raw.delta);
 
     const parityActiveTok = displayParity.displayActiveTenths * 100;
@@ -3886,7 +3934,6 @@
     const lblFreeEl = document.getElementById('lblFree');
     const subFreeEl = document.getElementById('subFree');
     const swatchFreeEl = document.getElementById('swatchFree');
-    const fmtHeadroom = hasEffortMeta ? (n => ((Math.max(0, n) / 1000).toFixed(1) + 'k')) : fmtK;
     const reasonTip = effortProfile?.limitReason
       ? ` <span class="limit-reason-tip" title="${escAttr(effortProfile.limitReason)}" data-limit-reason="${escAttr(effortProfile.limitReason)}">&#x24D8;</span>`
       : '';
@@ -3897,7 +3944,7 @@
         swatchFreeEl.style.background = 'var(--hz-free)';
         swatchFreeEl.style.borderColor = 'var(--hz-border)';
       }
-      valFreeEl.textContent = `${fmtHeadroom(safeLimit - totalTokens)} left`;
+      valFreeEl.textContent = `${fmtTenths(Math.max(0, toLimitTenths))} left`;
       // Neutral white/slate (#f1f5f9) when > 15k left, amber when approaching safe limit, red when over limit
       valFreeEl.style.setProperty('color', (safeLimit - totalTokens) > 15000 ? '#f1f5f9' : '#f59e0b', 'important');
       subFreeEl.innerHTML = `Until ${limitK} safe limit${reasonTip}`;
@@ -3907,7 +3954,7 @@
         swatchFreeEl.style.background = 'var(--hz-danger)';
         swatchFreeEl.style.borderColor = 'var(--hz-danger)';
       }
-      valFreeEl.textContent = `+${fmtHeadroom(totalTokens - safeLimit)} over`;
+      valFreeEl.textContent = `+${fmtTenths(Math.max(1, -toLimitTenths))} over`;
       valFreeEl.style.setProperty('color', '#ef4444', 'important');
       subFreeEl.innerHTML = `Past ${limitK} limit${reasonTip}`;
     }
@@ -3957,23 +4004,13 @@
       }
     }
 
-    if (highEffortBanner) {
-      if (effortProfile.tier === 'HIGH' && clutterTokens >= 30000) {
-        highEffortBanner.hidden = false;
-        highEffortBanner.textContent = `\u26A1 High Effort active with ${reclaimSumStr} of stale noise \u2014 compact now to prevent slow reasoning turns and thinking-token burn.`;
-      } else {
-        highEffortBanner.hidden = true;
-        highEffortBanner.textContent = '';
-      }
-    }
-
     // Update Top Header Badge and /compact instruction subtitle in all states
     const reclaimLine = (clutterTokens > 0 || reclaimSumK > 0)
-      ? `reclaims up to ~${reclaimSumStr} \u00B7 keeps rules, plan & code intact`
+      ? `reclaims up to ~${reclaimSumStr} \u00B7 keeps rules, task.md & active summary intact`
       : '';
     compactReclaim.textContent = (guidedBox && guidedBox.dataset.cacheAdvisory === 'lean' ? `Session is lean (${fmtK(totalTokens)} / ${Math.round(totalTokens / (raw.window?.maxTokens || 256000) * 100)}%) \u00B7 No compaction needed until >50k \u00B7 ` : '') + reclaimLine;
     if (isOverLimit) {
-      const overK = totalTokens > safeLimit ? fmtK(totalTokens - safeLimit) : '';
+      const overK = totalTokens > safeLimit ? fmtTenths(Math.max(1, -toLimitTenths)) : '';
       badge.textContent = overK ? `${overK} Over Limit` : 'Over Safe Limit';
     } else if (clutterTokens > 0 || reclaimSumK > 0) {
       badge.textContent = `${reclaimSumStr} can be cleared`;
@@ -4008,8 +4045,8 @@
     }
 
     const handoffAudit = signals.handoff || {};
-    const sludgeNow = Number(raw.metrics?.sludgeTokens || 0);
-    const compactionRelevant = totalTokens > 179000 || totalTokens >= 50000 || sludgeNow >= 25000;
+    const sludgeNow = Math.max(clutterTokens, Math.round(reclaimSumK * 1000), Number(raw.metrics?.sludgeTokens || 0));
+    const compactionRelevant = isOverLimit || isNeedsCleanup || isCompactionWorthStall || sludgeNow >= 25000;
     const sessionEditedWs = signals.activeSignal?.sessionHasWorkspaceEdits !== false;
     const explicitPreCompactWarn = raw.compaction?.preCompactionWarning ?? handoffAudit.preCompactionWarning;
     const hasDriftWarn = Boolean(
@@ -4050,6 +4087,21 @@
       if (guidedBox) guidedBox.dataset.cacheAdvisory = cacheAdvisoryEl.dataset.advisoryState;
     }
 
+    if (highEffortBanner) {
+      const isWarmDeferActive = cacheAdvisoryEl && cacheAdvisoryEl.dataset.advisoryState === 'warm-defer';
+      if (effortProfile.tier === 'HIGH' && clutterTokens >= 30000) {
+        highEffortBanner.hidden = false;
+        highEffortBanner.textContent = hasDriftWarn
+          ? `\u26A1 High Effort active with ${reclaimSumStr} of stale noise \u2014 sync task.md first, then compact to prevent thinking-token burn.`
+          : (isWarmDeferActive
+              ? `\u26A1 High Effort active with ${reclaimSumStr} of stale noise \u2014 compact at your next pause (or when cache TTL expires) to prevent thinking-token burn.`
+              : `\u26A1 High Effort active with ${reclaimSumStr} of stale noise \u2014 compact now to prevent slow reasoning turns and thinking-token burn.`);
+      } else {
+        highEffortBanner.hidden = true;
+        highEffortBanner.textContent = '';
+      }
+    }
+
     const driftBannerEl = document.getElementById('artifactDriftBanner');
     if (driftBannerEl) {
       // Keep the inline "Save task.md" button; only the text span changes.
@@ -4087,12 +4139,12 @@
       guidedBox.style.display = 'flex';
       compactReclaim.textContent = (guidedBox && guidedBox.dataset.cacheAdvisory === 'lean' ? `Session is lean (${fmtK(totalTokens)} / ${Math.round(totalTokens / (raw.window?.maxTokens || 256000) * 100)}%) \u00B7 No compaction needed until >50k \u00B7 ` : '') + reclaimLine;
     } else {
-      badge.className = 'badge';
+      badge.className = (clutterTokens > 0 || reclaimSumK > 0) ? 'badge warn' : 'badge';
       actionCard.className = 'action-card';
       actionCard.dataset.cleanState = 'nominal-clean';
       actionIcon.textContent = '✓';
       if (document.querySelector('.action-msg')) document.querySelector('.action-msg').style.display = 'flex';
-      actionText.innerHTML = `<strong>Memory is clean and focused.</strong> ${pureRound}% of context (${fmtK(usefulTokens)}) is active code and rules with ${fmtK( Math.max(0, toLimit) )} of room before earliest instructions could be affected.`;
+      actionText.innerHTML = `<strong>Memory is clean and focused.</strong> ${parityPureRound}% of context (${fmtTenths(displayParity.displayActiveTenths)}) is active code and rules with ${fmtTenths(Math.max(0, toLimitTenths))} of room before earliest instructions could be affected.`;
       guidedBox.style.display = 'none';
     }
 
@@ -4337,7 +4389,7 @@
       const group = (cls, title, pill, items, metaLabel = '') => items.length
         ? `<div class="diag-group ${cls}"><div class="group-head"><span class="group-title">${title}</span><span class="group-pill mono"${cls === 'reclaim' ? ' hidden style="display:none !important;"' : ''}>${pill}</span>${metaLabel ? `<span class="group-meta mono">${metaLabel}</span>` : ''}</div>${items.join('')}</div>`
         : '';
-      const isWarmEarly = totalTokens < 80000 && !raw.quota?.cache?.prefixBustDetected;
+      const isWarmEarly = totalTokens < 80000 && !isColdBloat && !raw.quota?.cache?.prefixBustDetected;
       const reclaimCategoryPill = `${reclaimCards.length} ${reclaimCards.length === 1 ? 'category' : 'categories'}`;
       const reclaimMeta = isWarmEarly
         ? `${reclaimCategoryPill} &middot; <span style="color:var(--hz-useful);">Warm Cache (Compaction optional)</span>`
@@ -4354,11 +4406,14 @@
     }
 
     // 5b. Active Signal drawer: baseline overhead vs live session work
-    const pctOf = n => totalTokens > 0 ? Math.round((n / totalTokens) * 100) : 0;
-    const liveWorkTok = Math.min(usefulTokens, signals.activeSignal?.liveSessionTokens ?? Math.round(usefulTokens * 0.5));
-    const baseTok = Math.max(0, usefulTokens - liveWorkTok);
-    document.getElementById('sigBaseVal').textContent = `${fmtK(baseTok)} (${pctOf(baseTok)}%)`;
-    document.getElementById('sigLiveVal').textContent = `${fmtK(liveWorkTok)} (${pctOf(liveWorkTok)}%)`;
+    const activeTenthsTotal = displayParity.displayActiveTenths;
+    const rawLiveTok = Math.min(parityActiveTok, signals.activeSignal?.liveSessionTokens ?? Math.round(parityActiveTok * 0.5));
+    const liveTenths = Math.min(activeTenthsTotal, Math.round(Math.max(0, rawLiveTok) / 100));
+    const baseTenths = Math.max(0, activeTenthsTotal - liveTenths);
+    const baseTok = baseTenths * 100;
+    const pctOfTenths = t => displayParity.displayTotalTenths > 0 ? Math.round((t / displayParity.displayTotalTenths) * 100) : 0;
+    document.getElementById('sigBaseVal').textContent = `${fmtTenths(baseTenths)} (${pctOfTenths(baseTenths)}%)`;
+    document.getElementById('sigLiveVal').textContent = `${fmtTenths(liveTenths)} (${pctOfTenths(liveTenths)}%)`;
     renderBaselineRows(raw.baseline, baseTok);
 
     // 5c. "What survives /compact" preview (numbers match the reclaimable banner)
@@ -4378,10 +4433,11 @@
     const hs = signals.activeSignal;
     if (hs && typeof hs.taskMdTurnsBehind === 'number') {
       const behind = hs.taskMdTurnsBehind;
-      const synced = hs.taskMdSaved && behind <= 3;
+      const taskExists = signals.handoff?.artifacts?.taskMd?.exists !== false;
+      const synced = Boolean(hs.taskMdSaved && taskExists && behind < 3 && !hasDriftWarn);
       handoffState = { synced, behind, saved: hs.taskMdSaved };
       const txt = synced ? '&#x25CF; task.md synced'
-        : (hs.taskMdSaved ? `&#x25CF; task.md stale &bull; ${behind} turn${behind === 1 ? '' : 's'} behind` : '&#x25CF; task.md stale &bull; not saved yet');
+        : (hs.taskMdSaved ? `&#x25CF; task.md stale &bull; ${behind} turn${behind === 1 ? '' : 's'} behind` : '&#x25CF; task.md missing &bull; not saved yet');
       handoffStatus.hidden = true;
       handoffStatus.className = 'handoff-status ' + (synced ? 'synced' : 'stale');
       handoffStatus.innerHTML = txt;
@@ -4612,14 +4668,15 @@
       if (riskyCells.length > 0) {
         topRiskyListEl.hidden = false;
         topRiskyListEl.innerHTML = riskyCells.map(rc => {
-          const pathStr = rc.filePath || `Cell #${rc.cellNumber}`;
+          const rawPathStr = rc.filePath || `Cell #${rc.cellNumber}`;
+          const pathStr = rc.filePath ? formatShortPath(rc.filePath) : rawPathStr;
           const tokStr = fmtK(rc.tokenWeight || 6400);
           const recPct = rc.attentionRecallPct ?? 40;
           const actLabel = rc.actionLabel || '[Re-Anchor / Prune]';
           const specificTitle = rc.specificActionLabel || (rc.actionType === 'PRUNE' ? '[Prune Stale Tool Outputs]' : '[Re-Anchor Cell to Handoff]');
           return `<div class="top-risky-cell-row" data-cell-index="${Number(rc.cellIndex ?? 0)}">` +
-            `<span>Cell #${Number(rc.cellNumber ?? 1)} \u00B7 ${escAttr(pathStr)} \u00B7 ${tokStr} tok (${recPct}% recall)</span>` +
-            `<button type="button" class="mini-btn" data-act="reanchor-prune" data-path="${escAttr(pathStr)}" data-action-type="${escAttr(rc.actionType || 'RE_ANCHOR')}" title="${escAttr(specificTitle)}">${escAttr(actLabel)}</button>` +
+            `<span title="${escAttr(rawPathStr)}">Cell #${Number(rc.cellNumber ?? 1)} \u00B7 ${escAttr(pathStr)} \u00B7 ${tokStr} tok (${recPct}% recall)</span>` +
+            `<button type="button" class="mini-btn" data-act="reanchor-prune" data-path="${escAttr(rawPathStr)}" data-action-type="${escAttr(rc.actionType || 'RE_ANCHOR')}" title="${escAttr(specificTitle)}">${escAttr(actLabel)}</button>` +
           `</div>`;
         }).join('');
         topRiskyListEl.querySelectorAll('[data-act="reanchor-prune"]').forEach(btn => {
@@ -4684,6 +4741,9 @@
             } else if (act === 'reanchor-spec') {
               const checkpointBtn = document.getElementById('btnCheckpoint');
               if (checkpointBtn) checkpointBtn.click();
+            } else if (act === 'mcp-switch-lazy') {
+              const mcpBtn = document.querySelector('[data-act="mcp-switch-lazy"]');
+              if (mcpBtn) mcpBtn.click();
             }
             if (cmd) {
               try {
@@ -4725,13 +4785,12 @@
       const topChronic = Array.isArray(raw.chronicReads) && raw.chronicReads.length > 0
         ? raw.chronicReads.find(c => !dismissedKeysBanner.has('chronic:' + normPath(c.path)))
         : null;
-      const wastedTokens = topChronic?.totalWastedTokens ?? topChronic?.wastedTokens ?? ((topChronic?.reads || 1) * 1500);
+      const wastedTokens = Number(topChronic?.totalWastedTokens ?? topChronic?.wastedTokens ?? ((topChronic?.reads || topChronic?.sessions || 1) * 1500));
       if (topChronic && (topChronic.bannerText || wastedTokens >= 5000)) {
         crossSessionBannerEl.hidden = false;
         const winN = topChronic.windowSessions || topChronic.sessions || 1;
-        const wastedK = Math.max(1, Math.round(wastedTokens / 1000));
         crossSessionTextEl.textContent = topChronic.bannerText ||
-          `Across last ${winN} sessions, ${formatShortPath(topChronic.path)} caused ${wastedK}k repeated re-reads`;
+          `Across last ${winN} sessions, ${formatShortPath(topChronic.path)} caused ~${fmtK(wastedTokens)} repeated re-reads`;
       } else {
         crossSessionBannerEl.hidden = true;
         crossSessionTextEl.textContent = '';
@@ -4787,7 +4846,7 @@
       const hs = signals.activeSignal;
       const turnsBehind = hs && typeof hs.taskMdTurnsBehind === 'number' ? hs.taskMdTurnsBehind : 0;
       const isSaved = Boolean(hs && hs.taskMdSaved);
-      const exists = Boolean(signals.handoff?.artifacts?.taskMd?.exists !== false);
+      const exists = Boolean(isSaved || signals.handoff?.artifacts?.taskMd?.exists === true);
       const isCompactNeededCp = isOverLimit || isNeedsCleanup || (reclaimSumK * 1000) >= 25000;
       const isCheckpointNeededCp = (isCompactNeededCp || hasDriftWarn || turnsBehind >= 5) && (!exists || !isSaved || turnsBehind >= 3 || hasDriftWarn);
       if (dismissedKeysHl.has('checkpoint') || !isCheckpointNeededCp) {
@@ -4873,27 +4932,36 @@
     // 1. Memory State & Headroom (Fixed Bullet 1)
     const limitK = fmtK(safeLimit);
     const effortLabel = effortProfile?.shortLabel || 'Safe Limit';
+    const totalTenths = Math.round(Math.max(0, Number(totalTokens) || 0) / 100);
+    const limitTenths = Math.round(Math.max(0, Number(safeLimit) || 0) / 100);
+    const totalKStr = fmtTenths(totalTenths);
     if (totalTokens < safeLimit) {
       const distance = safeLimit - totalTokens;
-      if (distance > 15000) {
+      const distKStr = fmtTenths(Math.max(0, limitTenths - totalTenths));
+      if (distance > 15000 && !isNeedsCleanup) {
         if (summaryPill) { summaryPill.className = 'summary-status-pill mono'; summaryPill.textContent = 'Optimal'; }
         if (iconMem) { iconMem.className = 'summary-bullet-icon'; }
         if (txtMem) {
-          txtMem.textContent = `Using ${fmtK(totalTokens)} of ${fmtK(maxTokens)} tokens (${usedPct}%) — ${fmtK(distance)} below your ${limitK} ${effortLabel} limit. Recall quality is optimal with zero truncation risk.`;
+          txtMem.textContent = `Using ${totalKStr} of ${fmtK(maxTokens)} tokens (${usedPct}%) — ${distKStr} below your ${limitK} ${effortLabel} limit. Recall quality is optimal with zero truncation risk.`;
         }
       } else {
-        if (summaryPill) { summaryPill.className = 'summary-status-pill warn mono'; summaryPill.textContent = 'Horizon Near'; }
+        if (summaryPill) {
+          summaryPill.className = 'summary-status-pill warn mono';
+          summaryPill.textContent = distance <= 15000 ? 'Horizon Near' : `${reclaimSumStr} Reclaimable`;
+        }
         if (iconMem) { iconMem.className = 'summary-bullet-icon warn'; }
         if (txtMem) {
-          txtMem.textContent = `Using ${fmtK(totalTokens)} of ${fmtK(maxTokens)} tokens (${usedPct}%) — approaching the ${limitK} ${effortLabel} safe limit (${fmtK(distance)} left). Early instructions may soon decay; consider compacting.`;
+          txtMem.textContent = distance <= 15000
+            ? `Using ${totalKStr} of ${fmtK(maxTokens)} tokens (${usedPct}%) — approaching the ${limitK} ${effortLabel} safe limit (${distKStr} left). Early instructions may soon decay; consider compacting.`
+            : `Using ${totalKStr} of ${fmtK(maxTokens)} tokens (${usedPct}%) — ${distKStr} below your ${limitK} ${effortLabel} limit, with ~${reclaimSumStr} of reclaimable history.`;
         }
       }
     } else {
-      const over = totalTokens - safeLimit;
+      const overKStr = fmtTenths(Math.max(1, totalTenths - limitTenths));
       if (summaryPill) { summaryPill.className = 'summary-status-pill danger mono'; summaryPill.textContent = 'Over Limit'; }
       if (iconMem) { iconMem.className = 'summary-bullet-icon danger'; }
       if (txtMem) {
-        txtMem.textContent = `Attention Horizon breached by +${fmtK(over)} (using ${fmtK(totalTokens)} / ${fmtK(maxTokens)}). Earliest instructions are at risk of automatic dilution or truncation.`;
+        txtMem.textContent = `Attention Horizon breached by +${overKStr} (using ${totalKStr} / ${fmtK(maxTokens)}). Earliest instructions are at risk of automatic dilution or truncation.`;
       }
     }
 
@@ -4930,9 +4998,10 @@
     const thrash = q.cache?.routerThrash;
     const standby = q.cache?.standbyCache;
     const preSwitchAdvice = q.cache?.preSwitchCompactionAdvice;
+    const isNextWarm = ttlSec > 0 && !q.cache?.isCacheCold && isNextTurnLikelyWarmInline(q.cache);
 
     if (iconQuota) {
-      iconQuota.className = (isTrulyWarm && !thrash?.detected) ? 'summary-bullet-icon' : 'summary-bullet-icon warn';
+      iconQuota.className = ((isTrulyWarm || isNextWarm) && !thrash?.detected && thrash?.state !== 'AUTO_ROUTER_THRASH' && !w7Lockout && w7 < 80) ? 'summary-bullet-icon' : 'summary-bullet-icon warn';
     }
     if (txtQuota) {
       if (preSwitchAdvice) {
@@ -4944,7 +5013,7 @@
         let cachePart = '';
         if (isTrulyWarm) {
           cachePart = `Prompt cache is warm (${cHit}% hit \u00B7 ${ttlSec}s TTL, 95% token cost discount).`;
-        } else if (ttlSec > 0 && !q.cache?.isCacheCold) {
+        } else if (isNextWarm) {
           const standbyStr = (standby && standby.modelName) ? ` (${standby.modelName} pool warm: ${standby.remainingTtl}s)` : '';
           cachePart = `Prompt cache is warm (${ttlSec}s TTL${standbyStr}).`;
         } else {
@@ -4990,7 +5059,7 @@
       const hs = signals?.activeSignal;
       const turnsBehind = hs && typeof hs.taskMdTurnsBehind === 'number' ? hs.taskMdTurnsBehind : 0;
       const isSaved = Boolean(hs && hs.taskMdSaved);
-      const exists = Boolean(signals?.handoff?.artifacts?.taskMd?.exists !== false);
+      const exists = Boolean(isSaved || signals?.handoff?.artifacts?.taskMd?.exists === true);
       const isCheckpointNeeded = (isCompactNeeded || hasDriftWarn || turnsBehind >= 5) && (!exists || !isSaved || turnsBehind >= 3 || hasDriftWarn);
       if (isCheckpointNeeded && !isSaved && !exists && !dismissedKeys.has('checkpoint')) {
         topNonTokenRows.push(
@@ -5244,7 +5313,7 @@
         .filter(c => c.sessions >= 3 && !dismissedKeys.has('chronic:' + normPath(c.path)))
         .slice(0, 3);
       for (const ch of chronicList) {
-        const chTok = Number(ch.totalWastedTokens || ch.wastedTokens || (ch.reads || ch.sessions) * 1500);
+        const chTok = Number(ch.totalWastedTokens ?? ch.wastedTokens ?? ((ch.reads || ch.sessions || 1) * 1500));
         const canIgnore = isIgnorablePath(ch.path);
         const shortP = formatShortPath(ch.path);
         const chronicPrompt = canIgnore
@@ -5258,7 +5327,7 @@
         crossSessionRows.push({
           impactTokens: chTok,
           html:
-            `<details class="m3-action-row m3-action-collapsible" data-action-id="chronic-read" data-impact-tokens="${chTok}" data-dismiss-key="${escAttr(chronicDismissKey)}">` +
+            `<details class="m3-action-row m3-action-collapsible" data-action-id="chronic-read" data-impact-scope="cross-session" data-impact-tokens="${chTok}" data-dismiss-key="${escAttr(chronicDismissKey)}">` +
               `<summary class="m3-action-summary">` +
                 `<span class="m3-action-caret">&#x25B6;</span>` +
                 `<span class="m3-action-icon dot">&#x21BB;</span>` +
@@ -5553,12 +5622,24 @@
     btnCondense.onclick = async () => {
       try {
         flashButton(btnCondense, '&#x23F3; Condensing...', 2500);
-        const r = await fetch('/api/prune', {
+        let r = await fetch('/api/prune', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId, forceHotCache: true })
+          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId, forceHotCache: false })
         });
-        const data = await r.json();
+        let data = await r.json();
+        if (!data.success && data.requiresConfirmation) {
+          const confirmHot = typeof window.confirm === 'function'
+            ? window.confirm(`${data.error}\n\nCondensing now will rewrite earlier JSONL turns and invalidate the warm KV prefix cache. Proceed anyway?`)
+            : true;
+          if (!confirmHot) return;
+          r = await fetch('/api/prune', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conversationId: currentRenderedState?.sessionId, forceHotCache: true })
+          });
+          data = await r.json();
+        }
         if (data.success) {
           if (data.state) renderState(data.state);
           showToast(`&#x2713; <strong>Condensed ${data.prunedSteps || 0} stale steps (~${fmtK(data.savedTokens || 0)} saved).</strong> Backup saved automatically.`);
@@ -5628,8 +5709,7 @@
     const targetId = currentRenderedState?.sessionId;
     const selOpt = document.getElementById('sessionSelect')?.selectedOptions?.[0];
     const targetSurface = currentRenderedState?.storeSource || selOpt?.dataset?.surface || 'antigravity';
-    const hostSurface = window.sidecar?.surface || latestAutoState?.storeSource || 'antigravity';
-    const isForeignSurface = Boolean(targetSurface && hostSurface && targetSurface !== hostSurface);
+    const isForeignSurface = isCurrentSessionForeignSurface();
 
     if ((e && e.altKey) || isForeignSurface || typeof window.sidecar?.ui?.toggleConversation !== 'function') {
       try {

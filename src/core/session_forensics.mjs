@@ -97,6 +97,7 @@ export function gradeProofQuality(steps = []) {
     }
   }
 
+  const explicitClaimFound = claimStepIndex !== -1;
   // If no explicit completion claim was found, check the final turn
   if (claimStepIndex === -1) {
     claimStepIndex = steps.length - 1;
@@ -164,6 +165,14 @@ export function gradeProofQuality(steps = []) {
     };
   }
 
+  if (!explicitClaimFound) {
+    return {
+      grade: 'Pending',
+      reason: 'Session in progress or read-only (no completion claim or file edits yet)',
+      claimStepIndex: -1
+    };
+  }
+
   return {
     grade: 'None',
     reason: 'Completion stated verbally without tool execution proof',
@@ -186,8 +195,9 @@ export function detectContextRot(steps = [], state = {}, config = {}) {
   let firstTs = null;
   let lastTs = null;
   for (const s of steps) {
-    if (s.created_at) {
-      const t = new Date(s.created_at).getTime();
+    const rawTs = s?.createdAt || s?.created_at || s?.timestamp;
+    if (rawTs) {
+      const t = new Date(rawTs).getTime();
       if (!isNaN(t)) {
         if (!firstTs || t < firstTs) firstTs = t;
         if (!lastTs || t > lastTs) lastTs = t;
@@ -195,16 +205,17 @@ export function detectContextRot(steps = [], state = {}, config = {}) {
     }
   }
 
+  const hasRealTimestamps = Boolean(firstTs && lastTs && lastTs >= firstTs);
   const elapsedMinutes = (firstTs && lastTs && lastTs > firstTs)
     ? Math.round((lastTs - firstTs) / (1000 * 60))
-    : Math.round(steps.length * 1.5); // Fallback: ~1.5 min per step
+    : (hasRealTimestamps ? 0 : Math.round(steps.length * 1.5));
 
   // Compare error rate: first third vs last third
   const third = Math.max(2, Math.floor(steps.length / 3));
   const initialSteps = steps.slice(0, third);
   const finalSteps = steps.slice(-third);
 
-  const isErr = s => s.status === 'ERROR' || (s.exitCode !== undefined && s.exitCode !== 0);
+  const isErr = s => s.status === 'ERROR' || (typeof s.exitCode === 'number' && s.exitCode !== 0);
   const errInitial = initialSteps.filter(isErr).length / initialSteps.length;
   const errFinal = finalSteps.filter(isErr).length / finalSteps.length;
 
@@ -239,7 +250,7 @@ export function fingerprintErrorLoop(steps = []) {
 
   for (let i = 0; i < steps.length; i++) {
     const s = steps[i];
-    const isError = s.status === 'ERROR' || (s.exitCode !== undefined && s.exitCode !== 0);
+    const isError = s.status === 'ERROR' || (typeof s.exitCode === 'number' && s.exitCode !== 0);
     if (!isError) continue;
 
     const calls = s.toolCalls || s.tool_calls || [];

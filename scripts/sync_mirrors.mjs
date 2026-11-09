@@ -50,6 +50,10 @@ export function syncAndVerifyMirrors({ verifyOnly = false } = {}) {
         fs.copyFileSync(canonicalHtml, target);
       }
     }
+    const legacyWidget = path.join(AGY_HORIZON_ROOT, 'src', 'ui', 'widget.html');
+    if (fs.existsSync(legacyWidget)) {
+      fs.copyFileSync(canonicalHtml, legacyWidget);
+    }
 
     // 2. Sync core modules across all 3 roots
     for (const file of CORE_FILES) {

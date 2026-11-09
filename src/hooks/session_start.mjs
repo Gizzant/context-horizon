@@ -65,7 +65,7 @@ export async function handleSessionStart(inputData = {}) {
 
   if (schemaTokens > 0) {
     const config = loadFlightcheckConfig();
-    const ceiling = resolveModelCeiling(modelId, inputData.context_window || inputData.contextWindow, { config });
+    const ceiling = resolveModelCeiling(activeModel, inputData.context_window || inputData.contextWindow, { config });
     sidecar.sensors.schemaTaxPct = Number(((schemaTokens / (ceiling || 256000)) * 100).toFixed(1));
   }
 

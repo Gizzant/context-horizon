@@ -86,7 +86,7 @@ export function buildActionQueue(state = {}) {
       payoff: `reclaims ${ramStr}`,
       reclaimTokens: 0,
       reclaimRamGb,
-      commandToCopy: 'node src/cli/doctor.mjs',
+      commandToCopy: 'npx ctxtop doctor --reap-orphans',
       apiAction: 'reap-orphans'
     });
   }
@@ -103,7 +103,7 @@ export function buildActionQueue(state = {}) {
   );
 
   if (eligibleEager.length > 0 && turns >= ACTION_QUEUE_CONFIG.IDLE_MCP_MIN_TURNS) {
-    const totalSchemaTok = eligibleEager.reduce((s, r) => s + (r.schemaTokens || 0), 0);
+    const totalSchemaTok = eligibleEager.reduce((s, r) => s + Math.max(0, (r.schemaTokens || 0) - (r.listingTokens || 0)), 0);
     const serverNames = eligibleEager.map(s => s.name).join(', ');
     const tokK = (totalSchemaTok / 1000).toFixed(1);
 
@@ -118,7 +118,7 @@ export function buildActionQueue(state = {}) {
       payoff: `saves ${tokK}k tok/turn (0 calls in ${turns}t)`,
       reclaimTokens: totalSchemaTok,
       reclaimRamGb: 0,
-      commandToCopy: `// Switch "${serverNames}" to lazy loading in mcp_config.json`,
+      commandToCopy: `Please update ~/.gemini/config/mcp_config.json (or .agents/mcp_config.json) to set "${serverNames}" to "loading": "lazy" so unused schemas do not bloat Turn-0 prefix tokens.`,
       apiAction: 'mcp-switch-lazy'
     });
   }
@@ -147,7 +147,7 @@ export function buildActionQueue(state = {}) {
       payoff: `reclaims ~${tokK}k tok (zero LLM loss)`,
       reclaimTokens: reclaimableToolTokens,
       reclaimRamGb: 0,
-      commandToCopy: 'node src/cli/doctor.mjs --prune-tools',
+      commandToCopy: 'npx ctxtop prune',
       apiAction: 'condense-ast'
     });
   }
@@ -173,7 +173,7 @@ export function buildActionQueue(state = {}) {
       cliFlag: 'checkpoint --reanchor',
       target: `Cell #${cellNum} (${baseFile})`,
       payoff: `restores recall weight (+${recallGain}% attention)`,
-      reclaimTokens: Number(troughSpecCell.tokenWeight || 6400),
+      reclaimTokens: 0,
       reclaimRamGb: 0,
       commandToCopy: `Re-anchor ${baseFile} checklist to active turn`,
       apiAction: 'reanchor-spec'
@@ -200,9 +200,9 @@ export function buildActionQueue(state = {}) {
       cliFlag: 'handoff --distill',
       target: `TTL expires in ${ttlSec}s`,
       payoff: 'avoids 12.5x cold cache rewrite',
-      reclaimTokens: warmTokens,
+      reclaimTokens: 0,
       reclaimRamGb: 0,
-      commandToCopy: 'node src/cli/doctor.mjs --handoff',
+      commandToCopy: 'npx ctxtop doctor --handoff',
       apiAction: 'generate-handoff'
     });
   }

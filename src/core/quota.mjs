@@ -376,7 +376,7 @@ export function detectRouterThrash(recentTurns = [], isAutoMode = false, {
   const currentShortName = lastTurn ? resolveModelShortName(lastTurn.modelRaw || lastTurn.model || lastTurn.modelId) : 'Model';
   const currentDisplayName = lastTurn ? resolveModelPoolDisplayName(lastTurn.modelId || lastTurn.model) : 'Model';
 
-  const totalPrompt = Number(lastTurn?.cacheReadTokens || 0) + Number(lastTurn?.inputTokens || 0);
+  const totalPrompt = Number(lastTurn?.cacheReadTokens || 0) + Number(lastTurn?.cacheCreationTokens || 0) + Number(lastTurn?.inputTokens || 0);
   const cacheHitPct = totalPrompt > 0 ? (Number(lastTurn?.cacheReadTokens || 0) / totalPrompt) * 100 : 0;
 
   // Case A: Router Thrashing (2+ switches in 5 turns in [Auto] mode)
@@ -403,7 +403,11 @@ export function detectRouterThrash(recentTurns = [], isAutoMode = false, {
   }
 
   // Case B: Single Model Switch / Cold Start
-  if (isCurrentTurnSwitch || (lastSwitchEvent && (windowTurns.length - 1) === lastSwitchEvent.turnIndex)) {
+  const lastTurnMissedCache = Number(lastTurn?.cacheReadTokens || 0) === 0;
+  const isLastTurnSwitchEvent = Boolean(
+    lastSwitchEvent && lastTurn && (lastTurn.stepIndex ?? (recentTurns.length - 1)) === lastSwitchEvent.turnIndex
+  );
+  if ((isCurrentTurnSwitch || isLastTurnSwitchEvent) && lastTurnMissedCache) {
     const severity = (isAutoMode && totalTokens >= 100000) ? 'warn' : 'info';
     const badgeText = `Last turn: cache miss (model switch \u2192 ${currentShortName})`;
     const standbyNote = standbyCache ? `(${standbyCache.modelName} cache still warm: ${standbyCache.remainingTtl}s left)` : '';
@@ -540,7 +544,7 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
     const gapSec = (prevTs > 0 && currTs >= prevTs) ? (currTs - prevTs) / 1000 : null;
 
     if (rawCacheRead > 0 || rawCacheCreate > 0 || rawInput > 0) {
-      const hadPriorCacheHit = sessionCacheReadTokens > 0;
+      const hadPriorCacheHit = sessionCacheReadTokens > 0 || sessionCacheCreationTokens > 0;
       const explicitMutation = i > 0 && hasExplicitPrefixMutation(s, steps[i - 1]);
       sessionInputTokens += rawInput;
       sessionCacheReadTokens += rawCacheRead;
@@ -563,10 +567,9 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
         stepPrefixBustDetected = false;
         stepPrefixBustCause = null;
       }
-    } else if (s.type === 'PLANNER_RESPONSE' && i > 0) {
-      // Infer prefix cache read vs write when JSONL lacks explicit usage counters
-      const effectiveGapSec = gapSec !== null ? gapSec : 30;
-      if (effectiveGapSec <= QUOTA_CONSTANTS.CACHE_TTL_SECONDS) {
+    } else if (s.type === 'PLANNER_RESPONSE' && i > 0 && gapSec !== null) {
+      // Only infer prefix cache read when real step timestamps exist and prove <300s turnaround
+      if (gapSec <= QUOTA_CONSTANTS.CACHE_TTL_SECONDS) {
         sessionCacheReadTokens += Math.max(0, cumContextEst - stepTok);
         sessionCacheCreationTokens += stepTok;
         lastTurnCacheRead = Math.max(0, cumContextEst - stepTok);
@@ -607,7 +610,7 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
   const totalPromptTokens = sessionCacheReadTokens + sessionCacheCreationTokens + sessionInputTokens;
   const cacheHitRatePct = totalPromptTokens > 0
     ? Math.min(100, Math.round((sessionCacheReadTokens / totalPromptTokens) * 100))
-    : (steps.length > 1 ? 88 : 0);
+    : 0;
 
   const weightedUnits = Math.round(
     (sessionCacheReadTokens * QUOTA_CONSTANTS.CACHE_READ_WEIGHT) +
@@ -846,11 +849,13 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
   const formattedAiCredits = aiCreditsBalance !== null ? aiCreditsBalance.toLocaleString('en-US') : null;
 
   const effectiveTtlSec = dualTtl.mainTtlTier === '1h' ? dualTtl.mainTtlRemainingSec : cacheTtlRemainingSec;
+  const hadWarmCache = sessionCacheReadTokens > 0 || sessionCacheCreationTokens > 0;
   const costGate = evaluateColdSessionCostGate({
     ttlRemainingSec: effectiveTtlSec,
     totalActiveTokens,
     modelId,
-    isCacheCold: isCacheCold || effectiveTtlSec <= 0
+    isCacheCold: isCacheCold || effectiveTtlSec <= 0,
+    hadWarmCache
   });
 
   return {
@@ -962,10 +967,12 @@ export function computeDualTtlState(steps = [], { nowMs = Date.now(), subagentSt
       0
     );
 
-    for (const val of Object.values(modelUsage)) {
-      if (val && typeof val === 'object') {
-        turn1h += Number(val.cacheCreationEphemeral1hInputTokens || 0);
-        turn5m += Number(val.cacheCreationEphemeral5mInputTokens || 0);
+    if (turn1h === 0 && turn5m === 0) {
+      for (const val of Object.values(modelUsage)) {
+        if (val && typeof val === 'object') {
+          turn1h += Number(val.cacheCreationEphemeral1hInputTokens || 0);
+          turn5m += Number(val.cacheCreationEphemeral5mInputTokens || 0);
+        }
       }
     }
 
@@ -1201,7 +1208,8 @@ export function evaluateColdSessionCostGate({
   totalActiveTokens = 0,
   modelId = 'gemini-4-argon',
   pricePerMillionUsd = 3.0,
-  isCacheCold = false
+  isCacheCold = false,
+  hadWarmCache = true
 } = {}) {
   const activeTok = Math.max(0, Number(totalActiveTokens) || 0);
   const ttlSec = Math.max(0, Math.round(Number(ttlRemainingSec ?? 300)));
@@ -1213,7 +1221,7 @@ export function evaluateColdSessionCostGate({
   const costMultiplier = parseFloat((coldRewriteCostUsd / Math.max(0.01, warmCompactionCostUsd)).toFixed(1));
   const quotaPenaltyUnits = Math.round(activeTok * (QUOTA_CONSTANTS.UNCACHED_INPUT_WEIGHT - QUOTA_CONSTANTS.CACHE_READ_WEIGHT));
 
-  if (activeTok <= 50000) {
+  if (activeTok <= 50000 || !hadWarmCache) {
     return {
       state: 'NOMINAL',
       ttlRemainingSec: ttlSec,

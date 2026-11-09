@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { isInternalTelemetryPath, isCompactionRelevant } from './prompt_rubric.mjs';
+import { isInternalTelemetryPath, isCompactionRelevant, synthesizeParameterizedCompact } from './prompt_rubric.mjs';
 import { canonicalizePath } from './paths.mjs';
 
 export const HANDOFF_RESULTS = {
@@ -148,8 +148,13 @@ export function auditHandoff(brainDirOrPath = '', sessionSignals = {}, options =
   }
 
   // 5. Freshness: task.md turns behind
+  const sessionEdited = Boolean(
+    sessionSignals?.sessionHasWorkspaceEdits ??
+    sessionSignals?.activeSignal?.sessionHasWorkspaceEdits ??
+    (Array.isArray(options.sessionWrittenPaths) && options.sessionWrittenPaths.length > 0)
+  );
   const turnsBehind = sessionSignals?.activeSignal?.taskMdTurnsBehind ?? 0;
-  if (turnsBehind > 2) {
+  if (turnsBehind > 2 && sessionEdited) {
     checks.push({ id: 'state_freshness', name: 'State Freshness', pass: false, detail: `task.md is ${turnsBehind} user turns stale` });
     fixes.push('Update task.md with latest turn accomplishments');
   } else {
@@ -227,9 +232,11 @@ export function checkBrainArtifactsAndGitDrift(brainDir = null, workspacePath = 
     totalActiveTokens: sessionSignals?.totalActiveTokens ?? 0,
     sludgeTokens: sessionSignals?.sludgeTokens ?? 0
   });
+  const explicitEditFlag = sessionSignals?.sessionHasWorkspaceEdits ?? sessionSignals?.activeSignal?.sessionHasWorkspaceEdits;
   const sessionEditedWorkspace =
-    sessionSignals?.sessionHasWorkspaceEdits !== false &&
-    sessionSignals?.activeSignal?.sessionHasWorkspaceEdits !== false;
+    explicitEditFlag !== undefined
+      ? Boolean(explicitEditFlag)
+      : (hasSessionScope ? sessionDirtyFiles.length > 0 : true);
   const preCompactionWarning = hasDirtyGit && sessionEditedWorkspace && isTaskMdStale && compactionRelevant;
   const taskMdState = !artifacts.taskMd.exists ? 'missing' : `${turnsBehind} turn${turnsBehind === 1 ? '' : 's'} stale`;
   let preCompactionWarningMessage = '';
@@ -325,7 +332,7 @@ export function generateHandoffMarkdown(state = {}, options = {}) {
   const wsPath = options.workspacePath || state?.workspace?.canonicalPath || process.cwd();
   const absPath = path.resolve(wsPath, relPath);
 
-  const sessionId = state?.sessionId || 'unknown';
+  const sessionId = state?.sessionId || state?.conversationId || 'active-session';
   const sessionTitle = state?.sessionTitle || 'Active Session';
   const modelId = state?.model?.id || 'gemini-3.8-flash';
   const totalTok = state?.window?.totalActiveTokens || 0;
@@ -350,7 +357,11 @@ export function generateHandoffMarkdown(state = {}, options = {}) {
   }
 
   const parameterizedCompact = state?.compaction?.parameterizedCommand ||
-    `/compact Focus on preserving: 1) Exported symbol signatures and state scales for [${activeFiles.slice(0, 4).join(', ') || 'active workspace files'}], 2) Current checklist state in task.md, 3) Explicit user constraints: [preserve all active invariants and user rules].`;
+    synthesizeParameterizedCompact({
+      activeFiles,
+      userCorrections: state?.brainSignals?.userCorrectionTexts || [],
+      workspaceRoot: wsPath
+    });
 
   const markdown = [
     `# Session Handoff Baton Pass (\`${sessionId}\`)`,

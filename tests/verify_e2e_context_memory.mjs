@@ -28,7 +28,7 @@ console.log('===================================================================
 // 1. Run Legacy JSDOM Regression Suite (`test_regressions.cjs`)
 // ---------------------------------------------------------------------------
 console.log('[1/7] Running Legacy JSDOM Regression Suite (test_regressions.cjs)...');
-const regOut = execSync('node "C:/Users/frank/.gemini/antigravity/brain/399d4543-f9ad-435f-9668-7185ad32523b/scratch/test_regressions.cjs"', {
+const regOut = execSync('node "tests/test_regressions.cjs"', {
   encoding: 'utf8',
   timeout: 15000
 });

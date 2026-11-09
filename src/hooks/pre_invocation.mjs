@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readSidecarSync, getSidecarPath } from '../core/sidecar_store.mjs';
 import { canonicalizePath } from '../core/path_canonicalizer.mjs';
-import { scorePromptSufficiency } from '../core/prompt_rubric.mjs';
+import { scorePromptSufficiency, toWorkspaceRelativePath } from '../core/prompt_rubric.mjs';
 import { loadFlightcheckConfig } from '../core/config.mjs';
 import { resolveModelCeiling } from '../core/constants.mjs';
 
@@ -259,7 +259,8 @@ export async function handlePreInvocation(inputData = {}) {
     const cleanedPrompt = rawPrompt.replace(/#check\b/gi, '').trim();
     const recommendedModel = tokens > 50000 ? deepModel : fastModel;
     const recommendedEffort = isComplexTopic ? 'high' : 'medium';
-    const targetHint = (fileState.activeSetPaths && fileState.activeSetPaths[0]) || 'src/index.js';
+    const rawTargetHint = (fileState.activeSetPaths && fileState.activeSetPaths[0]) || '';
+    const targetHint = (rawTargetHint ? toWorkspaceRelativePath(rawTargetHint, sidecar.workspacePath || process.cwd()) : '') || '<target-file>';
     const missingSnippet = promptSufficiency.missing.length > 0 ? ` | Missing: ${promptSufficiency.missing[0]}` : '';
 
     const rewriteSuggestion = promptSufficiency.missing.includes('testability & expected outcome')

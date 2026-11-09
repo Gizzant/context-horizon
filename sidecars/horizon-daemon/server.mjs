@@ -40,7 +40,6 @@ const runtimeDir = path.join(getHomeDir(), '.gemini', 'runtime');
 const stateFile = path.join(defaultCacheDir, 'latest.state.json');
 
 const sidePaneHtml = path.resolve(__dirname, '../../src/ui/sidepane.html');
-const widgetHtml = path.resolve(__dirname, '../../src/ui/widget.html');
 const horizonPanelHtml = path.resolve(__dirname, '../../src/webview/horizon_panel.html');
 
 let lastEvalMs = 0;
@@ -259,7 +258,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (url.pathname === '/' || url.pathname === '/index.html') {
+  if (url.pathname === '/' || url.pathname === '/index.html' || url.pathname === '/widget' || url.pathname === '/widget.html') {
     const qConv = url.searchParams.get('conversationId');
     if (qConv && qConv !== 'auto') {
       pinnedConversationId = qConv;
@@ -269,9 +268,9 @@ const server = http.createServer(async (req, res) => {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-store, no-cache, must-revalidate'
     });
-    const rawHtmlPath = fs.existsSync(sidePaneHtml)
-      ? sidePaneHtml
-      : (fs.existsSync(horizonPanelHtml) ? horizonPanelHtml : null);
+    const rawHtmlPath = fs.existsSync(horizonPanelHtml)
+      ? horizonPanelHtml
+      : (fs.existsSync(sidePaneHtml) ? sidePaneHtml : null);
     if (rawHtmlPath) {
       let html = fs.readFileSync(rawHtmlPath, 'utf8');
       if (initState) {
@@ -281,18 +280,6 @@ const server = http.createServer(async (req, res) => {
       res.end(html);
     } else {
       res.end('<h1>Chrono-Attention Horizon Side-Pane</h1>');
-    }
-    return;
-  }
-
-  if (url.pathname === '/widget' || url.pathname === '/widget.html') {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    if (fs.existsSync(widgetHtml)) {
-      res.end(fs.readFileSync(widgetHtml));
-    } else if (fs.existsSync(horizonPanelHtml)) {
-      res.end(fs.readFileSync(horizonPanelHtml));
-    } else {
-      res.end('<h1>Chrono-Attention Horizon Widget</h1>');
     }
     return;
   }

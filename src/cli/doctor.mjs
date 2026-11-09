@@ -9,12 +9,16 @@ import { syncAndVerifyMirrors } from '../../scripts/sync_mirrors.mjs';
 import { findSessionDirectory, parseTranscriptIncremental, parseRawJsonl } from '../core/parser.mjs';
 import { executeToolOutputSurgery } from '../core/tool_surgeon.mjs';
 import { compactCursorVscdbStreaming, recoverAntigravityBrainMigration } from '../core/storage_doctor.mjs';
+import { reapOrphanProcesses } from '../core/host_watchdog.mjs';
+import { generateHandoffMarkdown } from '../core/handoff_audit.mjs';
 
 /**
- * Parses CLI flags (`--prune-tools`, `--storage-gc`, `--gc-cursor`, `--recover-brain`, `--transcript <path>`, `--vscdb <path>`, `--dry-run`)
+ * Parses CLI flags (`--prune-tools`, `--reap-orphans`, `--handoff`, `--storage-gc`, `--gc-cursor`, `--recover-brain`, `--transcript <path>`, `--vscdb <path>`, `--dry-run`)
  */
 export function parseDoctorArgs(argv = process.argv.slice(2)) {
   const pruneTools = argv.includes('--prune-tools');
+  const reapOrphans = argv.includes('--reap-orphans');
+  const handoff = argv.includes('--handoff') || argv.includes('--distill');
   const gcCursor = argv.includes('--gc-cursor');
   const recoverBrain = argv.includes('--recover-brain');
   const storageGc = argv.includes('--storage-gc') || gcCursor || recoverBrain;
@@ -23,14 +27,28 @@ export function parseDoctorArgs(argv = process.argv.slice(2)) {
   const transcriptPath = tIdx !== -1 && argv[tIdx + 1] ? argv[tIdx + 1] : null;
   const vIdx = argv.indexOf('--vscdb');
   const vscdbPath = vIdx !== -1 && argv[vIdx + 1] ? argv[vIdx + 1] : null;
-  return { pruneTools, storageGc, gcCursor, recoverBrain, dryRun, transcriptPath, vscdbPath };
+  return { pruneTools, reapOrphans, handoff, storageGc, gcCursor, recoverBrain, dryRun, transcriptPath, vscdbPath };
 }
 
 /**
  * Runs a comprehensive diagnosis of the Context Horizon (ctxtop) environment.
  */
-export async function runDoctor({ workspacePath = process.cwd(), pruneTools = false, storageGc = false, gcCursor = false, recoverBrain = false, dryRun = false, transcriptPath = null, vscdbPath = null, silent = false } = {}) {
+export async function runDoctor({ workspacePath = process.cwd(), pruneTools = false, reapOrphans = false, handoff = false, storageGc = false, gcCursor = false, recoverBrain = false, dryRun = false, transcriptPath = null, vscdbPath = null, silent = false } = {}) {
   const home = process.env.USERPROFILE || process.env.HOME || os.homedir();
+  if (reapOrphans) {
+    const res = await reapOrphanProcesses();
+    if (!silent) {
+      console.log(`  ✔ PASS  Orphan Watchdog                Reaped ${res.reapedCount} orphan process(es)`);
+    }
+    return { ok: true, ...res };
+  }
+  if (handoff) {
+    const res = generateHandoffMarkdown({}, { workspacePath });
+    if (!silent) {
+      console.log(`  ✔ PASS  Handoff Distillation           Generated handoff document at ${res.relativePath}`);
+    }
+    return { ok: true, ...res };
+  }
   if (pruneTools) {
     let resolvedTranscript = transcriptPath;
     if (!resolvedTranscript) {

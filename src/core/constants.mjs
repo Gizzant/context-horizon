@@ -12,6 +12,7 @@ export const SESSION_RISK_THRESHOLDS = Object.freeze({
   SAFE_HORIZON_TOKENS: 179000,          // 70% of 256k Cortex hard clamp
   CASCADE_SYNC_WATERMARK_TOKENS: 50000, // 50k Cascade checkpointer arming threshold
   WARM_CACHE_LOCK_TOKENS: 50000,        // >50k cached tokens triggers prefix-lock warning
+  LEAN_SESSION_TOKENS: 25000,           // <25k lean session floor for cold cache escalation
   CACHE_TTL_EXPIRED_SECONDS: 0
 });
 

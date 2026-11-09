@@ -544,7 +544,7 @@ export function readSessionGenMetadataSync(dbPath, DatabaseSyncClass = null) {
     let prefixBustDeltaSec = null;
     const prevCacheRead = Number(prevRow?.cache_read_tokens || 0);
     const modelChanged = Boolean(prevRow?.model && row?.model && prevRow.model !== row.model);
-    if (prevRow && cacheReadTokens === 0 && inputTokens > 0 && (prevCacheRead > 0 || modelChanged)) {
+    if (prevRow && cacheReadTokens === 0 && inputTokens > 0 && prevCacheRead > 0) {
       const currMs = row.created_at ? Date.parse(row.created_at) : NaN;
       const prevMs = prevRow.created_at ? Date.parse(prevRow.created_at) : NaN;
       if (Number.isFinite(currMs) && Number.isFinite(prevMs) && currMs >= prevMs) {
