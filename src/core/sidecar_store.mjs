@@ -4,6 +4,8 @@ import os from 'node:os';
 import { canonicalizePath } from './path_canonicalizer.mjs';
 
 const SIDECAR_VERSION = '3.1.0';
+const UUID_SESSION_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const TEST_FLIGHTCHECK_DIR = path.join(os.tmpdir(), 'agy-flightcheck-test');
 
 /**
  * Returns default flightcheck root directory (~/.gemini/flightcheck)
@@ -15,10 +17,15 @@ export function getFlightcheckDir(baseDirOverride = null) {
 }
 
 /**
- * Returns path to session sidecar file
+ * Returns path to session sidecar file.
+ * Non-UUID synthetic/test session IDs are routed to os.tmpdir() so unit tests never pollute ~/.gemini/flightcheck/sessions.
  */
 export function getSidecarPath(conversationId, baseDirOverride = null) {
-  const root = getFlightcheckDir(baseDirOverride);
+  if (baseDirOverride) {
+    return path.join(baseDirOverride, 'sessions', `${conversationId}.sidecar.json`);
+  }
+  const isRealUuid = UUID_SESSION_RE.test(String(conversationId || '').trim());
+  const root = isRealUuid ? getFlightcheckDir() : TEST_FLIGHTCHECK_DIR;
   return path.join(root, 'sessions', `${conversationId}.sidecar.json`);
 }
 

@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import os from 'node:os';
+import path from 'node:path';
 
 /**
  * Host Process & Zombie Subagent/MCP Watchdog.
@@ -64,12 +65,23 @@ export function evaluateProcessTable(processRecords = [], activePids = new Set()
     const isMulticallSchedule = cmd.includes('multicall') && cmd.includes('schedule');
     const parentDead = ppid > 0 && allPidSet.size >= 2 && !allPidSet.has(ppid);
 
+    let scheduleDetails = '';
+    if (isMulticallSchedule) {
+      const wsMatch = cmd.match(/--workspace\s+([^\s"']+)/i);
+      const scriptMatch = cmd.match(/schedule\s+"[^"]*"\s+([^\s"']+)/i);
+      const wsName = wsMatch ? path.basename(wsMatch[1].replace(/\\/g, '/')) : '';
+      const scriptName = scriptMatch ? path.basename(scriptMatch[1].replace(/\\/g, '/')) : '';
+      scheduleDetails = wsName ? `[${wsName}] ${scriptName || 'cron'}` : (scriptName || 'scheduled task');
+    }
+
     if ((isMulticallSchedule || parentDead) && pid !== process.pid && pid !== process.ppid) {
       orphans.push({
         pid,
         ppid,
         name: proc.name || (isAgyHub ? 'agy' : (isLangServer ? 'language_server' : 'mcp-server')),
-        reason: isMulticallSchedule ? 'multicall_schedule_leak' : 'detached_parent_pid',
+        reason: isMulticallSchedule ? (parentDead ? 'multicall_schedule_leak' : 'active_scheduled_task') : 'detached_parent_pid',
+        scheduleDetails,
+        parentAlive: !parentDead,
         rssMb: Math.round(rssBytes / (1024 * 1024))
       });
     }
@@ -137,7 +149,19 @@ export async function inspectHostProcesses({ force = false } = {}) {
     }
   }
 
-  cachedHostHealth = evaluateProcessTable(records);
+  try {
+    cachedHostHealth = evaluateProcessTable(records);
+  } catch {
+    cachedHostHealth = {
+      rssGb: 0,
+      languageServerCount: 0,
+      orphanCount: 0,
+      orphans: [],
+      status: 'HEALTHY',
+      alertBanner: null,
+      checkedAt: new Date().toISOString()
+    };
+  }
   lastPollMs = now;
   return cachedHostHealth;
 }

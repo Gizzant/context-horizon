@@ -170,6 +170,7 @@ function printHelp() {
   npx context-horizon --demo-animate                   Play live 5-stage terminal crisis animation
   npx ctxtop --roast                                   Audit local logs & print shareable Context Roast Card
   npx ctxtop doctor                                    Diagnose hooks, configuration, mirrors & transcript health
+  npx ctxtop prune [--dry-run]                         Prune stale tool outputs and fold AST stubs in active transcript
   npx ctxtop postmortem [--last N] [--json]            Generate forensic report & diagnostic dataset
   npx context-horizon --serve                          Launch Edward Tufte IDE Webview in browser
 `);
@@ -196,6 +197,11 @@ if (isMain) {
     runDemoShowcase({ scenarioId: 5, animate: false });
   } else if (cmd === 'roast' || args.includes('--roast')) {
     runContextRoast();
+  } else if (cmd === 'prune' || args.includes('--prune') || args.includes('--prune-tools')) {
+    const dryRun = args.includes('--dry-run');
+    runDoctor({ pruneTools: true, dryRun }).then(res => {
+      process.exit(res.ok === false ? 1 : 0);
+    });
   } else if (cmd === 'doctor' || args.includes('--doctor')) {
     const cliOpts = parseDoctorArgs(args);
     runDoctor(cliOpts).then(res => {

@@ -109,6 +109,7 @@ export async function auditCursorVscdbOrphans(vscdbPath, options = {}) {
     vscdbPath: vscdbPath || '',
     totalRows: list.length,
     activeComposerIds: Array.from(activeComposerIds),
+    referencedBlobIds: Array.from(referencedBlobIds),
     orphanRowCount,
     orphanBytes,
     orphanBreakdown: breakdown
@@ -144,6 +145,7 @@ export async function compactCursorVscdbStreaming(vscdbPath, options = {}) {
 
   const DbCtor = options.DatabaseSync || (await import('node:sqlite')).DatabaseSync;
   const activeSet = new Set(audit.activeComposerIds);
+  const referencedBlobSet = new Set(audit.referencedBlobIds || []);
   const tmpExportPath = `${vscdbPath}.compact.${process.pid}.sqlite`;
   if (fs.existsSync(tmpExportPath)) {
     try { fs.unlinkSync(tmpExportPath); } catch {}
@@ -177,6 +179,8 @@ export async function compactCursorVscdbStreaming(vscdbPath, options = {}) {
       if (key.startsWith('bubbleId:') || key.startsWith('checkpointId:') || key.startsWith('messageRequestContext:')) {
         const cid = key.split(':')[1] || '';
         if (!activeSet.has(cid)) isOrphan = true;
+      } else if (key.startsWith('agentKv:blob:')) {
+        if (!referencedBlobSet.has(key) && activeSet.size > 0) isOrphan = true;
       }
       if (!isOrphan) {
         insKv.run(r.key, r.value);

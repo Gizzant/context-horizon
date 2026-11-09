@@ -31,7 +31,7 @@
   <circle cx="42" cy="20" r="6" fill="#f59e0b"/>
   <circle cx="62" cy="20" r="6" fill="#22c55e"/>
   <text x="480" y="25" text-anchor="middle" fill="#94a3b8" font-size="13" font-weight="600" class="mono">
-    context-horizon (ctxtop v3.1.0) — 40-Cell Context Telemetry HUD &amp; PreInvocation Flight Check
+    context-horizon (ctxtop v3.2.0) — 40-Cell Context Telemetry HUD &amp; PreInvocation Flight Check
   </text>
 
   <!-- Section 1: Turn 50 Prefix Amputation & Sludge Crisis -->
@@ -41,7 +41,7 @@
     <!-- Top Status Strip -->
     <rect x="16" y="14" width="218" height="22" rx="4" fill="#ef4444" fill-opacity="0.18" stroke="#ef4444" stroke-width="1"/>
     <text x="26" y="29" fill="#fca5a5" font-size="11.5" font-weight="700" class="mono">🚨 AMPUTATION CRISIS (TURN 50)</text>
-    <text x="250" y="29" fill="#e2e8f0" font-size="12.5" font-weight="600" class="mono">Tokens: <tspan fill="#f87171">145k / 200k</tspan>  |  Purity: <tspan fill="#f87171">35%</tspan>  |  Sludge Tax: <tspan fill="#fbbf24">+$0.09/turn</tspan>  |  5h Quota: <tspan fill="#38bdf8">50%</tspan></text>
+    <text x="250" y="29" fill="#e2e8f0" font-size="12" font-weight="600" class="mono"><tspan fill="#f87171">145k / 200k · 73%</tspan> | Cache Hit: <tspan fill="#fbbf24">41.2%</tspan> | Waste: <tspan fill="#f87171">84k tok</tspan> | TTL: <tspan fill="#f87171">0s (5m)</tspan> | <tspan fill="#38bdf8">[Mode: Read-Heavy Audit]</tspan></text>
 
     <!-- Amputation Bracket Label -->
     <path d="M 16 54 L 16 47 L 188 47 L 188 54" fill="none" stroke="#ef4444" stroke-width="1.8"/>

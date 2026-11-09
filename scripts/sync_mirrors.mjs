@@ -63,14 +63,20 @@ export function syncAndVerifyMirrors({ verifyOnly = false } = {}) {
       }
     }
 
-    // 3. Sync sidecar daemon server.mjs across all 3 roots
-    const canonicalServer = path.join(CANONICAL_ROOT, 'sidecars', 'horizon-daemon', 'server.mjs');
-    if (fs.existsSync(canonicalServer)) {
+    // 3. Sync sidecar daemon server.mjs and CLI horizon_hud.mjs across all 3 roots
+    const extraSyncPairs = [
+      ['sidecars', 'horizon-daemon', 'server.mjs'],
+      ['src', 'cli', 'horizon_hud.mjs'],
+      ['tests', 'fixtures', 'synthetic_states.mjs']
+    ];
+    for (const relParts of extraSyncPairs) {
+      const canonicalFile = path.join(CANONICAL_ROOT, ...relParts);
+      if (!fs.existsSync(canonicalFile)) continue;
       for (const root of [AGY_HORIZON_ROOT, FLIGHTCHECK_ROOT]) {
-        const destServer = path.join(root, 'sidecars', 'horizon-daemon', 'server.mjs');
-        if (fs.existsSync(path.dirname(destServer))) {
-          fs.copyFileSync(canonicalServer, destServer);
-        }
+        if (!fs.existsSync(root)) continue;
+        const destFile = path.join(root, ...relParts);
+        fs.mkdirSync(path.dirname(destFile), { recursive: true });
+        fs.copyFileSync(canonicalFile, destFile);
       }
     }
   }

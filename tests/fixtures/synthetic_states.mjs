@@ -257,12 +257,24 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
       }
     }
     const filled = i < activeCells ? cellSize : 0;
+    const targetPath =
+      i === 0 ? 'SYSTEM_PROMPT + AGENTS.md' :
+      i === 1 ? 'implementation_plan.md + task.md' :
+      i === 2 ? 'MCP Tool Schemas (Turn 0)' :
+      i === 8 ? 'task.md' :
+      dominantCategory === 'DEAD_ERROR' ? 'src/cli/doctor.mjs (failed run_command trace)' :
+      dominantCategory === 'DUPLICATE_READ' ? 'src/core/router.mjs' :
+      'src/core/classifier.mjs';
+    const inTrough = activeCells >= 7 && i >= 6 && i <= 15 && i < activeCells;
     cells.push({
       index: i,
       startToken: i * cellSize,
       endToken: (i + 1) * cellSize,
       totalTokens: filled,
       dominantCategory,
+      topTarget: filled > 0 ? targetPath : 'Free Token Headroom',
+      inAttentionTrough: inTrough,
+      attentionWeight: inTrough ? 0.42 : 0.92,
       hudCategory:
         dominantCategory === 'ANCHOR' ? (i === 2 ? 'ANCHOR_SCHEMA' : 'ANCHOR_CORE') :
         dominantCategory === 'INJECTED_MEMORY' ? (meta.id === 5 ? 'MEMORY_BLEED' : 'MEMORY_KI') :
@@ -276,21 +288,63 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
       topContributors: filled > 0 ? [{
         category: dominantCategory,
         tokens: filled,
-        target:
-          i === 0 ? 'SYSTEM_PROMPT + AGENTS.md' :
-          i === 1 ? 'implementation_plan.md + task.md' :
-          i === 2 ? 'MCP Tool Schemas (Turn 0)' :
-          dominantCategory === 'DEAD_ERROR' ? 'Failed run_command stack trace (exit 1)' :
-          dominantCategory === 'DUPLICATE_READ' ? 'src/core/router.mjs (duplicate read #4)' :
-          'src/core/classifier.mjs',
+        target: targetPath,
         stepIndex: i * 2,
         foreignBleed: meta.id === 5 && i === 3
       }] : []
     });
   }
 
-  const sludgeTokens = Math.round(totalActiveTokens * ((100 - purity) / 100));
+  const sludgeTokens = meta.reclaimTokens > 0
+    ? meta.reclaimTokens
+    : Math.round(totalActiveTokens * ((100 - purity) / 100));
   const quotaRem = Math.round((sc.telemetry.quota?.remaining_fraction ?? 0.5) * 100);
+  const workloadMode =
+    meta.id === 3 ? { modeId: 'SUBAGENT_SWARM', tag: '[Mode: Subagent Swarm]' } :
+    (meta.id === 4 || meta.id === 8) ? { modeId: 'MULTI_FILE_REFACTOR', tag: '[Mode: Multi-File Refactor]' } :
+    { modeId: 'READ_HEAVY_AUDIT', tag: '[Mode: Read-Heavy Audit]' };
+
+  const topRiskyCells = [
+    {
+      cellIndex: 8,
+      cellNumber: 9,
+      filePath: 'task.md',
+      tokenWeight: 5000,
+      wasteTokens: 0,
+      attentionRecallPct: 42,
+      inTrough: true,
+      riskReason: 'TROUGH_STRANDED_SPEC',
+      actionType: 'REANCHOR',
+      actionLabel: '[Re-Anchor / Prune]',
+      specificActionLabel: '[Re-Anchor Cell to Handoff]'
+    },
+    {
+      cellIndex: 11,
+      cellNumber: 12,
+      filePath: 'src/core/router.mjs',
+      tokenWeight: 5000,
+      wasteTokens: 5000,
+      attentionRecallPct: 40,
+      inTrough: true,
+      riskReason: 'HIGH_SLUDGE_DENSITY',
+      actionType: 'PRUNE',
+      actionLabel: '[Re-Anchor / Prune]',
+      specificActionLabel: '[Prune Stale Tool Outputs]'
+    },
+    {
+      cellIndex: 12,
+      cellNumber: 13,
+      filePath: 'src/cli/doctor.mjs',
+      tokenWeight: 5000,
+      wasteTokens: 5000,
+      attentionRecallPct: 41,
+      inTrough: true,
+      riskReason: 'HIGH_SLUDGE_DENSITY',
+      actionType: 'PRUNE',
+      actionLabel: '[Re-Anchor / Prune]',
+      specificActionLabel: '[Prune Stale Tool Outputs]'
+    }
+  ];
 
   return {
     schemaVersion: '1.1.0',
@@ -346,6 +400,17 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
       activeDaemonsAtRisk: []
     },
     cells,
+    workloadMode,
+    topRiskyCells,
+    chronicReads: [
+      {
+        path: 'src/core/router.mjs',
+        sessions: 4,
+        windowSessions: 5,
+        wastedTokens: 35000,
+        bannerText: 'Across last 5 sessions, src/core/router.mjs caused 35k repeated re-reads'
+      }
+    ],
     offenders: sludgeTokens === 0 ? [
       {
         category: 'ANCHOR',
@@ -427,6 +492,11 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
         }
       ],
       userCorrections: isCrisis ? 4 : 0,
+      mcpAudit: {
+        unusedEagerServers: [
+          { name: 'postgres-analytics', schemaTokens: 6800, configSource: '.agents/mcp_config.json' }
+        ]
+      },
       activeDaemons: []
     },
     quota: {
@@ -450,7 +520,17 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
         isCacheCold: !(meta.id === 2 || meta.id === 3 || meta.id === 6 || meta.id === 8),
         nextTurnLikelyWarm: (meta.id === 2 || meta.id === 3 || meta.id === 6 || meta.id === 8),
         cachedTokens: Math.round(totalActiveTokens * 0.62),
-        freshTokens: Math.round(totalActiveTokens * 0.38)
+        freshTokens: Math.round(totalActiveTokens * 0.38),
+        dualTtl: {
+          mainRemainingSec: (meta.id === 2 || meta.id === 3 || meta.id === 6 || meta.id === 8) ? 215 : 0,
+          mainWindowLabel: (meta.id === 2 || meta.id === 3) ? '1h' : '5m',
+          subagentRemainingSec: meta.id === 3 ? 180 : null,
+          subagentWindowLabel: '5m',
+          overageTtlCliffDetected: meta.id === 5 || meta.id === 7,
+          cliffWarning: (meta.id === 5 || meta.id === 7)
+            ? '1h -> 5m TTL Cliff Detected: Overage/fallback tier active; cache now expires 12x faster (300s).'
+            : ''
+        }
       },
       forecast: {
         nextTurnHighSprintPct: 6.4,

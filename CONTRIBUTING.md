@@ -6,7 +6,7 @@ Thank you for helping build `context-horizon` (`ctxtop`)! Our goal is to keep AI
 
 ## Quick Local Development Setup
 
-Requires **Node.js 20+** (Windows, macOS, or Linux). Because `context-horizon` has **zero external npm dependencies**, you do not even need to run `npm install` to run the core engine or test suite:
+Requires **Node.js 22.5.0+** (Windows, macOS, or Linux) for built-in `node:sqlite` (`DatabaseSync`). Because `context-horizon` has **zero external npm runtime dependencies**, you do not even need to run `npm install` to run the core engine, CLI tools, or test suite:
 
 ```bash
 # 1. Clone your fork
@@ -19,13 +19,18 @@ npm start
 # 3. Launch the Edward Tufte IDE Webview on localhost (with synthetic crisis data)
 npm run dev
 
-# 4. Run the 15-test unit/router suite (~170ms) + 6-phase verification suite
-npm test
-npm run test:phases
+# 4. Run the 62-test unit & multi-harness wedge suite (~350ms)
+node --test
 
-# 5. Run the 200-iteration latency benchmark (<15ms PreInvocation SLA)
+# 5. Run the 7-phase architectural verification suite + E2E daemon integration
+npm run test:phases
+npm run test:e2e
+
+# 6. Run the 200-iteration latency benchmark (<15ms PreInvocation SLA)
 npm run bench
 ```
+
+See [docs/COOKBOOK.md](docs/COOKBOOK.md) for practical recipes on Cursor storage compaction, offline tool output pruning, Antigravity brain recovery, and programmatic API usage.
 
 ---
 
@@ -67,8 +72,9 @@ Run `npm test` and `npm run bench` to verify your sensor passes and total `PreIn
 
 ## Pull Request Checklist
 
-- [ ] `npm test` passes (18/18 router & sensor tests).
+- [ ] `node --test` passes (62 tests across 24 suites: router, sensors, Waves 1-3 wedge, concurrency, schema drift).
 - [ ] `npm run test:phases` passes (Phases 1–7 Show-HN verification suites).
-- [ ] `npm run test:e2e` passes (all 6 End-to-End validation layers + 3-way SHA-256 mirror parity).
+- [ ] `npm run test:e2e` passes (all 7 End-to-End validation layers + 3-way SHA-256 mirror parity).
 - [ ] `npm run bench` confirms p95 `PreInvocation` latency `<15ms`.
 - [ ] Zero third-party runtime dependencies added to `package.json`, and all SQLite opens use `SQLITE_OPEN_READONLY_OPTIONS` (`{ readOnly: true }`).
+- [ ] Tested on Node.js >= 22.5.0.

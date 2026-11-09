@@ -1,4 +1,5 @@
 # Context Horizon (`ctxtop`) — Architectural & UI Invariants
+- **User Constraint**: To keep context memory lean, please use StartLine/EndLine when reading .../webview/ho
 
 ## UI & Architecture Invariants
 1. **No Copy/Paste Button for `/compact`**:

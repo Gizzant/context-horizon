@@ -11,23 +11,25 @@ import { executeToolOutputSurgery } from '../core/tool_surgeon.mjs';
 import { compactCursorVscdbStreaming, recoverAntigravityBrainMigration } from '../core/storage_doctor.mjs';
 
 /**
- * Parses CLI flags (`--prune-tools`, `--storage-gc`, `--transcript <path>`, `--vscdb <path>`, `--dry-run`)
+ * Parses CLI flags (`--prune-tools`, `--storage-gc`, `--gc-cursor`, `--recover-brain`, `--transcript <path>`, `--vscdb <path>`, `--dry-run`)
  */
 export function parseDoctorArgs(argv = process.argv.slice(2)) {
   const pruneTools = argv.includes('--prune-tools');
-  const storageGc = argv.includes('--storage-gc');
+  const gcCursor = argv.includes('--gc-cursor');
+  const recoverBrain = argv.includes('--recover-brain');
+  const storageGc = argv.includes('--storage-gc') || gcCursor || recoverBrain;
   const dryRun = argv.includes('--dry-run');
   const tIdx = argv.indexOf('--transcript');
   const transcriptPath = tIdx !== -1 && argv[tIdx + 1] ? argv[tIdx + 1] : null;
   const vIdx = argv.indexOf('--vscdb');
   const vscdbPath = vIdx !== -1 && argv[vIdx + 1] ? argv[vIdx + 1] : null;
-  return { pruneTools, storageGc, dryRun, transcriptPath, vscdbPath };
+  return { pruneTools, storageGc, gcCursor, recoverBrain, dryRun, transcriptPath, vscdbPath };
 }
 
 /**
  * Runs a comprehensive diagnosis of the Context Horizon (ctxtop) environment.
  */
-export async function runDoctor({ workspacePath = process.cwd(), pruneTools = false, storageGc = false, dryRun = false, transcriptPath = null, vscdbPath = null } = {}) {
+export async function runDoctor({ workspacePath = process.cwd(), pruneTools = false, storageGc = false, gcCursor = false, recoverBrain = false, dryRun = false, transcriptPath = null, vscdbPath = null, silent = false } = {}) {
   const home = process.env.USERPROFILE || process.env.HOME || os.homedir();
   if (pruneTools) {
     let resolvedTranscript = transcriptPath;
@@ -41,14 +43,26 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
       }
     }
     if (!resolvedTranscript || !fs.existsSync(resolvedTranscript)) {
+      if (!silent) console.log('  ✖ FAIL  Tool-Output Surgeon            No active session transcript found to prune');
       return { ok: false, success: false, error: 'No active session transcript found to prune' };
     }
     const res = executeToolOutputSurgery(resolvedTranscript, { dryRun });
+    if (!silent) {
+      console.log(`  ✔ PASS  Tool-Output Surgeon            Pruned ${res.prunedCount} stale tool output(s), saved ~${res.savedTokens} tokens${dryRun ? ' (dry-run)' : ''}`);
+    }
     return { ok: Boolean(res.success), ...res };
   }
-  if (storageGc) {
-    const migration = recoverAntigravityBrainMigration(home, { dryRun });
+  if (storageGc || gcCursor || recoverBrain) {
+    const migration = (!gcCursor || recoverBrain || storageGc) ? recoverAntigravityBrainMigration(home, { dryRun }) : null;
     const vscdbRes = vscdbPath ? await compactCursorVscdbStreaming(vscdbPath, { dryRun }) : null;
+    if (!silent) {
+      if (migration) {
+        console.log(`  ✔ PASS  Antigravity Brain Recovery     Scanned ${migration.scannedDbCount} DBs, relinked ${migration.orphanedBrainCount} orphaned brain dir(s)${dryRun ? ' (dry-run)' : ''}`);
+      }
+      if (vscdbRes) {
+        console.log(`  ✔ PASS  Cursor state.vscdb GC          Removed ${vscdbRes.removedOrphanRows} orphan rows, reclaimed ${vscdbRes.reclaimedBytes} bytes${dryRun ? ' (dry-run)' : ''}`);
+      }
+    }
     return { ok: true, migration, vscdb: vscdbRes };
   }
   const results = [];

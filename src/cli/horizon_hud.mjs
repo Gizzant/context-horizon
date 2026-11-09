@@ -23,8 +23,12 @@ import { measureBaseline } from '../core/baseline.mjs';
 import { updateChronicReads } from '../core/offenders.mjs';
 import { computePlanChurn, gradeProofQuality, detectContextRot } from '../core/session_forensics.mjs';
 import { auditHandoff } from '../core/handoff_audit.mjs';
+import { inspectHostProcesses } from '../core/host_watchdog.mjs';
 import { loadFlightcheckConfig } from '../core/config.mjs';
 import { buildDemoHorizonState, DEMO_SCENARIOS } from '../../tests/fixtures/synthetic_states.mjs';
+import { buildActionQueue, formatActionQueueAnsi } from '../core/action_queue.mjs';
+
+export { buildActionQueue, formatActionQueueAnsi };
 
 const FALLBACK_BAR = '\x1b[38;5;244m[░░░░░░░░░░░░░░░░░░░░] Purity: 100% | Noise: 0k | Quota: 100% | Effort: OK\x1b[0m';
 
@@ -277,10 +281,12 @@ export async function runHud(options = {}) {
 
     if (isFullMode) {
       const effortStatus = sensorResults.threeStrikeLoop ? 'LOOP_HALT' : (sensorResults.quotaFloorBreached ? 'QUOTA_LOW' : 'OK');
+      const cacheHitPct = classification.metrics?.cacheHitPct ?? 92;
+      const ttlSec = classification.metrics?.ttlRemainingSec ?? 300;
       let extraHints = '';
       if (planChurn.warn) extraHints += ` | Plan: ${planChurn.planRevisions} revs ⚠`;
       if (handoff.result === 'NEEDS_FIXES') extraHints += ' | Handoff: Needs fixes';
-      outputLine = `[${glyphStrip}] ${activeK}k / ${maxK}k · ${usedPct}% | Purity: ${purity}% | Waste: ${noiseK}k tok | Noise: ${noiseK}k tok | Quota: ${quotaPct}% | ${modeTag} | Effort: ${effortStatus}${extraHints}`;
+      outputLine = `[${glyphStrip}] ${activeK}k / ${maxK}k · ${usedPct}% | Cache Hit: ${cacheHitPct}% | Waste: ${noiseK}k tok | TTL: ${ttlSec}s | Purity: ${purity}% | Noise: ${noiseK}k tok | Quota: ${quotaPct}% | ${modeTag} | Effort: ${effortStatus}${extraHints}`;
     } else {
       outputLine = `[${glyphStrip}] ${activeK}k/${maxK}k·${usedPct}% | P:${purity}% | N:${noiseK}k | Q:${quotaPct}%`;
     }
@@ -320,13 +326,16 @@ export function formatDemoScenarioAnsi(scenarioId = 5) {
   const modeTag = state.workloadMode?.tag || '[Mode: Read-Heavy Audit]';
   const statusColor = isAmputation ? '\x1b[38;5;196m' : (purity < 60 ? '\x1b[38;5;214m' : '\x1b[38;5;82m');
 
+  const aqAnsi = formatActionQueueAnsi(state);
+
   const lines = [
     `\x1b[1m\x1b[38;5;51m${meta.title}\x1b[0m  ${modeTag}`,
     `\x1b[38;5;245mFailure Mode: "${meta.complaint}"\x1b[0m`,
     `[${glyphStrip}] ${statusColor}${activeK}k / ${maxK}k · ${usedPct}%\x1b[0m | Cache Hit: ${cacheHitPct}% | Waste: ${noiseK}k tok | TTL: ${ttlSec}s | Purity: ${statusColor}${purity}%\x1b[0m | Quota: ${quotaPct}%`,
-    `\x1b[38;5;244m╭── Flight Check v3.1 (${meta.routerState}) ───────────────────────────────────────────╮\x1b[0m`,
+    ...(aqAnsi ? [aqAnsi] : []),
+    `\x1b[38;5;244m╭── Flight Check v3.2 (${meta.routerState}) ───────────────────────────────────────────╮\x1b[0m`,
     `\x1b[38;5;244m│\x1b[0m 1. PROMPT : "${meta.fixture.prompt.slice(0, 56)}"`,
-    `\x1b[38;5;244m│\x1b[0m 2. HORIZON: [${activeK}k / ${maxK}k · ${usedPct}% | Cache Hit: ${cacheHitPct}% | Waste: ${Math.round(meta.reclaimTokens / 1000)}k tok | TTL: ${ttlSec}s | Quota: ${quotaPct}%]`,
+    `\x1b[38;5;244m│\x1b[0m 2. HORIZON: [${activeK}k / ${maxK}k · ${usedPct}% | Cache Hit: ${cacheHitPct}% | Waste: ${noiseK}k tok | TTL: ${ttlSec}s | Quota: ${quotaPct}%]`,
     `\x1b[38;5;244m│\x1b[0m 3. ACTION : \x1b[38;5;82m${meta.recommendedAction}\x1b[0m`,
     `\x1b[38;5;244m│\x1b[0m 4. REWRITE: \x1b[38;5;51m"${meta.rewrite}"\x1b[0m`,
     `\x1b[38;5;244m╰────────────────────────────────────────────────────────────────────────────────────────╯\x1b[0m`
@@ -335,7 +344,7 @@ export function formatDemoScenarioAnsi(scenarioId = 5) {
 }
 
 export async function runDemoShowcase({ scenarioId = null, animate = false } = {}) {
-  console.log('\n\x1b[1m\x1b[38;5;51m⚡ CONTEXT HORIZON (ctxtop v3.1.0) — 40-Cell Context Telemetry & Flight Check Demo\x1b[0m');
+  console.log('\n\x1b[1m\x1b[38;5;51m⚡ CONTEXT HORIZON (ctxtop v3.2.0) — 40-Cell Context Telemetry & Flight Check Demo\x1b[0m');
   console.log('\x1b[38;5;244mLegend: \x1b[38;5;51m█ Anchor\x1b[0m  \x1b[38;5;141m▓ Memory KI\x1b[0m  \x1b[38;5;205m▓ Foreign Bleed\x1b[0m  \x1b[38;5;214m▒ Stale/Dirty\x1b[0m  \x1b[38;5;196m▓ Dead Error\x1b[0m  \x1b[38;5;82m█ Active Set\x1b[0m  \x1b[38;5;196m![...]! Amputation (>140k)\x1b[0m\n');
 
   const ids = scenarioId ? [Number(scenarioId)] : (animate ? [2, 4, 5, 6, 7] : [5]);
@@ -473,6 +482,11 @@ export async function runCLI(options = {}) {
   state.chronicReads = updateChronicReads(cacheDir, sessionInfo.sessionId, state.brainSignals?.duplicateReads?.topFiles || []);
 
   state.delta = recordAndDelta(cacheDir, sessionInfo.sessionId, state, parsed.steps).delta;
+  try {
+    state.hostHealth = await inspectHostProcesses({ force: false });
+  } catch {
+    state.hostHealth = { rssGb: 0, languageServerCount: 0, orphanCount: 0, orphans: [], status: 'HEALTHY', alertBanner: null, checkedAt: new Date().toISOString() };
+  }
   try {
     writeJsonAtomicSync(path.join(cacheDir, 'latest.state.json'), state);
   } catch {}

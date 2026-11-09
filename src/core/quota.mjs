@@ -159,14 +159,321 @@ export function humanizeModelLabel(model = '') {
 }
 
 /**
+ * Maps a raw model ID to a concise human-readable short name.
+ * e.g. "gemini-4-argon" -> "Argon", "gemini-3.8-flash" -> "Flash".
+ */
+export function resolveModelShortName(modelId = '') {
+  const s = normalizeModelId(String(modelId || ''));
+  if (s.includes('argon')) return 'Argon';
+  if (s.includes('3.8-flash') || s.includes('flash')) return 'Flash';
+  if (s.includes('3.1-pro') || s.includes('pro')) return 'Pro';
+  if (s.includes('opus-5') || s.includes('opus')) return 'Opus 5.5';
+  if (s.includes('sonnet-5') || s.includes('sonnet')) return 'Sonnet 5.5';
+  const human = humanizeModelLabel(modelId);
+  return human ? human.split(' ').pop() : 'Model';
+}
+
+/**
+ * Formats a token count into a compact string ("140k", "3.7k").
+ */
+export function formatK(num) {
+  const n = Number(num || 0);
+  if (n <= 0) return '0k';
+  if (n < 1000) return `${Math.round(n)}`;
+  const k = n / 1000;
+  return k >= 10 ? `${Math.round(k)}k` : `${parseFloat(k.toFixed(1))}k`;
+}
+
+/**
  * Prefix Bust label. A known model-switch cause gets a plain-language amber label; an unknown
  * cause keeps the legacy label.
  */
 export function formatPrefixBustLabel(cause = null) {
+  if (cause && cause.cause === 'auto_router_thrash') {
+    return cause.badgeText || `\u26A0\uFE0F Router Thrash: ${cause.switchCount} model hops`;
+  }
   if (cause && cause.cause === 'model_switch' && cause.to) {
     return `Last turn: cache miss (model switch \u2192 ${humanizeModelLabel(cause.to)})`;
   }
+  if (cause && cause.cause === 'warm_pool_busted') {
+    return cause.reason === 'RULE_FILE_DRIFT'
+      ? '\u26A0\uFE0F Prefix Bust (system_message / config drift)'
+      : '\u26A0\uFE0F Prefix Bust (history mutation)';
+  }
   return OVERAGE_ALERT_MESSAGES.PREFIX_BUST_LABEL;
+}
+
+/**
+ * Pure, deterministic tracker for per-model KV cache pools.
+ * On every turn, tracks Map<modelId, ModelCacheState> and evaluates warm standby
+ * caches and underlying prefix mutations on warm-pool misses.
+ */
+export function trackModelCachePools(turns = [], { nowMs = Date.now(), prefixDiff = null } = {}) {
+  const modelCachePools = new Map();
+  let standbyCache = null;
+  let lastSwitchEvent = null;
+
+  for (let i = 0; i < turns.length; i++) {
+    const turn = turns[i];
+    const prevTurn = i > 0 ? turns[i - 1] : null;
+    const mId = normalizeModelId(turn.modelId || turn.model || 'gemini-4-argon');
+    const shortName = resolveModelShortName(turn.modelRaw || turn.model || mId);
+    const displayName = resolveModelPoolDisplayName(mId);
+    const ts = turn.timestampMs || (turn.createdAt ? Date.parse(turn.createdAt) : nowMs);
+    const ttlWindow = Number(turn.ttlSeconds || QUOTA_CONSTANTS.CACHE_TTL_SECONDS);
+
+    const prevMId = prevTurn ? normalizeModelId(prevTurn.modelId || prevTurn.model || 'gemini-4-argon') : null;
+    const isModelSwitch = Boolean(prevTurn && prevMId && prevMId !== mId);
+
+    // Update remaining TTL for all existing pools up to this turn
+    for (const pool of modelCachePools.values()) {
+      const elapsedSec = Math.max(0, Math.floor((ts - pool.lastSeenTimestampMs) / 1000));
+      pool.remainingTtl = Math.max(0, pool.ttlSecondsAtLastTurn - elapsedSec);
+      pool.isWarm = pool.remainingTtl > 0 && pool.lastCachedTokens > 0;
+    }
+
+    if (isModelSwitch) {
+      const modelA = modelCachePools.get(prevMId);
+      const modelB = modelCachePools.get(mId);
+
+      // Check if Model A still has remainingTtl > 30 and lastCachedTokens > 20000
+      if (modelA && modelA.remainingTtl > 30 && modelA.lastCachedTokens > 20000) {
+        standbyCache = {
+          modelName: modelA.shortName,
+          remainingTtl: modelA.remainingTtl,
+          cachedTokens: modelA.lastCachedTokens
+        };
+      } else {
+        standbyCache = null;
+      }
+
+      // Check if Model B already had a warm entry in modelCachePools that unexpectedly missed
+      let warmPoolBustedReason = null;
+      if (modelB && modelB.remainingTtl > 0 && Number(turn.cacheReadTokens || 0) === 0) {
+        const isRuleDrift = Boolean(turn.explicitMutation || prefixDiff?.mutated);
+        warmPoolBustedReason = isRuleDrift ? 'RULE_FILE_DRIFT' : 'HISTORY_MUTATION';
+      }
+
+      lastSwitchEvent = {
+        fromModelId: prevMId,
+        toModelId: mId,
+        fromShortName: resolveModelShortName(prevTurn.modelRaw || prevTurn.model || prevMId),
+        toShortName: shortName,
+        toDisplayName: displayName,
+        turnIndex: turn.stepIndex ?? i,
+        timestampMs: ts,
+        warmPoolBustedReason,
+        standbyCache: standbyCache ? { ...standbyCache } : null
+      };
+    }
+
+    const cachedTokens = turn.cacheReadTokens > 0
+      ? turn.cacheReadTokens
+      : (turn.cacheCreationTokens > 0 ? turn.cacheCreationTokens : (turn.cachedTokens || 0));
+
+    const existing = modelCachePools.get(mId);
+    modelCachePools.set(mId, {
+      modelId: mId,
+      shortName,
+      displayName,
+      lastSeenTurnId: turn.stepIndex ?? i,
+      lastSeenTimestampMs: ts,
+      lastCachedTokens: cachedTokens > 0 ? cachedTokens : (existing?.lastCachedTokens || 0),
+      lastPrefixHash: turn.prefixHash || existing?.lastPrefixHash || '',
+      ttlSecondsAtLastTurn: ttlWindow,
+      remainingTtl: ttlWindow,
+      isWarm: cachedTokens > 0
+    });
+  }
+
+  // Final evaluation of remaining TTL against nowMs
+  for (const pool of modelCachePools.values()) {
+    const elapsedSec = Math.max(0, Math.floor((nowMs - pool.lastSeenTimestampMs) / 1000));
+    pool.remainingTtl = Math.max(0, pool.ttlSecondsAtLastTurn - elapsedSec);
+    pool.isWarm = pool.remainingTtl > 0 && pool.lastCachedTokens > 0;
+  }
+
+  if (standbyCache && lastSwitchEvent) {
+    const modelA = modelCachePools.get(lastSwitchEvent.fromModelId);
+    if (modelA) {
+      standbyCache.remainingTtl = modelA.remainingTtl;
+      if (standbyCache.remainingTtl <= 0) {
+        standbyCache = null;
+      }
+    }
+  }
+
+  return {
+    modelCachePools,
+    standbyCache,
+    lastSwitchEvent
+  };
+}
+
+/**
+ * Pure sliding-window (last 5 turns) Auto-Router Thrash and Model Switch detector.
+ */
+export function detectRouterThrash(recentTurns = [], isAutoMode = false, {
+  totalTokens = 0,
+  reclaimableTokens = 0,
+  standbyCache = null,
+  lastSwitchEvent = null
+} = {}) {
+  if (!Array.isArray(recentTurns) || recentTurns.length === 0) {
+    return {
+      detected: false,
+      state: 'HEALTHY',
+      severity: 'none',
+      isAutoMode,
+      windowTurns: 0,
+      switchCount: 0,
+      thrashUncachedTokens: 0,
+      modelSequenceString: '',
+      modelsInvolved: [],
+      badgeText: '',
+      tooltip: '',
+      standbyNote: '',
+      preSwitchCompactionAdvice: ''
+    };
+  }
+
+  const windowTurns = recentTurns.slice(-5);
+  let switchCount = 0;
+  let thrashUncachedTokens = 0;
+
+  for (let i = 1; i < windowTurns.length; i++) {
+    const curr = windowTurns[i];
+    const prev = windowTurns[i - 1];
+    const currM = normalizeModelId(curr.modelId || curr.model || 'gemini-4-argon');
+    const prevM = normalizeModelId(prev.modelId || prev.model || 'gemini-4-argon');
+    if (currM !== prevM) {
+      switchCount++;
+      const uncached = Number(curr.inputTokens || 0) || Number(curr.uncachedInputTokens || 0) || Math.max(0, Number(curr.totalTokens || 0) - Number(curr.cacheReadTokens || 0));
+      thrashUncachedTokens += uncached;
+    }
+  }
+
+  if (thrashUncachedTokens === 0 && switchCount > 0 && totalTokens > 0) {
+    thrashUncachedTokens = totalTokens * switchCount;
+  }
+
+  const seqShort = [];
+  for (const t of windowTurns) {
+    const sName = resolveModelShortName(t.modelRaw || t.model || t.modelId);
+    if (seqShort.length === 0 || seqShort[seqShort.length - 1] !== sName) {
+      seqShort.push(sName);
+    }
+  }
+  const modelSequenceString = seqShort.join(' \u2192 ');
+  const modelsInvolved = [...new Set(seqShort)];
+
+  const lastTurn = windowTurns[windowTurns.length - 1];
+  const prevTurn = windowTurns.length > 1 ? windowTurns[windowTurns.length - 2] : null;
+  const isCurrentTurnSwitch = Boolean(
+    lastTurn && prevTurn &&
+    normalizeModelId(lastTurn.modelId || lastTurn.model || '') !== normalizeModelId(prevTurn.modelId || prevTurn.model || '')
+  );
+  const currentShortName = lastTurn ? resolveModelShortName(lastTurn.modelRaw || lastTurn.model || lastTurn.modelId) : 'Model';
+  const currentDisplayName = lastTurn ? resolveModelPoolDisplayName(lastTurn.modelId || lastTurn.model) : 'Model';
+
+  const totalPrompt = Number(lastTurn?.cacheReadTokens || 0) + Number(lastTurn?.inputTokens || 0);
+  const cacheHitPct = totalPrompt > 0 ? (Number(lastTurn?.cacheReadTokens || 0) / totalPrompt) * 100 : 0;
+
+  // Case A: Router Thrashing (2+ switches in 5 turns in [Auto] mode)
+  if (switchCount >= 2 && isAutoMode) {
+    const badgeText = `\u26A0\uFE0F Router Thrash: ${switchCount} model hops (${formatK(thrashUncachedTokens)} uncached)`;
+    const tooltip = `Auto-routing is bouncing between models (${modelSequenceString}), paying full uncached prefill cost on every hop. Pin a single model or run /compact.`;
+    return {
+      detected: true,
+      state: 'AUTO_ROUTER_THRASH',
+      severity: 'warn',
+      isAutoMode,
+      windowTurns: windowTurns.length,
+      switchCount,
+      thrashUncachedTokens,
+      modelSequenceString,
+      modelsInvolved,
+      currentShortName,
+      currentDisplayName,
+      badgeText,
+      tooltip,
+      standbyNote: standbyCache ? `(${standbyCache.modelName} cache still warm: ${standbyCache.remainingTtl}s left)` : '',
+      preSwitchCompactionAdvice: ''
+    };
+  }
+
+  // Case B: Single Model Switch / Cold Start
+  if (isCurrentTurnSwitch || (lastSwitchEvent && (windowTurns.length - 1) === lastSwitchEvent.turnIndex)) {
+    const severity = (isAutoMode && totalTokens >= 100000) ? 'warn' : 'info';
+    const badgeText = `Last turn: cache miss (model switch \u2192 ${currentShortName})`;
+    const standbyNote = standbyCache ? `(${standbyCache.modelName} cache still warm: ${standbyCache.remainingTtl}s left)` : '';
+    const tooltip = standbyCache
+      ? `Last turn missed prompt cache due to model switch \u2192 ${currentDisplayName}. (${standbyCache.modelName} cache still warm: ${standbyCache.remainingTtl}s left)`
+      : `Last turn missed prompt cache due to model switch \u2192 ${currentDisplayName}.`;
+
+    let preSwitchCompactionAdvice = '';
+    if (reclaimableTokens >= 40000) {
+      preSwitchCompactionAdvice = `Switching to ${currentShortName} forced a full ${formatK(totalTokens)} uncached rebuild (including ${formatK(reclaimableTokens)} of reclaimable waste). Tip: Run /compact before switching models so the incoming model only warms up active signal.`;
+    }
+
+    return {
+      detected: false,
+      state: 'MODEL_SWITCH_COLD_START',
+      severity,
+      isAutoMode,
+      windowTurns: windowTurns.length,
+      switchCount,
+      thrashUncachedTokens,
+      modelSequenceString,
+      modelsInvolved,
+      currentShortName,
+      currentDisplayName,
+      badgeText,
+      tooltip,
+      standbyNote,
+      preSwitchCompactionAdvice
+    };
+  }
+
+  // Case C: One-Turn Decay to Healthy
+  // When session stays on the same model and achieves cacheHit > 50% (or positive cacheReadTokens)
+  if (!isCurrentTurnSwitch && (cacheHitPct > 50 || Number(lastTurn?.cacheReadTokens || 0) > 0)) {
+    return {
+      detected: false,
+      state: 'HEALTHY',
+      severity: 'none',
+      isAutoMode,
+      windowTurns: windowTurns.length,
+      switchCount: 0,
+      thrashUncachedTokens: 0,
+      modelSequenceString,
+      modelsInvolved,
+      currentShortName,
+      currentDisplayName,
+      badgeText: '',
+      tooltip: '',
+      standbyNote: '',
+      preSwitchCompactionAdvice: ''
+    };
+  }
+
+  return {
+    detected: false,
+    state: 'HEALTHY',
+    severity: 'none',
+    isAutoMode,
+    windowTurns: windowTurns.length,
+    switchCount,
+    thrashUncachedTokens,
+    modelSequenceString,
+    modelsInvolved,
+    currentShortName,
+    currentDisplayName,
+    badgeText: '',
+    tooltip: '',
+    standbyNote: '',
+    preSwitchCompactionAdvice: ''
+  };
 }
 
 /**
@@ -181,6 +488,9 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
   genMetadata = null,
   aiCreditOveragesEnabled = undefined,
   cacheDir = null,
+  reclaimableTokens = 0,
+  sludgeTokens = 0,
+  isAutoMode = undefined,
   nowMs = Date.now()
 } = {}) {
   let sessionInputTokens = 0;
@@ -195,11 +505,26 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
   let stepPrefixBustCause = null;
   let lastTurnCacheRead = 0;
   let lastTurnCacheCreation = 0;
+  const turns = [];
+  let runningModel = modelId || 'gemini-4-argon';
+  let runningModelRaw = modelId || 'gemini-4-argon';
 
   for (let i = 0; i < steps.length; i++) {
     const s = steps[i] || {};
     const stepTok = s.outputTokens || Math.round((s.untruncatedLength || 0) / 4) || 0;
     cumContextEst += stepTok;
+
+    const changes = s.content ? parseSettingsChanges(s.content).filter(c => /model selection/i.test(c.setting)) : [];
+    if (changes.length > 0) {
+      runningModelRaw = changes[changes.length - 1].to;
+      runningModel = normalizeModelId(runningModelRaw);
+    } else if (s.turnMetadata?.model) {
+      runningModelRaw = s.turnMetadata.model;
+      runningModel = normalizeModelId(runningModelRaw);
+    } else if (s.model) {
+      runningModelRaw = s.model;
+      runningModel = normalizeModelId(runningModelRaw);
+    }
 
     const rawInput = Number(s.inputTokens || 0);
     const rawOutput = Number(s.outputTokens || stepTok);
@@ -251,6 +576,21 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
         lastTurnCacheRead = 0;
         lastTurnCacheCreation = 0;
       }
+    }
+
+    if (rawCacheRead > 0 || rawCacheCreate > 0 || rawInput > 0 || s.type === 'USER_INPUT' || s.type === 'PLANNER_RESPONSE') {
+      turns.push({
+        stepIndex: s.stepIndex ?? i,
+        modelId: runningModel,
+        modelRaw: runningModelRaw,
+        inputTokens: rawInput,
+        cacheReadTokens: rawCacheRead,
+        cacheCreationTokens: rawCacheCreate,
+        outputTokens: rawOutput,
+        timestampMs: currTs || nowMs,
+        createdAt: s.createdAt,
+        explicitMutation: i > 0 && hasExplicitPrefixMutation(s, steps[i - 1])
+      });
     }
 
     sessionOutputTokens += rawOutput;
@@ -373,6 +713,60 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
       : (stdinQuota?.enable_ai_credit_overages ?? stdinQuota?.aiCreditOveragesEnabled ?? false)
   );
 
+  const subagentSteps = steps.filter(s => s && (s.isSidechain || (s.agentId && s.agentId !== 'parent')));
+  const dualTtl = computeDualTtlState(steps, { nowMs, subagentSteps });
+  const prefixDiff = computePrefixMutationDiff(steps);
+
+  const hasMultipleModelsInSteps = new Set(turns.map(t => t.modelId)).size > 1;
+  const turnsToUse = (!hasMultipleModelsInSteps && Array.isArray(genMetadata?.recentTurns) && genMetadata.recentTurns.length > 0)
+    ? genMetadata.recentTurns.map((r, idx) => ({
+        stepIndex: r.stepIndex ?? idx,
+        modelId: normalizeModelId(r.model || runningModel),
+        modelRaw: r.model || runningModelRaw,
+        inputTokens: Number(r.inputTokens || 0),
+        cacheReadTokens: Number(r.cacheReadTokens || 0),
+        cacheCreationTokens: 0,
+        outputTokens: Number(r.outputTokens || 0),
+        timestampMs: r.createdAt ? Date.parse(r.createdAt) : nowMs,
+        createdAt: r.createdAt
+      }))
+    : turns;
+
+  const effectiveIsAuto = Boolean(
+    isAutoMode ??
+    (activeEffortProfile?.tier === 'STANDARD' || activeEffortProfile?.shortLabel === 'Auto')
+  );
+  const poolsResult = trackModelCachePools(turnsToUse, { nowMs, prefixDiff });
+  const thrashResult = detectRouterThrash(turnsToUse, effectiveIsAuto, {
+    totalTokens: totalActiveTokens,
+    reclaimableTokens: reclaimableTokens || sludgeTokens || 0,
+    standbyCache: poolsResult.standbyCache,
+    lastSwitchEvent: poolsResult.lastSwitchEvent
+  });
+
+  if (thrashResult.state === 'AUTO_ROUTER_THRASH') {
+    stepPrefixBustDetected = true;
+    stepPrefixBustCause = {
+      cause: 'auto_router_thrash',
+      switchCount: thrashResult.switchCount,
+      models: thrashResult.modelsInvolved,
+      badgeText: thrashResult.badgeText,
+      tooltip: thrashResult.tooltip
+    };
+  } else if (thrashResult.state === 'MODEL_SWITCH_COLD_START' && !stepPrefixBustCause) {
+    stepPrefixBustDetected = true;
+    stepPrefixBustCause = {
+      cause: 'model_switch',
+      to: thrashResult.currentDisplayName || thrashResult.currentShortName
+    };
+  } else if (poolsResult.lastSwitchEvent?.warmPoolBustedReason && !stepPrefixBustCause) {
+    stepPrefixBustDetected = true;
+    stepPrefixBustCause = {
+      cause: 'warm_pool_busted',
+      reason: poolsResult.lastSwitchEvent.warmPoolBustedReason
+    };
+  }
+
   // Prefix cache TTL state & Prefix Bust vs Natural Expiration
   const idleSeconds = latestStepTimestampMs > 0
     ? Math.max(0, Math.round((nowMs - latestStepTimestampMs) / 1000))
@@ -399,7 +793,9 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
   const prefixBustCause = prefixBustDetected
     ? (genMetadata?.prefixBustCause || stepPrefixBustCause || null)
     : null;
-  const prefixBustLabel = prefixBustDetected ? formatPrefixBustLabel(prefixBustCause) : '';
+  const prefixBustLabel = prefixBustDetected
+    ? (thrashResult.state === 'AUTO_ROUTER_THRASH' ? thrashResult.badgeText : formatPrefixBustLabel(prefixBustCause))
+    : '';
   // a turn that read OR wrote the prefix cache (including a busting turn, which writes a
   // fresh prefix) leaves the next turn likely warm while the TTL is still running.
   const nextTurnLikelyWarm = Boolean(
@@ -449,9 +845,6 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
   const weeklyResetLabel = formatResetCountdown(weeklyResetInSec);
   const formattedAiCredits = aiCreditsBalance !== null ? aiCreditsBalance.toLocaleString('en-US') : null;
 
-  const subagentSteps = steps.filter(s => s && (s.isSidechain || (s.agentId && s.agentId !== 'parent')));
-  const dualTtl = computeDualTtlState(steps, { nowMs, subagentSteps });
-  const prefixDiff = computePrefixMutationDiff(steps);
   const effectiveTtlSec = dualTtl.mainTtlTier === '1h' ? dualTtl.mainTtlRemainingSec : cacheTtlRemainingSec;
   const costGate = evaluateColdSessionCostGate({
     ttlRemainingSec: effectiveTtlSec,
@@ -513,7 +906,11 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
       nextTurnLikelyWarm,
       dualTtl,
       prefixDiff,
-      costGate
+      costGate,
+      modelPools: Array.from(poolsResult.modelCachePools.values()),
+      standbyCache: poolsResult.standbyCache,
+      routerThrash: thrashResult,
+      preSwitchCompactionAdvice: thrashResult.preSwitchCompactionAdvice || ''
     },
     forecast: {
       nextTurnHighSprintPct,

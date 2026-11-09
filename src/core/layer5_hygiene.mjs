@@ -87,9 +87,20 @@ export function evaluateSmartFileReReads(steps = []) {
           const canon = canonicalizePath(targetFile);
           latestTouchByPath.set(canon, idx);
           if (READ_TOOLS.has(name)) {
-            readEntries.push({ canon, rawPath: targetFile, callOrder: cIdx });
+            const startLine = Number(args.StartLine ?? args.start_line ?? args.startLine ?? args.offset);
+            const endLine = Number(args.EndLine ?? args.end_line ?? args.endLine ?? args.limit);
+            const hasLineRange = Number.isInteger(startLine) && startLine > 0;
+            const readObj = {
+              canon,
+              rawPath: targetFile,
+              callOrder: cIdx,
+              startLine: hasLineRange ? startLine : null,
+              endLine: Number.isInteger(endLine) && endLine > 0 ? endLine : null,
+              hasLineRange
+            };
+            readEntries.push(readObj);
             if (!readsByPath.has(canon)) readsByPath.set(canon, []);
-            readsByPath.get(canon).push({ idx, rawPath: targetFile, callOrder: cIdx });
+            readsByPath.get(canon).push({ idx, ...readObj });
           } else if (EDIT_TOOLS.has(name)) {
             editedCanonPaths.add(canon);
           }
@@ -158,11 +169,19 @@ export function evaluateSmartFileReReads(steps = []) {
         }
       }
 
+      const areDisjointRanges = Boolean(
+        first.hasLineRange && second.hasLineRange &&
+        ((first.endLine && second.startLine > first.endLine) ||
+         (second.endLine && first.startLine > second.endLine))
+      );
+
       const exemptionReason = hasCheckpointBetween
         ? 'CHECKPOINT'
         : (hasFileEditBetween
             ? 'FILE_EDIT'
-            : (hasRunCommandBetween ? 'RUN_COMMAND' : null));
+            : (hasRunCommandBetween
+                ? 'RUN_COMMAND'
+                : (areDisjointRanges ? 'DISJOINT_LINE_RANGE' : null)));
 
       if (exemptionReason) {
         exemptedReReads.push({
@@ -397,7 +416,7 @@ export function promoteRuleWithAttentionZone(targetFileOrWorkspace, ruleText, {
   maxLines = MEMORY_MD_TRUNCATION_THRESHOLD_LINES,
   writeToDisk = true
 } = {}) {
-  const cleanRule = String(ruleText || '').trim();
+  const cleanRule = String(ruleText || '').replace(/<\/?USER_REQUEST>/gi, '').trim();
   if (!cleanRule) {
     return { success: false, error: 'Rule text cannot be empty' };
   }

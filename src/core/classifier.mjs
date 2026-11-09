@@ -34,6 +34,7 @@ import {
   isCompactionRelevant
 } from './prompt_rubric.mjs';
 import { auditMcpPrefixBloat } from './baseline.mjs';
+import { buildActionQueue, formatActionQueueAnsi } from './action_queue.mjs';
 import {
   CORTEX_STEP_TYPE_CHECKPOINT,
   MEMORY_MD_TRUNCATION_THRESHOLD_LINES,
@@ -58,7 +59,9 @@ export {
   computeAttentionZoneInsertionIndex,
   auditRuleFileAttentionAndLineLimit,
   promoteRuleWithAttentionZone,
-  auditMcpPrefixBloat
+  auditMcpPrefixBloat,
+  buildActionQueue,
+  formatActionQueueAnsi
 };
 
 /**
@@ -257,7 +260,8 @@ export function rankRiskiestCells(cells = [], { totalActiveTokens = 0, safeLimit
       riskScore,
       riskReason,
       actionType,
-      actionLabel: '[Re-Anchor / Prune]'
+      actionLabel: '[Re-Anchor / Prune]',
+      specificActionLabel: actionType === 'REANCHOR' ? '[Re-Anchor Cell to Handoff]' : '[Prune Stale Tool Outputs]'
     });
   }
 
@@ -426,7 +430,7 @@ export function evaluateHistoryBarState({
     state: 'CACHED_WARM',
     domState: 'cached-warm',
     label: 'Cached History \u2014 95% Discounted',
-    colorHex: '#0d9488'
+    colorHex: '#8b5cf6'
   };
 }
 
@@ -1037,10 +1041,11 @@ export function classifyHorizon(rawSteps, options = {}) {
   for (const s of steps) {
     if (s.source === 'USER_EXPLICIT' || s.type === 'USER_INPUT') {
       const rawTxt = String(s.content || '').trim();
-      const lower = rawTxt.toLowerCase();
+      const cleanTxt = rawTxt.replace(/<\/?USER_REQUEST>/gi, '').trim();
+      const lower = cleanTxt.toLowerCase();
       if (/\b(no[, ]|don't|do not|instead|wrong|looks the same|shouldn't|broken|still not)\b/.test(lower)) {
         correctionCount++;
-        if (rawTxt) userCorrectionTexts.push(rawTxt.slice(0, 100));
+        if (cleanTxt) userCorrectionTexts.push(cleanTxt.slice(0, 100));
       }
     }
   }
@@ -1185,7 +1190,10 @@ export function classifyHorizon(rawSteps, options = {}) {
     stdinQuota,
     genMetadata: options.genMetadata || null,
     aiCreditOveragesEnabled,
-    cacheDir
+    cacheDir,
+    reclaimableTokens: sludgeTokens || 0,
+    sludgeTokens: sludgeTokens || 0,
+    isAutoMode: Boolean(activeEffortProfile?.tier === 'STANDARD' || activeEffortProfile?.shortLabel === 'Auto')
   });
 
   // Detect pending checklist items in task.md (or recent task writes) for Cascade >50k checkpointer arming
@@ -1376,6 +1384,16 @@ export function classifyHorizon(rawSteps, options = {}) {
     safeLimit,
     cellSizeTokens: effectiveCellSize
   });
+  const actionQueue = buildActionQueue({
+    metrics: { totalInputTokens: totalActiveTokens, totalTurns },
+    brainSignals,
+    quota,
+    topRiskyCells,
+    window: { totalActiveTokens },
+    turns: totalTurns,
+    baseline: { mcpAudit },
+    hostHealth: options.hostHealth || null
+  });
 
   return {
     schemaVersion: '1.1.0',
@@ -1384,6 +1402,7 @@ export function classifyHorizon(rawSteps, options = {}) {
     surfaceTag,
     workloadMode,
     topRiskyCells,
+    actionQueue,
     brainDir: brainDir || null,
     logTierUsed,
     logFilePath,

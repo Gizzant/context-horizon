@@ -1,6 +1,6 @@
 {
   "name": "context-horizon",
-  "version": "3.1.1",
+  "version": "3.2.0",
   "description": "htop for AI Coding Agents: 40-cell context window visualizer, $/turn Sludge Tax auditor, and <15ms PreInvocation Flight Check router for Google Antigravity.",
   "type": "module",
   "bin": {

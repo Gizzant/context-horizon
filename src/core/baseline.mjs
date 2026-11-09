@@ -165,11 +165,8 @@ export function parseMcpConfigFiles(workspaceDir = '', homeDir = getHomeDir()) {
         if (rawCfg.disabled === true || rawCfg.enabled === false) continue;
 
         const modeRaw = String(rawCfg.loading || rawCfg.loadingMode || rawCfg.loadMode || rawCfg.mode || '').toLowerCase().trim();
-        const isLazy =
-          modeRaw === 'lazy' ||
-          rawCfg.lazy === true ||
-          rawCfg.eager === false;
-        const loadingMode = isLazy ? 'lazy' : 'eager';
+        const isExplicitEager = modeRaw === 'eager' || rawCfg.eager === true;
+        const loadingMode = isExplicitEager ? 'eager' : 'lazy';
 
         const inlineTools = Array.isArray(rawCfg.tools)
           ? rawCfg.tools

@@ -524,7 +524,7 @@ export function readSessionGenMetadataSync(dbPath, DatabaseSyncClass = null) {
     if (!tables || tables.length === 0) return null;
 
     const rows = db.prepare(
-      'SELECT input_tokens, cache_read_tokens, output_tokens, model, created_at FROM gen_metadata ORDER BY rowid DESC LIMIT 2'
+      'SELECT input_tokens, cache_read_tokens, output_tokens, model, created_at FROM gen_metadata ORDER BY rowid DESC LIMIT 10'
     ).all();
     if (!rows || rows.length === 0) return null;
 
@@ -556,6 +556,15 @@ export function readSessionGenMetadataSync(dbPath, DatabaseSyncClass = null) {
       }
     }
 
+    const recentTurns = rows.slice().reverse().map((r, idx) => ({
+      stepIndex: idx,
+      inputTokens: Number(r.input_tokens || 0),
+      cacheReadTokens: Number(r.cache_read_tokens || 0),
+      outputTokens: Number(r.output_tokens || 0),
+      model: r.model || null,
+      createdAt: r.created_at || null
+    }));
+
     const result = {
       inputTokens,
       cacheReadTokens,
@@ -566,6 +575,7 @@ export function readSessionGenMetadataSync(dbPath, DatabaseSyncClass = null) {
       createdAt: row.created_at || null,
       prefixBustDetected,
       prefixBustDeltaSec,
+      recentTurns,
       // Attribute a bust to a model switch when gen_metadata shows one.
       prefixBustCause: (prefixBustDetected && modelChanged)
         ? { cause: 'model_switch', from: prevRow.model, to: row.model }

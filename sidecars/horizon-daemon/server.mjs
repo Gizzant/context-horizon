@@ -101,7 +101,7 @@ async function refreshLiveState(force = false, explicitConvId = null) {
         useNativeCeiling: true,
         stdinData: targetConvId ? { conversation_id: targetConvId } : null
       }),
-      inspectHostProcesses({ force: false })
+      inspectHostProcesses({ force: false }).catch(() => null)
     ]);
     if (resLive && resLive.state) {
       resLive.state.pinnedConversationId = pinnedConversationId;
@@ -120,18 +120,19 @@ async function refreshLiveState(force = false, explicitConvId = null) {
     try {
       cachedLiveState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
       if (!cachedLiveState.hostHealth) {
-        cachedLiveState.hostHealth = await inspectHostProcesses({ force: false });
+        cachedLiveState.hostHealth = await inspectHostProcesses({ force: false }).catch(() => null);
       }
       return cachedLiveState;
     } catch {}
   }
 
-  // Fallback to FlightCheck session sidecar if present
+  // Fallback to FlightCheck session sidecar if present (strictly real UUID sessions, never synthetic test fixtures)
   const fcSessionsDir = path.join(getHomeDir(), '.gemini', 'flightcheck', 'sessions');
   if (fs.existsSync(fcSessionsDir)) {
     try {
+      const uuidSidecarRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.sidecar\.json$/i;
       const files = fs.readdirSync(fcSessionsDir)
-        .filter(f => f.endsWith('.sidecar.json'))
+        .filter(f => uuidSidecarRe.test(f))
         .map(f => ({ name: f, time: fs.statSync(path.join(fcSessionsDir, f)).mtimeMs }))
         .sort((a, b) => b.time - a.time);
       if (files.length > 0) {
