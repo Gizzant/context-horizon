@@ -115,6 +115,9 @@ export function createDefaultSidecar(conversationId = '', workspacePath = '') {
   };
 }
 
+const _sidecarMemCache = new Map();
+const SIDECAR_CACHE_TTL_MS = 250;
+
 /**
  * Reads sidecar JSON synchronously with <2ms guaranteed SLA.
  * Falls back to default state on ENOENT or parse error.
@@ -122,15 +125,21 @@ export function createDefaultSidecar(conversationId = '', workspacePath = '') {
 export function readSidecarSync(conversationId, baseDirOverride = null) {
   if (!conversationId) return createDefaultSidecar();
   const filePath = getSidecarPath(conversationId, baseDirOverride);
+  const now = Date.now();
+  const cached = _sidecarMemCache.get(filePath);
+  if (cached && (now - cached.timeMs) < SIDECAR_CACHE_TTL_MS) {
+    return JSON.parse(JSON.stringify(cached.data));
+  }
 
   try {
     const raw = fs.readFileSync(filePath, 'utf8');
     const parsed = JSON.parse(raw);
     if (parsed && typeof parsed === 'object') {
-      return parsed;
+      _sidecarMemCache.set(filePath, { timeMs: now, data: parsed });
+      return JSON.parse(JSON.stringify(parsed));
     }
   } catch {
-    // Return default state on ENOENT, EACCES, or corrupt JSON
+    _sidecarMemCache.delete(filePath);
   }
 
   return createDefaultSidecar(conversationId);
@@ -180,10 +189,12 @@ export function writeJsonAtomicSync(filePath, dataObj) {
   try {
     fs.writeFileSync(tmpPath, jsonStr, 'utf8');
     renameWithBackoffSync(tmpPath, filePath, jsonStr);
+    _sidecarMemCache.set(filePath, { timeMs: Date.now(), data: JSON.parse(jsonStr) });
     return dataObj;
   } catch {
     try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch {}
     fs.writeFileSync(filePath, jsonStr, 'utf8');
+    _sidecarMemCache.set(filePath, { timeMs: Date.now(), data: JSON.parse(jsonStr) });
     return dataObj;
   }
 }

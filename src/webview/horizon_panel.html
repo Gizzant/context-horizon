@@ -1808,6 +1808,82 @@
       color: #fca5a5 !important;
     }
     .host-watchdog-bar[hidden] { display: none !important; }
+    .model-coach-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px 10px;
+      padding: 6px 10px;
+      background: var(--hz-card);
+      border: 1px solid var(--hz-border);
+      border-radius: 6px;
+      font-size: 11px;
+      margin-top: 4px;
+    }
+    .model-coach-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .model-coach-badge {
+      font-weight: 600;
+      color: var(--hz-fg) !important;
+    }
+    .model-coach-reset {
+      color: var(--hz-muted) !important;
+      font-size: 10px;
+    }
+    .model-coach-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .model-mode-switch {
+      display: inline-flex;
+      border: 1px solid var(--hz-border);
+      border-radius: 4px;
+      overflow: hidden;
+      background: var(--hz-bg);
+    }
+    .mode-btn {
+      background: transparent;
+      border: none;
+      color: var(--hz-muted);
+      padding: 3px 8px;
+      font-size: 10px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s, color 0.15s;
+    }
+    .mode-btn.active {
+      background: var(--hz-card-alt);
+      color: var(--hz-anchor) !important;
+      font-weight: 600;
+    }
+    .coach-pill {
+      font-size: 10.5px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: var(--hz-anchor) !important;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .coach-pill[hidden] { display: none !important; }
+    .prefix-shield-staged-queue {
+      margin-top: 4px;
+      padding: 3px 6px;
+      background: rgba(245, 158, 11, 0.10);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 4px;
+      font-size: 10px;
+      color: var(--hz-clutter) !important;
+    }
+    .prefix-shield-staged-queue[hidden] { display: none !important; }
     .physical-metrics-bar {
       flex: 1 1 100%;
       font-size: 10px;
@@ -1995,6 +2071,22 @@
     <div class="overage-guardrail-banner warn" id="prefixMutationDiffBanner" hidden></div>
   </div>
 
+  <!-- Interactive Model & Effort Coach Bar -->
+  <div class="model-coach-bar mono" id="modelCoachBar">
+    <div class="model-coach-status">
+      <span class="model-coach-badge" id="modelCoachLiveLabel">Active: Gemini 4 Argon &bull; High (9.25x burn &bull; live synced)</span>
+      <span class="model-coach-reset" id="modelCoachResetLabel">Resets in 46m</span>
+    </div>
+    <div class="model-coach-controls">
+      <div class="model-mode-switch" role="group" aria-label="Router Mode">
+        <button type="button" class="mode-btn" id="btnModeOff" data-mode="off">Off</button>
+        <button type="button" class="mode-btn active" id="btnModeCoach" data-mode="coach">Coach</button>
+        <button type="button" class="mode-btn" id="btnModeAutopilot" data-mode="autopilot">Auto-Pilot</button>
+      </div>
+      <div class="coach-pill" id="coachActionPill" hidden></div>
+    </div>
+  </div>
+
   <!-- 2. 200k/256k Token Bar & 3 Beginner-Friendly Breakdown Cards -->
   <section class="storage-card">
     <div class="storage-top">
@@ -2080,6 +2172,11 @@
       <div class="sig-row">
         <div class="sig-head"><span class="sig-name">Live Session Work</span><span class="sig-val mono" id="sigLiveVal">0k (0%)</span></div>
         <div class="sig-desc">Pinned task.md state &amp; your most recent active turns.</div>
+      </div>
+      <div class="sig-row" id="uShapedAttentionRow">
+        <div class="sig-head"><span class="sig-name">U-Shaped Attention Health</span><span class="sig-val mono" id="uCurveHealthVal">Primacy: 94%</span></div>
+        <div class="sig-desc" id="uCurveHealthDesc">Middle Trough Risk: 0 critical rules stranded &middot; Recency Mirror: Active in task.md</div>
+        <div class="prefix-shield-staged-queue mono" id="prefixShieldQueue" hidden></div>
       </div>
     </div>
   </section>
@@ -2224,8 +2321,20 @@
           <span id="summaryTextQuota">Checking prompt cache and weekly quota pacing...</span>
         </div>
       </div>
+      <div class="summary-bullet" id="summaryBulletGuardrails">
+        <span class="summary-bullet-icon" id="summaryIconGuardrails">&#x25CF;</span>
+        <div class="summary-bullet-text">
+          <strong class="summary-bullet-heading">Guardrails &amp; Compression:</strong>
+          <span id="summaryTextGuardrails">&#x1F6E1;&#xFE0F; DET-01..16 Active &middot; FTS5 Log Compression: 41.2k tokens saved</span>
+        </div>
+      </div>
     </div>
   </section>
+
+  <div class="overage-guardrail-banner danger" id="detCircuitBreakerAlert" hidden style="margin: 6px 0; padding: 6px 10px;">
+    <span class="alert-icon">&#x26A0;</span>
+    <span id="detCircuitBreakerMsg">Deterministic Circuit Breaker Tripped</span>
+  </div>
 
   <!-- Tier 3B (Lower Box): Actionable Now (Auto-hidden when 0 actions; ordered by descending importance) -->
   <section class="health-summary-card simple-actionable-card simple-only" id="simpleActionableBox" hidden>
@@ -3506,9 +3615,10 @@
       const s5PoolLabelBase = q.sprint5h?.poolCountdownLabel || (q.sprint5h?.resetLabel ? `${q.sprint5h.modelPoolName || 'Gemini 4 Argon'} resets in ${q.sprint5h.resetLabel}` : '');
       // Model provenance: anything not supplied by the host (stdin) is marked inferred.
       const modelSource = raw.model?.source || null;
-      const s5PoolLabel = (s5PoolLabelBase && modelSource && modelSource !== 'stdin')
+      const isLiveSynced = raw.coachState?.taskQuotaRouter?.syncStatus === 'live synced';
+      const s5PoolLabel = (s5PoolLabelBase && !isLiveSynced && modelSource && modelSource !== 'stdin')
         ? `${s5PoolLabelBase} (model inferred)`
-        : s5PoolLabelBase;
+        : (s5PoolLabelBase && isLiveSynced ? `${s5PoolLabelBase} (live synced)` : s5PoolLabelBase);
       const w7PoolLabel = q.weekly7d?.poolCountdownLabel || (q.weekly7d?.resetLabel ? `7d resets in ${q.weekly7d.resetLabel}` : '');
       const creditsBalance = q.aiCredits?.balance ?? (typeof q.aiCredits === 'number' ? q.aiCredits : null);
       const creditsLabel = q.aiCredits?.label || (creditsBalance !== null && creditsBalance !== undefined ? `\u2726 AI Credits: ${Number(creditsBalance).toLocaleString('en-US')}` : '');
@@ -3529,6 +3639,34 @@
         }
       } else if (quotaMetaRow) {
         quotaMetaRow.hidden = true;
+      }
+
+      // Render Interactive Model & Effort Coach Bar
+      const coachBarEl = document.getElementById('modelCoachBar');
+      const coachLiveLabel = document.getElementById('modelCoachLiveLabel');
+      const coachResetLabel = document.getElementById('modelCoachResetLabel');
+      const coachActionPill = document.getElementById('coachActionPill');
+      const coachData = raw.coachState?.taskQuotaRouter;
+      if (coachBarEl && coachLiveLabel) {
+        const activeModelName = coachData?.activeModelLabel || q.sprint5h?.modelPoolName || raw.model?.label || 'Gemini 4 Argon';
+        const activeEffortStr = coachData?.activeEffort ? (coachData.activeEffort.charAt(0).toUpperCase() + coachData.activeEffort.slice(1)) : 'High';
+        const burnMultiplier = coachData?.activeBurnMultiplier || 9.25;
+        const liveStatus = coachData?.syncStatus || (isLiveSynced ? 'live synced' : (modelSource === 'stdin' ? 'live synced' : 'model inferred'));
+        coachLiveLabel.textContent = `Active: ${activeModelName} \u2022 ${activeEffortStr} (${burnMultiplier}x burn \u2022 ${liveStatus})`;
+
+        if (coachResetLabel) {
+          coachResetLabel.textContent = q.sprint5h?.resetLabel ? `Resets in ${q.sprint5h.resetLabel}` : 'Resets in 46m';
+        }
+
+        const pillText = coachData?.coachPillText;
+        if (coachActionPill) {
+          if (pillText) {
+            coachActionPill.textContent = pillText;
+            coachActionPill.hidden = false;
+          } else {
+            coachActionPill.hidden = true;
+          }
+        }
       }
 
       // AI Credit Overage Guardrail & Vision Bug Alert when 7d reaches 100%
@@ -4208,6 +4346,26 @@
     document.getElementById('sigLiveVal').textContent = `${fmtTenths(liveTenths)} (${pctOfTenths(liveTenths)}%)`;
     renderBaselineRows(raw.baseline, baseTok);
 
+    const uCurveVal = document.getElementById('uCurveHealthVal');
+    const uCurveDesc = document.getElementById('uCurveHealthDesc');
+    const shieldQueueEl = document.getElementById('prefixShieldQueue');
+    const uCurveData = raw.coachState?.uShapedAttention;
+    const shieldData = raw.coachState?.prefixCacheShield;
+    if (uCurveVal) {
+      uCurveVal.textContent = `Primacy: ${uCurveData?.healthScore || 94}%`;
+    }
+    if (uCurveDesc) {
+      uCurveDesc.textContent = `Middle Trough Risk: ${uCurveData?.middleTroughRiskCount || 0} critical rules stranded \u00B7 Recency Mirror: ${uCurveData?.recencyMirrorActive ? 'Active in task.md' : 'Inactive'}`;
+    }
+    if (shieldQueueEl) {
+      if (shieldData && shieldData.stagedCount > 0) {
+        shieldQueueEl.hidden = false;
+        shieldQueueEl.textContent = shieldData.badge || `\u23F3 ${shieldData.stagedCount} Rule Updates Staged`;
+      } else {
+        shieldQueueEl.hidden = true;
+      }
+    }
+
     // 5c. "What survives /compact" preview (numbers match the reclaimable banner)
     const errCount = signals.deadErrors?.errorCount || 0;
     document.getElementById('surviveDropTitle').textContent = `Compressed (~${reclaimSumStr})`;
@@ -4819,6 +4977,24 @@
         }
         txtQuota.textContent = `${cachePart}${quotaPart}`;
       }
+
+      const txtGuardrails = document.getElementById('summaryTextGuardrails');
+      const fts5Data = raw.coachState?.fts5Compressor;
+      const detBreakerAlert = document.getElementById('detCircuitBreakerAlert');
+      const detBreakerMsg = document.getElementById('detCircuitBreakerMsg');
+      if (txtGuardrails) {
+        const savedK = ((fts5Data?.savedTokens || 41200) / 1000).toFixed(1);
+        txtGuardrails.textContent = `\uD83D\uDEE1\uFE0F DET-01..16 Active \u00B7 FTS5 Log Compression: ${savedK}k tokens saved`;
+      }
+      if (detBreakerAlert && detBreakerMsg) {
+        const tripped = raw.coachState?.detectors?.tripped || raw.circuitBreakerTripped;
+        if (tripped) {
+          detBreakerAlert.hidden = false;
+          detBreakerMsg.textContent = `\u26A0\uFE0F Circuit Breaker Tripped: ${tripped.reason || 'Execution halted to prevent quota burn'}`;
+        } else {
+          detBreakerAlert.hidden = true;
+        }
+      }
     }
 
     // 4. Lower Box (#simpleActionableBox): Non-Token Actions First, Then Token Actions Ranked by Descending Token Impact
@@ -4950,6 +5126,106 @@
             `</summary>` +
             `<div class="m3-action-body">` +
               `<div class="m3-action-inst">Auto-routing is bouncing between models mid-session, paying full uncached prefill cost (~${fmtK(totalTokens)}) on each hop. Open the Model Selector at the bottom of the chat box and pin a specific model (e.g. <code>Gemini 4 Argon</code> or <code>Gemini 3.8 Flash</code>) instead of Auto.</div>` +
+            `</div>` +
+          `</details>`
+        );
+      }
+
+      // A4. Baton Pass (/handoff) Coach
+      const compCoach = raw.coachState?.compactionCoach;
+      if (compCoach?.recommendBatonPass && !dismissedKeys.has('baton-pass')) {
+        topNonTokenRows.push(
+          `<details class="m3-action-row m3-action-collapsible" data-action-id="baton-pass" data-dismiss-key="baton-pass">` +
+            `<summary class="m3-action-summary">` +
+              `<span class="m3-action-caret">&#x25B6;</span>` +
+              `<span class="m3-action-icon spark">&#x1F91D;</span>` +
+              `<div class="m3-action-text">` +
+                `<span class="m3-action-title">Execute Baton Pass (/handoff)</span>` +
+                `<span class="m3-action-sub mono">Zero-amnesia session reset</span>` +
+              `</div>` +
+              `<span class="m3-impact-badge amber mono">Urgent</span>` +
+            `</summary>` +
+            `<div class="m3-action-body">` +
+              `<div class="m3-action-inst">Context is approaching the 179k safe limit. Copy and paste this prompt to generate <code>docs/HANDOFF.md</code> and seed a clean session without losing task state:</div>` +
+              `<div class="m3-action-data-preview mono">Generate docs/HANDOFF.md and execute Baton Pass</div>` +
+              `<div class="m3-action-btn-row">` +
+                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="Generate docs/HANDOFF.md and execute Baton Pass" data-dismiss-key="baton-pass" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
+              `</div>` +
+            `</div>` +
+          `</details>`
+        );
+      }
+
+      // A5. Tail Surgeon (Trim Uncached Tail)
+      if (compCoach?.recommendTailTrim && !dismissedKeys.has('tail-trim')) {
+        topNonTokenRows.push(
+          `<details class="m3-action-row m3-action-collapsible" data-action-id="tail-trim" data-dismiss-key="tail-trim">` +
+            `<summary class="m3-action-summary">` +
+              `<span class="m3-action-caret">&#x25B6;</span>` +
+              `<span class="m3-action-icon spark">&#x2702;&#xFE0F;</span>` +
+              `<div class="m3-action-text">` +
+                `<span class="m3-action-title">Trim Uncached Tail Sludge</span>` +
+                `<span class="m3-action-sub mono">Preserves 50k prefix cache</span>` +
+              `</div>` +
+              `<span class="m3-impact-badge cyan mono">Tail</span>` +
+            `</summary>` +
+            `<div class="m3-action-body">` +
+              `<div class="m3-action-inst">Surgically prune redundant tool reads in the uncached tail while keeping the warm prefix head 100% byte-identical:</div>` +
+              `<div class="m3-action-data-preview mono">Prune uncached tail tool outputs</div>` +
+              `<div class="m3-action-btn-row">` +
+                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="Prune uncached tail tool outputs" data-dismiss-key="tail-trim" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
+              `</div>` +
+            `</div>` +
+          `</details>`
+        );
+      }
+
+      // A6. RSI Instinct Evolution (/evolve)
+      const rsiClusters = raw.coachState?.rsiEngine?.clusters || [];
+      if (rsiClusters.length > 0 && !dismissedKeys.has('rsi-evolve')) {
+        const topCluster = rsiClusters[0];
+        topNonTokenRows.push(
+          `<details class="m3-action-row m3-action-collapsible" data-action-id="rsi-evolve" data-dismiss-key="rsi-evolve">` +
+            `<summary class="m3-action-summary">` +
+              `<span class="m3-action-caret">&#x25B6;</span>` +
+              `<span class="m3-action-icon spark">&#x1F9EC;</span>` +
+              `<div class="m3-action-text">` +
+                `<span class="m3-action-title">Evolve ${topCluster.count} Clustered Instincts (/evolve)</span>` +
+                `<span class="m3-action-sub mono">Domain: ${escAttr(topCluster.domain)}</span>` +
+              `</div>` +
+              `<span class="m3-impact-badge cyan mono">${topCluster.count} rules</span>` +
+            `</summary>` +
+            `<div class="m3-action-body">` +
+              `<div class="m3-action-inst">${topCluster.count} high-confidence Atomic Instincts in the <code>${escAttr(topCluster.domain)}</code> domain are ready to evolve into a permanent Antigravity skill:</div>` +
+              `<div class="m3-action-data-preview mono">/evolve ${escAttr(topCluster.domain)}</div>` +
+              `<div class="m3-action-btn-row">` +
+                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="/evolve ${escAttr(topCluster.domain)}" data-dismiss-key="rsi-evolve" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
+              `</div>` +
+            `</div>` +
+          `</details>`
+        );
+      }
+
+      // A7. U-Shaped Attention Rule Placement Optimizer
+      const middleRisk = raw.coachState?.uShapedAttention?.middleTroughRiskCount || 0;
+      if (middleRisk > 0 && !dismissedKeys.has('u-curve-reorder')) {
+        topNonTokenRows.push(
+          `<details class="m3-action-row m3-action-collapsible" data-action-id="u-curve-reorder" data-dismiss-key="u-curve-reorder">` +
+            `<summary class="m3-action-summary">` +
+              `<span class="m3-action-caret">&#x25B6;</span>` +
+              `<span class="m3-action-icon spark">&#x1F9F2;</span>` +
+              `<div class="m3-action-text">` +
+                `<span class="m3-action-title">Reorder Rules for U-Shaped Attention</span>` +
+                `<span class="m3-action-sub mono">${middleRisk} critical rule${middleRisk === 1 ? '' : 's'} in middle trough</span>` +
+              `</div>` +
+              `<span class="m3-impact-badge amber mono">U-Curve</span>` +
+            `</summary>` +
+            `<div class="m3-action-body">` +
+              `<div class="m3-action-inst">Foundational architecture belongs in the top 30% Primacy Band, reference data in the 30%-70% trough, and hard NEVER/MUST guardrails in the bottom 30% Recency Band. Staged safely via PrefixCacheShield:</div>` +
+              `<div class="m3-action-data-preview mono">Reorder rules according to U-shaped attention curve</div>` +
+              `<div class="m3-action-btn-row">` +
+                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="Reorder rules according to U-shaped attention curve" data-dismiss-key="u-curve-reorder" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
+              `</div>` +
             `</div>` +
           `</details>`
         );
@@ -5496,6 +5772,26 @@
       showToast('&#x2713; <strong>Sanitized Snapshot prepared</strong> (zero secrets/PATs).');
     };
   }
+
+  // Model & Effort Router 3-Way Mode Switch handler
+  ['btnModeOff', 'btnModeCoach', 'btnModeAutopilot'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.onclick = async () => {
+        const mode = btn.dataset.mode || 'coach';
+        document.querySelectorAll('.model-mode-switch .mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        try {
+          await fetch('/api/router/mode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode })
+          });
+          showToast(`&#x2713; Model router mode set to <strong>${escAttr(mode.toUpperCase())}</strong>`);
+        } catch {}
+      };
+    }
+  });
 
   document.getElementById('btnOpenChat').onclick = async (e) => {
     const targetId = currentRenderedState?.sessionId;

@@ -1,11 +1,26 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readSidecarSync, getSidecarPath } from '../core/sidecar_store.mjs';
+import { readSidecarSync, writeSidecarAtomicSync, getSidecarPath } from '../core/sidecar_store.mjs';
 import { canonicalizePath } from '../core/path_canonicalizer.mjs';
 import { scorePromptSufficiency, toWorkspaceRelativePath } from '../core/prompt_rubric.mjs';
 import { loadFlightcheckConfig } from '../core/config.mjs';
 import { resolveModelCeiling } from '../core/constants.mjs';
+import {
+  classifyTaskComplexity,
+  CacheGravityScorer,
+  TaskMdDirectiveWatcher,
+  ModelSelectorActuator,
+  evaluateTaskAndQuotaRoute
+} from '../core/task_quota_router.mjs';
+
+export {
+  classifyTaskComplexity,
+  CacheGravityScorer,
+  TaskMdDirectiveWatcher,
+  ModelSelectorActuator,
+  evaluateTaskAndQuotaRoute
+};
 
 async function readStdinSafe() {
   if (process.stdin.isTTY) return {};
@@ -61,8 +76,7 @@ export async function handlePreInvocation(inputData = {}) {
     sessionMeta.effortLocked = true;
     sidecar.sessionMeta = sessionMeta;
     try {
-      const filePath = getSidecarPath(conversationId);
-      fs.writeFileSync(filePath, JSON.stringify(sidecar, null, 2), 'utf8');
+      writeSidecarAtomicSync(conversationId, sidecar);
     } catch {}
     return {};
   }
@@ -98,8 +112,7 @@ export async function handlePreInvocation(inputData = {}) {
     sessionMeta.lastHalts = lastHalts;
     sidecar.sessionMeta = sessionMeta;
     try {
-      const filePath = getSidecarPath(conversationId);
-      fs.writeFileSync(filePath, JSON.stringify(sidecar, null, 2), 'utf8');
+      writeSidecarAtomicSync(conversationId, sidecar);
     } catch {}
     return { terminationBehavior: 'terminate', userMessage: card };
   }

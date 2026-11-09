@@ -7,7 +7,9 @@
     "context-horizon": "./src/cli/init.mjs",
     "ctxtop": "./src/cli/init.mjs",
     "agy-horizon": "./src/cli/init.mjs",
-    "agy-horizon-flightcheck": "./src/cli/init.mjs"
+    "agy-horizon-flightcheck": "./src/cli/init.mjs",
+    "agy-horizon-exec": "./src/cli/init.mjs",
+    "agy-log-search": "./src/cli/init.mjs"
   },
   "main": "./src/cli/horizon_hud.mjs",
   "files": [

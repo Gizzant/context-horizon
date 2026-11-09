@@ -7,6 +7,7 @@ import { runDemoShowcase } from './horizon_hud.mjs';
 import { startServer } from '../../sidecars/horizon-daemon/server.mjs';
 import { runPostmortem, printPostmortemSummary } from './postmortem.mjs';
 import { runDoctor, parseDoctorArgs } from './doctor.mjs';
+import { compressCliOutputFts5, searchToolLogsFts5 } from '../core/fts5_output_compressor.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(__dirname, '../..');
@@ -181,15 +182,47 @@ const isMain = process.argv[1] && (
   process.argv[1].endsWith('context-horizon') ||
   process.argv[1].endsWith('ctxtop') ||
   process.argv[1].endsWith('agy-horizon') ||
-  process.argv[1].endsWith('agy-horizon-flightcheck')
+  process.argv[1].endsWith('agy-horizon-flightcheck') ||
+  process.argv[1].endsWith('agy-horizon-exec') ||
+  process.argv[1].endsWith('agy-log-search')
 );
 
 if (isMain) {
+  const binName = path.basename(process.argv[1] || '');
   const args = process.argv.slice(2);
-  const cmd = args[0] || '--demo';
+  const cmd = binName.includes('agy-horizon-exec')
+    ? 'exec'
+    : (binName.includes('agy-log-search') ? 'log-search' : (args[0] || '--demo'));
 
   if (args.includes('--help') || args.includes('-h')) {
     printHelp();
+  } else if (cmd === 'log-search' || cmd === 'agy-log-search') {
+    const offset = (args[0] === 'log-search' || args[0] === 'agy-log-search') ? 1 : 0;
+    const turnId = args[offset] || '';
+    const keyword = args.slice(offset + 1).join(' ');
+    searchToolLogsFts5(null, { turnId, keyword }).then(res => {
+      for (const m of res.matchedLines) {
+        console.log(`[${m.turnId}:${m.lineNumber}] ${m.text}`);
+      }
+      process.exit(0);
+    });
+  } else if (cmd === 'exec' || cmd === 'agy-horizon-exec') {
+    const offset = (args[0] === 'exec' || args[0] === 'agy-horizon-exec') ? 1 : 0;
+    const execCmd = args.slice(offset).join(' ');
+    import('node:child_process').then(({ exec }) => {
+      exec(execCmd, { maxBuffer: 16 * 1024 * 1024 }, async (err, stdout, stderr) => {
+        const rawOutput = `${stdout || ''}${stderr ? `\n${stderr}` : ''}`;
+        const exitCode = err && typeof err.code === 'number' ? err.code : (err ? 1 : 0);
+        const comp = await compressCliOutputFts5({
+          command: execCmd,
+          exitCode,
+          rawOutput,
+          turnId: `turn-${Date.now()}`
+        });
+        process.stdout.write(comp.output + '\n');
+        process.exit(exitCode);
+      });
+    });
   } else if (cmd === 'init' || args.includes('--install')) {
     const dryRun = args.includes('--dry-run');
     const workspace = args.includes('--workspace');
