@@ -1,13 +1,16 @@
-name: Release Pipeline
+name: Release Pipeline (Manual Only)
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag to release (e.g. v3.3.0)'
+        required: true
+        default: 'v3.3.0'
 
 jobs:
   build-and-release:
-    name: Build & Publish GitHub Release
+    name: Build & Publish GitHub Release (Draft)
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -30,7 +33,7 @@ jobs:
       - name: Build Production Release Bundles (.zip, .tar.gz, .tgz, SHA256SUMS)
         run: npm run build:release
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release (Draft Only)
         uses: softprops/action-gh-release@v2
         with:
           files: |
@@ -39,5 +42,5 @@ jobs:
             dist/*.tgz
             dist/SHA256SUMS.txt
           generate_release_notes: true
-          draft: false
+          draft: true
           prerelease: false

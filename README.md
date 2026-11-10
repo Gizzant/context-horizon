@@ -10,7 +10,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Claude Code Edition](https://img.shields.io/badge/Claude_Code-cc--attention--horizon-blueviolet.svg)](https://github.com/Gizzant/cc-attention-horizon)
 
-[**Live Interactive Demo**](https://gizzant.github.io/context-horizon/) • [**Download Releases**](https://github.com/Gizzant/context-horizon/releases) • [**Quick Start**](#quick-start) • [**Cookbook & Recipes**](docs/COOKBOOK.md) • [**Claude Code Port**](https://github.com/Gizzant/cc-attention-horizon)
+[**Live Interactive Demo**](https://gizzant.github.io/context-horizon/) • [**Quick Start**](#quick-start) • [**Cookbook & Recipes**](docs/COOKBOOK.md) • [**Systems Architecture**](#systems-architecture--zero-trust-security)
 
 <br/>
 
@@ -20,26 +20,19 @@
 
 ---
 
-## ⚡ 1-Command Installation & Download Options
+## ⚡ Installation & Quick Start
 
-### Option A: Zero-Config CLI / Plugin Install (Recommended)
+### Local Plugin & Lifecycle Hooks Installation
 ```bash
-# Auto-install Antigravity plugin, lifecycle hooks, and CLI statusLine
-npx github:Gizzant/context-horizon init
+# Global install into Antigravity (~/.gemini/config/plugins/agy-horizon-flightcheck)
+node src/cli/init.mjs init
 
-# Or run live HUD directly without installing
-npx github:Gizzant/context-horizon
+# Workspace-local install (.agents/plugins/agy-horizon-flightcheck)
+node src/cli/init.mjs init --workspace
+
+# Run environment & hook health diagnostics
+node src/cli/init.mjs doctor
 ```
-
-### Option B: Direct GitHub Release Download
-Download the latest pre-packaged archives from [**GitHub Releases**](https://github.com/Gizzant/context-horizon/releases):
-- `agy-horizon-flightcheck-v3.3.0.zip` — Ready to unzip into `~/.gemini/config/plugins/agy-horizon-flightcheck` (includes self-resolving hooks)
-- `agy-horizon-flightcheck-v3.3.0.tar.gz` — POSIX tarball
-- `context-horizon-3.3.0.tgz` — Offline npm tarball
-- `SHA256SUMS.txt` — Verified cryptographic checksums
-
-### Looking for Claude Code?
-Check out [`cc-attention-horizon`](https://github.com/Gizzant/cc-attention-horizon) for Claude Code's native Mod SDK & Tier-2 hook cost governor.
 
 ---
 
