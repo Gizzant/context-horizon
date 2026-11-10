@@ -21,7 +21,9 @@ function getVersion() {
       const data = JSON.parse(fs.readFileSync(p, 'utf8'));
       if (data.version) return data.version;
     }
-  } catch {}
+  } catch (err) {
+    if (process.env.DEBUG) console.error('[init] getVersion fallback:', err);
+  }
   return '3.3.0';
 }
 const VERSION = getVersion();
@@ -76,8 +78,8 @@ export function installPlugin(options = {}) {
         try {
           fs.rmSync(legacyPluginDir, { recursive: true, force: true });
           console.log(`  \x1b[38;5;82m✓\x1b[0m Removed legacy duplicate plugin directory (~/.gemini/config/plugins/agy-horizon)`);
-        } catch {
-          console.log(`  \x1b[38;5;214m▲\x1b[0m Legacy directory in use; recommend manual deletion of ~/.gemini/config/plugins/agy-horizon`);
+        } catch (err) {
+          console.log(`  \x1b[38;5;214m▲\x1b[0m Legacy directory in use; recommend manual deletion of ~/.gemini/config/plugins/agy-horizon: ${err.message}`);
         }
       } else {
         console.log(`  \x1b[38;5;82m✓\x1b[0m [DRY RUN] Would remove legacy duplicate plugin directory (~/.gemini/config/plugins/agy-horizon)`);
@@ -133,8 +135,9 @@ export function installPlugin(options = {}) {
         if (!dryRun) {
           fs.writeFileSync(`${sPath}.bak`, JSON.stringify(settings, null, 2) + '\n', 'utf8');
         }
-      } catch {
+      } catch (err) {
         settings = {};
+        if (process.env.DEBUG) console.error(`[init] Failed parsing ${sPath}:`, err);
       }
     }
 
@@ -216,7 +219,9 @@ export function openBrowserUrl(url) {
       ? `cmd /c start "" "${url}"`
       : (process.platform === 'darwin' ? `open "${url}"` : `xdg-open "${url}"`);
     exec(cmd, () => {});
-  } catch {}
+  } catch (err) {
+    if (process.env.DEBUG) console.error('[init] openBrowserUrl fallback:', err);
+  }
 }
 
 export async function runLiveOrDemoCli(options = {}) {
