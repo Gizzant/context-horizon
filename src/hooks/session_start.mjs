@@ -9,24 +9,40 @@ import { canonicalizePath } from '../core/path_canonicalizer.mjs';
 import { loadFlightcheckConfig } from '../core/config.mjs';
 import { resolveModelCeiling } from '../core/constants.mjs';
 
-async function readStdinSafe() {
-  if (process.stdin.isTTY) return {};
+async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {}) {
+  if (process.stdin.isTTY || process.stdin.readableEnded) return {};
   return new Promise((resolve) => {
     let raw = '';
-    const timer = setTimeout(() => {
-      try { resolve(raw ? JSON.parse(raw) : {}); } catch { resolve({}); }
-    }, 150);
+    let settled = false;
+    let settleTimer = null;
+
+    const finish = (val) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(maxTimer);
+      if (settleTimer) clearTimeout(settleTimer);
+      try { process.stdin.pause(); } catch {}
+      resolve(val);
+    };
+
+    const tryParse = () => {
+      try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+    };
+
+    const maxTimer = setTimeout(() => finish(tryParse()), maxTimeoutMs);
 
     process.stdin.setEncoding('utf8');
-    process.stdin.on('data', chunk => { raw += chunk; });
-    process.stdin.on('end', () => {
-      clearTimeout(timer);
-      try { resolve(raw ? JSON.parse(raw) : {}); } catch { resolve({}); }
+    process.stdin.on('data', chunk => {
+      raw += chunk;
+      if (settleTimer) clearTimeout(settleTimer);
+      if (raw.trim().endsWith('}')) {
+        settleTimer = setTimeout(() => {
+          try { finish(JSON.parse(raw)); } catch {}
+        }, settleMs);
+      }
     });
-    process.stdin.on('error', () => {
-      clearTimeout(timer);
-      resolve({});
-    });
+    process.stdin.on('end', () => finish(tryParse()));
+    process.stdin.on('error', () => finish({}));
   });
 }
 

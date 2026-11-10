@@ -774,7 +774,7 @@ await new Promise(r => setTimeout(r, 30));
 assert.equal(d.getElementById('prefixLockBadge').hidden, false, 'Hotfix #1: #prefixLockBadge must show on a truly warm >50k cache');
 assert.equal(d.getElementById('barClutter').dataset.barState, 'cached-warm', 'Hotfix #1: truly warm cache must render cached-warm bar');
 assert.equal(d.getElementById('lblClutter').textContent, 'Cached History', 'Hotfix #5: warm middle card must be titled Cached History');
-assert.equal(d.getElementById('subClutter').textContent, '95% discounted \u00B7 /compact ready', 'Hotfix #5: warm middle card subtitle');
+assert.equal(d.getElementById('subClutter').textContent, '95% discounted \u00B7 hold /compact', 'Hotfix #5: warm middle card subtitle');
 assert.equal(d.getElementById('valClutter').dataset.historyState, 'cached-warm', 'Hotfix #5: warm middle card must mirror the Teal bar state');
 assert.equal(d.getElementById('cacheCompactionAdvisory').dataset.advisoryState, 'warm-defer', 'Hotfix #6: warm state shows DEFER_WARM banner');
 assert.equal(d.getElementById('guidedStepBox').dataset.cacheAdvisory, 'warm-defer', 'Hotfix #6: guided box must flag warm-defer to mute amber accent');

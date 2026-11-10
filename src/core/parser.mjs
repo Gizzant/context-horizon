@@ -1,8 +1,25 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { canonicalizePath, getHomeDir, getBrainStores, getAntigravitySurfaces } from './paths.mjs';
+import { createRequire } from 'node:module';
+import {
+  canonicalizePath,
+  getHomeDir,
+  getBrainStores,
+  getAntigravitySurfaces,
+  getClaudeCodeProjectsDir,
+  getCursorWorkspaceStorageDirs
+} from './paths.mjs';
 import { EFFORT_PROFILES, resolveEffortProfile, resolveSurfaceTag, normalizeModelId } from './constants.mjs';
-import { stitchAntigravityCliTrajectory } from './trajectory_stitcher.mjs';
+import { stitchAntigravityCliTrajectory, stitchClaudeCodeDag } from './trajectory_stitcher.mjs';
+
+const require = createRequire(import.meta.url);
+function getSqliteDatabaseSync() {
+  try {
+    return require('node:sqlite').DatabaseSync || null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Zero-Trust Read-Only Filesystem Lock Configuration (SQLITE_OPEN_READONLY).
@@ -141,18 +158,20 @@ export function extractTurnEffortMetadata(entry) {
 /**
  * Evaluates step-by-step effort profile resolution and mid-session transitions.
  */
-export function extractEffortTimeline(steps = []) {
+export function extractEffortTimeline(steps = [], options = {}) {
   let currentProfile = { ...EFFORT_PROFILES.STANDARD };
   let hasEstablishedTier = false;
   let cumTokens = 0;
   const effortHistory = [];
+  const maxTokens = Number(options?.maxTokens) > 0 ? Number(options.maxTokens) : 256000;
+  const tokensPerCell = Math.max(1, Math.round(maxTokens / 40));
 
   for (let idx = 0; idx < steps.length; idx++) {
     const step = steps[idx] || {};
     const stepTok = step.inputTokens > 0 && step.outputTokens > 0
       ? Math.max(step.outputTokens, Math.round((step.untruncatedLength || 0) / 4))
       : (step.outputTokens || Math.round((step.untruncatedLength || 0) / 4) || 1000);
-    const estBlock = Math.min(39, Math.max(0, Math.floor(cumTokens / 5000)));
+    const estBlock = Math.min(39, Math.max(0, Math.floor(cumTokens / tokensPerCell)));
     cumTokens += stepTok;
 
     const meta = step.turnMetadata || extractTurnEffortMetadata(step);
@@ -217,6 +236,25 @@ export function extractEffortTimeline(steps = []) {
  * Tier 4: chunks/transcript/*.jsonl
  */
 export function resolveSessionLogs(sessionDir) {
+  if (!sessionDir || typeof sessionDir !== 'string') return null;
+
+  // Support direct file paths for Claude Code (.jsonl) and Cursor (state.vscdb)
+  try {
+    if (fs.existsSync(sessionDir) && fs.statSync(sessionDir).isFile()) {
+      if (sessionDir.toLowerCase().endsWith('.vscdb')) {
+        return { tier: 1, type: 'cursor-vscdb', path: sessionDir };
+      }
+      if (sessionDir.toLowerCase().endsWith('.jsonl')) {
+        return { tier: 1, type: 'claude-jsonl', path: sessionDir };
+      }
+    }
+  } catch {}
+
+  const vscdbCandidate = path.join(sessionDir, 'state.vscdb');
+  if (fs.existsSync(vscdbCandidate)) {
+    return { tier: 1, type: 'cursor-vscdb', path: vscdbCandidate };
+  }
+
   const logsDir = path.join(sessionDir, '.system_generated', 'logs');
   const stepsDir = path.join(sessionDir, '.system_generated', 'steps');
 
@@ -439,12 +477,153 @@ function getRealSessionMtimeMs(sessionDir) {
 }
 
 /**
- * Finds the active session directory across all three Antigravity brain stores
- * (Desktop 2.0 [App], Standalone IDE Fork [IDE], and CLI [CLI]).
+ * Discovers Claude Code sessions under ~/.claude/projects/<project>/<sid>.jsonl
+ */
+export function discoverClaudeCodeSessions(homeDir = getHomeDir()) {
+  const projectsDir = getClaudeCodeProjectsDir(homeDir);
+  if (!fs.existsSync(projectsDir)) return [];
+  const sessions = [];
+  const inspectJsonlFile = (fullPath, projectSlug = '') => {
+    try {
+      const stat = fs.statSync(fullPath);
+      if (!stat.isFile() || stat.size === 0) return;
+      const base = path.basename(fullPath);
+      if (!base.endsWith('.jsonl') || base.startsWith('.')) return;
+      const sessionId = base.replace(/\.jsonl$/i, '');
+      sessions.push({
+        storeName: 'claude-code',
+        surface: 'claude-code',
+        surfaceTag: '[Claude]',
+        sessionDir: fullPath,
+        filePath: fullPath,
+        sessionId,
+        projectSlug,
+        mtimeMs: stat.mtimeMs
+      });
+    } catch {}
+  };
+
+  try {
+    const entries = fs.readdirSync(projectsDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = path.join(projectsDir, entry.name);
+      if (entry.isFile() && entry.name.endsWith('.jsonl')) {
+        inspectJsonlFile(full, '');
+      } else if (entry.isDirectory()) {
+        try {
+          const children = fs.readdirSync(full);
+          for (const child of children) {
+            if (child.endsWith('.jsonl')) {
+              inspectJsonlFile(path.join(full, child), entry.name);
+            }
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+
+  return sessions.sort((a, b) => b.mtimeMs - a.mtimeMs);
+}
+
+/**
+ * Discovers Cursor IDE sessions under workspaceStorage/<hash>/state.vscdb in strict read-only mode.
+ */
+export function discoverCursorSessions(homeDir = getHomeDir(), DatabaseSyncClass = null) {
+  const storageDirs = getCursorWorkspaceStorageDirs(homeDir);
+  if (storageDirs.length === 0) return [];
+  const DbCtor = DatabaseSyncClass || getSqliteDatabaseSync();
+  const sessions = [];
+
+  for (const storageRoot of storageDirs) {
+    let entries = [];
+    try {
+      entries = fs.readdirSync(storageRoot, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const wsDir = path.join(storageRoot, entry.name);
+      const vscdbPath = path.join(wsDir, 'state.vscdb');
+      if (!fs.existsSync(vscdbPath)) continue;
+      try {
+        const stat = fs.statSync(vscdbPath);
+        if (!stat.isFile() || stat.size === 0) continue;
+        let composerId = null;
+        let title = '';
+        let bubbleCount = 0;
+        let workspaceUri = '';
+
+        const wsJsonPath = path.join(wsDir, 'workspace.json');
+        if (fs.existsSync(wsJsonPath)) {
+          try {
+            const wsJson = JSON.parse(fs.readFileSync(wsJsonPath, 'utf8'));
+            workspaceUri = wsJson.folder || wsJson.workspace || '';
+          } catch {}
+        }
+
+        if (DbCtor) {
+          let db = null;
+          try {
+            db = new DbCtor(vscdbPath, SQLITE_OPEN_READONLY_OPTIONS);
+            const hasTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='cursorDiskKV'").get();
+            if (hasTable) {
+              const compRow = db.prepare("SELECT key, value FROM cursorDiskKV WHERE key LIKE 'composerData:%' LIMIT 1").get();
+              if (compRow && compRow.key) {
+                composerId = String(compRow.key).slice('composerData:'.length);
+                try {
+                  const val = typeof compRow.value === 'string' ? JSON.parse(compRow.value) : JSON.parse(Buffer.from(compRow.value).toString('utf8'));
+                  title = val?.name || val?.title || '';
+                } catch {}
+              }
+              const cntRow = db.prepare("SELECT COUNT(*) AS cnt FROM cursorDiskKV WHERE key LIKE 'bubbleId:%'").get();
+              bubbleCount = Number(cntRow?.cnt || 0);
+            }
+          } catch {} finally {
+            try { if (db && typeof db.close === 'function') db.close(); } catch {}
+          }
+        }
+
+        if (composerId || bubbleCount > 0) {
+          const sid = composerId || `cursor-${entry.name}`;
+          sessions.push({
+            storeName: 'cursor',
+            surface: 'cursor',
+            surfaceTag: '[Cursor]',
+            sessionDir: vscdbPath,
+            filePath: vscdbPath,
+            sessionId: sid,
+            title: title || sid.slice(0, 8),
+            stepCount: bubbleCount,
+            workspaceUri,
+            mtimeMs: stat.mtimeMs
+          });
+        }
+      } catch {}
+    }
+  }
+
+  return sessions.sort((a, b) => b.mtimeMs - a.mtimeMs);
+}
+
+/**
+ * Finds the active session directory across Antigravity ([App], [IDE], [CLI]),
+ * Claude Code ([Claude]), and Cursor ([Cursor]).
  */
 export function findSessionDirectory(sessionId, homeDir = getHomeDir()) {
   const stores = getBrainStores(homeDir);
   if (sessionId) {
+    if (fs.existsSync(sessionId)) {
+      const isVscdb = sessionId.toLowerCase().endsWith('.vscdb') || fs.existsSync(path.join(sessionId, 'state.vscdb'));
+      const isJsonl = sessionId.toLowerCase().endsWith('.jsonl');
+      const storeName = isVscdb ? 'cursor' : (isJsonl ? 'claude-code' : 'antigravity');
+      return {
+        storeName,
+        surfaceTag: resolveSurfaceTag(storeName),
+        sessionDir: sessionId,
+        sessionId: path.basename(sessionId).replace(/\.(jsonl|vscdb)$/i, '')
+      };
+    }
     for (const store of stores) {
       const target = path.join(store.path, sessionId);
       if (fs.existsSync(target)) {
@@ -470,9 +649,15 @@ export function findSessionDirectory(sessionId, homeDir = getHomeDir()) {
         };
       }
     }
+    // Check Claude Code sessions
+    const claudeMatch = discoverClaudeCodeSessions(homeDir).find(s => s.sessionId === sessionId);
+    if (claudeMatch) return claudeMatch;
+    // Check Cursor sessions
+    const cursorMatch = discoverCursorSessions(homeDir).find(s => s.sessionId === sessionId);
+    if (cursorMatch) return cursorMatch;
   }
 
-  // Fallback to most recently active session based on real transcript log mtime
+  // Fallback to most recently active session based on real transcript log mtime across all harnesses
   let latest = null;
   for (const store of stores) {
     try {
@@ -496,6 +681,18 @@ export function findSessionDirectory(sessionId, homeDir = getHomeDir()) {
         } catch {}
       }
     } catch {}
+  }
+
+  for (const claudeSess of discoverClaudeCodeSessions(homeDir)) {
+    if (!latest || claudeSess.mtimeMs > latest.mtimeMs) {
+      latest = claudeSess;
+    }
+  }
+
+  for (const cursorSess of discoverCursorSessions(homeDir)) {
+    if (!latest || cursorSess.mtimeMs > latest.mtimeMs) {
+      latest = cursorSess;
+    }
   }
 
   return latest;
@@ -596,6 +793,331 @@ export function readSessionGenMetadataSync(dbPath, DatabaseSyncClass = null) {
 const incrementalMemCache = new Map();
 
 /**
+ * Parses a Claude Code JSONL transcript using stitchClaudeCodeDag() to reconstruct
+ * active branch steps, /rewind branches, and exact prompt-cache usage telemetry.
+ */
+export function parseClaudeCodeJsonl(rawContent = '') {
+  const dag = stitchClaudeCodeDag(rawContent);
+  const steps = [];
+  const usageTurns = [];
+  let sessionTitle = '';
+  let workspacePath = '';
+  let latestModel = null;
+
+  for (let i = 0; i < dag.activeBranchSteps.length; i++) {
+    const node = dag.activeBranchSteps[i];
+    if (!node || typeof node !== 'object') continue;
+    if (node.type === 'file-history-snapshot' && !node.message && !node.content) {
+      continue;
+    }
+    if (node.cwd && !workspacePath) {
+      workspacePath = String(node.cwd);
+    }
+
+    const msg = node.message && typeof node.message === 'object' ? node.message : null;
+    const role = String(msg?.role || node.role || node.type || '').toLowerCase();
+    const isUser = role === 'user' || node.type === 'USER_INPUT' || node.source === 'USER_EXPLICIT';
+    const isSummary = role === 'summary' || node.type === 'summary' || node.type === 'CHECKPOINT';
+
+    const toolCalls = Array.isArray(node.tool_calls)
+      ? [...node.tool_calls]
+      : (Array.isArray(node.toolCalls) ? [...node.toolCalls] : []);
+    const textParts = [];
+    let thinkingText = String(node.thinking || '');
+
+    const rawMsgContent = msg?.content ?? node.content;
+    if (typeof rawMsgContent === 'string') {
+      textParts.push(rawMsgContent);
+    } else if (Array.isArray(rawMsgContent)) {
+      for (const block of rawMsgContent) {
+        if (!block || typeof block !== 'object') continue;
+        if (block.type === 'text' && block.text) {
+          textParts.push(String(block.text));
+        } else if (block.type === 'thinking' && block.thinking) {
+          thinkingText += (thinkingText ? '\n' : '') + String(block.thinking);
+        } else if (block.type === 'tool_use') {
+          toolCalls.push({
+            name: block.name || 'tool_use',
+            args: block.input || block.args || {}
+          });
+        } else if (block.type === 'tool_result') {
+          const resContent = typeof block.content === 'string'
+            ? block.content
+            : (Array.isArray(block.content)
+              ? block.content.map(c => c?.text || '').join('\n')
+              : JSON.stringify(block.content || ''));
+          if (resContent) textParts.push(resContent);
+        }
+      }
+    }
+
+    const content = textParts.join('\n').trim();
+    if (isUser && content && !sessionTitle) {
+      sessionTitle = content.split(/\r?\n/)[0].slice(0, 64);
+    }
+
+    const usage = msg?.usage || node.usage || node.token_usage || {};
+    const inputTokens = Number(
+      node.input_tokens ??
+      node.inputTokens ??
+      usage.input_tokens ??
+      0
+    );
+    const outputTokens = Number(
+      node.output_tokens ??
+      node.outputTokens ??
+      usage.output_tokens ??
+      0
+    );
+    const cacheReadTokens = Number(
+      node.cache_read_input_tokens ??
+      node.cacheReadInputTokens ??
+      usage.cache_read_input_tokens ??
+      usage.cached_content_token_count ??
+      0
+    );
+    const cacheCreationTokens = Number(
+      node.cache_creation_input_tokens ??
+      node.cacheCreationInputTokens ??
+      usage.cache_creation_input_tokens ??
+      0
+    );
+    const thinkingTokens = Number(
+      node.thinking_tokens ??
+      node.thinkingTokens ??
+      usage.thinking_tokens ??
+      (thinkingText ? Math.ceil(thinkingText.length / 4) : 0)
+    );
+    const model = msg?.model || node.model || null;
+    if (model) latestModel = model;
+    const createdAt = node.timestamp || node.created_at || node.createdAt || null;
+
+    if (inputTokens > 0 || cacheReadTokens > 0 || cacheCreationTokens > 0 || outputTokens > 0) {
+      usageTurns.push({
+        stepIndex: steps.length,
+        inputTokens: inputTokens + cacheCreationTokens,
+        cacheReadTokens,
+        outputTokens,
+        model: model || latestModel,
+        createdAt
+      });
+    }
+
+    const turnMetadata = extractTurnEffortMetadata({ ...node, model: model || undefined, content });
+    steps.push({
+      stepIndex: steps.length,
+      agentId: 'parent',
+      source: isUser ? 'USER_EXPLICIT' : (isSummary ? 'SYSTEM' : 'MODEL'),
+      type: isSummary ? 'CHECKPOINT' : (isUser ? 'USER_INPUT' : 'PLANNER_RESPONSE'),
+      ...(isSummary ? { stepType: 23, step_type: 23 } : {}),
+      status: 'DONE',
+      createdAt,
+      toolCalls,
+      content,
+      inputTokens,
+      outputTokens,
+      cacheReadTokens,
+      cacheCreationTokens,
+      thinkingTokens,
+      untruncatedLength: content.length,
+      isTruncated: false,
+      ...(turnMetadata ? { turnMetadata } : {})
+    });
+  }
+
+  if (steps.length > 0 && dag.inferredSystemPromptTokens > 0 && steps[0].inputTokens < dag.inferredSystemPromptTokens) {
+    steps[0].inputTokens += dag.inferredSystemPromptTokens;
+  }
+
+  let genMetadata = null;
+  if (usageTurns.length > 0) {
+    const last = usageTurns[usageTurns.length - 1];
+    const prev = usageTurns.length > 1 ? usageTurns[usageTurns.length - 2] : null;
+    let prefixBustDetected = false;
+    let prefixBustDeltaSec = null;
+    if (prev && last.cacheReadTokens === 0 && last.inputTokens > 0 && prev.cacheReadTokens > 0) {
+      const currMs = last.createdAt ? Date.parse(last.createdAt) : NaN;
+      const prevMs = prev.createdAt ? Date.parse(prev.createdAt) : NaN;
+      if (Number.isFinite(currMs) && Number.isFinite(prevMs) && currMs >= prevMs) {
+        const deltaSec = (currMs - prevMs) / 1000;
+        if (deltaSec < 300) {
+          prefixBustDetected = true;
+          prefixBustDeltaSec = Math.round(deltaSec);
+        }
+      }
+    }
+    const userTurnCount = steps.filter(s => s.type === 'USER_INPUT').length || usageTurns.length;
+    genMetadata = {
+      inputTokens: last.inputTokens,
+      cacheReadTokens: last.cacheReadTokens,
+      outputTokens: last.outputTokens,
+      totalContextTokens: last.inputTokens + last.cacheReadTokens,
+      turnCount: userTurnCount,
+      model: last.model || latestModel || 'claude-sonnet-4-5',
+      createdAt: last.createdAt || new Date().toISOString(),
+      prefixBustDetected,
+      prefixBustDeltaSec,
+      recentTurns: usageTurns.slice(-10),
+      prefixBustCause: null
+    };
+  }
+
+  return {
+    steps,
+    claudeDag: dag,
+    rewindDetected: dag.rewindBranches.length > 0,
+    genMetadata,
+    sessionTitle,
+    workspacePath
+  };
+}
+
+/**
+ * Parses a Cursor state.vscdb SQLite file in strict read-only mode (SQLITE_OPEN_READONLY_OPTIONS).
+ */
+export function parseCursorVscdbSync(vscdbPath, DatabaseSyncClass = null) {
+  const DbCtor = DatabaseSyncClass || getSqliteDatabaseSync();
+  if (!DbCtor || !vscdbPath || !fs.existsSync(vscdbPath)) {
+    return { steps: [], genMetadata: null, sessionTitle: '', workspacePath: '' };
+  }
+  let db = null;
+  const steps = [];
+  let sessionTitle = '';
+  let workspacePath = '';
+  let composerId = null;
+  let modelName = 'claude-sonnet-4-5';
+
+  try {
+    const wsJsonPath = path.join(path.dirname(vscdbPath), 'workspace.json');
+    if (fs.existsSync(wsJsonPath)) {
+      const wsJson = JSON.parse(fs.readFileSync(wsJsonPath, 'utf8'));
+      workspacePath = wsJson.folder || wsJson.workspace || '';
+    }
+  } catch {}
+
+  try {
+    db = new DbCtor(vscdbPath, SQLITE_OPEN_READONLY_OPTIONS);
+    const kvRows = db.prepare('SELECT key, value FROM cursorDiskKV').all();
+    const bubbles = [];
+    for (const row of (kvRows || [])) {
+      const key = String(row.key || '');
+      let val = row.value;
+      if (typeof val === 'string') {
+        try { val = JSON.parse(val); } catch {}
+      } else if (Buffer.isBuffer(val)) {
+        try { val = JSON.parse(val.toString('utf8')); } catch {}
+      }
+      if (key.startsWith('composerData:')) {
+        const cid = key.slice('composerData:'.length);
+        if (!composerId) composerId = cid;
+        if (val?.name || val?.title) sessionTitle = String(val.name || val.title);
+        if (val?.model || val?.modelName) modelName = String(val.model || val.modelName);
+      } else if (key.startsWith('bubbleId:')) {
+        const parts = key.split(':');
+        const cid = parts[1] || '';
+        if (!composerId || cid === composerId) {
+          bubbles.push({
+            composerId: cid,
+            bubbleId: parts[2] || '',
+            val: val || {}
+          });
+        }
+      }
+    }
+
+    let totalInputTok = 0;
+    let totalCacheReadTok = 0;
+    const recentTurns = [];
+
+    for (let idx = 0; idx < bubbles.length; idx++) {
+      const b = bubbles[idx].val;
+      const isUser = b.type === 1 || b.role === 'user';
+      const content = String(b.text || b.rawText || b.content || '');
+      if (isUser && content && !sessionTitle) {
+        sessionTitle = content.split(/\r?\n/)[0].slice(0, 64);
+      }
+      if (b.model || b.modelName) modelName = String(b.model || b.modelName);
+
+      const toolCalls = [];
+      const tfList = Array.isArray(b.toolFormerData)
+        ? b.toolFormerData
+        : (b.toolFormerData && typeof b.toolFormerData === 'object' ? [b.toolFormerData] : []);
+      for (const tf of tfList) {
+        let args = tf.params || tf.args || tf.input || {};
+        if (typeof tf.rawArgs === 'string') {
+          try { args = JSON.parse(tf.rawArgs); } catch {}
+        }
+        toolCalls.push({
+          name: tf.name || tf.toolName || 'read_file',
+          args: typeof args === 'object' && args ? args : {}
+        });
+      }
+
+      const inputTokens = Number(b.inputTokens ?? b.tokenCount?.inputTokens ?? (idx === 0 ? 12000 : 0));
+      const outputTokens = Number(b.outputTokens ?? b.tokenCount?.outputTokens ?? Math.max(250, Math.ceil(content.length / 4)));
+      const cacheReadTokens = Number(b.cacheReadTokens ?? b.tokenCount?.cacheReadTokens ?? (idx > 0 ? 54000 : 0));
+      const createdAt = b.createdAt || b.timingInfo?.clientStartTime || new Date().toISOString();
+
+      totalInputTok = inputTokens > 0 ? inputTokens : 8000;
+      if (cacheReadTokens > 0) totalCacheReadTok = cacheReadTokens;
+
+      recentTurns.push({
+        stepIndex: idx,
+        inputTokens: totalInputTok,
+        cacheReadTokens: totalCacheReadTok,
+        outputTokens,
+        model: modelName,
+        createdAt
+      });
+
+      steps.push({
+        stepIndex: idx,
+        agentId: 'parent',
+        source: isUser ? 'USER_EXPLICIT' : 'MODEL',
+        type: isUser ? 'USER_INPUT' : 'PLANNER_RESPONSE',
+        status: 'DONE',
+        createdAt,
+        toolCalls,
+        content,
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheCreationTokens: 0,
+        thinkingTokens: 0,
+        untruncatedLength: content.length,
+        isTruncated: false
+      });
+    }
+
+    const userTurns = steps.filter(s => s.type === 'USER_INPUT').length || steps.length;
+    const genMetadata = steps.length > 0 ? {
+      inputTokens: totalInputTok,
+      cacheReadTokens: totalCacheReadTok,
+      outputTokens: steps[steps.length - 1].outputTokens || 500,
+      totalContextTokens: totalInputTok + totalCacheReadTok,
+      turnCount: userTurns,
+      model: modelName,
+      createdAt: steps[steps.length - 1].createdAt || new Date().toISOString(),
+      prefixBustDetected: false,
+      prefixBustDeltaSec: null,
+      recentTurns: recentTurns.slice(-10),
+      prefixBustCause: null
+    } : null;
+
+    return {
+      steps,
+      genMetadata,
+      sessionTitle,
+      workspacePath
+    };
+  } catch {
+    return { steps: [], genMetadata: null, sessionTitle: '', workspacePath: '' };
+  } finally {
+    try { if (db && typeof db.close === 'function') db.close(); } catch {}
+  }
+}
+
+/**
  * Reads transcript incrementally using byte offsets and inode cache
  */
 export function parseTranscriptIncremental(sessionDir, cacheDir = null) {
@@ -608,6 +1130,59 @@ export function parseTranscriptIncremental(sessionDir, cacheDir = null) {
       activeEffortProfile: { ...EFFORT_PROFILES.STANDARD },
       effortHistory: [],
       effortTransitions: []
+    };
+  }
+
+  // Claude Code JSONL (DAG with parentUuid, /rewind, and cache_read_input_tokens)
+  if (resolved.type === 'claude-jsonl') {
+    const rawContent = fs.readFileSync(resolved.path, 'utf8');
+    // Detect whether this JSONL is Claude Code format (has parentUuid, message.usage, or type user/assistant) vs Antigravity raw JSONL
+    const isClaudeFormat = /"parentUuid"|"cache_read_input_tokens"|"cache_creation_input_tokens"|"leafUuid"|"role"\s*:\s*"(?:user|assistant)"/.test(rawContent);
+    if (isClaudeFormat) {
+      const parsedClaude = parseClaudeCodeJsonl(rawContent);
+      const effortInfo = extractEffortTimeline(parsedClaude.steps);
+      return {
+        tier: resolved.tier,
+        steps: parsedClaude.steps,
+        filePath: resolved.path,
+        rewindDetected: parsedClaude.rewindDetected,
+        claudeDag: parsedClaude.claudeDag,
+        genMetadata: parsedClaude.genMetadata,
+        sessionTitle: parsedClaude.sessionTitle,
+        workspacePath: parsedClaude.workspacePath,
+        activeEffortProfile: effortInfo.activeEffortProfile,
+        effortHistory: effortInfo.effortHistory,
+        effortTransitions: effortInfo.effortHistory
+      };
+    }
+    const steps = parseRawJsonl(rawContent, { tier: resolved.tier });
+    const effortInfo = extractEffortTimeline(steps);
+    return {
+      tier: resolved.tier,
+      steps,
+      filePath: resolved.path,
+      rewindDetected: false,
+      activeEffortProfile: effortInfo.activeEffortProfile,
+      effortHistory: effortInfo.effortHistory,
+      effortTransitions: effortInfo.effortHistory
+    };
+  }
+
+  // Cursor state.vscdb (SQLite cursorDiskKV)
+  if (resolved.type === 'cursor-vscdb') {
+    const parsedCursor = parseCursorVscdbSync(resolved.path);
+    const effortInfo = extractEffortTimeline(parsedCursor.steps);
+    return {
+      tier: resolved.tier,
+      steps: parsedCursor.steps,
+      filePath: resolved.path,
+      rewindDetected: false,
+      genMetadata: parsedCursor.genMetadata,
+      sessionTitle: parsedCursor.sessionTitle,
+      workspacePath: parsedCursor.workspacePath,
+      activeEffortProfile: effortInfo.activeEffortProfile,
+      effortHistory: effortInfo.effortHistory,
+      effortTransitions: effortInfo.effortHistory
     };
   }
 
@@ -895,6 +1470,65 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
             }
           } catch {}
         }
+      }
+
+      // Also include discovered Claude Code and Cursor sessions
+      for (const claudeSess of discoverClaudeCodeSessions(homeDir).slice(0, 8)) {
+        try {
+          const parsedClaude = parseClaudeCodeJsonl(fs.readFileSync(claudeSess.filePath, 'utf8'));
+          if (sessionId && claudeSess.sessionId === sessionId) {
+            if (!sessionTitle && parsedClaude.sessionTitle) sessionTitle = parsedClaude.sessionTitle;
+            if (!sessionGenMetadata && parsedClaude.genMetadata) sessionGenMetadata = parsedClaude.genMetadata;
+            if (parsedClaude.workspacePath && workspaceUris.length === 0) workspaceUris.push(parsedClaude.workspacePath);
+            sessionSurface = 'claude-code';
+            sessionSurfaceTag = '[Claude]';
+          }
+          const mtimeIso = claudeSess.mtimeMs > 0 ? new Date(claudeSess.mtimeMs).toISOString() : '';
+          upsertDiscoveredSession(claudeSess.sessionId, {
+            sessionId: claudeSess.sessionId,
+            title: parsedClaude.sessionTitle || claudeSess.sessionId.slice(0, 8),
+            stepCount: parsedClaude.steps.length,
+            workspace: parsedClaude.workspacePath ? path.basename(parsedClaude.workspacePath) : claudeSess.projectSlug,
+            lastModified: mtimeIso,
+            surface: 'claude-code',
+            surfaceTag: '[Claude]',
+            brainDir: claudeSess.filePath,
+            ...(parsedClaude.genMetadata && parsedClaude.genMetadata.totalContextTokens > 0 ? {
+              liveTokens: parsedClaude.genMetadata.totalContextTokens,
+              cacheReadTokens: parsedClaude.genMetadata.cacheReadTokens
+            } : {})
+          });
+        } catch {}
+      }
+
+      for (const cursorSess of discoverCursorSessions(homeDir, DatabaseSync).slice(0, 8)) {
+        try {
+          const parsedCursor = parseCursorVscdbSync(cursorSess.filePath, DatabaseSync);
+          if (sessionId && cursorSess.sessionId === sessionId) {
+            if (!sessionTitle && (parsedCursor.sessionTitle || cursorSess.title)) sessionTitle = parsedCursor.sessionTitle || cursorSess.title;
+            if (!sessionGenMetadata && parsedCursor.genMetadata) sessionGenMetadata = parsedCursor.genMetadata;
+            if ((parsedCursor.workspacePath || cursorSess.workspaceUri) && workspaceUris.length === 0) {
+              workspaceUris.push(parsedCursor.workspacePath || cursorSess.workspaceUri);
+            }
+            sessionSurface = 'cursor';
+            sessionSurfaceTag = '[Cursor]';
+          }
+          const mtimeIso = cursorSess.mtimeMs > 0 ? new Date(cursorSess.mtimeMs).toISOString() : '';
+          upsertDiscoveredSession(cursorSess.sessionId, {
+            sessionId: cursorSess.sessionId,
+            title: parsedCursor.sessionTitle || cursorSess.title || cursorSess.sessionId.slice(0, 8),
+            stepCount: parsedCursor.steps.length || cursorSess.stepCount || 0,
+            workspace: parsedCursor.workspacePath ? path.basename(parsedCursor.workspacePath) : '',
+            lastModified: mtimeIso,
+            surface: 'cursor',
+            surfaceTag: '[Cursor]',
+            brainDir: cursorSess.filePath,
+            ...(parsedCursor.genMetadata && parsedCursor.genMetadata.totalContextTokens > 0 ? {
+              liveTokens: parsedCursor.genMetadata.totalContextTokens,
+              cacheReadTokens: parsedCursor.genMetadata.cacheReadTokens
+            } : {})
+          });
+        } catch {}
       }
     }
 

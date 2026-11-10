@@ -74,7 +74,12 @@ export function evaluateProcessTable(processRecords = [], activePids = new Set()
       scheduleDetails = wsName ? `[${wsName}] ${scriptName || 'cron'}` : (scriptName || 'scheduled task');
     }
 
-    if ((isMulticallSchedule || parentDead) && pid !== process.pid && pid !== process.ppid) {
+    // An active language_server with an alive parent process is NOT an orphan or cron leak;
+    // only flag actual disconnected/leaked scheduled processes where parent is dead, or non-main multicall leaks.
+    const isMainIdeServer = isLangServer && !isMulticallSchedule && !parentDead;
+    if (isMainIdeServer) continue;
+
+    if ((isMulticallSchedule && parentDead) || (parentDead && pid !== process.pid && pid !== process.ppid)) {
       orphans.push({
         pid,
         ppid,

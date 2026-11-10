@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { SESSION_RISK_THRESHOLDS } from './constants.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_BUNDLED_CONFIG_PATH = path.resolve(__dirname, '../../config/default_flightcheck.json');
@@ -14,7 +15,8 @@ export const BUILTIN_CONFIG = Object.freeze({
   halt_cooldown_turns: 3,
   cold_session_max_turns: 3,
   trust_decay_turn_threshold: 10,
-  subagent_min_cache_tokens: 25000,
+  warm_cache_lock_tokens: SESSION_RISK_THRESHOLDS.WARM_CACHE_LOCK_TOKENS,
+  subagent_min_cache_tokens: SESSION_RISK_THRESHOLDS.LEAN_SESSION_TOKENS,
   subagent_min_purity_pct: 70.0,
   compact_halt_purity_pct: 45.0,
   amputation_token_threshold: 140000,

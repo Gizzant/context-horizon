@@ -4,7 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { getHomeDir } from '../../src/core/paths.mjs';
+import { getHomeDir, getDaemonPortFile, ensureSupportedNodeVersion } from '../../src/core/paths.mjs';
 import { resolveSurfaceTag } from '../../src/core/constants.mjs';
 import { runCLI } from '../../src/cli/horizon_hud.mjs';
 import { findSessionDirectory } from '../../src/core/parser.mjs';
@@ -28,6 +28,25 @@ import {
   TaskMdDirectiveWatcher,
   ModelSelectorActuator
 } from '../../src/core/task_quota_router.mjs';
+import { TrajectoryWatcher } from '../../src/core/telemetry/trajectory_watcher.mjs';
+import { detectShadowedFileBloat } from '../../src/core/telemetry/shadow_file_detector.mjs';
+import { CacheTtlWatchdog } from '../../src/core/telemetry/cache_ttl_watchdog.mjs';
+import {
+  loadRegistry as loadScopeLockRegistry,
+  detectScopeCollision,
+  deriveSessionClaimedPaths
+} from '../../src/core/telemetry/scope_lock_registry.mjs';
+import { HysteresisLock, TurnBoundaryActuationQueue } from '../../src/core/coach/task_quota_router.mjs';
+import { CircuitBreakers } from '../../src/core/coach/circuit_breakers.mjs';
+import { SubagentPhantomAuditor } from '../../src/core/coach/subagent_phantom_auditor.mjs';
+import { TurnZeroGate } from '../../src/core/coach/turn_zero_gate.mjs';
+import { HandoffHydrationLauncher } from '../../src/core/coach/handoff_hydrator.mjs';
+import { SavedQuotaReceiptLedger } from '../../src/core/coach/saved_quota_ledger.mjs';
+import { ProgressiveCheckpointer } from '../../src/core/coach/progressive_checkpointer.mjs';
+import { ContradictionAuditor } from '../../src/core/coach/contradiction_auditor.mjs';
+import { ReflectorQueue } from '../../src/core/coach/reflector_queue.mjs';
+import { PromptDecomposerCoach } from '../../src/core/coach/prompt_decomposer_coach.mjs';
+import { getFts5CompressionStats } from '../../src/core/fts5_output_compressor.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 if (process.argv.includes('--demo')) {
@@ -52,6 +71,14 @@ const stateFile = path.join(defaultCacheDir, 'latest.state.json');
 const sidePaneHtml = path.resolve(__dirname, '../../src/ui/sidepane.html');
 const horizonPanelHtml = path.resolve(__dirname, '../../src/webview/horizon_panel.html');
 
+function getHtmlMtimeMs() {
+  const target = fs.existsSync(horizonPanelHtml) ? horizonPanelHtml : (fs.existsSync(sidePaneHtml) ? sidePaneHtml : null);
+  if (target) {
+    try { return fs.statSync(target).mtimeMs; } catch {}
+  }
+  return 0;
+}
+
 let lastEvalMs = 0;
 let cachedLiveState = null;
 let pinnedConversationId = null;
@@ -69,16 +96,170 @@ const uShapedOptimizer = new UShapedAttentionOptimizer({ prefixShield: prefixCac
 const cacheGravityScorer = new CacheGravityScorer();
 const modelSelectorActuator = new ModelSelectorActuator({ cacheGravityScorer });
 const taskMdWatcher = new TaskMdDirectiveWatcher({ cacheGravityScorer, actuator: modelSelectorActuator });
+const hysteresisLock = new HysteresisLock();
+const turnBoundaryQueue = new TurnBoundaryActuationQueue();
+const circuitBreakers = new CircuitBreakers({ hysteresisLock });
+const trajectoryWatcher = new TrajectoryWatcher({ hysteresisLock, circuitBreaker: circuitBreakers });
+const handoffHydrator = new HandoffHydrationLauncher();
+const cacheTtlWatchdog = new CacheTtlWatchdog({
+  onPreSnapshot: () => {
+    try { handoffHydrator.preStageOnTtlSnapshot({ writeToDisk: false }); } catch {}
+  }
+});
+const subagentPhantomAuditor = new SubagentPhantomAuditor();
+const turnZeroGate = new TurnZeroGate();
+const progressiveCheckpointer = new ProgressiveCheckpointer();
+const contradictionAuditor = new ContradictionAuditor();
+const reflectorQueue = new ReflectorQueue();
+const promptDecomposerCoach = new PromptDecomposerCoach();
+let savedQuotaLedger = null;
+try {
+  savedQuotaLedger = new SavedQuotaReceiptLedger();
+} catch {
+  savedQuotaLedger = null;
+}
+
+let cachedTaskMdMeta = { path: '', mtimeMs: -1, content: '' };
+function getCachedTaskMdContent(wsDir) {
+  if (!wsDir) return '';
+  const candidate = path.join(wsDir, 'task.md');
+  try {
+    if (!fs.existsSync(candidate)) return '';
+    const st = fs.statSync(candidate);
+    if (cachedTaskMdMeta.path === candidate && cachedTaskMdMeta.mtimeMs === st.mtimeMs) {
+      return cachedTaskMdMeta.content;
+    }
+    const content = fs.readFileSync(candidate, 'utf8');
+    cachedTaskMdMeta = { path: candidate, mtimeMs: st.mtimeMs, content };
+    return content;
+  } catch {
+    return '';
+  }
+}
+
+let lastBreakerSessionKey = null;
+let lastBreakerStepCount = 0;
+
+function syncLiveCircuitBreakers(state, sessionKey) {
+  const steps = Array.isArray(state?.steps) ? state.steps : [];
+  if (sessionKey !== lastBreakerSessionKey) {
+    circuitBreakers.purgeRewoundTurns(0);
+    lastBreakerSessionKey = sessionKey;
+    lastBreakerStepCount = 0;
+  } else if (steps.length < lastBreakerStepCount) {
+    circuitBreakers.purgeRewoundTurns(steps.length);
+    lastBreakerStepCount = steps.length;
+  }
+
+  for (let idx = lastBreakerStepCount; idx < steps.length; idx++) {
+    const st = steps[idx] || {};
+    const calls = Array.isArray(st.toolCalls) ? st.toolCalls : [];
+    if (calls.length === 0) continue;
+
+    const nextSt = steps[idx + 1] || null;
+    const nextHasOwnCalls = Array.isArray(nextSt?.toolCalls) && nextSt.toolCalls.length > 0;
+    const isPairedNext = Boolean(
+      nextSt &&
+      !nextHasOwnCalls &&
+      nextSt.type !== 'USER_INPUT' &&
+      nextSt.source !== 'USER_EXPLICIT'
+    );
+
+    const exitCode = isPairedNext && typeof nextSt.exitCode === 'number'
+      ? nextSt.exitCode
+      : (typeof st.exitCode === 'number'
+        ? st.exitCode
+        : ((st.status === 'ERROR' || (isPairedNext && nextSt.status === 'ERROR')) ? 1 : 0));
+    const failed = Boolean(st.status === 'ERROR' || (isPairedNext && nextSt.status === 'ERROR') || exitCode !== 0);
+
+    for (const c of calls) {
+      const toolName = String(c?.name || c?.tool || '').toLowerCase();
+      const args = c?.args || {};
+      const filePath = args.Path || args.path || args.TargetFile || args.AbsolutePath || '';
+      const chunks = Array.isArray(args.ReplacementChunks) ? args.ReplacementChunks : null;
+      const chunksOld = chunks
+        ? chunks.map((ch) => String(ch?.TargetContent ?? ch?.Target ?? '')).filter(Boolean).join('\n')
+        : undefined;
+      const chunksNew = chunks
+        ? chunks.map((ch) => String(ch?.ReplacementContent ?? ch?.Replacement ?? '')).filter(Boolean).join('\n')
+        : undefined;
+      const previousContent = args.Target !== undefined
+        ? args.Target
+        : (args.TargetContent !== undefined ? args.TargetContent : chunksOld);
+      const newContent = args.Content !== undefined
+        ? args.Content
+        : (args.CodeContent !== undefined
+          ? args.CodeContent
+          : (args.Replacement !== undefined
+            ? args.Replacement
+            : (args.ReplacementContent !== undefined ? args.ReplacementContent : chunksNew)));
+      circuitBreakers.recordTurn({
+        turnIndex: Number.isFinite(st.stepIndex) ? st.stepIndex : idx,
+        toolName,
+        args,
+        exitCode,
+        failed,
+        filePath,
+        previousContent,
+        newContent
+      });
+    }
+  }
+  lastBreakerStepCount = steps.length;
+}
 
 function buildCoachState(state, targetConvId) {
   try {
+    const sessionKey = targetConvId || state?.sessionId || 'default';
+    const wsDir = state?.workspace?.canonicalPath || process.cwd();
+    const taskMdContent = state?.taskMdContent || getCachedTaskMdContent(wsDir);
+    const livePrompt = String(state?.lastUserPrompt || '');
+
     const cachedTokens = Number(state?.window?.totalActiveTokens || state?.tokens?.total || 0);
     const ttlSec = Number(state?.quota?.cache?.ttlRemainingSec ?? (state?.cache?.ttlRemainingSec || 0));
     const session = {
       cachedTokens,
       cacheTtlSeconds: ttlSec,
-      turnCount: Number(state?.turnCount || 0)
+      ttlRemainingSeconds: ttlSec,
+      turnCount: Number(state?.window?.turnCount ?? state?.turnCount ?? 0)
     };
+
+    syncLiveCircuitBreakers(state, sessionKey);
+
+    let scopeCollisionAlert = null;
+    try {
+      const registry = loadScopeLockRegistry(wsDir);
+      if (Array.isArray(registry.leases) && registry.leases.length > 0) {
+        const stepEditedPaths = [];
+        for (const st of (Array.isArray(state?.steps) ? state.steps : [])) {
+          for (const c of (Array.isArray(st?.toolCalls) ? st.toolCalls : [])) {
+            if (/write|edit|replace|create|patch/i.test(String(c?.name || ''))) {
+              const p = c?.args?.Path || c?.args?.path || c?.args?.TargetFile || c?.args?.AbsolutePath;
+              if (p) stepEditedPaths.push(path.isAbsolute(p) ? path.relative(wsDir, p) : String(p));
+            }
+          }
+        }
+        const claimed = Array.from(new Set([
+          ...deriveSessionClaimedPaths({ workspaceDir: wsDir, taskMdContent }),
+          ...stepEditedPaths
+        ]));
+        const collision = detectScopeCollision(sessionKey, claimed, registry.leases);
+        if (collision) {
+          const shortId = String(sessionKey).slice(0, 8);
+          const worktreeCommand = `git worktree add ../${path.basename(wsDir)}-worktree-${shortId} -b feature-parallel-${shortId}`;
+          scopeCollisionAlert = {
+            detectorId: 'DET-20',
+            name: 'Scope Lock Collision',
+            severity: 'WARN',
+            conflictingTrajectoryId: collision.trajectoryId,
+            conflictingPid: collision.pid,
+            overlappingPaths: collision.overlappingPaths,
+            worktreeCommand,
+            message: `🚨 DET-20 Scope Collision: [${collision.overlappingPaths.join(', ')}] leased by "${collision.trajectoryId}" (PID ${collision.pid}). Isolate via git worktree.`
+          };
+        }
+      }
+    } catch {}
 
     const shieldStatus = prefixCacheShield.getStatus(session);
     const compactionEval = assessCompactionState({
@@ -90,37 +271,130 @@ function buildCoachState(state, targetConvId) {
     });
 
     const clusters = rsiEngine?.getDomainClusters ? rsiEngine.getDomainClusters() : [];
+    const resolvedEffort = String(
+      state?.activeEffort ||
+      state?.activeEffortProfile?.shortLabel ||
+      state?.activeEffortProfile?.tier ||
+      'auto'
+    ).toLowerCase();
     const taskRoute = evaluateTaskAndQuotaRoute({
-      prompt: '',
-      taskMdContent: '',
-      activeModel: state?.model?.id || state?.model?.rawLabel || 'gemini-4-argon',
-      activeEffort: state?.activeEffort || 'high',
+      prompt: livePrompt,
+      taskMdContent,
+      activeModel: state?.model?.id || state?.model?.rawLabel || state?.activeModel || 'gemini-4-argon',
+      activeEffort: resolvedEffort === 'standard' ? 'auto' : resolvedEffort,
       cachedTokens,
       cacheTtlSeconds: ttlSec,
       routerMode: modelSelectorActuator.mode
     });
 
+    const det17ShadowBloat = detectShadowedFileBloat(state?.steps || []);
+    const elapsedIdleSec = Math.max(0, 300 - ttlSec);
+    const ttlWatchdogState = cacheTtlWatchdog.evaluateElapsed(elapsedIdleSec, {
+      sessionId: sessionKey,
+      cachedTokens
+    });
+    const subagentAudit = subagentPhantomAuditor.auditTrajectories(state?.subagents?.invocations || []);
+    const ledgerSummary = savedQuotaLedger
+      ? savedQuotaLedger.getSummary()
+      : {
+          totalArgonEquivTokensSaved: 0,
+          formattedSavedK: '0.0k',
+          statusBarText: '$(shield) Horizon: +0.0k Argon-equiv tokens saved (0 Cold Prefills • 0 Downshifts • 0 CLI Compress)',
+          footerText: '🛡️ Horizon: +0.0k Argon-equiv tokens saved (0 Cold Prefills • 0 Downshifts • 0 CLI Compress)'
+        };
+
+    const ckptEval = progressiveCheckpointer.evaluateAndSnapshot({
+      sessionId: sessionKey,
+      totalTokens: cachedTokens,
+      maxTokens: Number(state?.window?.maxTokens || 256000),
+      taskMdContent,
+      agentsMdContent: state?.agentsMdContent || '',
+      userConstraints: state?.userConstraints || []
+    });
+    const latestCkpt = progressiveCheckpointer.getLatestCheckpoint(sessionKey);
+    const evaporationCheck = latestCkpt && state?.contextSummary
+      ? progressiveCheckpointer.detectConstraintEvaporation(state.contextSummary, sessionKey, latestCkpt)
+      : null;
+
+    const stagedLearnings = reflectorQueue.listItems();
+    const promptAdvisory = promptDecomposerCoach.evaluate(livePrompt);
+
+    const combinedAlerts = [...circuitBreakers.activeAlerts];
+    if (scopeCollisionAlert) combinedAlerts.push(scopeCollisionAlert);
+    const primaryTripped = combinedAlerts.length > 0 ? combinedAlerts[combinedAlerts.length - 1] : null;
+
     return {
       prefixCacheShield: shieldStatus,
       detectors: {
         active: true,
-        totalCount: 16,
-        summary: 'DET-01..16 Active'
+        totalCount: 20,
+        tripped: primaryTripped
+          ? {
+              detectorId: primaryTripped.detectorId,
+              reason: primaryTripped.message || primaryTripped.name,
+              severity: primaryTripped.severity || 'WARN',
+              revertAction: primaryTripped.revertAction || null,
+              worktreeCommand: primaryTripped.worktreeCommand || null
+            }
+          : null,
+        summary: combinedAlerts.length > 0
+          ? `${combinedAlerts.length} breaker${combinedAlerts.length === 1 ? '' : 's'} tripped (${combinedAlerts.map(a => a.detectorId).join(', ')})`
+          : '20 guards quiet (DET-01..20 Active)'
       },
+      scopeCollision: scopeCollisionAlert,
+      det17ShadowBloat,
+      ttlWatchdog: ttlWatchdogState,
+      hysteresisLock: hysteresisLock.getStatus(),
+      turnBoundaryQueue: {
+        languageServerState: turnBoundaryQueue.languageServerState,
+        queuedCount: turnBoundaryQueue.queue.length
+      },
+      circuitBreakerAlerts: combinedAlerts,
+      subagentAudit,
+      turnZeroGate: {
+        lockedByInvariant1: turnZeroGate.isWarmPrefixLocked(session),
+        queuedCount: turnZeroGate.queuedMutations.length,
+        activeMcpProfile: turnZeroGate.activeMcpProfile
+      },
+      checkpoints: {
+        latest: latestCkpt,
+        evaporationCheck,
+        allBands: progressiveCheckpointer.listCheckpoints(targetConvId || state?.sessionId || 'default')
+      },
+      reflectorQueue: {
+        projectHash: reflectorQueue.projectHash,
+        items: stagedLearnings,
+        stagedCount: stagedLearnings.filter((it) => it.status === 'staged').length,
+        approvedCount: stagedLearnings.filter((it) => it.status === 'approved').length
+      },
+      promptAdvisory,
+      savedQuotaLedger: ledgerSummary,
       fts5Compressor: {
         active: true,
-        savedTokens: 41200
+        savedTokens: getFts5CompressionStats().savedTokens
       },
       compactionCoach: compactionEval,
       rsiEngine: {
         clusters,
-        readyToEvolveCount: clusters.length
+        readyToEvolveCount: clusters.length,
+        globalCandidates: rsiEngine?.getGlobalPromotionCandidates ? rsiEngine.getGlobalPromotionCandidates() : []
       },
-      uShapedAttention: {
-        healthScore: 94,
-        middleTroughRiskCount: 0,
-        recencyMirrorActive: true
-      },
+      uShapedAttention: (() => {
+        try {
+          const ruleScan = uShapedOptimizer.scanWorkspaceAndGlobalRules();
+          return {
+            healthScore: ruleScan?.avgPrimacyPct || 94,
+            middleTroughRiskCount: ruleScan?.totalMiddleTroughRisk || 0,
+            recencyMirrorActive: Boolean(fs.existsSync(path.join(wsDir || '.', 'task.md')) && fs.readFileSync(path.join(wsDir || '.', 'task.md'), 'utf8').includes('## Active Guardrail Pin'))
+          };
+        } catch {
+          return {
+            healthScore: 94,
+            middleTroughRiskCount: 0,
+            recencyMirrorActive: false
+          };
+        }
+      })(),
       taskQuotaRouter: taskRoute
     };
   } catch {
@@ -134,7 +408,13 @@ function getWorkspaceHash(wsPath = process.cwd()) {
 
 function writeRuntimeLockfile(boundPort, workspacePath = process.cwd()) {
   try {
+    const homeDir = getHomeDir();
     fs.mkdirSync(runtimeDir, { recursive: true });
+    const ctxtopPortFile = getDaemonPortFile(homeDir);
+    const ctxtopDir = path.dirname(ctxtopPortFile);
+    const ctxtopJsonFile = path.join(ctxtopDir, 'daemon.json');
+    fs.mkdirSync(ctxtopDir, { recursive: true });
+
     const wsHash = getWorkspaceHash(workspacePath);
     const payload = JSON.stringify({
       pid: process.pid,
@@ -152,7 +432,9 @@ function writeRuntimeLockfile(boundPort, workspacePath = process.cwd()) {
     fs.writeFileSync(wsPortFile, String(boundPort), 'utf8');
     fs.writeFileSync(wsJsonFile, payload, 'utf8');
     fs.writeFileSync(latestJsonFile, payload, 'utf8');
-    activeLockfiles = [wsPortFile, wsJsonFile];
+    fs.writeFileSync(ctxtopPortFile, String(boundPort), 'utf8');
+    fs.writeFileSync(ctxtopJsonFile, payload, 'utf8');
+    activeLockfiles = [wsPortFile, wsJsonFile, ctxtopPortFile, ctxtopJsonFile];
   } catch {}
 }
 
@@ -170,9 +452,11 @@ process.on('SIGTERM', () => { cleanupRuntimeLockfiles(); process.exit(0); });
 
 async function refreshLiveState(force = false, explicitConvId = null) {
   const now = Date.now();
+  const htmlMtimeMs = getHtmlMtimeMs();
   const targetConvId = explicitConvId || pinnedConversationId || process.env.ANTIGRAVITY_CONVERSATION_ID || null;
   if (!force && !explicitConvId && cachedLiveState && (now - lastEvalMs) < 1000) {
     if (cachedLiveState) {
+      cachedLiveState.uiMtimeMs = htmlMtimeMs;
       try { cachedLiveState.coachState = buildCoachState(cachedLiveState, targetConvId); } catch {}
     }
     return cachedLiveState;
@@ -189,6 +473,7 @@ async function refreshLiveState(force = false, explicitConvId = null) {
     if (resLive && resLive.state) {
       resLive.state.pinnedConversationId = pinnedConversationId;
       resLive.state.hostHealth = hostHealth;
+      resLive.state.uiMtimeMs = htmlMtimeMs;
       try {
         const wsPath = resLive.state.workspace?.canonicalPath || process.cwd();
         resLive.state.gitLedger = buildGitCommitTokenLedger(wsPath, []);
@@ -203,6 +488,7 @@ async function refreshLiveState(force = false, explicitConvId = null) {
   if (fs.existsSync(stateFile)) {
     try {
       cachedLiveState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+      cachedLiveState.uiMtimeMs = htmlMtimeMs;
       if (!cachedLiveState.hostHealth) {
         cachedLiveState.hostHealth = await inspectHostProcesses({ force: false }).catch(() => null);
       }
@@ -222,13 +508,24 @@ async function refreshLiveState(force = false, explicitConvId = null) {
         .sort((a, b) => b.time - a.time);
       if (files.length > 0) {
         cachedLiveState = JSON.parse(fs.readFileSync(path.join(fcSessionsDir, files[0].name), 'utf8'));
+        cachedLiveState.uiMtimeMs = htmlMtimeMs;
         try { cachedLiveState.coachState = buildCoachState(cachedLiveState, targetConvId); } catch {}
         return cachedLiveState;
       }
     } catch {}
   }
 
+  if (!cachedLiveState) {
+    try {
+      const demoRes = await runCLI({ silent: true, demo: true, useNativeCeiling: true });
+      if (demoRes && demoRes.state) {
+        cachedLiveState = demoRes.state;
+      }
+    } catch {}
+  }
+
   if (cachedLiveState) {
+    cachedLiveState.uiMtimeMs = htmlMtimeMs;
     try { cachedLiveState.coachState = buildCoachState(cachedLiveState, targetConvId); } catch {}
   }
   return cachedLiveState;
@@ -363,13 +660,28 @@ const server = http.createServer(async (req, res) => {
       : (fs.existsSync(sidePaneHtml) ? sidePaneHtml : null);
     if (rawHtmlPath) {
       let html = fs.readFileSync(rawHtmlPath, 'utf8');
+      const mtimeMs = getHtmlMtimeMs();
+      const mtimeScript = `<script id="liveInitialMtime">window.__INITIAL_UI_MTIME__ = ${mtimeMs};</script>`;
       if (initState) {
-        const stateScript = `<script id="liveInitialState">window.__LIVE_INITIAL_STATE__ = ${JSON.stringify(initState).replace(/</g, '\\u003c')};</script>`;
-        html = html.replace('<script id="precomputedCatalogScript">', `${stateScript}\n<script id="precomputedCatalogScript">`);
+        initState.uiMtimeMs = mtimeMs;
+        const safeJson = JSON.stringify(initState)
+          .replace(/</g, '\\u003c')
+          .replace(/\u2028/g, '\\u2028')
+          .replace(/\u2029/g, '\\u2029');
+        const stateScript = `<script id="liveInitialState">window.__LIVE_INITIAL_STATE__ = ${safeJson};</script>`;
+        html = html.replace(
+          '<script id="precomputedCatalogScript">',
+          () => `${mtimeScript}\n${stateScript}\n<script id="precomputedCatalogScript">`
+        );
+      } else {
+        html = html.replace(
+          '<script id="precomputedCatalogScript">',
+          () => `${mtimeScript}\n<script id="precomputedCatalogScript">`
+        );
       }
       res.end(html);
     } else {
-      res.end('<h1>Chrono-Attention Horizon Side-Pane</h1>');
+      res.end('<h1>Context Horizon Side-Pane</h1>');
     }
     return;
   }
@@ -628,7 +940,53 @@ const server = http.createServer(async (req, res) => {
       }
       const fallbackRule = cachedLiveState?.brainSignals?.userCorrectionTexts?.[0] ||
         'Follow all in-chat user corrections and architectural constraints.';
-      const promoRes = promoteRuleWithAttentionZone(wsPath, body.ruleText || fallbackRule, {
+      const resolvedRuleText = body.ruleText || fallbackRule;
+
+      const liveCachedTokens = Number(
+        body.cachedTokens ??
+        cachedLiveState?.window?.totalActiveTokens ??
+        cachedLiveState?.tokens?.total ??
+        0
+      );
+      const liveTtlSec = Number(
+        body.cacheTtlSeconds ??
+        cachedLiveState?.quota?.cache?.ttlRemainingSec ??
+        cachedLiveState?.cache?.ttlRemainingSec ??
+        0
+      );
+      const liveTurnCount = Number(
+        body.turnCount ??
+        cachedLiveState?.window?.turnCount ??
+        cachedLiveState?.turnCount ??
+        1
+      );
+      const shieldStatus = prefixCacheShield.getStatus({
+        cachedTokens: liveCachedTokens,
+        cacheTtlSeconds: liveTtlSec,
+        turnCount: liveTurnCount
+      });
+
+      if (shieldStatus.locked && body.writeToDisk !== false && !body.forceHotCache) {
+        try {
+          reflectorQueue.enqueue({
+            directive_action: resolvedRuleText,
+            domain: 'rules',
+            sessionId: cachedLiveState?.sessionId || pinnedConversationId || 'default-session'
+          });
+        } catch {}
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: false,
+          staged: true,
+          requiresConfirmation: true,
+          ttlRemainingSec: liveTtlSec,
+          cachedTokens: liveCachedTokens,
+          reason: `Warm prompt cache active (${liveTtlSec}s TTL). Rule promotion staged until cache expires to protect your 95% KV discount.`
+        }));
+        return;
+      }
+
+      const promoRes = promoteRuleWithAttentionZone(wsPath, resolvedRuleText, {
         zone: body.zone || 'primacy',
         targetFileName: body.targetFileName || null,
         maxLines: body.maxLines || 200,
@@ -716,6 +1074,30 @@ const server = http.createServer(async (req, res) => {
           trimRes = trimUncachedTail(steps, {
             cachedTokens: cachedLiveState?.window?.totalActiveTokens || 50000
           });
+          if (trimRes && trimRes.modifiedCount > 0 && trimRes.headBytesPreserved) {
+            const backupPath = `${transcriptFile}.pre_tail_trim.${Date.now()}.bak`;
+            fs.copyFileSync(transcriptFile, backupPath);
+            const serialized = trimRes.prunedSteps.map(s => JSON.stringify(s)).join('\n') + '\n';
+            fs.writeFileSync(transcriptFile, serialized, 'utf8');
+            trimRes.trimmed = true;
+            trimRes.backupPath = backupPath;
+
+            // Also prune companion transcript.jsonl if present
+            const compactFile = path.join(path.dirname(transcriptFile), 'transcript.jsonl');
+            if (fs.existsSync(compactFile)) {
+              try {
+                const cLines = fs.readFileSync(compactFile, 'utf8').trim().split('\n');
+                const cSteps = cLines.map(l => JSON.parse(l));
+                const cRes = trimUncachedTail(cSteps, {
+                  cachedTokens: cachedLiveState?.window?.totalActiveTokens || 50000
+                });
+                if (cRes && cRes.modifiedCount > 0 && cRes.headBytesPreserved) {
+                  fs.copyFileSync(compactFile, `${compactFile}.pre_tail_trim.${Date.now()}.bak`);
+                  fs.writeFileSync(compactFile, cRes.prunedSteps.map(s => JSON.stringify(s)).join('\n') + '\n', 'utf8');
+                }
+              } catch {}
+            }
+          }
         } catch (e) {
           trimRes = { trimmed: false, error: String(e?.message || e) };
         }
@@ -769,6 +1151,47 @@ const server = http.createServer(async (req, res) => {
       broadcastState(nextState);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: !optRes?.error, ...optRes, state: nextState }));
+    });
+    return;
+  }
+
+  // Route: POST /api/rsi/queue-action (Approve or dismiss staged learning in ReflectorQueue)
+  if (url.pathname === '/api/rsi/queue-action' && req.method === 'POST') {
+    let bodyStr = '';
+    req.on('data', chunk => { bodyStr += chunk; });
+    req.on('end', async () => {
+      let body = {};
+      try { body = JSON.parse(bodyStr || '{}'); } catch {}
+      const itemId = body.id || body.itemId || null;
+      const action = String(body.action || 'approve').toLowerCase();
+      let actionRes = null;
+      if (action === 'approve') {
+        actionRes = reflectorQueue.approve(itemId);
+      } else {
+        actionRes = reflectorQueue.dismiss(itemId);
+      }
+      const nextState = await refreshLiveState(true, pinnedConversationId);
+      broadcastState(nextState);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: Boolean(actionRes), ...actionRes, state: nextState }));
+    });
+    return;
+  }
+
+  // Route: POST /api/checkpoint/evaporation-check
+  if (url.pathname === '/api/checkpoint/evaporation-check' && req.method === 'POST') {
+    let bodyStr = '';
+    req.on('data', chunk => { bodyStr += chunk; });
+    req.on('end', async () => {
+      let body = {};
+      try { body = JSON.parse(bodyStr || '{}'); } catch {}
+      const targetConvId = body.conversationId || pinnedConversationId || cachedLiveState?.sessionId || 'default';
+      const evapRes = progressiveCheckpointer.detectConstraintEvaporation(
+        body.summaryText || '',
+        targetConvId
+      );
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, ...evapRes }));
     });
     return;
   }
@@ -883,5 +1306,6 @@ export function startServer(port = EXPLICIT_PORT) {
 
 const isMain = process.argv[1] && process.argv[1].endsWith('server.mjs');
 if (isMain) {
+  ensureSupportedNodeVersion();
   startServer();
 }

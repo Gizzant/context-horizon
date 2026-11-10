@@ -596,9 +596,10 @@ describe('Simple View Recommended Actions Collapsible Architecture & Open-State 
     await new Promise(r => setTimeout(r, 50));
 
     const cmdSpikeRow = actionListEl.querySelector('details[data-action-id="dampen-blowup"]');
-    const hookBtn = cmdSpikeRow.querySelector('[data-simple-act="dampen-hook"]');
-    assert.ok(hookBtn, 'Command spike must have PreToolUse hook button');
-    assert.ok(hookBtn.textContent.includes('Register PreToolUse Hook'), 'Button text must be Register PreToolUse Hook');
+    const cmdSpikeBtns = cmdSpikeRow.querySelectorAll('button');
+    assert.equal(cmdSpikeBtns.length, 1, 'Command spike must have strictly 1 action button (Single Action Button Simplicity)');
+    assert.ok(cmdSpikeBtns[0].dataset.simpleCopy, 'Command spike button must be Copy Prompt');
+    assert.ok(cmdSpikeRow.querySelector('.m3-action-inst').textContent.includes('.agents/hooks.json'), 'Command spike instruction must reference .agents/hooks.json');
 
     // 4. AST Condense Cache Claim & CLI Command
     const astRow = actionListEl.querySelector('details[data-action-id="condense-ast"]');
@@ -980,6 +981,227 @@ describe('Simple View Recommended Actions Collapsible Architecture & Open-State 
 
     assert.equal(actionListEl.querySelector('details[data-action-id="compact-context"]'), null, 'compact-context must be hidden when session is lean and below cleanup thresholds');
     assert.equal(actionListEl.querySelector('details[data-action-id="checkpoint-sync"]'), null, 'checkpoint-sync must be hidden when compaction is not needed and task.md is recently synced');
+
+    dom.window.close();
+  });
+
+  test('Phase 3: Live DOM Verification - Subject Box Headers, Single Action Button Simplicity & Invariants', async (t) => {
+    if (!JSDOM) {
+      t.skip('jsdom not available in this environment');
+      return;
+    }
+
+    const htmlPath = path.resolve('src/webview/horizon_panel.html');
+    const rawHtml = fs.readFileSync(htmlPath, 'utf8');
+
+    const dom = new JSDOM(rawHtml, {
+      runScripts: 'dangerously',
+      resources: 'usable',
+      url: 'http://localhost/'
+    });
+
+    const d = dom.window.document;
+    const w = dom.window;
+
+    await new Promise(r => setTimeout(r, 80));
+
+    // 1. Verify Subject Box Headers in Simple View
+    const sessionBarHeader = d.querySelector('.session-bar .section-box-header');
+    assert.ok(sessionBarHeader, 'Session bar must contain a .section-box-header');
+    assert.match(sessionBarHeader.textContent, /Active Session & Model Context/i);
+    assert.ok(d.getElementById('prefixLockBadge'), '#prefixLockBadge must exist in session bar header');
+
+    const storageCardHeader = d.querySelector('.storage-card .section-box-header');
+    assert.ok(storageCardHeader, 'Storage card (.storage-card) must contain a .section-box-header');
+    assert.match(storageCardHeader.textContent, /Context Memory Capacity/i);
+    assert.ok(d.getElementById('storageHorizonBadge'), '#storageHorizonBadge must exist in storage card header');
+
+    const quotaStripHeader = d.querySelector('#quotaStrip .section-box-header');
+    assert.ok(quotaStripHeader, '#quotaStrip must contain a .section-box-header');
+    assert.match(quotaStripHeader.textContent, /Prompt Cache & Quota Pacing/i);
+    assert.ok(d.getElementById('quotaCacheStatusPill'), '#quotaCacheStatusPill must exist in quota strip header');
+
+    const healthSummaryHeader = d.querySelector('#sessionHealthSummary .health-summary-header');
+    assert.ok(healthSummaryHeader, '#sessionHealthSummary must contain a .health-summary-header');
+    assert.match(healthSummaryHeader.textContent, /Session Health Summary/i);
+
+    const simpleActionHeader = d.querySelector('#simpleActionableBox .section-box-header');
+    assert.ok(simpleActionHeader, '#simpleActionableBox must contain a .section-box-header');
+    assert.match(simpleActionHeader.textContent, /Recommended Actions/i);
+    assert.ok(d.getElementById('simpleActionCountPill'), '#simpleActionCountPill must exist');
+
+    const hostWatchdogHeader = d.querySelector('#hostWatchdogBar .section-box-header');
+    assert.ok(hostWatchdogHeader, '#hostWatchdogBar must contain a .section-box-header');
+    assert.match(hostWatchdogHeader.textContent, /Host Runtime Health/i);
+    assert.ok(d.getElementById('hostWatchdogStatusPill'), '#hostWatchdogStatusPill must exist in host watchdog header');
+
+    // 2. Verify Subject Box Headers in Advanced View
+    const smartActionHeader = d.querySelector('#actionCard .section-box-header');
+    assert.ok(smartActionHeader, '#actionCard must contain a .section-box-header');
+    assert.match(smartActionHeader.textContent, /Smart Action Center/i);
+
+    const playbookCardHeader = d.querySelector('.playbook-card .section-box-header');
+    assert.ok(playbookCardHeader, '.playbook-card must contain a .section-box-header');
+    assert.match(playbookCardHeader.textContent, /Context Consumers & Remediations/i);
+
+    const actionQueueHeader = d.querySelector('#actionQueuePanel .section-box-header');
+    assert.ok(actionQueueHeader, '#actionQueuePanel must contain a .section-box-header');
+    assert.match(actionQueueHeader.textContent, /Action Queue/i);
+
+    // 3. Render a multi-issue state to populate action rows
+    w.renderState({
+      updatedAt: Date.now(),
+      sessionId: 'sess-multi-issue-audit',
+      activeModel: 'gemini-3.1-pro',
+      activeEffort: 'high',
+      window: { totalTokens: 165000, safeLimit: 140000, maxTokens: 200000 },
+      breakdown: { ANCHOR: 20000, ACTIVE_WORKING_SET: 75000, STALE_DUPLICATE: 35000, DEAD_ERROR: 15000 },
+      signals: {
+        activeSignal: { taskMdSaved: false, taskMdTurnsBehind: 8 },
+        handoff: { artifacts: { taskMd: { exists: false } } }
+      },
+      brainSignals: {
+        activeSignal: { taskMdSaved: false, taskMdTurnsBehind: 8 },
+        handoff: { artifacts: { taskMd: { exists: false } } },
+        duplicateReads: {
+          fileCount: 2,
+          reclaimableTokens: 35000,
+          topFiles: [
+            { path: 'src/core/router.mjs', calls: 5, reclaimableTokens: 25000 },
+            { path: 'src/core/baseline.mjs', calls: 3, reclaimableTokens: 10000 }
+          ]
+        },
+        oldHistory: { turnCount: 20, reclaimableTokens: 20000 },
+        deadErrors: {
+          errorCount: 4,
+          reclaimableTokens: 15000,
+          isErrorLoop: true,
+          topErrors: [{ message: 'ECONNRESET: connection reset by peer' }]
+        },
+        blowupSteps: [{ stepIndex: 18, tokens: 42000, target: 'git diff' }],
+        userCorrections: 2,
+        mcpAudit: {
+          unusedEagerServers: [{ name: 'bigin', schemaTokens: 8500 }]
+        }
+      },
+      coachState: {
+        effortGovernor: {
+          burnWarning: 'Overkill Effort on Lean/Cold Context: High effort active while cache is cold',
+          downshiftCommand: 'Floor is the Guarantee: Downshift to medium or low'
+        },
+        uShapedAttention: {
+          middleTroughRiskCount: 2
+        }
+      },
+      hostHealth: {
+        rssGb: 2.1,
+        status: 'ZOMBIE_LEAK',
+        orphanCount: 2,
+        orphanRamMb: 480,
+        orphans: [{ pid: 9912, name: 'language_server.exe', rssMb: 360, reason: 'Detached parent PID' }]
+      },
+      quota: {
+        kvCacheHitRate: 0.12,
+        promptCacheTtlSeconds: 45,
+        standbyPools: { 'gemini-3.1-pro': { warm: false, tokens: 0 } },
+        modelLocked: false
+      }
+    });
+
+    await new Promise(r => setTimeout(r, 60));
+
+    // Verify Action Box is visible and contains action rows
+    const actionBox = d.getElementById('simpleActionableBox');
+    assert.equal(actionBox.hidden, false, '#simpleActionableBox must be visible when actions exist');
+
+    const actionList = d.getElementById('simpleActionList');
+    const rows = actionList.querySelectorAll('details.m3-action-collapsible');
+    assert.ok(rows.length >= 4, `Expected at least 4 action rows, found ${rows.length}`);
+
+    // Verify Single Action Button Simplicity across EVERY row
+    rows.forEach(row => {
+      const actionId = row.dataset.actionId;
+      const btnRow = row.querySelector('.m3-action-btn-row');
+      if (btnRow) {
+        const buttons = btnRow.querySelectorAll('button, a.btn');
+        assert.ok(
+          buttons.length <= 1,
+          `Action row [${actionId}] violated Single Action Button Simplicity: found ${buttons.length} buttons (expected <= 1)`
+        );
+        if (buttons.length === 1) {
+          const btn = buttons[0];
+          assert.ok(
+            btn.dataset.simpleCopy || btn.dataset.simpleAct || btn.dataset.dismissKey,
+            `Action row [${actionId}] primary button must have auto-dismiss data attributes`
+          );
+        }
+      }
+    });
+
+    // 4. Verify Compaction Invariants: NO copy button for /compact anywhere
+    assert.equal(d.getElementById('btnCompactPrimary'), null, 'Clickable #btnCompactPrimary must NEVER exist in DOM');
+    const globalCompactInst = d.getElementById('compactInstruction');
+    assert.ok(globalCompactInst, '#compactInstruction must exist in #actionCard');
+    assert.match(globalCompactInst.textContent, /Type \/compact in the chat box and press Enter/i);
+
+    const compactRow = actionList.querySelector('details[data-action-id="compact-context"]');
+    if (compactRow) {
+      const compactButtons = compactRow.querySelectorAll('button');
+      assert.equal(compactButtons.length, 0, 'compact-context row must contain 0 buttons (plain text instructions only)');
+      const inst = compactRow.querySelector('.m3-action-inst');
+      assert.ok(inst, 'compact row must have .m3-action-inst');
+      assert.match(inst.textContent, /Type \/compact in the chat box and press Enter/i);
+    }
+
+    // 5. Verify Host Watchdog is visible under alert state
+    const hostBar = d.getElementById('hostWatchdogBar');
+    assert.equal(hostBar.hidden, false, '#hostWatchdogBar must be visible when orphanCount > 0');
+    const hostPill = d.getElementById('hostWatchdogStatusPill');
+    assert.match(hostPill.textContent, /2 Orphans/i);
+
+    // 6. Verify Auto-Hiding Behavior when Session is Clean and Nominal
+    w.renderState({
+      updatedAt: Date.now(),
+      sessionId: 'sess-perfect-nominal',
+      activeModel: 'gemini-3.8-flash',
+      activeEffort: 'low',
+      window: { totalTokens: 25000, safeLimit: 140000, maxTokens: 200000 },
+      breakdown: { ANCHOR: 8000, ACTIVE_WORKING_SET: 17000, STALE_DUPLICATE: 0, DEAD_ERROR: 0 },
+      signals: {
+        activeSignal: { taskMdSaved: true, taskMdTurnsBehind: 0 },
+        handoff: { artifacts: { taskMd: { exists: true } } }
+      },
+      brainSignals: {
+        activeSignal: { taskMdSaved: true, taskMdTurnsBehind: 0 },
+        handoff: { artifacts: { taskMd: { exists: true } } },
+        duplicateReads: { fileCount: 0, reclaimableTokens: 0, topFiles: [] },
+        oldHistory: { turnCount: 2, reclaimableTokens: 0 },
+        deadErrors: { errorCount: 0, reclaimableTokens: 0, isErrorLoop: false, topErrors: [] },
+        blowupSteps: [],
+        userCorrections: 0,
+        mcpAudit: { unusedEagerServers: [] }
+      },
+      hostHealth: {
+        rssGb: 0.8,
+        status: 'HEALTHY',
+        orphanCount: 0,
+        orphanRamMb: 0,
+        orphans: []
+      },
+      quota: {
+        kvCacheHitRate: 0.95,
+        promptCacheTtlSeconds: 280,
+        standbyPools: { 'gemini-3.8-flash': { warm: true, tokens: 25000 } },
+        modelLocked: true
+      }
+    });
+
+    await new Promise(r => setTimeout(r, 60));
+
+    // Verify #simpleActionableBox and #hostWatchdogBar auto-hide
+    assert.equal(actionBox.hidden, true, '#simpleActionableBox must auto-hide (hidden=true) on clean session');
+    assert.equal(actionList.children.length, 0, '#simpleActionList must be empty on clean session');
+    assert.equal(hostBar.hidden, true, '#hostWatchdogBar must auto-hide (hidden=true) when host is HEALTHY');
 
     dom.window.close();
   });

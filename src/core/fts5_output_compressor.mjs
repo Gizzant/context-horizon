@@ -292,3 +292,57 @@ export async function searchToolLogsFts5(dbPath, {
     try { if (db) db.close(); } catch {}
   }
 }
+
+/**
+ * Measures the total tokens saved across all FTS5 compressed tool logs.
+ * Opens the tool_logs SQLite database strictly read-only and queries row counts and token savings.
+ */
+export function getFts5CompressionStats(dbPath = null, { DatabaseSync = null, homeDir = getHomeDir() } = {}) {
+  const resolvedDbPath = dbPath || getDefaultToolLogsDbPath(homeDir);
+  if (!fs.existsSync(resolvedDbPath)) {
+    return {
+      active: true,
+      logCount: 0,
+      savedTokens: 0,
+      formattedSavedK: '0.0k'
+    };
+  }
+
+  let db = null;
+  try {
+    const DbCtor = DatabaseSync || (typeof process !== 'undefined' && process.versions?.node ? (require?.('node:sqlite')?.DatabaseSync) : null);
+    if (!DbCtor) {
+      return { active: true, logCount: 0, savedTokens: 0, formattedSavedK: '0.0k' };
+    }
+    db = new DbCtor(resolvedDbPath, SQLITE_OPEN_READONLY_OPTIONS);
+    // Approximate saved tokens by measuring raw output length vs summary length (saving ~75-90% of raw output)
+    const row = db.prepare(`
+      SELECT count(*) as count, coalesce(sum(length(raw_output)), 0) as totalBytes
+      FROM tool_logs
+    `).get();
+
+    const count = Number(row?.count || 0);
+    const totalBytes = Number(row?.totalBytes || 0);
+    // Raw tokens ~ bytes / 4. Summary is capped at 25 lines (~1200 bytes / 300 tokens) per log.
+    const rawTokensEst = Math.ceil(totalBytes / 4);
+    const summaryTokensEst = count * 300;
+    const savedTokens = Math.max(0, rawTokensEst - summaryTokensEst);
+    const formattedSavedK = `${(savedTokens / 1000).toFixed(1)}k`;
+
+    return {
+      active: true,
+      logCount: count,
+      savedTokens,
+      formattedSavedK
+    };
+  } catch {
+    return {
+      active: true,
+      logCount: 0,
+      savedTokens: 0,
+      formattedSavedK: '0.0k'
+    };
+  } finally {
+    try { if (db) db.close(); } catch {}
+  }
+}

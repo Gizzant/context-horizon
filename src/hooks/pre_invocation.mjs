@@ -22,24 +22,40 @@ export {
   evaluateTaskAndQuotaRoute
 };
 
-async function readStdinSafe() {
-  if (process.stdin.isTTY) return {};
+async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {}) {
+  if (process.stdin.isTTY || process.stdin.readableEnded) return {};
   return new Promise((resolve) => {
     let raw = '';
-    const timer = setTimeout(() => {
-      try { resolve(raw ? JSON.parse(raw) : {}); } catch { resolve({}); }
-    }, 150);
+    let settled = false;
+    let settleTimer = null;
+
+    const finish = (val) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(maxTimer);
+      if (settleTimer) clearTimeout(settleTimer);
+      try { process.stdin.pause(); } catch {}
+      resolve(val);
+    };
+
+    const tryParse = () => {
+      try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+    };
+
+    const maxTimer = setTimeout(() => finish(tryParse()), maxTimeoutMs);
 
     process.stdin.setEncoding('utf8');
-    process.stdin.on('data', chunk => { raw += chunk; });
-    process.stdin.on('end', () => {
-      clearTimeout(timer);
-      try { resolve(raw ? JSON.parse(raw) : {}); } catch { resolve({}); }
+    process.stdin.on('data', chunk => {
+      raw += chunk;
+      if (settleTimer) clearTimeout(settleTimer);
+      if (raw.trim().endsWith('}')) {
+        settleTimer = setTimeout(() => {
+          try { finish(JSON.parse(raw)); } catch {}
+        }, settleMs);
+      }
     });
-    process.stdin.on('error', () => {
-      clearTimeout(timer);
-      resolve({});
-    });
+    process.stdin.on('end', () => finish(tryParse()));
+    process.stdin.on('error', () => finish({}));
   });
 }
 
@@ -136,8 +152,8 @@ export async function handlePreInvocation(inputData = {}) {
       : `"Save progress to task.md and start a clean session with /clear (or /compact)"`;
 
     const card = formatScorecard(
-      `[Amputation Crisis] Tokens: ${Math.round(tokens / 1000)}k/${ceilingK}k`,
-      `[Purity: ${purity}% | Amputation: Earliest cells at risk]`,
+      `[Amputation Crisis] Tokens: ${Math.round(tokens / 1000)}k/${ceilingK}k (Context Truncation Risk)`,
+      `[Useful Context: ${purity}% | Oldest Rules at Risk]`,
       handoffAction,
       rewriteCmd
     );
@@ -150,7 +166,7 @@ export async function handlePreInvocation(inputData = {}) {
       : 'Consecutive command failures detected';
     const card = formatScorecard(
       `[3-Strike Error Loop] ${loopInfo}`,
-      `[Purity: ${purity}% | Errors: 3 strikes]`,
+      `[Useful Context: ${purity}% | Errors: 3 strikes]`,
       `Break loop: isolate with subagent or compact`,
       `"Diagnose previous errors using invoke_subagent or run /compact"`
     );
@@ -169,8 +185,8 @@ export async function handlePreInvocation(inputData = {}) {
 
   if (isTelemetryReliable && purity < (config.compact_halt_purity_pct || 45.0) && isHighOrMaxEffort) {
     const card = formatScorecard(
-      `[Low Signal Purity] ${purity}% pure on ${activeEffort} effort`,
-      `[Sludge: +$${(telemetry.sludgeTaxUsdPerTurn || 0).toFixed(2)}/turn]`,
+      `[Low Useful Context] ${purity}% useful context on ${activeEffort} effort`,
+      `[Wasted Context: +$${(telemetry.sludgeTaxUsdPerTurn || 0).toFixed(2)}/turn]`,
       `/compact`,
       `"Run /compact to compress stale reads before high-effort execution"`
     );

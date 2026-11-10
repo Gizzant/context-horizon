@@ -76,7 +76,8 @@ const demoInjector = `
   (function() {
     const SCENARIOS = ${JSON.stringify(precomputedStates)};
     const META = ${JSON.stringify(DEMO_SCENARIOS)};
-    let activeScenarioId = 5;
+    const urlParams = (typeof window !== 'undefined' && window.location) ? new URLSearchParams(window.location.search) : new URLSearchParams();
+    let activeScenarioId = urlParams.has('scenario') ? Number(urlParams.get('scenario')) : 5;
 
     const origFetch = window.fetch ? window.fetch.bind(window) : null;
     window.fetch = async function(url, opts) {
@@ -213,6 +214,14 @@ const demoInjector = `
       updateComplaintBanner();
 
       const sel = document.getElementById('chScenarioSelect');
+      if (sel && urlParams.has('scenario')) {
+        sel.value = String(activeScenarioId);
+      }
+      if (urlParams.has('view')) {
+        const viewMode = urlParams.get('view');
+        const tabBtn = document.querySelector('[data-view-tab="' + viewMode + '"]');
+        if (tabBtn) tabBtn.click();
+      }
       sel.addEventListener('change', (e) => {
         activeScenarioId = Number(e.target.value) || 5;
         updateComplaintBanner();
@@ -228,7 +237,7 @@ const demoInjector = `
 </script>
 `;
 
-const bundledHtml = rawHtml.replace('<head>', `<head>\n${demoInjector}`);
+const bundledHtml = rawHtml.replace('<head>', () => `<head>\n${demoInjector}`);
 const outPath = path.join(docsDir, 'index.html');
 fs.writeFileSync(outPath, bundledHtml, 'utf8');
 console.log(`[Demo Page] Built standalone interactive GitHub Pages demo at ${outPath} (${Buffer.byteLength(bundledHtml)} bytes)`);

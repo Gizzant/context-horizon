@@ -20,6 +20,9 @@ export const SURFACE_TAGS = Object.freeze({
   'antigravity': '[App]',
   'antigravity-ide': '[IDE]',
   'antigravity-cli': '[CLI]',
+  'claude-code': '[Claude]',
+  'claude': '[Claude]',
+  'cursor': '[Cursor]',
   'app': '[App]',
   'ide': '[IDE]',
   'cli': '[CLI]'
@@ -29,7 +32,7 @@ export const PREFIX_LOCK_WARNING_TEXT =
   'Active warm cache (>50k tokens). Changing reasoning effort or switching models rewrites the system prefix and triggers a 100% uncached KV cache rebuild.';
 
 export const CORTEX_CLAMPED_CEILING_LABEL =
-  '256k Clamped (1M Model Capped by Cortex 0x3E800)';
+  '256k Host Cap (1M model)';
 
 export const PATCHED_CLI_CEILING_TIERS = Object.freeze([512000, 900000]);
 
@@ -54,10 +57,12 @@ export const ATTENTION_TROUGH_CONFIG = Object.freeze({
 });
 
 /**
- * Resolves a human-readable surface badge ('[App]' | '[IDE]' | '[CLI]') from a store name or path.
+ * Resolves a human-readable surface badge ('[App]' | '[IDE]' | '[CLI]' | '[Claude]' | '[Cursor]') from a store name or path.
  */
 export function resolveSurfaceTag(surfaceOrPath = 'antigravity') {
   const s = String(surfaceOrPath || '').toLowerCase().trim();
+  if (s.includes('claude') || s === '[claude]') return '[Claude]';
+  if (s.includes('cursor') || s.endsWith('.vscdb') || s === '[cursor]') return '[Cursor]';
   if (s.includes('antigravity-cli') || s === 'cli' || s === '[cli]') return '[CLI]';
   if (s.includes('antigravity-ide') || s === 'ide' || s === '[ide]') return '[IDE]';
   return '[App]';
@@ -133,6 +138,9 @@ export const CATEGORY_METADATA = {
 };
 
 export const MODEL_PRICING_PER_MILLION = {
+  'claude-sonnet-4-5': 3.00,
+  'claude-opus-4-1': 15.00,
+  'gemini-2.5-pro': 1.25,
   'gemini-3.8-flash': 0.75,
   'gemini-2.0-flash': 0.75,
   'gemini-4-argon': 1.25,
@@ -149,6 +157,9 @@ export const MODEL_PRICING_PER_MILLION = {
 };
 
 export const MODEL_CEILINGS = Object.freeze({
+  'claude-sonnet-4-5': 200000,
+  'claude-opus-4-1': 200000,
+  'gemini-2.5-pro': 1000000,
   'gemini-3.8-flash': 256000,
   'gemini-4-argon': 256000,
   'gemini-4-argon-high': 256000,

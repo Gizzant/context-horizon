@@ -20,10 +20,36 @@ const EDIT_TOOL_NAMES = new Set(['edit_file', 'write_file', 'write_to_file', 're
 const SEARCH_TOOL_NAMES = new Set(['grep', 'glob', 'find', 'grep_search', 'find_by_name', 'ripgrep']);
 const EXEC_TOOL_NAMES = new Set(['run_command', 'bash', 'execute_command']);
 
-function extractStepToolMeta(step = {}, idx = 0) {
-  const calls = Array.isArray(step.toolCalls)
+function isToolResultStep(step = {}, prev = null) {
+  if (!step || !prev) return false;
+  const prevCalls = Array.isArray(prev.toolCalls)
+    ? prev.toolCalls
+    : (Array.isArray(prev.tool_calls) ? prev.tool_calls : []);
+  if (prevCalls.length === 0) return false;
+  const curCalls = Array.isArray(step.toolCalls)
     ? step.toolCalls
     : (Array.isArray(step.tool_calls) ? step.tool_calls : []);
+  if (curCalls.length > 0) return false;
+  if (prev.type === 'PLANNER_RESPONSE' && (step.type === 'GENERIC' || step.type === 'tool_result' || step.source === 'MODEL')) return true;
+  if (step.type === 'TOOL_RESULT' || step.type === 'tool_result' || step.source === 'TOOL') return true;
+  return false;
+}
+
+function extractStepToolMeta(step = {}, idx = 0, steps = []) {
+  let calls = Array.isArray(step.toolCalls)
+    ? step.toolCalls
+    : (Array.isArray(step.tool_calls) ? step.tool_calls : []);
+  if (calls.length === 0 && idx > 0 && Array.isArray(steps) && steps[idx - 1]) {
+    const prev = steps[idx - 1];
+    if (isToolResultStep(step, prev)) {
+      const prevCalls = Array.isArray(prev.toolCalls)
+        ? prev.toolCalls
+        : (Array.isArray(prev.tool_calls) ? prev.tool_calls : []);
+      if (prevCalls.length > 0) {
+        calls = prevCalls;
+      }
+    }
+  }
   const firstCall = calls[0] || {};
   const rawName = String(
     firstCall.name ||
@@ -104,7 +130,7 @@ export function analyzeStaleToolOutputs(steps = [], options = {}) {
   const unreferencedTurnWindow = Number.isFinite(options.unreferencedTurnWindow) ? Math.max(1, options.unreferencedTurnWindow) : 5;
 
   const list = Array.isArray(steps) ? steps : [];
-  const metaList = list.map((s, idx) => extractStepToolMeta(s, idx));
+  const metaList = list.map((s, idx) => extractStepToolMeta(s, idx, list));
 
   // Track latest read or edit index per canonical path
   const latestTouchByPath = new Map();
@@ -121,11 +147,33 @@ export function analyzeStaleToolOutputs(steps = [], options = {}) {
   }
 
   const cutoffIndex = Math.max(1, list.length - pinnedTailCount);
+  const cachedTokensWatermark = Number.isFinite(options.cachedTokens) ? options.cachedTokens : null;
+  let splitIndex = 1;
+  if (cachedTokensWatermark && cachedTokensWatermark > 0) {
+    let cumulativeTokens = 0;
+    for (let j = 0; j < list.length; j++) {
+      const s = list[j];
+      const tok = Number(
+        s.totalTokens ??
+        s.tokens ??
+        s.output_tokens ??
+        s.outputTokens ??
+        (s.content ? Math.ceil(String(s.content).length / 4) : 0)
+      );
+      cumulativeTokens += tok;
+      if (cumulativeTokens <= cachedTokensWatermark) {
+        splitIndex = j + 1;
+      } else {
+        break;
+      }
+    }
+  }
+  const startIndex = Math.max(1, splitIndex);
   const candidates = [];
   const prunedSteps = list.map(s => ({ ...s }));
   let totalSavedTokens = 0;
 
-  for (let i = 1; i < cutoffIndex; i++) {
+  for (let i = startIndex; i < cutoffIndex; i++) {
     const m = metaList[i];
     const origLen = m.content.length;
     if (origLen <= maxRetainedChars + 60) continue;
@@ -198,6 +246,11 @@ export function analyzeStaleToolOutputs(steps = [], options = {}) {
 
 export function executeToolOutputSurgery(transcriptPath, options = {}) {
   const dryRun = Boolean(options.dryRun);
+  const uncachedTail = Boolean(options.uncachedTail);
+  const cachedTokens = Number.isFinite(options.cachedTokens)
+    ? options.cachedTokens
+    : (uncachedTail ? 50000 : null);
+  const opts = { ...options, cachedTokens };
   if (!transcriptPath || !fs.existsSync(transcriptPath)) {
     return {
       success: false,
@@ -220,7 +273,7 @@ export function executeToolOutputSurgery(transcriptPath, options = {}) {
     }
   });
 
-  const analysis = analyzeStaleToolOutputs(parsedSteps, options);
+  const analysis = analyzeStaleToolOutputs(parsedSteps, opts);
   if (dryRun || analysis.candidates.length === 0) {
     return {
       success: true,
@@ -232,7 +285,8 @@ export function executeToolOutputSurgery(transcriptPath, options = {}) {
     };
   }
 
-  const backupPath = `${transcriptPath}.pre_surgeon.${Date.now()}.bak`;
+  const backupSuffix = uncachedTail ? 'pre_tail_trim' : 'pre_surgeon';
+  const backupPath = `${transcriptPath}.${backupSuffix}.${Date.now()}.bak`;
   fs.copyFileSync(transcriptPath, backupPath);
 
   const tmpPath = `${transcriptPath}.${process.pid}.tmp`;

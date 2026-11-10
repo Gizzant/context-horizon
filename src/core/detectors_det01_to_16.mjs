@@ -27,7 +27,9 @@ export const DETECTOR_CATALOG = Object.freeze({
   'DET-13': { id: 'DET-13', name: 'Premature Execution Without Plan Approval', severity: 'CRITICAL', haltsGeneration: true },
   'DET-14': { id: 'DET-14', name: 'Subagent File-Write Collision', severity: 'CRITICAL', haltsGeneration: true },
   'DET-15': { id: 'DET-15', name: 'Secret / Credential Leakage in Brain Artifacts', severity: 'CRITICAL', haltsGeneration: true },
-  'DET-16': { id: 'DET-16', name: 'Silent Truncation / Placeholder Slop Injection', severity: 'CRITICAL', haltsGeneration: true }
+  'DET-16': { id: 'DET-16', name: 'Silent Truncation / Placeholder Slop Injection', severity: 'CRITICAL', haltsGeneration: true },
+  'DET-19': { id: 'DET-19', name: 'Git Hook-Bypass Guard', severity: 'CRITICAL', haltsGeneration: true },
+  'DET-20': { id: 'DET-20', name: 'Concurrent File-Scope Collision', severity: 'CRITICAL', haltsGeneration: false }
 });
 
 export function sha256Hex(content = '') {
@@ -290,11 +292,18 @@ export function evaluateDetectorsOnSteps(steps = [], context = {}) {
 
       // File write / edit detectors (DET-02, DET-03, DET-04, DET-05, DET-09, DET-11, DET-13, DET-14, DET-15, DET-16)
       if (isWriteOrDelete && targetPath) {
+        const replacementChunks = Array.isArray(args.ReplacementChunks) ? args.ReplacementChunks : null;
+        const chunksNew = replacementChunks
+          ? replacementChunks.map(ch => String(ch?.ReplacementContent ?? ch?.Replacement ?? ch?.newContent ?? '')).filter(Boolean).join('\n')
+          : undefined;
+        const chunksOld = replacementChunks
+          ? replacementChunks.map(ch => String(ch?.TargetContent ?? ch?.Target ?? ch?.oldContent ?? '')).filter(Boolean).join('\n')
+          : undefined;
         const newContent = String(
-          args.Content ?? args.Replacement ?? args.newContent ?? call.newContent ?? step.newContent ?? ''
+          args.Content ?? args.CodeContent ?? args.Replacement ?? args.ReplacementContent ?? chunksNew ?? args.newContent ?? call.newContent ?? step.newContent ?? ''
         );
         const oldContent = String(
-          args.Target ?? args.oldContent ?? call.oldContent ?? step.oldContent ?? ''
+          args.Target ?? args.TargetContent ?? chunksOld ?? args.oldContent ?? call.oldContent ?? step.oldContent ?? ''
         );
 
         // DET-15 on written content

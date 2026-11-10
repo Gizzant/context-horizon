@@ -1,9 +1,32 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { fileURLToPath } from 'node:url';
 import { canonicalizePath } from './path_canonicalizer.mjs';
 
-const SIDECAR_VERSION = '3.1.0';
+function resolveVersion() {
+  try {
+    let curr = path.dirname(fileURLToPath(import.meta.url));
+    for (let i = 0; i < 4; i++) {
+      const p = path.join(curr, 'package.json');
+      if (fs.existsSync(p)) {
+        const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+        if (data.version) return data.version;
+      }
+      const pl = path.join(curr, 'plugin.json');
+      if (fs.existsSync(pl)) {
+        const data = JSON.parse(fs.readFileSync(pl, 'utf8'));
+        if (data.version) return data.version;
+      }
+      const parent = path.dirname(curr);
+      if (parent === curr) break;
+      curr = parent;
+    }
+  } catch {}
+  return '3.2.0';
+}
+
+export const SIDECAR_VERSION = resolveVersion();
 const UUID_SESSION_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TEST_FLIGHTCHECK_DIR = path.join(os.tmpdir(), 'agy-flightcheck-test');
 

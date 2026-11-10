@@ -14,7 +14,9 @@ const READ_TOOLS = new Set([
   'view_file',
   'read_file',
   'view_file_outline',
-  'view_code_item'
+  'view_code_item',
+  'read',
+  'read_file_v2'
 ]);
 
 const EDIT_TOOLS = new Set([
@@ -22,7 +24,13 @@ const EDIT_TOOLS = new Set([
   'multi_replace_file_content',
   'write_to_file',
   'write_file',
-  'edit_file'
+  'edit_file',
+  'edit',
+  'multiedit',
+  'multi_edit',
+  'write',
+  'notebookedit',
+  'edit_file_v2'
 ]);
 
 /**
@@ -31,7 +39,10 @@ const EDIT_TOOLS = new Set([
  */
 export function isCompactionCheckpointStep(step) {
   if (!step || typeof step !== 'object') return false;
+  // If the step is a tool call/result reading or discussing files, it is NOT a compaction checkpoint
   const t = String(step.type || '').toUpperCase();
+  if (t === 'TOOL_CALL' || t === 'TOOL_RESULT' || t === 'TOOL_OUTPUT') return false;
+  if (Array.isArray(step.toolCalls) && step.toolCalls.length > 0 && !step.content) return false;
   const st = step.step_type ?? step.stepType;
   return (
     t === 'CHECKPOINT' ||
@@ -73,10 +84,10 @@ export function evaluateSmartFileReReads(steps = []) {
       for (let cIdx = 0; cIdx < calls.length; cIdx++) {
         const call = calls[cIdx] || {};
         const name = String(call.name || call.tool || '').toLowerCase();
-        const args = call.args || call.parameters || call.Arguments || {};
-        const targetFile = args.Path || args.path || args.Target || args.target || args.TargetFile || args.AbsolutePath;
+        const args = call.args || call.parameters || call.Arguments || call.input || {};
+        const targetFile = args.Path || args.path || args.file_path || args.target_file || args.notebook_path || args.Target || args.target || args.TargetFile || args.AbsolutePath || args.uri;
 
-        if (name === 'run_command') {
+        if (name === 'run_command' || name === 'bash' || name === 'run_terminal_cmd') {
           hasRunCommand = true;
         }
         if (targetFile && typeof targetFile === 'string') {
@@ -108,7 +119,7 @@ export function evaluateSmartFileReReads(steps = []) {
       }
     } else if (step.toolName || step.type === 'COMMAND') {
       const name = String(step.toolName || '').toLowerCase();
-      if (name === 'run_command' || step.type === 'COMMAND') {
+      if (name === 'run_command' || name === 'bash' || name === 'run_terminal_cmd' || step.type === 'COMMAND') {
         hasRunCommand = true;
       }
       if (step.targetPath && typeof step.targetPath === 'string') {
@@ -546,7 +557,9 @@ export function evaluatePostCompactionReReadTax(rawSteps = []) {
       isCompactionCheckpointStep(s) ||
       typeStr.includes('compact') ||
       s.compactMetadata ||
-      String(s.content || '').includes('<CONTEXT_SUMMARY>')
+      (typeStr === 'user_input' || typeStr === 'system_message' || typeStr === 'checkpoint'
+        ? String(s.content || '').includes('<CONTEXT_SUMMARY>')
+        : false)
     );
 
     if (isBoundary) {

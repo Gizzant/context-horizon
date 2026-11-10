@@ -1,16 +1,18 @@
 {
   "name": "horizon-daemon",
-  "display_name": "Chrono-Attention Horizon",
-  "description": "40-cell chronological context window analyzer, U-shaped attention recall curve, and token sludge ledger.",
+  "display_name": "Context Horizon",
+  "description": "40-cell chronological context window analyzer, U-shaped attention recall curve, and wasted context ledger.",
   "command": "node",
   "args": ["--no-warnings", "server.mjs"],
+  "port": 62935,
+  "port_range": [62935, 62945],
   "has_web_ui": true,
   "ui_config": {
     "views": [
       {
         "entrypoint": "SIDECAR_UI_ENTRYPOINT_AUX_PANE",
         "path": "/",
-        "title": "Attention Horizon"
+        "title": "Context Horizon"
       }
     ]
   }

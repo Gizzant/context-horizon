@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readSidecarSync, writeSidecarAtomicSync, createDefaultSidecar } from '../src/core/sidecar_store.mjs';
+import { readSidecarSync, writeSidecarAtomicSync, createDefaultSidecar, SIDECAR_VERSION } from '../src/core/sidecar_store.mjs';
 import { handlePreInvocation } from '../src/hooks/pre_invocation.mjs';
 import { runHud } from '../src/cli/horizon_hud.mjs';
 
@@ -19,7 +19,7 @@ function calculatePercentiles(durations) {
 }
 
 console.log(`========================================================================`);
-console.log(`  Chrono-Attention Horizon & Flight Check v3.1.0 Latency Benchmark`);
+console.log(`  Context Horizon Latency Benchmark (ctxtop v${SIDECAR_VERSION})`);
 console.log(`  Running ${ITERATIONS} iterations per critical path`);
 console.log(`========================================================================\n`);
 

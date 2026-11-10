@@ -4,21 +4,21 @@
     "SessionStart": [
       {
         "type": "command",
-        "command": "node ~/.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/session_start.mjs",
+        "command": "node --no-warnings -e \"import('node:fs').then(fs=>import('node:os').then(os=>import('node:path').then(p=>{const f1=p.resolve('./src/hooks/session_start.mjs');const f2=p.join(os.homedir(),'.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/session_start.mjs');const f3=p.resolve('.agents/plugins/agy-horizon-flightcheck/src/hooks/session_start.mjs');const target=fs.existsSync(f1)?f1:(fs.existsSync(f3)?f3:f2);import(process.platform==='win32'?'file:///'+target.replace(/\\\\/g,'/'):target);})));\"",
         "timeout": 5
       }
     ],
     "PreInvocation": [
       {
         "type": "command",
-        "command": "node ~/.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/pre_invocation.mjs",
+        "command": "node --no-warnings -e \"import('node:fs').then(fs=>import('node:os').then(os=>import('node:path').then(p=>{const f1=p.resolve('./src/hooks/pre_invocation.mjs');const f2=p.join(os.homedir(),'.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/pre_invocation.mjs');const f3=p.resolve('.agents/plugins/agy-horizon-flightcheck/src/hooks/pre_invocation.mjs');const target=fs.existsSync(f1)?f1:(fs.existsSync(f3)?f3:f2);import(process.platform==='win32'?'file:///'+target.replace(/\\\\/g,'/'):target);})));\"",
         "timeout": 15
       }
     ],
     "PostInvocation": [
       {
         "type": "command",
-        "command": "node ~/.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/post_invocation.mjs",
+        "command": "node --no-warnings -e \"import('node:fs').then(fs=>import('node:os').then(os=>import('node:path').then(p=>{const f1=p.resolve('./src/hooks/post_invocation.mjs');const f2=p.join(os.homedir(),'.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/post_invocation.mjs');const f3=p.resolve('.agents/plugins/agy-horizon-flightcheck/src/hooks/post_invocation.mjs');const target=fs.existsSync(f1)?f1:(fs.existsSync(f3)?f3:f2);import(process.platform==='win32'?'file:///'+target.replace(/\\\\/g,'/'):target);})));\"",
         "timeout": 5
       }
     ]

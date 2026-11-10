@@ -220,12 +220,18 @@
   /* Conversation Switcher Bar */
   .session-bar {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 6px;
     background: var(--hz-card);
     border: 1px solid var(--hz-border);
     border-radius: 6px;
-    padding: 5px 10px;
+    padding: 6px 10px;
+  }
+  .session-bar-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
   }
   .session-label {
     font-size: 11px;
@@ -900,6 +906,7 @@
     border-color: rgba(245, 158, 11, 0.55);
     font-weight: 700;
   }
+  .section-box-header,
   .health-summary-header {
     display: flex;
     align-items: center;
@@ -907,20 +914,39 @@
     gap: 8px;
     border-bottom: 1px solid #282a2c;
     padding-bottom: 6px;
+    margin-bottom: 8px;
+    width: 100%;
   }
+  .section-box-title-group,
   .health-summary-title-group {
     display: flex;
     align-items: center;
     gap: 6px;
+    min-width: 0;
   }
+  .section-box-icon,
   .health-summary-icon {
     font-size: 12.5px;
+    flex-shrink: 0;
+    line-height: 1;
   }
+  .section-box-title,
   .health-summary-title {
     font-size: 12px;
     font-weight: 600;
     letter-spacing: -0.01em;
     color: #f8fafc !important;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .section-box-meta-group,
+  .health-summary-meta-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
   }
   .summary-status-pill {
     font-size: 10px;
@@ -1612,11 +1638,9 @@
     .payload-box .chip-btn, .payload-box .mini-btn { margin-top: 6px; }
     .quota-strip {
       display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 4px 6px;
-      padding: 5px 10px;
+      flex-direction: column;
+      gap: 6px;
+      padding: 6px 10px;
       background: var(--hz-card);
       border: 1px solid var(--hz-border);
       border-radius: 6px;
@@ -1640,7 +1664,9 @@
       flex-wrap: wrap;
       align-items: center;
       gap: 4px;
-      white-space: nowrap;
+      white-space: normal;
+      min-width: 0;
+      flex: 1 1 auto;
     }
     .quota-Forecast { color: var(--hz-anchor) !important; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
     .quota-Forecast[hidden] { display: none !important; }
@@ -1675,6 +1701,11 @@
       background: rgba(245, 158, 11, 0.14);
       border: 1px solid rgba(245, 158, 11, 0.4);
       white-space: nowrap;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: inline-flex;
+      vertical-align: middle;
     }
     .prefix-bust-badge.cold-start-info {
       color: #8ab4f8 !important;
@@ -1790,17 +1821,31 @@
       margin-bottom: 4px;
     }
     .host-watchdog-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+      display: none;
+      flex-direction: column;
+      gap: 6px;
       font-size: 10.5px;
       color: var(--hz-muted) !important;
-      padding: 5px 12px;
+      padding: 6px 12px;
       border-radius: 6px;
       background: var(--hz-card);
       border: 1px solid var(--hz-border-subtle);
       font-variant-numeric: tabular-nums;
+    }
+    body[data-view-mode="simple"] .host-watchdog-bar,
+    body[data-view-mode="simple"] #hostWatchdogBar {
+      display: none !important;
+    }
+    body[data-view-mode="advanced"] .host-watchdog-bar:not([hidden]),
+    body[data-view-mode="advanced"] #hostWatchdogBar:not([hidden]) {
+      display: flex !important;
+    }
+    .host-watchdog-body {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      width: 100%;
     }
     .host-watchdog-bar.alert {
       border-color: rgba(239, 68, 68, 0.45);
@@ -1874,6 +1919,327 @@
       white-space: nowrap;
     }
     .coach-pill[hidden] { display: none !important; }
+    .ttl-countdown-clock {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      background: rgba(139, 92, 246, 0.14);
+      border: 1px solid rgba(139, 92, 246, 0.40);
+      color: #ddd6fe !important;
+    }
+    .ttl-countdown-clock.ttl-warning-pulse {
+      background: rgba(245, 158, 11, 0.16);
+      border-color: rgba(245, 158, 11, 0.55);
+      color: #fde68a !important;
+    }
+    .ttl-countdown-clock.ttl-expired-cold-risk {
+      background: rgba(239, 68, 68, 0.16);
+      border-color: rgba(239, 68, 68, 0.55);
+      color: #fecaca !important;
+    }
+
+    /* User-Friendly Prompt Cache Box: Visual Countdown Bar & Plain-English Tip */
+    [data-view-mode="simple"] .quota-strip .quota-pills,
+    [data-view-mode="simple"] .quota-strip .quota-Forecast,
+    [data-view-mode="simple"] .quota-strip .quota-meta-row,
+    [data-view-mode="simple"] .quota-strip .overage-guardrail-banner {
+      display: none !important;
+    }
+    .cache-efficiency-meter {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px 10px;
+      margin-top: 2px;
+      background: var(--hz-card-alt);
+      border: 1px solid var(--hz-border-subtle);
+      border-radius: 6px;
+      font-size: 11px;
+    }
+    .cache-meter-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+      font-variant-numeric: tabular-nums;
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+    }
+    .cache-timer-bar-track {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .cache-timer-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #38bdf8, #34d399);
+      border-radius: 999px;
+      transition: width 0.35s ease, background 0.25s ease;
+    }
+    .cache-timer-bar-fill.expiring {
+      background: linear-gradient(90deg, #f59e0b, #fbbf24);
+    }
+    .cache-timer-bar-fill.cold {
+      width: 0% !important;
+      background: #475569;
+    }
+    .cache-meter-hit {
+      color: #f8fafc !important;
+      font-weight: 600;
+      font-size: 11.5px;
+    }
+    .cache-meter-split {
+      color: var(--hz-muted) !important;
+      font-size: 10.5px;
+    }
+    .cache-meter-countdown {
+      color: #38bdf8 !important;
+      font-weight: 600;
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+    .cache-meter-countdown.cold {
+      color: #94a3b8 !important;
+      background: rgba(148, 163, 184, 0.1);
+      border-color: rgba(148, 163, 184, 0.25);
+    }
+    .cache-meter-saved {
+      display: none;
+    }
+    .cache-operational-guide {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      padding: 6px 8px;
+      border-radius: 5px;
+      font-size: 11px;
+      line-height: 1.4;
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+      border: 1px solid var(--hz-border-subtle);
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+    .cache-operational-guide.warm {
+      background: rgba(56, 189, 248, 0.08);
+      border-color: rgba(56, 189, 248, 0.3);
+      color: #bae6fd !important;
+    }
+    .cache-operational-guide.cold {
+      background: rgba(16, 185, 129, 0.08);
+      border-color: rgba(16, 185, 129, 0.3);
+      color: #a7f3d0 !important;
+    }
+    .guide-icon {
+      flex-shrink: 0;
+      font-size: 12px;
+    }
+    .guide-text {
+      flex: 1;
+    }
+
+    /* Folded 1-Line Primary Bloat Driver inside .storage-card */
+    .storage-bloat-callout {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      padding: 6px 0 0 0;
+      margin-top: 8px;
+      border-top: 1px solid var(--hz-border-subtle);
+      font-size: 11px;
+      color: var(--hz-muted);
+      line-height: 1.4;
+    }
+    .bloat-callout-icon {
+      color: var(--hz-clutter);
+      font-size: 8px;
+      flex-shrink: 0;
+    }
+    .bloat-callout-label {
+      color: var(--hz-muted) !important;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .bloat-callout-text {
+      color: var(--hz-fg) !important;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Cache-Aware Action Gating Hold Banner */
+    .cache-gated-hold-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 5px 9px;
+      margin-bottom: 8px;
+      border-radius: 5px;
+      font-size: 10.5px;
+      border: 1px dashed rgba(245, 158, 11, 0.4);
+      background: rgba(245, 158, 11, 0.07);
+      color: #fde68a !important;
+    }
+    .cache-gated-hold-banner.active {
+      border-color: rgba(56, 189, 248, 0.4);
+      background: rgba(56, 189, 248, 0.07);
+      color: #bae6fd !important;
+    }
+    .cache-gated-toggle-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 3px;
+      padding: 2px 7px;
+      font-size: 10px;
+      color: #f8fafc;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .cache-gated-toggle-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Dedicated Domain Boxes: Coaching & RSI */
+    .coaching-box, .rsi-box {
+      background: var(--hz-card);
+      border: 1px solid var(--hz-border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .coaching-box[hidden], .rsi-box[hidden] {
+      display: none !important;
+    }
+    .coaching-guardrails-row, .rsi-health-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10.5px;
+      color: var(--hz-muted) !important;
+      padding: 2px 0;
+      border-top: 1px solid var(--hz-border-subtle);
+      font-variant-numeric: tabular-nums;
+    }
+    .guardrails-icon, .rsi-icon {
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    .rsi-health-summary {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 6px;
+      color: var(--hz-muted);
+    }
+    .rsi-health-summary strong {
+      color: var(--hz-fg);
+    }
+
+    .det17-badge-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 6px;
+    }
+    .det17-badge-strip[hidden] { display: none !important; }
+    .det17-shadow-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-variant-numeric: tabular-nums;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.40);
+      color: #fcd34d !important;
+    }
+    .subagent-live-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-variant-numeric: tabular-nums;
+      background: rgba(245, 158, 11, 0.14);
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      color: #fde68a !important;
+      cursor: pointer;
+    }
+    .subagent-live-pill[hidden] { display: none !important; }
+    .tier2-intervention-slot {
+      margin: 6px 0;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.90);
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 11px;
+    }
+    .tier2-intervention-slot.critical {
+      border-color: rgba(239, 68, 68, 0.60);
+      background: rgba(239, 68, 68, 0.10);
+    }
+    .tier2-intervention-slot[hidden] { display: none !important; }
+    .tier2-card-body {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .tier2-card-title { font-weight: 700; color: var(--hz-fg) !important; }
+    .tier2-card-sub { font-size: 10px; color: var(--hz-muted) !important; }
+    .tier3-saved-quota-footer {
+      height: 24px;
+      min-height: 24px;
+      max-height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 10px;
+      margin-top: 8px;
+      border-top: 1px solid var(--hz-border);
+      background: var(--hz-card);
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-variant-numeric: tabular-nums;
+      color: var(--hz-fg-secondary) !important;
+    }
+    .tier3-receipt-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .btn-copy-receipt {
+      background: transparent;
+      border: 1px solid var(--hz-border);
+      color: var(--hz-anchor) !important;
+      border-radius: 3px;
+      padding: 1px 6px;
+      font-size: 9.5px;
+      font-weight: 600;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
     .prefix-shield-staged-queue {
       margin-top: 4px;
       padding: 3px 6px;
@@ -2023,6 +2389,270 @@
     body[data-view-mode="simple"] #prefixMutationDiffBanner {
       display: none !important;
     }
+
+    /* Clean-Sheet Tufte Flat Hairline Canvas (~360px Simple View) */
+    body[data-view-mode="simple"] .wrap {
+      gap: 0 !important;
+    }
+    body[data-view-mode="simple"] header {
+      padding-bottom: 4px !important;
+      border-bottom: none !important;
+    }
+    body[data-view-mode="simple"] header h1 {
+      font-size: 11px !important;
+      letter-spacing: 0.06em !important;
+      text-transform: uppercase !important;
+      color: var(--hz-muted) !important;
+    }
+    body[data-view-mode="simple"] #statusBadge {
+      display: none !important;
+    }
+    body[data-view-mode="simple"] .session-bar,
+    body[data-view-mode="simple"] .storage-card,
+    body[data-view-mode="simple"] .simple-actionable-card {
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      padding: 8px 0 !important;
+      margin: 0 !important;
+      border-bottom: 1px solid var(--hz-border-subtle) !important;
+    }
+    body[data-view-mode="simple"] .session-bar > .section-box-header,
+    body[data-view-mode="simple"] .storage-card > .section-box-header,
+    body[data-view-mode="simple"] .simple-actionable-card > .section-box-header,
+    body[data-view-mode="simple"] #storagePrimaryBloatLine,
+    body[data-view-mode="simple"] #quotaStrip,
+    body[data-view-mode="simple"] #coachingBox,
+    body[data-view-mode="simple"] #rsiBox,
+    body[data-view-mode="simple"] #savedQuotaFooterBar {
+      display: none !important;
+    }
+    body[data-view-mode="simple"] .session-bar-controls {
+      padding: 0 !important;
+      gap: 6px !important;
+    }
+    body[data-view-mode="simple"] .session-bar-controls .session-label {
+      display: none !important;
+    }
+    .tufte-model-burn-pill {
+      display: none;
+      font-size: 10.5px;
+      color: #cbd5e1 !important;
+      white-space: nowrap;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--hz-border-subtle);
+      font-variant-numeric: tabular-nums;
+    }
+    body[data-view-mode="simple"] .tufte-model-burn-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .tufte-verdict-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--hz-border-subtle);
+      font-size: 11px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: #e2e8f0 !important;
+    }
+    body[data-view-mode="advanced"] .tufte-verdict-bar {
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: var(--hz-card);
+      border: 1px solid var(--hz-border);
+    }
+    .tufte-verdict-bar[data-verdict-state="HOLD_COMPACT"] {
+      color: #fde68a !important;
+    }
+    .tufte-verdict-bar[data-verdict-state="COMPACT_NOW"] {
+      color: #fbbf24 !important;
+    }
+    .tufte-verdict-bar[data-verdict-state="CRITICAL_STOP"] {
+      color: #fca5a5 !important;
+    }
+    .tufte-verdict-bar[data-verdict-state="NOMINAL"] {
+      color: #a7f3d0 !important;
+    }
+    .tufte-router-hold {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--hz-muted) !important;
+    }
+    .tufte-sparkline-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10.5px;
+      color: #94a3b8 !important;
+      margin-right: 6px;
+      letter-spacing: -0.02em;
+    }
+    .tufte-delta-accounting {
+      display: block;
+      width: 100%;
+      font-size: 10px;
+      color: var(--hz-muted) !important;
+      margin-top: 1px;
+      font-variant-numeric: tabular-nums;
+    }
+    /* Promote 40-Cell Parabolic Horizon Spine in Simple View */
+    body[data-view-mode="simple"] .bar-outer {
+      height: 0 !important;
+      margin: 0 !important;
+      overflow: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    body[data-view-mode="simple"] #chronoTimelineDrawer {
+      display: block !important;
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      padding: 2px 0 4px 0 !important;
+      margin: 4px 0 2px 0 !important;
+    }
+    body[data-view-mode="simple"] #chronoTimelineDrawer > summary,
+    body[data-view-mode="simple"] #miniInspector {
+      display: none !important;
+    }
+    body[data-view-mode="simple"] #miniTimeline {
+      height: 26px !important;
+      align-items: flex-end !important;
+      gap: 2px !important;
+      margin-top: 2px !important;
+      padding-bottom: 2px !important;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.20) !important;
+    }
+    body[data-view-mode="simple"] #miniTimeline .mini-cell {
+      height: calc(36% + 64% * var(--u-weight, 1)) !important;
+      border-radius: 1px 1px 0 0 !important;
+    }
+    body[data-view-mode="simple"] #miniTimeline .mini-cell.headroom-empty {
+      height: 4px !important;
+      background: rgba(51, 65, 85, 0.55) !important;
+    }
+    .tufte-horizon-scale {
+      display: none;
+      position: relative;
+      width: 100%;
+      height: 14px;
+      font-size: 9.5px;
+      color: var(--hz-muted) !important;
+      margin-top: 3px;
+      font-variant-numeric: tabular-nums;
+    }
+    body[data-view-mode="simple"] .tufte-horizon-scale {
+      display: block !important;
+    }
+    .tufte-scale-tick {
+      position: absolute;
+      top: 0;
+      white-space: nowrap;
+    }
+    .tufte-scale-limit {
+      color: #fda4af !important;
+      font-weight: 600;
+    }
+    .tufte-col2-cache-strip {
+      display: none;
+      flex-direction: column;
+      gap: 3px;
+      margin-top: 3px;
+      font-size: 10px;
+      color: var(--hz-muted) !important;
+    }
+    body[data-view-mode="simple"] .tufte-col2-cache-strip {
+      display: flex !important;
+    }
+    .tufte-col2-bar-track {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .tufte-col2-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #38bdf8, #34d399);
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
+    /* Flat 1-Line Prefix-Safe Action Rows in Simple View (Zero Accordions) */
+    body[data-view-mode="simple"] .m3-action-row {
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      border-bottom: 1px dashed rgba(148, 163, 184, 0.14) !important;
+      padding: 2px 0 !important;
+    }
+    body[data-view-mode="simple"] .m3-action-row:last-child {
+      border-bottom: none !important;
+    }
+    body[data-view-mode="simple"] .m3-action-caret {
+      display: none !important;
+    }
+    body[data-view-mode="simple"] .m3-action-summary {
+      padding: 3px 0 !important;
+      cursor: default !important;
+    }
+    .tufte-section-subhead {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--hz-muted) !important;
+      padding: 4px 0 2px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    /* 24px Silent-When-Nominal Baseline Strip */
+    .tufte-baseline-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      min-height: 24px;
+      padding: 5px 0 2px 0;
+      font-size: 10.5px;
+      color: var(--hz-muted) !important;
+      font-variant-numeric: tabular-nums;
+    }
+    body[data-view-mode="advanced"] .tufte-baseline-strip {
+      display: none !important;
+    }
+    .tufte-inline-modes {
+      display: inline-flex;
+      gap: 2px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--hz-border-subtle);
+      border-radius: 3px;
+      padding: 1px;
+    }
+    .tufte-mode-chip {
+      background: transparent;
+      border: none;
+      color: var(--hz-muted);
+      font-size: 9.5px;
+      padding: 1px 5px;
+      border-radius: 2px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .tufte-mode-chip.active {
+      background: var(--hz-card-alt);
+      color: var(--hz-anchor) !important;
+      font-weight: 600;
+    }
 </style>
 </head>
 <body data-view-mode="simple">
@@ -2032,7 +2662,7 @@
   <header>
     <div class="title-group">
       <div class="dot" id="statusDot"></div>
-      <h1>Context Memory</h1>
+      <h1>Attention Horizon<span style="display:none"> Context Memory</span></h1>
     </div>
     <div class="header-right">
       <span class="badge mono advanced-only" id="workloadModeBadge">[Mode: Read-Heavy Audit]</span>
@@ -2046,49 +2676,45 @@
     </div>
   </header>
 
-  <!-- Conversation Switcher Bar -->
-  <div class="session-bar">
-    <span class="session-label">Session</span>
-    <select class="session-select" id="sessionSelect" aria-label="Select conversation" title="Select which conversation's context memory to inspect">
-      <option value="auto">&#x26A1; Auto (Active Conversation)</option>
-    </select>
-    <span class="prefix-lock-badge mono" id="prefixLockBadge" hidden title="Active warm cache (&gt;50k tokens). Changing reasoning effort or switching models rewrites the system prefix and triggers a 100% uncached KV cache rebuild.">&#x1F512; Warm</span>
-    <button class="icon-btn" id="btnOpenChat" title="Click: Switch IDE chat pane to the selected conversation | Alt+Click: Open local ~/.gemini/&lt;surface&gt;/brain/&lt;session-uuid&gt;/ folder in OS file explorer">Open &#x2197;</button>
-  </div>
-
-  <!-- Dual-Pool Quota & Cache-Read Telemetry Strip -->
-  <div class="quota-strip mono flex items-center justify-between gap-2 flex-wrap" id="quotaStrip" hidden>
-    <div class="physical-metrics-bar mono" id="physicalMetricsBar">0k / 256k &middot; 0% &middot; Cache Hit: 0% &middot; Waste: 0k &middot; TTL: 300s</div>
-    <div class="quota-pills flex items-center justify-between gap-2 flex-wrap" id="quotaPills">5h Sprint: 0% &middot; 7d: 0% &middot; Cache: 0% hit (300s TTL)</div>
-    <div class="quota-Forecast" id="quotaForecast" hidden></div>
-    <div class="quota-meta-row mono" id="quotaMetaRow" hidden>
-      <span id="quotaPoolReset"></span>
-      <span class="quota-credits" id="quotaAiCredits" hidden></span>
-    </div>
-    <div class="overage-guardrail-banner" id="quotaOverageAlert" hidden></div>
-    <div class="overage-guardrail-banner warn" id="overageTtlCliffBanner" hidden></div>
-    <div class="overage-guardrail-banner danger" id="coldSessionCostGateBanner" hidden></div>
-    <div class="overage-guardrail-banner warn" id="prefixMutationDiffBanner" hidden></div>
-  </div>
-
-  <!-- Interactive Model & Effort Coach Bar -->
-  <div class="model-coach-bar mono" id="modelCoachBar">
-    <div class="model-coach-status">
-      <span class="model-coach-badge" id="modelCoachLiveLabel">Active: Gemini 4 Argon &bull; High (9.25x burn &bull; live synced)</span>
-      <span class="model-coach-reset" id="modelCoachResetLabel">Resets in 46m</span>
-    </div>
-    <div class="model-coach-controls">
-      <div class="model-mode-switch" role="group" aria-label="Router Mode">
-        <button type="button" class="mode-btn" id="btnModeOff" data-mode="off">Off</button>
-        <button type="button" class="mode-btn active" id="btnModeCoach" data-mode="coach">Coach</button>
-        <button type="button" class="mode-btn" id="btnModeAutopilot" data-mode="autopilot">Auto-Pilot</button>
+  <!-- Active Session & Model Switcher Bar -->
+  <div class="session-bar" id="sessionTopCard">
+    <div class="section-box-header">
+      <div class="section-box-title-group">
+        <span class="section-box-icon" aria-hidden="true">&#x1F4AC;</span>
+        <h2 class="section-box-title">Active Session &amp; Model Context</h2>
       </div>
-      <div class="coach-pill" id="coachActionPill" hidden></div>
+      <div class="section-box-meta-group">
+        <span class="prefix-lock-badge mono" id="prefixLockBadge" hidden title="Active warm cache (&gt;50k tokens). Changing reasoning effort or switching models rewrites the system prefix and triggers a 100% uncached KV cache rebuild.">&#x1F512; Warm</span>
+        <span class="summary-status-pill mono" id="sessionModelPill" style="font-size:10px;">Auto</span>
+      </div>
+    </div>
+    <div class="session-bar-controls">
+      <span class="session-label">Session</span>
+      <select class="session-select" id="sessionSelect" aria-label="Select conversation" title="Select which conversation's context memory to inspect">
+        <option value="auto">&#x26A1; Auto (Active Conversation)</option>
+      </select>
+      <span class="tufte-model-burn-pill mono" id="tufteModelBurnPill" title="Active Model &amp; Effort Burn Multiplier">Flash 3.8 &middot; Auto</span>
+      <button class="icon-btn" id="btnOpenChat" title="Click: Switch IDE chat pane to the selected conversation | Alt+Click: Open local ~/.gemini/&lt;surface&gt;/brain/&lt;session-uuid&gt;/ folder in OS file explorer">Open &#x2197;</button>
     </div>
   </div>
 
-  <!-- 2. 200k/256k Token Bar & 3 Beginner-Friendly Breakdown Cards -->
-  <section class="storage-card">
+  <!-- Deterministic Top-Level Tufte Verdict Line -->
+  <div class="tufte-verdict-bar mono" id="unifiedVerdictBar" data-verdict-state="NOMINAL">
+    <span class="tufte-verdict-text" id="unifiedVerdictText">NOMINAL &middot; Cache warm &middot; 140k to Auto cap</span>
+    <span class="tufte-router-hold" id="unifiedRouterHoldNote" hidden></span>
+  </div>
+
+  <!-- Box 1: Context Memory Capacity (Top Main Box) -->
+  <section class="storage-card" id="storageCard">
+    <div class="section-box-header">
+      <div class="section-box-title-group">
+        <span class="section-box-icon" aria-hidden="true">&#x1F4CA;</span>
+        <h2 class="section-box-title">Context Memory Capacity</h2>
+      </div>
+      <div class="section-box-meta-group">
+        <span class="summary-status-pill mono" id="storageHorizonBadge">Safe Limit: 140k</span>
+      </div>
+    </div>
     <div class="storage-top">
       <div>
         <span class="used-big mono" id="usedBig">0k</span>
@@ -2096,6 +2722,7 @@
         <span class="ceiling-clamp-pill mono" id="ceilingClampPill" hidden></span>
       </div>
       <div class="free-wrap">
+        <span class="tufte-sparkline-group mono" id="tufteTurnSparkline" title="16-turn token velocity sparkline"></span>
         <div class="free-label mono" id="freeLabel">140k safe limit</div>
         <button class="gear-btn" id="btnSettings" type="button" title="Safe limit & reminder settings" aria-expanded="false" aria-controls="settingsPop">&#x2699;</button>
       </div>
@@ -2114,6 +2741,7 @@
       </div>
     </form>
     <div class="delta-line mono" id="deltaLine" style="display:none;"></div>
+    <div class="tufte-delta-accounting mono" id="tufteDeltaAccounting" hidden></div>
 
     <div class="bar-outer">
       <div class="cascade-line" id="cascadeWatermarkLine" title="50k Cascade Sync Armed: Crossing 50k arms the automatic checkpointer. Completing a task.md item or switching subagents will trigger synchronous auto-compaction.">
@@ -2132,6 +2760,25 @@
       </div>
     </div>
 
+    <!-- 40-Cell Parabolic Horizon Spine (Promoted into Primary Capacity Band) -->
+    <details class="advanced-drawer" id="chronoTimelineDrawer" data-slot="collapsible" open>
+      <summary><span>40-Cell Context Window Map</span><span class="mono" id="cellSizeTag" style="font-size:10px;">6.4k / cell</span></summary>
+      <div class="mini-timeline" id="miniTimeline"></div>
+      <div class="tufte-horizon-scale mono" id="tufteHorizonScale">
+        <span class="tufte-scale-tick" id="tufteScaleTick0" style="left:0%;">0k</span>
+        <span class="tufte-scale-tick" id="tufteScaleTick50" style="left:19.5%;transform:translateX(-50%);">50k</span>
+        <span class="tufte-scale-tick" id="tufteScaleTickTrough" style="left:36%;transform:translateX(-50%);">trough</span>
+        <span class="tufte-scale-tick tufte-scale-limit" id="tufteScaleLimitLabel" style="left:57.4%;transform:translateX(-50%);">147k&#x26A1; High limit</span>
+        <span class="tufte-scale-tick" id="tufteScaleMaxLabel" style="right:0%;">256k</span>
+      </div>
+      <div class="det17-badge-strip mono" id="det17BadgeStrip" hidden></div>
+      <div class="top-risky-cells-list mono advanced-only" id="topRiskyCellsList" hidden></div>
+      <div class="mini-inspector mono" id="miniInspector">Hover or click any block above to inspect 6.4k token slice</div>
+      <div class="stranded-signal-banner" id="strandedSignalBanner" hidden></div>
+      <div class="cell-turn-filter-panel mono" id="cellTurnFilterPanel" hidden></div>
+      <div class="subagent-pills mono" id="subagentPills" hidden></div>
+    </details>
+
     <div class="breakdown-grid">
       <div class="b-item" title="Rules, task plan, and active files the agent is working with right now">
         <div class="b-head">
@@ -2149,16 +2796,27 @@
         </div>
         <div class="b-val mono" id="valClutter">0k (0%)</div>
         <div class="b-sub" id="subClutter">Can be cleared</div>
+        <div class="tufte-col2-cache-strip mono" id="tufteCol2CacheStrip">
+          <span id="tufteCol2TtlLabel">Cold &middot; 0s</span>
+          <div class="tufte-col2-bar-track"><div class="tufte-col2-bar-fill" id="tufteCol2BarFill" style="width: 0%;"></div></div>
+        </div>
       </div>
 
       <div class="b-item" title="Available memory before the agent begins truncating earliest instructions">
         <div class="b-head">
-          <span class="b-swatch" id="swatchFree" style="background:var(--hz-free); border: 1px solid var(--hz-border)"></span>
+          <span class="b-swatch" id="swatchFree" style="background:#334155; border: 1.5px solid #64748b"></span>
           <span id="lblFree">Safe Headroom</span>
         </div>
         <div class="b-val mono text-slate-100" id="valFree" style="color:#f1f5f9 !important;">140k left</div>
         <div class="b-sub" id="subFree">Until 140k safe limit</div>
       </div>
+    </div>
+
+    <!-- 1-line Primary Bloat Driver Callout (folded from old summary card) -->
+    <div class="storage-bloat-callout mono" id="storagePrimaryBloatLine">
+      <span class="bloat-callout-icon">&#x25CF;</span>
+      <strong class="bloat-callout-label">Primary Bloat:</strong>
+      <span class="bloat-callout-text" id="storagePrimaryBloatText">Analyzing transcript forensics...</span>
     </div>
 
     <!-- Active Signal drawer (progressive disclosure) -->
@@ -2181,8 +2839,69 @@
     </div>
   </section>
 
+  <!-- Box 2: Prompt Cache (Directly Below Context Memory Box) -->
+  <section class="quota-strip cache-box mono" id="quotaStrip">
+    <div class="section-box-header">
+      <div class="section-box-title-group">
+        <span class="section-box-icon" aria-hidden="true">&#x26A1;</span>
+        <h2 class="section-box-title">Prompt Cache<span style="display:none"> &amp; Quota Pacing</span></h2>
+      </div>
+      <div class="section-box-meta-group">
+        <span class="summary-status-pill mono" id="quotaCacheStatusPill">Cold</span>
+      </div>
+    </div>
+
+    <!-- User-Friendly Visual Countdown Bar & Plain-English Tip -->
+    <div class="cache-efficiency-meter mono" id="cacheEfficiencyMeter">
+      <div class="cache-meter-row">
+        <span class="cache-meter-hit" id="cacheHitPctDisplay"><strong id="cacheHitPctVal">0%</strong> Cached</span>
+        <span class="cache-meter-split" id="cacheTokenSplitDisplay">No active discount</span>
+        <span class="cache-meter-countdown ttl-countdown-clock mono cold" id="ttlCountdownClock" title="5-Minute Prompt Cache Window">Expired</span>
+        <span class="cache-meter-saved" id="cacheTokensSavedDisplay">+0k saved</span>
+      </div>
+      <div class="cache-timer-bar-track" title="5-Minute Prompt Cache Timer">
+        <div class="cache-timer-bar-fill cold" id="cacheTimerBarFill" style="width: 0%;"></div>
+      </div>
+      <div class="cache-operational-guide cold" id="cacheOperationalGuide">
+        <span class="guide-icon" id="guideIcon">&#x1F513;</span>
+        <span class="guide-text" id="guideText"><strong>What to do now:</strong> Cache is cold — great time to run <code>/compact</code>, switch models, or edit rules without losing a discount.</span>
+      </div>
+    </div>
+
+    <!-- Quota Telemetry Pills -->
+    <div class="quota-pills flex items-center justify-between gap-2 flex-wrap" id="quotaPills">5h Sprint: 0% &middot; 7d: 0% &middot; Cache: 0% hit (300s TTL)</div>
+    <div class="physical-metrics-bar mono" id="physicalMetricsBar" style="display:none;">0k / 256k &middot; 0% &middot; Cache Hit: 0% &middot; Waste: 0k &middot; TTL: 300s</div>
+    <div class="quota-Forecast" id="quotaForecast" hidden></div>
+    <div class="quota-meta-row mono" id="quotaMetaRow" hidden>
+      <span id="quotaPoolReset"></span>
+      <span class="quota-credits" id="quotaAiCredits" hidden></span>
+    </div>
+    <div class="overage-guardrail-banner" id="quotaOverageAlert" hidden></div>
+    <div class="overage-guardrail-banner warn" id="overageTtlCliffBanner" hidden></div>
+    <div class="overage-guardrail-banner danger" id="coldSessionCostGateBanner" hidden></div>
+    <div class="overage-guardrail-banner warn" id="prefixMutationDiffBanner" hidden></div>
+  </section>
+
+  <!-- Tier 2: Event-Driven Intervention Card Slot (Collapsed by default; renders at most 1 priority card) -->
+  <div class="tier2-intervention-slot" id="tier2InterventionSlot" hidden>
+    <div class="tier2-card-body">
+      <span class="tier2-card-title" id="tier2CardTitle">Intervention Required</span>
+      <span class="tier2-card-sub mono" id="tier2CardSub"></span>
+    </div>
+    <button type="button" class="mini-btn m3-action-btn" id="btnTier2PrimaryAction">&#x1F4CB; Copy Prompt</button>
+  </div>
+
   <!-- 3. Smart Action Center: Step-by-Step Guided Action -->
   <section class="action-card" id="actionCard">
+    <div class="section-box-header">
+      <div class="section-box-title-group">
+        <span class="section-box-icon" aria-hidden="true">&#x26A1;</span>
+        <h2 class="section-box-title">Smart Action Center</h2>
+      </div>
+      <div class="section-box-meta-group">
+        <span class="summary-status-pill mono" id="actionCardStatusPill">Active</span>
+      </div>
+    </div>
     <div class="action-msg">
       <span class="action-icon" id="actionIcon">&#x2713;</span>
       <div id="actionText">
@@ -2192,8 +2911,6 @@
 
     <!-- Recommended Action Box (Shown when cleanup is recommended) -->
     <div class="guided-step-box" id="guidedStepBox" style="display:none;">
-      <div class="high-effort-sludge-banner" id="highEffortSludgeBanner" hidden></div>
-      <div class="artifact-drift-banner" id="artifactDriftBanner" hidden><span id="artifactDriftText"></span> <button type="button" class="mini-btn" id="btnDriftSaveTask" title="Sends a prompt to the agent in this chat to save progress to task.md (same as Ask Agent: Save task.md)">Save task.md</button></div>
       <div class="cache-compaction-advisory warm-defer" id="cacheCompactionAdvisory" data-advisory-state="warm-defer">
         Cache is currently warm (95% token cost discount). Defer compaction until work pause to avoid 70s execution stall and complete KV cache invalidation.
       </div>
@@ -2216,10 +2933,10 @@
           <div class="compact-instruction" id="compactInstruction">
             <span class="m3-action-icon amber" aria-hidden="true">&#x26A1;</span>
             <div class="compact-instruction-main">
-              <span class="compact-instruction-title">Type <kbd class="cmd-kbd">/compact</kbd> in the chat box and press <kbd>Enter</kbd></span>
-              <span class="compact-reclaim" id="compactReclaim"></span>
+              <span class="compact-instruction-title">Compact conversation history</span>
+              <span class="compact-instruction-sub mono">Type <kbd class="cmd-kbd">/compact</kbd> in the chat box and press <kbd>Enter</kbd></span>
             </div>
-            <span class="m3-impact-badge amber mono" id="compactImpactBadge">~0k</span>
+            <span class="compact-reclaim mono" id="compactReclaim">reclaims ~0k</span>
           </div>
         </div>
 
@@ -2291,8 +3008,8 @@
   <div class="feedback-toast" id="feedbackToast"></div>
 
   <!-- Tier 3A (Upper Box): User-Friendly Session Health Summary (Information Only — Fixed 3 Bullets) -->
-  <section class="health-summary-card simple-only" id="sessionHealthSummary">
-    <div class="health-summary-header">
+  <section class="health-summary-card advanced-only" id="sessionHealthSummary">
+    <div class="health-summary-header section-box-header">
       <div class="health-summary-title-group">
         <span class="health-summary-icon" aria-hidden="true">&#x1F4CA;</span>
         <h2 class="health-summary-title">Session Health Summary</h2>
@@ -2325,20 +3042,22 @@
         <span class="summary-bullet-icon" id="summaryIconGuardrails">&#x25CF;</span>
         <div class="summary-bullet-text">
           <strong class="summary-bullet-heading">Guardrails &amp; Compression:</strong>
-          <span id="summaryTextGuardrails">&#x1F6E1;&#xFE0F; DET-01..16 Active &middot; FTS5 Log Compression: 41.2k tokens saved</span>
+          <span id="summaryTextGuardrails">&#x1F6E1;&#xFE0F; DET-01..16 Active &middot; FTS5 Log Compression: 0.0k tokens saved</span>
         </div>
       </div>
     </div>
   </section>
 
+  <div class="high-effort-sludge-banner" id="highEffortSludgeBanner" hidden style="margin: 6px 0;"></div>
+  <div class="artifact-drift-banner" id="artifactDriftBanner" hidden style="margin: 6px 0;"><span id="artifactDriftText"></span> <button type="button" class="mini-btn" id="btnDriftSaveTask" title="Sends a prompt to the agent in this chat to save progress to task.md (same as Ask Agent: Save task.md)">Save task.md</button></div>
   <div class="overage-guardrail-banner danger" id="detCircuitBreakerAlert" hidden style="margin: 6px 0; padding: 6px 10px;">
     <span class="alert-icon">&#x26A0;</span>
     <span id="detCircuitBreakerMsg">Deterministic Circuit Breaker Tripped</span>
   </div>
 
-  <!-- Tier 3B (Lower Box): Actionable Now (Auto-hidden when 0 actions; ordered by descending importance) -->
+  <!-- Box 3: Context Cleanup Actions (Cache-Gated) -->
   <section class="health-summary-card simple-actionable-card simple-only" id="simpleActionableBox" hidden>
-    <div class="health-summary-header">
+    <div class="health-summary-header section-box-header">
       <div class="health-summary-title-group">
         <span class="health-summary-icon" aria-hidden="true">&#x26A1;</span>
         <h2 class="health-summary-title">Recommended Actions</h2>
@@ -2348,34 +3067,93 @@
         <span class="summary-status-pill warn mono" id="simpleActionCountPill">0 actions</span>
       </div>
     </div>
+    <!-- Cache-Gated Hold Banner -->
+    <div class="cache-gated-hold-banner mono" id="cacheGatedHoldBanner" style="display:none;">
+      <span id="cacheGatedHoldMsg">&#x23F3; <strong id="cacheGatedHoldCount">0 actions</strong> held while cache is warm (<span id="cacheGatedHoldTtl">0s TTL</span>)</span>
+      <button type="button" class="cache-gated-toggle-btn" id="btnToggleDeferredActions">Show anyway</button>
+    </div>
     <div class="action-rows-stack" id="simpleActionList"></div>
+  </section>
+
+  <!-- Box 4: Active Coaching & Effort Governor -->
+  <section class="coaching-box simple-only" id="coachingBox">
+    <div class="section-box-header">
+      <div class="section-box-title-group">
+        <span class="section-box-icon" aria-hidden="true">&#x1F3AF;</span>
+        <h2 class="section-box-title">Active Coaching &amp; Effort Governor</h2>
+      </div>
+      <div class="section-box-meta-group">
+        <span class="summary-status-pill mono" id="coachingStatusPill">Coach Active</span>
+      </div>
+    </div>
+    <div class="model-coach-bar mono" id="modelCoachBar">
+      <div class="model-coach-status">
+        <span class="model-coach-badge" id="modelCoachLiveLabel">Active: Gemini 4 Argon &bull; High (9.25x burn &bull; live synced)</span>
+        <span class="model-coach-reset" id="modelCoachResetLabel">Resets in 46m</span>
+      </div>
+      <div class="model-coach-controls">
+        <div class="model-mode-switch" role="group" aria-label="Router Mode">
+          <button type="button" class="mode-btn" id="btnModeOff" data-mode="off">Off</button>
+          <button type="button" class="mode-btn active" id="btnModeCoach" data-mode="coach">Coach</button>
+          <button type="button" class="mode-btn" id="btnModeAutopilot" data-mode="autopilot">Auto-Pilot</button>
+        </div>
+        <div class="coach-pill" id="coachActionPill" hidden></div>
+        <div class="subagent-live-pill mono" id="subagentLivePill" hidden title="Active Subagent Phantom Burn Auditor"></div>
+      </div>
+    </div>
+    <div class="coaching-guardrails-row mono" id="coachingGuardrailsLine">
+      <span class="guardrails-icon">&#x1F6E1;&#xFE0F;</span>
+      <span id="coachingGuardrailsText">DET-01..16 Active &middot; FTS5 Log Compression: 0.0k tokens saved</span>
+    </div>
+    <div class="action-rows-stack coaching-actions-stack" id="coachingActionList"></div>
+  </section>
+
+  <!-- Box 5: Recursive Self-Improvement (RSI) -->
+  <section class="rsi-box simple-only" id="rsiBox">
+    <div class="section-box-header">
+      <div class="section-box-title-group">
+        <span class="section-box-icon" aria-hidden="true">&#x1F9EC;</span>
+        <h2 class="section-box-title">Session Rule Candidates</h2>
+      </div>
+      <div class="section-box-meta-group">
+        <span class="summary-status-pill mono" id="rsiStatusPill">Primacy: 94%</span>
+      </div>
+    </div>
+    <div class="rsi-health-row mono" id="rsiHealthLine">
+      <span class="rsi-icon">&#x1F9E0;</span>
+      <div class="rsi-health-summary">
+        <span id="rsiPrimacyLabel">Primacy Band: <strong>94%</strong></span> &middot;
+        <span id="rsiMiddleTroughLabel">0 Trough Risks</span> &middot;
+        <span id="rsiShieldLabel">PrefixCacheShield: Staged</span>
+      </div>
+    </div>
+    <div class="action-rows-stack rsi-actions-stack" id="rsiActionList"></div>
   </section>
 
   <!-- 4. Context Consumers & Remediations -->
   <section class="playbook-card advanced-only" data-slot="accordion">
-    <div class="playbook-header">
-      <span class="playbook-title">Context Consumers &amp; Remediations</span>
-      <span class="playbook-sub" id="playbookSub">Transcript Forensics</span>
+    <div class="section-box-header playbook-header">
+      <div class="section-box-title-group">
+        <span class="section-box-icon" aria-hidden="true">&#x1F50D;</span>
+        <h2 class="section-box-title playbook-title">Context Consumers &amp; Remediations</h2>
+      </div>
+      <div class="section-box-meta-group">
+        <span class="summary-status-pill mono playbook-sub" id="playbookSub">Transcript Forensics</span>
+      </div>
     </div>
     <div id="playbookList"></div>
   </section>
 
-  <!-- 5. Collapsible 40-Block Context Map -->
-  <details class="advanced-drawer advanced-only" id="chronoTimelineDrawer" data-slot="collapsible" open>
-    <summary><span>40-Cell Context Window Map</span><span class="mono" id="cellSizeTag" style="font-size:10px;">6.4k / cell</span></summary>
-    <div class="mini-timeline" id="miniTimeline"></div>
-    <div class="top-risky-cells-list mono advanced-only" id="topRiskyCellsList" hidden></div>
-    <div class="mini-inspector mono" id="miniInspector">Hover or click any block above to inspect 6.4k token slice</div>
-    <div class="stranded-signal-banner" id="strandedSignalBanner" hidden></div>
-    <div class="cell-turn-filter-panel mono" id="cellTurnFilterPanel" hidden></div>
-    <div class="subagent-pills mono" id="subagentPills" hidden></div>
-  </details>
-
   <!-- 6. Zero-Prose ACTION QUEUE Control Surface -->
   <div class="action-queue mono advanced-only" id="actionQueuePanel" hidden>
-    <div class="aq-head">
-      <span id="aqTitle">ACTION QUEUE</span>
-      <span class="aq-payoff-total" id="aqTotalPayoff" style="color:var(--hz-useful);font-weight:normal;"></span>
+    <div class="section-box-header aq-head">
+      <div class="section-box-title-group">
+        <span class="section-box-icon" aria-hidden="true">&#x1F4CB;</span>
+        <h2 class="section-box-title" id="aqTitle">Action Queue (Ranked Payoff)</h2>
+      </div>
+      <div class="section-box-meta-group">
+        <span class="aq-payoff-total summary-status-pill mono" id="aqTotalPayoff" style="color:var(--hz-useful);font-weight:normal;"></span>
+      </div>
     </div>
     <div class="aq-list" id="aqList"></div>
   </div>
@@ -2386,11 +3164,35 @@
     <button type="button" class="mini-btn" id="btnExportSanitized" title="Export a zero-PII sanitized JSON snapshot with secrets and tokens scrubbed">[Export Sanitized Snapshot]</button>
   </div>
 
-  <!-- Host Runtime Watchdog Bar -->
-  <div class="host-watchdog-bar mono" id="hostWatchdogBar" hidden>
-    <span id="hostWatchdogText">Host RAM: 0.0 GB &middot; Orphans: 0</span>
-    <button class="mini-btn" id="btnReapOrphans" hidden data-reap-label="[Reap Orphans]" title="[Reap Orphans] Lists detached language_server / MCP orphan processes and asks before terminating them">Clean up orphans…</button>
+  <!-- Host Runtime Watchdog Bar (Advanced View Only) -->
+  <div class="host-watchdog-bar mono advanced-only" id="hostWatchdogBar" hidden>
+    <div class="section-box-header">
+      <div class="section-box-title-group">
+        <span class="section-box-icon" aria-hidden="true">&#x1F5A5;&#xFE0F;</span>
+        <h2 class="section-box-title">Host Runtime Health</h2>
+      </div>
+      <div class="section-box-meta-group">
+        <span class="summary-status-pill warn mono" id="hostWatchdogStatusPill">Active</span>
+      </div>
+    </div>
+    <div class="host-watchdog-body">
+      <span id="hostWatchdogText">Host RAM: 0.0 GB &middot; Orphans: 0</span>
+      <button class="mini-btn" id="btnReapOrphans" hidden data-reap-label="[Reap Orphans]" title="[Reap Orphans] Lists detached language_server / MCP orphan processes and asks before terminating them">Clean up orphans…</button>
+    </div>
   </div>
+
+  <!-- 24px Silent-When-Nominal Tufte Baseline Strip (Simple View) -->
+  <div class="tufte-baseline-strip mono" id="tufteBaselineStrip">
+    <span>Coach: <span class="tufte-inline-modes"><button type="button" class="tufte-mode-chip active" data-tufte-mode="coach">On</button><button type="button" class="tufte-mode-chip" data-tufte-mode="off">Off</button><button type="button" class="tufte-mode-chip" data-tufte-mode="autopilot">Auto</button></span></span>
+    <span id="tufteGuardsQuietLabel">20 guards quiet</span>
+    <span id="tufteSavedTokensLabel" style="color:var(--hz-useful) !important;">+0.0k saved</span>
+  </div>
+
+  <!-- Tier 3: Fixed 24px Saved-Quota Receipt Footer (Advanced View) -->
+  <footer class="tier3-saved-quota-footer mono" id="savedQuotaFooterBar">
+    <span class="tier3-receipt-text" id="savedQuotaReceiptText">Horizon: +0.0k Argon-equiv tokens saved (0 Cold Prefills &bull; 0 Downshifts &bull; 0 CLI Compress)</span>
+    <button type="button" class="btn-copy-receipt mono" id="btnCopySavingsReceipt" title="Copy Markdown Saved-Quota Receipt table to clipboard">[Copy Receipt]</button>
+  </footer>
 
   <div class="footer-meta mono" id="footerMeta">Live updates active</div>
 </div>
@@ -2406,6 +3208,7 @@
   let latestAutoState = null;
   let initialHostSurface = window.sidecar?.surface || null;
   let currentWorkspaceBasename = '';
+  let userForcedShowDeferred = false;
 
   function isCurrentSessionForeignSurface() {
     const selOpt = document.getElementById('sessionSelect')?.selectedOptions?.[0];
@@ -2487,13 +3290,11 @@
 
   // strict warmth — TTL > 0s alone is not a warm cache; require real cache reads.
   function isCacheTrulyWarmInline(cache) {
-    return Boolean(
-      cache &&
-      Number(cache.ttlRemainingSec) > 0 &&
-      Number(cache.cacheReadTokens) > 0 &&
-      Number(cache.hitRatePct) > 0 &&
-      !cache.prefixBustDetected
-    );
+    if (!cache || cache.isCacheCold || cache.prefixBustDetected) return false;
+    const readTok = Number(cache.cacheReadTokens ?? cache.cachedTokens ?? 0);
+    const hasHitPct = cache.hitRatePct !== undefined && cache.hitRatePct !== null;
+    const hitOk = hasHitPct ? Number(cache.hitRatePct) > 0 : readTok > 0;
+    return Boolean(Number(cache.ttlRemainingSec) > 0 && readTok > 0 && hitOk);
   }
 
   // Tenth-of-a-Kilotoken parity — Active + Reclaimable always equals the headline total.
@@ -2760,6 +3561,8 @@
 
   function resolveSurfaceTag(surfaceOrPath) {
     const s = String(surfaceOrPath || '').toLowerCase().trim();
+    if (s.includes('claude') || s === '[claude]') return '[Claude]';
+    if (s.includes('cursor') || s.endsWith('.vscdb') || s === '[cursor]') return '[Cursor]';
     if (s.includes('antigravity-cli') || s === 'cli' || s === '[cli]') return '[CLI]';
     if (s.includes('antigravity-ide') || s === 'ide' || s === '[ide]') return '[IDE]';
     return '[App]';
@@ -2896,6 +3699,26 @@
     return { ...EFFORT_PROFILES.STANDARD };
   }
 
+  function scaleEffortProfileInline(profile, maxTokens) {
+    const base = profile || EFFORT_PROFILES.STANDARD;
+    const denom = Math.max(1, Number(maxTokens) || 200000);
+    if (denom === 200000) return { ...base };
+    if (denom === 256000 && !base._customSafeLimit) {
+      const canonical256 = {
+        STANDARD: { safeLimit: 179000, thinkingReserve: 15000 },
+        HIGH: { safeLimit: 147000, thinkingReserve: 41000 },
+        FAST: { safeLimit: 122000, thinkingReserve: 0 }
+      }[base.tier];
+      if (canonical256) return { ...base, ...canonical256 };
+    }
+    const scale = denom / 200000;
+    return {
+      ...base,
+      safeLimit: Math.round(((base.safeLimit || 140000) * scale) / 1000) * 1000,
+      thinkingReserve: Math.round(((base.thinkingReserve || 0) * scale) / 1000) * 1000
+    };
+  }
+
   function tierShortName(val) {
     const s = String(val || '').trim();
     if (/\b(high|max|thinking|deep)\b/i.test(s)) return 'High';
@@ -2959,6 +3782,7 @@
 
     let html = `<option value="auto" data-surface="${escAttr(autoMeta?.surface || autoState?.storeSource || 'antigravity')}">${autoTitle}</option>`;
     for (const s of sessions) {
+      if (s.sessionId === autoId) continue; // Deduplicate: autoId is already surfaced as the active session top option
       const tok = tokensFor(s.sessionId, s);
       const tokStr = tok ? fmtK(tok) : `${s.stepCount}t`;
       const sState = s.sessionId === currentRenderedState?.sessionId ? currentRenderedState : catalog[s.sessionId];
@@ -3169,19 +3993,44 @@
   }
 
   // Turn-to-turn delta line (hidden when there is no previous-turn snapshot)
-  function renderDelta(delta) {
+  function renderDelta(delta, raw = null) {
     const el = document.getElementById('deltaLine');
+    const sparkEl = document.getElementById('tufteTurnSparkline');
+    const acctEl = document.getElementById('tufteDeltaAccounting');
+
+    // Update 16-turn velocity sparkline if turn history or cells exist
+    if (sparkEl) {
+      const turnDeltas = Array.isArray(raw?.turnDeltas)
+        ? raw.turnDeltas
+        : (Array.isArray(raw?.cells)
+            ? raw.cells.filter(c => (Number(c?.totalTokens) || 0) > 0).slice(-12).map(c => Number(c.totalTokens) || 0)
+            : []);
+      if (turnDeltas.length >= 2) {
+        const blocks = ['\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
+        const slice = turnDeltas.slice(-16).map(v => Math.max(0, Number(v) || 0));
+        const maxVal = Math.max(1, ...slice);
+        sparkEl.textContent = slice.map(v => blocks[Math.min(7, Math.floor((v / maxVal) * 7.99))]).join('');
+      } else {
+        sparkEl.textContent = '';
+      }
+    }
+
     if (!el) return;
     if (!delta || typeof delta.tokens !== 'number' || Math.abs(delta.tokens) < 100) {
       el.style.display = 'none';
       el.textContent = '';
+      if (acctEl) acctEl.textContent = '';
       return;
     }
     el.style.display = 'flex';
     if (delta.tokens < 0) {
       el.className = 'delta-line mono down';
       const suffix = delta.rewound ? ' (rewound step)' : (delta.compacted ? ' (compacted)' : '');
-      el.textContent = `\u25BC \u2212${fmtK(-delta.tokens)} since last turn${suffix}`;
+      el.textContent = `\u25BC \u2212${fmtK(-delta.tokens)} last turn${suffix}`;
+      if (acctEl) {
+        acctEl.textContent = '';
+        acctEl.style.display = 'none';
+      }
       return;
     }
     el.className = 'delta-line mono up' + (delta.tokens > 5000 ? ' big' : '');
@@ -3191,7 +4040,7 @@
     head.className = 'delta-head';
     el.appendChild(head);
     if (delta.topSource && delta.topSource.label) {
-      head.textContent = `\u25B2 +${fmtK(delta.tokens)} since last turn \u00B7 largest: `;
+      head.textContent = `\u25B2 +${fmtK(delta.tokens)} last turn \u00B7 `;
       // Never surface a raw "generic"/empty label: map to a human-readable source
       let srcLabel = String(delta.topSource.label).trim();
       if (!srcLabel || /^(generic|unknown|model output)$/i.test(srcLabel)) srcLabel = 'system context';
@@ -3201,13 +4050,30 @@
       srcEl.className = 'delta-src';
       srcEl.textContent = middleTruncateFilenames(srcLabel, 24);
       srcEl.title = srcLabel;
+      const topTok = Math.min(delta.tokens, Math.max(0, Number(delta.topSource.tokens) || 0));
+      const remTok = Math.max(0, delta.tokens - topTok);
+      const stepCount = Math.max(1, Number(delta.stepCount || delta.toolSteps || (remTok > 0 ? 2 : 1)));
       const tokEl = document.createElement('span');
       tokEl.className = 'delta-tok';
-      tokEl.textContent = ` (~${fmtK(delta.topSource.tokens)})`;
+      tokEl.textContent = ` (~${fmtK(topTok)})`;
       el.appendChild(srcEl);
       el.appendChild(tokEl);
+      if (remTok >= 100) {
+        const remEl = document.createElement('span');
+        remEl.className = 'delta-other-steps mono';
+        remEl.textContent = ` + ${stepCount} other step${stepCount === 1 ? '' : 's'} (${fmtK(remTok)})`;
+        el.appendChild(remEl);
+      }
+      if (acctEl) {
+        acctEl.textContent = '';
+        acctEl.style.display = 'none';
+      }
     } else {
-      head.textContent = `\u25B2 +${fmtK(delta.tokens)} since last turn`;
+      head.textContent = `\u25B2 +${fmtK(delta.tokens)} last turn`;
+      if (acctEl) {
+        acctEl.textContent = '';
+        acctEl.style.display = 'none';
+      }
     }
     el.title = 'Change in context size since the end of your previous message';
   }
@@ -3430,8 +4296,8 @@
       );
       if (isArgonClamped) {
         clampPillEl.hidden = false;
-        clampPillEl.textContent = raw.model?.clampedLabel || '256k Clamped (1M Model Capped by Cortex 0x3E800)';
-        clampPillEl.title = 'Gemini 4 Argon has a 1M native context window but is capped at 256k (0x3E800) by unpatched Cortex GetCheckpointConfig.';
+        clampPillEl.textContent = raw.model?.clampedLabel || '256k Host Cap (1M model)';
+        clampPillEl.title = 'Capped by host Cortex checkpoint ceiling (0x3E800). Gemini 4 Argon has a 1M native context window but is capped at 256k.';
       } else if (isPatchedCli) {
         clampPillEl.hidden = false;
         clampPillEl.textContent = `${fmtK(maxTokens)} Patched CLI`;
@@ -3457,6 +4323,14 @@
       const liveTag = raw.surfaceTag || resolveSurfaceTag(raw.storeSource || raw.logFilePath || activeOpt.dataset?.surface);
       const liveTitle = stripTokPrefix(raw.sessionTitle || activeOpt.textContent || 'Conversation');
       activeOpt.textContent = `${liveTag} [${fmtK(totalTokens)} \u2022 ${liveRoute}] ${liveTitle}`;
+    }
+
+    const modelPillEl = document.getElementById('sessionModelPill');
+    if (modelPillEl) {
+      const activeModelName = typeof raw.activeModel === 'string' ? raw.activeModel : (typeof raw.model === 'string' ? raw.model : '');
+      const shortModel = activeModelName.replace('gemini-3.1-', '').replace('gemini-1.5-', '');
+      const liveRoute = formatEffortRouteLabel(raw);
+      modelPillEl.textContent = liveRoute && liveRoute !== 'Auto' ? `${shortModel ? `${shortModel} · ` : ''}${liveRoute}` : (shortModel || 'Auto');
     }
 
     const breakdownClutter = (breakdown.STALE_DUPLICATE || 0) + (breakdown.DUPLICATE_READ || 0) + (breakdown.STALE_TURN || 0) + (breakdown.DEAD_ERROR || 0) + (breakdown.FOREIGN_BLEED || 0);
@@ -3510,13 +4384,14 @@
     // 2. Top Storage Header & Bar Widths (Effort-Tier Aware)
     const transitions = raw.effortTransitions || raw.effortHistory || [];
     const hasEffortMeta = Boolean(
-      raw.activeEffortProfile || raw.effort || raw.effortTier || raw.turnMetadata || transitions.length > 0
+      raw.activeEffortProfile || raw.activeEffort || raw.effort || raw.effortTier || raw.turnMetadata || raw.coachState?.taskQuotaRouter?.activeEffort || transitions.length > 0
     );
-    const effortProfile = raw.activeEffortProfile
+    const baseEffortProfile = raw.activeEffortProfile
       ? resolveEffortProfile(raw.activeEffortProfile)
       : (hasEffortMeta
-          ? resolveEffortProfile(raw.turnMetadata || raw.effort || raw.effortTier || transitions[transitions.length - 1]?.toTier)
+          ? resolveEffortProfile(raw.turnMetadata || raw.activeEffort || raw.effort || raw.effortTier || raw.coachState?.taskQuotaRouter?.activeEffort || transitions[transitions.length - 1]?.toTier)
           : { ...EFFORT_PROFILES.STANDARD });
+    const effortProfile = scaleEffortProfileInline(baseEffortProfile, maxTokens);
 
     // 2b. Dual-Pool Quota, Reset Timers, Overage Guardrails & Cache-Read Telemetry Strip
     const quotaStrip = document.getElementById('quotaStrip');
@@ -3526,8 +4401,8 @@
     const quotaPoolReset = document.getElementById('quotaPoolReset');
     const quotaAiCredits = document.getElementById('quotaAiCredits');
     const quotaOverageAlert = document.getElementById('quotaOverageAlert');
-    if (quotaStrip && raw.quota) {
-      const q = raw.quota;
+    if (quotaStrip) {
+      const q = raw.quota || {};
       const s5 = q.sprint5h?.usedPct ?? 0;
       const w7 = q.weekly7d?.usedPct ?? 0;
       const cHit = q.cache?.hitRatePct ?? 0;
@@ -3596,13 +4471,85 @@
       const estTooltip = 'Local estimate from transcript token counts; Antigravity does not expose quota to this panel.';
       const s5WarnCls = s5 >= 99 ? ' style="color:var(--hz-danger) !important;font-weight:700;"' : (s5 >= 85 ? ' style="color:var(--hz-clutter) !important;font-weight:700;"' : '');
       const w7WarnCls = w7 >= 99 ? ' style="color:var(--hz-danger) !important;font-weight:700;"' : (w7 >= 85 ? ' style="color:var(--hz-clutter) !important;font-weight:700;"' : '');
+      const s5Left = Math.max(0, 100 - s5);
+      const w7Left = Math.max(0, 100 - w7);
       const s5Html = s5IsEstimate
-        ? `<span class="quota-est" title="${estTooltip}">5h ~${s5}% est.</span>`
+        ? `<span class="quota-est" title="${estTooltip}">5h ~${s5}% est. (~${s5Left}% left)</span>`
         : `5h Sprint: <strong${s5WarnCls}>${s5}%</strong>`;
       const w7Html = w7IsEstimate
-        ? `<span class="quota-est" title="${estTooltip}">7d ~${w7}% est.</span>`
+        ? `<span class="quota-est" title="${estTooltip}">7d ~${w7}% est. (~${w7Left}% left)</span>`
         : `7d: <strong${w7WarnCls}>${w7}%</strong>`;
       quotaPills.innerHTML = `<span class="quota-telemetry">${s5Html} &middot; ${w7Html} &middot; ${cacheInline}</span>${lockoutWarn}`;
+      const quotaPill = document.getElementById('quotaCacheStatusPill');
+      if (quotaPill) {
+        if (isCacheTrulyWarmInline(q.cache)) {
+          quotaPill.className = 'summary-status-pill mono';
+          quotaPill.textContent = `Warm (${cHit}% hit · 95% off)`;
+        } else if (isWarmWindow) {
+          quotaPill.className = 'summary-status-pill mono';
+          quotaPill.textContent = `Warm (${ttlSec}s TTL)`;
+        } else if (isPrefixBust) {
+          quotaPill.className = 'summary-status-pill warn mono';
+          quotaPill.textContent = 'Prefix Bust';
+        } else {
+          quotaPill.className = 'summary-status-pill warn mono';
+          quotaPill.textContent = 'Cold (0s TTL)';
+        }
+      }
+
+      // User-Friendly Cache Countdown Bar & Plain-English Tip
+      const meterEl = document.getElementById('cacheEfficiencyMeter');
+      const hitValEl = document.getElementById('cacheHitPctVal');
+      const splitEl = document.getElementById('cacheTokenSplitDisplay');
+      const countdownEl = document.getElementById('ttlCountdownClock');
+      const timerBarFillEl = document.getElementById('cacheTimerBarFill');
+      const savedEl = document.getElementById('cacheTokensSavedDisplay');
+      const guideEl = document.getElementById('cacheOperationalGuide');
+      const guideIconEl = document.getElementById('guideIcon');
+      const guideTextEl = document.getElementById('guideText');
+
+      if (meterEl) {
+        if (hitValEl) hitValEl.textContent = `${cHit}%`;
+        const cachedTok = Number(q.cache?.cacheReadTokens || (cHit > 0 ? Math.round(totalTokens * (cHit / 100)) : 0));
+        if (splitEl) {
+          splitEl.textContent = isWarmWindow
+            ? `95% discount active (${fmtK(cachedTok)} tokens)`
+            : `No active discount`;
+        }
+        if (countdownEl) {
+          const mins = Math.floor(ttlSec / 60);
+          const secs = ttlSec % 60;
+          const friendlyTime = mins > 0 ? `${mins}m ${secs}s left` : `${secs}s left`;
+          countdownEl.textContent = isWarmWindow ? friendlyTime : `Expired`;
+          countdownEl.className = isWarmWindow ? 'cache-meter-countdown ttl-countdown-clock mono warm' : 'cache-meter-countdown ttl-countdown-clock mono cold';
+        }
+        if (timerBarFillEl) {
+          const pct = isWarmWindow ? Math.max(4, Math.min(100, Math.round((ttlSec / 300) * 100))) : 0;
+          timerBarFillEl.style.width = `${pct}%`;
+          timerBarFillEl.className = !isWarmWindow
+            ? 'cache-timer-bar-fill cold'
+            : (ttlSec <= 60 ? 'cache-timer-bar-fill expiring' : 'cache-timer-bar-fill');
+        }
+        if (savedEl) {
+          const savedTok = raw.savedQuotaTokens || raw.coachState?.savedQuotaLedger?.totalSavedTokens || raw.coachState?.savedQuotaLedger?.totalArgonEquivTokensSaved || 0;
+          savedEl.textContent = `+${fmtK(savedTok)} saved`;
+        }
+        if (guideEl && guideTextEl) {
+          if (isWarmWindow && ttlSec <= 45) {
+            guideEl.className = 'cache-operational-guide warm';
+            if (guideIconEl) guideIconEl.textContent = '\u23F3';
+            guideTextEl.innerHTML = `<strong>What to do now:</strong> Cache expires in ${ttlSec}s! Send your next message soon to keep your 95% discount active.`;
+          } else if (isWarmWindow) {
+            guideEl.className = 'cache-operational-guide warm';
+            if (guideIconEl) guideIconEl.textContent = '\uD83D\uDD12';
+            guideTextEl.innerHTML = `<strong>What to do now:</strong> Keep chatting normally for 95% off token usage. Wait until this timer expires before running <code>/compact</code> or switching models.`;
+          } else {
+            guideEl.className = 'cache-operational-guide cold';
+            if (guideIconEl) guideIconEl.textContent = '\uD83D\uDD13';
+            guideTextEl.innerHTML = `<strong>What to do now:</strong> Cache is cold — great time to run <code>/compact</code>, switch models, or edit rules without losing a discount.`;
+          }
+        }
+      }
       const isHighForecast = Boolean(effortProfile?.tier === 'HIGH' && q.forecast?.nextTurnHighSprintPct);
       quotaForecast.textContent = isHighForecast
         ? `Next High turn: ~${q.forecast.nextTurnHighSprintPct}% of 5h`
@@ -3743,8 +4690,6 @@
           prefixMutationDiffBanner.textContent = '';
         }
       }
-    } else if (quotaStrip) {
-      quotaStrip.hidden = true;
     }
 
     // Tenth-of-a-Kilotoken parity: headline, Active Signal and Reclaimable cards share one rounding basis.
@@ -3775,9 +4720,10 @@
       workloadModeBadge.textContent = wm?.tag || '[Mode: Read-Heavy Audit]';
       workloadModeBadge.dataset.workloadMode = wm?.modeId || 'READ_HEAVY_AUDIT';
     }
-    const safeLimit = (hasEffortMeta && effortProfile.safeLimit > 0 && (!win.safeLimit || win.safeLimit === 140000))
+    const defaultStdLimit = maxTokens >= 256000 ? 179000 : 140000;
+    const safeLimit = (hasEffortMeta && effortProfile.safeLimit > 0 && (!win.safeLimit || win.safeLimit === 140000 || (effortProfile.tier !== 'STANDARD' && win.safeLimit === defaultStdLimit)))
       ? effortProfile.safeLimit
-      : (win.safeLimit > 0 ? win.safeLimit : (effortProfile.safeLimit || 140000));
+      : (win.safeLimit > 0 ? win.safeLimit : (effortProfile.safeLimit || defaultStdLimit));
     const reminderAt = (win.reminderAt > 0 && win.safeLimit === safeLimit)
       ? win.reminderAt
       : Math.round(safeLimit * 0.85);
@@ -3790,7 +4736,64 @@
     document.getElementById('freeLabel').textContent = toLimit >= 0
       ? `${fmtTenths(Math.max(0, toLimitTenths))} below ${limitK} safe limit`
       : `${fmtTenths(Math.max(1, -toLimitTenths))} past ${limitK} safe limit!`;
-    renderDelta(raw.delta);
+    renderDelta(raw.delta, raw);
+
+    // Tufte Header Model Burn Pill & Scale Markers
+    const tufteModelBurnEl = document.getElementById('tufteModelBurnPill');
+    if (tufteModelBurnEl) {
+      const coachData = raw.coachState?.taskQuotaRouter;
+      const rawModelName = coachData?.activeModelLabel || raw.quota?.sprint5h?.modelPoolName || raw.model?.label || 'Gemini 3.8 Flash';
+      const shortMod = String(rawModelName).replace(/^Gemini\s+/i, '').replace(/\s+\(.*\)$/, '').trim();
+      const effShort = effortProfile?.shortLabel || 'Auto';
+      const burnMult = coachData?.activeBurnMultiplier ?? (effShort === 'High' ? 1.5 : (effShort === 'Fast' ? 0.5 : 1.0));
+      tufteModelBurnEl.textContent = `${shortMod} \u00B7 ${effShort} (${burnMult}x)`;
+    }
+    const maxTokensVal = maxTokens || 256000;
+    const p50 = Math.min(100, Math.max(0, (50000 / maxTokensVal) * 100));
+    const pLim = Math.min(92, Math.max(8, (safeLimit / maxTokensVal) * 100));
+    const tick0 = document.getElementById('tufteScaleTick0');
+    if (tick0) { tick0.style.left = '0%'; tick0.style.transform = 'none'; }
+    const tick50 = document.getElementById('tufteScaleTick50');
+    if (tick50) {
+      tick50.style.left = `${p50}%`;
+      tick50.style.transform = 'translateX(-50%)';
+      tick50.style.display = (p50 < 10 || Math.abs(pLim - p50) < 12) ? 'none' : '';
+    }
+    const tickTrough = document.getElementById('tufteScaleTickTrough');
+    if (tickTrough) {
+      const troughPct = Math.abs(pLim - 50) < 18 ? 37 : 50;
+      tickTrough.style.left = `${troughPct}%`;
+      tickTrough.style.transform = 'translateX(-50%)';
+      tickTrough.style.display = (Math.abs(pLim - troughPct) < 13 || Math.abs(troughPct - p50) < 11) ? 'none' : '';
+    }
+    const tufteScaleLimitEl = document.getElementById('tufteScaleLimitLabel');
+    if (tufteScaleLimitEl) {
+      tufteScaleLimitEl.style.left = `${pLim}%`;
+      tufteScaleLimitEl.style.transform = 'translateX(-50%)';
+      tufteScaleLimitEl.textContent = `${limitK}\u26A1 ${effortProfile?.shortLabel || 'Auto'} limit`;
+    }
+    const tufteScaleMaxEl = document.getElementById('tufteScaleMaxLabel');
+    if (tufteScaleMaxEl) {
+      tufteScaleMaxEl.style.left = 'auto';
+      tufteScaleMaxEl.style.right = '0%';
+      tufteScaleMaxEl.style.transform = 'none';
+      tufteScaleMaxEl.textContent = fmtK(maxTokensVal);
+    }
+    const storageHorizonBadge = document.getElementById('storageHorizonBadge');
+    if (storageHorizonBadge) {
+      if (toLimit >= 0) {
+        if (toLimit > 15000) {
+          storageHorizonBadge.className = 'summary-status-pill mono';
+          storageHorizonBadge.textContent = `Safe (${fmtTenths(toLimitTenths)} left)`;
+        } else {
+          storageHorizonBadge.className = 'summary-status-pill warn mono';
+          storageHorizonBadge.textContent = `Horizon Near (${fmtTenths(toLimitTenths)} left)`;
+        }
+      } else {
+        storageHorizonBadge.className = 'summary-status-pill danger mono';
+        storageHorizonBadge.textContent = `Over Limit (+${fmtTenths(Math.max(1, -toLimitTenths))})`;
+      }
+    }
 
     const parityActiveTok = displayParity.displayActiveTenths * 100;
     const parityReclaimTok = displayParity.displayReclaimableTenths * 100;
@@ -3810,9 +4813,12 @@
     if (barUsefulEl) barUsefulEl.style.width = `${usefulWidthPct}%`;
     // Single source of truth for the history segment state: drives both the bar and the middle card.
     const cacheTtlSec = raw.quota?.cache?.ttlRemainingSec ?? (raw.quota?.cache?.isCacheCold ? 0 : 300);
-    const isColdBloat = Boolean(win.historyBarState?.state === 'COLD_BLOAT') ||
-      !isNextTurnLikelyWarmInline(raw.quota?.cache) ||
-      (Number(cacheTtlSec) <= 0) ||
+    const isWarmCandidate = Number(cacheTtlSec) > 0 && !raw.quota?.cache?.isCacheCold;
+    const historyBarStatePayload = raw.window?.historyBarState || raw.historyBarState;
+    const hasZeroHitFalseWarm = Boolean(raw.quota?.cache && typeof raw.quota.cache.hitRatePct === 'number' && raw.quota.cache.hitRatePct === 0 && Number(raw.quota.cache.cacheReadTokens ?? 0) === 0);
+    const isColdBloat = Boolean(historyBarStatePayload?.state === 'COLD_BLOAT') ||
+      (!isWarmCandidate) ||
+      hasZeroHitFalseWarm ||
       (totalTokens > 179000);
     if (barClutterEl) {
       barClutterEl.style.width = `${clutterWidthPct}%`;
@@ -3845,11 +4851,95 @@
     if (lblClutterEl) lblClutterEl.textContent = isColdBloat ? 'Reclaimable' : 'Cached History';
     const conf = telemetry.confidence || raw.confidence || 'HIGH';
     const isLowConfidence = conf === 'LOW' || conf === 'DEGRADED';
+    const qCache = raw.quota?.cache || {};
+    const ttlRemSec = Math.max(0, Number(qCache.ttlRemainingSec ?? (qCache.isCacheCold ? 0 : 300)));
+    const isTrulyWarm = isCacheTrulyWarmInline(qCache);
+    const isCacheWarmNow = isTrulyWarm && !isColdBloat;
+    const fmtTtlShort = (s) => {
+      if (s <= 0) return '0s';
+      const m = Math.floor(s / 60);
+      const sec = s % 60;
+      return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+    };
     document.getElementById('subClutter').textContent = isLowConfidence
       ? 'Transcript not indexed'
       : (!isColdBloat
-        ? `95% discounted \u00B7 /compact ready`
+        ? (isCacheWarmNow ? `95% discounted \u00B7 hold /compact` : `Cache cold \u00B7 /compact ready`)
         : (clutterTokens > 0 ? `Can be cleared` : `Zero outdated noise`));
+
+    // Coupled 300s Cache TTL Strip inside Column 2 & Unified Top Verdict Line
+    const col2TtlLbl = document.getElementById('tufteCol2TtlLabel');
+    const col2BarFill = document.getElementById('tufteCol2BarFill');
+    if (col2TtlLbl) {
+      col2TtlLbl.textContent = isCacheWarmNow
+        ? `95% off \u00B7 ${fmtTtlShort(ttlRemSec)}`
+        : (clutterTokens > 0 ? `Cold \u00B7 0s TTL` : `Clean \u00B7 0k waste`);
+    }
+    if (col2BarFill) {
+      const pctFill = isCacheWarmNow ? Math.max(6, Math.min(100, Math.round((ttlRemSec / 300) * 100))) : 0;
+      col2BarFill.style.width = `${pctFill}%`;
+      col2BarFill.className = !isCacheWarmNow
+        ? 'tufte-col2-bar-fill cold'
+        : (ttlRemSec <= 60 ? 'tufte-col2-bar-fill expiring' : 'tufte-col2-bar-fill');
+    }
+
+    const verdictBarEl = document.getElementById('unifiedVerdictBar');
+    const verdictTextEl = document.getElementById('unifiedVerdictText');
+    const routerHoldNoteEl = document.getElementById('unifiedRouterHoldNote');
+    if (verdictBarEl && verdictTextEl) {
+      const effShortLabel = effortProfile?.shortLabel || 'Auto';
+      const trippedBreaker = raw.coachState?.detectors?.tripped || raw.circuitBreakerTripped;
+      const routerCoach = raw.coachState?.taskQuotaRouter;
+      const routerNudge = routerCoach?.coachPillText || (routerCoach?.recommendDownshift ? `Switch to ${routerCoach?.recommendedModelLabel || 'Flash (Med)'}` : '');
+      const overTok = Math.max(0, totalTokens - safeLimit);
+      const leftTok = Math.max(0, safeLimit - totalTokens);
+      if (trippedBreaker) {
+        const bId = typeof trippedBreaker === 'object' ? (trippedBreaker.detectorId || 'DET-19') : 'DET-19';
+        const bReason = typeof trippedBreaker === 'object' ? (trippedBreaker.reason || 'Guardrail intervention') : String(trippedBreaker);
+        verdictBarEl.dataset.verdictState = 'CIRCUIT_BREAKER';
+        verdictTextEl.textContent = `GUARDRAIL TRIPPED (${bId}) \u00B7 ${bReason}`;
+        if (routerHoldNoteEl) routerHoldNoteEl.hidden = true;
+      } else if (totalTokens > safeLimit && isCacheWarmNow) {
+        verdictBarEl.dataset.verdictState = 'HOLD_COMPACT';
+        verdictTextEl.textContent = `HOLD COMPACT \u00B7 Cache warm ${fmtTtlShort(ttlRemSec)} \u00B7 +${fmtK(overTok)} over ${effShortLabel}`;
+        if (routerHoldNoteEl) {
+          if (routerNudge) {
+            routerHoldNoteEl.hidden = false;
+            routerHoldNoteEl.textContent = `Hold switch (${fmtTtlShort(ttlRemSec)})`;
+            routerHoldNoteEl.title = `Model switch (${routerNudge}) held while 95% cache is warm (${fmtTtlShort(ttlRemSec)} left) to avoid an uncached prefill bust.`;
+          } else {
+            routerHoldNoteEl.hidden = true;
+          }
+        }
+      } else if (totalTokens > safeLimit && !isCacheWarmNow) {
+        verdictBarEl.dataset.verdictState = 'COMPACT_NOW';
+        verdictTextEl.textContent = `COMPACT NOW \u00B7 Cache cold \u00B7 +${fmtK(overTok)} over ${effShortLabel} (${reclaimSumStr} reclaimable)`;
+        if (routerHoldNoteEl) {
+          if (routerNudge) {
+            routerHoldNoteEl.hidden = false;
+            routerHoldNoteEl.textContent = routerNudge;
+          } else {
+            routerHoldNoteEl.hidden = true;
+          }
+        }
+      } else if (!isCacheWarmNow && (clutterTokens >= 25000 || (reclaimSumK * 1000) >= 25000) && totalTokens >= 50000) {
+        verdictBarEl.dataset.verdictState = 'COMPACT_READY';
+        verdictTextEl.textContent = `COMPACT READY \u00B7 Cache cold \u00B7 ${reclaimSumStr} reclaimable (${fmtK(leftTok)} under ${effShortLabel})`;
+        if (routerHoldNoteEl) routerHoldNoteEl.hidden = true;
+      } else {
+        verdictBarEl.dataset.verdictState = 'NOMINAL';
+        const cacheClause = isCacheWarmNow ? `Cache warm ${fmtTtlShort(ttlRemSec)} (95% off)` : 'Cache cold';
+        verdictTextEl.textContent = `NOMINAL \u00B7 ${cacheClause} \u00B7 ${fmtK(leftTok)} below ${limitK} ${effShortLabel}`;
+        if (routerHoldNoteEl) {
+          if (routerNudge && isCacheWarmNow) {
+            routerHoldNoteEl.hidden = false;
+            routerHoldNoteEl.textContent = `Hold switch (${fmtTtlShort(ttlRemSec)})`;
+          } else {
+            routerHoldNoteEl.hidden = true;
+          }
+        }
+      }
+    }
 
     const btnSignalToggleEl = document.getElementById('btnSignalToggle');
     if (btnSignalToggleEl) {
@@ -3871,8 +4961,8 @@
     if (totalTokens <= safeLimit) {
       lblFreeEl.textContent = 'Safe Headroom';
       if (swatchFreeEl) {
-        swatchFreeEl.style.background = 'var(--hz-free)';
-        swatchFreeEl.style.borderColor = 'var(--hz-border)';
+        swatchFreeEl.style.background = '#334155';
+        swatchFreeEl.style.borderColor = '#64748b';
       }
       valFreeEl.textContent = `${fmtTenths(Math.max(0, toLimitTenths))} left`;
       // Neutral white/slate (#f1f5f9) when > 15k left, amber when approaching safe limit, red when over limit
@@ -3892,8 +4982,8 @@
     // 4. Composite Session Risk & Action Center
     const sessionRisk = evaluateCompositeSessionRiskInline(raw, totalTokens, safeLimit);
     const isOverLimit = totalTokens >= safeLimit || Boolean(amputation.amputationCrisis || telemetry.amputationRisk);
-    const isCompactionWorthStall = totalTokens > 179000 || totalTokens >= 50000 || clutterTokens >= 25000 || (reclaimSumK * 1000) >= 25000 || Number(raw.metrics?.sludgeTokens || 0) >= 25000;
-    const isNeedsCleanup = totalTokens >= reminderAt || clutterTokens >= 25000 || (isCompactionWorthStall && parityPureRound < 65);
+    const isCompactionWorthStall = totalTokens > 179000 || (totalTokens >= 50000 && (clutterTokens >= 25000 || (reclaimSumK * 1000) >= 25000)) || clutterTokens >= 35000 || (reclaimSumK * 1000) >= 35000;
+    const isNeedsCleanup = (totalTokens >= reminderAt && totalTokens >= 50000) || clutterTokens >= 25000 || (reclaimSumK * 1000) >= 25000 || (isCompactionWorthStall && parityPureRound < 65);
 
     const dot = document.getElementById('statusDot');
     const badge = document.getElementById('statusBadge');
@@ -3974,9 +5064,15 @@
       }
     }
 
+    const batonPassEl = document.getElementById('batonPassRow');
+    if (batonPassEl) {
+      const showBaton = totalTokens >= 120000 || Boolean(raw.coachState?.compactionCoach?.recommendBatonPass);
+      batonPassEl.hidden = !showBaton;
+    }
+
     const handoffAudit = signals.handoff || {};
     const sludgeNow = Math.max(clutterTokens, Math.round(reclaimSumK * 1000), Number(raw.metrics?.sludgeTokens || 0));
-    const compactionRelevant = isOverLimit || isNeedsCleanup || isCompactionWorthStall || sludgeNow >= 25000;
+    const compactionRelevant = isOverLimit || totalTokens >= 50000 || sludgeNow >= 25000;
     const sessionEditedWs = signals.activeSignal?.sessionHasWorkspaceEdits !== false;
     const explicitPreCompactWarn = raw.compaction?.preCompactionWarning ?? handoffAudit.preCompactionWarning;
     const hasDriftWarn = Boolean(
@@ -3984,7 +5080,7 @@
       sessionEditedWs &&
       (typeof explicitPreCompactWarn === 'boolean'
         ? explicitPreCompactWarn
-        : ((handoffAudit.gitDrift?.dirtyFileCount > 0) && ((signals.activeSignal?.taskMdTurnsBehind || 0) >= 1 || handoffAudit.artifacts?.taskMd?.exists === false)))
+        : ((handoffAudit.gitDrift?.dirtyFileCount > 0) && ((signals.activeSignal?.taskMdTurnsBehind || 0) >= 1 || (signals.handoff?.artifacts?.taskMd?.exists === false && !signals.activeSignal?.taskMdSaved))))
     );
 
     const cacheAdvisoryEl = document.getElementById('cacheCompactionAdvisory');
@@ -4036,13 +5132,24 @@
     if (driftBannerEl) {
       // Keep the inline "Save task.md" button; only the text span changes.
       const driftTextEl = document.getElementById('artifactDriftText') || driftBannerEl;
+      const driftSaveBtn = document.getElementById('btnDriftSaveTask');
+      const isSimpleMode = document.body.getAttribute('data-view-mode') === 'simple';
+      const isDismissedCp = typeof getDismissedActionKeys === 'function' && getDismissedActionKeys().has('checkpoint');
       if (hasDriftWarn) {
         driftBannerEl.hidden = false;
+        // In simple view when checkpoint-sync is rendered in the action list, hide the redundant inline button on the banner
+        // to uphold Single Action Button Simplicity (avoiding competing duplicate buttons for the same task).
+        if (driftSaveBtn) {
+          driftSaveBtn.style.display = (isSimpleMode && !isDismissedCp) ? 'none' : '';
+        }
         const gd = handoffAudit.gitDrift || {};
-        const taskState = handoffAudit.artifacts?.taskMd?.exists === false ? 'missing' : 'stale';
+        const hs = signals.activeSignal;
+        const taskExists = Boolean(hs?.taskMdSaved || handoffAudit.artifacts?.taskMd?.exists);
+        const behindCount = hs?.taskMdTurnsBehind || 0;
+        const taskState = !taskExists ? 'missing' : (behindCount > 0 ? `${behindCount} turn${behindCount === 1 ? '' : 's'} stale` : 'stale');
         const fallbackMsg = (gd.sessionScoped && typeof gd.sessionDirtyFileCount === 'number')
           ? `\u26A0\uFE0F ${gd.sessionDirtyFileCount} file${gd.sessionDirtyFileCount === 1 ? '' : 's'} edited in this session ${gd.sessionDirtyFileCount === 1 ? 'is' : 'are'} uncommitted (${gd.dirtyFileCount || 0} repo-wide) while task.md is ${taskState}.`
-          : `\u26A0\uFE0F Pre-Compaction Drift Warning: ${gd.dirtyFileCount || 1} uncommitted workspace file(s) detected via git status --porcelain while task.md is ${taskState}. Sync task.md before compacting.`;
+          : `\u26A0\uFE0F ${gd.dirtyFileCount || 1} uncommitted workspace file(s) while task.md is ${taskState}. Sync task.md before compacting.`;
         driftTextEl.textContent = raw.compaction?.preCompactionWarningMessage ||
           handoffAudit.preCompactionWarningMessage ||
           fallbackMsg;
@@ -4060,7 +5167,7 @@
       if (document.querySelector('.action-msg')) document.querySelector('.action-msg').style.display = 'none';
       guidedBox.style.display = 'flex';
       compactReclaim.textContent = (guidedBox && guidedBox.dataset.cacheAdvisory === 'lean' ? `Session is lean (${fmtK(totalTokens)} / ${Math.round(totalTokens / (raw.window?.maxTokens || 256000) * 100)}%) \u00B7 No compaction needed until >50k \u00B7 ` : '') + reclaimLine;
-    } else if (isNeedsCleanup) {
+    } else if (isNeedsCleanup && compactionRelevant) {
       badge.className = 'badge warn';
       actionCard.className = 'action-card warn';
       actionCard.dataset.cleanState = '';
@@ -4383,11 +5490,11 @@
     const hs = signals.activeSignal;
     if (hs && typeof hs.taskMdTurnsBehind === 'number') {
       const behind = hs.taskMdTurnsBehind;
-      const taskExists = signals.handoff?.artifacts?.taskMd?.exists !== false;
+      const taskExists = Boolean(hs.taskMdSaved || signals.handoff?.artifacts?.taskMd?.exists);
       const synced = Boolean(hs.taskMdSaved && taskExists && behind < 3 && !hasDriftWarn);
       handoffState = { synced, behind, saved: hs.taskMdSaved };
       const txt = synced ? '&#x25CF; task.md synced'
-        : (hs.taskMdSaved ? `&#x25CF; task.md stale &bull; ${behind} turn${behind === 1 ? '' : 's'} behind` : '&#x25CF; task.md missing &bull; not saved yet');
+        : (taskExists ? `&#x25CF; task.md stale &bull; ${behind} turn${behind === 1 ? '' : 's'} behind` : '&#x25CF; task.md missing &bull; not saved yet');
       handoffStatus.hidden = true;
       handoffStatus.className = 'handoff-status ' + (synced ? 'synced' : 'stale');
       handoffStatus.innerHTML = txt;
@@ -4395,7 +5502,7 @@
       // Single status dot only — no leading bullet separator that would inherit the green color.
       handoffDot.innerHTML = synced
         ? '<span class="task-sync-badge" id="taskSyncBadge">&#x25CF; task.md synced</span>'
-        : ((!hs.taskMdSaved && signals.handoff?.artifacts?.taskMd?.exists !== true)
+        : (!taskExists
           ? '<span class="task-sync-badge" id="taskSyncBadge">&#x25CF; task.md missing</span>'
           : `<span class="task-sync-badge" id="taskSyncBadge">&#x25CF; task.md stale (${behind} behind)</span>`);
       btnCp.classList.toggle('emphasis', !synced);
@@ -4409,7 +5516,8 @@
 
     // 6. Optional Collapsible 40-Block Timeline
     const turns = sessionMeta.turnCount || win.turnCount || 0;
-    const activeBlocks = Math.max(1, Math.min(40, Math.ceil(totalTokens / 5000)));
+    const tokensPerCell = Math.max(1, Math.round(maxTokens / 40));
+    const activeBlocks = Math.max(1, Math.min(40, Math.ceil(totalTokens / tokensPerCell)));
     const transitionsByBlock = new Map();
     for (const tr of transitions) {
       const tStep = tr.stepNumber ?? tr.turnIndex ?? 0;
@@ -4426,6 +5534,9 @@
       }
       if (bIdx < 0) {
         bIdx = Math.min(39, Math.max(0, Math.floor((tIdx / Math.max(1, turns || 1)) * activeBlocks)));
+      }
+      if (bIdx >= activeBlocks) {
+        bIdx = Math.min(39, Math.max(0, activeBlocks - 1));
       }
       const list = transitionsByBlock.get(bIdx) || [];
       list.push({ ...tr, stepNumber: tStep, turnIndex: tIdx, blockIndex: bIdx });
@@ -4468,17 +5579,39 @@
       const el = document.createElement('div');
       el.className = 'mini-cell';
       el.dataset.cellIndex = String(i);
-      if (cat.includes('ANCHOR') || cat.includes('MEMORY')) el.style.background = 'var(--hz-anchor)';
-      else if (cat.includes('ACTIVE')) el.style.background = 'var(--hz-useful)';
-      else if (cat.includes('ERROR')) el.style.background = 'var(--hz-danger)';
-      else if (cat.includes('STALE') || cat.includes('DIRTY')) el.style.background = 'var(--hz-clutter)';
-      else if (i < activeBlocks) {
-        // Fallback for metadata-only sessions without parsed category breakdown
-        const cellThreshold = (i + 1) * (maxTokens / 40);
-        if (cellThreshold > safeLimit) {
-          el.style.background = 'rgba(239, 68, 68, 0.7)'; // Over safe limit
-        } else {
+
+      const cellStartTokens = i * tokensPerCell;
+      const cellEndTokens = (i + 1) * tokensPerCell;
+      const isPopulatedCell = (cat !== 'FREE_HEADROOM' && (Number(c.totalTokens) || 0) > 0) || i < activeBlocks;
+      const cellHasOverage = cellEndTokens > safeLimit && totalTokens > safeLimit && cellStartTokens < totalTokens;
+      const cellOverageTokens = cellHasOverage
+        ? Math.max(0, Math.min(totalTokens, cellEndTokens) - Math.max(safeLimit, cellStartTokens))
+        : 0;
+      const isOverLimitCell = cellHasOverage && (cellStartTokens >= safeLimit || cellOverageTokens >= 0.25 * tokensPerCell);
+      const isPartialMutedOverage = cellHasOverage && !isOverLimitCell;
+
+      if (isOverLimitCell) {
+        el.style.background = 'rgba(239, 68, 68, 0.7)';
+        el.classList.add('over-limit-cell');
+        el.dataset.overLimit = 'true';
+      } else {
+        if (cat.includes('ANCHOR') || cat.includes('MEMORY')) el.style.background = 'var(--hz-anchor)';
+        else if (cat.includes('ACTIVE')) el.style.background = isLowConfidence ? 'rgba(16, 185, 129, 0.65)' : 'var(--hz-useful)';
+        else if (cat.includes('ERROR')) el.style.background = 'var(--hz-danger)';
+        else if (cat.includes('STALE') || cat.includes('DIRTY')) {
+          if (!isColdBloat) {
+            el.style.background = 'rgba(245, 158, 11, 0.45)';
+            el.style.borderTop = '2px solid #38bdf8';
+            el.dataset.warmProtected = 'true';
+          } else {
+            el.style.background = 'var(--hz-clutter)';
+          }
+        }
+        else if (isPopulatedCell) {
           el.style.background = isLowConfidence ? 'rgba(16, 185, 129, 0.65)' : 'var(--hz-useful)';
+        }
+        if (isPartialMutedOverage) {
+          el.style.borderRight = '1px solid rgba(239, 68, 68, 0.5)';
         }
       }
 
@@ -4487,7 +5620,6 @@
       const centered = normRatio - 0.5;
       const specFormulaVal = c.parabolicAttention?.specFormulaValue ?? Number((1.0 - 4.0 * 0.6 * (centered * centered)).toFixed(4));
       const uShapedWeight = c.parabolicAttention?.uShapedWeight ?? Number(((1.0 - 0.6) + 4.0 * 0.6 * (centered * centered)).toFixed(4));
-      const isPopulatedCell = cat !== 'FREE_HEADROOM' || (Number(c.totalTokens) || 0) > 0 || i < activeBlocks;
       const meetsTroughFloor = populatedCellCount >= 7 && totalTokens >= 44800;
       const inRatioTrough = isPopulatedCell && meetsTroughFloor && normRatio >= 0.30 && normRatio <= 0.70;
       const inCanonicalTrough = isPopulatedCell && meetsTroughFloor && i >= 6 && i <= 15 && i < populatedCellCount;
@@ -4495,6 +5627,7 @@
 
       el.dataset.attentionFormula = String(specFormulaVal);
       el.dataset.attentionWeight = String(uShapedWeight);
+      el.style.setProperty('--u-weight', String(uShapedWeight));
 
       if (inTrough) {
         el.classList.add('low-attention-trough');
@@ -4502,6 +5635,7 @@
       } else if (isPopulatedCell) {
         el.dataset.attentionZone = normRatio < 0.30 ? 'PRIMACY' : 'RECENCY';
       } else {
+        el.classList.add('headroom-empty');
         el.dataset.attentionZone = 'HEADROOM';
       }
 
@@ -4513,7 +5647,7 @@
 
       const cellShifts = transitionsByBlock.get(i) || c.effortTransitions || [];
       const shiftTooltip = cellShifts.length > 0
-        ? cellShifts.map(t => `Turn #${t.stepNumber ?? t.turnIndex}: Switched effort ${t.fromTier} \u2192 ${t.toTier}`).join(' | ')
+        ? cellShifts.map(t => `Turn #${t.stepNumber ?? t.turnIndex}: Switched effort ${t.fromLabel || t.fromTier || 'Auto'} \u2192 ${t.toLabel || t.toTier || 'Auto'}`).join(' | ')
         : '';
 
       const titleParts = [];
@@ -4522,10 +5656,14 @@
         el.dataset.strandedSignal = 'true';
         const warnMsg = c.strandedWarning || STRANDED_WARNING_TEXT;
         titleParts.push(`\u26A0 ${warnMsg}`);
+        const resolvedTarget = c.topTarget && !/free headroom/i.test(c.topTarget)
+          ? formatShortPath(c.topTarget)
+          : (c.primaryPath ? formatShortPath(c.primaryPath) : (c.dominantCategory === 'ANCHOR' ? 'AGENTS.md, rules' : `Cell ${i + 1}`));
         strandedTargets.push({
           cellNumber: i + 1,
           category: cat,
-          target: c.topTarget ? formatShortPath(c.topTarget) : `Cell ${i + 1}`,
+          target: resolvedTarget,
+          rawTarget: c.topTarget || c.primaryPath || '',
           warning: warnMsg
         });
       }
@@ -4602,12 +5740,36 @@
 
     if (strandedBannerEl) {
       if (strandedTargets.length > 0) {
-        const sampleTargets = strandedTargets.slice(0, 2).map(s => `Cell ${s.cellNumber} (${s.target})`).join(', ');
+        const minCell = Math.min(...strandedTargets.map(s => s.cellNumber));
+        const maxCell = Math.max(...strandedTargets.map(s => s.cellNumber));
+        const cellSpan = minCell === maxCell ? `Cell ${minCell}` : `Cells ${minCell}–${maxCell}`;
+        const distinctNames = Array.from(new Set(strandedTargets.map(s => s.target).filter(Boolean)));
+        const targetSummary = distinctNames.length > 0 ? `(${distinctNames.slice(0, 3).join(', ')})` : '';
+        const reanchorFiles = distinctNames.length > 0 ? distinctNames.join(', ') : 'critical rules and active specifications';
+        const reanchorPrompt = `To keep stranded context active, please reference: ${reanchorFiles} in the next turn and note progress in task.md.`;
+
         strandedBannerEl.hidden = false;
-        strandedBannerEl.textContent = `\u26A0 ${ sampleTargets }: ${STRANDED_WARNING_TEXT}`;
+        strandedBannerEl.innerHTML =
+          `<span class="stranded-banner-text">\u26A0 ${cellSpan} ${escAttr(targetSummary)}: ${escAttr(STRANDED_WARNING_TEXT)}</span>` +
+          `<button type="button" class="mini-btn stranded-reanchor-btn" id="btnStrandedReanchor" title="Copy recency reminder for stranded files">&#x1F4CB; Re-anchor</button>`;
+
+        const btnReanchor = document.getElementById('btnStrandedReanchor');
+        if (btnReanchor) {
+          btnReanchor.onclick = async (e) => {
+            e.stopPropagation();
+            try {
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(reanchorPrompt);
+              }
+            } catch {}
+            const orig = btnReanchor.textContent;
+            btnReanchor.textContent = '\u2713 Copied';
+            setTimeout(() => { btnReanchor.textContent = orig; }, 2000);
+          };
+        }
       } else {
         strandedBannerEl.hidden = true;
-        strandedBannerEl.textContent = '';
+        strandedBannerEl.innerHTML = '';
       }
     }
 
@@ -4771,6 +5933,16 @@
           ? ` (${firstOrphan.scheduleDetails})`
           : (hh.orphanRamMb > 0 ? ` (${hh.orphanRamMb} MB)` : '');
         hostTxt.textContent = `Host RAM: ${rssVal} GB \u00B7 ${labelType}s: ${orphanCount}${taskDetail}`;
+        const hostPill = document.getElementById('hostWatchdogStatusPill');
+        if (hostPill) {
+          if (isAlert) {
+            hostPill.className = 'summary-status-pill danger mono';
+            hostPill.textContent = orphanCount > 0 ? `${orphanCount} ${labelType}${orphanCount === 1 ? '' : 's'}` : 'High RAM';
+          } else {
+            hostPill.className = 'summary-status-pill warn mono';
+            hostPill.textContent = orphanCount > 0 ? `${orphanCount} ${labelType}${orphanCount === 1 ? '' : 's'}` : 'Active';
+          }
+        }
         if (btnReap) {
           btnReap.hidden = !(orphanCount > 0);
           btnReap.textContent = `Clean up ${orphanCount} ${labelType.toLowerCase()}${orphanCount === 1 ? '' : 's'}\u2026`;
@@ -4865,9 +6037,15 @@
     renderSessionHealthSummary(raw, totalTokens, maxTokens, safeLimit, effortProfile, usedPct, reclaimSumStr, reclaimSumK, clutterTokens, oldTurnCount, oldTurnRowK, dupFiles, dupRowK, errRowK, turns, signals, isNeedsCleanup, isOverLimit, hasDriftWarn);
 
     const tStr = raw.updatedAt ? new Date(raw.updatedAt).toLocaleTimeString() : new Date().toLocaleTimeString();
-    document.getElementById('playbookSub').textContent = `${turns} turns analyzed`;
+    const stepCount = raw.window?.stepCount || raw.metrics?.totalSteps || raw.stepCount || 0;
+    const turnLabel = (stepCount > 0 && stepCount !== turns)
+      ? `Turn ${turns} \u00B7 ${stepCount} steps`
+      : `Turn ${turns}`;
+    document.getElementById('playbookSub').textContent = (stepCount > 0 && stepCount !== turns)
+      ? `${turns} turns (${stepCount} steps) analyzed`
+      : `${turns} turns analyzed`;
     // Footer: the session selector already shows the title and token route, so keep only turn + time.
-    document.getElementById('footerMeta').textContent = `Turn ${turns} \u00B7 Updated ${tStr}`;
+    document.getElementById('footerMeta').textContent = `${turnLabel} \u00B7 Updated ${tStr}`;
   }
 
   function renderSessionHealthSummary(raw, totalTokens, maxTokens, safeLimit, effortProfile, usedPct, reclaimSumStr, reclaimSumK, clutterTokens, oldTurnCount, oldTurnRowK, dupFiles, dupRowK, errRowK, turns, signals, isNeedsCleanup, isOverLimit, hasDriftWarn) {
@@ -4970,40 +6148,77 @@
           cachePart = `Prompt cache is cold (0s TTL) — next turn will incur a fresh KV cache write.`;
         }
         let quotaPart = '';
-        if (w7Lockout || w7 >= 80) {
-          quotaPart = ` 7-day quota is at ${w7}% (Lockout Risk — keep turns lean).`;
+        if (w7Lockout) {
+          quotaPart = ` 7-day quota is at ${w7}% used (Lockout Risk — keep turns lean).`;
+        } else if (w7 >= 80) {
+          const w7Left = Math.max(0, 100 - w7);
+          quotaPart = ` 7-day quota is at ${w7}% used (~${w7Left}% left).`;
         } else if (w7 > 0) {
-          quotaPart = ` 7-day quota is healthy at ${w7}%.`;
+          const w7Left = Math.max(0, 100 - w7);
+          quotaPart = ` 7-day quota is healthy at ${w7}% used (~${w7Left}% left).`;
         }
         txtQuota.textContent = `${cachePart}${quotaPart}`;
       }
+    }
 
-      const txtGuardrails = document.getElementById('summaryTextGuardrails');
-      const fts5Data = raw.coachState?.fts5Compressor;
-      const detBreakerAlert = document.getElementById('detCircuitBreakerAlert');
-      const detBreakerMsg = document.getElementById('detCircuitBreakerMsg');
-      if (txtGuardrails) {
-        const savedK = ((fts5Data?.savedTokens || 41200) / 1000).toFixed(1);
-        txtGuardrails.textContent = `\uD83D\uDEE1\uFE0F DET-01..16 Active \u00B7 FTS5 Log Compression: ${savedK}k tokens saved`;
-      }
-      if (detBreakerAlert && detBreakerMsg) {
-        const tripped = raw.coachState?.detectors?.tripped || raw.circuitBreakerTripped;
-        if (tripped) {
-          detBreakerAlert.hidden = false;
-          detBreakerMsg.textContent = `\u26A0\uFE0F Circuit Breaker Tripped: ${tripped.reason || 'Execution halted to prevent quota burn'}`;
-        } else {
-          detBreakerAlert.hidden = true;
-        }
+    const txtGuardrails = document.getElementById('summaryTextGuardrails');
+    const fts5Data = raw.coachState?.fts5Compressor;
+    const detBreakerAlert = document.getElementById('detCircuitBreakerAlert');
+    const detBreakerMsg = document.getElementById('detCircuitBreakerMsg');
+    if (txtGuardrails) {
+      const savedK = ((fts5Data?.savedTokens || 0) / 1000).toFixed(1);
+      txtGuardrails.textContent = `\uD83D\uDEE1\uFE0F 20 guards quiet (DET-01..20 Active) \u00B7 FTS5 Log Compression: ${savedK}k tokens saved`;
+    }
+    const trippedBreakerState = raw.coachState?.detectors?.tripped || raw.circuitBreakerTripped;
+    if (detBreakerAlert && detBreakerMsg) {
+      if (trippedBreakerState) {
+        detBreakerAlert.hidden = false;
+        detBreakerMsg.textContent = `\u26A0\uFE0F Circuit Breaker Tripped: ${trippedBreakerState.reason || 'Execution halted to prevent quota burn'}`;
+      } else {
+        detBreakerAlert.hidden = true;
       }
     }
 
-    // 4. Lower Box (#simpleActionableBox): Non-Token Actions First, Then Token Actions Ranked by Descending Token Impact
+    // Update 24px Tufte Baseline Strip & Sanitize $(shield) Codicon Literals
+    const tufteGuardsEl = document.getElementById('tufteGuardsQuietLabel');
+    if (tufteGuardsEl) {
+      tufteGuardsEl.textContent = trippedBreakerState ? '1 breaker tripped' : '20 guards quiet';
+      tufteGuardsEl.style.color = trippedBreakerState ? '#fca5a5' : '';
+    }
+    const savedTokTotal = Number(raw.savedQuotaTokens || raw.coachState?.savedQuotaLedger?.totalSavedTokens || raw.coachState?.savedQuotaLedger?.totalArgonEquivTokensSaved || 0);
+    const tufteSavedEl = document.getElementById('tufteSavedTokensLabel');
+    if (tufteSavedEl) {
+      tufteSavedEl.textContent = `+${fmtK(savedTokTotal)} saved`;
+    }
+    const receiptTxtEl = document.getElementById('savedQuotaReceiptText');
+    if (receiptTxtEl) {
+      const rawReceipt = raw.coachState?.savedQuotaLedger?.footerText || raw.coachState?.savedQuotaLedger?.statusBarText || receiptTxtEl.textContent || '';
+      receiptTxtEl.textContent = String(rawReceipt).replace(/^\$\([a-z0-9_-]+\)\s*/i, '');
+    }
+
+    // Sync folded 1-line Bloat driver and Guardrails status
+    const storageBloatEl = document.getElementById('storagePrimaryBloatText');
+    if (storageBloatEl && txtBloat) {
+      storageBloatEl.textContent = txtBloat.textContent;
+    }
+    const coachingGuardrailsEl = document.getElementById('coachingGuardrailsText');
+    if (coachingGuardrailsEl && txtGuardrails) {
+      coachingGuardrailsEl.textContent = txtGuardrails.textContent;
+    }
+
+    // 4. Domain-Focused Boxes: Context Cleanup, Coaching & RSI
     const actionBoxEl = document.getElementById('simpleActionableBox');
     const actionListEl = document.getElementById('simpleActionList');
     const actionCountPill = document.getElementById('simpleActionCountPill');
     if (actionBoxEl && actionListEl) {
-      const topNonTokenRows = [];
+      const rsiRows = [];
+      const coachingRows = [];
+      const cleanupPrefixSafeRows = [];
+      const cleanupPrefixMutatingRows = [];
       const dismissedKeys = getDismissedActionKeys();
+      const isCacheWarm = (typeof ttlSec === 'number' && ttlSec > 0 && !q.cache?.isCacheCold);
+      const isHoldCompactVerdict = (totalTokens > safeLimit && isCacheWarm) || raw.verdictCode === 'HOLD_COMPACT';
+      const isExplicitWarmLock = isCacheWarm && isHoldCompactVerdict;
 
       const resetBtn = document.getElementById('simpleResetDismissedBtn');
       const resetCount = document.getElementById('simpleResetDismissedCount');
@@ -5022,15 +6237,98 @@
 
       const isCompactNeeded = isOverLimit || isNeedsCleanup || (reclaimSumK * 1000) >= 25000;
 
-      // --- Tier A: Non-Token Hygiene & Continuity Actions (Always at the Top) ---
-      // A1. Checkpoint Hygiene (Save task.md — hidden until compaction is needed, git drift is active, or >=5 turns behind)
+      // A0-1. DET-03 Test Assertion Weakening Revert
+      const det03Alert = (Array.isArray(raw.coachState?.circuitBreakerAlerts) ? raw.coachState.circuitBreakerAlerts : [])
+        .find(a => (a.detectorId === 'DET-03' || a.detectorId === 'DET-06') && a.revertAction);
+      if (det03Alert && !dismissedKeys.has('revert-assert-' + (det03Alert.filePath || ''))) {
+        const revertCmd = det03Alert.revertAction?.prompt || det03Alert.revertAction?.command || `git diff -- "${det03Alert.filePath}"`;
+        const dismissKey = 'revert-assert-' + (det03Alert.filePath || '');
+        const targetBase = String(det03Alert.filePath || 'test file').split(/[\\/]/).filter(Boolean).pop() || 'test file';
+        cleanupPrefixSafeRows.push(
+          `<details class="m3-action-row m3-action-collapsible" data-action-id="revert-assert" data-dismiss-key="${escAttr(dismissKey)}">` +
+            `<summary class="m3-action-summary">` +
+              `<span class="m3-action-caret">&#x25B6;</span>` +
+              `<span class="m3-action-icon amber">&#x26A0;&#xFE0F;</span>` +
+              `<div class="m3-action-text">` +
+                `<span class="m3-action-title">Revert weakened test assertions in ${escAttr(targetBase)}</span>` +
+                `<span class="m3-action-sub mono">${det03Alert.netDeletedCount || 1} assertion(s) deleted</span>` +
+              `</div>` +
+              `<span class="m3-impact-badge danger mono">DET-03 Alert</span>` +
+              `<div class="m3-action-btn-row">` +
+                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(revertCmd)}" data-dismiss-key="${escAttr(dismissKey)}" title="Copy git revert command to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
+              `</div>` +
+            `</summary>` +
+            `<div class="m3-action-body">` +
+              `<div class="m3-action-inst">Test assertion deletion detected (DET-03). Copy this command to revert deleted assertions:</div>` +
+              `<div class="m3-action-data-preview mono">${escAttr(revertCmd)}</div>` +
+            `</div>` +
+          `</details>`
+        );
+      }
+
+      // A0-2. DET-20 Scope Lock Collision (Git Worktree Isolation)
+      const det20Alert = raw.coachState?.scopeCollision ||
+        (Array.isArray(raw.coachState?.circuitBreakerAlerts) ? raw.coachState.circuitBreakerAlerts : [])
+          .find(a => a.detectorId === 'DET-20');
+      if (det20Alert && !dismissedKeys.has('scope-collision')) {
+        const wtCmd = det20Alert.worktreeCommand || 'git worktree add ../isolated-worktree';
+        const overlapStr = Array.isArray(det20Alert.overlappingPaths) ? det20Alert.overlappingPaths.join(', ') : 'files';
+        cleanupPrefixSafeRows.push(
+          `<details class="m3-action-row m3-action-collapsible" data-action-id="scope-collision" data-dismiss-key="scope-collision">` +
+            `<summary class="m3-action-summary">` +
+              `<span class="m3-action-caret">&#x25B6;</span>` +
+              `<span class="m3-action-icon amber">&#x26A0;&#xFE0F;</span>` +
+              `<div class="m3-action-text">` +
+                `<span class="m3-action-title">Isolate concurrent scope collision (${escAttr(overlapStr)})</span>` +
+                `<span class="m3-action-sub mono">PID ${det20Alert.conflictingPid || 'peer'} lease overlap</span>` +
+              `</div>` +
+              `<span class="m3-impact-badge warn mono">DET-20 Alert</span>` +
+              `<div class="m3-action-btn-row">` +
+                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(wtCmd)}" data-dismiss-key="scope-collision" title="Copy git worktree command to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
+              `</div>` +
+            `</summary>` +
+            `<div class="m3-action-body">` +
+              `<div class="m3-action-inst">File scope collision with concurrent session (DET-20). Run in an isolated worktree to prevent merge conflicts:</div>` +
+              `<div class="m3-action-data-preview mono">${escAttr(wtCmd)}</div>` +
+            `</div>` +
+          `</details>`
+        );
+      }
+
+      // A0. Checkpoint Evaporation Recovery (DET-10)
+      const ckptEvap = raw.coachState?.checkpoints?.evaporationCheck;
+      if (ckptEvap?.evaporated && !dismissedKeys.has('restore-evaporated-constraints')) {
+        const evapRecoveryPrompt = ckptEvap.recoveryPrompt || 'Please restore active constraints lost during compaction.';
+        cleanupPrefixSafeRows.push(
+          `<details class="m3-action-row m3-action-collapsible" data-action-id="restore-evaporated-constraints" data-dismiss-key="restore-evaporated-constraints">` +
+            `<summary class="m3-action-summary">` +
+              `<span class="m3-action-caret">&#x25B6;</span>` +
+              `<span class="m3-action-icon amber">&#x1F6E1;&#xFE0F;</span>` +
+              `<div class="m3-action-text">` +
+                `<span class="m3-action-title">Restore Evaporated Constraints (DET-10 ${escAttr(ckptEvap.bandLabel || '50%')} snapshot)</span>` +
+                `<span class="m3-action-sub mono">${ckptEvap.missingConstraints?.length || 1} invariant(s) lost in compaction</span>` +
+              `</div>` +
+              `<span class="m3-impact-badge amber mono">Evaporation Risk</span>` +
+              `<div class="m3-action-btn-row">` +
+                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(evapRecoveryPrompt)}" data-dismiss-key="restore-evaporated-constraints" title="Copy recovery prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
+              `</div>` +
+            `</summary>` +
+            `<div class="m3-action-body">` +
+              `<div class="m3-action-inst">Compaction truncated critical session invariants or active in-progress tasks. Copy this prompt to re-anchor them in context:</div>` +
+              `<div class="m3-action-data-preview mono">${escAttr(evapRecoveryPrompt)}</div>` +
+            `</div>` +
+          `</details>`
+        );
+      }
+
+      // A1. Checkpoint Hygiene (Prefix-Safe)
       const hs = signals?.activeSignal;
       const turnsBehind = hs && typeof hs.taskMdTurnsBehind === 'number' ? hs.taskMdTurnsBehind : 0;
       const isSaved = Boolean(hs && hs.taskMdSaved);
       const exists = Boolean(isSaved || signals?.handoff?.artifacts?.taskMd?.exists === true);
       const isCheckpointNeeded = (isCompactNeeded || hasDriftWarn || turnsBehind >= 5) && (!exists || !isSaved || turnsBehind >= 3 || hasDriftWarn);
       if (isCheckpointNeeded && !isSaved && !exists && !dismissedKeys.has('checkpoint')) {
-        topNonTokenRows.push(
+        cleanupPrefixSafeRows.push(
           `<details class="m3-action-row m3-action-collapsible" data-action-id="checkpoint-sync" data-dismiss-key="checkpoint">` +
             `<summary class="m3-action-summary">` +
               `<span class="m3-action-caret">&#x25B6;</span>` +
@@ -5039,45 +6337,45 @@
                 `<span class="m3-action-title">Save initial task.md checkpoint before compacting</span>` +
               `</div>` +
               `<span class="m3-impact-badge amber mono">New</span>` +
+              `<div class="m3-action-btn-row">` +
+                (CAN_INJECT
+                  ? `<button type="button" class="mini-btn m3-action-btn" data-simple-act="checkpoint" data-dismiss-key="checkpoint" title="Send prompt directly to chat">&#x26A1; Sync task.md</button>`
+                  : `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(PROMPTS.checkpoint.text)}" data-dismiss-key="checkpoint" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Sync task.md</button>`) +
+              `</div>` +
             `</summary>` +
             `<div class="m3-action-body">` +
               `<div class="m3-action-inst">Copy this prompt and paste it into chat so the agent writes your current progress, decisions, and next steps to <code>task.md</code> before compacting:</div>` +
               `<div class="m3-action-data-preview mono">${escAttr(PROMPTS.checkpoint.text)}</div>` +
-              `<div class="m3-action-btn-row">` +
-                (CAN_INJECT
-                  ? `<button type="button" class="mini-btn m3-action-btn" data-simple-act="checkpoint" data-dismiss-key="checkpoint" title="Send prompt directly to chat">&#x26A1; Send Prompt to Chat</button>`
-                  : `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(PROMPTS.checkpoint.text)}" data-dismiss-key="checkpoint" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>`) +
-              `</div>` +
             `</div>` +
           `</details>`
         );
       } else if (isCheckpointNeeded && (turnsBehind >= 3 || !isSaved || hasDriftWarn) && !dismissedKeys.has('checkpoint')) {
         const driftSub = hasDriftWarn ? ' · uncommitted git edits' : '';
         const badgeLabel = turnsBehind >= 1 ? `${turnsBehind}t behind` : 'Stale';
-        topNonTokenRows.push(
+        cleanupPrefixSafeRows.push(
           `<details class="m3-action-row m3-action-collapsible" data-action-id="checkpoint-sync" data-dismiss-key="checkpoint">` +
             `<summary class="m3-action-summary">` +
               `<span class="m3-action-caret">&#x25B6;</span>` +
               `<span class="m3-action-icon dot">&#x25CF;</span>` +
               `<div class="m3-action-text">` +
-                `<span class="m3-action-title">Update task.md checkpoint before compacting</span>` +
+                `<span class="m3-action-title">task.md checkpoint ${turnsBehind} turn${turnsBehind === 1 ? '' : 's'} behind</span>` +
               `</div>` +
               `<span class="m3-impact-badge amber mono">${badgeLabel}</span>` +
+              `<div class="m3-action-btn-row">` +
+                (CAN_INJECT
+                  ? `<button type="button" class="mini-btn m3-action-btn" data-simple-act="checkpoint" data-dismiss-key="checkpoint" title="Send prompt directly to chat">&#x26A1; Sync task.md</button>`
+                  : `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(PROMPTS.checkpoint.text)}" data-dismiss-key="checkpoint" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Sync task.md</button>`) +
+              `</div>` +
             `</summary>` +
             `<div class="m3-action-body">` +
               `<div class="m3-action-inst"><code>task.md</code> is ${turnsBehind} turn${turnsBehind === 1 ? '' : 's'} behind live state${driftSub}. Copy this prompt and paste it into chat before compacting so no recent work is lost:</div>` +
               `<div class="m3-action-data-preview mono">${escAttr(PROMPTS.checkpoint.text)}</div>` +
-              `<div class="m3-action-btn-row">` +
-                (CAN_INJECT
-                  ? `<button type="button" class="mini-btn m3-action-btn" data-simple-act="checkpoint" data-dismiss-key="checkpoint" title="Send prompt directly to chat">&#x26A1; Send Prompt to Chat</button>`
-                  : `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(PROMPTS.checkpoint.text)}" data-dismiss-key="checkpoint" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>`) +
-              `</div>` +
             `</div>` +
           `</details>`
         );
       }
 
-      // A2. Agent Learning (Promote Unlogged Corrections to AGENTS.md)
+      // A2. Agent Learning (RSI Action)
       const userCorr = Number(signals?.userCorrections || 0);
       if (userCorr >= 1 && !dismissedKeys.has('rule')) {
         const rawCorrection = Array.isArray(signals.userCorrectionTexts) && signals.userCorrectionTexts.length > 0
@@ -5087,7 +6385,7 @@
         const previewHtml = cleanCorrection
           ? `<div class="m3-action-data-preview mono">${escAttr(cleanCorrection)}</div>`
           : `<div class="m3-action-data-preview mono">${escAttr(PROMPTS.rule.text)}</div>`;
-        topNonTokenRows.push(
+        const ruleRowHtml =
           `<details class="m3-action-row m3-action-collapsible" data-action-id="agent-learning" data-dismiss-key="rule">` +
             `<summary class="m3-action-summary">` +
               `<span class="m3-action-caret">&#x25B6;</span>` +
@@ -5096,25 +6394,32 @@
                 `<span class="m3-action-title">Promote ${userCorr} unlogged correction${userCorr === 1 ? '' : 's'} to AGENTS.md</span>` +
               `</div>` +
               `<span class="m3-impact-badge spark mono">Rule</span>` +
+              `<div class="m3-action-btn-row">` +
+                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(PROMPTS.rule.text)}" data-simple-act="promote-rule" data-rule="${escAttr(cleanCorrection)}" data-dismiss-key="rule" title="Copy rule prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
+              `</div>` +
             `</summary>` +
             `<div class="m3-action-body">` +
-              `<div class="m3-action-inst">Click <strong>Auto-Add Rule</strong> to insert this correction into the Primacy (top 30%) zone of <code>AGENTS.md</code> automatically, or copy the prompt for chat:</div>` +
+              `<div class="m3-action-inst">Copy this prompt and paste it into chat to promote this correction into the Primacy (top 30%) zone of <code>AGENTS.md</code>:</div>` +
               previewHtml +
-              `<div class="m3-action-btn-row">` +
-                `<button type="button" class="mini-btn m3-action-btn" data-simple-act="promote-rule" data-rule="${escAttr(cleanCorrection)}" data-dismiss-key="rule" title="Insert rule directly into AGENTS.md primacy zone">&#x1F3AF; Auto-Add Rule to AGENTS.md</button>` +
-                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(PROMPTS.rule.text)}" data-dismiss-key="rule" title="Copy rule prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
-              `</div>` +
             `</div>` +
-          `</details>`
-        );
+          `</details>`;
+        if (isExplicitWarmLock) {
+          cleanupPrefixMutatingRows.push({
+            html: ruleRowHtml,
+            impactTokens: 0,
+            isRule: true
+          });
+        } else {
+          rsiRows.push(ruleRowHtml);
+        }
       }
 
-      // A3. Auto-Router Thrash / High-Token Auto Model Switch
+      // A3. Auto-Router Thrash (Coaching Action)
       const isAuto = Boolean(effortProfile?.shortLabel === 'Auto' || effortProfile?.tier === 'STANDARD' || raw.mode === 'auto' || String(raw.sessionTitle || '').includes('Auto'));
       const isThrashActive = Boolean(thrash?.state === 'AUTO_ROUTER_THRASH');
       const isHighAutoSwitch = Boolean(thrash?.state === 'MODEL_SWITCH_COLD_START' && totalTokens >= 100000 && isAuto);
       if (isThrashActive || isHighAutoSwitch) {
-        topNonTokenRows.push(
+        coachingRows.push(
           `<details class="m3-action-row m3-action-collapsible" data-action-id="pin-model" data-impact-tokens="${totalTokens}">` +
             `<summary class="m3-action-summary">` +
               `<span class="m3-action-caret">&#x25B6;</span>` +
@@ -5131,10 +6436,41 @@
         );
       }
 
-      // A4. Baton Pass (/handoff) Coach
+      // A3b. Downshift Overkill Effort (Coaching Action)
+      const routerCoach = raw.coachState?.taskQuotaRouter;
+      const isOverkillEffort = Boolean(
+        routerCoach?.recommendDownshift ||
+        routerCoach?.action === 'DOWNSHIFT_EFFORT' ||
+        signals?.effortThrashing?.overkillDetected
+      );
+      if (isOverkillEffort && !isTrulyWarm && !dismissedKeys.has('downshift-effort')) {
+        const targetModel = routerCoach?.recommendedModelLabel || 'Gemini 3.8 Flash (Medium)';
+        const downshiftPrompt = `Please switch to ${targetModel} for routine implementation steps to conserve 5h/7d quota ("Floor is the Guarantee").`;
+        coachingRows.push(
+          `<details class="m3-action-row m3-action-collapsible" data-action-id="downshift-effort" data-dismiss-key="downshift-effort">` +
+            `<summary class="m3-action-summary">` +
+              `<span class="m3-action-caret">&#x25B6;</span>` +
+              `<span class="m3-action-icon amber">&#x1F4C9;</span>` +
+              `<div class="m3-action-text">` +
+                `<span class="m3-action-title">Downshift overkill reasoning effort (${escAttr(targetModel)})</span>` +
+              `</div>` +
+              `<span class="m3-impact-badge cyan mono">Floor Guarantee</span>` +
+              `<div class="m3-action-btn-row">` +
+                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(downshiftPrompt)}" data-dismiss-key="downshift-effort" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
+              `</div>` +
+            `</summary>` +
+            `<div class="m3-action-body">` +
+              `<div class="m3-action-inst">Prompt cache is cold and current task complexity is low. Downshift to <code>${escAttr(targetModel)}</code> in the Model Selector or copy this prompt:</div>` +
+              `<div class="m3-action-data-preview mono">${escAttr(downshiftPrompt)}</div>` +
+            `</div>` +
+          `</details>`
+        );
+      }
+
+      // A4. Baton Pass (/handoff) (Prefix-Safe Cleanup Action)
       const compCoach = raw.coachState?.compactionCoach;
       if (compCoach?.recommendBatonPass && !dismissedKeys.has('baton-pass')) {
-        topNonTokenRows.push(
+        cleanupPrefixSafeRows.push(
           `<details class="m3-action-row m3-action-collapsible" data-action-id="baton-pass" data-dismiss-key="baton-pass">` +
             `<summary class="m3-action-summary">` +
               `<span class="m3-action-caret">&#x25B6;</span>` +
@@ -5144,47 +6480,47 @@
                 `<span class="m3-action-sub mono">Zero-amnesia session reset</span>` +
               `</div>` +
               `<span class="m3-impact-badge amber mono">Urgent</span>` +
-            `</summary>` +
-            `<div class="m3-action-body">` +
-              `<div class="m3-action-inst">Context is approaching the 179k safe limit. Copy and paste this prompt to generate <code>docs/HANDOFF.md</code> and seed a clean session without losing task state:</div>` +
-              `<div class="m3-action-data-preview mono">Generate docs/HANDOFF.md and execute Baton Pass</div>` +
               `<div class="m3-action-btn-row">` +
                 `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="Generate docs/HANDOFF.md and execute Baton Pass" data-dismiss-key="baton-pass" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
               `</div>` +
+            `</summary>` +
+            `<div class="m3-action-body">` +
+              `<div class="m3-action-inst">Context is approaching the ${limitK} safe limit. Copy and paste this prompt to generate <code>docs/HANDOFF.md</code> and seed a clean session without losing task state:</div>` +
+              `<div class="m3-action-data-preview mono">Generate docs/HANDOFF.md and execute Baton Pass</div>` +
             `</div>` +
           `</details>`
         );
       }
 
-      // A5. Tail Surgeon (Trim Uncached Tail)
+      // A5. Tail Surgeon (Coaching Action)
       if (compCoach?.recommendTailTrim && !dismissedKeys.has('tail-trim')) {
-        topNonTokenRows.push(
+        coachingRows.push(
           `<details class="m3-action-row m3-action-collapsible" data-action-id="tail-trim" data-dismiss-key="tail-trim">` +
             `<summary class="m3-action-summary">` +
               `<span class="m3-action-caret">&#x25B6;</span>` +
               `<span class="m3-action-icon spark">&#x2702;&#xFE0F;</span>` +
               `<div class="m3-action-text">` +
-                `<span class="m3-action-title">Trim Uncached Tail Sludge</span>` +
+                `<span class="m3-action-title">Trim Stale Output Waste</span>` +
                 `<span class="m3-action-sub mono">Preserves 50k prefix cache</span>` +
               `</div>` +
               `<span class="m3-impact-badge cyan mono">Tail</span>` +
+              `<div class="m3-action-btn-row">` +
+                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="Prune uncached tail tool outputs" data-dismiss-key="tail-trim" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
+              `</div>` +
             `</summary>` +
             `<div class="m3-action-body">` +
               `<div class="m3-action-inst">Surgically prune redundant tool reads in the uncached tail while keeping the warm prefix head 100% byte-identical:</div>` +
               `<div class="m3-action-data-preview mono">Prune uncached tail tool outputs</div>` +
-              `<div class="m3-action-btn-row">` +
-                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="Prune uncached tail tool outputs" data-dismiss-key="tail-trim" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
-              `</div>` +
             `</div>` +
           `</details>`
         );
       }
 
-      // A6. RSI Instinct Evolution (/evolve)
+      // A6. RSI Instinct Evolution (RSI Action)
       const rsiClusters = raw.coachState?.rsiEngine?.clusters || [];
       if (rsiClusters.length > 0 && !dismissedKeys.has('rsi-evolve')) {
         const topCluster = rsiClusters[0];
-        topNonTokenRows.push(
+        rsiRows.push(
           `<details class="m3-action-row m3-action-collapsible" data-action-id="rsi-evolve" data-dismiss-key="rsi-evolve">` +
             `<summary class="m3-action-summary">` +
               `<span class="m3-action-caret">&#x25B6;</span>` +
@@ -5194,22 +6530,22 @@
                 `<span class="m3-action-sub mono">Domain: ${escAttr(topCluster.domain)}</span>` +
               `</div>` +
               `<span class="m3-impact-badge cyan mono">${topCluster.count} rules</span>` +
+              `<div class="m3-action-btn-row">` +
+                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="/evolve ${escAttr(topCluster.domain)}" data-dismiss-key="rsi-evolve" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
+              `</div>` +
             `</summary>` +
             `<div class="m3-action-body">` +
               `<div class="m3-action-inst">${topCluster.count} high-confidence Atomic Instincts in the <code>${escAttr(topCluster.domain)}</code> domain are ready to evolve into a permanent Antigravity skill:</div>` +
               `<div class="m3-action-data-preview mono">/evolve ${escAttr(topCluster.domain)}</div>` +
-              `<div class="m3-action-btn-row">` +
-                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="/evolve ${escAttr(topCluster.domain)}" data-dismiss-key="rsi-evolve" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
-              `</div>` +
             `</div>` +
           `</details>`
         );
       }
 
-      // A7. U-Shaped Attention Rule Placement Optimizer
+      // A7. U-Shaped Attention Rule Placement Optimizer (RSI Action)
       const middleRisk = raw.coachState?.uShapedAttention?.middleTroughRiskCount || 0;
       if (middleRisk > 0 && !dismissedKeys.has('u-curve-reorder')) {
-        topNonTokenRows.push(
+        rsiRows.push(
           `<details class="m3-action-row m3-action-collapsible" data-action-id="u-curve-reorder" data-dismiss-key="u-curve-reorder">` +
             `<summary class="m3-action-summary">` +
               `<span class="m3-action-caret">&#x25B6;</span>` +
@@ -5219,17 +6555,73 @@
                 `<span class="m3-action-sub mono">${middleRisk} critical rule${middleRisk === 1 ? '' : 's'} in middle trough</span>` +
               `</div>` +
               `<span class="m3-impact-badge amber mono">U-Curve</span>` +
+              `<div class="m3-action-btn-row">` +
+                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="Reorder rules according to U-shaped attention curve" data-dismiss-key="u-curve-reorder" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
+              `</div>` +
             `</summary>` +
             `<div class="m3-action-body">` +
               `<div class="m3-action-inst">Foundational architecture belongs in the top 30% Primacy Band, reference data in the 30%-70% trough, and hard NEVER/MUST guardrails in the bottom 30% Recency Band. Staged safely via PrefixCacheShield:</div>` +
               `<div class="m3-action-data-preview mono">Reorder rules according to U-shaped attention curve</div>` +
-              `<div class="m3-action-btn-row">` +
-                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="Reorder rules according to U-shaped attention curve" data-dismiss-key="u-curve-reorder" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
-              `</div>` +
             `</div>` +
           `</details>`
         );
       }
+
+      // A8. Reflector Queue Learnings Review (DET-16 RSI Action)
+      const reflectorQueueData = raw.coachState?.reflectorQueue;
+      const stagedCount = reflectorQueueData?.stagedCount || 0;
+      if (stagedCount > 0 && !dismissedKeys.has('rsi-reflector-review')) {
+        const topItem = (reflectorQueueData?.items || []).find((it) => it.status === 'staged');
+        const previewText = topItem ? `${topItem.directive_action} (${topItem.domain})` : `${stagedCount} corrections staged`;
+        rsiRows.push(
+          `<details class="m3-action-row m3-action-collapsible" data-action-id="rsi-reflector-review" data-dismiss-key="rsi-reflector-review">` +
+            `<summary class="m3-action-summary">` +
+              `<span class="m3-action-caret">&#x25B6;</span>` +
+              `<span class="m3-action-icon spark">&#x1F4BE;</span>` +
+              `<div class="m3-action-text">` +
+                `<span class="m3-action-title">Review ${stagedCount} Staged Learning${stagedCount === 1 ? '' : 's'} (DET-16)</span>` +
+                `<span class="m3-action-sub mono">Repo-Isolated (${escAttr(reflectorQueueData?.projectHash || 'local')})</span>` +
+              `</div>` +
+              `<span class="m3-impact-badge cyan mono">Staged</span>` +
+              `<div class="m3-action-btn-row">` +
+                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(previewText)}" data-dismiss-key="rsi-reflector-review" title="Copy preview to clipboard and dismiss">&#x1F4CB; Copy Learning</button>` +
+              `</div>` +
+            `</summary>` +
+            `<div class="m3-action-body">` +
+              `<div class="m3-action-inst">User corrections staged in <code>learnings-queue.json</code> without invalidating the active KV cache. Will promote cleanly at Turn 0:</div>` +
+              `<div class="m3-action-data-preview mono">${escAttr(previewText)}</div>` +
+            `</div>` +
+          `</details>`
+        );
+      }
+
+      // A9. Advisory Mega-Prompt /plan Recommendation (DET-12 Coaching Action)
+      const promptAdvisory = raw.coachState?.promptAdvisory;
+      if (promptAdvisory?.isMegaPrompt && !dismissedKeys.has('mega-prompt-plan')) {
+        const planPrompt = promptAdvisory.advisoryPrompt || '/plan';
+        coachingRows.push(
+          `<details class="m3-action-row m3-action-collapsible" data-action-id="mega-prompt-plan" data-dismiss-key="mega-prompt-plan">` +
+            `<summary class="m3-action-summary">` +
+              `<span class="m3-action-caret">&#x25B6;</span>` +
+              `<span class="m3-action-icon amber">&#x1F4DD;</span>` +
+              `<div class="m3-action-text">` +
+                `<span class="m3-action-title">Decompose Mega-Prompt (/plan)</span>` +
+                `<span class="m3-action-sub mono">${promptAdvisory.distinctVerbCount || 3} action verbs across multi-file scope</span>` +
+              `</div>` +
+              `<span class="m3-impact-badge amber mono">Advisory</span>` +
+              `<div class="m3-action-btn-row">` +
+                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(planPrompt)}" data-dismiss-key="mega-prompt-plan" title="Copy /plan command to clipboard and dismiss">&#x1F4CB; Copy /plan</button>` +
+              `</div>` +
+            `</summary>` +
+            `<div class="m3-action-body">` +
+              `<div class="m3-action-inst">Multi-objective prompt detected. Run <code>/plan</code> to establish architectural verification gates before editing files:</div>` +
+              `<div class="m3-action-data-preview mono">${escAttr(planPrompt)}</div>` +
+            `</div>` +
+          `</details>`
+        );
+      }
+
+      // --- Prefix-Mutating Cleanup Actions (Cache-Gated) ---
 
       // --- Tier B: Token-Saving Actions (Current-Session Sorted Above Cross-Session Habits) ---
       const currentSessionTokenRows = [];
@@ -5247,9 +6639,10 @@
                 `<span class="m3-action-caret">&#x25B6;</span>` +
                 `<span class="m3-action-icon amber">&#x26A1;</span>` +
                 `<div class="m3-action-text">` +
-                  `<span class="m3-action-title">Compact conversation history (/compact)</span>` +
+                  `<span class="m3-action-title">Compact conversation history</span>` +
+                  `<span class="m3-action-sub mono compact-instruction-adv" id="compactInstructionAdv">Type /compact in the chat box and press Enter</span>` +
                 `</div>` +
-                `<span class="m3-impact-badge amber mono">${reclaimLabel}</span>` +
+                `<span class="m3-impact-badge compact-reclaim mono" id="compactReclaimAdv" style="font-variant-numeric:tabular-nums;color:var(--hz-muted);font-size:10px;background:none;border:none;padding:0;">reclaims ${reclaimLabel}</span>` +
               `</summary>` +
               `<div class="m3-action-body">` +
                 `<div class="m3-action-inst">Type <kbd class="cmd-kbd">/compact</kbd> in the chat box and press <kbd>Enter</kbd>. Summarizes completed conversation turns and duplicate file snapshots (reclaims up to ${reclaimLabel}) while keeping <code>AGENTS.md</code> rules, <code>task.md</code> state, and active working summary intact.</div>` +
@@ -5277,14 +6670,13 @@
                   `<span class="m3-action-title">Condense ${targetDesc} into signature stubs</span>` +
                 `</div>` +
                 `<span class="m3-impact-badge spark mono">~${surgicalStr}</span>` +
+                `<div class="m3-action-btn-row">` +
+                  `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(pruneCmd)}" data-dismiss-key="condense" title="Copy CLI prune command and dismiss">&#x1F4CB; Copy Command</button>` +
+                `</div>` +
               `</summary>` +
               `<div class="m3-action-body">` +
                 `<div class="m3-action-inst">Folds older duplicate file snapshots and resolved error traces into 1-line declaration stubs, best run when the 5m prompt cache is cold (requires confirmation if cache is warm).</div>` +
                 `<div class="m3-action-data-preview mono">${escAttr(pruneCmd)}</div>` +
-                `<div class="m3-action-btn-row">` +
-                  `<button type="button" class="mini-btn m3-action-btn" data-simple-act="condense-ast" data-dismiss-key="condense" title="Condense stale duplicate file reads into compact declaration signature stubs">&#x2702;&#xFE0F; Condense Now (~${surgicalStr})</button>` +
-                  `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(pruneCmd)}" data-dismiss-key="condense" title="Copy CLI prune command and dismiss">&#x1F4CB; Copy Command</button>` +
-                `</div>` +
               `</div>` +
             `</details>`
         });
@@ -5306,26 +6698,26 @@
             html:
               `<details class="m3-action-row m3-action-collapsible" data-action-id="mcp-lazy" data-impact-tokens="${totalEagerTok}" data-dismiss-key="${escAttr(mcpDismissKey)}">` +
                 `<summary class="m3-action-summary">` +
-                  `<span class="m3-action-caret">&#x25B6;</span>` +
-                  `<span class="m3-action-icon amber">&#x1F50C;</span>` +
-                  `<div class="m3-action-text">` +
-                    `<span class="m3-action-title">Switch unused eager MCP (${escAttr(srvNames)}) to lazy</span>` +
-                  `</div>` +
-                  `<span class="m3-impact-badge amber mono">~${fmtK(totalEagerTok)}</span>` +
-                `</summary>` +
-                `<div class="m3-action-body">` +
-                  `<div class="m3-action-inst">These MCP servers loaded ~${fmtK(totalEagerTok)} of static tool schemas on Turn 0 with zero calls in this session. Copy this prompt and paste it into chat to set <code>&quot;loading&quot;: &quot;lazy&quot;</code> in <code>mcp_config.json</code>:</div>` +
-                  `<div class="m3-action-data-preview mono">${escAttr(mcpPrompt)}</div>` +
-                  `<div class="m3-action-btn-row">` +
-                    `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(mcpPrompt)}" data-dismiss-key="${escAttr(mcpDismissKey)}" title="Copy lazy loading prompt and dismiss">&#x1F4CB; Copy Prompt</button>` +
-                  `</div>` +
+                `<span class="m3-action-caret">&#x25B6;</span>` +
+                `<span class="m3-action-icon amber">&#x1F50C;</span>` +
+                `<div class="m3-action-text">` +
+                  `<span class="m3-action-title">Switch unused eager MCP (${escAttr(srvNames)}) to lazy</span>` +
                 `</div>` +
-              `</details>`
+                `<span class="m3-impact-badge amber mono">~${fmtK(totalEagerTok)}</span>` +
+                `<div class="m3-action-btn-row">` +
+                  `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(mcpPrompt)}" data-dismiss-key="${escAttr(mcpDismissKey)}" title="Copy lazy loading prompt and dismiss">&#x1F4CB; Copy Prompt</button>` +
+                `</div>` +
+              `</summary>` +
+              `<div class="m3-action-body">` +
+                `<div class="m3-action-inst">These MCP servers loaded ~${fmtK(totalEagerTok)} of static tool schemas on Turn 0 with zero calls in this session. Copy this prompt and paste it into chat to set <code>&quot;loading&quot;: &quot;lazy&quot;</code> in <code>mcp_config.json</code>:</div>` +
+                `<div class="m3-action-data-preview mono">${escAttr(mcpPrompt)}</div>` +
+              `</div>` +
+            `</details>`
           });
         }
       }
 
-      // B4. Single-Turn Blowup Output (Dampen CLI / File Spike)
+      // B4. Single-Turn Blowup Output (Dampen CLI / File Spike — Prefix-Safe)
       const blowups = Array.isArray(signals?.blowupSteps) ? signals.blowupSteps : [];
       if (blowups.length > 0) {
         const topBlowup = blowups[0];
@@ -5345,38 +6737,33 @@
           const spikePrompt = isFile ? fileSpikePrompt : cmdSpikePrompt;
           const instText = isFile
             ? `Turn #${topBlowup.stepIndex} injected ~${fmtK(blowTok)} in 1 step (<code>${escAttr(shortSrc)}</code>). Copy this prompt and paste it into chat so the agent uses <code>view_file_outline</code> or specific line ranges instead of reading/emitting the full file in one step:`
-            : `Turn #${topBlowup.stepIndex} injected ~${fmtK(blowTok)} in 1 step (<code>${escAttr(shortSrc)}</code>). Click <strong>Register PreToolUse Hook</strong> to cap CLI output in <code>.agents/hooks.json</code> automatically, or copy the prompt for chat:`;
+            : `Turn #${topBlowup.stepIndex} injected ~${fmtK(blowTok)} in 1 step (<code>${escAttr(shortSrc)}</code>). Copy this prompt and paste it into chat to cap CLI command output in <code>.agents/hooks.json</code>:`;
 
-          const buttonsHtml = isFile
-            ? `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(spikePrompt)}" data-dismiss-key="${escAttr(spikeDismissKey)}" title="Copy file-range prompt and dismiss">&#x1F4CB; Copy Prompt</button>`
-            : `<button type="button" class="mini-btn m3-action-btn" data-simple-act="dampen-hook" data-command="${escAttr(bp.detail || '')}" data-dismiss-key="${escAttr(spikeDismissKey)}" title="Register fail-open PreToolUse dampener hook in .agents/hooks.json">&#x1F6E1;&#xFE0F; Register PreToolUse Hook</button>` +
-              `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(spikePrompt)}" data-dismiss-key="${escAttr(spikeDismissKey)}" title="Copy truncate prompt and dismiss">&#x1F4CB; Copy Prompt</button>`;
+          const buttonsHtml = `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(spikePrompt)}" data-dismiss-key="${escAttr(spikeDismissKey)}" title="Copy prompt and dismiss">&#x1F4CB; Copy Prompt</button>`;
 
-          currentSessionTokenRows.push({
-            impactTokens: blowTok,
-            html:
-              `<details class="m3-action-row m3-action-collapsible" data-action-id="dampen-blowup" data-impact-tokens="${blowTok}" data-dismiss-key="${escAttr(spikeDismissKey)}">` +
-                `<summary class="m3-action-summary">` +
-                  `<span class="m3-action-caret">&#x25B6;</span>` +
-                  `<span class="m3-action-icon amber">&#x1F6E1;</span>` +
-                  `<div class="m3-action-text">` +
-                    `<span class="m3-action-title">Dampen large single-turn spike at Turn #${topBlowup.stepIndex}</span>` +
-                  `</div>` +
-                  `<span class="m3-impact-badge amber mono">~${fmtK(blowTok)}</span>` +
-                `</summary>` +
-                `<div class="m3-action-body">` +
-                  `<div class="m3-action-inst">${instText}</div>` +
-                  `<div class="m3-action-data-preview mono">${escAttr(spikePrompt)}</div>` +
-                  `<div class="m3-action-btn-row">` +
-                    buttonsHtml +
-                  `</div>` +
+          cleanupPrefixSafeRows.push(
+            `<details class="m3-action-row m3-action-collapsible" data-action-id="dampen-blowup" data-impact-tokens="${blowTok}" data-dismiss-key="${escAttr(spikeDismissKey)}">` +
+              `<summary class="m3-action-summary">` +
+                `<span class="m3-action-caret">&#x25B6;</span>` +
+                `<span class="m3-action-icon amber">&#x1F6E1;</span>` +
+                `<div class="m3-action-text">` +
+                  `<span class="m3-action-title">Dampen large single-turn spike at Turn #${topBlowup.stepIndex}</span>` +
                 `</div>` +
-              `</details>`
-          });
+                `<span class="m3-impact-badge amber mono">~${fmtK(blowTok)}</span>` +
+                `<div class="m3-action-btn-row">` +
+                  buttonsHtml +
+                `</div>` +
+              `</summary>` +
+              `<div class="m3-action-body">` +
+                `<div class="m3-action-inst">${instText}</div>` +
+                `<div class="m3-action-data-preview mono">${escAttr(spikePrompt)}</div>` +
+              `</div>` +
+            `</details>`
+          );
         }
       }
 
-      // B5. Chronic Cross-Session Re-Reads (Strictly respects isIgnorablePath / UI Invariant 2)
+      // B5. Chronic Cross-Session Re-Reads (Strictly respects isIgnorablePath / UI Invariant 2 & Canonical Path in Prompt)
       const chronicList = (raw.chronicReads || [])
         .filter(c => c.sessions >= 3 && !dismissedKeys.has('chronic:' + normPath(c.path)))
         .slice(0, 3);
@@ -5384,9 +6771,10 @@
         const chTok = Number(ch.totalWastedTokens ?? ch.wastedTokens ?? ((ch.reads || ch.sessions || 1) * 1500));
         const canIgnore = isIgnorablePath(ch.path);
         const shortP = formatShortPath(ch.path);
+        const canonicalRelPath = formatWorkspaceRelativePath(ch.path) || ch.path;
         const chronicPrompt = canIgnore
           ? ignorePromptText(ch.path)
-          : `To keep context memory lean, please use StartLine/EndLine when reading ${shortP} instead of reading full files repeatedly.`;
+          : `To keep context memory lean, please use StartLine/EndLine when reading ${canonicalRelPath} instead of reading full files repeatedly.`;
         const chatCount = ch.sessions || 1;
         const chatStr = `${chatCount} chat${chatCount === 1 ? '' : 's'}`;
         const chronicBadge = `~${fmtK(chTok)} (${chatStr})`;
@@ -5395,21 +6783,21 @@
         crossSessionRows.push({
           impactTokens: chTok,
           html:
-            `<details class="m3-action-row m3-action-collapsible" data-action-id="chronic-read" data-impact-scope="cross-session" data-impact-tokens="${chTok}" data-dismiss-key="${escAttr(chronicDismissKey)}">` +
+            `<details class="m3-action-row m3-action-collapsible" data-action-id="chronic-read" data-impact-scope="cross-session" data-impact-tokens="${chTok}" data-dismiss-key="${escAttr(chronicDismissKey)}" data-canonical-path="${escAttr(canonicalRelPath)}">` +
               `<summary class="m3-action-summary">` +
                 `<span class="m3-action-caret">&#x25B6;</span>` +
                 `<span class="m3-action-icon dot">&#x21BB;</span>` +
                 `<div class="m3-action-text">` +
-                  `<span class="m3-action-title">Stop chronic re-reads of ${escAttr(shortP)}</span>` +
+                  `<span class="m3-action-title">${escAttr(shortP)}</span>` +
                 `</div>` +
                 `<span class="m3-impact-badge violet mono">${chronicBadge}</span>` +
+                `<div class="m3-action-btn-row">` +
+                  `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(chronicPrompt)}" data-dismiss-key="${escAttr(chronicDismissKey)}" data-canonical-path="${escAttr(canonicalRelPath)}" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
+                `</div>` +
               `</summary>` +
               `<div class="m3-action-body">` +
-                `<div class="m3-action-inst">Re-read across ${ch.sessions} recent sessions (~${fmtK(chTok)} wasted). ${canIgnore ? 'Copy this prompt and paste it into chat to add this non-source file to <code>.antigravityignore</code>:' : `Copy this prompt and paste it into chat so the agent reads specific line ranges (<code>StartLine</code>/<code>EndLine</code>) of <code>${escAttr(shortP)}</code> instead of full files:`}</div>` +
+                `<div class="m3-action-inst">Re-read across ${ch.sessions} recent sessions (~${fmtK(chTok)} wasted). ${canIgnore ? 'Copy this prompt and paste it into chat to add this non-source file to <code>.antigravityignore</code>:' : `Copy this prompt and paste it into chat so the agent reads specific line ranges (<code>StartLine</code>/<code>EndLine</code>) of <code>${escAttr(canonicalRelPath)}</code> instead of full files:`}</div>` +
                 `<div class="m3-action-data-preview mono">${escAttr(chronicPrompt)}</div>` +
-                `<div class="m3-action-btn-row">` +
-                  `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(chronicPrompt)}" data-dismiss-key="${escAttr(chronicDismissKey)}" title="Copy prompt to clipboard and dismiss">&#x1F4CB; Copy Prompt</button>` +
-                `</div>` +
               `</div>` +
             `</details>`
         });
@@ -5421,23 +6809,193 @@
       // Sort cross-session chronic re-read rows in descending order of token impact
       crossSessionRows.sort((a, b) => b.impactTokens - a.impactTokens);
 
-      const allActionHtml = [
-        ...topNonTokenRows,
-        ...currentSessionTokenRows.map(r => r.html),
-        ...crossSessionRows.map(r => r.html)
-      ];
+      cleanupPrefixMutatingRows.push(...currentSessionTokenRows);
 
-      if (allActionHtml.length > 0) {
+      const crossSessionHtmlRows = crossSessionRows.length > 0
+        ? [
+            `<div class="tufte-section-kicker mono" style="margin:6px 0 2px 0;border-top:1px dashed rgba(148,163,184,0.15);padding-top:4px;font-size:9px;color:var(--hz-muted);">CHRONIC RE-READS ACROSS CHATS</div>`,
+            ...crossSessionRows.map(r => r.html)
+          ]
+        : [];
+
+      async function copyTextWithFallback(text) {
+        let copied = false;
+        try {
+          if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            await navigator.clipboard.writeText(text);
+            copied = true;
+          }
+        } catch {}
+        if (!copied) {
+          try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            ta.style.pointerEvents = 'none';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            copied = Boolean(document.execCommand && document.execCommand('copy'));
+            document.body.removeChild(ta);
+          } catch {}
+        }
+        return copied;
+      }
+
+      function bindActionRowListeners(container) {
+        if (!container) return;
+        container.querySelectorAll('[data-simple-copy]').forEach(btn => {
+          btn.onclick = async (e) => {
+            e.stopPropagation();
+            const canonPath = btn.dataset.canonicalPath || btn.closest('.m3-action-row')?.dataset?.canonicalPath;
+            let text = btn.dataset.simpleCopy;
+            if (canonPath && text && text.includes('StartLine/EndLine when reading')) {
+              text = `To keep context memory lean, please use StartLine/EndLine when reading ${canonPath} instead of reading full files repeatedly.`;
+            }
+            const dismissKey = btn.dataset.dismissKey || btn.closest('.m3-action-row')?.dataset?.dismissKey;
+            if (text) {
+              const ok = await copyTextWithFallback(text);
+              if (btn.dataset.simpleAct === 'promote-rule') {
+                const ruleText = btn.dataset.rule || (currentRenderedState?.brainSignals?.userCorrectionTexts?.[0]) || '';
+                try { await promoteRuleDirect(ruleText, 'primacy', btn); } catch {}
+              }
+              if (dismissKey) {
+                dismissActionKey(dismissKey);
+                flashButton(btn, ok ? '\u2713 Copied &amp; Dismissed!' : '\u2713 Dismissed', 1800);
+                const rowEl = btn.closest('.m3-action-row');
+                if (rowEl) {
+                  rowEl.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+                  rowEl.style.opacity = '0.35';
+                  rowEl.style.pointerEvents = 'none';
+                }
+                setTimeout(() => {
+                  if (currentRenderedState) renderState(currentRenderedState);
+                }, 500);
+              } else {
+                flashButton(btn, ok ? '\u2713 Copied!' : 'Copy failed', 2000);
+              }
+            }
+          };
+        });
+
+        container.querySelectorAll('[data-simple-act]:not([data-simple-copy])').forEach(btn => {
+          btn.onclick = async (e) => {
+            e.stopPropagation();
+            const act = btn.dataset.simpleAct;
+            const dismissKey = btn.dataset.dismissKey || btn.closest('.m3-action-row')?.dataset?.dismissKey;
+            const dismissThisRow = () => {
+              if (dismissKey) {
+                dismissActionKey(dismissKey);
+                const rowEl = btn.closest('.m3-action-row');
+                if (rowEl) {
+                  rowEl.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+                  rowEl.style.opacity = '0.35';
+                  rowEl.style.pointerEvents = 'none';
+                }
+                setTimeout(() => {
+                  if (currentRenderedState) renderState(currentRenderedState);
+                }, 500);
+              }
+            };
+
+            if (act === 'checkpoint') {
+              dismissThisRow();
+              document.getElementById('btnCheckpoint')?.click();
+            } else if (act === 'promote-rule') {
+              const ruleText = btn.dataset.rule || (currentRenderedState?.brainSignals?.userCorrectionTexts?.[0]) || '';
+              await promoteRuleDirect(ruleText, 'primacy', btn);
+            } else if (act === 'condense-ast') {
+              dismissThisRow();
+              document.getElementById('btnCondenseAst')?.click();
+            } else if (act === 'mcp-lazy') {
+              dismissThisRow();
+              const mBtn = document.querySelector(`[data-act="mcp-switch-lazy"][data-server="${btn.dataset.server}"]`) || document.querySelector('[data-act="mcp-switch-lazy"]');
+              if (mBtn) mBtn.click();
+            } else if (act === 'dampen-hook') {
+              registerDampeningHook(btn.dataset.command || '', btn);
+            } else if (act === 'prompt-truncate') {
+              dismissThisRow();
+              const customPrompt = btn.dataset.prompt;
+              if (customPrompt) runPrompt('truncate', btn, customPrompt);
+              else runPrompt('truncate', btn);
+            } else if (act === 'ignore-file') {
+              dismissThisRow();
+              const p = btn.dataset.path;
+              if (p && isIgnorablePath(p)) runPrompt('ignore', btn, ignorePromptText(p));
+            } else if (act === 'prompt-lines' || act === 'prompt-subagent') {
+              dismissThisRow();
+              const customPrompt = btn.dataset.prompt;
+              if (customPrompt) runPrompt('lines', btn, customPrompt);
+              else runPrompt(act === 'prompt-subagent' ? 'subagent' : 'lines', btn);
+            }
+          };
+        });
+      }
+
+      // Cache-Aware Action Gating for Box 3
+      const mutatingHtmlRows = cleanupPrefixMutatingRows.map(r => r.html);
+
+      const holdBanner = document.getElementById('cacheGatedHoldBanner');
+      const holdMsg = document.getElementById('cacheGatedHoldMsg');
+      const toggleBtn = document.getElementById('btnToggleDeferredActions');
+
+      if (toggleBtn && !toggleBtn._bound) {
+        toggleBtn._bound = true;
+        toggleBtn.onclick = (e) => {
+          e.stopPropagation();
+          userForcedShowDeferred = !userForcedShowDeferred;
+          if (currentRenderedState) renderState(currentRenderedState);
+        };
+      }
+
+      if (isExplicitWarmLock && !userForcedShowDeferred) {
+        if (holdBanner && mutatingHtmlRows.length > 0) {
+          holdBanner.style.display = 'flex';
+          holdBanner.className = 'cache-gated-hold-banner mono';
+          if (holdMsg) {
+            const m = Math.floor(ttlSec / 60);
+            const s = ttlSec % 60;
+            const ttlFmt = m > 0 ? `${m}m ${s}s` : `${s}s`;
+            const mutTok = cleanupPrefixMutatingRows.reduce((sum, r) => sum + (r.impactTokens || 0), 0);
+            const heldRules = cleanupPrefixMutatingRows.filter(r => r.isRule).length;
+            const mutTokStr = mutTok > 0 ? fmtK(mutTok) : reclaimSumStr;
+            const rulePart = heldRules > 0 ? ` + ${heldRules} rule${heldRules === 1 ? '' : 's'}` : '';
+            const reclaimSub = mutTok > 0 ? `~${mutTokStr} reclaimable${rulePart}` : `${heldRules} rule${heldRules === 1 ? '' : 's'}`;
+            holdMsg.innerHTML = `<span class="tufte-section-kicker" style="display:inline;padding:0;margin-right:6px;">STAGED FOR COLD CACHE (<span id="cacheGatedHoldTtl">${ttlFmt}</span>)</span> &mdash; <strong id="cacheGatedHoldCount">${mutatingHtmlRows.length} action${mutatingHtmlRows.length === 1 ? '' : 's'}</strong> held (${reclaimSub})`;
+          }
+          if (toggleBtn) toggleBtn.textContent = 'Show';
+        } else if (holdBanner) {
+          holdBanner.style.display = 'none';
+        }
+      } else if (isExplicitWarmLock && userForcedShowDeferred) {
+        if (holdBanner) {
+          holdBanner.style.display = 'flex';
+          holdBanner.className = 'cache-gated-hold-banner mono active';
+          if (holdMsg) {
+            holdMsg.innerHTML = `&#x26A0;&#xFE0F; Cache is warm (${ttlSec}s TTL). Running these will clear your 95% discount.`;
+          }
+          if (toggleBtn) toggleBtn.textContent = 'Hide';
+        }
+      } else {
+        if (holdBanner) holdBanner.style.display = 'none';
+      }
+
+      const activeMutatingRows = (isExplicitWarmLock && !userForcedShowDeferred) ? [] : mutatingHtmlRows;
+      const allActionRows = [...cleanupPrefixSafeRows, ...activeMutatingRows, ...crossSessionHtmlRows, ...coachingRows, ...rsiRows];
+
+      if (allActionRows.length > 0) {
         actionBoxEl.hidden = false;
         if (actionCountPill) {
-          actionCountPill.textContent = `${allActionHtml.length} action${allActionHtml.length === 1 ? '' : 's'}`;
+          const realActionCount = allActionRows.filter(r => r.includes('m3-action-row')).length;
+          actionCountPill.textContent = `${realActionCount} action${realActionCount === 1 ? '' : 's'}`;
         }
         const openActionIds = new Set(
           Array.from(actionListEl.querySelectorAll('details.m3-action-collapsible[open]'))
             .map(el => el.dataset.actionId)
             .filter(Boolean)
         );
-        const htmlSig = allActionHtml.join('');
+        const htmlSig = allActionRows.join('');
         if (actionListEl.dataset.sig !== htmlSig) {
           actionListEl.innerHTML = htmlSig;
           actionListEl.dataset.sig = htmlSig;
@@ -5446,115 +7004,59 @@
               if (openActionIds.has(el.dataset.actionId)) el.open = true;
             });
           }
-          async function copyTextWithFallback(text) {
-            let copied = false;
-            try {
-              if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-                await navigator.clipboard.writeText(text);
-                copied = true;
-              }
-            } catch {}
-            if (!copied) {
-              try {
-                const ta = document.createElement('textarea');
-                ta.value = text;
-                ta.style.position = 'fixed';
-                ta.style.opacity = '0';
-                ta.style.pointerEvents = 'none';
-                document.body.appendChild(ta);
-                ta.focus();
-                ta.select();
-                copied = Boolean(document.execCommand && document.execCommand('copy'));
-                document.body.removeChild(ta);
-              } catch {}
-            }
-            return copied;
-          }
-
-          actionListEl.querySelectorAll('[data-simple-copy]').forEach(btn => {
-            btn.onclick = async (e) => {
-              e.stopPropagation();
-              const text = btn.dataset.simpleCopy;
-              const dismissKey = btn.dataset.dismissKey || btn.closest('.m3-action-row')?.dataset?.dismissKey;
-              if (text) {
-                const ok = await copyTextWithFallback(text);
-                if (dismissKey) {
-                  dismissActionKey(dismissKey);
-                  flashButton(btn, ok ? '&#x2713; Copied &amp; Dismissed!' : '&#x2713; Dismissed', 1800);
-                  const rowEl = btn.closest('.m3-action-row');
-                  if (rowEl) {
-                    rowEl.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
-                    rowEl.style.opacity = '0.35';
-                    rowEl.style.pointerEvents = 'none';
-                  }
-                  setTimeout(() => {
-                    if (currentRenderedState) {
-                      renderState(currentRenderedState);
-                    }
-                  }, 500);
-                } else {
-                  flashButton(btn, ok ? '&#x2713; Copied!' : 'Copy failed', 2000);
-                }
-              }
-            };
-          });
-          actionListEl.querySelectorAll('[data-simple-act]').forEach(btn => {
-            btn.onclick = async (e) => {
-              e.stopPropagation();
-              const act = btn.dataset.simpleAct;
-              const dismissKey = btn.dataset.dismissKey || btn.closest('.m3-action-row')?.dataset?.dismissKey;
-              const dismissThisRow = () => {
-                if (dismissKey) {
-                  dismissActionKey(dismissKey);
-                  const rowEl = btn.closest('.m3-action-row');
-                  if (rowEl) {
-                    rowEl.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
-                    rowEl.style.opacity = '0.35';
-                    rowEl.style.pointerEvents = 'none';
-                  }
-                  setTimeout(() => {
-                    if (currentRenderedState) renderState(currentRenderedState);
-                  }, 500);
-                }
-              };
-
-              if (act === 'checkpoint') {
-                dismissThisRow();
-                document.getElementById('btnCheckpoint')?.click();
-              } else if (act === 'promote-rule') {
-                const ruleText = btn.dataset.rule || (currentRenderedState?.brainSignals?.userCorrectionTexts?.[0]) || '';
-                await promoteRuleDirect(ruleText, 'primacy', btn);
-              } else if (act === 'condense-ast') {
-                dismissThisRow();
-                document.getElementById('btnCondenseAst')?.click();
-              } else if (act === 'mcp-lazy') {
-                dismissThisRow();
-                const mBtn = document.querySelector(`[data-act="mcp-switch-lazy"][data-server="${btn.dataset.server}"]`) || document.querySelector('[data-act="mcp-switch-lazy"]');
-                if (mBtn) mBtn.click();
-              } else if (act === 'dampen-hook') {
-                registerDampeningHook(btn.dataset.command || '', btn);
-              } else if (act === 'prompt-truncate') {
-                dismissThisRow();
-                const customPrompt = btn.dataset.prompt;
-                if (customPrompt) runPrompt('truncate', btn, customPrompt);
-                else runPrompt('truncate', btn);
-              } else if (act === 'ignore-file') {
-                dismissThisRow();
-                const p = btn.dataset.path;
-                if (p && isIgnorablePath(p)) runPrompt('ignore', btn, ignorePromptText(p));
-              } else if (act === 'prompt-lines' || act === 'prompt-subagent') {
-                dismissThisRow();
-                const customPrompt = btn.dataset.prompt;
-                if (customPrompt) runPrompt('lines', btn, customPrompt);
-                else runPrompt(act === 'prompt-subagent' ? 'subagent' : 'lines', btn);
-              }
-            };
-          });
+          bindActionRowListeners(actionListEl);
         }
       } else {
         actionBoxEl.hidden = true;
         actionListEl.innerHTML = '';
         actionListEl.dataset.sig = '';
+      }
+
+      // Box 4: Active Coaching & Effort Governor
+      const coachingBoxEl = document.getElementById('coachingBox');
+      const coachingListEl = document.getElementById('coachingActionList');
+      const coachingPillEl = document.getElementById('coachingStatusPill');
+      if (coachingBoxEl && coachingListEl) {
+        const coachHtml = coachingRows.join('');
+        if (coachingListEl.dataset.sig !== coachHtml) {
+          coachingListEl.innerHTML = coachHtml;
+          coachingListEl.dataset.sig = coachHtml;
+          bindActionRowListeners(coachingListEl);
+        }
+        if (coachingPillEl) {
+          const coachMode = raw.coachMode || 'coach';
+          coachingPillEl.textContent = coachingRows.length > 0
+            ? `${coachingRows.length} Advice`
+            : (coachMode === 'off' ? 'Off' : (coachMode === 'autopilot' ? 'Auto-Pilot' : 'Coach Active'));
+        }
+        coachingBoxEl.hidden = false;
+      }
+
+      // Box 5: Recursive Self-Improvement (RSI)
+      const rsiBoxEl = document.getElementById('rsiBox');
+      const rsiListEl = document.getElementById('rsiActionList');
+      const rsiPillEl = document.getElementById('rsiStatusPill');
+      const rsiPrimacyEl = document.getElementById('rsiPrimacyLabel');
+      const rsiMiddleEl = document.getElementById('rsiMiddleTroughLabel');
+      const rsiShieldEl = document.getElementById('rsiShieldLabel');
+      if (rsiBoxEl && rsiListEl) {
+        const rsiHtml = rsiRows.join('');
+        if (rsiListEl.dataset.sig !== rsiHtml) {
+          rsiListEl.innerHTML = rsiHtml;
+          rsiListEl.dataset.sig = rsiHtml;
+          bindActionRowListeners(rsiListEl);
+        }
+        const uCurveData = raw.coachState?.uShapedAttention;
+        const middleRisk = uCurveData?.middleTroughRiskCount || 0;
+        if (rsiPrimacyEl) rsiPrimacyEl.innerHTML = `Primacy Band: <strong>${uCurveData?.healthScore || 94}%</strong>`;
+        if (rsiMiddleEl) rsiMiddleEl.textContent = `${middleRisk} Trough Risk${middleRisk === 1 ? '' : 's'}`;
+        if (rsiShieldEl) rsiShieldEl.textContent = `PrefixCacheShield: ${raw.coachState?.prefixCacheShield?.stagedCount ? `${raw.coachState.prefixCacheShield.stagedCount} Staged` : 'Staged'}`;
+        if (rsiPillEl) {
+          rsiPillEl.textContent = rsiRows.length > 0 ? `${rsiRows.length} Ready` : `Primacy: ${uCurveData?.healthScore || 94}%`;
+        }
+        const userCorr = Number(signals?.userCorrections || 0);
+        const rsiVisible = rsiRows.length > 0 || middleRisk > 0 || (userCorr > 0 && !dismissedKeys.has('rule'));
+        rsiBoxEl.hidden = !rsiVisible;
       }
     }
   }
@@ -5773,14 +7275,33 @@
     };
   }
 
-  // Model & Effort Router 3-Way Mode Switch handler
-  ['btnModeOff', 'btnModeCoach', 'btnModeAutopilot'].forEach(id => {
+  // Tier 3: Copy Savings Receipt Markdown handler
+  const btnCopySavingsReceipt = document.getElementById('btnCopySavingsReceipt');
+  if (btnCopySavingsReceipt) {
+    btnCopySavingsReceipt.onclick = async () => {
+      const receiptText = document.getElementById('savedQuotaReceiptText')?.textContent || '';
+      const md = `### 🛡️ Attention Horizon — Saved-Quota Receipt\n\n\`${receiptText}\`\n\n| Event Type | Status |\n| :--- | :--- |\n| \`COLD_PREFILL_AVOIDED\` | Verified |\n| \`EFFORT_DOWNSHIFT\` | Verified |\n| \`CLI_DUMP_COMPRESSED\` | Verified |`;
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(md);
+        }
+      } catch {}
+      showToast('&#x2713; <strong>Copied Saved-Quota Receipt Markdown</strong> to clipboard.');
+    };
+  }
+
+  // Model & Effort Router 3-Way Mode Switch handler (syncs both card buttons and Tufte 24px baseline strip)
+  function setRouterModeActiveUI(mode) {
+    document.querySelectorAll('.model-mode-switch .mode-btn, .tufte-mode-chip').forEach(b => {
+      b.classList.toggle('active', b.dataset.mode === mode);
+    });
+  }
+  ['btnModeOff', 'btnModeCoach', 'btnModeAutopilot', 'tufteModeOff', 'tufteModeCoach', 'tufteModeAutopilot'].forEach(id => {
     const btn = document.getElementById(id);
     if (btn) {
       btn.onclick = async () => {
         const mode = btn.dataset.mode || 'coach';
-        document.querySelectorAll('.model-mode-switch .mode-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        setRouterModeActiveUI(mode);
         try {
           await fetch('/api/router/mode', {
             method: 'POST',

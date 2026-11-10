@@ -1,7 +1,7 @@
 {
   "name": "context-horizon",
-  "version": "3.2.0",
-  "description": "htop for AI Coding Agents: 40-cell context window visualizer, $/turn Sludge Tax auditor, and <15ms PreInvocation Flight Check router for Google Antigravity.",
+  "version": "3.3.0",
+  "description": "htop for AI Coding Agents: 40-cell context window visualizer, $/turn Wasted Tokens auditor, and <15ms PreInvocation Flight Check router for Claude Code, Cursor, and Google Antigravity.",
   "type": "module",
   "bin": {
     "context-horizon": "./src/cli/init.mjs",
@@ -37,7 +37,9 @@
     "install-plugin": "node --no-warnings src/cli/init.mjs init",
     "build:bundles": "node scripts/build_evaluation_bundles.mjs",
     "build:assets": "node --no-warnings scripts/generate_hero_svg.mjs && node --no-warnings scripts/build_demo_page.mjs",
+    "build:release": "node scripts/build_release_bundle.mjs",
     "test": "node --test tests/test_router_and_sensors.mjs tests/test_wave1_wedge.mjs tests/test_wave2_wedge.mjs tests/test_wave3_wedge.mjs",
+    "test:coach": "node --test test/*.test.mjs",
     "test:phases": "node tests/verify_phase_1.mjs && node tests/verify_phase_2.mjs && node tests/verify_phase_3.mjs && node tests/verify_phase_4.mjs && node tests/verify_phase_5.mjs && node tests/verify_phase_6.mjs && node tests/verify_phase_6_roadmap.mjs && node tests/verify_phase_7.mjs",
     "test:e2e": "node tests/verify_e2e_context_memory.mjs",
     "bench": "node tests/bench_latency.mjs",
@@ -52,7 +54,7 @@
     "url": "https://github.com/Gizzant/context-horizon/issues"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.5.0"
   },
   "keywords": [
     "ai-agents",

@@ -250,8 +250,13 @@ export function rankRiskiestCells(cells = [], { totalActiveTokens = 0, safeLimit
       riskScore = 20000 + (wasteTokens || cellTokens);
       riskReason = 'HIGH_SLUDGE_DENSITY';
       actionType = 'PRUNE';
+    } else if (inTrough && recallPct < 60) {
+      riskScore = 10000 + cellTokens * (1 - (Number(c.attentionWeight) || 0.5));
+      riskReason = 'LOW_ATTENTION_TROUGH';
+      actionType = 'REANCHOR';
     } else {
-      riskScore = cellTokens * (1 - (Number(c.attentionWeight) || 0.5));
+      // Cell is clean with 0 waste tokens and healthy recall; do not flag as risky
+      continue;
     }
 
     scored.push({
@@ -372,12 +377,11 @@ export function evaluateCompositeSessionRisk({
  * a session with 0 cache-read tokens or a 0% hit rate is cold regardless of the TTL clock.
  */
 export function computeIsCacheTrulyWarm(cache = {}) {
-  return Boolean(
-    Number(cache?.ttlRemainingSec) > 0 &&
-    Number(cache?.cacheReadTokens) > 0 &&
-    Number(cache?.hitRatePct) > 0 &&
-    !cache?.prefixBustDetected
-  );
+  if (!cache || cache.isCacheCold || cache.prefixBustDetected) return false;
+  const readTok = Number(cache.cacheReadTokens ?? cache.cachedTokens ?? 0);
+  const hasHitPct = cache.hitRatePct !== undefined && cache.hitRatePct !== null;
+  const hitOk = hasHitPct ? Number(cache.hitRatePct) > 0 : readTok > 0;
+  return Boolean(Number(cache.ttlRemainingSec) > 0 && readTok > 0 && hitOk);
 }
 
 /**
@@ -473,6 +477,54 @@ export function computeWatermarks(maxTokens = 256000, safeLimit = 179000) {
   };
 }
 
+const ANCHOR_FILE_TARGET_RE = /(^|[\\/])(rules[\\/]|task\.md$|implementation_plan\.md$|agents\.md$|gemini\.md$)/i;
+
+function isPairedToolResultStep(step = {}, prev = null) {
+  if (!step || !prev) return false;
+  const prevCalls = Array.isArray(prev.toolCalls)
+    ? prev.toolCalls
+    : (Array.isArray(prev.tool_calls) ? prev.tool_calls : []);
+  if (prevCalls.length === 0) return false;
+  const curCalls = Array.isArray(step.toolCalls)
+    ? step.toolCalls
+    : (Array.isArray(step.tool_calls) ? step.tool_calls : []);
+  if (curCalls.length > 0) return false;
+  const curType = String(step.type || '').toUpperCase();
+  const curSource = String(step.source || '').toUpperCase();
+  if (
+    curType === 'USER_INPUT' ||
+    curSource === 'USER_EXPLICIT' ||
+    curType === 'SYSTEM_PROMPT' ||
+    isCompactionCheckpointStep(step)
+  ) {
+    return false;
+  }
+  const prevType = String(prev.type || '').toUpperCase();
+  if (
+    prevType === 'PLANNER_RESPONSE' &&
+    (curType === 'GENERIC' || curType === 'TOOL_RESULT' || curSource === 'TOOL' || curSource === 'MODEL')
+  ) {
+    return true;
+  }
+  if (curType === 'TOOL_RESULT' || curSource === 'TOOL') return true;
+  return false;
+}
+
+function getEffectiveStepCalls(steps = [], idx = 0) {
+  const step = steps[idx] || {};
+  const ownCalls = Array.isArray(step.toolCalls)
+    ? step.toolCalls
+    : (Array.isArray(step.tool_calls) ? step.tool_calls : []);
+  if (ownCalls.length > 0) return { calls: ownCalls, isPairedResult: false };
+  if (idx > 0 && isPairedToolResultStep(step, steps[idx - 1])) {
+    const prevCalls = Array.isArray(steps[idx - 1].toolCalls)
+      ? steps[idx - 1].toolCalls
+      : (Array.isArray(steps[idx - 1].tool_calls) ? steps[idx - 1].tool_calls : []);
+    return { calls: prevCalls, isPairedResult: true };
+  }
+  return { calls: [], isPairedResult: false };
+}
+
 /**
  * Classifies an array of parsed steps into a full 40-cell HorizonStatePayload
  */
@@ -521,7 +573,7 @@ export function classifyHorizon(rawSteps, options = {}) {
     ? Number(maxTokensOverride)
     : ceilingDetails.ceilingTokens;
 
-  const parsedEffort = extractEffortTimeline(steps);
+  const parsedEffort = extractEffortTimeline(steps, { maxTokens: resolvedMaxTokens });
   const rawEffortProfile = options.activeEffortProfile
     ? { ...options.activeEffortProfile }
     : (options.turnMetadata ? resolveEffortProfile(options.turnMetadata) : parsedEffort.activeEffortProfile);
@@ -584,6 +636,9 @@ export function classifyHorizon(rawSteps, options = {}) {
 
   // Classify each step into categories & tokens
   const totalTurns = steps.length;
+  const userTurns = steps.filter(x => x && (x.source === 'USER_EXPLICIT' || x.type === 'USER_INPUT' || x.role === 'user'));
+  const userTurnCount = userTurns.length > 0 ? userTurns.length : (options.sidecar?.sessionMeta?.turnCount || totalTurns);
+  const totalSteps = steps.length;
   let totalActiveTokens = 0;
   const classifiedSteps = [];
 
@@ -615,20 +670,37 @@ export function classifyHorizon(rawSteps, options = {}) {
     let target = '';
 
     const contentStr = String(step.content || '');
-    const calls = step.toolCalls || [];
-    const isReadOnlyFileCall = calls.length > 0 && calls.every(c => /^(view_file|read_file|view_file_outline|view_code_item)$/i.test(String(c.name || '')));
+    const { calls, isPairedResult } = getEffectiveStepCalls(steps, idx);
+    const isReadOnlyFileCall = calls.length > 0 && calls.every(c => /^(view_file|read_file|view_file_outline|view_code_item)$/i.test(String(c.name || c.tool || '')));
+    const callFileTargets = calls
+      .map(c => {
+        const a = c?.args || c?.parameters || c?.Arguments || {};
+        return a.Path || a.path || a.TargetFile || a.Target || a.target || a.AbsolutePath || '';
+      })
+      .filter(Boolean);
+    const hasExplicitNonAnchorTarget = callFileTargets.length > 0 &&
+      callFileTargets.every(t => !ANCHOR_FILE_TARGET_RE.test(String(t)));
     const isError = step.status === 'ERROR' ||
       (typeof step.exitCode === 'number' && step.exitCode !== 0) ||
       (!isReadOnlyFileCall && contentStr.includes('Traceback (most recent call last)'));
 
+    const isBackgroundTaskEvent = Boolean(
+      (step.type === 'SYSTEM_MESSAGE' || String(step.type).toLowerCase() === 'system_message') &&
+      /Task id ["'][^"']+["'] finished/i.test(contentStr)
+    );
+
     // 1. Anchor detection
     if (
-      step.stepIndex === 0 ||
-      isCompactionCheckpointStep(step) ||
-      step.type === 'SYSTEM_PROMPT' ||
-      contentStr.includes('rules/') ||
-      contentStr.includes('task.md') ||
-      contentStr.includes('implementation_plan.md')
+      !isBackgroundTaskEvent && (
+        step.stepIndex === 0 ||
+        isCompactionCheckpointStep(step) ||
+        step.type === 'SYSTEM_PROMPT' ||
+        (!hasExplicitNonAnchorTarget && (
+          contentStr.includes('rules/') ||
+          contentStr.includes('task.md') ||
+          contentStr.includes('implementation_plan.md')
+        ))
+      )
     ) {
       category = CATEGORIES.ANCHOR;
       target = 'System & Project Anchors';
@@ -636,7 +708,7 @@ export function classifyHorizon(rawSteps, options = {}) {
     // 2. Knowledge Memory & Bleed detection
     else if (
       contentStr.includes('knowledge://') ||
-      calls.some(c => (c.name || '').includes('knowledge') || (c.args?.Uri || '').includes('knowledge'))
+      calls.some(c => (c.name || c.tool || '').includes('knowledge') || (c.args?.Uri || '').includes('knowledge'))
     ) {
       let isBleed = false;
       for (const [kiName, info] of kiBleedMap.entries()) {
@@ -650,7 +722,7 @@ export function classifyHorizon(rawSteps, options = {}) {
     // 3. Dead Error detection
     else if (isError) {
       category = CATEGORIES.DEAD_ERROR;
-      const cmdCall = calls.find(c => (c.name || '').toLowerCase() === 'run_command');
+      const cmdCall = calls.find(c => (c.name || c.tool || '').toLowerCase() === 'run_command');
       target = cmdCall?.args?.CommandLine ? `Command: ${cmdCall.args.CommandLine}` : 'Resolved Stack Trace';
       const off = offenderMap.get(target) || { category, target, occurrences: 0, wastedTokens: 0, stepIndices: [] };
       off.occurrences += 1;
@@ -661,9 +733,10 @@ export function classifyHorizon(rawSteps, options = {}) {
     // 4. Smart File Re-Read Classifier & Semantic Reference Pinning
     else {
       let isStale = false;
+      let isPairedWasteResult = false;
       let stepFileBasename = '';
       for (const call of calls) {
-        const args = call.args || {};
+        const args = call.args || call.parameters || call.Arguments || {};
         const targetFile = args.Path || args.path || args.Target || args.target || args.TargetFile || args.AbsolutePath;
         if (targetFile && !isInternalTelemetryPath(targetFile)) {
           stepFileBasename = path.basename(String(targetFile)).toLowerCase();
@@ -673,6 +746,10 @@ export function classifyHorizon(rawSteps, options = {}) {
       if (smartReReads.wasteTargetByStep.has(idx)) {
         isStale = true;
         target = smartReReads.wasteTargetByStep.get(idx);
+      } else if (isPairedResult && smartReReads.wasteTargetByStep.has(idx - 1)) {
+        isStale = true;
+        isPairedWasteResult = true;
+        target = smartReReads.wasteTargetByStep.get(idx - 1);
       }
 
       let semanticallyPinned = false;
@@ -696,7 +773,11 @@ export function classifyHorizon(rawSteps, options = {}) {
       if (isStale) {
         category = CATEGORIES.STALE_DUPLICATE;
         const off = offenderMap.get(target || 'Stale Read') || { category, target: target || 'Stale Read', occurrences: 0, wastedTokens: 0, stepIndices: [] };
-        off.occurrences += 1;
+        if (!isPairedWasteResult) {
+          off.occurrences += 1;
+        } else if (off.occurrences === 0) {
+          off.occurrences = 1;
+        }
         off.wastedTokens += tokens;
         off.stepIndices.push(idx);
         offenderMap.set(target || 'Stale Read', off);
@@ -821,10 +902,11 @@ export function classifyHorizon(rawSteps, options = {}) {
 
       cellTurns.push(step.stepIndex);
       if (!cellTurnsDetailMap.has(step.stepIndex)) {
-        const rawCalls = rawStep.toolCalls || rawStep.tool_calls || [];
+        const { calls: rawCalls } = getEffectiveStepCalls(steps, step.stepIndex);
         const toolCallLabels = rawCalls.map(c => {
           const nm = c.name || c.tool || 'tool';
-          const arg = c.args?.Path || c.args?.path || c.args?.CommandLine || c.args?.ServerName || '';
+          const a = c.args || c.parameters || c.Arguments || {};
+          const arg = a.Path || a.path || a.CommandLine || a.ServerName || '';
           return arg ? `${nm}(${String(arg).slice(0, 60)})` : nm;
         });
         cellTurnsDetailMap.set(step.stepIndex, {
@@ -885,7 +967,9 @@ export function classifyHorizon(rawSteps, options = {}) {
     });
   }
 
-  // Map effort transitions to their corresponding 5k-token block indices (0..39)
+  // Map effort transitions to their corresponding block indices (0..39)
+  const tokensPerCell = Math.max(1, Math.round(effectiveMaxTokens / HORIZON_WINDOW.TOTAL_CELLS));
+  const filledCellCount = Math.max(1, Math.min(HORIZON_WINDOW.TOTAL_CELLS, Math.ceil(totalActiveTokens / tokensPerCell)));
   const effortTransitions = rawTransitions.map(tr => {
     const tIdx = tr.turnIndex ?? tr.stepNumber ?? 0;
     const stepNum = tr.stepNumber ?? tr.turnIndex ?? 0;
@@ -901,6 +985,9 @@ export function classifyHorizon(rawSteps, options = {}) {
     }
     if (matchedBlock < 0) {
       matchedBlock = Math.min(39, Math.max(0, Math.floor((tIdx / Math.max(1, totalTurns)) * Math.max(1, activeCellsCount))));
+    }
+    if (matchedBlock >= filledCellCount) {
+      matchedBlock = Math.min(39, Math.max(0, filledCellCount - 1));
     }
     const enriched = {
       ...tr,
@@ -1036,9 +1123,10 @@ export function classifyHorizon(rawSteps, options = {}) {
     .slice(0, 3)
     .map(s => {
       const rawStep = steps[s.stepIndex] || {};
-      const call = (rawStep.toolCalls || [])[0];
-      const args = call?.args || {};
-      const toolName = String(call?.name || rawStep.toolName || '').toLowerCase();
+      const { calls: effCalls } = getEffectiveStepCalls(steps, s.stepIndex);
+      const call = effCalls[0];
+      const args = call?.args || call?.parameters || call?.Arguments || {};
+      const toolName = String(call?.name || call?.tool || rawStep.toolName || '').toLowerCase();
       const filePath = args.Path || args.path || args.TargetFile || args.Target || args.target || args.AbsolutePath || args.file_path || rawStep.targetPath || null;
       const command = args.CommandLine || args.command || null;
       const isFileTool = Boolean(filePath) || /^(view_file|read_file|view_file_outline|view_code_item|replace_file_content|multi_replace_file_content|write_to_file|write_file|edit_file)$/.test(toolName);
@@ -1065,11 +1153,16 @@ export function classifyHorizon(rawSteps, options = {}) {
   for (const s of steps) {
     if (s.source === 'USER_EXPLICIT' || s.type === 'USER_INPUT') {
       const rawTxt = String(s.content || '').trim();
-      const cleanTxt = rawTxt.replace(/<\/?USER_REQUEST>/gi, '').trim();
+      const strippedHostTxt = rawTxt
+        .replace(/<ADDITIONAL_METADATA>[\s\S]*?<\/ADDITIONAL_METADATA>/gi, '')
+        .replace(/<USER_SETTINGS_CHANGE>[\s\S]*?<\/USER_SETTINGS_CHANGE>/gi, '')
+        .replace(/<\/?USER_REQUEST>/gi, '')
+        .trim();
+      const cleanTxt = strippedHostTxt;
       const lower = cleanTxt.toLowerCase();
-      if (/\b(no[, ]|don't|do not|instead|wrong|looks the same|shouldn't|broken|still not)\b/.test(lower)) {
+      if (cleanTxt && /\b(no[, ]|don't|do not|instead|wrong|looks the same|shouldn't|broken|still not)\b/.test(lower)) {
         correctionCount++;
-        if (cleanTxt) userCorrectionTexts.push(cleanTxt.slice(0, 100));
+        userCorrectionTexts.push(cleanTxt.slice(0, 100));
       }
     }
   }
@@ -1417,14 +1510,50 @@ export function classifyHorizon(rawSteps, options = {}) {
     cellSizeTokens: effectiveCellSize
   });
   const actionQueue = buildActionQueue({
-    metrics: { totalInputTokens: totalActiveTokens, totalTurns },
+    metrics: { totalInputTokens: totalActiveTokens, totalTurns: userTurnCount, totalSteps },
     brainSignals,
     quota,
     topRiskyCells,
-    window: { totalActiveTokens },
-    turns: totalTurns,
+    window: { totalActiveTokens, stepCount: totalSteps },
+    turns: userTurnCount,
+    stepCount: totalSteps,
     baseline: { mcpAudit },
     hostHealth: options.hostHealth || null
+  });
+
+  let lastUserPrompt = '';
+  for (let i = steps.length - 1; i >= 0; i--) {
+    const st = steps[i];
+    if (st && (st.source === 'USER_EXPLICIT' || st.type === 'USER_INPUT')) {
+      const cleaned = String(st.content || '')
+        .replace(/<\/?USER_REQUEST>/gi, '')
+        .trim();
+      if (cleaned) {
+        lastUserPrompt = cleaned.slice(0, 8000);
+        break;
+      }
+    }
+  }
+
+  const exportedSteps = steps.map((st, idx) => {
+    const rawCalls = Array.isArray(st?.toolCalls)
+      ? st.toolCalls
+      : (Array.isArray(st?.tool_calls) ? st.tool_calls : []);
+    return {
+      stepIndex: Number.isFinite(st?.stepIndex) ? st.stepIndex : idx,
+      type: st?.type || 'GENERIC',
+      source: st?.source || 'MODEL',
+      status: st?.status || 'DONE',
+      exitCode: typeof st?.exitCode === 'number' ? st.exitCode : undefined,
+      tokens: classifiedSteps[idx]?.tokens || 0,
+      outputTokens: st?.outputTokens || 0,
+      category: classifiedSteps[idx]?.category || CATEGORIES.ACTIVE_WORKING_SET,
+      target: classifiedSteps[idx]?.target || '',
+      toolCalls: rawCalls.map(c => ({
+        name: c?.name || c?.tool || '',
+        args: c?.args || c?.parameters || c?.Arguments || {}
+      }))
+    };
   });
 
   return {
@@ -1433,6 +1562,8 @@ export function classifyHorizon(rawSteps, options = {}) {
     storeSource,
     surfaceTag,
     workloadMode,
+    lastUserPrompt,
+    steps: exportedSteps,
     topRiskyCells,
     actionQueue,
     brainDir: brainDir || null,
@@ -1468,7 +1599,8 @@ export function classifyHorizon(rawSteps, options = {}) {
       totalActiveTokens,
       usedPercentage: parseFloat(((totalActiveTokens / effectiveMaxTokens) * 100).toFixed(1)),
       exceeds200kTokens: totalActiveTokens >= 200000,
-      turnCount: totalTurns,
+      turnCount: userTurnCount,
+      stepCount: totalSteps,
       safeLimit,
       safeHeadroomTokens: Math.max(0, safeLimit - totalActiveTokens),
       reminderAt,
@@ -1482,6 +1614,8 @@ export function classifyHorizon(rawSteps, options = {}) {
       sludgeTaxPerTurnUsd,
       totalTurnCostUsd,
       healthBand,
+      totalTurns: userTurnCount,
+      totalSteps,
       displayParity: computeDisplayTenthsParity(
         totalActiveTokens,
         Math.max(0, totalActiveTokens - sludgeTokens),

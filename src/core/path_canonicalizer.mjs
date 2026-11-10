@@ -1,4 +1,7 @@
 import path from 'node:path';
+import { suppressSqliteExperimentalWarning } from './paths.mjs';
+
+suppressSqliteExperimentalWarning();
 
 /**
  * Normalizes file paths across Windows 11, POSIX, and URI schemes.

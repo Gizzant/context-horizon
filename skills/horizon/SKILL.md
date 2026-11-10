@@ -1,9 +1,9 @@
 ---
 name: horizon
-description: Inspect real-time 40-cell context health, Prefix Amputation risk, and Sludge Tax.
+description: Inspect real-time 40-cell context health, Context Truncation risk, and Wasted Tokens.
 ---
 
-# Chrono-Attention Horizon (`/horizon`)
+# Context Horizon (`/horizon`)
 
 When this command is invoked, visualize the current conversation context health.
 
@@ -14,4 +14,4 @@ When this command is invoked, visualize the current conversation context health.
    <agent-embed src="file:///<artifactDirectoryPath>/horizon_widget.html"></agent-embed>
    ```
 3. Offer a one-click auxiliary side pane pill:
-   [Open Chrono-Attention Horizon](sidecar://agy-horizon/horizon-daemon/)
+   [Open Context Horizon](sidecar://agy-horizon/horizon-daemon/)

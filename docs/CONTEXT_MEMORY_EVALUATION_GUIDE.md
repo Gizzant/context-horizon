@@ -176,8 +176,9 @@ Every token in the conversation transcript is classified into one of six distinc
 * Hovering over a transition cell displays the exact transition detail: `Turn #120: Switched effort STANDARD â†’ HIGH`.
 
 ### 4.8 Dual-Pool Quota & Cache Telemetry Strip (`#quotaStrip`)
-* Renders 5-Hour rolling Sprint usage vs. 7-Day rolling Weekly Marathon usage (`5h Sprint: 24% Â· 7d Weekly: 68% Â· Cache Hit: 92%`).
-* Warns when Weekly pool depletion rate outpaces Sprint burn (`âš  7d Lockout Risk`), avoiding the common 5-day lockout trap.
+* **Simple View Presentation:** Refocused purely as a dedicated `⚡ Prompt Cache` dashboard with a visual 5-minute countdown bar (`#cacheTimerBarFill`), dynamic TTL readout (`3m 40s left` / `Expired`), clear discount status (`95% discount active` vs `No active discount`), and a plain-English "What to do now" operational guidance banner (`#cacheOperationalGuide`). Unrelated 5h/7d quota meters are hidden in Simple View via `[data-view-mode="simple"] .quota-strip .quota-pills { display: none !important; }` to eliminate noise.
+* **Advanced View Presentation:** Renders full 5-Hour rolling Sprint usage vs. 7-Day rolling Weekly Marathon usage (`5h Sprint: 24% · 7d Weekly: 68% · Cache Hit: 92%`).
+* Warns when Weekly pool depletion rate outpaces Sprint burn (`⚠️ 7d Lockout Risk`), avoiding the common 5-day lockout trap.
 * Forecasts single-turn burn before switching to High effort (`Next High turn: ~2.35% of 5h`).
 * **Provenance:** quota values are a **local estimate** from transcript token counts unless the host supplies numeric fractions on stdin. Estimates render muted as `5h ~42% est. · 7d ~100% est.` (tooltip: "Local estimate from transcript token counts; Antigravity does not expose quota to this panel.") and never raise the lockout pill, the overage alert, or a RED risk band. Host-sourced values (`source: 'host'`) keep the exact rendering and alerts. When the overage alert banner is visible, the duplicate `7d Lockout Risk` pill is hidden.
 * **Prefix Bust copy:** a bust is amber, not red. When the cause is known (model switch), it reads `Last turn: cache miss (model switch → Claude Opus 5.5)`; otherwise the legacy `Prefix Bust (system_message / config drift)` label is kept. Because a missing turn writes a fresh prefix, `nextTurnLikelyWarm` (not the strict warm badge predicate) drives the compaction advisory, the "Cache is cold" copy and the history-bar color.
@@ -222,9 +223,31 @@ Every token in the conversation transcript is classified into one of six distinc
 * **Fail-Open CLI Command Dampening Hook & Primacy/Recency Rule Promotion:** Registers a 1-click `PreToolUse` command-condensing wrapper in `.agents/hooks.json` (`POST /api/hooks/dampen`) and promotes in-chat corrections into the Primacy (top 30%) or Recency (bottom 30%) zone of `AGENTS.md` / `.agents/CONTEXT.md` while enforcing Antigravity's 200-line `MEMORY.md` truncation threshold (`POST /api/rules/promote`).
 
 ### 4.15 Show-HN Layer 6 & Phase 7: U-Shaped Attention Heatmap, Session Fracture Overlay & Zero-Trust SQLite Locks
-* **Parabolic U-Shaped Attention Curve ($\gamma = 0.6$):** Shades the 30%â€“70% **Low-Attention Trough** (`.mini-cell.low-attention-trough`) and flags `ACTIVE_WORKING_SET` or `ANCHOR` buffers stranded in Cells 7â€“15 (`#strandedSignalBanner`).
-* **Session Fracture Overlay (`âš¡`) & Interactive Turn Inspection:** Renders `.fracture-marker` (`âš¡`) between cells where a compaction (`step_type == 23`) or mid-run prefix bust (`cache_read_tokens == 0`, $\Delta t < 300\text{s}$) occurred, and opens `#cellTurnFilterPanel` on cell click to inspect exact turns and tool calls.
+* **Parabolic U-Shaped Attention Curve ($\gamma = 0.6$):** Shades the 30%–70% **Low-Attention Trough** (`.mini-cell.low-attention-trough`) and flags `ACTIVE_WORKING_SET` or `ANCHOR` buffers stranded in Cells 7–15 (`#strandedSignalBanner`).
+* **Session Fracture Overlay (`⚡`) & Interactive Turn Inspection:** Renders `.fracture-marker` (`⚡`) between cells where a compaction (`step_type == 23`) or mid-run prefix bust (`cache_read_tokens == 0`, $\Delta t < 300\text{s}$) occurred, and opens `#cellTurnFilterPanel` on cell click to inspect exact turns and tool calls.
 * **Zero-Trust Read-Only Profile (`SQLITE_OPEN_READONLY`):** Opens all SQLite databases (`conversations/*.db`, `conversation_summaries.db`) strictly with `{ readOnly: true }` (`SQLITE_OPEN_READONLY`) and all JSONL logs with `'r'`, with zero outbound network sockets and zero runtime npm dependencies.
+
+### 4.16 Simple View 5-Box Ergonomic Hierarchy & Cache-Aware Gating
+The Simple View dashboard (`[data-view-mode="simple"]`) streamlines developer focus by organizing telemetry into an ergonomic 5-box vertical hierarchy, while removing host process watchdog noise (`.host-watchdog-bar` scoped to `.advanced-only`):
+1. **Box 1 (Top): Context Memory Capacity (`.storage-card`):** Provides the master 200k/256k watermark progress bar, 3 metric breakdown cards (Signal, Reclaimable Clutter, Safe Headroom), and a compact 1-line folded Primary Bloat Driver (`#storagePrimaryBloatLine`).
+2. **Box 2: ⚡ Prompt Cache (`#quotaStrip`):** Dedicated prompt cache monitor featuring a visual 5-minute countdown bar (`#cacheTimerBarFill`), dynamic TTL readout, 95% discount indicator, and plain-English "What to do now" operational guidance banner (`#cacheOperationalGuide`). Unrelated 5h/7d quota meters are hidden in Simple View.
+3. **Box 3: Recommended Actions (`#simpleActionableBox`):** Context hygiene cards with single-action execution (`📋 Copy Prompt`), gated by prompt cache warmth via `#cacheGatedHoldBanner` so users avoid discarding 95% cache discounts prematurely.
+4. **Box 4: Active Coaching & Effort Governor (`#coachingBox`):** 3-Way Coach Mode switcher (`OFF` \| `COACH` \| `AUTO_PILOT`), real-time effort recommendations, and circuit breaker status.
+5. **Box 5: Recursive Self-Improvement (`#rsiBox`):** Continuous learning metrics tracking averted amnesia, token savings ledger, and rule promotions.
+
+### 4.17 Top Unbuilt Gaps: Checkpointing, Contradiction Audits & Reflector Isolation
+* **`DET-10` Progressive Checkpointer (`progressive_checkpointer.mjs`):** Takes zero-token out-of-band disk snapshots at the 50,000-token soft watermark and 20%, 35%, 50%, 65%, and 80% fill bands into `.agents/cache/checkpoints/` without mutating prompt prefixes. Detects post-compaction Negative Constraint Evaporation (`NEVER`, `MUST`, `DO NOT`) and truncated `[/]` in-progress steps, providing a 1-click recovery prompt.
+* **Contradiction Auditor (`contradiction_auditor.mjs`):** Analyzes rule polarity (`POSITIVE`, `NEGATIVE`, `INSTEAD_OF`) to catch opposing directives before rule promotion, while protecting test suites (`test/*`, `tests/*`) from unauthorized agent edits.
+* **`DET-16` Reflector Queue & Repo-Hash Isolation (`reflector_queue.mjs`):** Stages user corrections in `.agents/cache/learnings-queue.json` tagged with a 12-char SHA-256 repo hash (`project_hash`) to stop cross-repo Knowledge Bleed. Enforces a Global Promotion Pipeline (`confidence >= 0.80` across $\ge 2$ repos) and routes domain clusters into `.agents/skills/<domain>/SKILL.md` strictly when the KV cache is cold.
+* **48-Hour TTL Fenced Coach Blocks & 200-Line Hygiene (`DET-13` / `turn_zero_gate.mjs`):** Injects trend-based advice into rule files inside fenced markers with expiration timestamps, auto-pruning after 48 hours when the cache is cold, and warns when rule files exceed 200 lines.
+* **Mega-Prompt Decomposer Coach (`DET-12` / `prompt_decomposer_coach.mjs`):** Detects multi-objective scope sprawl ($\ge 3$ mutation verbs across $\ge 4$ modules or $> 120$ words) in non-blocking advisory mode, recommending `/plan` or `/grill-me`.
+
+### 4.18 Ring 1 Security, Concurrency & Context Hygiene Upgrades
+* **`DET-19` Git Hook-Bypass Guard Shim (`agy_git_guard.mjs`):** Intercepts `git` commands via `.agents/shims/` wrappers, filters `.agents/shims` from `PATH` to eliminate recursion, blocks verification evasion (`--no-verify`, standalone `-n`, `-amn`, `--no-gpg-sign`, `core.hooksPath`), and allows bypass strictly via a 60-second single-use cryptographic human nonce.
+* **Zero-Token Subagent IPI Sanitizer (`subagent_ipi_sanitizer.mjs`):** Deterministically strips Unicode Tag characters, zero-width spaces, bidi overrides, HTML comments, and delimiter breakouts in `<1ms`, framing external research digests safely at prompt tails under `<untrusted_subagent_data>`.
+* **Pre-Threshold ANSI Normalization (`DET-14b` / `agy_cli_compressor.mjs`):** Strips ANSI escape sequences and collapses carriage returns (`\r`) before the 4,096-char threshold and SQLite FTS5 archival, featuring specialized noise profiles for `cargo test` and `npm install` with Critical Error-Line Recovery.
+* **Concurrent Scope Lockfile (`DET-20` / `scope_lock_registry.mjs`):** Manages `.agents/locks/active_scopes.json` with atomic writes, auto-evicting dead PIDs and expired leases (>300s), while alerting on multi-agent file collisions with 1-click `git worktree add` commands.
+* **Cross-Tool Portable Handoff Packet (`handoff_hydrator.mjs`):** Generates standardized `docs/HANDOFF_<timestamp>.md` bundles with four self-contained sections: Resume Contract & Active Step, Verified Unchanged File Schemas, Active File Diffs & Owned Scope Paths, and Negative Constraints & Ruled-Out Approaches.
 
 ---
 
@@ -326,17 +349,22 @@ Core modules and panel HTML are maintained in byte-for-byte synchronization acro
 | Reclaimable Clutter (Amber) | Old turns, re-reads, dead logs | Run /compact to clear    |
 | Safe Headroom (Green/Amber) | Room before tier safe limit    | Check effort tier & rate |
 | --------------------------- | ------------------------------ | ------------------------ |
-| Effort Tiers (95k/115k/140k)| Fast (95k), High (115k), Auto  | Hover â“˜ for limit reason |
-| [125k â€¢ Auto â†’ High] Badge  | Mid-session effort switch      | Watch for tighter limit  |
-| âš¡ High Effort Sludge Alert | High effort + >=30k stale noise| Run /compact immediately |
-| â‡„ Timeline Cell Marker      | 5k block where effort switched | Hover cell for Turn #    |
+| ⚡ Prompt Cache             | 5m TTL timer & 95% discount    | Hold compaction if warm  |
+| Recommended Actions         | Gated by cache warmth          | 📋 Copy Prompt to agent  |
+| Active Coach Mode           | OFF / COACH / AUTO_PILOT       | Set level of autonomy    |
+| Recursive Self-Improvement  | Saved quota & rule promotions  | Track cumulative gains   |
+| --------------------------- | ------------------------------ | ------------------------ |
+| Effort Tiers (95k/115k/140k)| Fast (95k), High (115k), Auto  | Hover ⓘ for limit reason |
+| [125k • Auto → High] Badge  | Mid-session effort switch      | Watch for tighter limit  |
+| ⚡ High Effort Sludge Alert  | High effort + >=30k stale noise| Run /compact immediately |
+| ⇄ Timeline Cell Marker      | 5k block where effort switched | Hover cell for Turn #    |
 | --------------------------- | ------------------------------ | ------------------------ |
 | Earlier Chat History        | Completed turns > 25 steps old | Safe to summarize        |
 | Repeated File Reads         | Files read multiple times      | Tell agent: Line ranges  |
 | Fixed Error Logs            | Obsolete stack traces/failures | Clear via /compact       |
 | Biggest Single Turn         | Massive single-step injections | Tell agent: Truncate     |
 | --------------------------- | ------------------------------ | ------------------------ |
-| â— task.md stale             | Checkpoint out of date         | Click "Save task.md"     |
+| ● task.md stale             | Checkpoint out of date         | Click "Save task.md"     |
 | View session timeline       | 40-block chronological view    | Hover to inspect slices  |
 +-----------------------------------------------------------------------------------------+
 ```

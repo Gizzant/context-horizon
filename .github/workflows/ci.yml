@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        node: [20, 22]
+        node: ['22.12.0']
 
     steps:
       - name: Checkout repository
@@ -25,17 +25,24 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
-      - name: Run 15-test Router, Sensor & Crash-Immunity Suite
+      - name: Run Core Router, Sensor & Wedge Suites
         run: npm test
 
-      - name: Run 6-Phase Architectural Verification Suite
+      - name: Run Active Coach, Ring-1 Security & Regression Suites
+        run: npm run test:coach
+
+      - name: Run 7-Phase Architectural Verification Suite
         run: npm run test:phases
+
+      - name: Run E2E Context Memory Verification
+        run: npm run test:e2e
 
       - name: Run 200-Iteration Latency Benchmark
         run: npm run bench
 
-      - name: Smoke Test CLI (--demo, --roast, init --dry-run)
+      - name: Smoke Test CLI (--demo, --roast, init --dry-run, doctor)
         run: |
           node src/cli/init.mjs --demo
           node src/cli/init.mjs --roast
           node src/cli/init.mjs init --dry-run
+          node src/cli/init.mjs doctor

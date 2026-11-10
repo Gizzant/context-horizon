@@ -193,46 +193,73 @@ export class PrefixCacheShield {
       createdAt: deltaRequest.createdAt || new Date().toISOString()
     };
 
-    const locked = this.isPrefixLocked(session);
+    const existingQueue = this._loadQueue();
+    const cacheTtlSeconds = Number(session?.cacheTtlSeconds ?? session?.ttlRemainingSec ?? 0);
+    const isPreTurn1 = Boolean(
+      session?.isPreTurn1 === true || (Number(session?.turnCount) === 0 && session?.forcePreTurn1 === true)
+    );
+    const locked =
+      this.isPrefixLocked(session) ||
+      (existingQueue.length > 0 && cacheTtlSeconds > 0 && !isPreTurn1);
 
     if (locked) {
-      const queue = this._loadQueue();
-      queue.push(deltaRecord);
-      this._saveQueue(queue);
+      existingQueue.push(deltaRecord);
+      this._saveQueue(existingQueue);
       return {
         staged: true,
         flushed: false,
         locked: true,
         delta: deltaRecord,
-        stagedCount: queue.length,
-        badge: formatStagedBadge(queue.length),
+        stagedCount: existingQueue.length,
+        badge: formatStagedBadge(existingQueue.length),
         queuePath: this.queuePath
       };
     }
 
-    // Prefix cache is cold (TTL === 0), below 50k threshold, or pre-Turn 1 -> flush immediately
-    const queue = this._loadQueue();
-    queue.push(deltaRecord);
-    this._saveQueue(queue);
-    const flushResult = this._flushAllNow('COLD_OR_PRE_TURN_1');
+    // Prefix cache is cold (TTL === 0), below 50k threshold with no active staged lock, or pre-Turn 1:
+    // Apply this delta directly to targetPath without prematurely flushing unrelated queued deltas
+    // unless TTL is explicitly expired (cacheTtlSeconds <= 0) or pre-Turn 1.
+    if (existingQueue.length > 0 && (cacheTtlSeconds <= 0 || isPreTurn1)) {
+      existingQueue.push(deltaRecord);
+      this._saveQueue(existingQueue);
+      const flushResult = this._flushAllNow('COLD_OR_PRE_TURN_1');
+      return {
+        staged: false,
+        flushed: true,
+        locked: false,
+        delta: deltaRecord,
+        flushedCount: flushResult.flushedCount,
+        modifiedFiles: flushResult.modifiedFiles,
+        stagedCount: 0,
+        badge: ''
+      };
+    }
+
+    const existingText = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, 'utf8') : '';
+    const nextContent = applyRuleDeltaToContent(existingText, deltaRecord);
+    writeAtomicSync(targetPath, nextContent);
     return {
       staged: false,
       flushed: true,
       locked: false,
       delta: deltaRecord,
-      flushedCount: flushResult.flushedCount,
-      modifiedFiles: flushResult.modifiedFiles,
-      stagedCount: 0,
-      badge: ''
+      flushedCount: 1,
+      modifiedFiles: [targetPath],
+      stagedCount: existingQueue.length,
+      badge: formatStagedBadge(existingQueue.length)
     };
   }
 
   /**
    * Flushes staged deltas only if the prefix lock has expired (`cacheTtlSeconds === 0`
-   * or `cachedTokens < 50000` or pre-Turn 1).
+   * or pre-Turn 1). Never flushes queued deltas while `cacheTtlSeconds > 0`.
    */
   flushIfEligible(session = {}) {
-    if (this.isPrefixLocked(session)) {
+    const cacheTtlSeconds = Number(session?.cacheTtlSeconds ?? session?.ttlRemainingSec ?? 0);
+    const isPreTurn1 = Boolean(
+      session?.isPreTurn1 === true || (Number(session?.turnCount) === 0 && session?.forcePreTurn1 === true)
+    );
+    if (this.isPrefixLocked(session) || (cacheTtlSeconds > 0 && !isPreTurn1)) {
       const deltas = this._loadQueue();
       return {
         flushed: false,

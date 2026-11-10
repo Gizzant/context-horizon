@@ -148,11 +148,10 @@ export function auditHandoff(brainDirOrPath = '', sessionSignals = {}, options =
   }
 
   // 5. Freshness: task.md turns behind
-  const sessionEdited = Boolean(
-    sessionSignals?.sessionHasWorkspaceEdits ??
-    sessionSignals?.activeSignal?.sessionHasWorkspaceEdits ??
-    (Array.isArray(options.sessionWrittenPaths) && options.sessionWrittenPaths.length > 0)
-  );
+  const explicitEditFlag = sessionSignals?.sessionHasWorkspaceEdits ?? sessionSignals?.activeSignal?.sessionHasWorkspaceEdits;
+  const sessionEdited = explicitEditFlag !== undefined
+    ? Boolean(explicitEditFlag)
+    : (Array.isArray(options.sessionWrittenPaths) ? options.sessionWrittenPaths.length > 0 : true);
   const turnsBehind = sessionSignals?.activeSignal?.taskMdTurnsBehind ?? 0;
   if (turnsBehind > 2 && sessionEdited) {
     checks.push({ id: 'state_freshness', name: 'State Freshness', pass: false, detail: `task.md is ${turnsBehind} user turns stale` });
@@ -225,8 +224,10 @@ export function checkBrainArtifactsAndGitDrift(brainDir = null, workspacePath = 
       .map(e => e.path);
   }
 
+  const taskSaved = Boolean(sessionSignals?.activeSignal?.taskMdSaved);
+  const taskExists = artifacts.taskMd.exists || taskSaved;
   const turnsBehind = Number(sessionSignals?.activeSignal?.taskMdTurnsBehind ?? 0);
-  const isTaskMdStale = !artifacts.taskMd.exists || turnsBehind >= 1;
+  const isTaskMdStale = !taskExists || turnsBehind >= 1;
   const hasDirtyGit = hasSessionScope ? sessionDirtyFiles.length > 0 : dirtyFiles.length > 0;
   const compactionRelevant = isCompactionRelevant({
     totalActiveTokens: sessionSignals?.totalActiveTokens ?? 0,
@@ -238,7 +239,7 @@ export function checkBrainArtifactsAndGitDrift(brainDir = null, workspacePath = 
       ? Boolean(explicitEditFlag)
       : (hasSessionScope ? sessionDirtyFiles.length > 0 : true);
   const preCompactionWarning = hasDirtyGit && sessionEditedWorkspace && isTaskMdStale && compactionRelevant;
-  const taskMdState = !artifacts.taskMd.exists ? 'missing' : `${turnsBehind} turn${turnsBehind === 1 ? '' : 's'} stale`;
+  const taskMdState = !taskExists ? 'missing' : `${turnsBehind} turn${turnsBehind === 1 ? '' : 's'} stale`;
   let preCompactionWarningMessage = '';
   if (preCompactionWarning) {
     if (hasSessionScope) {

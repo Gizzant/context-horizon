@@ -281,8 +281,31 @@ export function auditMcpPrefixBloat({
     ...dirServers.keys()
   ]);
 
-  const servers = [];
+  // Deduplicate servers by normalized name (e.g. chrome-devtools and chrome_devtools)
+  // Prefer the entry with higher schemaTokens/toolCount or the one from an explicit config file
+  const deduplicatedNames = new Map();
   for (const name of allServerNames) {
+    const norm = normalizeMcpName(name);
+    if (!deduplicatedNames.has(norm)) {
+      deduplicatedNames.set(norm, name);
+    } else {
+      const existingName = deduplicatedNames.get(norm);
+      const existingCfg = serverMap.get(existingName);
+      const existingDir = dirServers.get(existingName);
+      const existingTok = existingCfg?.explicitSchemaTokens || existingDir?.schemaTokens || 0;
+
+      const newCfg = serverMap.get(name);
+      const newDir = dirServers.get(name);
+      const newTok = newCfg?.explicitSchemaTokens || newDir?.schemaTokens || 0;
+
+      if ((newCfg && !existingCfg) || newTok > existingTok) {
+        deduplicatedNames.set(norm, name);
+      }
+    }
+  }
+
+  const servers = [];
+  for (const name of deduplicatedNames.values()) {
     const cfg = serverMap.get(name) || null;
     const dirInfo = dirServers.get(name) || null;
     const loadingMode = cfg ? cfg.loadingMode : 'lazy';

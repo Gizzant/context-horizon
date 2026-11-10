@@ -5,6 +5,11 @@ import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { getHomeDir, canonicalizePath } from './paths.mjs';
 import { PrefixCacheShield } from './prefix_cache_shield.mjs';
+import { auditRuleContradictions } from './coach/contradiction_auditor.mjs';
+import {
+  computeProjectScopeHash,
+  evaluateGlobalPromotionEligibility
+} from './coach/reflector_queue.mjs';
 
 const require = createRequire(import.meta.url);
 let DatabaseSync = null;
@@ -234,6 +239,9 @@ export class RsiInstinctEngine {
   constructor(options = {}) {
     this.homeDir = options.homeDir || getHomeDir();
     this.workspaceDir = options.workspaceDir || process.cwd();
+    this.projectHash =
+      options.projectHash ||
+      computeProjectScopeHash(this.workspaceDir, { gitRemoteUrl: options.gitRemoteUrl });
     this.dbPath = options.dbPath || getDefaultInstinctsDbPath(this.homeDir);
     this.prefixShield =
       options.prefixShield ||
@@ -260,6 +268,7 @@ export class RsiInstinctEngine {
       CREATE TABLE IF NOT EXISTS instincts (
         id TEXT PRIMARY KEY,
         scope TEXT NOT NULL DEFAULT 'project',
+        project_hash TEXT NOT NULL DEFAULT 'local',
         domain TEXT NOT NULL DEFAULT 'general',
         trigger_condition TEXT NOT NULL,
         directive_action TEXT NOT NULL,
@@ -289,6 +298,15 @@ export class RsiInstinctEngine {
         rollback_reason TEXT
       );
     `);
+
+    // Ensure project_hash column exists on pre-existing instincts databases
+    try {
+      const cols = this.db.prepare(`PRAGMA table_info(instincts)`).all();
+      const hasProjectHash = cols.some((c) => c.name === 'project_hash');
+      if (!hasProjectHash) {
+        this.db.exec(`ALTER TABLE instincts ADD COLUMN project_hash TEXT NOT NULL DEFAULT 'local';`);
+      }
+    } catch {}
   }
 
   close() {
@@ -306,15 +324,16 @@ export class RsiInstinctEngine {
   observeTurn(turn = {}) {
     const signals = parseCorrectionSignals(turn);
     const createdOrUpdated = [];
+    const projHash = String(turn.project_hash || turn.projectHash || this.projectHash);
 
     for (const sig of signals) {
       const existing = this.db
         .prepare(
           `SELECT * FROM instincts
-           WHERE domain = ? AND directive_action = ? AND scope = ?
+           WHERE domain = ? AND directive_action = ? AND scope = ? AND project_hash = ?
            LIMIT 1`
         )
-        .get(sig.domain, sig.directive_action, sig.scope);
+        .get(sig.domain, sig.directive_action, sig.scope, projHash);
 
       const nowMs = this.nowFn();
       const nowIso = new Date(nowMs).toISOString();
@@ -336,14 +355,15 @@ export class RsiInstinctEngine {
         this.db
           .prepare(
             `INSERT INTO instincts (
-              id, scope, domain, trigger_condition, directive_action,
+              id, scope, project_hash, domain, trigger_condition, directive_action,
               confidence, helpful_count, harmful_count, status,
               created_at, last_verified_at, ttl_expires_at
-            ) VALUES (?, ?, ?, ?, ?, ?, 0, 0, 'active', ?, ?, ?)`
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 'active', ?, ?, ?)`
           )
           .run(
             id,
             sig.scope,
+            projHash,
             sig.domain,
             sig.trigger_condition,
             sig.directive_action,
@@ -375,6 +395,10 @@ export class RsiInstinctEngine {
       clauses.push('status = ?');
       params.push(filter.status);
     }
+    if (filter.projectHash) {
+      clauses.push('project_hash = ?');
+      params.push(filter.projectHash);
+    }
     if (Number.isFinite(filter.minConfidence)) {
       clauses.push('confidence >= ?');
       params.push(Number(filter.minConfidence));
@@ -383,6 +407,16 @@ export class RsiInstinctEngine {
     return this.db
       .prepare(`SELECT * FROM instincts ${whereSql} ORDER BY confidence DESC, helpful_count DESC`)
       .all(...params);
+  }
+
+  /**
+   * Evaluates cross-project instincts eligible for global promotion (`confidence >= 0.80` across `>= 2` repos).
+   */
+  getGlobalPromotionCandidates(options = {}) {
+    const allActive = this.db
+      .prepare(`SELECT * FROM instincts WHERE status IN ('active', 'promoted')`)
+      .all();
+    return evaluateGlobalPromotionEligibility(allActive, options);
   }
 
   /**
@@ -499,6 +533,34 @@ export class RsiInstinctEngine {
   promoteInstinctToRule(instinct, options = {}) {
     const targetPath = path.resolve(options.targetPath || this._resolveDefaultWorkspaceRulePath());
     assertMutableRsiTarget(targetPath);
+
+    const existingRulesContent =
+      options.existingRulesContent !== undefined
+        ? String(options.existingRulesContent)
+        : fs.existsSync(targetPath)
+        ? fs.readFileSync(targetPath, 'utf8')
+        : '';
+
+    if (existingRulesContent) {
+      const contradictionAudit = auditRuleContradictions(
+        instinct.directive_action || '',
+        existingRulesContent
+      );
+      if (contradictionAudit.hasContradiction) {
+        if (instinct.id && this.db) {
+          this.db
+            .prepare(`UPDATE instincts SET status = 'quarantined' WHERE id = ?`)
+            .run(instinct.id);
+        }
+        return {
+          contradictionBlocked: true,
+          contradictionAudit,
+          targetPath,
+          ruleLine: null,
+          shieldResult: null
+        };
+      }
+    }
 
     const ruleLine = `- **[RSI:${instinct.domain}]** ${instinct.directive_action} *(trigger: ${instinct.trigger_condition}; confidence: ${Number(instinct.confidence).toFixed(2)})*`;
 

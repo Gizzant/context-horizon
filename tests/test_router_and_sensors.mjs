@@ -7,7 +7,8 @@ import { canonicalizePath, isSameOrSubPath } from '../src/core/path_canonicalize
 import {
   createDefaultSidecar,
   readSidecarSync,
-  writeSidecarAtomicSync
+  writeSidecarAtomicSync,
+  SIDECAR_VERSION
 } from '../src/core/sidecar_store.mjs';
 import { classifyHorizonWindow, CATEGORIES } from '../src/core/horizon_classifier.mjs';
 import { runAllBlindspotSensors } from '../src/core/blindspot_sensors.mjs';
@@ -56,7 +57,7 @@ describe('2. Atomic Sidecar Store & JSON Resilience', () => {
     const filePath = path.join(tmpDir, 'sessions', `${cid}.sidecar.json`);
     fs.writeFileSync(filePath, '{ corrupt: [ unclosed JSON ', 'utf8');
     const fallback = readSidecarSync(cid, tmpDir);
-    assert.equal(fallback.version, '3.1.0');
+    assert.equal(fallback.version, SIDECAR_VERSION);
     assert.equal(fallback.conversationId, cid);
 
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
@@ -283,5 +284,47 @@ describe('7. Router Ergonomics: Advisory Mode & Halt Cooldown', () => {
     // Must still terminate because amputation is exempt
     assert.equal(res.terminationBehavior, 'terminate');
     assert.ok(res.userMessage.includes('[Amputation Crisis]'));
+  });
+});
+
+describe('8. Stage 3: PostInvocation Incremental Transcript Sync & Absolute Hook Pathing', () => {
+  test('post_invocation updates sidecar.telemetry.totalInputTokens via parseTranscriptIncremental', async () => {
+    const { handlePostInvocation } = await import('../src/hooks/post_invocation.mjs');
+    const { readSidecarSync } = await import('../src/core/sidecar_store.mjs');
+    const { buildHooksConfig } = await import('../src/cli/init.mjs');
+    const tmpBase = fs.mkdtempSync(path.join(os.tmpdir(), 'hz-stage3-post-'));
+    const cid = `stage3_post_${Date.now()}`;
+    const sessionDir = path.join(tmpBase, cid);
+    const logsDir = path.join(sessionDir, '.system_generated', 'logs');
+    fs.mkdirSync(logsDir, { recursive: true });
+    const transcriptLines = [
+      JSON.stringify({ step_index: 0, type: 'USER_INPUT', content: 'Audit src/core/parser.mjs', input_tokens: 12400, output_tokens: 150 }),
+      JSON.stringify({ step_index: 1, type: 'PLANNER_RESPONSE', content: 'x'.repeat(16000), output_tokens: 4200, tool_calls: [{ name: 'read_file', arguments: { Path: 'src/core/parser.mjs' } }] })
+    ];
+    fs.writeFileSync(path.join(logsDir, 'transcript.jsonl'), transcriptLines.join('\n') + '\n', 'utf8');
+
+    try {
+      const initSidecar = createDefaultSidecar(cid);
+      assert.equal(initSidecar.telemetry.totalInputTokens, 0);
+      writeSidecarAtomicSync(cid, initSidecar);
+
+      await handlePostInvocation({
+        conversationId: cid,
+        sessionDir,
+        cacheDir: tmpBase,
+        toolsInvoked: ['read_file']
+      });
+
+      const updated = readSidecarSync(cid);
+      assert.ok(updated.telemetry.totalInputTokens >= 16600, `Expected totalInputTokens >= 16600, got ${updated.telemetry.totalInputTokens}`);
+      assert.ok(updated.fileState.activeSetPaths.some(p => p.endsWith('src/core/parser.mjs')));
+
+      const hooksCfg = buildHooksConfig('C:\\Users\\dev\\.gemini\\config\\plugins\\agy-horizon-flightcheck');
+      const preCmd = hooksCfg['horizon-flightcheck-lifecycle'].PreInvocation[0].command;
+      assert.ok(preCmd.includes('"C:/Users/dev/.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/pre_invocation.mjs"'), `Expected quoted forward-slash absolute path, got: ${preCmd}`);
+      assert.ok(!preCmd.includes('\\'), 'Hook command must not contain unescaped Windows backslashes');
+    } finally {
+      try { fs.rmSync(tmpBase, { recursive: true, force: true }); } catch {}
+    }
   });
 });

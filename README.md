@@ -1,6 +1,6 @@
 <div align="center">
 
-# `ctxtop` — Context Horizon (v3.2.0)
+# `ctxtop` — Context Horizon (v3.3.0)
 
 **Local Context Window Profiler, KV-Cache TTL Monitor & `<15ms` PreInvocation Router for Google Antigravity, Claude Code & Cursor**
 
@@ -8,14 +8,38 @@
 [![Hook Latency](https://img.shields.io/badge/PreInvocation_hook-%3C15ms_p99-00e5ff.svg)](#deterministic-preinvocation-router--6-local-sensors)
 [![Node.js >= 22](https://img.shields.io/badge/node-%3E%3D22.5_builtin_sqlite-339933.svg)](#quick-start)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Claude Code Edition](https://img.shields.io/badge/Claude_Code-cc--attention--horizon-blueviolet.svg)](https://github.com/Gizzant/cc-attention-horizon)
 
-[**Live Interactive WebView Demo**](https://gizzant.github.io/context-horizon/) • [**Quick Start**](#quick-start) • [**Cookbook & Recipes**](docs/COOKBOOK.md) • [**Multi-Harness Wedge**](#multi-harness-v20-wedge-capabilities) • [**Systems Architecture**](#systems-architecture--zero-trust-security) • [**CLI & Forensics**](#cli-commands--forensic-postmortem)
+[**Live Interactive Demo**](https://gizzant.github.io/context-horizon/) • [**Download Releases**](https://github.com/Gizzant/context-horizon/releases) • [**Quick Start**](#quick-start) • [**Cookbook & Recipes**](docs/COOKBOOK.md) • [**Claude Code Port**](https://github.com/Gizzant/cc-attention-horizon)
 
 <br/>
 
 <img src="assets/hero-demo.svg" alt="Context Horizon 40-Cell ANSI HUD & PreInvocation Router" width="100%" />
 
 </div>
+
+---
+
+## ⚡ 1-Command Installation & Download Options
+
+### Option A: Zero-Config CLI / Plugin Install (Recommended)
+```bash
+# Auto-install Antigravity plugin, lifecycle hooks, and CLI statusLine
+npx github:Gizzant/context-horizon init
+
+# Or run live HUD directly without installing
+npx github:Gizzant/context-horizon
+```
+
+### Option B: Direct GitHub Release Download
+Download the latest pre-packaged archives from [**GitHub Releases**](https://github.com/Gizzant/context-horizon/releases):
+- `agy-horizon-flightcheck-v3.3.0.zip` — Ready to unzip into `~/.gemini/config/plugins/agy-horizon-flightcheck` (includes self-resolving hooks)
+- `agy-horizon-flightcheck-v3.3.0.tar.gz` — POSIX tarball
+- `context-horizon-3.3.0.tgz` — Offline npm tarball
+- `SHA256SUMS.txt` — Verified cryptographic checksums
+
+### Looking for Claude Code?
+Check out [`cc-attention-horizon`](https://github.com/Gizzant/cc-attention-horizon) for Claude Code's native Mod SDK & Tier-2 hook cost governor.
 
 ---
 
@@ -104,7 +128,12 @@ node src/cli/init.mjs init --workspace
 2. **Read-Only Database & Transcript Introspection (`SQLITE_OPEN_READONLY`)**:
    - Every connection to Antigravity or Cursor SQLite databases (`conversations/<uuid>.db`, `conversation_summaries.db`, `state.vscdb`, `store.db`) is opened via Node's native `node:sqlite` `DatabaseSync` with `Object.freeze({ readOnly: true })` (`SQLITE_OPEN_READONLY`). `ctxtop` can never contend for write locks with an active IDE or CLI.
    - Live JSONL transcripts (`transcript_full.jsonl` / `transcript.jsonl`) are read via `fs.openSync(filePath, 'r')` using byte-offset slicing (`O(Δbytes)` per turn), falling back to full re-parse only when a step-index regression (Undo/Rewind) is detected.
-3. **Locked v2.0 Edward Tufte UI Laws**:
+3. **Ring 1 Security, Concurrency & Context Hygiene Boundaries**:
+   - **`DET-19` Git Hook-Bypass Guard**: Intercepts `git` execution via `.agents/shims/` wrappers, strips `.agents/shims` from `PATH` to eliminate recursion, blocks verification evasion (`--no-verify`, standalone `-n`, `-amn`, `--no-gpg-sign`, `core.hooksPath`), and allows bypass strictly via a 60-second single-use cryptographic human nonce.
+   - **Zero-Token Subagent IPI Sanitizer**: Deterministically strips Unicode Tag characters, zero-width spaces, bidi overrides, HTML comments, and delimiter breakouts in `<1ms`, framing external research digests safely at prompt tails under `<untrusted_subagent_data>`.
+   - **Pre-Threshold ANSI Normalization (`DET-14b`)**: Strips ANSI escape sequences and collapses carriage returns (`\r`) before the 4,096-char threshold and SQLite FTS5 archival, featuring specialized noise profiles for `cargo test` and `npm install` with Critical Error-Line Recovery.
+   - **Concurrent Scope Lockfile (`DET-20`)**: Manages `.agents/locks/active_scopes.json` with atomic writes, auto-evicting dead PIDs and expired leases (>300s), while alerting on multi-agent file collisions with 1-click `git worktree add` commands.
+4. **Locked v2.0 Edward Tufte UI Laws**:
    - **Law 1 (Raw Physical Units Only)**: Displays `Tokens + %`, `Cache Hit %`, `Waste Tokens`, and `1h/5m TTL Countdown` side-by-side—never arbitrary `0–100` gamified scores.
    - **Law 2 (40-Cell Hero + Top 3–5 Riskiest Cells)**: Surfaces the top 3–5 highest-risk context cells directly below the 40-cell flamegraph with exact file paths, attention recall %, and 1-click `[Re-Anchor / Prune]` actions.
    - **Law 3 (Zero-Click Passive Workload Tag)**: Passively classifies sessions into `[Mode: Read-Heavy Audit]`, `[Mode: Multi-File Refactor]`, or `[Mode: Subagent Swarm]` from tool-call ratios.

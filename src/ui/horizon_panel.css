@@ -1,0 +1,167 @@
+/**
+ * Phase 5: 3-Tier Tufte HUD Styles (`src/ui/horizon_panel.css`)
+ *
+ * - Tier 1 (Always-Visible Top Spine): Capacity & Horizon Bar (with 5m TTL countdown clock),
+ *   40-Cell Token Flamegraph (with DET-17 duplicate file badges), and 1-line Interactive
+ *   Model & Effort Coach Bar (`Off | Coach | Auto-Pilot` + `#coachActionPill` / Subagent badge).
+ * - Tier 2 (Event-Driven Intervention Card Slot): Collapsed by default; renders at most 1
+ *   priority card at a time (`DET-09` Cold-Resume-Lean, `DET-02` 3-Stage Contract, `DET-06`
+ *   Assert Revert, Turn-45 Baton Pass, or Turn-0 Hygiene Gate).
+ * - Tier 3 (Fixed 24px Footer): Live Saved-Quota Receipt + `[Copy Receipt]` button.
+ */
+
+.ttl-countdown-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: rgba(139, 92, 246, 0.14);
+  border: 1px solid rgba(139, 92, 246, 0.40);
+  color: #ddd6fe !important;
+}
+
+.ttl-countdown-clock.ttl-warning-pulse {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.55);
+  color: #fde68a !important;
+}
+
+.ttl-countdown-clock.ttl-expired-cold-risk {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.55);
+  color: #fecaca !important;
+}
+
+.det17-badge-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.det17-badge-strip[hidden] {
+  display: none !important;
+}
+
+.det17-shadow-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.40);
+  color: #fcd34d !important;
+}
+
+.subagent-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: #fde68a !important;
+}
+
+.subagent-live-pill[hidden] {
+  display: none !important;
+}
+
+.subagent-kill-btn {
+  background: rgba(239, 68, 68, 0.22);
+  border: 1px solid rgba(239, 68, 68, 0.55);
+  color: #fecaca !important;
+  border-radius: 3px;
+  padding: 0 5px;
+  font-size: 9.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Tier 2: Single-Slot Priority Intervention Card (Collapsed by default) */
+.tier2-intervention-slot {
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.90);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11px;
+}
+
+.tier2-intervention-slot.critical {
+  border-color: rgba(239, 68, 68, 0.60);
+  background: rgba(239, 68, 68, 0.10);
+}
+
+.tier2-intervention-slot[hidden] {
+  display: none !important;
+}
+
+.tier2-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.tier2-card-title {
+  font-weight: 700;
+  color: var(--hz-fg) !important;
+}
+
+.tier2-card-sub {
+  font-size: 10px;
+  color: var(--hz-muted) !important;
+}
+
+/* Tier 3: Fixed 24px Saved-Quota Receipt Footer */
+.tier3-saved-quota-footer {
+  height: 24px;
+  min-height: 24px;
+  max-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px;
+  margin-top: 8px;
+  border-top: 1px solid var(--hz-border);
+  background: var(--hz-card);
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--hz-fg-secondary) !important;
+}
+
+.tier3-receipt-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-copy-receipt {
+  background: transparent;
+  border: 1px solid var(--hz-border);
+  color: var(--hz-anchor) !important;
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 9.5px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}

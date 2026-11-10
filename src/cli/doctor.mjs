@@ -3,8 +3,9 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { loadFlightcheckConfig, getUserConfigPath } from '../core/config.mjs';
+import { getDaemonPortFile, readDaemonPort, ensureSupportedNodeVersion, isSupportedNodeVersion } from '../core/paths.mjs';
 import { resolveModelCeilingDetailed, resolvePricePerM } from '../core/constants.mjs';
-import { getFlightcheckDir } from '../core/sidecar_store.mjs';
+import { getFlightcheckDir, SIDECAR_VERSION } from '../core/sidecar_store.mjs';
 import { syncAndVerifyMirrors } from '../../scripts/sync_mirrors.mjs';
 import { findSessionDirectory, parseTranscriptIncremental, parseRawJsonl } from '../core/parser.mjs';
 import { executeToolOutputSurgery } from '../core/tool_surgeon.mjs';
@@ -16,7 +17,8 @@ import { generateHandoffMarkdown } from '../core/handoff_audit.mjs';
  * Parses CLI flags (`--prune-tools`, `--reap-orphans`, `--handoff`, `--storage-gc`, `--gc-cursor`, `--recover-brain`, `--transcript <path>`, `--vscdb <path>`, `--dry-run`)
  */
 export function parseDoctorArgs(argv = process.argv.slice(2)) {
-  const pruneTools = argv.includes('--prune-tools');
+  const pruneTools = argv.includes('--prune-tools') || argv.includes('--prune') || argv.includes('prune');
+  const uncachedTail = argv.includes('--uncached-tail') || argv.includes('--tail');
   const reapOrphans = argv.includes('--reap-orphans');
   const handoff = argv.includes('--handoff') || argv.includes('--distill');
   const gcCursor = argv.includes('--gc-cursor');
@@ -27,13 +29,13 @@ export function parseDoctorArgs(argv = process.argv.slice(2)) {
   const transcriptPath = tIdx !== -1 && argv[tIdx + 1] ? argv[tIdx + 1] : null;
   const vIdx = argv.indexOf('--vscdb');
   const vscdbPath = vIdx !== -1 && argv[vIdx + 1] ? argv[vIdx + 1] : null;
-  return { pruneTools, reapOrphans, handoff, storageGc, gcCursor, recoverBrain, dryRun, transcriptPath, vscdbPath };
+  return { pruneTools, uncachedTail, reapOrphans, handoff, storageGc, gcCursor, recoverBrain, dryRun, transcriptPath, vscdbPath };
 }
 
 /**
  * Runs a comprehensive diagnosis of the Context Horizon (ctxtop) environment.
  */
-export async function runDoctor({ workspacePath = process.cwd(), pruneTools = false, reapOrphans = false, handoff = false, storageGc = false, gcCursor = false, recoverBrain = false, dryRun = false, transcriptPath = null, vscdbPath = null, silent = false } = {}) {
+export async function runDoctor({ workspacePath = process.cwd(), pruneTools = false, uncachedTail = false, reapOrphans = false, handoff = false, storageGc = false, gcCursor = false, recoverBrain = false, dryRun = false, transcriptPath = null, vscdbPath = null, silent = false } = {}) {
   const home = process.env.USERPROFILE || process.env.HOME || os.homedir();
   if (reapOrphans) {
     const res = await reapOrphanProcesses();
@@ -49,7 +51,7 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
     }
     return { ok: true, ...res };
   }
-  if (pruneTools) {
+  if (pruneTools || uncachedTail) {
     let resolvedTranscript = transcriptPath;
     if (!resolvedTranscript) {
       const sessionInfo = findSessionDirectory(null, home);
@@ -64,9 +66,10 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
       if (!silent) console.log('  ✖ FAIL  Tool-Output Surgeon            No active session transcript found to prune');
       return { ok: false, success: false, error: 'No active session transcript found to prune' };
     }
-    const res = executeToolOutputSurgery(resolvedTranscript, { dryRun });
+    const res = executeToolOutputSurgery(resolvedTranscript, { dryRun, uncachedTail: uncachedTail || pruneTools });
     if (!silent) {
-      console.log(`  ✔ PASS  Tool-Output Surgeon            Pruned ${res.prunedCount} stale tool output(s), saved ~${res.savedTokens} tokens${dryRun ? ' (dry-run)' : ''}`);
+      const tag = (uncachedTail || pruneTools) ? 'Uncached Tail Surgeon' : 'Tool-Output Surgeon';
+      console.log(`  ✔ PASS  ${tag.padEnd(30)} Pruned ${res.prunedCount} stale tool output(s), saved ~${res.savedTokens} tokens${dryRun ? ' (dry-run)' : ''}`);
     }
     return { ok: Boolean(res.success), ...res };
   }
@@ -91,8 +94,25 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
     console.log(`  ${symbol}  ${title.padEnd(35)} ${detail}`);
   }
 
-  console.log('\n\x1b[1mContext Horizon (ctxtop) System Doctor v3.2\x1b[0m');
+  console.log(`\n\x1b[1mContext Horizon (ctxtop) System Doctor v${SIDECAR_VERSION}\x1b[0m`);
   console.log('='.repeat(70));
+
+  // 0. Node.js Runtime & Daemon Port Discovery
+  if (isSupportedNodeVersion()) {
+    record('Node.js Runtime', 'PASS', `${process.version} (>= v22.5.0 built-in node:sqlite ready)`);
+  } else {
+    record('Node.js Runtime', 'FAIL', `${process.version} — Upgrade to Node >= 22.5.0 required for built-in node:sqlite`);
+  }
+  const portFile = getDaemonPortFile(home);
+  const resolvedPort = readDaemonPort(home, 62935);
+  const hasPortLock = fs.existsSync(portFile);
+  record(
+    'Daemon Port Discovery',
+    'PASS',
+    hasPortLock
+      ? `Active lockfile at ~/.ctxtop/daemon.port -> 127.0.0.1:${resolvedPort}`
+      : `Default loopback port 127.0.0.1:${resolvedPort} (start UI with: npx ctxtop ui)`
+  );
 
   // 1. Hooks Registration Check
   const hooksCandidates = [
@@ -125,6 +145,15 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
   }
   if (!hooksFound) {
     record('Antigravity Hooks', 'WARN', 'No hooks.json registering PreInvocation found in ~/.gemini/config or workspace');
+  }
+
+  // 1b. Duplicate Plugin Integrity Check
+  const agyHorizonDir = path.join(home, '.gemini', 'config', 'plugins', 'agy-horizon');
+  const flightcheckDir = path.join(home, '.gemini', 'config', 'plugins', 'agy-horizon-flightcheck');
+  if (fs.existsSync(agyHorizonDir) && fs.existsSync(flightcheckDir)) {
+    record('Plugin Canonical Integrity', 'WARN', 'Duplicate plugin directories detected (~/agy-horizon & ~/agy-horizon-flightcheck). Run `npx context-horizon init --dedupe` to standardize.');
+  } else if (fs.existsSync(flightcheckDir)) {
+    record('Plugin Canonical Integrity', 'PASS', 'Canonical plugin directory active (~/.gemini/config/plugins/agy-horizon-flightcheck)');
   }
 
   // 2. Flight Check Configuration & Overlay
@@ -188,15 +217,23 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
     if (sessionInfo && sessionInfo.sessionDir && fs.existsSync(sessionInfo.sessionDir)) {
       const inc = parseTranscriptIncremental(sessionInfo.sessionDir, null);
       if (inc && inc.filePath && fs.existsSync(inc.filePath)) {
-        const rawContent = fs.readFileSync(inc.filePath, 'utf8');
-        const parsed = parseRawJsonl(rawContent, { withHealth: true });
-        const health = parsed.health;
-        const status = health.confidence === 'HIGH' ? 'PASS' : (health.confidence === 'DEGRADED' ? 'WARN' : 'FAIL');
-        record(
-          'Transcript Health',
-          status,
-          `Session ${sessionInfo.sessionId.slice(0, 8)} (${sessionInfo.surfaceTag || '[App]'}) — Confidence: ${health.confidence} (${health.parsedLines}/${health.totalLines} lines, ${health.malformedLines} malformed)`
-        );
+        if (inc.filePath.endsWith('.vscdb')) {
+          record(
+            'Transcript Health',
+            'PASS',
+            `Session ${sessionInfo.sessionId.slice(0, 8)} (${sessionInfo.surfaceTag || '[Cursor]'}) — Read-only SQLite state.vscdb (${(inc.steps || []).length} steps)`
+          );
+        } else {
+          const rawContent = fs.readFileSync(inc.filePath, 'utf8');
+          const parsed = parseRawJsonl(rawContent, { withHealth: true });
+          const health = parsed.health;
+          const status = health.confidence === 'HIGH' ? 'PASS' : (health.confidence === 'DEGRADED' ? 'WARN' : 'FAIL');
+          record(
+            'Transcript Health',
+            status,
+            `Session ${sessionInfo.sessionId.slice(0, 8)} (${sessionInfo.surfaceTag || '[App]'}) — Confidence: ${health.confidence} (${health.parsedLines}/${health.totalLines} lines, ${health.malformedLines} malformed)`
+          );
+        }
       } else {
         record('Transcript Health', 'PASS', `Session ${sessionInfo.sessionId.slice(0, 8)} located; waiting for first JSONL turn`);
       }
@@ -224,6 +261,7 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 if (isMain) {
+  ensureSupportedNodeVersion();
   const cliOpts = parseDoctorArgs(process.argv.slice(2));
   runDoctor(cliOpts).then(res => {
     process.exit(res.ok === false ? 1 : 0);

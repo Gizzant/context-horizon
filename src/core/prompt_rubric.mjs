@@ -223,6 +223,8 @@ export function toWorkspaceRelativePath(p, workspaceRoot = '') {
 export function sanitizeUserConstraintText(raw, maxLen = 90) {
   if (typeof raw !== 'string') return '';
   let txt = raw
+    .replace(/<ADDITIONAL_METADATA>[\s\S]*?<\/ADDITIONAL_METADATA>/gi, ' ')
+    .replace(/<USER_SETTINGS_CHANGE>[\s\S]*?<\/USER_SETTINGS_CHANGE>/gi, ' ')
     .replace(/<\/?[A-Za-z_][\w-]*[^>]*>/g, ' ')
     .split(/\r?\n/)
     .map(line => line.trim())
@@ -370,3 +372,147 @@ export function synthesizeBatonPassHandoffCommand({
     command
   };
 }
+
+function fmtKShort(tokens) {
+  const n = Math.max(0, Number(tokens) || 0);
+  if (n <= 0) return '0k';
+  return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+}
+
+function fmtMmSs(seconds) {
+  const s = Math.max(0, Math.floor(Number(seconds) || 0));
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return m > 0 ? `${m}m ${String(rem).padStart(2, '0')}s` : `${rem}s`;
+}
+
+/**
+ * Computes a single deterministic top-level Tufte verdict line resolving
+ * the trade-off between KV-cache warmth (300s TTL), Effort-Adaptive Safe Limit (e.g. 147k High),
+ * and active DET-* circuit breakers.
+ */
+export function computeUnifiedVerdict({
+  totalActiveTokens = 0,
+  safeLimitTokens = 147000,
+  maxTokens = 256000,
+  effortShortLabel = 'High',
+  cacheTtlRemainingSec = 0,
+  isCacheWarm = false,
+  reclaimableTokens = 0,
+  activeCircuitBreaker = null,
+  routerNudgeLabel = ''
+} = {}) {
+  const total = Math.max(0, Number(totalActiveTokens) || 0);
+  const safe = Math.max(20000, Number(safeLimitTokens) || 147000);
+  const ceiling = Math.max(safe, Number(maxTokens) || 256000);
+  const ttl = Math.max(0, Number(cacheTtlRemainingSec) || 0);
+  const warm = Boolean(isCacheWarm && ttl > 0);
+  const reclaim = Math.max(0, Number(reclaimableTokens) || 0);
+  const label = effortShortLabel || 'Auto';
+
+  // Precedence 1: Active DET-* Circuit Breaker or Imminent Hard Ceiling (>90% of maxTokens)
+  if (activeCircuitBreaker || total >= Math.round(ceiling * 0.90)) {
+    const reason = activeCircuitBreaker || `At ${fmtKShort(total)} / ${fmtKShort(ceiling)} ceiling`;
+    return {
+      state: 'CRITICAL_STOP',
+      severity: 'danger',
+      headline: `STOP & HANDOFF · ${reason} · Overrides warm cache`,
+      routerHoldNote: ''
+    };
+  }
+
+  // Precedence 2: Over Effort-Adaptive Safe Limit while Cache is Warm -> HOLD COMPACT
+  if (total > safe && warm) {
+    const overStr = fmtKShort(total - safe);
+    return {
+      state: 'HOLD_COMPACT',
+      severity: 'warn',
+      headline: `HOLD COMPACT · Cache warm ${fmtMmSs(ttl)} · +${overStr} over ${label}`,
+      routerHoldNote: routerNudgeLabel ? `${routerNudgeLabel} (held while cache warm)` : ''
+    };
+  }
+
+  // Precedence 3: Over Safe Limit or High Reclaimable Sludge (>=25k on >=50k session) with Cold Cache -> COMPACT NOW
+  if (total > safe || (total >= LEAN_SESSION_MIN_TOKENS && reclaim >= LEAN_SESSION_MIN_SLUDGE)) {
+    if (!warm) {
+      const recStr = fmtKShort(reclaim > 0 ? reclaim : Math.max(1000, total - safe));
+      return {
+        state: 'COMPACT_NOW',
+        severity: 'amber',
+        headline: `COMPACT NOW · Cache cold · Reclaim ${recStr}`,
+        routerHoldNote: routerNudgeLabel || ''
+      };
+    }
+    return {
+      state: 'HOLD_COMPACT',
+      severity: 'warn',
+      headline: `HOLD COMPACT · Cache warm ${fmtMmSs(ttl)} · ${fmtKShort(reclaim)} staged`,
+      routerHoldNote: routerNudgeLabel ? `${routerNudgeLabel} (held while cache warm)` : ''
+    };
+  }
+
+  // Precedence 4: Nominal
+  const headroomStr = fmtKShort(Math.max(0, safe - total));
+  const cachePart = warm ? `Cache warm ${fmtMmSs(ttl)}` : 'Cache cold';
+  return {
+    state: 'NOMINAL',
+    severity: 'ok',
+    headline: `NOMINAL · ${cachePart} · ${headroomStr} to ${label} cap`,
+    routerHoldNote: routerNudgeLabel
+      ? (warm ? `${routerNudgeLabel} (locked ${fmtMmSs(ttl)})` : routerNudgeLabel)
+      : ''
+  };
+}
+
+const SPARK_GLYPHS = ['\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
+
+/**
+ * Renders a 16-turn inline Unicode sparkline of per-turn token growth.
+ */
+export function buildTurnVelocitySparkline(turnDeltas = [], maxTurns = 16) {
+  const arr = Array.isArray(turnDeltas)
+    ? turnDeltas.map(n => Math.max(0, Number(n) || 0)).slice(-maxTurns)
+    : [];
+  if (arr.length === 0) return '';
+  const peak = Math.max(...arr, 1000);
+  return arr.map(val => {
+    if (val <= 0) return SPARK_GLYPHS[0];
+    const idx = Math.min(SPARK_GLYPHS.length - 1, Math.max(0, Math.floor((val / peak) * (SPARK_GLYPHS.length - 1))));
+    return SPARK_GLYPHS[idx];
+  }).join('');
+}
+
+/**
+ * Accounts for 100% of a single turn's token delta (e.g. "write 5.5k + 4 tool steps 46.6k")
+ * so there is never an unexplained gap between the total delta and the single largest step.
+ */
+export function formatFullTurnDeltaAccounting(delta = {}) {
+  const total = Math.max(0, Number(delta?.tokens) || 0);
+  if (total < 100) return '';
+  if (typeof delta?.accountingSummary === 'string' && delta.accountingSummary.trim()) {
+    return delta.accountingSummary.trim();
+  }
+  const writeTok = Number(delta?.writeTokens ?? delta?.promptAndResponseTokens ?? 0);
+  const toolTok = Number(delta?.toolTokens ?? 0);
+  const toolCount = Number(delta?.toolStepCount ?? delta?.toolCallsCount ?? 0);
+  if (writeTok > 0 && toolTok > 0) {
+    const stepLabel = toolCount > 0 ? `${toolCount} tool step${toolCount === 1 ? '' : 's'}` : 'tools';
+    return `write ${fmtKShort(writeTok)} + ${stepLabel} ${fmtKShort(toolTok)}`;
+  }
+  const topTok = Math.min(total, Math.max(0, Number(delta?.topSource?.tokens) || 0));
+  const topLabel = String(delta?.topSource?.label || '').trim();
+  if (topTok > 0 && topTok < total * 0.88) {
+    const restTok = Math.max(0, total - topTok);
+    const stepCount = Math.max(1, Number(delta?.stepCount || toolCount || 2) - 1);
+    const cleanTop = /^(planner response|model response|agent response)$/i.test(topLabel)
+      ? 'write'
+      : (topLabel ? topLabel.split(/[\\/]/).pop().slice(0, 18) : 'top step');
+    return `${cleanTop} ${fmtKShort(topTok)} + ${stepCount} step${stepCount === 1 ? '' : 's'} ${fmtKShort(restTok)}`;
+  }
+  if (topLabel) {
+    const cleanTop = /^(planner response|model response)$/i.test(topLabel) ? 'agent response' : topLabel.split(/[\\/]/).pop();
+    return `${cleanTop} (${fmtKShort(topTok || total)})`;
+  }
+  return `${fmtKShort(total)} across turn`;
+}
+

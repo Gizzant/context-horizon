@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
 import { getHomeDir, canonicalizePath, getAntigravitySurfaces } from './paths.mjs';
+import { SESSION_RISK_THRESHOLDS } from './constants.mjs';
 import { SQLITE_OPEN_READONLY_OPTIONS } from './parser.mjs';
 import { PrefixCacheShield } from './prefix_cache_shield.mjs';
 
@@ -16,7 +17,8 @@ import { PrefixCacheShield } from './prefix_cache_shield.mjs';
  */
 
 export const WATERMARKS = Object.freeze({
-  CASCADE_SYNC: 50000,
+  CASCADE_SYNC: SESSION_RISK_THRESHOLDS.WARM_CACHE_LOCK_TOKENS,
+  WARM_CACHE_LOCK_MIN_TOKENS: SESSION_RISK_THRESHOLDS.WARM_CACHE_LOCK_TOKENS,
   AUTO_COMPACT_SAFE: 179000,
   BINARY_CLAMP: 256000, // 0x3e800 binary clamp
   WARM_CACHE_LOCK_MAX_TOKENS: 160000,
@@ -105,9 +107,14 @@ export function assessCompactionState(sessionTelemetry = {}) {
   };
 
   // Rule 1: Warm Cache Lock
-  // While Cache Hit Rate >= 90%, TTL > 60s, and Total Tokens < 160,000,
+  // While Cached Tokens >= 50,000, Cache Hit Rate >= 90%, TTL > 60s, and Total Tokens < 160,000,
   // suppress /compact and preserve 95% discount.
-  if (cacheHitRate >= 0.90 && cacheTtlSeconds > 60 && totalTokens < WATERMARKS.WARM_CACHE_LOCK_MAX_TOKENS) {
+  if (
+    cachedTokens >= WATERMARKS.WARM_CACHE_LOCK_MIN_TOKENS &&
+    cacheHitRate >= 0.90 &&
+    cacheTtlSeconds > 60 &&
+    totalTokens < WATERMARKS.WARM_CACHE_LOCK_MAX_TOKENS
+  ) {
     return {
       action: 'DEFER_COMPACTION',
       badge: '🛡️ Prefix Cache Warm (95% discount active) — Defer Compaction',
@@ -265,6 +272,8 @@ export function trimUncachedTail(steps = [], options = {}) {
     const tok = Number(
       s.totalTokens ??
       s.tokens ??
+      s.output_tokens ??
+      s.outputTokens ??
       (s.content ? Math.ceil(String(s.content).length / 4) : 0)
     );
     cumulativeTokens += tok;
@@ -300,9 +309,23 @@ export function trimUncachedTail(steps = [], options = {}) {
       ''
     );
 
-    const calls = Array.isArray(step.toolCalls)
+    let calls = Array.isArray(step.toolCalls)
       ? step.toolCalls
       : (Array.isArray(step.tool_calls) ? step.tool_calls : []);
+    if (calls.length === 0 && i > 0) {
+      const prev = prunedSteps[i - 1];
+      const prevCalls = Array.isArray(prev.toolCalls)
+        ? prev.toolCalls
+        : (Array.isArray(prev.tool_calls) ? prev.tool_calls : []);
+      const curCalls = Array.isArray(step.toolCalls) ? step.toolCalls : (Array.isArray(step.tool_calls) ? step.tool_calls : []);
+      const isToolResult = prevCalls.length > 0 && curCalls.length === 0 && (
+        (prev.type === 'PLANNER_RESPONSE' && (step.type === 'GENERIC' || step.type === 'tool_result' || step.source === 'MODEL')) ||
+        (step.type === 'TOOL_RESULT' || step.type === 'tool_result' || step.source === 'TOOL')
+      );
+      if (isToolResult) {
+        calls = prevCalls;
+      }
+    }
     const firstCall = calls[0] || {};
     const rawToolName = String(firstCall.name || firstCall.tool || step.toolName || '').toLowerCase();
     const args = firstCall.args || firstCall.parameters || firstCall.Arguments || {};

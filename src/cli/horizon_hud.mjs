@@ -16,7 +16,7 @@ import { runAllBlindspotSensors } from '../core/blindspot_sensors.mjs';
 import { CATEGORIES as H_CATEGORIES, CATEGORY_METADATA, scaleEffortProfileForCeiling, resolveModelCeiling } from '../core/constants.mjs';
 import { findSessionDirectory, parseTranscriptIncremental, reconcileWorkspaceAndKIs, resolveSessionModel } from '../core/parser.mjs';
 import { classifyHorizon } from '../core/classifier.mjs';
-import { getHomeDir } from '../core/paths.mjs';
+import { getHomeDir, ensureSupportedNodeVersion } from '../core/paths.mjs';
 import { recordAndDelta } from '../core/history.mjs';
 import { loadSettings, resolveWindow } from '../core/settings.mjs';
 import { measureBaseline } from '../core/baseline.mjs';
@@ -406,10 +406,14 @@ export async function runCLI(options = {}) {
 
   let sessionInfo = null;
   if (sessionDirOverride) {
+    const lowerOverride = String(sessionDirOverride).toLowerCase();
+    const inferredStore = lowerOverride.endsWith('.vscdb') || fs.existsSync(path.join(sessionDirOverride, 'state.vscdb'))
+      ? 'cursor'
+      : (lowerOverride.endsWith('.jsonl') ? 'claude-code' : 'antigravity');
     sessionInfo = {
-      storeName: 'antigravity',
+      storeName: inferredStore,
       sessionDir: sessionDirOverride,
-      sessionId: path.basename(sessionDirOverride)
+      sessionId: path.basename(sessionDirOverride).replace(/\.(jsonl|vscdb)$/i, '')
     };
   } else {
     const passedSessionId = stdinData?.session_id || stdinData?.conversation_id;
@@ -433,9 +437,10 @@ export async function runCLI(options = {}) {
   const defaultCacheDir = path.join(getHomeDir(), '.gemini', 'antigravity', 'cache', 'agy-horizon');
   const cacheDir = cacheDirOverride || defaultCacheDir;
   // Model precedence: stdin > gen_metadata.model > last USER_INPUT Model Selection > fallback.
+  const activeGenMetadata = reconciliation.sessionGenMetadata || parsed.genMetadata || null;
   const resolvedModel = resolveSessionModel({
     stdinData,
-    genMetadata: reconciliation.sessionGenMetadata,
+    genMetadata: activeGenMetadata,
     steps: parsed.steps
   });
   const modelId = resolvedModel.id;
@@ -456,13 +461,13 @@ export async function runCLI(options = {}) {
     storeSource: sessionInfo.storeName,
     logTierUsed: parsed.tier,
     logFilePath: parsed.filePath,
-    canonicalWorkspace: reconciliation.primaryWorkspace,
+    canonicalWorkspace: reconciliation.primaryWorkspace || parsed.workspacePath || '',
     projectId: reconciliation.projectId,
     kiBleedMap: reconciliation.kiBleedMap,
     modelId,
     stdinContextWindow: stdinData?.context_window,
     stdinQuota: stdinData?.quota,
-    genMetadata: reconciliation.sessionGenMetadata || null,
+    genMetadata: activeGenMetadata,
     modelSource: resolvedModel.source,
     useNativeCeiling,
     cacheDir,
@@ -471,7 +476,7 @@ export async function runCLI(options = {}) {
     activeEffortProfile: scaledEffort,
     effortTransitions: parsed.effortTransitions
   });
-  state.sessionTitle = reconciliation.sessionTitle || '';
+  state.sessionTitle = reconciliation.sessionTitle || parsed.sessionTitle || '';
   if (state.model && typeof state.model === 'object') {
     state.model.source = resolvedModel.source;
     state.model.rawLabel = resolvedModel.raw;

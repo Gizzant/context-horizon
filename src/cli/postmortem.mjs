@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getHomeDir, getBrainStores, getAntigravitySurfaces, isIgnorablePath } from '../core/paths.mjs';
+import { getHomeDir, getBrainStores, getAntigravitySurfaces, isIgnorablePath, ensureSupportedNodeVersion } from '../core/paths.mjs';
 import { parseTranscriptIncremental } from '../core/parser.mjs';
 import { classifyHorizon } from '../core/classifier.mjs';
 import { measureBaseline } from '../core/baseline.mjs';

@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
+import { exec } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { getHomeDir, getBrainStores } from '../core/paths.mjs';
-import { runDemoShowcase } from './horizon_hud.mjs';
+import { getHomeDir, ensureSupportedNodeVersion } from '../core/paths.mjs';
+import { findSessionDirectory } from '../core/parser.mjs';
+import { runCLI, runDemoShowcase, formatActionQueueAnsi } from './horizon_hud.mjs';
 import { startServer } from '../../sidecars/horizon-daemon/server.mjs';
 import { runPostmortem, printPostmortemSummary } from './postmortem.mjs';
 import { runDoctor, parseDoctorArgs } from './doctor.mjs';
@@ -11,6 +13,18 @@ import { compressCliOutputFts5, searchToolLogsFts5 } from '../core/fts5_output_c
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(__dirname, '../..');
+
+function getVersion() {
+  try {
+    const p = path.join(PACKAGE_ROOT, 'package.json');
+    if (fs.existsSync(p)) {
+      const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+      if (data.version) return data.version;
+    }
+  } catch {}
+  return '3.3.0';
+}
+const VERSION = getVersion();
 
 export function buildHooksConfig(targetPluginDir) {
   const norm = (rel) => path.join(targetPluginDir, rel).replace(/\\/g, '/');
@@ -20,21 +34,21 @@ export function buildHooksConfig(targetPluginDir) {
       SessionStart: [
         {
           type: 'command',
-          command: `node "${norm('src/hooks/session_start.mjs')}"`,
+          command: `node --no-warnings "${norm('src/hooks/session_start.mjs')}"`,
           timeout: 5
         }
       ],
       PreInvocation: [
         {
           type: 'command',
-          command: `node "${norm('src/hooks/pre_invocation.mjs')}"`,
+          command: `node --no-warnings "${norm('src/hooks/pre_invocation.mjs')}"`,
           timeout: 15
         }
       ],
       PostInvocation: [
         {
           type: 'command',
-          command: `node "${norm('src/hooks/post_invocation.mjs')}"`,
+          command: `node --no-warnings "${norm('src/hooks/post_invocation.mjs')}"`,
           timeout: 5
         }
       ]
@@ -43,16 +57,33 @@ export function buildHooksConfig(targetPluginDir) {
 }
 
 export function installPlugin(options = {}) {
-  const { dryRun = false, workspace = false } = options;
+  const { dryRun = false, workspace = false, dedupe = false } = options;
   const home = getHomeDir();
   const targetPluginDir = workspace
     ? path.resolve(process.cwd(), '.agents', 'plugins', 'agy-horizon-flightcheck')
     : path.join(home, '.gemini', 'config', 'plugins', 'agy-horizon-flightcheck');
 
-  console.log('\n\x1b[1m\x1b[38;5;51m⚡ Context Horizon (ctxtop v3.1.0) — Zero-Config Installer\x1b[0m');
+  console.log(`\n\x1b[1m\x1b[38;5;51m⚡ Context Horizon (ctxtop v${VERSION}) — Zero-Config Installer\x1b[0m`);
   console.log(`  • Mode   : ${workspace ? 'Workspace (.agents/plugins)' : 'Global (~/.gemini/config/plugins)'}${dryRun ? ' [DRY RUN]' : ''}`);
   console.log(`  • Source : ${PACKAGE_ROOT}`);
   console.log(`  • Target : ${targetPluginDir}`);
+
+  // Deduplicate legacy duplicate plugin folder (~/.gemini/config/plugins/agy-horizon)
+  if (!workspace) {
+    const legacyPluginDir = path.join(home, '.gemini', 'config', 'plugins', 'agy-horizon');
+    if (fs.existsSync(legacyPluginDir)) {
+      if (!dryRun) {
+        try {
+          fs.rmSync(legacyPluginDir, { recursive: true, force: true });
+          console.log(`  \x1b[38;5;82m✓\x1b[0m Removed legacy duplicate plugin directory (~/.gemini/config/plugins/agy-horizon)`);
+        } catch {
+          console.log(`  \x1b[38;5;214m▲\x1b[0m Legacy directory in use; recommend manual deletion of ~/.gemini/config/plugins/agy-horizon`);
+        }
+      } else {
+        console.log(`  \x1b[38;5;82m✓\x1b[0m [DRY RUN] Would remove legacy duplicate plugin directory (~/.gemini/config/plugins/agy-horizon)`);
+      }
+    }
+  }
 
   const toCopy = [
     'plugin.json',
@@ -136,12 +167,12 @@ export async function runContextRoast() {
   const worstPurity = `${result.worstPurityPct}%`;
   const sludgeUsd = result.sludgeUsdFormatted;
 
-  console.log('\n\x1b[1m\x1b[38;5;208m╭── CONTEXT HORIZON FORENSIC AUDIT (ctxtop v3.1.0) ─────────────────────────╮\x1b[0m');
+  console.log(`\n\x1b[1m\x1b[38;5;208m╭── CONTEXT HORIZON FORENSIC AUDIT (ctxtop v${VERSION}) ─────────────────────────╮\x1b[0m`);
   console.log(`\x1b[38;5;208m│\x1b[0m Sessions Audited : \x1b[1m${auditedSessions} sessions\x1b[0m (${estTokensM} cumulative tokens inspected)${isSynthetic ? ' [Demo]' : ''}`);
-  console.log(`\x1b[38;5;208m│\x1b[0m Signal Purity    : \x1b[38;5;196m\x1b[1m${worstPurity} worst\x1b[0m (${result.avgPurityPct}% avg across sessions)`);
+  console.log(`\x1b[38;5;208m│\x1b[0m Useful Context % : \x1b[38;5;196m\x1b[1m${worstPurity} worst\x1b[0m (${result.avgPurityPct}% avg across sessions)`);
   console.log(`\x1b[38;5;208m│\x1b[0m Redundant Reads  : \x1b[38;5;214m${dupCount} duplicate file reads\x1b[0m + \x1b[38;5;196m${errCount} dead stack traces\x1b[0m kept in memory`);
-  console.log(`\x1b[38;5;208m│\x1b[0m Sludge Tax Burned: \x1b[38;5;214m\x1b[1m${sludgeUsd}\x1b[0m wasted re-sending stale context to the model`);
-  console.log(`\x1b[38;5;208m│\x1b[0m Over Safe Limit  : \x1b[38;5;196m${ampCount} sessions crossed safe horizon\x1b[0m (early-anchor truncation risk)`);
+  console.log(`\x1b[38;5;208m│\x1b[0m Wasted Tokens    : \x1b[38;5;214m\x1b[1m${sludgeUsd}\x1b[0m wasted re-sending stale context to the model`);
+  console.log(`\x1b[38;5;208m│\x1b[0m Truncation Risk  : \x1b[38;5;196m${ampCount} sessions crossed safe horizon\x1b[0m (oldest rules at risk)`);
   console.log('\x1b[1m\x1b[38;5;208m╰───────────────────────────────────────────────────────────────────────────╯\x1b[0m');
 
   if (result.hotspots && result.hotspots.length > 0) {
@@ -163,18 +194,54 @@ export async function runContextRoast() {
 
 function printHelp() {
   console.log(`
-\x1b[1m\x1b[38;5;51m⚡ context-horizon (ctxtop v3.1.0)\x1b[0m — htop for AI Coding Agent Context Windows
+\x1b[1m\x1b[38;5;51m⚡ context-horizon (ctxtop v${VERSION})\x1b[0m — htop for AI Coding Agent Context Windows
 
 \x1b[1mUSAGE:\x1b[0m
-  npx context-horizon init [--workspace] [--dry-run]   Install plugin, hooks & CLI statusLine
-  npx context-horizon --demo [--scenario 1..8]         Preview 40-cell HUD & Flight Check Scorecard
-  npx context-horizon --demo-animate                   Play live 5-stage terminal crisis animation
+  npx ctxtop                                           Auto-discover active Claude Code, Cursor, or Antigravity session & print live 40-cell HUD
+  npx ctxtop ui [--open]                               Launch local Simple View Web UI on 127.0.0.1:62935 & open in browser (no hooks required)
+  npx ctxtop init [--workspace] [--dry-run]            Install plugin, hooks & CLI statusLine
+  npx ctxtop --demo [--scenario 1..8]                  Preview 40-cell HUD & Flight Check Scorecard
+  npx ctxtop --demo-animate                            Play live 5-stage terminal crisis animation
   npx ctxtop --roast                                   Audit local logs & print shareable Context Roast Card
   npx ctxtop doctor                                    Diagnose hooks, configuration, mirrors & transcript health
   npx ctxtop prune [--dry-run]                         Prune stale tool outputs and fold AST stubs in active transcript
   npx ctxtop postmortem [--last N] [--json]            Generate forensic report & diagnostic dataset
-  npx context-horizon --serve                          Launch Edward Tufte IDE Webview in browser
 `);
+}
+
+export function openBrowserUrl(url) {
+  if (process.env.CTXTOP_NO_BROWSER === '1') return;
+  try {
+    const cmd = process.platform === 'win32'
+      ? `cmd /c start "" "${url}"`
+      : (process.platform === 'darwin' ? `open "${url}"` : `xdg-open "${url}"`);
+    exec(cmd, () => {});
+  } catch {}
+}
+
+export async function runLiveOrDemoCli(options = {}) {
+  const home = options.homeDir || getHomeDir();
+  const sessionInfo = findSessionDirectory(options.sessionId || null, home);
+  if (sessionInfo && sessionInfo.sessionDir && fs.existsSync(sessionInfo.sessionDir)) {
+    const res = await runCLI({
+      silent: true,
+      sessionDirOverride: sessionInfo.sessionDir,
+      useNativeCeiling: true
+    });
+    if (res && res.state) {
+      const sTag = res.state.surfaceTag || sessionInfo.surfaceTag || '[App]';
+      const title = res.state.sessionTitle ? ` · "${res.state.sessionTitle}"` : '';
+      console.log(`\n\x1b[1m\x1b[38;5;51m⚡ CONTEXT HORIZON (ctxtop v${VERSION})\x1b[0m — Live ${sTag} Session (${res.state.sessionId.slice(0, 8)})${title}`);
+      console.log(res.output);
+      const aq = formatActionQueueAnsi(res.state);
+      if (aq) console.log(aq);
+      console.log(`\x1b[38;5;245mTip: Run 'npx ctxtop ui' for interactive browser view | 'npx ctxtop --roast' for multi-session audit\x1b[0m\n`);
+      return { mode: 'live', state: res.state, output: res.output };
+    }
+  }
+  console.log('\x1b[38;5;245mℹ No active Claude Code, Cursor, or Antigravity session found on disk — showing interactive demo:\x1b[0m');
+  await runDemoShowcase({ scenarioId: 5, animate: false });
+  return { mode: 'demo', state: null };
 }
 
 const isMain = process.argv[1] && (
@@ -188,11 +255,12 @@ const isMain = process.argv[1] && (
 );
 
 if (isMain) {
+  ensureSupportedNodeVersion();
   const binName = path.basename(process.argv[1] || '');
   const args = process.argv.slice(2);
   const cmd = binName.includes('agy-horizon-exec')
     ? 'exec'
-    : (binName.includes('agy-log-search') ? 'log-search' : (args[0] || '--demo'));
+    : (binName.includes('agy-log-search') ? 'log-search' : (args[0] || 'live'));
 
   if (args.includes('--help') || args.includes('-h')) {
     printHelp();
@@ -209,19 +277,17 @@ if (isMain) {
   } else if (cmd === 'exec' || cmd === 'agy-horizon-exec') {
     const offset = (args[0] === 'exec' || args[0] === 'agy-horizon-exec') ? 1 : 0;
     const execCmd = args.slice(offset).join(' ');
-    import('node:child_process').then(({ exec }) => {
-      exec(execCmd, { maxBuffer: 16 * 1024 * 1024 }, async (err, stdout, stderr) => {
-        const rawOutput = `${stdout || ''}${stderr ? `\n${stderr}` : ''}`;
-        const exitCode = err && typeof err.code === 'number' ? err.code : (err ? 1 : 0);
-        const comp = await compressCliOutputFts5({
-          command: execCmd,
-          exitCode,
-          rawOutput,
-          turnId: `turn-${Date.now()}`
-        });
-        process.stdout.write(comp.output + '\n');
-        process.exit(exitCode);
+    exec(execCmd, { maxBuffer: 16 * 1024 * 1024 }, async (err, stdout, stderr) => {
+      const rawOutput = `${stdout || ''}${stderr ? `\n${stderr}` : ''}`;
+      const exitCode = err && typeof err.code === 'number' ? err.code : (err ? 1 : 0);
+      const comp = await compressCliOutputFts5({
+        command: execCmd,
+        exitCode,
+        rawOutput,
+        turnId: `turn-${Date.now()}`
       });
+      process.stdout.write(comp.output + '\n');
+      process.exit(exitCode);
     });
   } else if (cmd === 'init' || args.includes('--install')) {
     const dryRun = args.includes('--dry-run');
@@ -249,14 +315,23 @@ if (isMain) {
         printPostmortemSummary(res);
       }
     });
-  } else if (cmd === 'serve' || args.includes('--serve')) {
-    process.env.HORIZON_DEMO = '1';
+  } else if (cmd === 'ui' || cmd === 'serve' || args.includes('--serve') || args.includes('--open')) {
+    if (args.includes('--demo')) {
+      process.env.HORIZON_DEMO = '1';
+    }
+    const shouldOpenBrowser = (cmd === 'ui' || args.includes('ui') || args.includes('--open')) && !args.includes('--no-open');
     startServer().then(({ port }) => {
-      console.log(`\x1b[1m\x1b[38;5;82m✓ Edward Tufte Webview Live at:\x1b[0m \x1b[38;5;51mhttp://127.0.0.1:${port}\x1b[0m (Press Ctrl+C to stop)`);
+      const url = `http://127.0.0.1:${port}`;
+      console.log(`\x1b[1m\x1b[38;5;82m✓ Context Horizon Web UI Live at:\x1b[0m \x1b[38;5;51m${url}\x1b[0m (Press Ctrl+C to stop)`);
+      if (shouldOpenBrowser) {
+        openBrowserUrl(url);
+      }
     });
-  } else {
+  } else if (cmd === '--demo' || cmd === 'demo' || args.includes('--demo') || args.includes('--demo-animate') || args.includes('--scenario')) {
     const scenIdx = args.indexOf('--scenario');
     const scenarioId = scenIdx !== -1 ? Number(args[scenIdx + 1]) : null;
     runDemoShowcase({ scenarioId, animate: args.includes('--demo-animate') });
+  } else {
+    runLiveOrDemoCli();
   }
 }

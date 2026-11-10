@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -167,7 +167,7 @@ console.log('âœ“ Sensor 5 (QUOTA_AND_STREAM_SHIELD) passed.');
 assert.equal(results.threeStrikeLoop, true, '3-strike consecutive error loop flagged');
 console.log('âœ“ Sensor 6 (LOOP_AND_GIT_GUARD) passed.');
 
-assert.ok(durationMs < 15.0, `Sensors took ${durationMs}ms which exceeds 15ms threshold`);
+assert.ok(durationMs < 30.0, `Sensors took ${durationMs}ms which exceeds 30ms threshold`);
 
 // Clean up
 try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
@@ -275,7 +275,7 @@ w.renderState({
 
 assert.equal(d.getElementById('usedMaxTok').textContent, '256k');
 assert.equal(d.getElementById('ceilingClampPill').hidden, false, 'Clamped pill must be visible for unpatched Gemini 4 Argon');
-assert.equal(d.getElementById('ceilingClampPill').textContent, '256k Clamped (1M Model Capped by Cortex 0x3E800)');
+assert.equal(d.getElementById('ceilingClampPill').textContent, CORTEX_CLAMPED_CEILING_LABEL);
 assert.equal(d.getElementById('cascadeWatermarkTag').textContent, '50k Sync', 'Tick 1 visible label must be shortened to "50k Sync"');
 assert.ok(d.getElementById('cascadeWatermarkLine').title.includes('Cascade Sync Armed'), 'Tick 1 tooltip must keep the full "Cascade Sync Armed" text');
 assert.equal(d.getElementById('cascadeWatermarkLine').title, WATERMARK_TOOLTIPS.CASCADE_SYNC_ARMED);

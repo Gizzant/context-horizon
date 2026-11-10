@@ -58,6 +58,13 @@ export class AgBridgeService {
     this.homeDir = options.homeDir || getHomeDir();
     this.rpcTransport = options.rpcTransport || null;
     this.cdpTransport = options.cdpTransport || null;
+    this.vscodeCommands = options.vscodeCommands || null;
+    this.enableExperimentalCdpActuation = options.enableExperimentalCdpActuation !== undefined
+      ? Boolean(options.enableExperimentalCdpActuation)
+      : (options.settings?.['attentionHorizon.enableExperimentalCdpActuation'] !== undefined
+        ? Boolean(options.settings['attentionHorizon.enableExperimentalCdpActuation'])
+        : null);
+    this.chatInputFocused = Boolean(options.chatInputFocused || false);
     this.clipboardWriter = typeof options.clipboardWriter === 'function'
       ? options.clipboardWriter
       : (text) => { this.lastClipboardText = String(text || ''); return true; };
@@ -65,16 +72,70 @@ export class AgBridgeService {
     this.dispatchLog = [];
   }
 
-  setTransports({ rpcTransport, cdpTransport, clipboardWriter } = {}) {
+  setTransports({ rpcTransport, cdpTransport, vscodeCommands, clipboardWriter } = {}) {
     if (rpcTransport !== undefined) this.rpcTransport = rpcTransport;
     if (cdpTransport !== undefined) this.cdpTransport = cdpTransport;
+    if (vscodeCommands !== undefined) this.vscodeCommands = vscodeCommands;
     if (typeof clipboardWriter === 'function') this.clipboardWriter = clipboardWriter;
+  }
+
+  setChatInputFocus(isFocused = false) {
+    this.chatInputFocused = Boolean(isFocused);
+    return this.chatInputFocused;
+  }
+
+  setExperimentalCdpActuation(enabled = false) {
+    this.enableExperimentalCdpActuation = Boolean(enabled);
+    return this.enableExperimentalCdpActuation;
+  }
+
+  isCdpActuationAllowed(payload = {}, options = {}) {
+    const inputFocused = options.chatInputFocused !== undefined
+      ? Boolean(options.chatInputFocused)
+      : this.chatInputFocused;
+
+    if (inputFocused) {
+      return {
+        allowed: false,
+        reason: 'CHAT_INPUT_FOCUSED'
+      };
+    }
+
+    const isModelActuation = typeof payload === 'object' && payload !== null &&
+      payload.type === 'SET_MODEL_AND_EFFORT';
+
+    const explicitSetting = options.enableExperimentalCdpActuation !== undefined
+      ? Boolean(options.enableExperimentalCdpActuation)
+      : (options.settings?.['attentionHorizon.enableExperimentalCdpActuation'] !== undefined
+        ? Boolean(options.settings['attentionHorizon.enableExperimentalCdpActuation'])
+        : this.enableExperimentalCdpActuation);
+
+    // By default, model/effort actuation is restricted to VS Code commands / RPC notifications
+    // unless `attentionHorizon.enableExperimentalCdpActuation` is explicitly enabled.
+    if (isModelActuation && explicitSetting !== true) {
+      return {
+        allowed: false,
+        reason: 'EXPERIMENTAL_CDP_DISABLED'
+      };
+    }
+
+    if (explicitSetting === false) {
+      return {
+        allowed: false,
+        reason: 'EXPERIMENTAL_CDP_DISABLED'
+      };
+    }
+
+    return {
+      allowed: true,
+      reason: null
+    };
   }
 
   /**
    * Dispatches a chat command or prompt to the active Antigravity session.
-   * Tries RPC first, then CDP OOPIF bridge, and falls back to clipboard ONLY
-   * when both RPC and CDP are unreachable.
+   * Tries registered VS Code commands / RPC first, then CDP OOPIF bridge (when allowed
+   * and chat input does not have focus), and falls back to clipboard ONLY when unreachable.
    */
   async sendChatCommand(sessionId, payload, options = {}) {
     const promptText = typeof payload === 'string'
@@ -83,6 +144,25 @@ export class AgBridgeService {
     const normalizedPayload = typeof payload === 'object' && payload !== null
       ? { ...payload, prompt: promptText }
       : { prompt: promptText };
+
+    // 0. Attempt registered VS Code command transport if configured
+    if (this.vscodeCommands && typeof this.vscodeCommands.executeCommand === 'function') {
+      try {
+        const vsRes = await this.vscodeCommands.executeCommand('antigravity.horizon.dispatch', sessionId, normalizedPayload, options);
+        if (vsRes && vsRes.ok !== false) {
+          const entry = {
+            ok: true,
+            sessionId,
+            transportUsed: 'vscode_command',
+            fallbackUsed: false,
+            payload: normalizedPayload,
+            response: vsRes
+          };
+          this.dispatchLog.push(entry);
+          return entry;
+        }
+      } catch {}
+    }
 
     // 1. Attempt RPC transport
     if (this.rpcTransport && typeof this.rpcTransport.sendChatCommand === 'function') {
@@ -103,8 +183,9 @@ export class AgBridgeService {
       } catch {}
     }
 
-    // 2. Attempt CDP OOPIF bridge transport
-    if (this.cdpTransport && typeof this.cdpTransport.sendChatCommand === 'function') {
+    // 2. Attempt CDP OOPIF bridge transport (gated by experimental setting & unfocused chat input guard)
+    const cdpGate = this.isCdpActuationAllowed(normalizedPayload, options);
+    if (cdpGate.allowed && this.cdpTransport && typeof this.cdpTransport.sendChatCommand === 'function') {
       try {
         const cdpRes = await this.cdpTransport.sendChatCommand(sessionId, normalizedPayload, options);
         if (cdpRes && cdpRes.ok !== false) {
@@ -120,6 +201,17 @@ export class AgBridgeService {
           return entry;
         }
       } catch {}
+    } else if (!cdpGate.allowed && normalizedPayload.type === 'SET_MODEL_AND_EFFORT') {
+      const blockedEntry = {
+        ok: false,
+        sessionId,
+        transportUsed: 'blocked_cdp',
+        cdpBlockedReason: cdpGate.reason,
+        fallbackUsed: false,
+        payload: normalizedPayload
+      };
+      this.dispatchLog.push(blockedEntry);
+      return blockedEntry;
     }
 
     // 3. Fallback to clipboard ONLY if both RPC and CDP are unreachable
@@ -128,6 +220,7 @@ export class AgBridgeService {
       ok: true,
       sessionId,
       transportUsed: 'clipboard',
+      cdpBlockedReason: cdpGate.allowed ? null : cdpGate.reason,
       fallbackUsed: true,
       clipboardText: promptText,
       payload: normalizedPayload

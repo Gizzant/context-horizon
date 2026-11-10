@@ -55,7 +55,7 @@ export function syncAndVerifyMirrors({ verifyOnly = false } = {}) {
       fs.copyFileSync(canonicalHtml, legacyWidget);
     }
 
-    // 2. Sync core modules across all 3 roots
+    // 2. Sync core modules (including telemetry/ and coach/ subdirectories) across all 3 roots
     for (const file of CORE_FILES) {
       const src = path.join(CANONICAL_ROOT, 'src', 'core', file);
       if (!fs.existsSync(src)) continue;
@@ -67,7 +67,100 @@ export function syncAndVerifyMirrors({ verifyOnly = false } = {}) {
       }
     }
 
-    // 3. Sync sidecar daemon server.mjs and CLI horizon_hud.mjs across all 3 roots
+    for (const subDirParts of [['src', 'core', 'telemetry'], ['src', 'core', 'coach'], ['src', 'shims'], ['src', 'ui'], ['src', 'hooks']]) {
+      const srcSubDir = path.join(CANONICAL_ROOT, ...subDirParts);
+      if (!fs.existsSync(srcSubDir)) continue;
+      const entries = fs.readdirSync(srcSubDir).filter(f => /\.(mjs|js|css)$/i.test(f));
+      for (const file of entries) {
+        const srcFile = path.join(srcSubDir, file);
+        for (const root of [AGY_HORIZON_ROOT, FLIGHTCHECK_ROOT]) {
+          if (!fs.existsSync(root)) continue;
+          const destSubDir = path.join(root, ...subDirParts);
+          fs.mkdirSync(destSubDir, { recursive: true });
+          fs.copyFileSync(srcFile, path.join(destSubDir, file));
+        }
+      }
+    }
+
+    // 3. Preserve/repair absolute quoted forward-slash paths in plugin hooks.json (never clobber with relative ./src/hooks/...)
+    if (fs.existsSync(FLIGHTCHECK_ROOT)) {
+      const flightcheckHooksPath = path.join(FLIGHTCHECK_ROOT, 'hooks.json');
+      const normHook = (rel) => path.join(FLIGHTCHECK_ROOT, rel).replace(/\\/g, '/');
+      let existingEnabled = true;
+      let needsRewrite = true;
+      if (fs.existsSync(flightcheckHooksPath)) {
+        try {
+          const rawHooks = fs.readFileSync(flightcheckHooksPath, 'utf8');
+          const parsedHooks = JSON.parse(rawHooks);
+          if (typeof parsedHooks?.['horizon-flightcheck-lifecycle']?.enabled === 'boolean') {
+            existingEnabled = parsedHooks['horizon-flightcheck-lifecycle'].enabled;
+          }
+          // Preserve untouched if all commands already use quoted absolute forward-slash paths (no relative ./src/ and no unescaped backslashes)
+          const hasRelative = /(?:^|\s|\.)\/?src\/hooks\//.test(rawHooks) && !rawHooks.includes(`"${normHook('src/hooks/')}`);
+          const hasBackslashes = /node[^"]*\\/.test(rawHooks);
+          if (!hasRelative && !hasBackslashes && rawHooks.includes(`"${normHook('src/hooks/pre_invocation.mjs')}"`)) {
+            needsRewrite = false;
+          }
+        } catch {
+          needsRewrite = true;
+        }
+      }
+      if (needsRewrite) {
+        const resolvedHooks = {
+          'horizon-flightcheck-lifecycle': {
+            enabled: existingEnabled,
+            SessionStart: [{ type: 'command', command: `node --no-warnings "${normHook('src/hooks/session_start.mjs')}"`, timeout: 5 }],
+            PreInvocation: [{ type: 'command', command: `node --no-warnings "${normHook('src/hooks/pre_invocation.mjs')}"`, timeout: 15 }],
+            PostInvocation: [{ type: 'command', command: `node --no-warnings "${normHook('src/hooks/post_invocation.mjs')}"`, timeout: 5 }]
+          }
+        };
+        fs.writeFileSync(flightcheckHooksPath, JSON.stringify(resolvedHooks, null, 2) + '\n', 'utf8');
+      }
+    }
+
+    if (fs.existsSync(AGY_HORIZON_ROOT)) {
+      const horizonHooksPath = path.join(AGY_HORIZON_ROOT, 'hooks.json');
+      if (fs.existsSync(horizonHooksPath)) {
+        try {
+          const rawHorizonHooks = fs.readFileSync(horizonHooksPath, 'utf8');
+          if (rawHorizonHooks.includes('./src/')) {
+            const absPrefix = AGY_HORIZON_ROOT.replace(/\\/g, '/');
+            const upgraded = rawHorizonHooks.replace(
+              /node\s+--no-warnings\s+\.\/src\/([^\s"]+)(\s+[^"]*)?/g,
+              (_, relPart, argsPart = '') => `node --no-warnings \\"${absPrefix}/src/${relPart}\\"${argsPart}`
+            );
+            JSON.parse(upgraded); // validate JSON before writing
+            fs.writeFileSync(horizonHooksPath, upgraded, 'utf8');
+          }
+        } catch {}
+      }
+    }
+
+    // 4. Consolidate plugin.json manifests & asset/rule/skill directories across mirrors
+    const canonicalPluginPath = path.join(CANONICAL_ROOT, 'plugin.json');
+    if (fs.existsSync(canonicalPluginPath)) {
+      const canonicalManifest = JSON.parse(fs.readFileSync(canonicalPluginPath, 'utf8'));
+      for (const dirName of ['assets', 'rules', 'skills', 'config']) {
+        const srcDir = path.join(CANONICAL_ROOT, dirName);
+        if (!fs.existsSync(srcDir)) continue;
+        for (const root of [AGY_HORIZON_ROOT, FLIGHTCHECK_ROOT]) {
+          if (!fs.existsSync(root)) continue;
+          fs.cpSync(srcDir, path.join(root, dirName), { recursive: true });
+        }
+      }
+      if (fs.existsSync(FLIGHTCHECK_ROOT)) {
+        fs.writeFileSync(path.join(FLIGHTCHECK_ROOT, 'plugin.json'), JSON.stringify(canonicalManifest, null, 2) + '\n', 'utf8');
+      }
+      if (fs.existsSync(AGY_HORIZON_ROOT)) {
+        const horizonManifest = {
+          ...canonicalManifest,
+          name: 'agy-horizon',
+          displayName: 'Context Horizon (ctxtop)'
+        };
+        fs.writeFileSync(path.join(AGY_HORIZON_ROOT, 'plugin.json'), JSON.stringify(horizonManifest, null, 2) + '\n', 'utf8');
+      }
+    }
+
     const extraSyncPairs = [
       ['sidecars', 'horizon-daemon', 'server.mjs'],
       ['src', 'cli', 'horizon_hud.mjs'],
