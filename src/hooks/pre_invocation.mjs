@@ -596,24 +596,73 @@ export async function handlePreInvocation(inputData = {}) {
   return {};
 }
 
+/**
+ * Sanitizes internal hook return payloads into strict Antigravity protojson-compatible
+ * CLI stdout objects (no unknown fields like flightMode, active_model_id, swarmTtlBadges).
+ */
+export function toProtoSafePreHookOutput(output, { isPreToolUse = false } = {}) {
+  const out = output && typeof output === 'object' ? output : {};
+  if (isPreToolUse) {
+    const rawDecision = String(out.decision || '').toLowerCase();
+    let decision = 'allow';
+    if (rawDecision === 'deny' || rawDecision === 'block' || out.blocked === true || out.terminationBehavior === 'terminate') {
+      decision = 'deny';
+    } else if (rawDecision === 'ask') {
+      decision = 'ask';
+    }
+    const reasonText = out.reason || out.errorMessage?.userMessage || out.userMessage || out.systemMessage || out.ephemeralMessage;
+    if (decision !== 'allow' && reasonText) {
+      return { decision, reason: String(reasonText) };
+    }
+    return { decision };
+  }
+
+  if (out.terminationBehavior === 'terminate') {
+    const userMessage = String(
+      out.errorMessage?.userMessage ||
+      out.userMessage ||
+      out.reason ||
+      out.systemMessage ||
+      'Halted by Attention Horizon Flightcheck'
+    );
+    return {
+      terminationBehavior: 'terminate',
+      errorMessage: { userMessage }
+    };
+  }
+  const advisory = out.ephemeralMessage || out.systemMessage;
+  if (typeof advisory === 'string' && advisory.trim().length > 0) {
+    return { ephemeralMessage: advisory };
+  }
+  return {};
+}
+
 // Auto-run when executed directly by Antigravity Hook Harness
 const isMain = process.argv[1] && (process.argv[1].endsWith('pre_invocation.mjs') || process.argv[1].endsWith('pre_invocation.js'));
 const isPreToolUseCli = process.argv.includes('--event=PreToolUse');
 if (isMain) {
+  let detectedPreToolUse = isPreToolUseCli;
   readStdinSafe().then(input => {
     const safeInput = input && typeof input === 'object' ? input : {};
     if (isPreToolUseCli && !safeInput.hook_event_name) {
       safeInput.hook_event_name = 'PreToolUse';
     }
+    if (
+      safeInput.hook_event_name === 'PreToolUse' ||
+      safeInput.event === 'PreToolUse' ||
+      safeInput.tool_name ||
+      safeInput.toolName
+    ) {
+      detectedPreToolUse = true;
+    }
     return handlePreInvocation(safeInput);
   }).then(output => {
-    const out = output && typeof output === 'object' ? { ...output } : {};
-    if (isPreToolUseCli && !out.decision) out.decision = 'allow';
-    console.log(JSON.stringify(out));
+    const safeOut = toProtoSafePreHookOutput(output, { isPreToolUse: detectedPreToolUse });
+    console.log(JSON.stringify(safeOut));
     process.exit(0);
   }).catch((err) => {
     recordHookDiagnostic('pre_invocation', 'main', err);
-    console.log(JSON.stringify(isPreToolUseCli ? { decision: 'allow' } : {}));
+    console.log(JSON.stringify(detectedPreToolUse ? { decision: 'allow' } : {}));
     process.exit(0);
   });
 }

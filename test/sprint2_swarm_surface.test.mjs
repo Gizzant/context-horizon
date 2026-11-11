@@ -21,7 +21,8 @@ import {
 import { computePrefixRetentionIndex } from '../src/core/sprint_metrics.mjs';
 import { buildCostRadarFromState, parseCostRadarArgs } from '../src/cli/cost_radar.mjs';
 import { buildHooksConfig } from '../src/cli/init.mjs';
-import { handlePreInvocation, handlePreToolUse } from '../src/hooks/pre_invocation.mjs';
+import { handlePreInvocation, handlePreToolUse, toProtoSafePreHookOutput } from '../src/hooks/pre_invocation.mjs';
+import { validateSafePreInvocationOutput, validateSafePreToolUseOutput } from '../src/core/shared/plugin_validator.mjs';
 import { buildFullLifecycleHooksBlock } from '../scripts/sync_mirrors.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -211,4 +212,20 @@ test('Windows PreToolUse hook safety: unquoted space-free hook paths + explicit 
 
   const routedRes = await handlePreInvocation({ toolName: 'swarm', args: { action: 'status' } });
   assert.equal(routedRes.decision, 'allow', 'handlePreInvocation must route toolName/args payloads to handlePreToolUse');
+
+  // Strict protojson stdout sanitization checks (no unknown fields like flightMode, active_model_id, swarmTtlBadges)
+  const protoAllow = toProtoSafePreHookOutput(allowRes, { isPreToolUse: true });
+  assert.deepEqual(protoAllow, { decision: 'allow' });
+  assert.equal(validateSafePreToolUseOutput(protoAllow).valid, true);
+
+  const protoDeny = toProtoSafePreHookOutput(
+    { decision: 'block', reason: 'Swarm limit exceeded', flightMode: 'GUARD', swarmTtlBadges: [] },
+    { isPreToolUse: true }
+  );
+  assert.deepEqual(protoDeny, { decision: 'deny', reason: 'Swarm limit exceeded' });
+  assert.equal(validateSafePreToolUseOutput(protoDeny).valid, true);
+
+  const protoPreInv = toProtoSafePreHookOutput({ systemMessage: 'Advisory card', flightMode: 'COACH' }, { isPreToolUse: false });
+  assert.deepEqual(protoPreInv, { ephemeralMessage: 'Advisory card' });
+  assert.equal(validateSafePreInvocationOutput(protoPreInv).valid, true);
 });

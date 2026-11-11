@@ -408,8 +408,8 @@ const isMain = process.argv[1] && (process.argv[1].endsWith('post_invocation.mjs
 if (isMain) {
   readStdinSafe().then(input => {
     return handlePostInvocation(input);
-  }).then(output => {
-    console.log(JSON.stringify(output || {}));
+  }).then(() => {
+    console.log('{}');
     process.exit(0);
   }).catch((err) => {
     recordHookDiagnostic('post_invocation', 'main', err);
