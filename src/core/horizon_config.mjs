@@ -709,7 +709,7 @@ export function generateAntigravityDiagnosticMarkdown(results = [], options = {}
     '',
     '| Field | Value |',
     '| :--- | :--- |',
-    `| **Package** | \`attention-horizon-antigravity@3.3.0\` |`,
+    `| **Package** | \`attention-horizon-antigravity@3.4.0\` |`,
     `| **OS / Arch** | \`${process.platform} (${process.arch})\` |`,
     `| **Node.js** | \`${process.version}\` |`,
     `| **Git Context** | \`${git.branch}@${git.shortCommit}\` |`,

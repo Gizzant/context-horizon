@@ -89,6 +89,7 @@ export function computePrefixRetentionIndex(turns = [], options = {}) {
   let leakedUSD = 0;
   const bustCauses = {};
   let lastBust = null;
+  const series = []; // per-turn retention points for the /cost-radar timeline (last 40 kept)
 
   for (const turn of Array.isArray(turns) ? turns : []) {
     if (!turn || typeof turn !== 'object') continue;
@@ -105,6 +106,7 @@ export function computePrefixRetentionIndex(turns = [], options = {}) {
     const gapSec = prevTs > 0 && currTs >= prevTs ? (currTs - prevTs) / 1000 : null;
     if (gapSec !== null && gapSec > ttlSec) {
       ttlExpiredTurns += 1; // idle expiry is a TTL problem, not a prefix-structure bust
+      series.push({ stepIndex: turn.stepIndex ?? null, eligible: 0, retained: 0, pct: null, bust: false, cause: null, ttlExpired: true });
       continue;
     }
 
@@ -121,7 +123,18 @@ export function computePrefixRetentionIndex(turns = [], options = {}) {
     savingsUSD += turnRetained * discountPerToken;
     leakedUSD += turnLeaked * discountPerToken;
 
-    if (turnRetained / turnEligible < RETENTION_CONSTANTS.BUST_RETAINED_RATIO) {
+    const isBust = turnRetained / turnEligible < RETENTION_CONSTANTS.BUST_RETAINED_RATIO;
+    series.push({
+      stepIndex: turn.stepIndex ?? null,
+      eligible: turnEligible,
+      retained: turnRetained,
+      pct: Math.round((100 * turnRetained) / turnEligible),
+      bust: isBust,
+      cause: isBust ? classifyBustCause(turn, prev) : null,
+      ttlExpired: false,
+      savedUSD: round6(turnRetained * discountPerToken)
+    });
+    if (isBust) {
       bustCount += 1;
       const cause = classifyBustCause(turn, prev);
       bustCauses[cause] = (bustCauses[cause] || 0) + 1;
@@ -134,7 +147,11 @@ export function computePrefixRetentionIndex(turns = [], options = {}) {
     }
   }
 
-  const measured = measuredTurns > 0;
+  // Honesty gate: if the transcript never reports any cache read/write for any turn, the
+  // provider/harness is not exposing cache telemetry — that is "unmeasured", not "0% retained".
+  const hasCacheTelemetry = (Array.isArray(turns) ? turns : []).some((t) =>
+    t && typeof t === 'object' && (num(t.cacheReadTokens) > 0 || num(t.cacheCreationTokens) > 0));
+  const measured = measuredTurns > 0 && hasCacheTelemetry;
   const retentionIndexPct = measured
     ? Math.max(0, Math.min(100, Math.round((100 * retained) / eligible)))
     : null;
@@ -152,12 +169,14 @@ export function computePrefixRetentionIndex(turns = [], options = {}) {
     retainedPrefixTokens: retained,
     leakedPrefixTokens: eligible - retained,
     measuredTurns,
-    bustCount,
+    bustCount: measured ? bustCount : 0,
     ttlExpiredTurns,
-    bustCauses,
-    lastBust,
+    bustCauses: measured ? bustCauses : {},
+    lastBust: measured ? lastBust : null,
     retainedDiscountSavingsUSD: round6(savingsUSD),
-    leakedColdPrefillUSD: round6(leakedUSD)
+    leakedColdPrefillUSD: measured ? round6(leakedUSD) : 0,
+    unmeasuredReason: measured ? null : (measuredTurns > 0 ? 'no_cache_telemetry' : 'insufficient_turns'),
+    series: measured ? series.slice(-40) : []
   };
   result.label = formatRetentionLabel(result);
   return result;
@@ -167,6 +186,7 @@ export function computePrefixRetentionIndex(turns = [], options = {}) {
  * Compact single-line label: "Retain 97% · Saved $1.42 · Leaked $0.08" or "Retain — (no multi-turn usage yet)".
  */
 export function formatRetentionLabel(r = {}) {
+  if (r && r.unmeasuredReason === 'no_cache_telemetry') return 'Retain — (no cache telemetry reported)';
   if (!r || !r.measured || r.retentionIndexPct === null) return 'Retain — (no multi-turn usage yet)';
   const parts = [`Retain ${r.retentionIndexPct}%`, `Saved $${round2(r.retainedDiscountSavingsUSD).toFixed(2)}`];
   if (num(r.leakedColdPrefillUSD) > 0.005) parts.push(`Leaked $${round2(r.leakedColdPrefillUSD).toFixed(2)}`);
@@ -284,7 +304,8 @@ export function computeThinkingDrift(steps = []) {
     }
     if (s.type === 'PLANNER_RESPONSE' || s.type === 'ASSISTANT' || s.role === 'assistant') {
       const ts = stepTs(s);
-      if (current.ttftMs === null && current.startTs > 0 && ts >= current.startTs) {
+      if (current.ttftMs === null && current.startTs > 0 && ts > current.startTs) {
+        // Strictly positive only: second-resolution timestamps yield 0ms deltas, which are unmeasured, not instant.
         current.ttftMs = ts - current.startTs;
       }
       if (!s.thinkingEstimated) current.thinkingTokens += num(s.thinkingTokens);

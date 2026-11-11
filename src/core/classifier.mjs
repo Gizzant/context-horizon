@@ -27,6 +27,8 @@ import { canonicalizePath, isIgnorablePath } from './paths.mjs';
 import { extractEffortTimeline } from './parser.mjs';
 import { computeQuotaAndCacheTelemetry, humanizeModelLabel } from './quota.mjs';
 import { inspectSubagentTree } from './subagents.mjs';
+import { computeSwarmTopology } from './swarm_topology.mjs';
+import { loadRegistry as loadSwarmScopeRegistry } from './telemetry/scope_lock_registry.mjs';
 import { computePlanChurn, gradeProofQuality, detectContextRot, fingerprintErrorLoop } from './session_forensics.mjs';
 import { auditHandoff } from './handoff_audit.mjs';
 import {
@@ -1235,7 +1237,9 @@ export function classifyHorizon(rawSteps, options = {}) {
       if (path.basename(path.dirname(parent2)) === 'brain' || path.basename(parent2).length > 20) {
         brainDir = parent2;
       }
-    } catch {}
+    } catch (err) {
+      if (process.env.HORIZON_DEBUG) console.error('[classifier] brainDir resolve failed:', err?.message || err);
+    }
   }
   const handoff = auditHandoff(brainDir || canonicalWorkspace, {
     planChurn,
@@ -1340,7 +1344,9 @@ export function classifyHorizon(rawSteps, options = {}) {
     try {
       const taskText = fs.readFileSync(handoff.targetFile, 'utf8');
       hasPendingTaskItems = /^[-*]\s*\[ \]/m.test(taskText);
-    } catch {}
+    } catch (err) {
+      if (err?.code !== 'ENOENT' && process.env.HORIZON_DEBUG) console.error('[classifier] task.md read failed:', err?.message || err);
+    }
   } else if (lastTaskWrite >= 0) {
     hasPendingTaskItems = steps.slice(lastTaskWrite).some(s => String(s.content || '').includes('- [ ]'));
   }
@@ -1411,6 +1417,30 @@ export function classifyHorizon(rawSteps, options = {}) {
         break;
       }
     }
+  }
+
+  // Sprint 2.1: Subagent /swarm roster + git worktree topology + scope-lock overlaps
+  let swarmTopology = null;
+  try {
+    let swarmLeases = [];
+    if (canonicalWorkspace && options.probeSwarmLeases !== false) {
+      try {
+        const reg = loadSwarmScopeRegistry(canonicalWorkspace);
+        swarmLeases = Array.isArray(reg?.leases) ? reg.leases : [];
+      } catch (err) {
+        if (process.env.HORIZON_DEBUG) console.error('[classifier] swarm lease load failed:', err?.message || err);
+      }
+    }
+    swarmTopology = computeSwarmTopology(steps, {
+      nowMs: typeof options.nowMs === 'number' ? options.nowMs : Date.now(),
+      workspaceDir: canonicalWorkspace || null,
+      worktrees: Array.isArray(options.worktrees) ? options.worktrees : null,
+      leases: swarmLeases,
+      probeGit: options.probeGit !== false
+    });
+  } catch (err) {
+    if (process.env.HORIZON_DEBUG) console.error('[classifier] swarm topology failed:', err?.message || err);
+    swarmTopology = null;
   }
 
   // Session Fracture Markers (⚡) & Stranded Signal Summary
@@ -1662,6 +1692,7 @@ export function classifyHorizon(rawSteps, options = {}) {
     sessionRisk,
     compaction,
     subagents,
+    swarmTopology,
     activeEffortProfile,
     effortTransitions,
     effortHistory: effortTransitions,

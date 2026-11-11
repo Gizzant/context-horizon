@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [3.4.0] - 2026-11-10
+
+### Sprint 1 + 2: Cost-Visibility Wedge (local/private build)
+
+#### Added
+- **Prefix-Cache Retention Index** (`src/core/sprint_metrics.mjs`): per-stream, turns 2+ only, TTL-expired turns excluded, bust cause attribution (`model_switch` / `prefix_mutation` / `prefix_drift`), USD savings and leakage, plus a per-turn `series` feeding the timeline.
+- **Thinking vs. Generation Drift + DET-30 scratchpad-loop detector**: reasoning÷output ratio, TTFT, consecutive or cumulative loop escalation. Estimated thinking tokens are excluded.
+- **Subagent `/swarm` & Git Worktree Topology** (`src/core/swarm_topology.mjs`):
+  - Rebuilds the roster from `swarm` / `invoke_subagent` / `manage_subagents` / `send_message`.
+  - Worker states: working, parked (`waiting`, $0), stopped, killed. Explicit `swarm status` output overrides inferred state.
+  - Read-only `git worktree list --porcelain` probe (1.2s timeout, 15s memo).
+  - DET-20 overlaps between scope leases.
+  - Exposed as `state.swarmTopology`.
+- **Panel drawer** `#swarmTopologyDrawer`: a 1-line pill when solo. It auto-expands once when workers > 0, worktrees > 1 or a DET-20 overlap appears.
+- **`/cost-radar`**: skill, `ctxtop cost-radar [--out] [--json]` CLI and loopback `GET /api/cost-radar` (strict CSP). It renders a self-contained, script-free dark HTML/SVG timeline (`src/core/timeline_svg.mjs`) with:
+  - a retention step chart with bust markers;
+  - a drift sparkline with a TTFT strip;
+  - a swarm/worktree graph.
+
+#### Fixed
+- Retention now reports **unmeasured** (`no_cache_telemetry`) when a transcript never exposes cache reads or writes, instead of a false "0% / N busts".
+- TTFT ignores 0 ms deltas caused by second-resolution timestamps.
+- Removed pre-existing empty `catch {}` blocks in `quota.mjs` and `classifier.mjs` (DET-05 hygiene).
+
 ## [3.2.0] - 2026-11-08
 
 ### Multi-Harness v2.0 Wedge & Production Hardening Release

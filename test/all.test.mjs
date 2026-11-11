@@ -16,6 +16,7 @@ import './phase3_fenced_ttl_and_decomposer.test.mjs';
 import './saved_quota_ledger.test.mjs';
 import './scope_lock_registry.test.mjs';
 import './sprint1_metrics_wedge.test.mjs';
+import './sprint2_swarm_surface.test.mjs';
 import './subagent_ipi_sanitizer.test.mjs';
 import './surgical_patch_256k_staging.test.mjs';
 import './test_action_queue.mjs';

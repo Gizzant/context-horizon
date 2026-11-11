@@ -1,6 +1,6 @@
 <div align="center">
 
-# Attention Horizon for Google Antigravity (`attention-horizon-antigravity` v3.3.0)
+# Attention Horizon for Google Antigravity (`attention-horizon-antigravity` v3.4.0)
 
 **Local Context Window Profiler, KV-Cache TTL Monitor & Deterministic PreInvocation Router (`~0.18ms` Tier-1 In-Process / `~25–90ms` Tier-2 CLI Hook) for Google Antigravity**
 

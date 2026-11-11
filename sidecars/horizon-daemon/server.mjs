@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { getHomeDir, getDaemonPortFile, ensureSupportedNodeVersion } from '../../src/core/paths.mjs';
 import { resolveSurfaceTag, resolveModelCeiling } from '../../src/core/constants.mjs';
 import { runCLI } from '../../src/cli/horizon_hud.mjs';
+import { buildCostRadarFromState } from '../../src/cli/cost_radar.mjs';
 import { findSessionDirectory } from '../../src/core/parser.mjs';
 import { loadSettings, saveSettings, SETTINGS_LIMITS } from '../../src/core/settings.mjs';
 import { pruneSessionTranscript } from '../../src/core/pruner.mjs';
@@ -980,6 +981,28 @@ const server = http.createServer(async (req, res) => {
     const state = await refreshLiveState(forceEval, pinnedConversationId);
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify(state || {}));
+    return;
+  }
+
+  // Route: GET /api/cost-radar (Sprint 2.2 HTML/SVG timeline artifact, loopback only)
+  if (url.pathname === '/api/cost-radar' && req.method === 'GET') {
+    try {
+      const state = await refreshLiveState(false, pinnedConversationId);
+      const { html, summary } = buildCostRadarFromState(state || {});
+      if (url.searchParams.get('format') === 'json') {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ ok: true, ...summary }));
+      } else {
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store',
+          'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:"
+        });
+        res.end(html);
+      }
+    } catch (err) {
+      sendRouteError500(res, 'GET /api/cost-radar', err);
+    }
     return;
   }
 

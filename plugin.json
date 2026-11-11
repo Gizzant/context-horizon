@@ -2,7 +2,7 @@
   "$schema": "https://antigravity.google/schemas/v1/plugin.json",
   "name": "agy-horizon-flightcheck",
   "displayName": "Attention Horizon for Google Antigravity: KV-Cache Governor",
-  "version": "3.3.0",
+  "version": "3.4.0",
   "description": "Attention Horizon for Google Antigravity: 40-cell chronological context telemetry HUD, 6-sensor hygiene auditor, and <15ms PreInvocation prompt router.",
   "author": {
     "name": "Gizzant (Antigravity Systems Architecture)"
@@ -15,7 +15,8 @@
   "skills": [
     "./skills/horizon",
     "./skills/precheck",
-    "./skills/handoff"
+    "./skills/handoff",
+    "./skills/cost-radar"
   ],
   "sidecars": [
     "./sidecars/horizon-daemon"
@@ -24,6 +25,7 @@
     "/horizon Inspect my 40-cell Attention Horizon and Wasted Tokens",
     "/precheck Audit my next architecture refactor prompt and context hygiene",
     "/handoff Audit and format task.md before /compact or session handoff",
+    "/cost-radar Render my prefix-cache retention, thinking drift and swarm topology timeline",
     "Check for Dirty Snapshots, Unseen Callers, or Foreign KI Bleed"
   ]
 }

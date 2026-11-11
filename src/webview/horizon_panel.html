@@ -2064,6 +2064,22 @@
     .sprint-metric.retention[data-grade="C"] { color: #fca5a5 !important; border-color: rgba(248, 113, 113, 0.4); }
     .sprint-metric.drift[data-drift="elevated"] { color: #fcd34d !important; border-color: rgba(251, 191, 36, 0.35); }
     .sprint-metric.drift[data-drift="loop_detected"] { color: #fecaca !important; background: rgba(239, 68, 68, 0.16); border-color: rgba(248, 113, 113, 0.55); font-weight: 600; }
+.swarm-topology-drawer { margin-top: 4px; font-size: 11px; color: #cbd5e1; }
+.swarm-topology-drawer > summary { cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 6px; padding: 1px 6px; border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 3px; font-variant-numeric: tabular-nums; }
+.swarm-topology-drawer > summary::-webkit-details-marker { display: none; }
+.swarm-topology-drawer[data-mode="solo"] > summary { color: #94a3b8; }
+.swarm-topology-drawer[data-collision="true"] > summary { color: #fecaca; border-color: rgba(248, 113, 113, 0.55); }
+.swarm-topology-body { margin-top: 4px; display: grid; gap: 2px; }
+.swarm-topology-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.swarm-topology-table th { text-align: left; font-weight: 500; color: #94a3b8; border-bottom: 1px solid rgba(148, 163, 184, 0.2); padding: 1px 4px; }
+.swarm-topology-table td { padding: 1px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+.swarm-topology-table td.num { text-align: right; }
+.swarm-state[data-state="working"] { color: #6ee7b7; }
+.swarm-state[data-state="waiting"] { color: #93c5fd; }
+.swarm-state[data-state="stopped"] { color: #fcd34d; }
+.swarm-state[data-state="killed"] { color: #64748b; text-decoration: line-through; }
+.swarm-topology-note { color: #94a3b8; }
+.swarm-topology-note.collision { color: #fecaca; }
     .cache-operational-guide {
       display: flex;
       align-items: flex-start;
@@ -2954,6 +2970,10 @@
         <span class="sprint-metric retention" id="prefixRetentionDisplay" data-grade="n/a" title="Prefix-Cache Retention Index: share of the reusable prompt prefix actually served from warm KV cache on turns 2+ inside the TTL.">Retain &mdash;</span>
         <span class="sprint-metric drift" id="thinkingDriftDisplay" data-drift="n/a" title="Thinking vs. Generation Drift: reasoning tokens / visible output tokens on the latest turn, plus time-to-first-token.">Think &mdash; &middot; TTFT &mdash;</span>
       </div>
+      <details class="swarm-topology-drawer mono" id="swarmTopologyDrawer" data-mode="solo" data-collision="false">
+        <summary id="swarmTopologySummary" title="Subagent /swarm roster, git worktrees and scope-lock overlaps (DET-20). Parked (waiting) workers cost $0 until messaged.">Solo agent</summary>
+        <div class="swarm-topology-body" id="swarmTopologyBody"></div>
+      </details>
       <div class="cache-timer-bar-track" title="5-Minute Prompt Cache Timer">
         <div class="cache-timer-bar-fill cold" id="cacheTimerBarFill" style="width: 0%;"></div>
       </div>
@@ -3498,6 +3518,82 @@
         driftEl.title = `Reasoning-to-output ${drift.lastDriftRatio}x (rolling 3-turn ${drift.rollingDriftRatio}x). Avg TTFT ${drift.avgTtftMs ?? '\u2014'}ms. DET-30 trips at \u226512x with \u22654k thinking tokens and 0 edits.`;
       }
     }
+  }
+  // Sprint 2.1: Subagent /swarm & Git Worktree Topology (progressive disclosure).
+  // Computed in src/core/swarm_topology.mjs. Solo sessions render a 1-line pill; the drawer
+  // auto-expands once when workers > 0, worktrees > 1 or a DET-20 overlap appears.
+  let lastSwarmAutoExpand = false;
+  function renderSwarmTopology(topo) {
+    const drawer = document.getElementById('swarmTopologyDrawer');
+    const summary = document.getElementById('swarmTopologySummary');
+    const body = document.getElementById('swarmTopologyBody');
+    if (!drawer || !summary || !body) return;
+    if (!topo || typeof topo !== 'object') {
+      drawer.dataset.mode = 'solo';
+      drawer.dataset.collision = 'false';
+      summary.textContent = 'Solo agent';
+      body.replaceChildren();
+      lastSwarmAutoExpand = false;
+      return;
+    }
+    const collisions = (topo.scopeLocks && Array.isArray(topo.scopeLocks.collisions)) ? topo.scopeLocks.collisions : [];
+    drawer.dataset.mode = topo.mode || 'solo';
+    drawer.dataset.collision = collisions.length > 0 ? 'true' : 'false';
+    summary.textContent = (topo.autoExpand ? '\u25B8 ' : '') + (topo.label || 'Solo agent');
+    if (topo.autoExpand && !lastSwarmAutoExpand) drawer.open = true;
+    lastSwarmAutoExpand = Boolean(topo.autoExpand);
+
+    const frag = document.createDocumentFragment();
+    const workers = Array.isArray(topo.workers) ? topo.workers : [];
+    if (workers.length > 0) {
+      const table = document.createElement('table');
+      table.className = 'swarm-topology-table';
+      const head = document.createElement('tr');
+      for (const h of ['Worker', 'State', 'Model', 'WS', 'TTL']) {
+        const th = document.createElement('th');
+        th.textContent = h;
+        head.appendChild(th);
+      }
+      table.appendChild(head);
+      for (const w of workers) {
+        const tr = document.createElement('tr');
+        const cells = [
+          w.name,
+          w.state + (w.parked ? ' ($0)' : ''),
+          w.model || 'inherit',
+          w.workspace || 'inherit',
+          w.ttlRemainingSec > 0 ? Math.floor(w.ttlRemainingSec / 60) + 'm' + String(w.ttlRemainingSec % 60).padStart(2, '0') + 's' : '\u2014'
+        ];
+        cells.forEach((val, idx) => {
+          const td = document.createElement('td');
+          td.textContent = String(val);
+          if (idx === 1) { td.className = 'swarm-state'; td.dataset.state = w.state; }
+          if (idx === 4) td.className = 'num';
+          td.title = String(val);
+          tr.appendChild(td);
+        });
+        table.appendChild(tr);
+      }
+      frag.appendChild(table);
+    }
+    const worktrees = Array.isArray(topo.worktrees) ? topo.worktrees : [];
+    if (worktrees.length > 0) {
+      const wt = document.createElement('div');
+      wt.className = 'swarm-topology-note';
+      wt.textContent = 'Worktrees: ' + worktrees.map((t) => (t.isMain ? '\u2605' : '') + (t.branch || (t.detached ? 'detached@' + (t.head || '') : t.name)) + (t.locked ? ' [locked]' : '') + (t.prunable ? ' [prunable]' : '')).join(' \u00b7 ');
+      wt.title = worktrees.map((t) => t.path).join('\n');
+      frag.appendChild(wt);
+    }
+    const leaseCount = topo.scopeLocks ? Number(topo.scopeLocks.leaseCount || 0) : 0;
+    if (leaseCount > 0 || collisions.length > 0) {
+      const sl = document.createElement('div');
+      sl.className = 'swarm-topology-note' + (collisions.length > 0 ? ' collision' : '');
+      sl.textContent = 'Scope locks: ' + leaseCount + ' active' + (collisions.length > 0
+        ? ' \u00b7 DET-20 overlap: ' + collisions.map((c) => c.trajectories.join(' \u2194 ') + ' [' + c.overlappingPaths.join(', ') + ']').join('; ')
+        : '');
+      frag.appendChild(sl);
+    }
+    body.replaceChildren(frag);
   }
   function promptLabel(key) {
     return (CAN_INJECT ? '\u26A1 Send to Agent: ' : '\uD83D\uDCCB Copy Prompt: ') + PROMPTS[key].short;
@@ -4558,6 +4654,7 @@
     if (quotaStrip) {
       const q = raw.quota || {};
       renderSprintMetrics(q);
+      renderSwarmTopology(raw.swarmTopology || null);
       const s5 = q.sprint5h?.usedPct ?? 0;
       const w7 = q.weekly7d?.usedPct ?? 0;
       const cHit = Math.max(0, Number(q.cache?.hitRatePct ?? 0) || 0);

@@ -10,6 +10,7 @@ import { runCLI, runDemoShowcase, formatActionQueueAnsi } from './horizon_hud.mj
 import { startServer } from '../../sidecars/horizon-daemon/server.mjs';
 import { runPostmortem, printPostmortemSummary } from './postmortem.mjs';
 import { runDoctor, parseDoctorArgs } from './doctor.mjs';
+import { runCostRadar, parseCostRadarArgs } from './cost_radar.mjs';
 import { compressCliOutputFts5, searchToolLogsFts5 } from '../core/fts5_output_compressor.mjs';
 import { SWARM_TOOL_MATCHER, FULL_TOOL_HOOK_MATCHER, validateAntigravityHooksSchema } from '../core/layer5_hygiene.mjs';
 
@@ -28,7 +29,7 @@ function getVersion() {
   } catch (err) {
     if (process.env.DEBUG) console.error('[init] getVersion fallback:', err);
   }
-  return '3.3.0';
+  return '3.4.0';
 }
 const VERSION = getVersion();
 
@@ -339,6 +340,13 @@ if (isMain) {
     const cliOpts = parseDoctorArgs(args);
     runDoctor(cliOpts).then(res => {
       process.exit(res.ok === false ? 1 : 0);
+    });
+  } else if (cmd === 'cost-radar' || args.includes('--cost-radar')) {
+    runCostRadar(parseCostRadarArgs(args)).then(res => {
+      process.exit(res && res.ok ? 0 : 1);
+    }).catch(err => {
+      console.error(`cost-radar failed: ${err?.message || err}`);
+      process.exit(1);
     });
   } else if (cmd === 'postmortem' || args.includes('--postmortem')) {
     const lastIdx = args.indexOf('--last');
