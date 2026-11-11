@@ -2264,6 +2264,23 @@
     .cache-meter-saved {
       display: none;
     }
+    .sprint-metrics-row {
+      font-size: 10.5px;
+      color: #cbd5e1;
+    }
+    .sprint-metric {
+      padding: 1px 6px;
+      border-radius: 4px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      background: rgba(148, 163, 184, 0.08);
+      color: #cbd5e1 !important;
+      white-space: nowrap;
+    }
+    .sprint-metric.retention[data-grade="A"] { color: #6ee7b7 !important; border-color: rgba(52, 211, 153, 0.35); }
+    .sprint-metric.retention[data-grade="B"] { color: #fcd34d !important; border-color: rgba(251, 191, 36, 0.35); }
+    .sprint-metric.retention[data-grade="C"] { color: #fca5a5 !important; border-color: rgba(248, 113, 113, 0.4); }
+    .sprint-metric.drift[data-drift="elevated"] { color: #fcd34d !important; border-color: rgba(251, 191, 36, 0.35); }
+    .sprint-metric.drift[data-drift="loop_detected"] { color: #fecaca !important; background: rgba(239, 68, 68, 0.16); border-color: rgba(248, 113, 113, 0.55); font-weight: 600; }
     .cache-operational-guide {
       display: flex;
       align-items: flex-start;
@@ -3150,6 +3167,10 @@
         <span class="cache-meter-countdown ttl-countdown-clock mono cold" id="ttlCountdownClock" title="5-Minute Prompt Cache Window">Expired</span>
         <span class="cache-meter-saved" id="cacheTokensSavedDisplay">+0k saved</span>
       </div>
+      <div class="cache-meter-row sprint-metrics-row mono" id="sprintMetricsRow">
+        <span class="sprint-metric retention" id="prefixRetentionDisplay" data-grade="n/a" title="Prefix-Cache Retention Index: share of the reusable prompt prefix actually served from warm KV cache on turns 2+ inside the TTL.">Retain &mdash;</span>
+        <span class="sprint-metric drift" id="thinkingDriftDisplay" data-drift="n/a" title="Thinking vs. Generation Drift: reasoning tokens / visible output tokens on the latest turn, plus time-to-first-token.">Think &mdash; &middot; TTFT &mdash;</span>
+      </div>
       <div class="cache-timer-bar-track" title="5-Minute Prompt Cache Timer">
         <div class="cache-timer-bar-fill cold" id="cacheTimerBarFill" style="width: 0%;"></div>
       </div>
@@ -3665,6 +3686,35 @@
 
   function escAttr(s) {
     return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  // Sprint 1 Metrics Wedge: Prefix-Cache Retention Index + Thinking vs. Generation Drift (DET-30).
+  // Values are computed in src/core/sprint_metrics.mjs; unmeasured sessions render "—", never a fabricated 100%.
+  function renderSprintMetrics(q) {
+    const retEl = document.getElementById('prefixRetentionDisplay');
+    const driftEl = document.getElementById('thinkingDriftDisplay');
+    const ret = q?.cache?.prefixRetention || null;
+    const drift = q?.thinkingDrift || null;
+    if (retEl) {
+      retEl.textContent = ret?.label || 'Retain \u2014';
+      retEl.dataset.grade = ret?.grade || 'n/a';
+      if (ret && ret.measured) {
+        const causes = Object.entries(ret.bustCauses || {}).map(([k, v]) => `${k.replace(/_/g, ' ')} \u00d7${v}`).join(', ');
+        retEl.title = `Prefix-Cache Retention ${ret.retentionIndexPct}% (grade ${ret.grade}) over ${ret.measuredTurns} warm-eligible turn(s). ` +
+          `Retained ${Number(ret.retainedPrefixTokens || 0).toLocaleString()} / ${Number(ret.eligiblePrefixTokens || 0).toLocaleString()} prefix tokens. ` +
+          `Discount captured $${Number(ret.retainedDiscountSavingsUSD || 0).toFixed(2)} · cold re-prefill leaked $${Number(ret.leakedColdPrefillUSD || 0).toFixed(2)}.` +
+          (causes ? ` Bust causes: ${causes}.` : '') +
+          (ret.ttlExpiredTurns ? ` ${ret.ttlExpiredTurns} turn(s) excluded (TTL expired while idle).` : '');
+      }
+    }
+    if (driftEl) {
+      driftEl.textContent = drift?.label || 'Think \u2014 \u00b7 TTFT \u2014';
+      driftEl.dataset.drift = drift?.driftState || 'n/a';
+      if (drift?.loop?.triggered) {
+        driftEl.title = drift.loop.message;
+      } else if (drift && drift.measured) {
+        driftEl.title = `Reasoning-to-output ${drift.lastDriftRatio}x (rolling 3-turn ${drift.rollingDriftRatio}x). Avg TTFT ${drift.avgTtftMs ?? '\u2014'}ms. DET-30 trips at \u226512x with \u22654k thinking tokens and 0 edits.`;
+      }
+    }
   }
   function promptLabel(key) {
     return (CAN_INJECT ? '\u26A1 Send to Agent: ' : '\uD83D\uDCCB Copy Prompt: ') + PROMPTS[key].short;
@@ -4724,6 +4774,7 @@
     const quotaOverageAlert = document.getElementById('quotaOverageAlert');
     if (quotaStrip) {
       const q = raw.quota || {};
+      renderSprintMetrics(q);
       const s5 = q.sprint5h?.usedPct ?? 0;
       const w7 = q.weekly7d?.usedPct ?? 0;
       const cHit = Math.max(0, Number(q.cache?.hitRatePct ?? 0) || 0);

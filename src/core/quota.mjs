@@ -13,6 +13,7 @@ import {
   parseAgentCacheKey
 } from './constants.mjs';
 import { parseSettingsChanges } from './parser.mjs';
+import { computePrefixRetentionIndex, computeThinkingDrift } from './sprint_metrics.mjs';
 
 export { formatAgentCacheKey, formatAgentStreamKey, parseAgentCacheKey };
 
@@ -239,7 +240,10 @@ export function loadQuotaLedger(cacheDir = null) {
       const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
       if (parsed && typeof parsed.sessions === 'object') return parsed;
     }
-  } catch {}
+  } catch (err) {
+    // Corrupt or unreadable ledger: fall back to an empty rolling ledger (rebuilt on next save).
+    if (process.env.HORIZON_DEBUG) console.error('[quota] ledger read failed:', err?.message || err);
+  }
   return { schemaRev: 1, sessions: {} };
 }
 
@@ -247,7 +251,10 @@ export function saveQuotaLedger(ledger, cacheDir = null) {
   try {
     const file = getLedgerPath(cacheDir);
     atomicWriteFileSync(file, JSON.stringify(ledger));
-  } catch {}
+  } catch (err) {
+    // Non-fatal: quota pacing still renders from in-memory telemetry this turn.
+    if (process.env.HORIZON_DEBUG) console.error('[quota] ledger write failed:', err?.message || err);
+  }
 }
 
 /**
@@ -1061,6 +1068,9 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
         write5mTokens: stepWrite5m,
         write1hTokens: stepWrite1h,
         outputTokens: rawOutput,
+        type: s.type || null,
+        thinkingTokens: Number(s.thinkingTokens || 0),
+        thinkingEstimated: !s.thinkingTokens && rawThinking > 0,
         ttlSeconds: streamTtlSec,
         rates: {
           input: stepRates.input,
@@ -1361,6 +1371,9 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
     totalPromptTokens: Math.max(totalActiveTokens, totalPromptTokens)
   });
 
+  const prefixRetention = computePrefixRetentionIndex(turns);
+  const thinkingDrift = computeThinkingDrift(steps);
+
   const activeDescriptor = resolveModelDescriptor(runningModel || modelId);
   const supportsExplicitCache = activeDescriptor ? Boolean(activeDescriptor.supports_explicit_cache) : true;
   const cachingMode = activeDescriptor?.caching_mode || (supportsExplicitCache ? 'explicit_and_implicit' : 'implicit_only');
@@ -1425,6 +1438,7 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
       dualTtl,
       prefixDiff,
       costGate,
+      prefixRetention,
       roi: cacheRoi,
       pricing: {
         rates: {
@@ -1449,6 +1463,7 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
       preSwitchCompactionAdvice: thrashResult.preSwitchCompactionAdvice || ''
     },
     routerThrash: thrashResult,
+    thinkingDrift,
     forecast: {
       nextTurnHighSprintPct,
       nextTurnHighWeeklyPct,

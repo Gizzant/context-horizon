@@ -15,6 +15,7 @@ import './phase2_reflector_and_contradiction.test.mjs';
 import './phase3_fenced_ttl_and_decomposer.test.mjs';
 import './saved_quota_ledger.test.mjs';
 import './scope_lock_registry.test.mjs';
+import './sprint1_metrics_wedge.test.mjs';
 import './subagent_ipi_sanitizer.test.mjs';
 import './surgical_patch_256k_staging.test.mjs';
 import './test_action_queue.mjs';

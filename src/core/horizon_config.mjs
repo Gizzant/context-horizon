@@ -42,7 +42,8 @@ export const EXTENDED_DETECTOR_IDS = Object.freeze([
   'DET-26',
   'DET-27',
   'DET-28',
-  'DET-29'
+  'DET-29',
+  'DET-30'
 ]);
 
 export const RING0_SECURITY_DETECTORS = Object.freeze([
@@ -81,7 +82,8 @@ export const ANTIGRAVITY_DETECTOR_SLUGS = Object.freeze({
   'DET-26': 'prompt-decomposer',
   'DET-27': 'rule-file-bloat',
   'DET-28': 'subagent-phantom',
-  'DET-29': 'reflector-queue'
+  'DET-29': 'reflector-queue',
+  'DET-30': 'thinking-drift-loop'
 });
 
 export const SLUG_TO_ANTIGRAVITY_DETECTOR = Object.freeze({
@@ -118,7 +120,9 @@ export const SLUG_TO_ANTIGRAVITY_DETECTOR = Object.freeze({
   'prompt-decomposer': 'DET-26',
   'rule-file-bloat': 'DET-27',
   'subagent-phantom': 'DET-28',
-  'reflector-queue': 'DET-29'
+  'reflector-queue': 'DET-29',
+  'thinking-drift-loop': 'DET-30',
+  'scratchpad-loop': 'DET-30'
 });
 
 /**
@@ -146,7 +150,8 @@ export const CLAUDE_CODE_DETECTOR_TRANSLATION = Object.freeze({
   'DET-17': { gaIds: ['DET-21'], slug: 'blind-edit' },
   'DET-18': { gaIds: ['DET-18'], slug: 'untrusted-settings' },
   'DET-19': { gaIds: [], slug: 'subagent-ipi' },
-  'DET-20': { gaIds: ['DET-20'], slug: 'scope-lock' }
+  'DET-20': { gaIds: ['DET-20'], slug: 'scope-lock' },
+  'DET-21': { gaIds: ['DET-30'], slug: 'thinking-drift-loop' }
 });
 
 export const DEFAULT_HORIZON_CONFIG = Object.freeze({

@@ -837,7 +837,7 @@ describe('Batch 3 Regression Suite — ISS-039, ISS-040, ISS-041, ISS-042, ISS-0
     test('DETECTOR_CATALOG has all 20 canonical entries (DET-01..20) and secondary coach detectors use unique DET-21..29 IDs', () => {
       assert.equal(CANONICAL_DETECTOR_IDS.length, 20);
       assert.equal(Object.keys(DETECTOR_CATALOG).length, 20);
-      assert.equal(EXTENDED_DETECTOR_IDS.length, 29);
+      assert.equal(EXTENDED_DETECTOR_IDS.length, 30);
 
       for (let i = 1; i <= 20; i++) {
         const id = `DET-${String(i).padStart(2, '0')}`;

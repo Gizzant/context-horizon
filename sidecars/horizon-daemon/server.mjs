@@ -286,8 +286,18 @@ function buildCoachState(state, targetConvId) {
     const taskMdContent = state?.taskMdContent || getCachedTaskMdContent(wsDir);
     const livePrompt = String(state?.lastUserPrompt || '');
 
-    const cachedTokens = Number(state?.window?.totalActiveTokens || state?.tokens?.total || 0);
     const ttlSec = Math.max(0, Number(state?.quota?.cache?.ttlRemainingSec ?? state?.cache?.ttlRemainingSec ?? 0) || 0);
+    // Single source of truth for cache warmth: classifier `sessionRisk.isCacheTrulyWarm`
+    // (requires real cache-read evidence). A cold/busted cache contributes 0 warm tokens,
+    // so Coach never defends a prefix that is not actually resident.
+    const cacheBlock = state?.quota?.cache || state?.cache || {};
+    const totalActive = Number(state?.window?.totalActiveTokens || state?.tokens?.total || 0);
+    const trulyWarm = typeof state?.sessionRisk?.isCacheTrulyWarm === 'boolean'
+      ? state.sessionRisk.isCacheTrulyWarm
+      : (ttlSec > 0 && Number(cacheBlock.cacheReadTokens || 0) > 0 && !cacheBlock.prefixBustDetected);
+    const cachedTokens = trulyWarm
+      ? Math.max(Number(cacheBlock.lastTurnCacheReadTokens || 0), totalActive)
+      : 0;
     const session = {
       cachedTokens,
       cacheTtlSeconds: ttlSec,
@@ -409,6 +419,16 @@ function buildCoachState(state, targetConvId) {
 
     const combinedAlerts = [...circuitBreakers.activeAlerts];
     if (scopeCollisionAlert) combinedAlerts.push(scopeCollisionAlert);
+    const thinkingDrift = state?.quota?.thinkingDrift || null;
+    const det30Mode = String(horizonCfg?.detectors?.['DET-30'] || 'default').toLowerCase();
+    if (thinkingDrift?.loop?.triggered && det30Mode !== 'off') {
+      combinedAlerts.push({
+        detectorId: 'DET-30',
+        name: 'thinking-drift-loop',
+        severity: thinkingDrift.loop.severity === 'critical' ? 'CRITICAL' : 'WARN',
+        message: thinkingDrift.loop.message
+      });
+    }
     const primaryTripped = combinedAlerts.length > 0 ? combinedAlerts[combinedAlerts.length - 1] : null;
 
     return {
@@ -430,6 +450,8 @@ function buildCoachState(state, targetConvId) {
           : '20 guards quiet (DET-01..20 Active)'
       },
       scopeCollision: scopeCollisionAlert,
+      thinkingDrift,
+      prefixRetention: state?.quota?.cache?.prefixRetention || null,
       det17ShadowBloat,
       ttlWatchdog: ttlWatchdogState,
       hysteresisLock: hysteresisLock.getStatus(),
