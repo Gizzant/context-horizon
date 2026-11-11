@@ -22,7 +22,8 @@
       "antigravity_min_tier": "ultra",
       "shared_pool_ceiling": 1048576,
       "deprecated_after": null,
-      "quota_multipliers": { "low": 3.0, "med": 5.5, "medium": 5.5, "high": 9.25 },
+      "weights": { "low": 3.2, "med": 6.0, "medium": 6.0, "high": 10.0 },
+      "quota_multipliers": { "low": 3.2, "med": 6.0, "medium": 6.0, "high": 10.0 },
       "rate_schedules": [
         {
           "id": "carbon-introductory-pre-2026-12-01",
@@ -77,7 +78,8 @@
       "antigravity_min_tier": "ultra",
       "shared_pool_ceiling": 1048576,
       "deprecated_after": null,
-      "quota_multipliers": { "low": 3.0, "med": 5.5, "medium": 5.5, "high": 9.25 },
+      "weights": { "low": 3.2, "med": 6.0, "medium": 6.0, "high": 10.0 },
+      "quota_multipliers": { "low": 3.2, "med": 6.0, "medium": 6.0, "high": 10.0 },
       "rate_schedules": [
         {
           "id": "carbon-introductory-pre-2026-12-01",
@@ -137,6 +139,7 @@
       "antigravity_min_tier": "pro",
       "shared_pool_ceiling": 1048576,
       "deprecated_after": null,
+      "weights": { "low": 3.0, "med": 5.5, "medium": 5.5, "high": 9.25 },
       "quota_multipliers": { "low": 3.0, "med": 5.5, "medium": 5.5, "high": 9.25 },
       "rate_schedules": [
         {

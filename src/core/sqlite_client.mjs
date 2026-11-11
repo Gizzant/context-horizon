@@ -32,21 +32,23 @@ export function isHostProtectedSqlitePath(dbPath = '') {
 }
 
 /**
- * Opens a plugin-owned Horizon SQLite database with strict WAL + `busy_timeout = 5000`
- * (or `{ readOnly: true }` for read-only queries).
+ * Opens a plugin-owned Horizon SQLite database with strict WAL + `busy_timeout = 3000`
+ * (or `{ readOnly: true, readonly: true }` for read-only queries).
  */
-export function openLocalHorizonDb(dbPath, { readOnly = false, DatabaseSync = null } = {}) {
+export function openLocalHorizonDb(dbPath, { readOnly = false, readonly = false, busyTimeoutMs = 3000, DatabaseSync = null } = {}) {
   if (!dbPath || typeof dbPath !== 'string') {
     throw new TypeError('openLocalHorizonDb requires a non-empty dbPath string');
   }
   const resolvedPath = path.resolve(dbPath);
   const DbCtor = resolveDatabaseSync(DatabaseSync);
+  const isReadOnly = readOnly === true || readonly === true;
+  const timeoutVal = Math.max(100, Number(busyTimeoutMs) || 3000);
 
-  if (readOnly === true) {
-    const db = new DbCtor(resolvedPath, { readOnly: true });
+  if (isReadOnly) {
+    const db = new DbCtor(resolvedPath, { readOnly: true, readonly: true });
     try {
       if (typeof db.exec === 'function') {
-        db.exec('PRAGMA busy_timeout = 5000;');
+        db.exec(`PRAGMA busy_timeout = ${timeoutVal};`);
       }
     } catch {
       // Read-only handles on locked/immutable files may reject pragma mutations; ignore safely.
@@ -67,7 +69,7 @@ export function openLocalHorizonDb(dbPath, { readOnly = false, DatabaseSync = nu
       db.exec(`
         PRAGMA journal_mode = WAL;
         PRAGMA synchronous = NORMAL;
-        PRAGMA busy_timeout = 5000;
+        PRAGMA busy_timeout = ${timeoutVal};
       `);
     }
     return db;
@@ -80,10 +82,10 @@ export function openLocalHorizonDb(dbPath, { readOnly = false, DatabaseSync = nu
 }
 
 /**
- * Strictly opens host Antigravity / IDE SQLite databases with `{ readOnly: true }`.
+ * Strictly opens host Antigravity / IDE SQLite databases with `{ readOnly: true, readonly: true }`.
  */
 export function openHostReadOnlyDb(dbPath, options = {}) {
-  return openLocalHorizonDb(dbPath, { ...options, readOnly: true });
+  return openLocalHorizonDb(dbPath, { ...options, readOnly: true, readonly: true });
 }
 
 export default {

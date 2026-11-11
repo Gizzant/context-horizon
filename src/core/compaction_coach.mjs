@@ -157,6 +157,33 @@ export function assessCompactionState(sessionTelemetry = {}) {
     };
   }
 
+  // Rule 1b (Rank 4 — DET-17): Suppress premature /compact recommendations while prefix cache hit ratio > 96% below 50,000 tokens
+  if (
+    cacheHitRate > 0.96 &&
+    totalTokens > 0 &&
+    totalTokens < 50000 &&
+    (sessionTelemetry.cacheTtlSeconds === undefined || cacheTtlSeconds > 0)
+  ) {
+    return {
+      action: 'DEFER_COMPACTION',
+      detectorId: 'DET-17',
+      badge: '🛡️ Prefix Cache >96% Hit Below 50k — Suppress Premature /compact',
+      shouldCompact: false,
+      suppressPrematureCompact: true,
+      recommendBatonPass: false,
+      recommendTailTrim: false,
+      warmCacheLocked: true,
+      reason: `Prefix cache hit ratio is ${(cacheHitRate * 100).toFixed(1)}% (>96%) at ${totalTokens.toLocaleString()} tokens (<50,000). Suppressing premature /compact preserves the warm prefix cache.`,
+      triggers: {
+        warmCacheLock: true,
+        tokenTrigger: false,
+        wasteTrigger: false,
+        turnDegradationTrigger: false
+      },
+      watermarks
+    };
+  }
+
   // Critical Near-Clamp Alarm (>= auto-compact safe limit)
   if (totalTokens >= resolvedSafeLimit) {
     return {

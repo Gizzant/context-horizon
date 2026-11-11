@@ -6,12 +6,20 @@ import { openLocalHorizonDb } from '../sqlite_client.mjs';
 /**
  * Phase 4.3: Deterministic "Saved-Quota Receipt" Ledger (`src/core/coach/saved_quota_ledger.mjs`)
  *
- * - Stores verified savings events in SQLite:
+ * - Initializes strictly at `$0.00` and `0` tokens (zero mock constants).
+ * - Stores byte-verified deterministic savings events in SQLite:
  *   `EFFORT_DOWNSHIFT`, `COLD_PREFILL_AVOIDED`, `CLI_DUMP_COMPRESSED`, `LOOP_TURN_PREVENTED`
- * - Updates the VS Code Status Bar item and Horizon Footer:
- *   `$(shield) Horizon: +142.4k Argon-equiv tokens saved (2 Cold Prefills • 3 Downshifts • 1 CLI Compress)`
+ * - Updates the VS Code Status Bar item and Horizon Footer from live SQLite rows only.
  * - Implements `[Copy Savings Receipt]` to export a clean Markdown telemetry table to the clipboard.
  */
+
+export const INITIAL_LEDGER_STATE = Object.freeze({
+  totalTokensSaved: 0,
+  totalArgonEquivTokensSaved: 0,
+  totalDollarsSaved: 0,
+  formattedDollarsSaved: '$0.00',
+  formattedSavedK: '0.0k'
+});
 
 export const SAVINGS_EVENT_TYPES = Object.freeze({
   EFFORT_DOWNSHIFT: 'EFFORT_DOWNSHIFT',
@@ -49,11 +57,15 @@ export class SavedQuotaReceiptLedger {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           session_id TEXT NOT NULL,
           event_type TEXT NOT NULL,
-          argon_equiv_tokens_saved INTEGER NOT NULL,
+          argon_equiv_tokens_saved INTEGER NOT NULL DEFAULT 0,
+          raw_bytes_saved INTEGER NOT NULL DEFAULT 0,
+          dollars_saved REAL NOT NULL DEFAULT 0,
           detail TEXT,
           created_at TEXT NOT NULL
         );
       `);
+      try { db.exec('ALTER TABLE savings_events ADD COLUMN raw_bytes_saved INTEGER NOT NULL DEFAULT 0;'); } catch {}
+      try { db.exec('ALTER TABLE savings_events ADD COLUMN dollars_saved REAL NOT NULL DEFAULT 0;'); } catch {}
     } finally {
       db.close();
     }
@@ -67,18 +79,26 @@ export class SavedQuotaReceiptLedger {
     eventType = SAVINGS_EVENT_TYPES.EFFORT_DOWNSHIFT,
     argonEquivTokensSaved = 0,
     tokensSaved = undefined,
+    rawBytesSaved = 0,
+    dollarsSaved = undefined,
+    inputPricePer1M = 2.0,
     detail = '',
     createdAt = new Date().toISOString()
   } = {}) {
     const type = String(eventType || SAVINGS_EVENT_TYPES.EFFORT_DOWNSHIFT).toUpperCase();
-    const saved = Math.max(0, Math.round(Number(argonEquivTokensSaved ?? tokensSaved ?? 0)));
+    const bytes = Math.max(0, Math.round(Number(rawBytesSaved) || 0));
+    const derivedTokens = bytes > 0 ? Math.floor(bytes / 4) : 0;
+    const saved = Math.max(0, Math.round(Number(argonEquivTokensSaved ?? tokensSaved ?? derivedTokens) || 0));
+    const usd = dollarsSaved !== undefined
+      ? Math.max(0, Number(dollarsSaved) || 0)
+      : Number(((saved / 1_000_000) * Math.max(0, Number(inputPricePer1M) || 0)).toFixed(6));
 
     const db = openLocalHorizonDb(this.dbPath, { readOnly: false });
     try {
       db.prepare(`
-        INSERT INTO savings_events (session_id, event_type, argon_equiv_tokens_saved, detail, created_at)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(String(sessionId), type, saved, String(detail || ''), String(createdAt));
+        INSERT INTO savings_events (session_id, event_type, argon_equiv_tokens_saved, raw_bytes_saved, dollars_saved, detail, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(String(sessionId), type, saved, bytes, usd, String(detail || ''), String(createdAt));
     } finally {
       db.close();
     }
@@ -96,14 +116,14 @@ export class SavedQuotaReceiptLedger {
       try {
         if (sessionId) {
           rows = db.prepare(`
-            SELECT id, session_id AS sessionId, event_type AS eventType, argon_equiv_tokens_saved AS argonEquivTokensSaved, detail, created_at AS createdAt
+            SELECT id, session_id AS sessionId, event_type AS eventType, argon_equiv_tokens_saved AS argonEquivTokensSaved, raw_bytes_saved AS rawBytesSaved, dollars_saved AS dollarsSaved, detail, created_at AS createdAt
             FROM savings_events
             WHERE session_id = ?
             ORDER BY id ASC
           `).all(String(sessionId));
         } else {
           rows = db.prepare(`
-            SELECT id, session_id AS sessionId, event_type AS eventType, argon_equiv_tokens_saved AS argonEquivTokensSaved, detail, created_at AS createdAt
+            SELECT id, session_id AS sessionId, event_type AS eventType, argon_equiv_tokens_saved AS argonEquivTokensSaved, raw_bytes_saved AS rawBytesSaved, dollars_saved AS dollarsSaved, detail, created_at AS createdAt
             FROM savings_events
             ORDER BY id ASC
           `).all();
@@ -128,11 +148,17 @@ export class SavedQuotaReceiptLedger {
     };
 
     let totalArgonEquivTokensSaved = 0;
+    let totalRawBytesSaved = 0;
+    let totalDollarsSaved = 0;
 
     for (const row of rows) {
       const t = String(row.eventType || '');
       const tok = Math.max(0, Number(row.argonEquivTokensSaved || 0));
+      const b = Math.max(0, Number(row.rawBytesSaved || 0));
+      const usd = Math.max(0, Number(row.dollarsSaved || 0));
       totalArgonEquivTokensSaved += tok;
+      totalRawBytesSaved += b;
+      totalDollarsSaved += usd;
       if (counts[t] !== undefined) {
         counts[t]++;
         totalsByType[t] += tok;
@@ -154,11 +180,16 @@ export class SavedQuotaReceiptLedger {
     }
 
     const formattedSavedK = formatTokensCompactK(totalArgonEquivTokensSaved);
+    const formattedDollarsSaved = totalDollarsSaved === 0 ? '$0.00' : `$${totalDollarsSaved.toFixed(2)}`;
     const statusBarText = `$(shield) Horizon: +${formattedSavedK} Argon-equiv tokens saved (${parts.join(' • ')})`;
     const footerText = `🛡️ Horizon: +${formattedSavedK} Argon-equiv tokens saved (${parts.join(' • ')})`;
 
     return {
+      totalTokensSaved: totalArgonEquivTokensSaved,
       totalArgonEquivTokensSaved,
+      totalRawBytesSaved,
+      totalDollarsSaved: Number(totalDollarsSaved.toFixed(6)),
+      formattedDollarsSaved,
       formattedSavedK,
       counts,
       totalsByType,

@@ -71,10 +71,19 @@ function inspectSettingsContentHazards(rawContent = '', relLabel = '') {
     hazards.push('PERMISSION_OR_AUTO_APPROVE_BYPASS');
   }
 
+  const isCanonicalPluginHooksFile =
+    /(?:^|[\\/])hooks\.json$/i.test(relLabel) &&
+    !/\.agents[\\/]hooks\.json|\.gemini[\\/]hooks\.json/i.test(relLabel);
+
   if (
     /(?:^|["'\s])(?:\.\/|\.\.\\|\$\{workspaceFolder\}\/|\$WORKSPACE\/|\.agents\/plugins\/)[^\s"']+/i.test(text)
   ) {
-    hazards.push('WORKSPACE_RELATIVE_HOOK_RCE');
+    const strippedOfficialHooks = isCanonicalPluginHooksFile
+      ? text.replace(/node\s+(?:--no-warnings\s+)?\.\/hooks\/(?:session_start|pre_invocation|post_invocation|pre_tool_use|post_tool_use|stop)\.mjs\b/g, () => 'TRUSTED_PLUGIN_HOOK')
+      : text;
+    if (/(?:^|["'\s])(?:\.\/|\.\.\\|\$\{workspaceFolder\}\/|\$WORKSPACE\/|\.agents\/plugins\/)[^\s"']+/i.test(strippedOfficialHooks)) {
+      hazards.push('WORKSPACE_RELATIVE_HOOK_RCE');
+    }
   }
 
   if (/(hooks\.json|\.mcp\.json)$/i.test(relLabel) && text.trim()) {
@@ -96,6 +105,9 @@ function inspectSettingsContentHazards(rawContent = '', relLabel = '') {
       };
       collectCommands(parsed);
       for (const entry of commandStrings) {
+        const isTrustedPluginRootRelHook =
+          isCanonicalPluginHooksFile &&
+          /^node\s+(?:--no-warnings\s+)?\.\/hooks\/(?:session_start|pre_invocation|post_invocation|pre_tool_use|post_tool_use|stop)\.mjs$/.test(entry.cmd.trim());
         const isTrustedHorizonPlugin =
           entry.cmd.includes('.gemini/config/plugins/agy-horizon') &&
           !entry.cmd.includes('./') &&
@@ -105,7 +117,7 @@ function inspectSettingsContentHazards(rawContent = '', relLabel = '') {
           entry.cmd.includes('[CLI Output Dampener]') &&
           !entry.cmd.includes('child_process') &&
           !/\b(curl|wget|Invoke-WebRequest|iex|spawn|exec)\b/i.test(entry.cmd);
-        if (!isTrustedHorizonPlugin && !isBenignDampener) {
+        if (!isTrustedPluginRootRelHook && !isTrustedHorizonPlugin && !isBenignDampener) {
           hazards.push('UNTRUSTED_HOOK_OR_MCP_COMMAND');
           break;
         }

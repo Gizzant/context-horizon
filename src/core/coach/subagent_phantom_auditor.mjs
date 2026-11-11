@@ -8,7 +8,7 @@ import { performance } from 'node:perf_hooks';
  * - Monitors active subagent trajectories (`browser_subagent`, task workers) and counts
  *   DOM screenshot / image payload blocks.
  * - Renders a live pill in the Coach Bar whenever subagents run:
- *   `⚡ 1 Subagent: browser_subagent (4 turns • 3 screenshots • 41.2k tokens) [Kill]`
+ *   `⚡ 1 Subagent: browser_subagent (N turns • M screenshots • 0.0k tokens) [Kill]`
  * - Orphan Process Scanner & Killer: Detects orphaned headless Chrome / `browser_subagent`
  *   processes or hung `Pyrefly` LSP child processes after a turn ends or is canceled,
  *   allowing 1-click clean OS termination (`process.kill(pid, 'SIGTERM')`).

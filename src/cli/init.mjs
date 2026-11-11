@@ -33,53 +33,67 @@ function getVersion() {
 }
 const VERSION = getVersion();
 
-export function buildHooksConfig(targetPluginDir) {
-  const norm = (rel) => path.join(targetPluginDir, rel).replace(/\\/g, '/');
+export function buildHooksConfig(targetPluginDir = '.') {
+  const useRelative = !targetPluginDir || targetPluginDir === '.';
+  const cmdFor = (relHook, fallbackScript, extraArg = '') => {
+    const suffix = extraArg ? ` ${extraArg}` : '';
+    if (useRelative) return `node ./hooks/${relHook}`;
+    const norm = path.join(targetPluginDir, 'src/hooks', fallbackScript).replace(/\\/g, '/');
+    const safePath = /\s/.test(norm) ? `"${norm}"` : norm;
+    return `node --no-warnings ${safePath}${suffix}`;
+  };
   return {
-    'horizon-flightcheck-lifecycle': {
-      enabled: true,
+    hooks: {
       SessionStart: [
         {
           type: 'command',
-          command: `node --no-warnings "${norm('src/hooks/session_start.mjs')}"`,
+          command: cmdFor('session_start.mjs', 'session_start.mjs'),
           timeout: 5
         }
       ],
       PreInvocation: [
         {
           type: 'command',
-          command: `node --no-warnings "${norm('src/hooks/pre_invocation.mjs')}"`,
-          timeout: 15
+          command: cmdFor('pre_invocation.mjs', 'pre_invocation.mjs'),
+          timeout: 5
         }
       ],
       PostInvocation: [
         {
           type: 'command',
-          command: `node --no-warnings "${norm('src/hooks/post_invocation.mjs')}"`,
+          command: cmdFor('post_invocation.mjs', 'post_invocation.mjs'),
           timeout: 5
         }
       ],
       Stop: [
         {
           type: 'command',
-          command: `node --no-warnings "${norm('src/hooks/post_invocation.mjs')}"`,
+          command: cmdFor('stop.mjs', 'post_invocation.mjs'),
           timeout: 5
         }
       ],
       PreToolUse: [
         {
           matcher: FULL_TOOL_HOOK_MATCHER,
-          type: 'command',
-          command: `node --no-warnings "${norm('src/hooks/pre_invocation.mjs')}"`,
-          timeout: 5
+          hooks: [
+            {
+              type: 'command',
+              command: cmdFor('pre_tool_use.mjs', 'pre_invocation.mjs', '--event=PreToolUse'),
+              timeout: 5
+            }
+          ]
         }
       ],
       PostToolUse: [
         {
           matcher: FULL_TOOL_HOOK_MATCHER,
-          type: 'command',
-          command: `node --no-warnings "${norm('src/hooks/post_invocation.mjs')}"`,
-          timeout: 5
+          hooks: [
+            {
+              type: 'command',
+              command: cmdFor('post_tool_use.mjs', 'post_invocation.mjs'),
+              timeout: 5
+            }
+          ]
         }
       ]
     }

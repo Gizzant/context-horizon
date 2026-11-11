@@ -328,8 +328,9 @@ describe('8. Stage 3: PostInvocation Incremental Transcript Sync & Absolute Hook
       assert.ok(updated.fileState.activeSetPaths.some(p => p.endsWith('src/core/parser.mjs')));
 
       const hooksCfg = buildHooksConfig('C:\\Users\\dev\\.gemini\\config\\plugins\\agy-horizon-flightcheck');
-      const preCmd = hooksCfg['horizon-flightcheck-lifecycle'].PreInvocation[0].command;
-      assert.ok(preCmd.includes('"C:/Users/dev/.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/pre_invocation.mjs"'), `Expected quoted forward-slash absolute path, got: ${preCmd}`);
+      const preCmd = (hooksCfg.hooks || hooksCfg['horizon-flightcheck-lifecycle']).PreInvocation[0].command;
+      assert.ok(preCmd.includes('C:/Users/dev/.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/pre_invocation.mjs'), `Expected unquoted forward-slash absolute path, got: ${preCmd}`);
+      assert.ok(!preCmd.includes('"'), `Space-free hook command must not contain quotes (breaks Windows execFile): ${preCmd}`);
       assert.ok(!preCmd.includes('\\'), 'Hook command must not contain unescaped Windows backslashes');
     } finally {
       try {

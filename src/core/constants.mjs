@@ -4,7 +4,11 @@ import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const __constantsDirname = path.dirname(fileURLToPath(import.meta.url));
-export const DEFAULT_MODEL_CATALOG_PATH = path.resolve(__constantsDirname, '../../config/modelCatalog.json');
+const __srcCatalogCandidate = path.resolve(__constantsDirname, '../config/modelCatalog.json');
+const __rootCatalogCandidate = path.resolve(__constantsDirname, '../../config/modelCatalog.json');
+export const DEFAULT_MODEL_CATALOG_PATH = fs.existsSync(__srcCatalogCandidate)
+  ? __srcCatalogCandidate
+  : __rootCatalogCandidate;
 
 export const HORIZON_WINDOW = {
   MAX_TOKENS: 200000,

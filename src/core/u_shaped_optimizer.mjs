@@ -734,4 +734,56 @@ export class UShapedAttentionOptimizer {
   }
 }
 
+/**
+ * HUD Hygiene: Computes a strictly read-only U-curve positional decay heatmap over
+ * conversation transcript steps (Primacy top-30%, Middle Trough 30%-70%, Recency bottom-30%)
+ * without mutating `AGENTS.md` or enforcing Claude Code's 200-line `MEMORY.md` cap.
+ */
+export function computeReadOnlyUCurveConversationHeatmap(steps = []) {
+  const list = Array.isArray(steps) ? steps : [];
+  const totalSteps = list.length;
+  let primacyTokens = 0;
+  let middleTroughTokens = 0;
+  let recencyTokens = 0;
+  let middleTroughCriticalSteps = 0;
+
+  const cells = list.map((step, idx) => {
+    const ratio = totalSteps <= 1 ? 0 : idx / (totalSteps - 1);
+    const band = classifyPositionalBand(ratio);
+    const recallWeight = computePositionalRecallWeight(ratio);
+    const text = String(step?.content ?? step?.text ?? '');
+    const tokens = Math.max(0, Number(step?.tokens ?? Math.ceil(text.length / 4)));
+    const hasCriticalConstraint = U_CURVE_CONSTANTS.CRITICAL_KEYWORD_REGEX.test(text);
+
+    if (band === 'PRIMACY') primacyTokens += tokens;
+    else if (band === 'MIDDLE_TROUGH') {
+      middleTroughTokens += tokens;
+      if (hasCriticalConstraint) middleTroughCriticalSteps++;
+    } else {
+      recencyTokens += tokens;
+    }
+
+    return {
+      stepIndex: idx,
+      positionRatio: Number(ratio.toFixed(4)),
+      band,
+      recallWeight,
+      tokens,
+      hasCriticalConstraint
+    };
+  });
+
+  return Object.freeze({
+    readOnly: true,
+    mutatesAgentsMd: false,
+    enforces200LineMemoryCap: false,
+    totalSteps,
+    primacyTokens,
+    middleTroughTokens,
+    recencyTokens,
+    middleTroughCriticalSteps,
+    cells
+  });
+}
+
 export default UShapedAttentionOptimizer;

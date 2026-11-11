@@ -4,6 +4,15 @@ import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
 import { atomicWriteFileSync } from '../atomic_io.mjs';
+import {
+  CASCADE_COMPACTION_CEILING_TOKENS,
+  CASCADE_CHECKPOINT_BANDS,
+  createStateBaton,
+  validateStateBaton,
+  formatColdResumeBatonPrompt,
+  formatHandoffMarkdown
+} from '../shared/handoff_schema.mjs';
+import { evaluateDet17CascadeCheckpoints } from '../shared/detectors.mjs';
 
 /**
  * Phase 1.1: Progressive Checkpoint & Session Continuity Sync (`DET-10`)
@@ -395,6 +404,148 @@ export class ProgressiveCheckpointer {
       latestCheckpoint: latest
     };
   }
+
+  /**
+   * Rank 4 (`DET-17`): Anchors zero-token progressive State Baton snapshots to
+   * Antigravity's 70,000-token Cascade ceiling (`14k`, `25k`, `35k`, `45k`, `56k`),
+   * persists atomically to gitignored `.agents/cache/state_baton.json`, suppresses
+   * premature `/compact` when cache hit ratio `> 96%` below `50,000` tokens, and writes
+   * `docs/HANDOFF_<timestamp>.md` ONLY on explicit click or `Turn >= 45` in `AUTO_PILOT`.
+   */
+  evaluateCascadeBaton(input = {}) {
+    return evaluateCascadeBatonCheckpoint(input, {
+      workspaceDir: this.workspaceDir,
+      nowFn: this.nowFn,
+      sessionBandsMap: this.recordedBandsBySession
+    });
+  }
 }
+
+/**
+ * Ensures `.agents/cache/` is listed in `<workspaceDir>/.git/info/exclude` when a git
+ * repository is present so rolling State Baton snapshots never dirty `git status`.
+ */
+export function ensureGitInfoExcludeForAgentsCache(workspaceDir) {
+  if (!workspaceDir) return false;
+  const excludePath = path.join(workspaceDir, '.git', 'info', 'exclude');
+  if (!fs.existsSync(excludePath)) return false;
+  try {
+    const raw = fs.readFileSync(excludePath, 'utf8');
+    const lines = raw.split(/\r?\n/).map((l) => l.trim());
+    if (lines.includes('.agents/') || lines.includes('.agents/cache/') || lines.includes('.agents/cache')) {
+      return true;
+    }
+    const prefix = raw.endsWith('\n') || raw.length === 0 ? raw : `${raw}\n`;
+    atomicWriteFileSync(excludePath, `${prefix}.agents/cache/\n`, { encoding: 'utf8' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function formatCompactUtcStamp(nowMs = Date.now()) {
+  const iso = new Date(nowMs).toISOString(); // YYYY-MM-DDTHH:MM:SS.sssZ
+  return iso
+    .slice(0, 19)
+    .replace(/[-:]/g, () => '')
+    .replace('T', () => '_');
+}
+
+export function evaluateCascadeBatonCheckpoint(input = {}, options = {}) {
+  const workspaceDir = options.workspaceDir || input.workspaceDir || process.cwd();
+  const nowFn = typeof options.nowFn === 'function' ? options.nowFn : () => Date.now();
+  const sessionId = String(input.sessionId || 'default-session');
+  const currentTokens = Math.max(0, Number(input.currentTokens ?? input.totalTokens ?? 0));
+  const ceilingTokens = Number(input.ceilingTokens) > 0
+    ? Number(input.ceilingTokens)
+    : CASCADE_COMPACTION_CEILING_TOKENS;
+  const cacheHitRatio = Number(input.cacheHitRatio ?? input.cacheHitRate ?? 0);
+  const turn = Math.max(0, Math.round(Number(input.turn ?? input.turnCount ?? 0)));
+  const flightMode = String(input.flightMode || 'COACH').toUpperCase();
+
+  const mapKey = `cascade70k:${sessionId}`;
+  const existingSet = options.sessionBandsMap instanceof Map
+    ? (options.sessionBandsMap.get(mapKey) || new Set())
+    : new Set(Array.isArray(input.crossedBands) ? input.crossedBands : []);
+
+  const det17 = evaluateDet17CascadeCheckpoints({
+    currentTokens,
+    ceilingTokens,
+    crossedBands: Array.from(existingSet),
+    cacheHitRatio
+  });
+
+  if (options.sessionBandsMap instanceof Map) {
+    options.sessionBandsMap.set(mapKey, new Set(det17.crossedBands));
+  }
+
+  const stateBatonPath = input.stateBatonPath || path.join(workspaceDir, '.agents', 'cache', 'state_baton.json');
+  const highestNewBand = det17.newlyCrossedBands.length > 0
+    ? det17.newlyCrossedBands[det17.newlyCrossedBands.length - 1].label
+    : (det17.crossedBands[det17.crossedBands.length - 1] || 'nominal');
+
+  const baton = createStateBaton({
+    sessionId,
+    bandLabel: highestNewBand,
+    turn,
+    currentTokens,
+    ceilingTokens,
+    updatedAt: new Date(nowFn()).toISOString(),
+    activeGoal: input.activeGoal || 'Continue active workspace implementation',
+    workingSetFiles: input.workingSetFiles || [],
+    verifiedInvariants: input.verifiedInvariants || [],
+    negativeConstraints: input.negativeConstraints || extractNegativeConstraints([
+      ...(Array.isArray(input.userConstraints) ? input.userConstraints : [input.userConstraints]),
+      input.agentsMdContent || ''
+    ]),
+    deadEnds: input.deadEnds || []
+  });
+
+  let persistedBaton = false;
+  if ((det17.shouldWriteStateBaton || input.forceSnapshot === true) && input.writeToDisk !== false) {
+    ensureGitInfoExcludeForAgentsCache(workspaceDir);
+    atomicWriteFileSync(stateBatonPath, JSON.stringify(baton, null, 2) + '\n', { encoding: 'utf8' });
+    persistedBaton = true;
+  }
+
+  // Gate docs/HANDOFF_<timestamp>.md strictly to explicit Export Handoff click OR Turn >= 45 in AUTO_PILOT
+  const explicitExportClick = input.explicitExportClick === true;
+  const autoPilotTurnGate = flightMode === 'AUTO_PILOT' && turn >= 45 && input.alreadyExportedHandoff !== true;
+  let handoffExported = false;
+  let handoffPath = null;
+
+  if ((explicitExportClick || autoPilotTurnGate) && input.writeToDisk !== false) {
+    const stamp = input.timestampStamp || formatCompactUtcStamp(nowFn());
+    const docsDir = input.docsDir || path.join(workspaceDir, 'docs');
+    handoffPath = path.join(docsDir, `HANDOFF_${stamp}.md`);
+    const trigger = explicitExportClick ? 'explicit_export_click' : 'autopilot_turn_45';
+    const md = formatHandoffMarkdown(baton, { trigger });
+    atomicWriteFileSync(handoffPath, md, { encoding: 'utf8' });
+    handoffExported = true;
+  }
+
+  return {
+    detectorId: 'DET-17',
+    sessionId,
+    currentTokens,
+    ceilingTokens,
+    newlyCrossedBands: det17.newlyCrossedBands,
+    crossedBands: det17.crossedBands,
+    suppressPrematureCompact: det17.suppressPrematureCompact,
+    persistedBaton,
+    stateBatonPath,
+    baton,
+    coldResumePrompt: formatColdResumeBatonPrompt(baton),
+    handoffExported,
+    handoffPath
+  };
+}
+
+export {
+  CASCADE_COMPACTION_CEILING_TOKENS,
+  CASCADE_CHECKPOINT_BANDS,
+  createStateBaton,
+  validateStateBaton
+};
 
 export default ProgressiveCheckpointer;

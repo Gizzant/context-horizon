@@ -245,8 +245,9 @@ describe('Batch 3 Regression Suite — ISS-039, ISS-040, ISS-041, ISS-042, ISS-0
 
     test('hooks.json and buildHooksConfig widen PreToolUse & PostToolUse matchers to all core file/shell/subagent tools', () => {
       const hooksJson = JSON.parse(fs.readFileSync(path.resolve('hooks.json'), 'utf8'));
-      const preMatcher = hooksJson['horizon-flightcheck-lifecycle'].PreToolUse[0].matcher;
-      const postMatcher = hooksJson['horizon-flightcheck-lifecycle'].PostToolUse[0].matcher;
+      const hooksRoot = hooksJson.hooks || hooksJson['horizon-flightcheck-lifecycle'];
+      const preMatcher = hooksRoot.PreToolUse[0].matcher;
+      const postMatcher = hooksRoot.PostToolUse[0].matcher;
 
       for (const expectedTool of [
         'run_command',
@@ -266,8 +267,9 @@ describe('Batch 3 Regression Suite — ISS-039, ISS-040, ISS-041, ISS-042, ISS-0
       assert.equal(validateAntigravityHooksSchema(hooksJson).valid, true);
 
       const generatedHooks = buildHooksConfig('/tmp/plugin');
-      assert.equal(generatedHooks['horizon-flightcheck-lifecycle'].PreToolUse[0].matcher, FULL_TOOL_HOOK_MATCHER);
-      assert.equal(generatedHooks['horizon-flightcheck-lifecycle'].PostToolUse[0].matcher, FULL_TOOL_HOOK_MATCHER);
+      const genRoot = generatedHooks.hooks || generatedHooks['horizon-flightcheck-lifecycle'];
+      assert.equal(genRoot.PreToolUse[0].matcher, FULL_TOOL_HOOK_MATCHER);
+      assert.equal(genRoot.PostToolUse[0].matcher, FULL_TOOL_HOOK_MATCHER);
     });
 
     test('pre_invocation.mjs honors .attention-horizon.json flightMode (OFF, SILENT, AUTO_PILOT) while keeping Ring-0 blocks active', async () => {

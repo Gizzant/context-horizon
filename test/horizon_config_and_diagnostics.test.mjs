@@ -127,8 +127,8 @@ test('AGY-CFG-05: hooks.json and buildHooksConfig serialize SessionStart, PreInv
     ['hooks.json', rootHooks],
     ['buildHooksConfig()', generatedHooks]
   ]) {
-    const lifecycle = cfg['horizon-flightcheck-lifecycle'];
-    assert.ok(lifecycle, `${sourceName} must define horizon-flightcheck-lifecycle`);
+    const lifecycle = cfg.hooks || cfg['horizon-flightcheck-lifecycle'];
+    assert.ok(lifecycle, `${sourceName} must define hooks or horizon-flightcheck-lifecycle`);
     for (const hookEvent of ['SessionStart', 'PreInvocation', 'PostInvocation', 'Stop']) {
       if (!(hookEvent in lifecycle)) continue;
       const arr = lifecycle[hookEvent];

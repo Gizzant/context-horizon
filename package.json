@@ -1,6 +1,6 @@
 {
   "name": "attention-horizon-antigravity",
-  "displayName": "Attention Horizon for Google Antigravity: KV-Cache Governor",
+  "displayName": "Attention Horizon",
   "version": "3.4.0",
   "description": "Attention Horizon for Google Antigravity: 40-cell context window visualizer, $/turn Wasted Tokens auditor, and <15ms PreInvocation Flight Check router.",
   "type": "module",
@@ -19,7 +19,10 @@
     "SECURITY.md",
     "LICENSE",
     "plugin.json",
+    ".antigravity-plugin/",
     "hooks.json",
+    "hooks/",
+    "agents/",
     "config/",
     "assets/",
     "rules/",

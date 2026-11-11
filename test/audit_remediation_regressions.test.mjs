@@ -146,8 +146,8 @@ test('Audit Remediation 5: hooks.json lifecycle hooks run cleanly on Windows/POS
   const hooksFile = path.resolve('hooks.json');
   assert.ok(fs.existsSync(hooksFile));
   const raw = JSON.parse(fs.readFileSync(hooksFile, 'utf8'));
-  const config = raw['horizon-flightcheck-lifecycle'];
-  assert.ok(config && config.enabled);
+  const config = raw.hooks || raw['horizon-flightcheck-lifecycle'];
+  assert.ok(config);
 
   for (const eventName of ['SessionStart', 'PreInvocation', 'PostInvocation']) {
     const handler = config[eventName]?.[0];

@@ -1,48 +1,55 @@
 {
-  "horizon-flightcheck-lifecycle": {
-    "enabled": true,
+  "hooks": {
     "SessionStart": [
       {
         "type": "command",
-        "command": "node --no-warnings -e \"import('node:fs').then(fs=>import('node:os').then(os=>import('node:path').then(p=>{const f1=p.join(os.homedir(),'.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/session_start.mjs');const f2=p.join(os.homedir(),'.gemini/config/plugins/agy-horizon/src/hooks/session_start.mjs');const target=fs.existsSync(f1)?f1:(fs.existsSync(f2)?f2:'');if(target)import(process.platform==='win32'?'file:///'+target.replace(/\\\\/g,'/'):target);})));\"",
+        "command": "node ./hooks/session_start.mjs",
         "timeout": 5
       }
     ],
     "PreInvocation": [
       {
         "type": "command",
-        "command": "node --no-warnings -e \"import('node:fs').then(fs=>import('node:os').then(os=>import('node:path').then(p=>{const f1=p.join(os.homedir(),'.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/pre_invocation.mjs');const f2=p.join(os.homedir(),'.gemini/config/plugins/agy-horizon/src/hooks/pre_invocation.mjs');const target=fs.existsSync(f1)?f1:(fs.existsSync(f2)?f2:'');if(target)import(process.platform==='win32'?'file:///'+target.replace(/\\\\/g,'/'):target);})));\"",
-        "timeout": 15
+        "command": "node ./hooks/pre_invocation.mjs",
+        "timeout": 5
       }
     ],
     "PostInvocation": [
       {
         "type": "command",
-        "command": "node --no-warnings -e \"import('node:fs').then(fs=>import('node:os').then(os=>import('node:path').then(p=>{const f1=p.join(os.homedir(),'.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/post_invocation.mjs');const f2=p.join(os.homedir(),'.gemini/config/plugins/agy-horizon/src/hooks/post_invocation.mjs');const target=fs.existsSync(f1)?f1:(fs.existsSync(f2)?f2:'');if(target)import(process.platform==='win32'?'file:///'+target.replace(/\\\\/g,'/'):target);})));\"",
+        "command": "node ./hooks/post_invocation.mjs",
         "timeout": 5
       }
     ],
     "Stop": [
       {
         "type": "command",
-        "command": "node --no-warnings -e \"import('node:fs').then(fs=>import('node:os').then(os=>import('node:path').then(p=>{const f1=p.join(os.homedir(),'.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/post_invocation.mjs');const f2=p.join(os.homedir(),'.gemini/config/plugins/agy-horizon/src/hooks/post_invocation.mjs');const target=fs.existsSync(f1)?f1:(fs.existsSync(f2)?f2:'');if(target)import(process.platform==='win32'?'file:///'+target.replace(/\\\\/g,'/'):target);})));\"",
+        "command": "node ./hooks/stop.mjs",
         "timeout": 5
       }
     ],
     "PreToolUse": [
       {
-        "matcher": "run_command|edit_file|write_file|read_file|view_file|invoke_subagent|define_subagent|send_message|manage_subagents",
-        "type": "command",
-        "command": "node --no-warnings -e \"import('node:fs').then(fs=>import('node:os').then(os=>import('node:path').then(p=>{const f1=p.join(os.homedir(),'.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/pre_invocation.mjs');const f2=p.join(os.homedir(),'.gemini/config/plugins/agy-horizon/src/hooks/pre_invocation.mjs');const target=fs.existsSync(f1)?f1:(fs.existsSync(f2)?f2:'');if(target)import(process.platform==='win32'?'file:///'+target.replace(/\\\\/g,'/'):target);})));\"",
-        "timeout": 5
+        "matcher": "run_command|edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content|read_file|view_file|grep_search|find_by_name|list_dir|invoke_subagent|define_subagent|send_message|manage_subagents|swarm",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./hooks/pre_tool_use.mjs",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "run_command|edit_file|write_file|read_file|view_file|invoke_subagent|define_subagent|send_message|manage_subagents",
-        "type": "command",
-        "command": "node --no-warnings -e \"import('node:fs').then(fs=>import('node:os').then(os=>import('node:path').then(p=>{const f1=p.join(os.homedir(),'.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/post_invocation.mjs');const f2=p.join(os.homedir(),'.gemini/config/plugins/agy-horizon/src/hooks/post_invocation.mjs');const target=fs.existsSync(f1)?f1:(fs.existsSync(f2)?f2:'');if(target)import(process.platform==='win32'?'file:///'+target.replace(/\\\\/g,'/'):target);})));\"",
-        "timeout": 5
+        "matcher": "run_command|edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content|read_file|view_file|grep_search|find_by_name|list_dir|invoke_subagent|define_subagent|send_message|manage_subagents|swarm",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./hooks/post_tool_use.mjs",
+            "timeout": 5
+          }
+        ]
       }
     ]
   }

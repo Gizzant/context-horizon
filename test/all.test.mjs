@@ -20,3 +20,8 @@ import './sprint2_swarm_surface.test.mjs';
 import './subagent_ipi_sanitizer.test.mjs';
 import './surgical_patch_256k_staging.test.mjs';
 import './test_action_queue.mjs';
+import './portfolio_batch1.test.mjs';
+import './portfolio_batch2.test.mjs';
+import './portfolio_batch3.test.mjs';
+import './portfolio_batch4.test.mjs';
+import './portfolio_batch5_strict_validation.test.mjs';

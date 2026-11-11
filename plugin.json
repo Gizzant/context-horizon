@@ -1,11 +1,11 @@
 {
   "$schema": "https://antigravity.google/schemas/v1/plugin.json",
-  "name": "agy-horizon-flightcheck",
-  "displayName": "Attention Horizon for Google Antigravity: KV-Cache Governor",
+  "name": "attention-horizon-antigravity",
+  "displayName": "Attention Horizon",
   "version": "3.4.0",
-  "description": "Attention Horizon for Google Antigravity: 40-cell chronological context telemetry HUD, 6-sensor hygiene auditor, and <15ms PreInvocation prompt router.",
+  "description": "40-cell chronological context telemetry HUD, KV-Cache Gravity effort router, and zero-token guardrails.",
   "author": {
-    "name": "Gizzant (Antigravity Systems Architecture)"
+    "name": "Gizzant"
   },
   "icon": "./assets/logo.svg",
   "hooks": "./hooks.json",
@@ -16,7 +16,11 @@
     "./skills/horizon",
     "./skills/precheck",
     "./skills/handoff",
-    "./skills/cost-radar"
+    "./skills/cost-radar",
+    "./skills/evolve"
+  ],
+  "agents": [
+    "./agents/ah-flash-scout.md"
   ],
   "sidecars": [
     "./sidecars/horizon-daemon"
@@ -24,8 +28,8 @@
   "suggestedPrompts": [
     "/horizon Inspect my 40-cell Attention Horizon and Wasted Tokens",
     "/precheck Audit my next architecture refactor prompt and context hygiene",
-    "/handoff Audit and format task.md before /compact or session handoff",
+    "/handoff Audit and format State Baton before /compact or session handoff",
     "/cost-radar Render my prefix-cache retention, thinking drift and swarm topology timeline",
-    "Check for Dirty Snapshots, Unseen Callers, or Foreign KI Bleed"
+    "/evolve Audit static AGENTS.md token overhead and route skill deltas"
   ]
 }

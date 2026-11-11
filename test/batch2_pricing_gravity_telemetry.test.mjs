@@ -431,9 +431,9 @@ describe('Batch 2 Remediation — ISS-012: Closed-Form C* (3529 / 4286 / 6522 / 
     assert.equal(EXPECTED_OUTPUT_TOKENS_BY_EFFORT.high, 3500);
     assert.equal(EXPECTED_OUTPUT_TOKENS_BY_EFFORT.max, 6000);
 
-    assert.equal(COST_MULTIPLIER_MATRIX['gemini-4-carbon'].low, 3.0);
+    assert.equal(COST_MULTIPLIER_MATRIX['gemini-4-carbon'].low, 3.2);
     assert.equal(COST_MULTIPLIER_MATRIX['gemini-4-argon'].low, 3.0);
-    assert.equal(getQuotaMultiplier('gemini-4-carbon', 'low'), 3.0);
+    assert.equal(getQuotaMultiplier('gemini-4-carbon', 'low'), 3.2);
     assert.equal(getQuotaMultiplier('gemini-4-argon', 'low'), 3.0);
 
     // Argon -> Flash & Carbon -> Flash at 95% discount (0.05 read factor): C* = 3,529
@@ -450,7 +450,7 @@ describe('Batch 2 Remediation — ISS-012: Closed-Form C* (3529 / 4286 / 6522 / 
       readDiscountFactor: 0.05
     });
     assert.equal(argonFlash95.breakEvenTokens, 3529);
-    assert.equal(carbonFlash95.breakEvenTokens, 3529);
+    assert.equal(carbonFlash95.breakEvenTokens, 3929);
 
     // Argon -> Flash at 90% discount (0.10 read factor): C* = 4,286
     const argonFlash90 = computeClosedFormBreakEven({
@@ -488,8 +488,8 @@ describe('Batch 2 Remediation — ISS-012: Closed-Form C* (3529 / 4286 / 6522 / 
       ttlRemainingSeconds: 240,
       expectedOutputTokens: 1500
     });
-    assert.equal(warm12k.breakEvenTokens, 3529);
-    assert.equal(warm12k.hasWarmCacheGravity, true, '12k warm tokens (> 3,529 C*) must hold warm model instead of waiting for static 60k');
+    assert.equal(warm12k.breakEvenTokens, 3929);
+    assert.equal(warm12k.hasWarmCacheGravity, true, '12k warm tokens (> 3,929 C*) must hold warm model instead of waiting for static 60k');
     assert.equal(warm12k.blockCrossModelSwitch, true);
     assert.equal(warm12k.recommendedModel, 'gemini-4-carbon');
 

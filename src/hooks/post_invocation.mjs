@@ -14,6 +14,7 @@ import { resolveModelCeiling, normalizeModelKey } from '../core/constants.mjs';
 import { SwarmIdleTtlTracker, computeSwarmRosterTtlBadges } from '../core/subagents.mjs';
 import { loadHorizonConfig } from '../core/horizon_config.mjs';
 import { recordHookDiagnostic } from '../core/hook_diagnostics.mjs';
+import { evaluateBetweenTurnEffortAdvisor } from '../core/coach/effort_advisor.mjs';
 
 export async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {}) {
   if (process.stdin.isTTY || process.stdin.readableEnded) return {};
@@ -357,12 +358,48 @@ export async function handlePostInvocation(inputData = {}) {
     cacheTtlMs: inputData.cacheTtlMs ?? 300000
   });
 
+  // Rank 7 (DET-08): Trigger between-turn EffortAdvisor from PostInvocation
+  try {
+    const cachedTok = Number(
+      inputData.cachedTokens ??
+      sidecar.telemetry?.cachedTokens ??
+      sidecar.telemetry?.cacheReadTokens ??
+      sidecar.telemetry?.totalInputTokens ??
+      0
+    );
+    const recentFailures = Number(
+      inputData.recentTestFailures ??
+      (typeof inputData.exitCode === 'number' && inputData.exitCode !== 0 ? 1 : 0)
+    );
+    const det05Osc = Boolean(
+      inputData.det05Oscillation ||
+      (sidecar.portfolio?.hudAlerts || []).some((a) => a.detectorId === 'DET-05' && /FLIP_FLOP/.test(String(a.message || '')))
+    );
+    sidecar.effortAdvisor = evaluateBetweenTurnEffortAdvisor(
+      {
+        sessionId: conversationId,
+        turnCount: Number(sidecar.sessionMeta?.turnCount || 0),
+        cachedTokens: cachedTok,
+        activeModel: sidecar.sessionMeta?.active_model_id || sidecar.sessionMeta?.activeModel || inputData.modelName || 'gemini-4-carbon',
+        activeEffort: inputData.effort || sidecar.sessionMeta?.activeEffort || 'high',
+        isSimpleTask: inputData.isSimpleTask !== false,
+        recentTestFailures: recentFailures,
+        det05Oscillation: det05Osc,
+        timestampUtc: inputData.eventTimestampUtc || new Date(typeof nowMs === 'number' ? nowMs : Date.now()).toISOString()
+      },
+      inputData.effortAdvisorDbPath ? { dbPath: inputData.effortAdvisorDbPath } : (inputData.homeDir ? { homeDir: inputData.homeDir } : {})
+    );
+  } catch (err) {
+    recordHookDiagnostic('post_invocation', 'effortAdvisor', err, { persist: false });
+  }
+
   writeSidecarAtomicSync(conversationId, sidecar);
   return {
     active_model_id: sidecar.sessionMeta.active_model_id || sidecar.sessionMeta.activeModel || null,
     pending_model_id: sidecar.sessionMeta.pending_model_id || null,
     swarmRoster: sidecar.swarmRoster,
-    swarmTtlBadges: sidecar.swarmTtlBadges
+    swarmTtlBadges: sidecar.swarmTtlBadges,
+    effortAdvisor: sidecar.effortAdvisor || null
   };
 }
 

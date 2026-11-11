@@ -1,8 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { performance } from 'node:perf_hooks';
 import { suppressSqliteExperimentalWarning } from '../core/paths.mjs';
 import { openLocalHorizonDb } from '../core/sqlite_client.mjs';
+import { sanitizeForensicPayload } from '../core/sanitizer.mjs';
+import { SavedQuotaReceiptLedger, SAVINGS_EVENT_TYPES } from '../core/coach/saved_quota_ledger.mjs';
+import { compressCliOutputPure, redactSecretsPure } from '../core/shared/index.mjs';
 
 suppressSqliteExperimentalWarning();
 
@@ -425,13 +430,276 @@ export async function searchCliLogsBm25(queryText, {
   }
 }
 
+export const AH_CLI_ARCHIVE_MAX_BYTES = 5 * 1024 * 1024; // 5 MB ring cap
+
+export function getDefaultAhCliArchiveSqlitePath(workspaceDir = process.cwd()) {
+  return path.join(workspaceDir, '.agents', 'cache', 'ah_cli_archive.sqlite');
+}
+
+/**
+ * Rank 3 (DET-07): Archives sanitized >4,096-char CLI output into a WAL-enabled,
+ * 5 MB ring-capped SQLite FTS5 store (`.agents/cache/ah_cli_archive.sqlite`),
+ * preserves 30 head + 45 tail + 100% of error lines, appends BM25 query hint,
+ * and records exact byte-verified token savings in `SavedQuotaReceiptLedger`.
+ */
+export function archiveAndCompressDet07Output(rawOutput = '', {
+  command = '',
+  exitCode = 0,
+  sessionId = 'default-session',
+  workspaceDir = process.cwd(),
+  archiveDbPath = null,
+  ledgerDbPath = null,
+  maxArchiveBytes = AH_CLI_ARCHIVE_MAX_BYTES
+} = {}) {
+  const rawStr = String(rawOutput ?? '');
+  const comp = compressCliOutputPure(rawStr, {
+    headCount: 30,
+    tailCount: 45,
+    archiveThresholdChars: CLI_SHIM_CONSTANTS.MIN_CHARS_TO_COMPRESS,
+    queryHint: 'node .agents/shims/ah_log_query.mjs "<term>"'
+  });
+
+  if (rawStr.length <= CLI_SHIM_CONSTANTS.MIN_CHARS_TO_COMPRESS) {
+    return {
+      detectorId: 'DET-07',
+      compressed: comp.compressed,
+      archived: false,
+      exitCode: Number(exitCode ?? 0),
+      output: comp.output,
+      rawBytes: Buffer.byteLength(rawStr, 'utf8'),
+      compressedBytes: Buffer.byteLength(comp.output, 'utf8'),
+      bytesSaved: 0,
+      tokensSaved: 0,
+      archiveDbPath: null
+    };
+  }
+
+  // Strip ANSI escape codes + scrub credentials via sanitizer.mjs + shared pure secret scrubber
+  const ansiClean = stripAnsiAndCarriageReturns(rawStr);
+  const { sanitized: forensicClean } = sanitizeForensicPayload(ansiClean);
+  const { sanitized: scrubbedText, redactedCount } = redactSecretsPure(forensicClean);
+
+  const resolvedArchiveDb = archiveDbPath || getDefaultAhCliArchiveSqlitePath(workspaceDir);
+  const capBytes = Math.max(65536, Number(maxArchiveBytes) || AH_CLI_ARCHIVE_MAX_BYTES);
+  const createdAt = new Date().toISOString();
+  const payloadBytes = Buffer.byteLength(scrubbedText, 'utf8');
+  let evictedRows = 0;
+
+  const db = openLocalHorizonDb(resolvedArchiveDb, { readOnly: false, busyTimeoutMs: 3000 });
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS ah_cli_meta (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        command TEXT NOT NULL,
+        exit_code INTEGER NOT NULL,
+        byte_len INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      CREATE VIRTUAL TABLE IF NOT EXISTS ah_cli_fts USING fts5(
+        meta_id UNINDEXED,
+        command,
+        redacted_output
+      );
+    `);
+
+    // Clamp single-entry payload if a single giant dump exceeds 80% of the 5 MB ring cap
+    const maxSinglePayload = Math.floor(capBytes * 0.72);
+    const boundedText = payloadBytes > maxSinglePayload
+      ? scrubbedText.slice(0, maxSinglePayload)
+      : scrubbedText;
+    const boundedBytes = Buffer.byteLength(boundedText, 'utf8');
+
+    // Evict oldest rows so cumulative payload + SQLite overhead stays strictly <= 5 MB
+    const targetPayloadBudget = Math.floor(capBytes * 0.78);
+    let totalRow = db.prepare('SELECT COALESCE(SUM(byte_len), 0) AS total FROM ah_cli_meta').get();
+    let currentTotal = Number(totalRow?.total || 0);
+
+    while (currentTotal + boundedBytes > targetPayloadBudget) {
+      const oldest = db.prepare('SELECT id, byte_len FROM ah_cli_meta ORDER BY id ASC LIMIT 5').all();
+      if (!oldest || oldest.length === 0) break;
+      const delMeta = db.prepare('DELETE FROM ah_cli_meta WHERE id = ?');
+      const delFts = db.prepare('DELETE FROM ah_cli_fts WHERE meta_id = ?');
+      for (const row of oldest) {
+        delFts.run(String(row.id));
+        delMeta.run(row.id);
+        currentTotal = Math.max(0, currentTotal - Number(row.byte_len || 0));
+        evictedRows += 1;
+        if (currentTotal + boundedBytes <= targetPayloadBudget) break;
+      }
+    }
+
+    const insMeta = db.prepare(`
+      INSERT INTO ah_cli_meta (session_id, command, exit_code, byte_len, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(String(sessionId), String(command), Number(exitCode ?? 0), boundedBytes, createdAt);
+
+    const metaId = String(insMeta.lastInsertRowid);
+    db.prepare(`
+      INSERT INTO ah_cli_fts (meta_id, command, redacted_output)
+      VALUES (?, ?, ?)
+    `).run(metaId, String(command), boundedText);
+
+    if (evictedRows > 0) {
+      db.exec("INSERT INTO ah_cli_fts(ah_cli_fts) VALUES('optimize');");
+      db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
+    }
+  } finally {
+    db.close();
+  }
+
+  // Enforce hard physical file ceiling <= capBytes via VACUUM if page freelist grew past cap
+  try {
+    if (fs.existsSync(resolvedArchiveDb) && fs.statSync(resolvedArchiveDb).size > capBytes) {
+      const vacDb = openLocalHorizonDb(resolvedArchiveDb, { readOnly: false, busyTimeoutMs: 3000 });
+      try {
+        vacDb.exec('PRAGMA wal_checkpoint(TRUNCATE);');
+        vacDb.exec('VACUUM;');
+        vacDb.exec('PRAGMA journal_mode = WAL;');
+      } finally {
+        vacDb.close();
+      }
+    }
+  } catch {}
+
+  const rawBytes = Buffer.byteLength(rawStr, 'utf8');
+  const compressedBytes = Buffer.byteLength(comp.output, 'utf8');
+  const bytesSaved = Math.max(0, rawBytes - compressedBytes);
+  const tokensSaved = Math.floor(bytesSaved / 4);
+
+  if (tokensSaved > 0) {
+    try {
+      const ledger = new SavedQuotaReceiptLedger({
+        ...(ledgerDbPath ? { dbPath: ledgerDbPath } : {})
+      });
+      ledger.recordSaving({
+        sessionId,
+        eventType: SAVINGS_EVENT_TYPES.CLI_DUMP_COMPRESSED,
+        argonEquivTokensSaved: tokensSaved,
+        rawBytesSaved: bytesSaved,
+        detail: `DET-07 compressed "${String(command).slice(0, 60)}" (${bytesSaved} bytes saved)`
+      });
+    } catch {}
+  }
+
+  return {
+    detectorId: 'DET-07',
+    compressed: true,
+    archived: true,
+    exitCode: Number(exitCode ?? 0),
+    output: comp.output,
+    rawBytes,
+    compressedBytes,
+    bytesSaved,
+    tokensSaved,
+    redactedCount,
+    evictedRows,
+    archiveDbPath: resolvedArchiveDb
+  };
+}
+
+export function queryAhCliArchiveBm25(searchTerm, {
+  workspaceDir = process.cwd(),
+  archiveDbPath = null,
+  limit = 8
+} = {}) {
+  const resolvedDb = archiveDbPath || getDefaultAhCliArchiveSqlitePath(workspaceDir);
+  if (!fs.existsSync(resolvedDb)) return [];
+  const cleanTerm = String(searchTerm || '').replace(/"/g, () => '""').trim();
+  if (!cleanTerm) return [];
+
+  const db = openLocalHorizonDb(resolvedDb, { readOnly: true, busyTimeoutMs: 3000 });
+  try {
+    return db.prepare(`
+      SELECT
+        m.id AS id,
+        m.command AS command,
+        m.exit_code AS exitCode,
+        m.created_at AS createdAt,
+        bm25(ah_cli_fts) AS score,
+        snippet(ah_cli_fts, 2, '[', ']', '...', 24) AS snippet
+      FROM ah_cli_fts
+      JOIN ah_cli_meta m ON m.id = CAST(ah_cli_fts.meta_id AS INTEGER)
+      WHERE ah_cli_fts MATCH ?
+      ORDER BY bm25(ah_cli_fts)
+      LIMIT ?
+    `).all(`"${cleanTerm}"`, Math.max(1, Number(limit) || 8));
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Executes a real child command, captures stdout + stderr + exact exitCode,
+ * applies DET-07 compression + FTS5 archiving, and returns `{ exitCode, output, ... }`.
+ */
+export function executeAndCompressCommand(command, args = [], options = {}) {
+  const useShell = options.shell !== undefined ? Boolean(options.shell) : args.length === 0;
+  const child = spawnSync(command, args, {
+    cwd: options.cwd || process.cwd(),
+    env: options.env || process.env,
+    shell: useShell,
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024
+  });
+
+  const exactExitCode = typeof child.status === 'number'
+    ? child.status
+    : (child.error ? 127 : 1);
+  const combinedRaw = [child.stdout || '', child.stderr || ''].filter(Boolean).join('\n');
+  const fullCmdLabel = args.length > 0 ? `${command} ${args.join(' ')}` : String(command);
+
+  const det07 = archiveAndCompressDet07Output(combinedRaw, {
+    command: fullCmdLabel,
+    exitCode: exactExitCode,
+    sessionId: options.sessionId || process.env.AGY_CONVERSATION_ID || 'default-session',
+    workspaceDir: options.workspaceDir || options.cwd || process.cwd(),
+    archiveDbPath: options.archiveDbPath || null,
+    ledgerDbPath: options.ledgerDbPath || null,
+    maxArchiveBytes: options.maxArchiveBytes || AH_CLI_ARCHIVE_MAX_BYTES
+  });
+
+  return {
+    ...det07,
+    exitCode: exactExitCode
+  };
+}
+
+function isShimCliMain(argv1 = process.argv[1]) {
+  if (!argv1) return false;
+  try {
+    return fs.realpathSync(argv1) === fs.realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return path.resolve(argv1) === path.resolve(fileURLToPath(import.meta.url));
+  }
+}
+
+if (isShimCliMain()) {
+  const rawArgs = process.argv.slice(2);
+  const dashIdx = rawArgs.indexOf('--');
+  const cmdTokens = dashIdx >= 0 ? rawArgs.slice(dashIdx + 1) : rawArgs;
+  if (cmdTokens.length === 0) {
+    process.exit(0);
+  }
+  const [bin, ...rest] = cmdTokens;
+  const res = executeAndCompressCommand(bin, rest, { shell: rest.length === 0 });
+  if (res.output) {
+    process.stdout.write(res.output + (res.output.endsWith('\n') ? '' : '\n'));
+  }
+  process.exit(res.exitCode);
+}
+
 export default {
   CLI_SHIM_CONSTANTS,
+  AH_CLI_ARCHIVE_MAX_BYTES,
   stripAnsiAndCarriageReturns,
   compressCliOutputWithRecovery,
   compressCargoOutput,
   compressNpmInstallOutput,
   recoverOmittedCriticalErrorLines,
   buildCompact115TokenSummary,
-  searchCliLogsBm25
+  searchCliLogsBm25,
+  archiveAndCompressDet07Output,
+  queryAhCliArchiveBm25,
+  executeAndCompressCommand
 };

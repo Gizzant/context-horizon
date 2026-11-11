@@ -25,8 +25,10 @@ const FLIGHTCHECK_ROOT = path.join(homeDir, '.gemini', 'config', 'plugins', 'agy
 
 export const SYNCED_PLUGIN_SUBDIRS = [
   ['src', 'core'],
+  ['src', 'core', 'shared'],
   ['src', 'core', 'telemetry'],
   ['src', 'core', 'coach'],
+  ['src', 'config'],
   ['src', 'adapters'],
   ['src', 'adapters', 'antigravity'],
   ['src', 'adapters', 'claude-code'],
@@ -36,6 +38,8 @@ export const SYNCED_PLUGIN_SUBDIRS = [
   ['src', 'ui'],
   ['src', 'hooks'],
   ['src', 'cli'],
+  ['hooks'],
+  ['agents'],
   ['sidecars', 'horizon-daemon'],
   ['config'],
   ['rules']
@@ -57,35 +61,46 @@ function sha256File(filePath) {
 }
 
 export function buildFullLifecycleHooksBlock(pluginRoot, enabled = true) {
-  const normHook = (rel) => path.join(pluginRoot, rel).replace(/\\/g, '/');
+  const normHook = (rel) => {
+    const p = path.join(pluginRoot, rel).replace(/\\/g, '/');
+    return /\s/.test(p) ? `"${p}"` : p;
+  };
   return {
     enabled: Boolean(enabled),
     SessionStart: [
-      { type: 'command', command: `node --no-warnings "${normHook('src/hooks/session_start.mjs')}"`, timeout: 5 }
+      { type: 'command', command: `node --no-warnings ${normHook('src/hooks/session_start.mjs')}`, timeout: 5 }
     ],
     PreInvocation: [
-      { type: 'command', command: `node --no-warnings "${normHook('src/hooks/pre_invocation.mjs')}"`, timeout: 15 }
+      { type: 'command', command: `node --no-warnings ${normHook('src/hooks/pre_invocation.mjs')}`, timeout: 15 }
     ],
     PostInvocation: [
-      { type: 'command', command: `node --no-warnings "${normHook('src/hooks/post_invocation.mjs')}"`, timeout: 5 }
+      { type: 'command', command: `node --no-warnings ${normHook('src/hooks/post_invocation.mjs')}`, timeout: 5 }
     ],
     Stop: [
-      { type: 'command', command: `node --no-warnings "${normHook('src/hooks/post_invocation.mjs')}"`, timeout: 5 }
+      { type: 'command', command: `node --no-warnings ${normHook('src/hooks/post_invocation.mjs')}`, timeout: 5 }
     ],
     PreToolUse: [
       {
         matcher: FULL_TOOL_HOOK_MATCHER,
-        type: 'command',
-        command: `node --no-warnings "${normHook('src/hooks/pre_invocation.mjs')}"`,
-        timeout: 5
+        hooks: [
+          {
+            type: 'command',
+            command: `node --no-warnings ${normHook('src/hooks/pre_invocation.mjs')} --event=PreToolUse`,
+            timeout: 5
+          }
+        ]
       }
     ],
     PostToolUse: [
       {
         matcher: FULL_TOOL_HOOK_MATCHER,
-        type: 'command',
-        command: `node --no-warnings "${normHook('src/hooks/post_invocation.mjs')}"`,
-        timeout: 5
+        hooks: [
+          {
+            type: 'command',
+            command: `node --no-warnings ${normHook('src/hooks/post_invocation.mjs')}`,
+            timeout: 5
+          }
+        ]
       }
     ]
   };
@@ -99,7 +114,11 @@ function hasCompleteSixLifecycleHooks(lifecycleBlock, pluginRoot) {
   }
   const normPre = path.join(pluginRoot, 'src/hooks/pre_invocation.mjs').replace(/\\/g, '/');
   const preCmd = String(lifecycleBlock.PreInvocation?.[0]?.command || '');
-  if (!preCmd.includes(`"${normPre}"`)) return false;
+  const preToolCmd = String(lifecycleBlock.PreToolUse?.[0]?.hooks?.[0]?.command || '');
+  const expectQuoted = /\s/.test(normPre);
+  if (!preCmd.includes(normPre)) return false;
+  if (!expectQuoted && (preCmd.includes(`"${normPre}"`) || preToolCmd.includes(`"${normPre}"`))) return false;
+  if (!preToolCmd.includes('--event=PreToolUse')) return false;
   if (lifecycleBlock.PreToolUse?.[0]?.matcher !== FULL_TOOL_HOOK_MATCHER) return false;
   if (lifecycleBlock.PostToolUse?.[0]?.matcher !== FULL_TOOL_HOOK_MATCHER) return false;
   return true;
@@ -228,8 +247,8 @@ export function syncAndVerifyMirrors({
           } else if (rawHorizonHooks.includes('./src/')) {
             const absPrefix = root.replace(/\\/g, '/');
             const upgraded = rawHorizonHooks.replace(
-              /node\s+--no-warnings\s+\.\/src\/([^\s"]+)(\s+[^"]*)?/g,
-              (_, relPart, argsPart = '') => `node --no-warnings \\"${absPrefix}/src/${relPart}\\"${argsPart}`
+              /node\s+--no-warnings\s+(?:\\")?(?:\.\/src\/|[^"]*\/src\/)([^\s"\\]+)(?:\\")?(\s+[^"]*)?/g,
+              (_, relPart, argsPart = '') => `node --no-warnings ${absPrefix}/src/${relPart}${argsPart}`
             );
             JSON.parse(upgraded);
             atomicWriteFileSync(hooksPath, upgraded, { encoding: 'utf8' });
@@ -252,6 +271,7 @@ export function syncAndVerifyMirrors({
               displayName: 'Attention Horizon'
             };
         atomicWriteFileSync(path.join(root, 'plugin.json'), JSON.stringify(manifestOut, null, 2) + '\n', { encoding: 'utf8' });
+        atomicWriteFileSync(path.join(root, '.antigravity-plugin', 'plugin.json'), JSON.stringify(manifestOut, null, 2) + '\n', { encoding: 'utf8' });
       }
     }
   }

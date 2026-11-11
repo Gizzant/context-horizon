@@ -51,8 +51,8 @@ export const SAFE_TURN_BOUNDARY_STATES = Object.freeze(new Set([
 export const COST_MULTIPLIER_MATRIX = Object.freeze({
   'gemini-3.8-flash': Object.freeze({ low: 1.0, med: 1.5, medium: 1.5, high: 2.2 }),
   'gemini-4-argon': Object.freeze({ low: 3.0, med: 5.5, medium: 5.5, high: 9.25 }),
-  'gemini-4-carbon': Object.freeze({ low: 3.0, med: 5.5, medium: 5.5, high: 9.25 }),
-  'gemini-4-carbon-cyber-permissive': Object.freeze({ low: 3.0, med: 5.5, medium: 5.5, high: 9.25 }),
+  'gemini-4-carbon': Object.freeze({ low: 3.2, med: 6.0, medium: 6.0, high: 10.0 }),
+  'gemini-4-carbon-cyber-permissive': Object.freeze({ low: 3.2, med: 6.0, medium: 6.0, high: 10.0 }),
   'claude-haiku-5-5': Object.freeze({ low: 0.5, med: 0.8, medium: 0.8, high: 1.2 }),
   'claude-haiku-5.5': Object.freeze({ low: 0.5, med: 0.8, medium: 0.8, high: 1.2 }),
   'claude-sonnet-5-5': Object.freeze({ low: 3.0, med: 4.5, medium: 4.5, high: 7.0 }),

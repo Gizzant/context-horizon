@@ -2939,8 +2939,8 @@
         <div class="sig-desc">Pinned task.md state &amp; your most recent active turns.</div>
       </div>
       <div class="sig-row" id="uShapedAttentionRow">
-        <div class="sig-head"><span class="sig-name">U-Shaped Attention Health</span><span class="sig-val mono" id="uCurveHealthVal">Primacy: 94%</span></div>
-        <div class="sig-desc" id="uCurveHealthDesc">Middle Trough Risk: 0 critical rules stranded &middot; Recency Mirror: Active in task.md</div>
+        <div class="sig-head"><span class="sig-name">U-Shaped Transcript Heatmap (Read-Only)</span><span class="sig-val mono" id="uCurveHealthVal">Primacy: 94%</span></div>
+        <div class="sig-desc" id="uCurveHealthDesc">Read-only conversation positional decay &middot; Middle Trough: 0 critical turns &middot; Static Prefix Diet ceiling: 8k tok</div>
         <div class="prefix-shield-staged-queue mono" id="prefixShieldQueue" hidden></div>
       </div>
     </div>
@@ -3482,8 +3482,8 @@
       text: 'Pause modifying files. Summarize the root cause of the recent errors in 3 bullet points and propose a clean verification plan before making the next edit.'
     },
     rule: {
-      short: 'Save Rule to AGENTS.md',
-      text: 'Review the corrections I gave you during this conversation and propose a concise rule we can add to the top 30% (Primacy zone) or bottom 30% (Recency zone) of AGENTS.md / .agents/CONTEXT.md (checking that total file length stays under the 200-line MEMORY.md truncation threshold).'
+      short: 'Route Rule via /evolve',
+      text: 'Review the corrections I gave you during this conversation and propose a concise diff via /evolve (routing skill-specific fixes to .agents/skills/<domain>/SKILL.md when static AGENTS.md rules exceed 8,000 tokens).'
     }
   };
 
@@ -4777,15 +4777,20 @@
         if (countdownEl) {
           const mins = Math.floor(ttlSec / 60);
           const secs = ttlSec % 60;
-          const friendlyTime = mins > 0 ? `${mins}m ${secs}s left` : `${secs}s left`;
+          const friendlyTime = mins > 0 ? `${mins}m ${String(secs).padStart(2, '0')}s` : `0m ${String(secs).padStart(2, '0')}s`;
+          const det10Amber = isTrulyWarmCache && ttlSec > 0 && ttlSec <= 45 && cachedTok >= 25000;
           countdownEl.textContent = isTrulyWarmCache
-            ? friendlyTime
+            ? `Est. 5m Implicit Cache: ${friendlyTime}`
             : (isPrefixBust && ttlSec > 0
-                ? `${friendlyTime} (rebuilt)`
-                : (isUninstrumentedWarm ? friendlyTime : `Cold`));
+                ? `Est. 5m Implicit Cache: ${friendlyTime} (rebuilt)`
+                : (isUninstrumentedWarm ? `Est. 5m Implicit Cache: ${friendlyTime}` : `Cold`));
           countdownEl.className = (isTrulyWarmCache || isUninstrumentedWarm)
-            ? 'cache-meter-countdown ttl-countdown-clock mono warm'
+            ? `cache-meter-countdown ttl-countdown-clock mono warm${det10Amber ? ' ttl-warning-pulse' : ''}`
             : 'cache-meter-countdown ttl-countdown-clock mono cold';
+          const quotaStripBox = document.getElementById('quotaStrip');
+          if (quotaStripBox) {
+            quotaStripBox.classList.toggle('ttl-pulse', det10Amber);
+          }
         }
         if (timerBarFillEl) {
           const pct = (isTrulyWarmCache || isUninstrumentedWarm) ? Math.max(4, Math.min(100, Math.round((ttlSec / 300) * 100))) : 0;
@@ -5125,7 +5130,7 @@
     const barClutterEl = document.getElementById('barClutter');
     const barErrorEl = document.getElementById('barError');
     if (barUsefulEl) barUsefulEl.style.width = `${usefulWidthPct}%`;
-    // Single source of truth for the history segment state: decouples context-horizon overflow
+    // Single source of truth for the history segment state: decouples Attention Horizon overflow
     // (totalTokens > safeLimit) from KV-cache warmth (isTrulyWarm && ttlRemSec > 0) so warm >179k
     // sessions NEVER render contradictory "Cache cold" or "Cold · 0s TTL" labels.
     const cacheTtlSec = Math.max(0, Math.round(Number(raw.quota?.cache?.ttlRemainingSec ?? (raw.quota?.cache?.isCacheCold ? 0 : 300)) || 0));
@@ -5704,10 +5709,10 @@
             <span class="diag-impact mono" style="color:var(--hz-anchor)">Can Teach Agent</span>
           </summary>
           <div class="diag-body">
-            <div class="diag-desc">Promote repeated corrections into the Primacy (top 30%) or Recency (bottom 30%) attention zone of AGENTS.md / .agents/CONTEXT.md (checked against the 200-line MEMORY.md truncation threshold).</div>
+            <div class="diag-desc">Stage repeated corrections via 1-click user diff approval gated by TurnZeroGate (or run <code>/evolve</code> when static AGENTS.md overhead exceeds 8,000 tokens).</div>
             ${truncWarnHtml}
             <div class="diag-actions" style="flex-wrap:wrap;gap:6px;">
-              <button type="button" class="mini-btn" id="btnPromoteRulePrimacy" data-act="promote-rule" data-zone="primacy" data-rule="${escAttr(firstCorrection)}" title="Insert directive into Primacy zone (top 30% of AGENTS.md / .agents/CONTEXT.md) and check 200-line MEMORY.md truncation limit">&#x1F3AF; Promote to Primacy (Top 30%)</button>
+              <button type="button" class="mini-btn" id="btnPromoteRulePrimacy" data-act="promote-rule" data-zone="primacy" data-rule="${escAttr(firstCorrection)}" title="Stage directive for TurnZeroGate Cold-Cache approval">&#x1F3AF; Stage Rule Diff (TurnZeroGate)</button>
               <button class="mini-btn prompt-btn" onclick="runPrompt('rule', this)" title="${promptTitle('rule')}">${promptLabel('rule')}</button>
             </div>
           </div>
@@ -7054,6 +7059,41 @@
             `</details>`
           });
         }
+      }
+
+      // B3b. Rank 7 (DET-08): Same-Model Between-Turn Effort Advisor 1-Click Chip (Prefix-Safe in Box 3)
+      const effortAdv = raw.effortAdvisor || signals?.effortAdvisor || null;
+      if (effortAdv?.box3Chip && !effortAdv.mutedByStrikes && !dismissedKeys.has('det08:effort-low')) {
+        const chipLabel = effortAdv.box3Chip.label || '[Downshift: /effort low (-68% output burn, keeps warm cache)]';
+        const chipCmd = effortAdv.box3Chip.commandText || '/effort low';
+        cleanupPrefixSafeRows.push(
+          `<div class="m3-action-row" data-action-id="det08-effort-downshift" data-dismiss-key="det08:effort-low">` +
+            `<div class="m3-action-summary" style="display:flex;align-items:center;gap:8px;width:100%;">` +
+              `<span class="m3-action-icon green">&#x26A1;</span>` +
+              `<div class="m3-action-text" style="flex:1;">` +
+                `<span class="m3-action-title mono">${escAttr(chipLabel)}</span>` +
+              `</div>` +
+              `<div class="m3-action-btn-row">` +
+                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(chipCmd)}" data-dismiss-key="det08:effort-low" title="Copy /effort low and keep warm prefix cache">${escAttr(chipCmd)}</button>` +
+              `</div>` +
+            `</div>` +
+          `</div>`
+        );
+      }
+
+      // B3c. Rank 10 (DET-13): Explicit eager:true MCP overrides or orphaned stdio binaries
+      if (mcpAudit?.triggered && Array.isArray(mcpAudit.offendingServers) && mcpAudit.offendingServers.length > 0 && !dismissedKeys.has('det13:mcp-audit')) {
+        const det13Names = mcpAudit.offendingServers.join(', ');
+        cleanupPrefixSafeRows.push(
+          `<div class="m3-action-row" data-action-id="det13-mcp-audit" data-dismiss-key="det13:mcp-audit">` +
+            `<div class="m3-action-summary" style="display:flex;align-items:center;gap:8px;width:100%;">` +
+              `<span class="m3-action-icon amber">&#x1F50C;</span>` +
+              `<div class="m3-action-text" style="flex:1;">` +
+                `<span class="m3-action-title">MCP Override / Orphan Audit: ${escAttr(det13Names)}</span>` +
+              `</div>` +
+            `</div>` +
+          `</div>`
+        );
       }
 
       // B4. Single-Turn Blowup Output (Dampen CLI / File Spike — Prefix-Safe)

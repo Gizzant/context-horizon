@@ -18,7 +18,7 @@ export const CORTEX_STEP_TYPE_CHECKPOINT = 23;
 export const MEMORY_MD_TRUNCATION_THRESHOLD_LINES = 200;
 export const SWARM_TOOL_MATCHER = 'invoke_subagent|define_subagent|send_message|manage_subagents';
 export const FULL_TOOL_HOOK_MATCHER =
-  'run_command|edit_file|write_file|read_file|view_file|invoke_subagent|define_subagent|send_message|manage_subagents';
+  'run_command|edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content|read_file|view_file|grep_search|find_by_name|list_dir|invoke_subagent|define_subagent|send_message|manage_subagents|swarm';
 export const CLI_DAMPENER_MATCHER = 'run_command|execute_bash|bash|Bash|PowerShell';
 export const FLAT_LIFECYCLE_EVENTS = Object.freeze(['SessionStart', 'PreInvocation', 'PostInvocation', 'Stop']);
 
@@ -930,6 +930,11 @@ export function validateAntigravityHooksSchema(hooksConfig) {
       for (let i = 0; i < arr.length; i++) {
         const entry = arr[i];
         if (!entry || typeof entry !== 'object') continue;
+        if ('hooks' in entry) {
+          if (!Array.isArray(entry.hooks) || entry.hooks.length === 0) {
+            errors.push(`${toolEvt}[${i}].hooks must be a non-empty array of command handlers`);
+          }
+        }
         const m = String(entry.matcher || '');
         if (
           m.includes('invoke_subagent') &&

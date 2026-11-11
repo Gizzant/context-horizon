@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { performance } from 'node:perf_hooks';
+import { evaluateDet08CacheGravityAndEffort } from '../shared/detectors.mjs';
 
 /**
  * Phase 1.1: Undo / Rewind Step Rollback Detector (`src/core/telemetry/trajectory_watcher.mjs`)
@@ -215,6 +216,23 @@ export class TrajectoryWatcher extends EventEmitter {
       this.sessionFlamegraphs.set(sessionId, flamegraph);
     }
 
+    const effortAdvice = update.effortContext
+      ? evaluateDet08CacheGravityAndEffort({
+          turnCount: currentStepCount,
+          cachedTokens: Number(update.effortContext.cachedTokens || 0),
+          activeModel: update.effortContext.activeModel || 'gemini-4-carbon',
+          activeEffort: update.effortContext.activeEffort || 'high',
+          isSimpleTask: update.effortContext.isSimpleTask !== false,
+          recentTestFailures: Number(update.effortContext.recentTestFailures || 0),
+          det05Oscillation: Boolean(update.effortContext.det05Oscillation),
+          dismissalStrikes: Number(update.effortContext.dismissalStrikes || 0),
+          timestampUtc: update.effortContext.timestampUtc
+        })
+      : null;
+    if (effortAdvice && effortAdvice.triggered) {
+      this.emit('EFFORT_ADVISOR_CHIP', { sessionId, effortAdvice });
+    }
+
     return {
       sessionId,
       previousStepCount,
@@ -223,6 +241,7 @@ export class TrajectoryWatcher extends EventEmitter {
       droppedSteps: rewindDetected ? previousStepCount - currentStepCount : 0,
       flamegraph: this.sessionFlamegraphs.get(sessionId),
       rewindPayload,
+      effortAdvice,
       elapsedMs: Number((performance.now() - startMs).toFixed(3))
     };
   }

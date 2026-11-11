@@ -296,6 +296,7 @@ export async function handlePreToolUse(inputData = {}) {
   }
 
   const response = {
+    decision: 'allow',
     flightMode,
     active_model_id: sidecar.sessionMeta.active_model_id || sidecar.sessionMeta.activeModel || null,
     pending_model_id: sidecar.sessionMeta.pending_model_id || null,
@@ -311,15 +312,13 @@ export async function handlePreInvocation(inputData = {}) {
     inputData.hook_event_name === 'PreToolUse' ||
     inputData.event === 'PreToolUse' ||
     inputData.tool_name ||
-    inputData.tool === 'run_command' ||
-    inputData.tool === 'edit_file' ||
-    inputData.tool === 'write_file' ||
-    inputData.tool === 'read_file' ||
-    inputData.tool === 'view_file' ||
-    inputData.tool === 'send_message' ||
-    inputData.tool === 'invoke_subagent' ||
-    inputData.tool === 'define_subagent' ||
-    inputData.tool === 'manage_subagents'
+    inputData.toolName ||
+    inputData.tool_input ||
+    inputData.args ||
+    inputData.parameters ||
+    inputData.Arguments ||
+    (typeof inputData.tool === 'string' && inputData.tool.length > 0) ||
+    (typeof inputData.name === 'string' && !inputData.prompt && !inputData.user_input)
   ) {
     return handlePreToolUse(inputData);
   }
@@ -599,15 +598,22 @@ export async function handlePreInvocation(inputData = {}) {
 
 // Auto-run when executed directly by Antigravity Hook Harness
 const isMain = process.argv[1] && (process.argv[1].endsWith('pre_invocation.mjs') || process.argv[1].endsWith('pre_invocation.js'));
+const isPreToolUseCli = process.argv.includes('--event=PreToolUse');
 if (isMain) {
   readStdinSafe().then(input => {
-    return handlePreInvocation(input);
+    const safeInput = input && typeof input === 'object' ? input : {};
+    if (isPreToolUseCli && !safeInput.hook_event_name) {
+      safeInput.hook_event_name = 'PreToolUse';
+    }
+    return handlePreInvocation(safeInput);
   }).then(output => {
-    console.log(JSON.stringify(output || {}));
+    const out = output && typeof output === 'object' ? { ...output } : {};
+    if (isPreToolUseCli && !out.decision) out.decision = 'allow';
+    console.log(JSON.stringify(out));
     process.exit(0);
   }).catch((err) => {
     recordHookDiagnostic('pre_invocation', 'main', err);
-    console.log(JSON.stringify({}));
+    console.log(JSON.stringify(isPreToolUseCli ? { decision: 'allow' } : {}));
     process.exit(0);
   });
 }

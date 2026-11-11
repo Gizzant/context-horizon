@@ -20,6 +20,9 @@ import {
 } from '../src/core/timeline_svg.mjs';
 import { computePrefixRetentionIndex } from '../src/core/sprint_metrics.mjs';
 import { buildCostRadarFromState, parseCostRadarArgs } from '../src/cli/cost_radar.mjs';
+import { buildHooksConfig } from '../src/cli/init.mjs';
+import { handlePreInvocation, handlePreToolUse } from '../src/hooks/pre_invocation.mjs';
+import { buildFullLifecycleHooksBlock } from '../scripts/sync_mirrors.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const T0 = 1_794_000_000_000;
@@ -192,4 +195,20 @@ test('Sprint 2 wiring: skill registered, CLI subcommand, loopback API route, pan
   assert.match(html, /id="swarmTopologyDrawer"/);
   assert.match(html, /function renderSwarmTopology\(/);
   assert.ok(!/btnCompactPrimary/.test(html), 'no copy-/compact button invariant');
+});
+
+test('Windows PreToolUse hook safety: unquoted space-free hook paths + explicit decision="allow"', async () => {
+  const block = buildFullLifecycleHooksBlock('/opt/plugins/agy-horizon-flightcheck', true);
+  assert.ok(!block.PreInvocation[0].command.includes('"'), 'space-free PreInvocation command must not wrap path in quotes');
+  assert.match(block.PreToolUse[0].hooks[0].command, /--event=PreToolUse$/);
+
+  const cfg = buildHooksConfig('/opt/plugins/agy-horizon-flightcheck');
+  assert.ok(!cfg.hooks.PreInvocation[0].command.includes('"'));
+  assert.match(cfg.hooks.PreToolUse[0].hooks[0].command, /--event=PreToolUse$/);
+
+  const allowRes = await handlePreToolUse({ tool_name: 'read_file', tool_input: { Path: 'README.md' } });
+  assert.equal(allowRes.decision, 'allow', 'handlePreToolUse must return decision="allow" so Go PreToolUse runner permits call');
+
+  const routedRes = await handlePreInvocation({ toolName: 'swarm', args: { action: 'status' } });
+  assert.equal(routedRes.decision, 'allow', 'handlePreInvocation must route toolName/args payloads to handlePreToolUse');
 });

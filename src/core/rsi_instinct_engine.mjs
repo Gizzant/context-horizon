@@ -11,6 +11,8 @@ import {
   computeProjectScopeHash,
   evaluateGlobalPromotionEligibility
 } from './coach/reflector_queue.mjs';
+import { TurnZeroGate } from './coach/turn_zero_gate.mjs';
+import { evaluateRsi01PrefixDietAndSkillFault } from './shared/detectors.mjs';
 
 /**
  * Phase 3: Bounded Atomic Instinct & Correction Learning Loop (RSI Engine)
@@ -242,6 +244,11 @@ export class RsiInstinctEngine {
       new PrefixCacheShield({
         homeDir: this.homeDir,
         queuePath: options.queuePath
+      });
+    this.turnZeroGate =
+      options.turnZeroGate ||
+      new TurnZeroGate({
+        workspaceDir: this.workspaceDir
       });
     this.nowFn = typeof options.nowFn === 'function' ? options.nowFn : () => Date.now();
     this.db = null;
@@ -1000,6 +1007,191 @@ export class RsiInstinctEngine {
       quarantinedInstincts: Array.from(quarantinedInstinctIds)
     };
   }
+
+  /**
+   * Rank 9 (`RSI-01`): Prefix Diet (`> 8,000` static rule tokens), Skill Fault Delta Router,
+   * `>= 5` validated domain instincts floor, zero recursive LLM self-critique subagents,
+   * and mandatory 1-click user diff approval gated by `TurnZeroGate`.
+   */
+  auditPrefixDietAndRouteSkillFault(input = {}) {
+    return auditPrefixDietAndRouteSkillFault(input, {
+      workspaceDir: this.workspaceDir,
+      turnZeroGate: this.turnZeroGate,
+      db: this.db
+    });
+  }
+}
+
+export function extractMarkdownDomainSections(markdown = '') {
+  const lines = String(markdown || '').split(/\r?\n/);
+  const sections = [];
+  let currentHeading = null;
+  let currentChars = 0;
+
+  const flush = () => {
+    if (!currentHeading) return;
+    const slug = currentHeading
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, () => '-')
+      .replace(/^-+|-+$/g, () => '');
+    if (slug && !/^(ground-rules|invariants|core|overview)$/.test(slug)) {
+      sections.push({
+        domain: slug,
+        heading: currentHeading,
+        tokens: Math.max(1, Math.ceil(currentChars / 4))
+      });
+    }
+  };
+
+  for (const line of lines) {
+    const m = line.match(/^##\s+(.+)$/);
+    if (m) {
+      flush();
+      currentHeading = m[1].trim();
+      currentChars = line.length;
+    } else if (currentHeading) {
+      currentChars += line.length + 1;
+    }
+  }
+  flush();
+  return sections;
+}
+
+export function auditPrefixDietAndRouteSkillFault(input = {}, options = {}) {
+  const workspaceDir = options.workspaceDir || input.workspaceDir || process.cwd();
+  const gate = options.turnZeroGate || input.turnZeroGate || new TurnZeroGate({ workspaceDir });
+  const db = options.db || null;
+
+  // Hard outlaw recursive LLM self-critique subagents
+  const attemptedRecursiveCritique = Boolean(
+    input.recursiveSubagentCritique || input.spawnCritiqueSubagent
+  );
+
+  // Measure static AGENTS.md / .agents/rules/*.md token overhead if not explicitly supplied
+  let staticRulesTokens = Number(input.staticRulesTokens ?? -1);
+  let domainSections = Array.isArray(input.domainSections) ? input.domainSections : null;
+  if (staticRulesTokens < 0 || !domainSections) {
+    let combinedText = '';
+    const agentsPath = path.join(workspaceDir, 'AGENTS.md');
+    if (fs.existsSync(agentsPath)) {
+      try {
+        combinedText += fs.readFileSync(agentsPath, 'utf8') + '\n';
+      } catch {}
+    }
+    const rulesDir = path.join(workspaceDir, '.agents', 'rules');
+    if (fs.existsSync(rulesDir)) {
+      try {
+        for (const f of fs.readdirSync(rulesDir)) {
+          if (f.endsWith('.md')) {
+            combinedText += fs.readFileSync(path.join(rulesDir, f), 'utf8') + '\n';
+          }
+        }
+      } catch {}
+    }
+    if (staticRulesTokens < 0) {
+      staticRulesTokens = Math.ceil(combinedText.length / 4);
+    }
+    if (!domainSections) {
+      domainSections = extractMarkdownDomainSections(combinedText);
+    }
+  }
+
+  // Count validated domain instincts from input or instincts.db
+  const domain = String(input.domain || inferInstinctDomain(input.userCorrectionText || '', input.files || []));
+  let validatedInstincts = Array.isArray(input.validatedInstincts) ? input.validatedInstincts : null;
+  if (!validatedInstincts && db) {
+    try {
+      validatedInstincts = db
+        .prepare(
+          `SELECT * FROM instincts
+           WHERE domain = ? AND status = 'active' AND confidence >= ? AND harmful_count = 0
+           ORDER BY confidence DESC`
+        )
+        .all(domain, RSI_CONSTANTS.EVOLVE_CLUSTER_MIN_CONFIDENCE);
+    } catch {
+      validatedInstincts = [];
+    }
+  }
+  const validatedList = Array.isArray(validatedInstincts) ? validatedInstincts : [];
+  const validatedCount = Number.isFinite(input.validatedDomainInstinctsCount)
+    ? Number(input.validatedDomainInstinctsCount)
+    : validatedList.length;
+
+  const rsi01 = evaluateRsi01PrefixDietAndSkillFault({
+    staticRulesTokens,
+    staticRulesOverheadCeiling: Number(input.staticRulesOverheadCeiling || 8000),
+    domainSections,
+    lastExecutedSkill: input.lastExecutedSkill || null,
+    userCorrectionText: input.userCorrectionText || '',
+    validatedDomainInstinctsCount: validatedCount
+  });
+
+  // Build proposed SKILL.md draft & unified diff when either routing a skill fault OR synthesizing >= 5 instincts
+  let proposedSkillPath = null;
+  let proposedSkillContent = null;
+  let unifiedDiff = null;
+
+  if (rsi01.routedDeltaTarget && rsi01.routedDeltaTarget.endsWith('/SKILL.md')) {
+    proposedSkillPath = path.join(workspaceDir, rsi01.routedDeltaTarget);
+    const skillSlug = path.basename(path.dirname(proposedSkillPath));
+    const existing = fs.existsSync(proposedSkillPath) ? fs.readFileSync(proposedSkillPath, 'utf8') : '';
+    const deltaBullet = `- ${String(input.userCorrectionText).trim()}`;
+    proposedSkillContent = existing
+      ? `${existing.trimEnd()}\n${deltaBullet}\n`
+      : `---\nname: ${skillSlug}\ndescription: Domain skill directives maintained by Attention Horizon.\n---\n\n# ${skillSlug}\n\n## Directives\n${deltaBullet}\n`;
+    unifiedDiff = `--- a/${rsi01.routedDeltaTarget}\n+++ b/${rsi01.routedDeltaTarget}\n@@\n+${deltaBullet}`;
+  } else if (rsi01.canSynthesizeNewSkillDraft) {
+    const cleanSlug = domain.toLowerCase().replace(/[^a-z0-9-]+/g, () => '-');
+    const relTarget = `.agents/skills/${cleanSlug}/SKILL.md`;
+    proposedSkillPath = path.join(workspaceDir, relTarget);
+    const bulletLines = (validatedList.length > 0
+      ? validatedList.map((inst) => `- ${inst.directive_action || inst}`)
+      : Array.from({ length: validatedCount }, (_, idx) => `- Validated ${cleanSlug} directive #${idx + 1}`)
+    ).join('\n');
+    proposedSkillContent = `---\nname: ${cleanSlug}\ndescription: Synthesized from ${validatedCount} validated ${cleanSlug} instincts.\n---\n\n# ${cleanSlug}\n\n## Mandatory Directives\n${bulletLines}\n`;
+    unifiedDiff = `--- /dev/null\n+++ b/${relTarget}\n@@\n+${bulletLines.replace(/\n/g, () => '\n+')}`;
+  }
+
+  // Enforce mandatory 1-click user diff approval AND TurnZeroGate cold-cache lock
+  const userApprovedDiff = input.userApprovedDiff === true;
+  let mutation = {
+    applied: false,
+    queued: false,
+    awaitingUserDiffApproval: Boolean(proposedSkillPath && !userApprovedDiff)
+  };
+
+  if (!attemptedRecursiveCritique && proposedSkillPath && proposedSkillContent && userApprovedDiff) {
+    assertMutableRsiTarget(proposedSkillPath);
+    const session = input.session || {
+      turnCount: Number(input.turnCount ?? 0),
+      cachedTokens: Number(input.cachedTokens ?? 0),
+      ttlRemainingSeconds: Number(input.ttlRemainingSeconds ?? 0)
+    };
+    const gateRes = gate.queueOrApplyHygieneMutation(
+      {
+        type: 'RSI01_SKILL_DIFF_APPLY',
+        targetPath: proposedSkillPath,
+        newContent: proposedSkillContent
+      },
+      session
+    );
+    mutation = {
+      ...gateRes,
+      awaitingUserDiffApproval: false
+    };
+  }
+
+  return {
+    ...rsi01,
+    staticRulesTokens,
+    domain,
+    validatedDomainInstinctsCount: validatedCount,
+    recursiveSubagentRejected: attemptedRecursiveCritique,
+    proposedSkillPath,
+    proposedSkillContent,
+    unifiedDiff,
+    mutation
+  };
 }
 
 export default RsiInstinctEngine;

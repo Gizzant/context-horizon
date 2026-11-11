@@ -73,7 +73,7 @@ export const MODEL_CATALOG = {
     antigravity_min_tier: 'ultra',
     shared_pool_ceiling: SHARED_1M_CONTEXT_POOL_TOKENS,
     deprecated_after: null,
-    multipliers: { low: 3.0, med: 5.5, medium: 5.5, high: 9.25 }
+    multipliers: { low: 3.2, med: 6.0, medium: 6.0, high: 10.0 }
   },
   'gemini-4-carbon-cyber-permissive': {
     id: 'gemini-4-carbon-cyber-permissive',
@@ -86,7 +86,7 @@ export const MODEL_CATALOG = {
     antigravity_min_tier: 'ultra',
     shared_pool_ceiling: SHARED_1M_CONTEXT_POOL_TOKENS,
     deprecated_after: null,
-    multipliers: { low: 3.0, med: 5.5, medium: 5.5, high: 9.25 }
+    multipliers: { low: 3.2, med: 6.0, medium: 6.0, high: 10.0 }
   },
   'claude-haiku-5-5': {
     id: 'claude-haiku-5-5',

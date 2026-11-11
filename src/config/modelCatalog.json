@@ -1,0 +1,620 @@
+{
+  "schema_version": "2.0.0",
+  "shared_1m_context_pool_tokens": 1048576,
+  "legacy_model_sunset_utc": "2026-11-18T00:00:00Z",
+  "models": {
+    "gemini-4-carbon": {
+      "id": "gemini-4-carbon",
+      "aliases": [
+        "gemini-4-carbon-high",
+        "gemini-4-carbon-medium",
+        "gemini-4-carbon-med",
+        "gemini-4-carbon-low",
+        "M427",
+        "M437",
+        "M438"
+      ],
+      "family": "carbon",
+      "label": "Gemini 4 Carbon",
+      "supported_efforts": ["low", "medium", "high"],
+      "caching_mode": "implicit_only",
+      "supports_explicit_cache": false,
+      "antigravity_min_tier": "ultra",
+      "shared_pool_ceiling": 1048576,
+      "deprecated_after": null,
+      "weights": { "low": 3.2, "med": 6.0, "medium": 6.0, "high": 10.0 },
+      "quota_multipliers": { "low": 3.2, "med": 6.0, "medium": 6.0, "high": 10.0 },
+      "rate_schedules": [
+        {
+          "id": "carbon-introductory-pre-2026-12-01",
+          "window": "introductory",
+          "effective_from_utc": null,
+          "effective_until_utc": "2026-11-30T23:59:59Z",
+          "standard": {
+            "input_per_1m": 2.00,
+            "output_per_1m": 10.00,
+            "write_5m_per_1m": 2.00,
+            "write_1h_per_1m": 2.00,
+            "cached_read_per_1m": 0.10
+          },
+          "priority": {
+            "input_per_1m": 3.60,
+            "output_per_1m": 18.00,
+            "write_5m_per_1m": 3.60,
+            "write_1h_per_1m": 3.60,
+            "cached_read_per_1m": 0.10
+          }
+        },
+        {
+          "id": "carbon-standard-from-2026-12-01",
+          "window": "post_introductory",
+          "effective_from_utc": "2026-12-01T00:00:00Z",
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 4.00,
+            "output_per_1m": 20.00,
+            "write_5m_per_1m": 4.00,
+            "write_1h_per_1m": 4.00,
+            "cached_read_per_1m": 0.20
+          },
+          "priority": {
+            "input_per_1m": 7.20,
+            "output_per_1m": 36.00,
+            "write_5m_per_1m": 7.20,
+            "write_1h_per_1m": 7.20,
+            "cached_read_per_1m": 0.20
+          }
+        }
+      ]
+    },
+    "gemini-4-carbon-cyber-permissive": {
+      "id": "gemini-4-carbon-cyber-permissive",
+      "aliases": ["M670"],
+      "family": "carbon",
+      "label": "Gemini 4 Carbon (Cyber Permissive)",
+      "supported_efforts": ["low", "medium", "high"],
+      "caching_mode": "implicit_only",
+      "supports_explicit_cache": false,
+      "antigravity_min_tier": "ultra",
+      "shared_pool_ceiling": 1048576,
+      "deprecated_after": null,
+      "weights": { "low": 3.2, "med": 6.0, "medium": 6.0, "high": 10.0 },
+      "quota_multipliers": { "low": 3.2, "med": 6.0, "medium": 6.0, "high": 10.0 },
+      "rate_schedules": [
+        {
+          "id": "carbon-introductory-pre-2026-12-01",
+          "window": "introductory",
+          "effective_from_utc": null,
+          "effective_until_utc": "2026-11-30T23:59:59Z",
+          "standard": {
+            "input_per_1m": 2.00,
+            "output_per_1m": 10.00,
+            "write_5m_per_1m": 2.00,
+            "write_1h_per_1m": 2.00,
+            "cached_read_per_1m": 0.10
+          },
+          "priority": {
+            "input_per_1m": 3.60,
+            "output_per_1m": 18.00,
+            "write_5m_per_1m": 3.60,
+            "write_1h_per_1m": 3.60,
+            "cached_read_per_1m": 0.10
+          }
+        },
+        {
+          "id": "carbon-standard-from-2026-12-01",
+          "window": "post_introductory",
+          "effective_from_utc": "2026-12-01T00:00:00Z",
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 4.00,
+            "output_per_1m": 20.00,
+            "write_5m_per_1m": 4.00,
+            "write_1h_per_1m": 4.00,
+            "cached_read_per_1m": 0.20
+          },
+          "priority": {
+            "input_per_1m": 7.20,
+            "output_per_1m": 36.00,
+            "write_5m_per_1m": 7.20,
+            "write_1h_per_1m": 7.20,
+            "cached_read_per_1m": 0.20
+          }
+        }
+      ]
+    },
+    "gemini-4-argon": {
+      "id": "gemini-4-argon",
+      "aliases": [
+        "gemini-4-argon-high",
+        "gemini-4-argon-medium",
+        "gemini-4-argon-med",
+        "gemini-4-argon-low"
+      ],
+      "family": "argon",
+      "label": "Gemini 4 Argon",
+      "supported_efforts": ["low", "medium", "high"],
+      "caching_mode": "implicit_only",
+      "supports_explicit_cache": false,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 1048576,
+      "deprecated_after": null,
+      "weights": { "low": 3.0, "med": 5.5, "medium": 5.5, "high": 9.25 },
+      "quota_multipliers": { "low": 3.0, "med": 5.5, "medium": 5.5, "high": 9.25 },
+      "rate_schedules": [
+        {
+          "id": "argon-introductory-pre-2026-12-01",
+          "window": "introductory",
+          "effective_from_utc": null,
+          "effective_until_utc": "2026-11-30T23:59:59Z",
+          "standard": {
+            "input_per_1m": 2.00,
+            "output_per_1m": 10.00,
+            "write_5m_per_1m": 2.00,
+            "write_1h_per_1m": 2.00,
+            "cached_read_per_1m": 0.10
+          },
+          "priority": {
+            "input_per_1m": 3.60,
+            "output_per_1m": 18.00,
+            "write_5m_per_1m": 3.60,
+            "write_1h_per_1m": 3.60,
+            "cached_read_per_1m": 0.10
+          }
+        },
+        {
+          "id": "argon-standard-from-2026-12-01",
+          "window": "post_introductory",
+          "effective_from_utc": "2026-12-01T00:00:00Z",
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 4.00,
+            "output_per_1m": 20.00,
+            "write_5m_per_1m": 4.00,
+            "write_1h_per_1m": 4.00,
+            "cached_read_per_1m": 0.20
+          },
+          "priority": {
+            "input_per_1m": 7.20,
+            "output_per_1m": 36.00,
+            "write_5m_per_1m": 7.20,
+            "write_1h_per_1m": 7.20,
+            "cached_read_per_1m": 0.20
+          }
+        }
+      ]
+    },
+    "gemini-3.8-flash": {
+      "id": "gemini-3.8-flash",
+      "aliases": [
+        "gemini-3.8-flash-high",
+        "gemini-3.8-flash-medium",
+        "gemini-3.8-flash-med",
+        "gemini-3.8-flash-low"
+      ],
+      "family": "flash",
+      "label": "Gemini 3.8 Flash",
+      "supported_efforts": ["low", "medium", "high"],
+      "caching_mode": "implicit_only",
+      "supports_explicit_cache": false,
+      "antigravity_min_tier": "free",
+      "shared_pool_ceiling": 256000,
+      "deprecated_after": null,
+      "quota_multipliers": { "low": 1.0, "med": 1.5, "medium": 1.5, "high": 2.2 },
+      "rate_schedules": [
+        {
+          "id": "flash-introductory-pre-2027-01-01",
+          "window": "introductory",
+          "effective_from_utc": null,
+          "effective_until_utc": "2026-12-31T23:59:59Z",
+          "standard": {
+            "input_per_1m": 0.75,
+            "output_per_1m": 3.75,
+            "write_5m_per_1m": 0.75,
+            "write_1h_per_1m": 0.75,
+            "cached_read_per_1m": 0.075
+          },
+          "priority": {
+            "input_per_1m": 1.35,
+            "output_per_1m": 6.75,
+            "write_5m_per_1m": 1.35,
+            "write_1h_per_1m": 1.35,
+            "cached_read_per_1m": 0.075
+          }
+        },
+        {
+          "id": "flash-standard-from-2027-01-01",
+          "window": "post_introductory",
+          "effective_from_utc": "2027-01-01T00:00:00Z",
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 1.50,
+            "output_per_1m": 7.50,
+            "write_5m_per_1m": 1.50,
+            "write_1h_per_1m": 1.50,
+            "cached_read_per_1m": 0.15
+          },
+          "priority": {
+            "input_per_1m": 2.70,
+            "output_per_1m": 13.50,
+            "write_5m_per_1m": 2.70,
+            "write_1h_per_1m": 2.70,
+            "cached_read_per_1m": 0.15
+          }
+        }
+      ]
+    },
+    "claude-haiku-5-5": {
+      "id": "claude-haiku-5-5",
+      "aliases": ["claude-haiku-5.5", "haiku-5-5", "haiku-5.5"],
+      "family": "haiku",
+      "label": "Claude Haiku 5.5",
+      "supported_efforts": ["low", "medium", "high"],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 1000000,
+      "deprecated_after": null,
+      "prompt_cliff_tokens": 100000,
+      "quota_multipliers": { "low": 0.5, "med": 0.8, "medium": 0.8, "high": 1.2 },
+      "rate_schedules": [
+        {
+          "id": "haiku-5-5-standard",
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 0.10,
+            "output_per_1m": 0.50,
+            "write_5m_per_1m": 0.125,
+            "write_1h_per_1m": 0.20,
+            "cached_read_per_1m": 0.01
+          },
+          "cliff_over_100k": {
+            "input_per_1m": 0.50,
+            "output_per_1m": 2.50,
+            "write_5m_per_1m": 0.625,
+            "write_1h_per_1m": 1.00,
+            "cached_read_per_1m": 0.05
+          },
+          "priority": {
+            "input_per_1m": 0.10,
+            "output_per_1m": 0.50,
+            "write_5m_per_1m": 0.125,
+            "write_1h_per_1m": 0.20,
+            "cached_read_per_1m": 0.01
+          }
+        }
+      ]
+    },
+    "claude-sonnet-5-5": {
+      "id": "claude-sonnet-5-5",
+      "aliases": ["claude-sonnet-5.5", "sonnet-5-5", "sonnet-5.5"],
+      "family": "sonnet",
+      "label": "Claude Sonnet 5.5",
+      "supported_efforts": ["low", "medium", "high"],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 1000000,
+      "deprecated_after": null,
+      "quota_multipliers": { "low": 3.0, "med": 4.5, "medium": 4.5, "high": 7.0 },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 2.00,
+            "output_per_1m": 10.00,
+            "write_5m_per_1m": 2.50,
+            "write_1h_per_1m": 4.00,
+            "cached_read_per_1m": 0.10
+          },
+          "priority": {
+            "input_per_1m": 2.00,
+            "output_per_1m": 10.00,
+            "write_5m_per_1m": 2.50,
+            "write_1h_per_1m": 4.00,
+            "cached_read_per_1m": 0.10
+          }
+        }
+      ]
+    },
+    "claude-opus-5-5": {
+      "id": "claude-opus-5-5",
+      "aliases": ["claude-opus-5.5", "opus-5-5", "opus-5.5"],
+      "family": "opus",
+      "label": "Claude Opus 5.5",
+      "supported_efforts": ["low", "medium", "high"],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 1000000,
+      "deprecated_after": null,
+      "quota_multipliers": { "low": 6.0, "med": 9.0, "medium": 9.0, "high": 14.0 },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 4.00,
+            "output_per_1m": 20.00,
+            "write_5m_per_1m": 5.00,
+            "write_1h_per_1m": 8.00,
+            "cached_read_per_1m": 0.20
+          },
+          "priority": {
+            "input_per_1m": 4.00,
+            "output_per_1m": 20.00,
+            "write_5m_per_1m": 5.00,
+            "write_1h_per_1m": 8.00,
+            "cached_read_per_1m": 0.20
+          }
+        }
+      ]
+    },
+    "claude-fable-5-2": {
+      "id": "claude-fable-5-2",
+      "aliases": ["claude-fable-5.2", "fable-5-2", "fable-5.2"],
+      "family": "fable",
+      "label": "Claude Fable 5.2",
+      "supported_efforts": ["low", "medium", "high"],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "ultra",
+      "shared_pool_ceiling": 1000000,
+      "deprecated_after": null,
+      "quota_multipliers": { "low": 10.0, "med": 15.0, "medium": 15.0, "high": 22.0 },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 8.00,
+            "output_per_1m": 40.00,
+            "write_5m_per_1m": 10.00,
+            "write_1h_per_1m": 16.00,
+            "cached_read_per_1m": 0.20
+          },
+          "priority": {
+            "input_per_1m": 8.00,
+            "output_per_1m": 40.00,
+            "write_5m_per_1m": 10.00,
+            "write_1h_per_1m": 16.00,
+            "cached_read_per_1m": 0.20
+          }
+        }
+      ]
+    },
+    "claude-fable-5-1": {
+      "id": "claude-fable-5-1",
+      "aliases": ["claude-fable-5.1", "fable-5-1", "fable-5.1"],
+      "family": "fable",
+      "label": "Claude Fable 5.1",
+      "supported_efforts": ["low", "medium", "high"],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "ultra",
+      "shared_pool_ceiling": 1000000,
+      "deprecated_after": null,
+      "quota_multipliers": { "low": 12.0, "med": 18.0, "medium": 18.0, "high": 26.0 },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 10.00,
+            "output_per_1m": 50.00,
+            "write_5m_per_1m": 12.50,
+            "write_1h_per_1m": 20.00,
+            "cached_read_per_1m": 0.25
+          },
+          "priority": {
+            "input_per_1m": 10.00,
+            "output_per_1m": 50.00,
+            "write_5m_per_1m": 12.50,
+            "write_1h_per_1m": 20.00,
+            "cached_read_per_1m": 0.25
+          }
+        }
+      ]
+    },
+    "claude-opus-4-6": {
+      "id": "claude-opus-4-6",
+      "aliases": ["claude-opus-4.6", "claude-opus-4-6-thinking", "opus-4-6", "opus-4.6"],
+      "family": "opus",
+      "label": "Claude Opus 4.6",
+      "supported_efforts": ["low", "medium", "high"],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 200000,
+      "deprecated_after": "2026-11-18T00:00:00Z",
+      "quota_multipliers": { "low": 7.5, "med": 11.0, "medium": 11.0, "high": 16.0 },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 5.00,
+            "output_per_1m": 25.00,
+            "write_5m_per_1m": 6.25,
+            "write_1h_per_1m": 10.00,
+            "cached_read_per_1m": 0.50
+          },
+          "priority": {
+            "input_per_1m": 5.00,
+            "output_per_1m": 25.00,
+            "write_5m_per_1m": 6.25,
+            "write_1h_per_1m": 10.00,
+            "cached_read_per_1m": 0.50
+          }
+        }
+      ]
+    },
+    "claude-opus-4-5": {
+      "id": "claude-opus-4-5",
+      "aliases": ["claude-opus-4.5", "opus-4-5", "opus-4.5"],
+      "family": "opus",
+      "label": "Claude Opus 4.5",
+      "supported_efforts": ["low", "medium", "high"],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 200000,
+      "deprecated_after": null,
+      "quota_multipliers": { "low": 7.5, "med": 11.0, "medium": 11.0, "high": 16.0 },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 5.00,
+            "output_per_1m": 25.00,
+            "write_5m_per_1m": 6.25,
+            "write_1h_per_1m": 10.00,
+            "cached_read_per_1m": 0.50
+          },
+          "priority": {
+            "input_per_1m": 5.00,
+            "output_per_1m": 25.00,
+            "write_5m_per_1m": 6.25,
+            "write_1h_per_1m": 10.00,
+            "cached_read_per_1m": 0.50
+          }
+        }
+      ]
+    },
+    "claude-sonnet-4-6": {
+      "id": "claude-sonnet-4-6",
+      "aliases": ["claude-sonnet-4.6", "sonnet-4-6", "sonnet-4.6"],
+      "family": "sonnet",
+      "label": "Claude Sonnet 4.6",
+      "supported_efforts": ["low", "medium", "high"],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 200000,
+      "deprecated_after": "2026-11-18T00:00:00Z",
+      "quota_multipliers": { "low": 3.5, "med": 5.0, "medium": 5.0, "high": 7.5 },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 3.00,
+            "output_per_1m": 15.00,
+            "write_5m_per_1m": 3.75,
+            "write_1h_per_1m": 6.00,
+            "cached_read_per_1m": 0.30
+          },
+          "priority": {
+            "input_per_1m": 3.00,
+            "output_per_1m": 15.00,
+            "write_5m_per_1m": 3.75,
+            "write_1h_per_1m": 6.00,
+            "cached_read_per_1m": 0.30
+          }
+        }
+      ]
+    },
+    "claude-sonnet-4-5": {
+      "id": "claude-sonnet-4-5",
+      "aliases": ["claude-sonnet-4.5", "sonnet-4-5", "sonnet-4.5"],
+      "family": "sonnet",
+      "label": "Claude Sonnet 4.5",
+      "supported_efforts": ["low", "medium", "high"],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 200000,
+      "deprecated_after": null,
+      "quota_multipliers": { "low": 3.5, "med": 5.0, "medium": 5.0, "high": 7.5 },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 3.00,
+            "output_per_1m": 15.00,
+            "write_5m_per_1m": 3.75,
+            "write_1h_per_1m": 6.00,
+            "cached_read_per_1m": 0.30
+          },
+          "priority": {
+            "input_per_1m": 3.00,
+            "output_per_1m": 15.00,
+            "write_5m_per_1m": 3.75,
+            "write_1h_per_1m": 6.00,
+            "cached_read_per_1m": 0.30
+          }
+        }
+      ]
+    },
+    "claude-haiku-4-5": {
+      "id": "claude-haiku-4-5",
+      "aliases": ["claude-haiku-4.5", "haiku-4-5", "haiku-4.5"],
+      "family": "haiku",
+      "label": "Claude Haiku 4.5",
+      "supported_efforts": ["low", "medium", "high"],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 200000,
+      "deprecated_after": null,
+      "quota_multipliers": { "low": 1.2, "med": 1.8, "medium": 1.8, "high": 2.5 },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 1.00,
+            "output_per_1m": 5.00,
+            "write_5m_per_1m": 1.25,
+            "write_1h_per_1m": 2.00,
+            "cached_read_per_1m": 0.10
+          },
+          "priority": {
+            "input_per_1m": 1.00,
+            "output_per_1m": 5.00,
+            "write_5m_per_1m": 1.25,
+            "write_1h_per_1m": 2.00,
+            "cached_read_per_1m": 0.10
+          }
+        }
+      ]
+    },
+    "gpt-oss-120b": {
+      "id": "gpt-oss-120b",
+      "aliases": ["gpt-oss"],
+      "family": "gpt-oss",
+      "label": "GPT-OSS 120B",
+      "supported_efforts": ["low", "medium", "high"],
+      "caching_mode": "implicit_only",
+      "supports_explicit_cache": false,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 128000,
+      "deprecated_after": "2026-11-18T00:00:00Z",
+      "quota_multipliers": { "low": 1.5, "med": 2.5, "medium": 2.5, "high": 4.0 },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 1.00,
+            "output_per_1m": 3.00,
+            "write_5m_per_1m": 1.00,
+            "write_1h_per_1m": 1.00,
+            "cached_read_per_1m": 0.10
+          },
+          "priority": {
+            "input_per_1m": 1.00,
+            "output_per_1m": 3.00,
+            "write_5m_per_1m": 1.00,
+            "write_1h_per_1m": 1.00,
+            "cached_read_per_1m": 0.10
+          }
+        }
+      ]
+    }
+  }
+}

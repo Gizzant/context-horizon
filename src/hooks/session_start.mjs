@@ -9,6 +9,7 @@ import { canonicalizePath } from '../core/path_canonicalizer.mjs';
 import { loadFlightcheckConfig } from '../core/config.mjs';
 import { resolveModelCeiling } from '../core/constants.mjs';
 import { recordHookDiagnostic } from '../core/hook_diagnostics.mjs';
+import { auditWorkspaceAndGlobalMcpConfigs } from '../core/mcp_auditor.mjs';
 
 async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {}) {
   if (process.stdin.isTTY || process.stdin.readableEnded) return {};
@@ -100,6 +101,26 @@ export async function handleSessionStart(inputData = {}) {
     const config = loadFlightcheckConfig();
     const ceiling = resolveModelCeiling(activeModel, inputData.context_window || inputData.contextWindow, { config });
     sidecar.sensors.schemaTaxPct = Number(((schemaTokens / (ceiling || 256000)) * 100).toFixed(1));
+  }
+
+  // Rank 10 (DET-13): Read-only Eager MCP Override & Startup Bloat Auditor
+  const mcpAudit = auditWorkspaceAndGlobalMcpConfigs({
+    homeDir: inputData.homeDir || undefined,
+    workspacePath,
+    extraServers: Array.isArray(inputData.mcpServers) ? inputData.mcpServers : [],
+    ...(inputData.envPath !== undefined ? { envPath: inputData.envPath } : {})
+  });
+  sidecar.sensors = sidecar.sensors || {};
+  sidecar.sensors.mcpAudit = mcpAudit;
+  if (mcpAudit.triggered && mcpAudit.hudAlert) {
+    sidecar.portfolio = sidecar.portfolio || {};
+    sidecar.portfolio.hudAlerts = Array.isArray(sidecar.portfolio.hudAlerts) ? sidecar.portfolio.hudAlerts : [];
+    sidecar.portfolio.hudAlerts.push({
+      detectorId: 'DET-13',
+      message: mcpAudit.hudAlert,
+      offendingServers: mcpAudit.offendingServers,
+      createdAt: new Date().toISOString()
+    });
   }
 
   writeSidecarAtomicSync(conversationId, sidecar);

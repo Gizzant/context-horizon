@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "visionOverageHttp400": {
+    "enabled": true,
+    "detectorId": "DET-20",
+    "httpStatus": 400,
+    "upstreamErrorSubstring": "Unable to process input image",
+    "warningMessage": "[DET-20 Vision Overage Quirk] AI Credit Overages are active and an image/screenshot attachment was detected. Submit text-only or wait for Base Quota reset to avoid Google's HTTP 400 Bad Request (Unable to process input image) bug."
+  },
+  "hybridQuotaLockout": {
+    "enabled": true,
+    "detectorId": "DET-16",
+    "singleWorkerThrottlePct": 80,
+    "hardAskGatePct": 90,
+    "lockoutDurationHours": 168,
+    "maxSubagentTokens": 40000,
+    "maxSubagentTurns": 12
+  }
+}

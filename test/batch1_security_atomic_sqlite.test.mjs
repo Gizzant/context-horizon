@@ -239,9 +239,13 @@ describe('Batch 1 Remediation — ISS-037: Trusted Plugin Hook Resolution & Daem
     const parsedHooks = JSON.parse(hooksRaw);
     for (const group of Object.values(parsedHooks.hooks || {})) {
       for (const entry of group) {
-        for (const h of entry.hooks || []) {
-          assert.ok(h.command.includes('agy-horizon-flightcheck'), `Expected trusted plugin path in hook command: ${h.command}`);
-          assert.ok(!h.command.includes('./src/hooks'), `Untrusted CWD hook path found: ${h.command}`);
+        const handlers = Array.isArray(entry.hooks) ? entry.hooks : [entry];
+        for (const h of handlers) {
+          assert.ok(
+            h.command.includes('agy-horizon-flightcheck') || /^node\s+(?:--no-warnings\s+)?\.\/hooks\/[a-z0-9_]+\.mjs$/i.test(h.command),
+            `Expected plugin-root ./hooks/ or trusted plugin path in hook command: ${h.command}`
+          );
+          assert.ok(!h.command.includes('./src/hooks'), `Untrusted CWD ./src/hooks path found: ${h.command}`);
         }
       }
     }
@@ -588,8 +592,8 @@ describe('Batch 1 Remediation — ISS-044: Hardened agy_git_guard.mjs & Tokenize
   });
 });
 
-describe('Batch 1 Remediation — ISS-045: Centralized openLocalHorizonDb (WAL + busy_timeout=5000) & Host DB Guards', () => {
-  it('configures WAL + busy_timeout=5000 on local DBs, enforces readOnly handles, and blocks RW opens on host DBs', async () => {
+describe('Batch 1 Remediation — ISS-045: Centralized openLocalHorizonDb (WAL + busy_timeout=3000) & Host DB Guards', () => {
+  it('configures WAL + busy_timeout=3000 on local DBs, enforces readOnly handles, and blocks RW opens on host DBs', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hz-iss045-sqlite-'));
     try {
       const localDbPath = path.join(tmpDir, '.agents', 'cache', 'plugin_store.sqlite');
@@ -598,7 +602,7 @@ describe('Batch 1 Remediation — ISS-045: Centralized openLocalHorizonDb (WAL +
         const jm = rwDb.prepare('PRAGMA journal_mode').get();
         const bt = rwDb.prepare('PRAGMA busy_timeout').get();
         assert.equal(String(jm.journal_mode).toLowerCase(), 'wal');
-        assert.equal(Number(bt.timeout), 5000);
+        assert.equal(Number(bt.timeout), 3000);
         rwDb.exec('CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT); INSERT INTO t (v) VALUES (\'ok\');');
       } finally {
         rwDb.close();

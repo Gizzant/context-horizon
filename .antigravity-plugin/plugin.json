@@ -1,0 +1,35 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "attention-horizon-antigravity",
+  "displayName": "Attention Horizon",
+  "version": "3.4.0",
+  "description": "40-cell context window telemetry HUD, KV-Cache Gravity effort router, and zero-token pre-write guardrails.",
+  "author": {
+    "name": "Gizzant"
+  },
+  "icon": "./assets/logo.svg",
+  "hooks": "./hooks.json",
+  "rules": [
+    "./rules/AGENTS.md"
+  ],
+  "skills": [
+    "./skills/horizon",
+    "./skills/precheck",
+    "./skills/handoff",
+    "./skills/cost-radar",
+    "./skills/evolve"
+  ],
+  "agents": [
+    "./agents/ah-flash-scout.md"
+  ],
+  "sidecars": [
+    "./sidecars/horizon-daemon"
+  ],
+  "suggestedPrompts": [
+    "/horizon Inspect my 40-cell Attention Horizon and Wasted Tokens",
+    "/precheck Audit my next architecture refactor prompt and context hygiene",
+    "/handoff Audit and format State Baton before /compact or session handoff",
+    "/cost-radar Render my prefix-cache retention, thinking drift and swarm topology timeline",
+    "/evolve Audit static AGENTS.md token overhead and route skill deltas"
+  ]
+}
