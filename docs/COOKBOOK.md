@@ -1,4 +1,4 @@
-# `ctxtop` Cookbook & Recipes
+# Attention Horizon (`ctxtop`) Cookbook & Recipes
 
 Practical, copy-paste workflows for managing AI coding agent context windows, recovering gigabytes of IDE storage, stopping prompt cache cliffs, and embedding `ctxtop` telemetry into custom scripts.
 

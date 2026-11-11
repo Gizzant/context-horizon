@@ -1,6 +1,5 @@
 import fs from 'node:fs';
-import path from 'node:path';
-import { SQLITE_OPEN_READONLY_OPTIONS } from './parser.mjs';
+import { openLocalHorizonDb } from './sqlite_client.mjs';
 
 /**
  * SQLite FTS5 Episodic Memory Bridge & `[▶ RESUME HERE]` Context Synthesizer.
@@ -14,9 +13,7 @@ export async function upsertEpisodicMemory(dbPath, record = {}, { DatabaseSync }
   if (!dbPath) {
     return { success: false, error: 'dbPath is required' };
   }
-  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-  const DbCtor = DatabaseSync || (await import('node:sqlite')).DatabaseSync;
-  const db = new DbCtor(dbPath);
+  const db = openLocalHorizonDb(dbPath, { readOnly: false, DatabaseSync });
   try {
     db.exec(`
       CREATE TABLE IF NOT EXISTS episodic_sessions (
@@ -67,8 +64,7 @@ export async function queryEpisodicMemoryBm25(dbPath, { query = '', workspacePat
   if (!dbPath || !fs.existsSync(dbPath)) {
     return { hits: [] };
   }
-  const DbCtor = DatabaseSync || (await import('node:sqlite')).DatabaseSync;
-  const db = new DbCtor(dbPath, SQLITE_OPEN_READONLY_OPTIONS);
+  const db = openLocalHorizonDb(dbPath, { readOnly: true, DatabaseSync });
   try {
     const cleanQuery = String(query || '')
       .replace(/[^A-Za-z0-9_\s]/g, ' ')

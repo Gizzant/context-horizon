@@ -88,16 +88,25 @@ test('DET-19: resolveRealGitBinary filters out .agents/shims to prevent recursio
   );
 });
 
-test('DET-19: One-time cryptographic nonce permits bypass and is consumed strictly once', () => {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'det19-test-'));
+test('DET-19: One-time HMAC-signed cryptographic nonce outside workspace permits bypass and is consumed strictly once', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'det19-test-ws-'));
+  const tmpSecDir = fs.mkdtempSync(path.join(os.tmpdir(), 'det19-test-sec-'));
+  const nonceFilePath = path.join(tmpSecDir, 'git_bypass_nonce.json');
+  const secretKeyPath = path.join(tmpSecDir, 'git_bypass_hmac.key');
   try {
-    // 1. Without nonce, commit --no-verify is blocked with exit code 126
+    // 1. Without nonce (and even if workspace .agents/cache/git_bypass_nonce.json is forged), commit --no-verify is blocked
+    const forgedWsNonce = path.join(tmpDir, '.agents', 'cache', 'git_bypass_nonce.json');
+    fs.mkdirSync(path.dirname(forgedWsNonce), { recursive: true });
+    fs.writeFileSync(forgedWsNonce, JSON.stringify({ nonce: 'forged', expiresAtMs: Date.now() + 999999 }), 'utf8');
+
     let stderrOutput = '';
     const fakeStderr = { write: (msg) => { stderrOutput += msg; } };
     const blockedRes = runGitGuard({
       args: ['commit', '--no-verify', '-m', 'fix'],
       cwd: tmpDir,
-      stderr: fakeStderr
+      stderr: fakeStderr,
+      nonceFilePath,
+      secretKeyPath
     });
     assert.strictEqual(blockedRes.blocked, true);
     assert.strictEqual(blockedRes.exitCode, 126);
@@ -110,14 +119,15 @@ test('DET-19: One-time cryptographic nonce permits bypass and is consumed strict
     assert.strictEqual(events[0].event, 'DET-19_HOOK_BYPASS_ATTEMPT');
     assert.strictEqual(events[0].detectorId, 'DET-19');
 
-    // 2. Generate nonce
-    const payload = generateGitBypassNonce(tmpDir, 60000);
+    // 2. Generate HMAC-signed nonce in isolated security dir
+    const payload = generateGitBypassNonce({ nonceFilePath, secretKeyPath, ttlMs: 60000 });
     assert.ok(payload.nonce);
+    assert.ok(payload.signature);
     assert.ok(payload.expiresAtMs > Date.now());
 
     // 3. Run git guard with fake spawnFn: nonce allows bypass once
     let spawnCalled = false;
-    const fakeSpawn = (bin, args) => {
+    const fakeSpawn = () => {
       spawnCalled = true;
       return { status: 0 };
     };
@@ -125,31 +135,35 @@ test('DET-19: One-time cryptographic nonce permits bypass and is consumed strict
     const allowedRes = runGitGuard({
       args: ['commit', '--no-verify', '-m', 'fix with nonce'],
       cwd: tmpDir,
-      spawnFn: fakeSpawn
+      spawnFn: fakeSpawn,
+      nonceFilePath,
+      secretKeyPath
     });
     assert.strictEqual(allowedRes.blocked, false);
     assert.strictEqual(allowedRes.exitCode, 0);
     assert.strictEqual(spawnCalled, true);
 
     // 4. Verify nonce was consumed and deleted
-    const nonceFile = path.join(tmpDir, '.agents', 'cache', 'git_bypass_nonce.json');
-    assert.strictEqual(fs.existsSync(nonceFile), false, 'Nonce file must be unlinked after consumption');
+    assert.strictEqual(fs.existsSync(nonceFilePath), false, 'Nonce file must be unlinked after consumption');
 
     // 5. Subsequent attempt without nonce is blocked again
     const secondAttempt = runGitGuard({
       args: ['commit', '--no-verify', '-m', 'second attempt'],
       cwd: tmpDir,
-      stderr: fakeStderr
+      stderr: fakeStderr,
+      nonceFilePath,
+      secretKeyPath
     });
     assert.strictEqual(secondAttempt.blocked, true);
     assert.strictEqual(secondAttempt.exitCode, 126);
 
     // 6. Expired nonce test
-    const expiredPayload = generateGitBypassNonce(tmpDir, -1000); // already expired
-    const expiredConsume = consumeGitBypassNonce(tmpDir);
+    generateGitBypassNonce({ nonceFilePath, secretKeyPath, ttlMs: -1000 }); // already expired
+    const expiredConsume = consumeGitBypassNonce({ nonceFilePath, secretKeyPath });
     assert.strictEqual(expiredConsume.allowed, false);
     assert.strictEqual(expiredConsume.reason, 'EXPIRED_NONCE');
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(tmpSecDir, { recursive: true, force: true });
   }
 });

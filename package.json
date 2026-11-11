@@ -1,10 +1,12 @@
 {
-  "name": "context-horizon",
+  "name": "attention-horizon-antigravity",
+  "displayName": "Attention Horizon for Google Antigravity: KV-Cache Governor",
   "version": "3.3.0",
-  "description": "htop for AI Coding Agents: 40-cell context window visualizer, $/turn Wasted Tokens auditor, and <15ms PreInvocation Flight Check router for Claude Code, Cursor, and Google Antigravity.",
+  "description": "Attention Horizon for Google Antigravity: 40-cell context window visualizer, $/turn Wasted Tokens auditor, and <15ms PreInvocation Flight Check router.",
   "type": "module",
   "bin": {
-    "context-horizon": "./src/cli/init.mjs",
+    "attention-horizon-antigravity": "./src/cli/init.mjs",
+    "ah-antigravity": "./src/cli/init.mjs",
     "ctxtop": "./src/cli/init.mjs",
     "agy-horizon": "./src/cli/init.mjs",
     "agy-horizon-flightcheck": "./src/cli/init.mjs",
@@ -23,8 +25,7 @@
     "rules/",
     "skills/",
     "sidecars/",
-    "src/",
-    "tests/fixtures/"
+    "src/"
   ],
   "scripts": {
     "start": "node --no-warnings src/cli/init.mjs --demo",
@@ -38,8 +39,10 @@
     "build:bundles": "node scripts/build_evaluation_bundles.mjs",
     "build:assets": "node --no-warnings scripts/generate_hero_svg.mjs && node --no-warnings scripts/build_demo_page.mjs",
     "build:release": "node scripts/build_release_bundle.mjs",
-    "test": "node --test tests/test_router_and_sensors.mjs tests/test_wave1_wedge.mjs tests/test_wave2_wedge.mjs tests/test_wave3_wedge.mjs",
-    "test:coach": "node --test test/*.test.mjs",
+    "test": "npm run test:unit && npm run test:coach && npm run test:gates && npm run test:phases",
+    "test:unit": "node --test tests/test_router_and_sensors.mjs tests/test_wave1_wedge.mjs tests/test_wave2_wedge.mjs tests/test_wave3_wedge.mjs tests/test_carbon_swarm_patch.mjs tests/test_concurrency.mjs tests/test_postmortem_features.mjs tests/test_schema_drift.mjs && node tests/test_regressions.cjs",
+    "test:coach": "node --test test/all.test.mjs",
+    "test:gates": "node --test tests/verify_gate_0.mjs tests/verify_gate_1.mjs tests/verify_gate_2.mjs tests/verify_gate_3.mjs tests/verify_gate_4.mjs tests/verify_gate_5.mjs tests/verify_gate_6.mjs",
     "test:phases": "node tests/verify_phase_1.mjs && node tests/verify_phase_2.mjs && node tests/verify_phase_3.mjs && node tests/verify_phase_4.mjs && node tests/verify_phase_5.mjs && node tests/verify_phase_6.mjs && node tests/verify_phase_6_roadmap.mjs && node tests/verify_phase_7.mjs",
     "test:e2e": "node tests/verify_e2e_context_memory.mjs",
     "bench": "node tests/bench_latency.mjs",
@@ -47,11 +50,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Gizzant/context-horizon.git"
+    "url": "git+https://github.com/Gizzant/attention-horizon-antigravity.git"
   },
-  "homepage": "https://gizzant.github.io/context-horizon/",
+  "homepage": "https://gizzant.github.io/attention-horizon-antigravity/",
   "bugs": {
-    "url": "https://github.com/Gizzant/context-horizon/issues"
+    "url": "https://github.com/Gizzant/attention-horizon-antigravity/issues"
   },
   "engines": {
     "node": ">=22.5.0"
@@ -71,5 +74,8 @@
     "cli"
   ],
   "author": "Gizzant <frankmiller@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "jsdom": "^29.1.1"
+  }
 }

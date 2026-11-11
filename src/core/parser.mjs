@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { StringDecoder } from 'node:string_decoder';
 import { createRequire } from 'node:module';
 import {
   canonicalizePath,
@@ -7,10 +8,12 @@ import {
   getBrainStores,
   getAntigravitySurfaces,
   getClaudeCodeProjectsDir,
-  getCursorWorkspaceStorageDirs
+  getCursorWorkspaceStorageDirs,
+  isCrossHostHarnessEnabled
 } from './paths.mjs';
 import { EFFORT_PROFILES, resolveEffortProfile, resolveSurfaceTag, normalizeModelId } from './constants.mjs';
 import { stitchAntigravityCliTrajectory, stitchClaudeCodeDag } from './trajectory_stitcher.mjs';
+import { atomicWriteFileSync } from './atomic_io.mjs';
 
 const require = createRequire(import.meta.url);
 function getSqliteDatabaseSync() {
@@ -478,10 +481,11 @@ function getRealSessionMtimeMs(sessionDir) {
 
 /**
  * Discovers Claude Code sessions under ~/.claude/projects/<project>/<sid>.jsonl
+ * Direct calls work as an explicit adapter; automatic discovery callers pass options.
  */
-export function discoverClaudeCodeSessions(homeDir = getHomeDir()) {
-  const projectsDir = getClaudeCodeProjectsDir(homeDir);
-  if (!fs.existsSync(projectsDir)) return [];
+export function discoverClaudeCodeSessions(homeDir = getHomeDir(), options = { includeCrossHost: true }) {
+  const projectsDir = getClaudeCodeProjectsDir(homeDir, options);
+  if (!projectsDir || !fs.existsSync(projectsDir)) return [];
   const sessions = [];
   const inspectJsonlFile = (fullPath, projectSlug = '') => {
     try {
@@ -527,9 +531,10 @@ export function discoverClaudeCodeSessions(homeDir = getHomeDir()) {
 
 /**
  * Discovers Cursor IDE sessions under workspaceStorage/<hash>/state.vscdb in strict read-only mode.
+ * Direct calls work as an explicit adapter; automatic discovery callers pass options.
  */
-export function discoverCursorSessions(homeDir = getHomeDir(), DatabaseSyncClass = null) {
-  const storageDirs = getCursorWorkspaceStorageDirs(homeDir);
+export function discoverCursorSessions(homeDir = getHomeDir(), DatabaseSyncClass = null, options = { includeCrossHost: true }) {
+  const storageDirs = getCursorWorkspaceStorageDirs(homeDir, options);
   if (storageDirs.length === 0) return [];
   const DbCtor = DatabaseSyncClass || getSqliteDatabaseSync();
   const sessions = [];
@@ -607,11 +612,23 @@ export function discoverCursorSessions(homeDir = getHomeDir(), DatabaseSyncClass
 }
 
 /**
- * Finds the active session directory across Antigravity ([App], [IDE], [CLI]),
- * Claude Code ([Claude]), and Cursor ([Cursor]).
+ * Finds the active session directory across Antigravity ([App], [IDE], [CLI]) by default.
+ * Cross-host Claude Code ([Claude]) and Cursor ([Cursor]) discovery is strictly gated behind
+ * `options.harness === 'claude' | 'cursor' | 'all'` or `options.includeCrossHost === true`.
  */
-export function findSessionDirectory(sessionId, homeDir = getHomeDir()) {
-  const stores = getBrainStores(homeDir);
+export function findSessionDirectory(sessionId, homeDir = getHomeDir(), options = {}) {
+  const opts = options && typeof options === 'object' ? options : {};
+  const includeClaude = isCrossHostHarnessEnabled('claude', opts);
+  const includeCursor = isCrossHostHarnessEnabled('cursor', opts);
+  const normalizedHarness = String(opts.harness || '').trim().toLowerCase();
+  const includeAntigravity =
+    !normalizedHarness ||
+    normalizedHarness === 'antigravity' ||
+    normalizedHarness === 'all' ||
+    normalizedHarness === 'cross-host' ||
+    opts.includeCrossHost === true;
+
+  const stores = includeAntigravity ? getBrainStores(homeDir) : [];
   if (sessionId) {
     if (fs.existsSync(sessionId)) {
       const isVscdb = sessionId.toLowerCase().endsWith('.vscdb') || fs.existsSync(path.join(sessionId, 'state.vscdb'));
@@ -635,29 +652,33 @@ export function findSessionDirectory(sessionId, homeDir = getHomeDir()) {
         };
       }
     }
-    // Check if a conversations/<sessionId>.db exists in any surface even if brain/<sessionId> is not yet created
-    const surfaces = getAntigravitySurfaces(homeDir, { includeMissing: true });
-    for (const surface of surfaces) {
-      const dbFile = path.join(surface.conversationsDir, `${sessionId}.db`);
-      if (fs.existsSync(dbFile)) {
-        return {
-          storeName: surface.name,
-          surfaceTag: surface.surfaceTag || resolveSurfaceTag(surface.name),
-          sessionDir: path.join(surface.brainDir, sessionId),
-          dbPath: dbFile,
-          sessionId
-        };
+    if (includeAntigravity) {
+      // Check if a conversations/<sessionId>.db exists in any surface even if brain/<sessionId> is not yet created
+      const surfaces = getAntigravitySurfaces(homeDir, { includeMissing: true });
+      for (const surface of surfaces) {
+        const dbFile = path.join(surface.conversationsDir, `${sessionId}.db`);
+        if (fs.existsSync(dbFile)) {
+          return {
+            storeName: surface.name,
+            surfaceTag: surface.surfaceTag || resolveSurfaceTag(surface.name),
+            sessionDir: path.join(surface.brainDir, sessionId),
+            dbPath: dbFile,
+            sessionId
+          };
+        }
       }
     }
-    // Check Claude Code sessions
-    const claudeMatch = discoverClaudeCodeSessions(homeDir).find(s => s.sessionId === sessionId);
-    if (claudeMatch) return claudeMatch;
-    // Check Cursor sessions
-    const cursorMatch = discoverCursorSessions(homeDir).find(s => s.sessionId === sessionId);
-    if (cursorMatch) return cursorMatch;
+    if (includeClaude) {
+      const claudeMatch = discoverClaudeCodeSessions(homeDir, opts).find(s => s.sessionId === sessionId);
+      if (claudeMatch) return claudeMatch;
+    }
+    if (includeCursor) {
+      const cursorMatch = discoverCursorSessions(homeDir, null, opts).find(s => s.sessionId === sessionId);
+      if (cursorMatch) return cursorMatch;
+    }
   }
 
-  // Fallback to most recently active session based on real transcript log mtime across all harnesses
+  // Fallback to most recently active session based on real transcript log mtime across enabled harnesses
   let latest = null;
   for (const store of stores) {
     try {
@@ -683,15 +704,19 @@ export function findSessionDirectory(sessionId, homeDir = getHomeDir()) {
     } catch {}
   }
 
-  for (const claudeSess of discoverClaudeCodeSessions(homeDir)) {
-    if (!latest || claudeSess.mtimeMs > latest.mtimeMs) {
-      latest = claudeSess;
+  if (includeClaude) {
+    for (const claudeSess of discoverClaudeCodeSessions(homeDir, opts)) {
+      if (!latest || claudeSess.mtimeMs > latest.mtimeMs) {
+        latest = claudeSess;
+      }
     }
   }
 
-  for (const cursorSess of discoverCursorSessions(homeDir)) {
-    if (!latest || cursorSess.mtimeMs > latest.mtimeMs) {
-      latest = cursorSess;
+  if (includeCursor) {
+    for (const cursorSess of discoverCursorSessions(homeDir, null, opts)) {
+      if (!latest || cursorSess.mtimeMs > latest.mtimeMs) {
+        latest = cursorSess;
+      }
     }
   }
 
@@ -857,37 +882,59 @@ export function parseClaudeCodeJsonl(rawContent = '') {
     }
 
     const usage = msg?.usage || node.usage || node.token_usage || {};
-    const inputTokens = Number(
+    const nestedCacheCreation = (usage.cache_creation && typeof usage.cache_creation === 'object')
+      ? usage.cache_creation
+      : ((node.cache_creation && typeof node.cache_creation === 'object') ? node.cache_creation : null);
+    const cacheCreationEphemeral5mInputTokens = Math.max(0, Number(
+      node.cache_creation_ephemeral_5m_input_tokens ??
+      node.cacheCreationEphemeral5mInputTokens ??
+      usage.cache_creation_ephemeral_5m_input_tokens ??
+      nestedCacheCreation?.ephemeral_5m_input_tokens ??
+      0
+    ) || 0);
+    const cacheCreationEphemeral1hInputTokens = Math.max(0, Number(
+      node.cache_creation_ephemeral_1h_input_tokens ??
+      node.cacheCreationEphemeral1hInputTokens ??
+      usage.cache_creation_ephemeral_1h_input_tokens ??
+      nestedCacheCreation?.ephemeral_1h_input_tokens ??
+      0
+    ) || 0);
+
+    const inputTokens = Math.max(0, Number(
       node.input_tokens ??
       node.inputTokens ??
       usage.input_tokens ??
       0
-    );
-    const outputTokens = Number(
+    ) || 0);
+    const outputTokens = Math.max(0, Number(
       node.output_tokens ??
       node.outputTokens ??
       usage.output_tokens ??
       0
-    );
-    const cacheReadTokens = Number(
+    ) || 0);
+    const cacheReadTokens = Math.max(0, Number(
       node.cache_read_input_tokens ??
       node.cacheReadInputTokens ??
       usage.cache_read_input_tokens ??
       usage.cached_content_token_count ??
       0
-    );
-    const cacheCreationTokens = Number(
+    ) || 0);
+    const flatCacheCreationTokens = Math.max(0, Number(
       node.cache_creation_input_tokens ??
       node.cacheCreationInputTokens ??
       usage.cache_creation_input_tokens ??
       0
-    );
-    const thinkingTokens = Number(
+    ) || 0);
+    const cacheCreationTokens = flatCacheCreationTokens > 0
+      ? flatCacheCreationTokens
+      : (cacheCreationEphemeral5mInputTokens + cacheCreationEphemeral1hInputTokens);
+    const totalPromptTokens = inputTokens + cacheReadTokens + cacheCreationTokens;
+    const thinkingTokens = Math.max(0, Number(
       node.thinking_tokens ??
       node.thinkingTokens ??
       usage.thinking_tokens ??
       (thinkingText ? Math.ceil(thinkingText.length / 4) : 0)
-    );
+    ) || 0);
     const model = msg?.model || node.model || null;
     if (model) latestModel = model;
     const createdAt = node.timestamp || node.created_at || node.createdAt || null;
@@ -895,8 +942,13 @@ export function parseClaudeCodeJsonl(rawContent = '') {
     if (inputTokens > 0 || cacheReadTokens > 0 || cacheCreationTokens > 0 || outputTokens > 0) {
       usageTurns.push({
         stepIndex: steps.length,
+        freshInputTokens: inputTokens,
         inputTokens: inputTokens + cacheCreationTokens,
         cacheReadTokens,
+        cacheCreationTokens,
+        cacheCreationEphemeral5mInputTokens,
+        cacheCreationEphemeral1hInputTokens,
+        totalPromptTokens,
         outputTokens,
         model: model || latestModel,
         createdAt
@@ -907,6 +959,7 @@ export function parseClaudeCodeJsonl(rawContent = '') {
     steps.push({
       stepIndex: steps.length,
       agentId: 'parent',
+      messageId: msg?.id || node.message_id || node.messageId || null,
       source: isUser ? 'USER_EXPLICIT' : (isSummary ? 'SYSTEM' : 'MODEL'),
       type: isSummary ? 'CHECKPOINT' : (isUser ? 'USER_INPUT' : 'PLANNER_RESPONSE'),
       ...(isSummary ? { stepType: 23, step_type: 23 } : {}),
@@ -914,10 +967,15 @@ export function parseClaudeCodeJsonl(rawContent = '') {
       createdAt,
       toolCalls,
       content,
+      freshInputTokens: inputTokens,
       inputTokens,
       outputTokens,
       cacheReadTokens,
       cacheCreationTokens,
+      cacheCreationEphemeral5mInputTokens,
+      cacheCreationEphemeral1hInputTokens,
+      totalPromptTokens,
+      totalPromptEnvelopeTokens: totalPromptTokens,
       thinkingTokens,
       untruncatedLength: content.length,
       isTruncated: false,
@@ -925,8 +983,18 @@ export function parseClaudeCodeJsonl(rawContent = '') {
     });
   }
 
-  if (steps.length > 0 && dag.inferredSystemPromptTokens > 0 && steps[0].inputTokens < dag.inferredSystemPromptTokens) {
+  // Never add inferredSystemPromptTokens into steps[0].inputTokens when any step already carries
+  // explicit cacheCreationTokens (avoiding 2x Turn-1 cache_creation_input_tokens billing).
+  const hasExplicitCacheCreation = steps.some((st) => Number(st.cacheCreationTokens || 0) > 0);
+  if (
+    steps.length > 0 &&
+    !hasExplicitCacheCreation &&
+    dag.inferredSystemPromptTokens > 0 &&
+    steps[0].inputTokens < dag.inferredSystemPromptTokens
+  ) {
     steps[0].inputTokens += dag.inferredSystemPromptTokens;
+    steps[0].totalPromptTokens = steps[0].inputTokens + steps[0].cacheReadTokens + steps[0].cacheCreationTokens;
+    steps[0].totalPromptEnvelopeTokens = steps[0].totalPromptTokens;
   }
 
   let genMetadata = null;
@@ -1053,12 +1121,12 @@ export function parseCursorVscdbSync(vscdbPath, DatabaseSyncClass = null) {
         });
       }
 
-      const inputTokens = Number(b.inputTokens ?? b.tokenCount?.inputTokens ?? (idx === 0 ? 12000 : 0));
-      const outputTokens = Number(b.outputTokens ?? b.tokenCount?.outputTokens ?? Math.max(250, Math.ceil(content.length / 4)));
-      const cacheReadTokens = Number(b.cacheReadTokens ?? b.tokenCount?.cacheReadTokens ?? (idx > 0 ? 54000 : 0));
-      const createdAt = b.createdAt || b.timingInfo?.clientStartTime || new Date().toISOString();
+      const inputTokens = Math.max(0, Number(b.inputTokens ?? b.tokenCount?.inputTokens ?? 0) || 0);
+      const outputTokens = Math.max(0, Number(b.outputTokens ?? b.tokenCount?.outputTokens ?? 0) || 0);
+      const cacheReadTokens = Math.max(0, Number(b.cacheReadTokens ?? b.tokenCount?.cacheReadTokens ?? 0) || 0);
+      const createdAt = b.createdAt || b.timingInfo?.clientStartTime || null;
 
-      totalInputTok = inputTokens > 0 ? inputTokens : 8000;
+      if (inputTokens > 0) totalInputTok = inputTokens;
       if (cacheReadTokens > 0) totalCacheReadTok = cacheReadTokens;
 
       recentTurns.push({
@@ -1093,11 +1161,11 @@ export function parseCursorVscdbSync(vscdbPath, DatabaseSyncClass = null) {
     const genMetadata = steps.length > 0 ? {
       inputTokens: totalInputTok,
       cacheReadTokens: totalCacheReadTok,
-      outputTokens: steps[steps.length - 1].outputTokens || 500,
+      outputTokens: steps[steps.length - 1].outputTokens || 0,
       totalContextTokens: totalInputTok + totalCacheReadTok,
       turnCount: userTurns,
       model: modelName,
-      createdAt: steps[steps.length - 1].createdAt || new Date().toISOString(),
+      createdAt: steps[steps.length - 1].createdAt || null,
       prefixBustDetected: false,
       prefixBustDeltaSec: null,
       recentTurns: recentTurns.slice(-10),
@@ -1249,14 +1317,30 @@ export function parseTranscriptIncremental(sessionDir, cacheDir = null) {
     };
   }
 
-  // Read newly appended slice
+  // Read newly appended slice in 64KB chunks via StringDecoder so multi-byte UTF-8 characters
+  // split across chunk boundaries never corrupt into U+FFFD replacement characters.
+  const CHUNK_BYTES = 64 * 1024;
   const fd = fs.openSync(filePath, 'r');
-  const bytesToRead = stat.size - cached.lastByteOffset;
-  const buffer = Buffer.alloc(bytesToRead);
-  fs.readSync(fd, buffer, 0, bytesToRead, cached.lastByteOffset);
-  fs.closeSync(fd);
+  let newContent = '';
+  try {
+    const bytesToRead = stat.size - cached.lastByteOffset;
+    const chunkBuf = Buffer.alloc(Math.min(CHUNK_BYTES, Math.max(1, bytesToRead)));
+    const decoder = new StringDecoder('utf8');
+    let readPos = cached.lastByteOffset;
+    let remaining = bytesToRead;
+    while (remaining > 0) {
+      const toRead = Math.min(chunkBuf.length, remaining);
+      const bytesRead = fs.readSync(fd, chunkBuf, 0, toRead, readPos);
+      if (bytesRead <= 0) break;
+      newContent += decoder.write(chunkBuf.subarray(0, bytesRead));
+      readPos += bytesRead;
+      remaining -= bytesRead;
+    }
+    newContent += decoder.end();
+  } finally {
+    fs.closeSync(fd);
+  }
 
-  const newContent = buffer.toString('utf8');
   const newSteps = parseRawJsonl(newContent, { tier: resolved.tier, stepsDir: resolved.stepsDir });
 
   // Detect non-monotonic stepIndex regression on parent stream (Undo/Rewind)
@@ -1287,12 +1371,9 @@ export function parseTranscriptIncremental(sessionDir, cacheDir = null) {
   if (incrementalMemCache.size > 24) incrementalMemCache.clear();
   incrementalMemCache.set(cacheFile, { ...updatedCachePayload, effortInfo });
 
-  // Save updated cache
+  // Save updated cache atomically
   try {
-    if (!fs.existsSync(actualCacheDir)) {
-      fs.mkdirSync(actualCacheDir, { recursive: true });
-    }
-    fs.writeFileSync(cacheFile, JSON.stringify(updatedCachePayload), 'utf8');
+    atomicWriteFileSync(cacheFile, JSON.stringify(updatedCachePayload), { encoding: 'utf8' });
   } catch {}
 
   return {
@@ -1310,7 +1391,7 @@ export function parseTranscriptIncremental(sessionDir, cacheDir = null) {
  * Reconciles session with conversation_summaries.db, multi-store conversations/*.db,
  * and Knowledge Items for foreign bleed detection across [App], [IDE], and [CLI].
  */
-export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir(), dbOverride = null) {
+export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir(), dbOverride = null, options = {}) {
   let workspaceUris = [];
   let projectId = '';
   let sessionTitle = '';
@@ -1319,6 +1400,12 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
   let recentSessions = [];
   let sessionGenMetadata = null;
   const canonicalWorkspaceSet = new Set();
+  const hasDbOverride = Boolean(dbOverride && typeof dbOverride.prepare === 'function');
+  const opts = (!hasDbOverride && dbOverride && typeof dbOverride === 'object')
+    ? dbOverride
+    : (options && typeof options === 'object' ? options : {});
+  const includeClaude = isCrossHostHarnessEnabled('claude', opts);
+  const includeCursor = isCrossHostHarnessEnabled('cursor', opts);
 
   try {
     const { DatabaseSync } = await import('node:sqlite');
@@ -1403,7 +1490,7 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
       } catch {}
     };
 
-    if (dbOverride) {
+    if (hasDbOverride) {
       processSummaryDb(dbOverride, surfaces[0]);
     } else {
       for (const surface of surfaces) {
@@ -1472,63 +1559,67 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
         }
       }
 
-      // Also include discovered Claude Code and Cursor sessions
-      for (const claudeSess of discoverClaudeCodeSessions(homeDir).slice(0, 8)) {
-        try {
-          const parsedClaude = parseClaudeCodeJsonl(fs.readFileSync(claudeSess.filePath, 'utf8'));
-          if (sessionId && claudeSess.sessionId === sessionId) {
-            if (!sessionTitle && parsedClaude.sessionTitle) sessionTitle = parsedClaude.sessionTitle;
-            if (!sessionGenMetadata && parsedClaude.genMetadata) sessionGenMetadata = parsedClaude.genMetadata;
-            if (parsedClaude.workspacePath && workspaceUris.length === 0) workspaceUris.push(parsedClaude.workspacePath);
-            sessionSurface = 'claude-code';
-            sessionSurfaceTag = '[Claude]';
-          }
-          const mtimeIso = claudeSess.mtimeMs > 0 ? new Date(claudeSess.mtimeMs).toISOString() : '';
-          upsertDiscoveredSession(claudeSess.sessionId, {
-            sessionId: claudeSess.sessionId,
-            title: parsedClaude.sessionTitle || claudeSess.sessionId.slice(0, 8),
-            stepCount: parsedClaude.steps.length,
-            workspace: parsedClaude.workspacePath ? path.basename(parsedClaude.workspacePath) : claudeSess.projectSlug,
-            lastModified: mtimeIso,
-            surface: 'claude-code',
-            surfaceTag: '[Claude]',
-            brainDir: claudeSess.filePath,
-            ...(parsedClaude.genMetadata && parsedClaude.genMetadata.totalContextTokens > 0 ? {
-              liveTokens: parsedClaude.genMetadata.totalContextTokens,
-              cacheReadTokens: parsedClaude.genMetadata.cacheReadTokens
-            } : {})
-          });
-        } catch {}
+      // Include cross-host Claude Code and Cursor sessions ONLY when explicitly requested via options
+      if (includeClaude) {
+        for (const claudeSess of discoverClaudeCodeSessions(homeDir, opts).slice(0, 8)) {
+          try {
+            const parsedClaude = parseClaudeCodeJsonl(fs.readFileSync(claudeSess.filePath, 'utf8'));
+            if (sessionId && claudeSess.sessionId === sessionId) {
+              if (!sessionTitle && parsedClaude.sessionTitle) sessionTitle = parsedClaude.sessionTitle;
+              if (!sessionGenMetadata && parsedClaude.genMetadata) sessionGenMetadata = parsedClaude.genMetadata;
+              if (parsedClaude.workspacePath && workspaceUris.length === 0) workspaceUris.push(parsedClaude.workspacePath);
+              sessionSurface = 'claude-code';
+              sessionSurfaceTag = '[Claude]';
+            }
+            const mtimeIso = claudeSess.mtimeMs > 0 ? new Date(claudeSess.mtimeMs).toISOString() : '';
+            upsertDiscoveredSession(claudeSess.sessionId, {
+              sessionId: claudeSess.sessionId,
+              title: parsedClaude.sessionTitle || claudeSess.sessionId.slice(0, 8),
+              stepCount: parsedClaude.steps.length,
+              workspace: parsedClaude.workspacePath ? path.basename(parsedClaude.workspacePath) : claudeSess.projectSlug,
+              lastModified: mtimeIso,
+              surface: 'claude-code',
+              surfaceTag: '[Claude]',
+              brainDir: claudeSess.filePath,
+              ...(parsedClaude.genMetadata && parsedClaude.genMetadata.totalContextTokens > 0 ? {
+                liveTokens: parsedClaude.genMetadata.totalContextTokens,
+                cacheReadTokens: parsedClaude.genMetadata.cacheReadTokens
+              } : {})
+            });
+          } catch {}
+        }
       }
 
-      for (const cursorSess of discoverCursorSessions(homeDir, DatabaseSync).slice(0, 8)) {
-        try {
-          const parsedCursor = parseCursorVscdbSync(cursorSess.filePath, DatabaseSync);
-          if (sessionId && cursorSess.sessionId === sessionId) {
-            if (!sessionTitle && (parsedCursor.sessionTitle || cursorSess.title)) sessionTitle = parsedCursor.sessionTitle || cursorSess.title;
-            if (!sessionGenMetadata && parsedCursor.genMetadata) sessionGenMetadata = parsedCursor.genMetadata;
-            if ((parsedCursor.workspacePath || cursorSess.workspaceUri) && workspaceUris.length === 0) {
-              workspaceUris.push(parsedCursor.workspacePath || cursorSess.workspaceUri);
+      if (includeCursor) {
+        for (const cursorSess of discoverCursorSessions(homeDir, DatabaseSync, opts).slice(0, 8)) {
+          try {
+            const parsedCursor = parseCursorVscdbSync(cursorSess.filePath, DatabaseSync);
+            if (sessionId && cursorSess.sessionId === sessionId) {
+              if (!sessionTitle && (parsedCursor.sessionTitle || cursorSess.title)) sessionTitle = parsedCursor.sessionTitle || cursorSess.title;
+              if (!sessionGenMetadata && parsedCursor.genMetadata) sessionGenMetadata = parsedCursor.genMetadata;
+              if ((parsedCursor.workspacePath || cursorSess.workspaceUri) && workspaceUris.length === 0) {
+                workspaceUris.push(parsedCursor.workspacePath || cursorSess.workspaceUri);
+              }
+              sessionSurface = 'cursor';
+              sessionSurfaceTag = '[Cursor]';
             }
-            sessionSurface = 'cursor';
-            sessionSurfaceTag = '[Cursor]';
-          }
-          const mtimeIso = cursorSess.mtimeMs > 0 ? new Date(cursorSess.mtimeMs).toISOString() : '';
-          upsertDiscoveredSession(cursorSess.sessionId, {
-            sessionId: cursorSess.sessionId,
-            title: parsedCursor.sessionTitle || cursorSess.title || cursorSess.sessionId.slice(0, 8),
-            stepCount: parsedCursor.steps.length || cursorSess.stepCount || 0,
-            workspace: parsedCursor.workspacePath ? path.basename(parsedCursor.workspacePath) : '',
-            lastModified: mtimeIso,
-            surface: 'cursor',
-            surfaceTag: '[Cursor]',
-            brainDir: cursorSess.filePath,
-            ...(parsedCursor.genMetadata && parsedCursor.genMetadata.totalContextTokens > 0 ? {
-              liveTokens: parsedCursor.genMetadata.totalContextTokens,
-              cacheReadTokens: parsedCursor.genMetadata.cacheReadTokens
-            } : {})
-          });
-        } catch {}
+            const mtimeIso = cursorSess.mtimeMs > 0 ? new Date(cursorSess.mtimeMs).toISOString() : '';
+            upsertDiscoveredSession(cursorSess.sessionId, {
+              sessionId: cursorSess.sessionId,
+              title: parsedCursor.sessionTitle || cursorSess.title || cursorSess.sessionId.slice(0, 8),
+              stepCount: parsedCursor.steps.length || cursorSess.stepCount || 0,
+              workspace: parsedCursor.workspacePath ? path.basename(parsedCursor.workspacePath) : '',
+              lastModified: mtimeIso,
+              surface: 'cursor',
+              surfaceTag: '[Cursor]',
+              brainDir: cursorSess.filePath,
+              ...(parsedCursor.genMetadata && parsedCursor.genMetadata.totalContextTokens > 0 ? {
+                liveTokens: parsedCursor.genMetadata.totalContextTokens,
+                cacheReadTokens: parsedCursor.genMetadata.cacheReadTokens
+              } : {})
+            });
+          } catch {}
+        }
       }
     }
 

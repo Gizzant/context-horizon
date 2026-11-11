@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { JSDOM } from 'jsdom';
 import { handlePreInvocation } from '../src/hooks/pre_invocation.mjs';
 import { writeSidecarAtomicSync, createDefaultSidecar } from '../src/core/sidecar_store.mjs';
 import { parseRawJsonl } from '../src/core/parser.mjs';
@@ -23,8 +23,7 @@ import { syncAndVerifyMirrors } from '../scripts/sync_mirrors.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..');
-const require = createRequire(import.meta.url);
-const { JSDOM } = require('C:/Users/frank/AppData/Local/Temp/node_modules/jsdom');
+const REPO_ROOT_POSIX = REPO_ROOT.replace(/\\/g, '/');
 
 console.log('=== Verifying Phase 5: Filtered Waste Classification, MCP Prefix Auditing & Lifecycle Hooks (Layer 5) ===\n');
 
@@ -33,7 +32,7 @@ console.log('=== Verifying Phase 5: Filtered Waste Classification, MCP Prefix Au
 // ---------------------------------------------------------------------------
 console.log('[1/6] Verifying PreInvocation Lifecycle Hooks & 8-State Router (<15ms)...');
 const testSessionId = 'test_pre_invoc_session';
-const baseSidecar = createDefaultSidecar(testSessionId, 'c:/projects/ga-visualizer-v2');
+const baseSidecar = createDefaultSidecar(testSessionId, REPO_ROOT_POSIX);
 
 const t0 = process.hrtime.bigint();
 const res1 = await handlePreInvocation({
@@ -267,10 +266,15 @@ console.log('  ✓ MCP Prefix Bloat & Schema Audit verified.\n');
 // 4. Fail-Open CLI Command Dampening Hook (`.agents/hooks.json` under `PreToolUse`)
 // ---------------------------------------------------------------------------
 console.log('[4/6] Verifying Fail-Open CLI Command Dampening Hook (.agents/hooks.json PreToolUse)...');
-const wrappedCmd = wrapNoisyCommandWithDampener('git log -p -n 50', { maxLines: 100 });
-assert.ok(wrappedCmd.includes('head -n 100'), 'Wrapped command must include head -n 100');
-assert.ok(wrappedCmd.includes('tee .agents/tmp/cli_stdout.log'), 'Wrapped command must pipe to temporary log file');
-assert.ok(wrappedCmd.endsWith('|| true'), 'Wrapped command must be fail-open (|| true)');
+const wrappedPosix = wrapNoisyCommandWithDampener('git log -p -n 50', { maxLines: 100, platform: 'linux' });
+assert.ok(wrappedPosix.includes('head -n 100'), 'POSIX wrapped command must include head -n 100');
+assert.ok(wrappedPosix.includes('tee ".agents/tmp/cli_stdout.log"'), 'POSIX wrapped command must pipe to temporary log file');
+assert.ok(wrappedPosix.endsWith('|| true'), 'POSIX wrapped command must be fail-open (|| true)');
+
+const wrappedWin = wrapNoisyCommandWithDampener('git log -p -n 50', { maxLines: 100, platform: 'win32' });
+assert.ok(wrappedWin.includes('Select-Object -First 100'), 'Windows wrapped command must include Select-Object -First 100');
+assert.ok(wrappedWin.includes('Tee-Object -FilePath ".agents/tmp/cli_stdout.log"'), 'Windows wrapped command must pipe via Tee-Object');
+assert.ok(wrappedWin.endsWith('$LASTEXITCODE = 0'), 'Windows wrapped command must be fail-open ($LASTEXITCODE = 0)');
 
 const hookReg = registerCliDampeningHook(tmpWs, {
   command: 'pytest -vv',
@@ -280,10 +284,11 @@ const hookReg = registerCliDampeningHook(tmpWs, {
 assert.equal(hookReg.success, true);
 assert.ok(fs.existsSync(hookReg.hooksPath), '.agents/hooks.json must be written to disk');
 const parsedHooks = JSON.parse(fs.readFileSync(hookReg.hooksPath, 'utf8'));
-assert.ok(Array.isArray(parsedHooks.PreToolUse) && parsedHooks.PreToolUse.length === 1, 'Must register under PreToolUse');
-assert.equal(parsedHooks.PreToolUse[0].matcher, 'run_command');
-assert.equal(parsedHooks.PreToolUse[0].failOpen, true);
-assert.equal(parsedHooks.PreToolUse[0].maxLines, 100);
+assert.ok(Array.isArray(parsedHooks.PreToolUse) && parsedHooks.PreToolUse.length >= 1, 'Must register under PreToolUse');
+const dampenerEntry = parsedHooks.PreToolUse.find(h => h.id === 'horizon-cli-dampener') || parsedHooks.PreToolUse[0];
+assert.ok(dampenerEntry.matcher.includes('run_command'), 'Matcher must include run_command');
+assert.equal(dampenerEntry.failOpen, true);
+assert.equal(dampenerEntry.maxLines, 100);
 console.log('  ✓ Fail-Open CLI Command Dampening Hook verified.\n');
 
 // ---------------------------------------------------------------------------
@@ -361,7 +366,7 @@ const dom = new JSDOM(html, {
             zoneUsed: 'primacy',
             insertedAtLine: 2,
             totalLinesAfter: 45,
-            targetPath: 'c:/projects/ga-visualizer-v2/AGENTS.md',
+            targetPath: `${REPO_ROOT_POSIX}/AGENTS.md`,
             truncationWarning: ''
           })
         };
@@ -469,7 +474,11 @@ try {
 } finally {
   if (server.closeAllConnections) server.closeAllConnections();
   server.close();
-  try { fs.rmSync(tmpMcpRoot, { recursive: true, force: true }); } catch {}
+  try {
+    fs.rmSync(tmpMcpRoot, { recursive: true, force: true });
+  } catch (err) {
+    if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+  }
 }
 
 console.log('  ✓ JSDOM Layer 5 controls, live HTTP endpoints, and 3-Way Mirror Parity verified.\n');

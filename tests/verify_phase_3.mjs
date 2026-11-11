@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { createRequire } from 'node:module';
+import { JSDOM } from 'jsdom';
 import { runAllBlindspotSensors } from '../src/core/blindspot_sensors.mjs';
 import {
   CORTEX_CLAMPED_CEILING_LABEL,
@@ -16,9 +16,6 @@ import {
   computeWatermarks,
   evaluateHistoryBarState
 } from '../src/core/classifier.mjs';
-
-const require = createRequire(import.meta.url);
-const { JSDOM } = require('C:/Users/frank/AppData/Local/Temp/node_modules/jsdom');
 
 console.log('--- Verifying Phase 3: The 6 Blind-Spot Sensors ---');
 
@@ -170,7 +167,11 @@ console.log('âœ“ Sensor 6 (LOOP_AND_GIT_GUARD) passed.');
 assert.ok(durationMs < 30.0, `Sensors took ${durationMs}ms which exceeds 30ms threshold`);
 
 // Clean up
-try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+try {
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+} catch (err) {
+  if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+}
 
 // ---------------------------------------------------------------------------
 // Phase 3 (Layer 3): Dual-Watermark Model, Dynamic Ceilings & Bar Coloring
@@ -182,9 +183,13 @@ assert.equal(resolveModelCeiling('claude-sonnet-4-6', null, { useLegacyDefault: 
 assert.equal(resolveModelCeiling('claude-opus-4-6', null, { useLegacyDefault: false }), 200000, 'Claude Opus 4.6 must resolve to 200,000 ceiling');
 
 const argonDetails = resolveModelCeilingDetailed('gemini-4-argon-high', null, { useLegacyDefault: false });
-assert.equal(argonDetails.ceilingTokens, 256000, 'Unpatched Gemini 4 Argon must resolve to 256,000 ceiling');
-assert.equal(argonDetails.isClamped1MModel, true, 'Unpatched Gemini 4 Argon must flag isClamped1MModel = true');
-assert.equal(argonDetails.clampedLabel, CORTEX_CLAMPED_CEILING_LABEL, 'Must expose 256k Clamped (1M Model Capped by Cortex 0x3E800)');
+assert.equal(argonDetails.ceilingTokens, 1048576, 'Gemini 4 Argon native unified pool must resolve to 1,048,576 ceiling');
+assert.equal(argonDetails.isClamped1MModel, false, 'Native 1,048,576 Gemini 4 Argon pool is not clamped');
+
+const clampedArgonDetails = resolveModelCeilingDetailed('gemini-4-argon-high', { max_tokens: 256000 }, { useLegacyDefault: false });
+assert.equal(clampedArgonDetails.ceilingTokens, 256000, 'Cortex-clamped Gemini 4 Argon stdin window must resolve to 256,000 ceiling');
+assert.equal(clampedArgonDetails.isClamped1MModel, true, 'Cortex-clamped Gemini 4 Argon must flag isClamped1MModel = true');
+assert.equal(clampedArgonDetails.clampedLabel, CORTEX_CLAMPED_CEILING_LABEL, 'Must expose 256k Clamped (1M Model Capped by Cortex 0x3E800)');
 
 const tmpCliDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hz-cli-settings-'));
 const cliSettings512Path = path.join(tmpCliDir, 'settings_512.json');
@@ -201,7 +206,11 @@ const cliSettings900 = loadCliSurfaceSettings(cliSettings900Path);
 const patched900 = resolveModelCeilingDetailed('gemini-4-argon', null, { cliSettings: cliSettings900 });
 assert.equal(patched900.ceilingTokens, 900000, 'Patched CLI 900k tier must be whitelisted');
 assert.equal(patched900.patchedTier, '900k');
-try { fs.rmSync(tmpCliDir, { recursive: true, force: true }); } catch {}
+try {
+  fs.rmSync(tmpCliDir, { recursive: true, force: true });
+} catch (err) {
+  if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+}
 console.log('âœ“ Check 7: Dynamic Context Ceilings (200k Claude 4.6, 256k Clamped Argon, 512k/900k Patched CLI) verified.');
 
 // 8. Dual-Watermark Model & State-Conditional Bar Coloring in Core Classifier

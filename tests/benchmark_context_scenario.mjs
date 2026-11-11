@@ -130,7 +130,7 @@ function generateErrorTrace(attemptNum) {
 // Main Scenario & Benchmark Runner
 // -----------------------------------------------------------------------------
 console.log('================================================================================');
-console.log('  CONTEXT HORIZON (ctxtop) — AUTOMATED CONTEXT/MEMORY SCENARIO & PERF BENCHMARK');
+console.log('  ATTENTION HORIZON (ctxtop) — AUTOMATED CONTEXT/MEMORY SCENARIO & PERF BENCHMARK');
 console.log('================================================================================\n');
 
 const scenarioStartWallMs = Date.now();
@@ -442,7 +442,7 @@ for (let i = 0; i < 3; i++) {
     type: 'PLANNER_RESPONSE',
     tool_calls: [{ name: 'read_file', args: { Path: lockFile } }],
     content: lockfileText,
-    output_tokens: 9500
+    output_tokens: 11500
   });
 }
 
@@ -965,7 +965,7 @@ const scaleRowsMd = scalingResults.map(r =>
   `| **${r.label}** | ${r.turns} | ${r.totalTokens.toLocaleString()} | ${r.fileSizeKb} KB | ${r.coldParseMs.toFixed(3)}ms | **${r.incrementalParseMs.toFixed(3)}ms** | **${r.speedupFactor}x** | ${r.classifyMs.toFixed(3)}ms | ${r.heapUsedMb} MB |`
 ).join('\n');
 
-const markdownReport = `# Context Horizon (\`ctxtop\`) — Automated Context/Memory & Performance Benchmark Report
+const markdownReport = `# Attention Horizon (\`ctxtop\`) — Automated Context/Memory & Performance Benchmark Report
 
 > **Generated Automatically by**: [\`tests/benchmark_context_scenario.mjs\`](../tests/benchmark_context_scenario.mjs)  
 > **Run Command**: \`npm run bench:scenario\`  
@@ -1029,15 +1029,21 @@ As session transcripts grow from \`10k\` tokens (10 turns) to \`240k\` tokens (1
 ${scaleRowsMd}
 `;
 
-const reportMdPath = path.resolve('docs/PERFORMANCE_BENCHMARK_REPORT.md');
-const reportJsonPath = path.resolve('docs/performance_benchmark.json');
+const writeDocs = process.argv.includes('--write-docs');
+const reportOutDir = writeDocs
+  ? path.resolve('docs')
+  : fs.mkdtempSync(path.join(os.tmpdir(), 'hz-bench-report-'));
+const reportMdPath = path.join(reportOutDir, 'PERFORMANCE_BENCHMARK_REPORT.md');
+const reportJsonPath = path.join(reportOutDir, 'performance_benchmark.json');
 fs.writeFileSync(reportMdPath, markdownReport, 'utf8');
 fs.writeFileSync(reportJsonPath, JSON.stringify(reportJson, null, 2) + '\n', 'utf8');
 
 // Clean up temporary sandbox directory
 try {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
-} catch {}
+} catch (err) {
+  if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+}
 
 // Print summary table to console
 console.log('--------------------------------------------------------------------------------');

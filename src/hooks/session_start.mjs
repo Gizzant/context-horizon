@@ -8,6 +8,7 @@ import {
 import { canonicalizePath } from '../core/path_canonicalizer.mjs';
 import { loadFlightcheckConfig } from '../core/config.mjs';
 import { resolveModelCeiling } from '../core/constants.mjs';
+import { recordHookDiagnostic } from '../core/hook_diagnostics.mjs';
 
 async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {}) {
   if (process.stdin.isTTY || process.stdin.readableEnded) return {};
@@ -21,12 +22,21 @@ async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {}) {
       settled = true;
       clearTimeout(maxTimer);
       if (settleTimer) clearTimeout(settleTimer);
-      try { process.stdin.pause(); } catch {}
+      try {
+        process.stdin.pause();
+      } catch (err) {
+        recordHookDiagnostic('session_start', 'stdin.pause', err, { persist: false });
+      }
       resolve(val);
     };
 
     const tryParse = () => {
-      try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+      try {
+        return raw ? JSON.parse(raw) : {};
+      } catch (err) {
+        recordHookDiagnostic('session_start', 'stdin.parse', err);
+        return {};
+      }
     };
 
     const maxTimer = setTimeout(() => finish(tryParse()), maxTimeoutMs);
@@ -37,12 +47,19 @@ async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {}) {
       if (settleTimer) clearTimeout(settleTimer);
       if (raw.trim().endsWith('}')) {
         settleTimer = setTimeout(() => {
-          try { finish(JSON.parse(raw)); } catch {}
+          try {
+            finish(JSON.parse(raw));
+          } catch (err) {
+            recordHookDiagnostic('session_start', 'stdin.settleParse', err, { persist: false });
+          }
         }, settleMs);
       }
     });
     process.stdin.on('end', () => finish(tryParse()));
-    process.stdin.on('error', () => finish({}));
+    process.stdin.on('error', (err) => {
+      recordHookDiagnostic('session_start', 'stdin.error', err);
+      finish({});
+    });
   });
 }
 
@@ -74,7 +91,7 @@ export async function handleSessionStart(inputData = {}) {
       } else {
         toolLedger.servers[sName].sessionsSeen = (toolLedger.servers[sName].sessionsSeen || 0) + 1;
       }
-      schemaTokens += s.tokenCount || 1500;
+      schemaTokens += Math.max(0, Number(s.tokenCount ?? 0) || 0);
     }
     writeToolUsageAtomicSync(toolLedger);
   }
@@ -97,7 +114,8 @@ if (isMain) {
   }).then(output => {
     console.log(JSON.stringify(output || {}));
     process.exit(0);
-  }).catch(() => {
+  }).catch((err) => {
+    recordHookDiagnostic('session_start', 'main', err);
     console.log('{}');
     process.exit(0);
   });

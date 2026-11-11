@@ -149,11 +149,14 @@ test('HandoffHydrator: generates standardized cross-tool portable handoff markdo
       timestamp: '2026-11-09T22-00-00'
     });
 
-    // Check standardized headers
-    assert.ok(bundle.markdown.includes('## 1. Resume Contract & Active Step'));
-    assert.ok(bundle.markdown.includes('## 2. Verified Unchanged File Schemas (Skip Re-Reading)'));
-    assert.ok(bundle.markdown.includes('## 3. Active File Diffs & Owned Scope Paths'));
-    assert.ok(bundle.markdown.includes('## 4. Negative Constraints & Ruled-Out Approaches'));
+    // Check standardized cross-edition 6-section State Baton headers (ISS-054)
+    assert.ok(bundle.markdown.includes('# Attention Horizon State Baton Handoff'));
+    assert.ok(bundle.markdown.includes('## 1. Active Goal'));
+    assert.ok(bundle.markdown.includes('## 2. Working Set Files'));
+    assert.ok(bundle.markdown.includes('## 3. Verified Invariants'));
+    assert.ok(bundle.markdown.includes('## 4. Dead Ends & Failures to Avoid'));
+    assert.ok(bundle.markdown.includes('## 5. Queued Cache-Prefix Mutations (Released on PostCompact)'));
+    assert.ok(bundle.markdown.includes('## 6. Exact Next Step'));
 
     // Check owned scope paths section
     assert.ok(bundle.markdown.includes('### Owned Scope Paths (Concurrent Lockfile DET-20)'));

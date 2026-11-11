@@ -96,7 +96,7 @@ test('Phase 1 (DET-10): ProgressiveCheckpointer snapshots at 50k soft watermark 
 
     const evapAudit = checkpointer.detectConstraintEvaporation(truncatedCompactionSummary, 'sess-alpha');
     assert.equal(evapAudit.evaporated, true);
-    assert.equal(evapAudit.detectorId, 'DET-10');
+    assert.equal(evapAudit.detectorId, 'DET-25');
     assert.equal(evapAudit.missingConstraints.length, 1);
     assert.ok(evapAudit.missingConstraints[0].includes('session SQLite databases'));
     assert.equal(evapAudit.missingActiveTasks.length, 1);
@@ -107,12 +107,12 @@ test('Phase 1 (DET-10): ProgressiveCheckpointer snapshots at 50k soft watermark 
   }
 });
 
-test('Phase 1 (DET-04): CircuitBreakers detects >50% destructive file shrinkage unless user prompt authorizes deletion', () => {
+test('Phase 1 (DET-22): CircuitBreakers detects >50% destructive file shrinkage unless user prompt authorizes deletion', () => {
   const cb = new CircuitBreakers();
   const fortyLines = Array.from({ length: 40 }, (_, i) => `export const line_${i} = ${i};`).join('\n');
   const tenLines = Array.from({ length: 10 }, (_, i) => `export const line_${i} = ${i};`).join('\n');
 
-  // 1. Unauthorized 75% shrinkage (40 -> 10 lines) trips DET-04
+  // 1. Unauthorized 75% shrinkage (40 -> 10 lines) trips DET-22
   const unauthorizedRes = cb.recordTurn({
     turnIndex: 1,
     toolName: 'edit_file',
@@ -123,13 +123,13 @@ test('Phase 1 (DET-04): CircuitBreakers detects >50% destructive file shrinkage 
   });
 
   assert.equal(unauthorizedRes.hasTripped, true);
-  const det04 = unauthorizedRes.triggered.find((a) => a.detectorId === 'DET-04');
-  assert.ok(det04, 'DET-04 must trip on unauthorized >50% file shrinkage');
-  assert.equal(det04.shrinkagePct, 75);
-  assert.equal(det04.previousLines, 40);
-  assert.equal(det04.newLines, 10);
+  const det22 = unauthorizedRes.triggered.find((a) => a.detectorId === 'DET-22');
+  assert.ok(det22, 'DET-22 must trip on unauthorized >50% file shrinkage');
+  assert.equal(det22.shrinkagePct, 75);
+  assert.equal(det22.previousLines, 40);
+  assert.equal(det22.newLines, 10);
 
-  // 2. Authorized deletion in user prompt ("remove legacy exports and strip old helpers") does NOT trip DET-04
+  // 2. Authorized deletion in user prompt ("remove legacy exports and strip old helpers") does NOT trip DET-22
   const authorizedRes = cb.recordTurn({
     turnIndex: 2,
     toolName: 'edit_file',
@@ -138,11 +138,11 @@ test('Phase 1 (DET-04): CircuitBreakers detects >50% destructive file shrinkage 
     newContent: tenLines,
     userPrompt: 'Please remove the deprecated helpers and strip the file down'
   });
-  const det04Auth = authorizedRes.triggered.find((a) => a.detectorId === 'DET-04');
-  assert.equal(det04Auth, undefined, 'DET-04 must not trip when user explicitly requests removal');
+  const det22Auth = authorizedRes.triggered.find((a) => a.detectorId === 'DET-22');
+  assert.equal(det22Auth, undefined, 'DET-22 must not trip when user explicitly requests removal');
 });
 
-test('Phase 1 (DET-05): CircuitBreakers catches removed try/catch blocks, empty catch swallows, and @ts-ignore / eslint-disable', () => {
+test('Phase 1 (DET-23): CircuitBreakers catches removed try/catch blocks, empty catch swallows, and @ts-ignore / eslint-disable', () => {
   const cb = new CircuitBreakers();
 
   const beforeCode = [
@@ -174,27 +174,27 @@ test('Phase 1 (DET-05): CircuitBreakers catches removed try/catch blocks, empty 
   });
 
   assert.equal(res.hasTripped, true);
-  const det05 = res.triggered.find((a) => a.detectorId === 'DET-05');
-  assert.ok(det05, 'DET-05 must trip when error handlers are replaced with empty catch or @ts-ignore');
-  assert.ok(det05.emptyCatchAddedCount >= 1);
-  assert.ok(det05.suppressionsAddedCount >= 1);
+  const det23 = res.triggered.find((a) => a.detectorId === 'DET-23');
+  assert.ok(det23, 'DET-23 must trip when error handlers are replaced with empty catch or @ts-ignore');
+  assert.ok(det23.emptyCatchAddedCount >= 1);
+  assert.ok(det23.suppressionsAddedCount >= 1);
 });
 
-test('Phase 1 (DET-17b): CircuitBreakers flags blind edits on unread files and unindexed new file creation', () => {
+test('Phase 1 (DET-21): CircuitBreakers flags blind edits on unread files and unindexed new file creation', () => {
   const cb = new CircuitBreakers({ enableBlindEditGuard: true });
 
-  // 1. Editing an existing file without reading it first trips DET-17b (mode: blind_edit)
+  // 1. Editing an existing file without reading it first trips DET-21 (mode: blind_edit)
   const blindEditRes = cb.recordTurn({
     turnIndex: 1,
     toolName: 'edit_file',
     filePath: 'src/core/unseen_module.mjs',
     newContent: 'export const x = 42;'
   });
-  const det17Blind = blindEditRes.triggered.find((a) => a.detectorId === 'DET-17b');
-  assert.ok(det17Blind, 'DET-17b must trip when editing a file without prior read_file');
-  assert.equal(det17Blind.mode, 'blind_edit');
+  const det21Blind = blindEditRes.triggered.find((a) => a.detectorId === 'DET-21');
+  assert.ok(det21Blind, 'DET-21 must trip when editing a file without prior read_file');
+  assert.equal(det21Blind.mode, 'blind_edit');
 
-  // 2. Reading a file first, then editing it -> does NOT trip DET-17b
+  // 2. Reading a file first, then editing it -> does NOT trip DET-21
   cb.recordTurn({
     turnIndex: 2,
     toolName: 'read_file',
@@ -207,9 +207,9 @@ test('Phase 1 (DET-17b): CircuitBreakers flags blind edits on unread files and u
     newContent: 'export const y = 99;'
   });
   assert.equal(
-    informedEditRes.triggered.find((a) => a.detectorId === 'DET-17b'),
+    informedEditRes.triggered.find((a) => a.detectorId === 'DET-21'),
     undefined,
-    'DET-17b must not trip after file has been read'
+    'DET-21 must not trip after file has been read'
   );
 });
 

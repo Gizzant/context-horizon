@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { suppressSqliteExperimentalWarning } from '../core/paths.mjs';
+import { openLocalHorizonDb } from '../core/sqlite_client.mjs';
 
 suppressSqliteExperimentalWarning();
 
@@ -308,11 +309,9 @@ export async function compressCliOutputWithRecovery({
   const logId = `${sessionId}:${turnId}:${Date.now()}`;
   let archivedInSqlite = false;
 
-  // 2. Archive sanitized clean output into SQLite FTS5
+  // 2. Archive sanitized clean output into SQLite FTS5 (WAL + busy_timeout=5000)
   try {
-    fs.mkdirSync(path.dirname(resolvedDbPath), { recursive: true });
-    const DbCtor = DatabaseSync || (await import('node:sqlite')).DatabaseSync;
-    const db = new DbCtor(resolvedDbPath);
+    const db = openLocalHorizonDb(resolvedDbPath, { readOnly: false, DatabaseSync });
     try {
       db.exec(`
         CREATE VIRTUAL TABLE IF NOT EXISTS cli_logs USING fts5(
@@ -403,8 +402,7 @@ export async function searchCliLogsBm25(queryText, {
   const resolvedDbPath = dbPath || getDefaultCliLogsSqlitePath(workspaceDir);
   if (!fs.existsSync(resolvedDbPath)) return [];
 
-  const DbCtor = DatabaseSync || (await import('node:sqlite')).DatabaseSync;
-  const db = new DbCtor(resolvedDbPath, { readOnly: true });
+  const db = openLocalHorizonDb(resolvedDbPath, { readOnly: true, DatabaseSync });
   try {
     const safeQuery = String(queryText || '').replace(/"/g, '""').trim();
     if (!safeQuery) return [];

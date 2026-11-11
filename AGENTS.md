@@ -1,4 +1,4 @@
-# Context Horizon (`ctxtop`) — Architectural & UI Invariants
+# Attention Horizon (`ctxtop`) — Architectural & UI Invariants
 - **User Constraint**: To keep context memory lean, please use `StartLine`/`EndLine` when reading `src/webview/horizon_panel.html`, `src/core/classifier.mjs`, and `sidecars/horizon-daemon/server.mjs` instead of reading full files repeatedly.
 
 ## UI & Architecture Invariants

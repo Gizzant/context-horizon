@@ -22,7 +22,9 @@ function makeTempEnv() {
 function cleanupTempEnv(root) {
   try {
     fs.rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
-  } catch {}
+  } catch (err) {
+    if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+  }
 }
 
 test('[GATE-3.1] 5 user corrections in testing domain, confidence progression 0.30 -> 0.90 (>0.80), task.md coach injection, and /evolve SKILL.md synthesis', () => {

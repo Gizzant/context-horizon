@@ -1,6 +1,7 @@
-const { JSDOM } = require('C:/Users/frank/AppData/Local/Temp/node_modules/jsdom');
+const { JSDOM } = require('jsdom');
 const fs = require('fs');
-const html = fs.readFileSync('C:/Projects/ga-visualizer-v2/src/webview/horizon_panel.html', 'utf8');
+const path = require('path');
+const html = fs.readFileSync(path.resolve(__dirname, '..', 'src', 'webview', 'horizon_panel.html'), 'utf8');
 let fails = 0;
 const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console.log('ok  ', m); };
 

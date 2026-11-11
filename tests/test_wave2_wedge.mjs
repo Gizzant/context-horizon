@@ -84,32 +84,41 @@ describe('Wave 2 — Wedge F2 (Prefix-Safe Offline Tool-Output Surgeon)', () => 
 });
 
 describe('Wave 2 — Wedge F4 (Local Storage Doctor: Cursor state.vscdb GC & Antigravity Brain Recovery)', () => {
-  test('F4: auditCursorVscdbOrphans & compactCursorVscdbStreaming reclaim orphaned bubbleId / checkpointId rows without VACUUM lock', async () => {
+  test('F4: auditCursorVscdbOrphans audits host state.vscdb read-only while compactCursorVscdbStreaming guards host DBs and compacts plugin-owned .agents/ stores', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hz-f4-vscdb-'));
-    const dbPath = path.join(tmpDir, 'state.vscdb');
+    const hostDbPath = path.join(tmpDir, 'state.vscdb');
+    const pluginDbPath = path.join(tmpDir, '.agents', 'cache', 'local_kv.sqlite');
+    fs.mkdirSync(path.dirname(pluginDbPath), { recursive: true });
 
-    const db = new DatabaseSync(dbPath);
-    db.exec('CREATE TABLE ItemTable (key TEXT UNIQUE, value BLOB);');
-    db.exec('CREATE TABLE cursorDiskKV (key TEXT UNIQUE, value BLOB);');
-    db.prepare('INSERT INTO ItemTable (key, value) VALUES (?, ?)').run('workbench.theme', 'dark');
-    db.prepare('INSERT INTO cursorDiskKV (key, value) VALUES (?, ?)').run('composerData:live-1', '{"id":"live-1"}');
-    db.prepare('INSERT INTO cursorDiskKV (key, value) VALUES (?, ?)').run('bubbleId:live-1:b1', '{"text":"keep me"}');
-    db.prepare('INSERT INTO cursorDiskKV (key, value) VALUES (?, ?)').run('bubbleId:dead-99:b1', 'x'.repeat(4000));
-    db.prepare('INSERT INTO cursorDiskKV (key, value) VALUES (?, ?)').run('checkpointId:dead-99:c1', 'y'.repeat(4000));
-    db.close();
+    for (const targetDbPath of [hostDbPath, pluginDbPath]) {
+      const db = new DatabaseSync(targetDbPath);
+      db.exec('CREATE TABLE ItemTable (key TEXT UNIQUE, value BLOB);');
+      db.exec('CREATE TABLE cursorDiskKV (key TEXT UNIQUE, value BLOB);');
+      db.prepare('INSERT INTO ItemTable (key, value) VALUES (?, ?)').run('workbench.theme', 'dark');
+      db.prepare('INSERT INTO cursorDiskKV (key, value) VALUES (?, ?)').run('composerData:live-1', '{"id":"live-1"}');
+      db.prepare('INSERT INTO cursorDiskKV (key, value) VALUES (?, ?)').run('bubbleId:live-1:b1', '{"text":"keep me"}');
+      db.prepare('INSERT INTO cursorDiskKV (key, value) VALUES (?, ?)').run('bubbleId:dead-99:b1', 'x'.repeat(4000));
+      db.prepare('INSERT INTO cursorDiskKV (key, value) VALUES (?, ?)').run('checkpointId:dead-99:c1', 'y'.repeat(4000));
+      db.close();
+    }
 
-    const audit = await auditCursorVscdbOrphans(dbPath);
+    const audit = await auditCursorVscdbOrphans(hostDbPath);
     assert.deepEqual(audit.activeComposerIds, ['live-1']);
     assert.equal(audit.orphanRowCount, 2);
     assert.ok(audit.orphanBytes >= 8000);
 
-    const gc = await compactCursorVscdbStreaming(dbPath, { dryRun: false });
+    const hostBlocked = await compactCursorVscdbStreaming(hostDbPath, { dryRun: false });
+    assert.equal(hostBlocked.success, false);
+    assert.equal(hostBlocked.blockedHostWrite, true);
+    assert.equal(hostBlocked.reason, 'HOST_DB_READONLY_GUARD');
+
+    const gc = await compactCursorVscdbStreaming(pluginDbPath, { dryRun: false });
     assert.equal(gc.success, true);
     assert.equal(gc.exportedLiveRows, 2);
     assert.equal(gc.removedOrphanRows, 2);
     assert.ok(gc.backupPath && fs.existsSync(gc.backupPath));
 
-    const postAudit = await auditCursorVscdbOrphans(dbPath);
+    const postAudit = await auditCursorVscdbOrphans(pluginDbPath);
     assert.equal(postAudit.orphanRowCount, 0);
   });
 

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
+import { atomicWriteFileSync } from '../atomic_io.mjs';
 
 /**
  * Phase 4.1: Turn-0 Workspace Hygiene & MCP Profile Gate (`src/core/coach/turn_zero_gate.mjs`)
@@ -148,7 +149,8 @@ export function optimizeUShapedRulePlacement(rawContent = '') {
 
 /**
  * Feature #17: Inserts or updates a 48-hour TTL fenced managed coach block
- * (`COACH` or `MODEL_ROUTING`) with embedded ISO `timestamp` and `expires_at` metadata.
+ * (`COACH` or `MODEL_ROUTING`) using deterministic, timestamp-free markers so
+ * identical directives produce byte-for-byte identical prefix content across turns.
  */
 export function upsertFencedCoachBlock(
   rawContent = '',
@@ -162,7 +164,7 @@ export function upsertFencedCoachBlock(
   const cleanType = String(blockType || 'COACH').toUpperCase().replace(/[^A-Z0-9_]/g, '');
   const createdIso = new Date(nowMs).toISOString();
   const expiresIso = new Date(nowMs + ttlMs).toISOString();
-  const startMarker = `<!-- HORIZON:${cleanType}:START timestamp="${createdIso}" expires_at="${expiresIso}" -->`;
+  const startMarker = `<!-- HORIZON:${cleanType}:START -->`;
   const endMarker = `<!-- HORIZON:${cleanType}:END -->`;
   const blockContent = `${startMarker}\n${String(bodyText || '').trim()}\n${endMarker}`;
 
@@ -174,7 +176,7 @@ export function upsertFencedCoachBlock(
   const base = String(rawContent || '');
   let updatedContent;
   if (existingRegex.test(base)) {
-    updatedContent = base.replace(existingRegex, blockContent);
+    updatedContent = base.replace(existingRegex, () => blockContent);
   } else {
     updatedContent = base.trim() ? `${base.trimEnd()}\n\n${blockContent}\n` : `${blockContent}\n`;
   }
@@ -183,6 +185,8 @@ export function upsertFencedCoachBlock(
     blockType: cleanType,
     timestamp: createdIso,
     expiresAt: expiresIso,
+    createdAtMs: nowMs,
+    expiresAtMs: nowMs + ttlMs,
     blockContent,
     updatedContent
   };
@@ -190,13 +194,14 @@ export function upsertFencedCoachBlock(
 
 /**
  * Feature #17: Scans rule content for `<!-- HORIZON:<TYPE>:START ... -->` blocks and
- * removes any block whose `expires_at` (or `timestamp` + 48h TTL) has elapsed.
+ * removes any block whose external `blockMeta` TTL (or legacy inline `expires_at`) has elapsed.
  */
 export function pruneExpiredFencedBlocks(
   rawContent = '',
   {
     nowMs = Date.now(),
-    ttlMs = TURN_ZERO_GATE_CONSTANTS.FENCED_BLOCK_TTL_MS
+    ttlMs = TURN_ZERO_GATE_CONSTANTS.FENCED_BLOCK_TTL_MS,
+    blockMeta = null
   } = {}
 ) {
   const base = String(rawContent || '');
@@ -205,15 +210,28 @@ export function pruneExpiredFencedBlocks(
 
   const prunedBlockTypes = [];
   const cleanedContent = base.replace(blockRegex, (fullMatch, typeName, attrStr) => {
-    const expiresMatch = attrStr.match(/expires_at="([^"]+)"/i);
-    const timestampMatch = attrStr.match(/timestamp="([^"]+)"/i);
-
     let expiresAtMs = NaN;
-    if (expiresMatch) {
-      expiresAtMs = Date.parse(expiresMatch[1]);
-    } else if (timestampMatch) {
-      const tsMs = Date.parse(timestampMatch[1]);
-      if (Number.isFinite(tsMs)) expiresAtMs = tsMs + ttlMs;
+
+    const metaEntry = blockMeta && typeof blockMeta === 'object' ? blockMeta[typeName] : null;
+    if (metaEntry) {
+      if (Number.isFinite(metaEntry.expiresAtMs)) {
+        expiresAtMs = metaEntry.expiresAtMs;
+      } else if (typeof metaEntry.expiresAt === 'string') {
+        expiresAtMs = Date.parse(metaEntry.expiresAt);
+      } else if (Number.isFinite(metaEntry.createdAtMs)) {
+        expiresAtMs = metaEntry.createdAtMs + ttlMs;
+      }
+    }
+
+    if (!Number.isFinite(expiresAtMs)) {
+      const expiresMatch = attrStr.match(/(?:expires_at|expires)="([^"]+)"/i);
+      const timestampMatch = attrStr.match(/(?:timestamp|created)="([^"]+)"/i);
+      if (expiresMatch) {
+        expiresAtMs = Date.parse(expiresMatch[1]);
+      } else if (timestampMatch) {
+        const tsMs = Date.parse(timestampMatch[1]);
+        if (Number.isFinite(tsMs)) expiresAtMs = tsMs + ttlMs;
+      }
     }
 
     if (Number.isFinite(expiresAtMs) && nowMs >= expiresAtMs) {
@@ -234,7 +252,7 @@ export function pruneExpiredFencedBlocks(
 }
 
 /**
- * DET-13: Audits rule file length against the 200-line ceiling (`MEMORY.md` / `AGENTS.md`).
+ * DET-27: Audits rule file length against the 200-line ceiling (`MEMORY.md` / `AGENTS.md`).
  */
 export function auditRuleLineCountHygiene(
   rawContent = '',
@@ -248,7 +266,7 @@ export function auditRuleLineCountHygiene(
     lineCount,
     maxLines,
     excessLines,
-    detectorId: 'DET-13'
+    detectorId: 'DET-27'
   };
 }
 
@@ -258,8 +276,61 @@ export class TurnZeroGate {
       options.warmCacheLockTokens ?? TURN_ZERO_GATE_CONSTANTS.WARM_CACHE_LOCK_TOKENS
     );
     this.workspaceDir = options.workspaceDir || process.cwd();
+    this.metaPath =
+      options.metaPath ||
+      path.join(this.workspaceDir, '.agents', 'horizon', 'turn_zero_meta.json');
     this.queuedMutations = [];
     this.activeMcpProfile = options.activeMcpProfile || 'Full Stack';
+  }
+
+  _normalizeMetaKey(targetPath) {
+    return path.resolve(String(targetPath || '')).replace(/\\/g, '/').toLowerCase();
+  }
+
+  _readMetaStore() {
+    if (!fs.existsSync(this.metaPath)) return { version: 1, files: {} };
+    try {
+      const parsed = JSON.parse(fs.readFileSync(this.metaPath, 'utf8'));
+      if (!parsed || typeof parsed !== 'object') return { version: 1, files: {} };
+      if (!parsed.files || typeof parsed.files !== 'object') parsed.files = {};
+      return parsed;
+    } catch {
+      return { version: 1, files: {} };
+    }
+  }
+
+  _writeMetaStore(store) {
+    atomicWriteFileSync(this.metaPath, JSON.stringify(store, null, 2) + '\n', { encoding: 'utf8' });
+  }
+
+  _recordBlockMeta(targetPath, blockType, { createdAtMs, expiresAtMs, timestamp, expiresAt }) {
+    const store = this._readMetaStore();
+    const key = this._normalizeMetaKey(targetPath);
+    if (!store.files[key]) store.files[key] = {};
+    store.files[key][blockType] = {
+      createdAtMs,
+      expiresAtMs,
+      createdAt: timestamp,
+      expiresAt
+    };
+    this._writeMetaStore(store);
+  }
+
+  _getBlockMetaForFile(targetPath) {
+    const store = this._readMetaStore();
+    const key = this._normalizeMetaKey(targetPath);
+    return store.files[key] || null;
+  }
+
+  _removeBlockMetaTypes(targetPath, prunedTypes = []) {
+    if (!Array.isArray(prunedTypes) || prunedTypes.length === 0) return;
+    const store = this._readMetaStore();
+    const key = this._normalizeMetaKey(targetPath);
+    if (!store.files[key]) return;
+    for (const t of prunedTypes) {
+      delete store.files[key][t];
+    }
+    this._writeMetaStore(store);
   }
 
   /**
@@ -307,10 +378,9 @@ export class TurnZeroGate {
         const payload = {
           activeProfile: profile.id,
           enabledServers: profile.enabledServers,
-          dampenedServers: profile.dampenedServers,
-          updatedAt: new Date().toISOString()
+          dampenedServers: profile.dampenedServers
         };
-        fs.writeFileSync(mutation.mcpConfigPath, JSON.stringify(payload, null, 2) + '\n', 'utf8');
+        atomicWriteFileSync(mutation.mcpConfigPath, JSON.stringify(payload, null, 2) + '\n', { encoding: 'utf8' });
       }
       return {
         applied: true,
@@ -321,8 +391,10 @@ export class TurnZeroGate {
     }
 
     if (mutation.targetPath && mutation.newContent !== undefined) {
-      fs.mkdirSync(path.dirname(mutation.targetPath), { recursive: true });
-      fs.writeFileSync(mutation.targetPath, String(mutation.newContent), 'utf8');
+      atomicWriteFileSync(mutation.targetPath, String(mutation.newContent), { encoding: 'utf8' });
+      if (mutation.type === 'FENCED_COACH_BLOCK_PRUNE' && Array.isArray(mutation.prunedBlockTypes)) {
+        this._removeBlockMetaTypes(mutation.targetPath, mutation.prunedBlockTypes);
+      }
       return {
         applied: true,
         queued: false,
@@ -353,7 +425,10 @@ export class TurnZeroGate {
     for (const filePath of candidates) {
       if (!fs.existsSync(filePath)) continue;
       const raw = fs.readFileSync(filePath, 'utf8');
-      const pruneAudit = pruneExpiredFencedBlocks(raw, { nowMs });
+      const pruneAudit = pruneExpiredFencedBlocks(raw, {
+        nowMs,
+        blockMeta: this._getBlockMetaForFile(filePath)
+      });
       const analysis = optimizeUShapedRulePlacement(pruneAudit.cleanedContent);
       const lineCapAudit = auditRuleLineCountHygiene(analysis.optimizedContent);
       let mutationStatus = null;
@@ -363,7 +438,8 @@ export class TurnZeroGate {
           {
             type: 'U_SHAPED_REORDER',
             targetPath: filePath,
-            newContent: analysis.optimizedContent
+            newContent: analysis.optimizedContent,
+            prunedBlockTypes: pruneAudit.prunedBlockTypes
           },
           session
         );
@@ -407,6 +483,7 @@ export class TurnZeroGate {
     }
     const existing = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, 'utf8') : '';
     const upserted = upsertFencedCoachBlock(existing, { blockType, bodyText, nowMs, ttlMs });
+    this._recordBlockMeta(targetPath, upserted.blockType, upserted);
     return {
       ...upserted,
       mutation: this.queueOrApplyHygieneMutation(
@@ -434,7 +511,11 @@ export class TurnZeroGate {
       return { pruned: false, prunedCount: 0, mutation: null };
     }
     const existing = fs.readFileSync(targetPath, 'utf8');
-    const res = pruneExpiredFencedBlocks(existing, { nowMs, ttlMs });
+    const res = pruneExpiredFencedBlocks(existing, {
+      nowMs,
+      ttlMs,
+      blockMeta: this._getBlockMetaForFile(targetPath)
+    });
     if (!res.pruned) {
       return { ...res, mutation: null };
     }
@@ -442,7 +523,8 @@ export class TurnZeroGate {
       {
         type: 'FENCED_COACH_BLOCK_PRUNE',
         targetPath,
-        newContent: res.cleanedContent
+        newContent: res.cleanedContent,
+        prunedBlockTypes: res.prunedBlockTypes
       },
       session
     );

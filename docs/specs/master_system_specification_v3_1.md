@@ -1,12 +1,12 @@
-# System Specification: Chrono-Attention Horizon & Flight Check (agy-horizon-flightcheck)
-**Version:** 3.1.0
+# System Specification: Attention Horizon & Flight Check (`attention-horizon-antigravity` / `agy-horizon-flightcheck`)
+**Version:** 3.3.0
 **Target Platform:** Google Antigravity CLI (agy v1.4.11+) and Antigravity Desktop/IDE (v2.25+)
-**Host OS Priority:** Windows 11 (PowerShell, Node.js 20+ ESM) and POSIX (macOS, Linux)
+**Host OS Priority:** Windows 11 (PowerShell, Node.js 22.5+ ESM) and POSIX (macOS, Linux)
 **Plugin Manifest Schema:** https://antigravity.google/schemas/v1/plugin.json
 
 ## 1. Executive Summary
-`agy-horizon-flightcheck` is a unified telemetry HUD, context-hygiene sensor, and stateful `PreInvocation` prompt router for Google Antigravity. It couples two subsystems over an atomic shared IPC spine (`sidecar.json`):
-1. **Chrono-Attention Horizon (`agy-horizon`):** Plots the 200,000-token context window chronologically from Turn 0 (Left) to Current Turn (Right) across 40 discrete cells (5,000 tokens per cell). It resolves untruncated local logs in under 45ms, computes Signal Purity and Sludge Tax, and extracts native CLI `statusLine` telemetry (`quota`, `mode`, `agent_state`).
+`attention-horizon-antigravity` (`agy-horizon-flightcheck`) is a unified telemetry HUD, context-hygiene sensor, and stateful `PreInvocation` prompt router for Google Antigravity. It couples two subsystems over an atomic shared IPC spine (`sidecar.json`):
+1. **Attention Horizon (`agy-horizon-flightcheck`):** Plots the context window chronologically from Turn 0 (Left) to Current Turn (Right) across 40 discrete cells. It resolves untruncated local logs in under 45ms, computes Signal Purity and Sludge Tax, and extracts native CLI `statusLine` telemetry (`quota`, `mode`, `agent_state`).
 2. **Flight Check (`agy-flightcheck`):** A two-tier lifecycle hook (`SessionStart`, `PreInvocation`, `PostInvocation`) that reads `sidecar.json` in under 2ms. It preserves KV caches via `invoke_subagent` delegation, blocks parallel stale-file overwrites, enforces `/compact` before high-effort runs on polluted context, guards the 5-hour rolling quota floor, and rewrites vague cold-start or `#check` prompts.
 
 ## 2. Directory Layout & Official Hook Schema Contract

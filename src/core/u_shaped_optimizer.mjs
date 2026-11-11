@@ -3,6 +3,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { getHomeDir } from './paths.mjs';
 import { PrefixCacheShield } from './prefix_cache_shield.mjs';
+import { atomicWriteFileSync } from './atomic_io.mjs';
 
 /**
  * Phase 4: U-Shaped Attention, Recency Mirror & Rule Hygiene Optimizer
@@ -518,6 +519,7 @@ export class UShapedAttentionOptimizer {
       options.archivedRulesPath || getDefaultArchivedRulesPath(this.homeDir);
     this.prefixShield =
       options.prefixShield ||
+      options.prefixCacheShield ||
       new PrefixCacheShield({
         homeDir: this.homeDir,
         queuePath: options.queuePath
@@ -534,7 +536,6 @@ export class UShapedAttentionOptimizer {
       path.join(this.workspaceDir, 'GEMINI.md'),
       path.join(this.workspaceDir, 'AGENTS.md'),
       path.join(this.workspaceDir, '.agents', 'CONTEXT.md'),
-      path.join(this.workspaceDir, 'CLAUDE.md'),
       path.join(this.workspaceDir, 'MEMORY.md')
     ];
 
@@ -613,6 +614,15 @@ export class UShapedAttentionOptimizer {
       this._appendArchivedRules(resolvedPath, archivedLines);
     }
 
+    const resolvedSession = options.session || {
+      cacheState: options.cacheState,
+      cacheWarm: options.cacheWarm,
+      cachedTokens: options.cachedTokens,
+      cacheTtlSeconds: options.cacheTtlSeconds,
+      forceColdBust: options.forceColdBust,
+      postCompact: options.postCompact
+    };
+
     // Stage or apply the reordered rule file via PrefixCacheShield
     const shieldResult = this.prefixShield.stageOrApplyDelta(
       {
@@ -625,7 +635,7 @@ export class UShapedAttentionOptimizer {
           archivedCount: archivedLines.length
         }
       },
-      options.session || {}
+      resolvedSession
     );
 
     const afterAnalysis = analyzeRuleFileAttention(reorderedContent, {
@@ -646,6 +656,8 @@ export class UShapedAttentionOptimizer {
       archivedLines,
       archivedRulesPath: this.archivedRulesPath,
       stats,
+      staged: Boolean(shieldResult.staged),
+      deferred: Boolean(shieldResult.deferred),
       shieldResult,
       recencyMirrorResult
     };
@@ -711,8 +723,7 @@ export class UShapedAttentionOptimizer {
     ];
 
     const updatedTaskMd = `${stripped}\n\n${pinLines.join('\n')}\n`;
-    fs.mkdirSync(path.dirname(taskMdPath), { recursive: true });
-    fs.writeFileSync(taskMdPath, updatedTaskMd, 'utf8');
+    atomicWriteFileSync(taskMdPath, updatedTaskMd, { encoding: 'utf8' });
 
     return {
       taskMdPath,

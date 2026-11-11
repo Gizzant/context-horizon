@@ -5,10 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { createRequire } from 'node:module';
-
-const require = createRequire(import.meta.url);
-const { JSDOM } = require('C:/Users/frank/AppData/Local/Temp/node_modules/jsdom');
+import { JSDOM } from 'jsdom';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

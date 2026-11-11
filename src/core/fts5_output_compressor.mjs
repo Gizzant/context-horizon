@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getHomeDir } from './paths.mjs';
-import { SQLITE_OPEN_READONLY_OPTIONS } from './parser.mjs';
+import { openLocalHorizonDb } from './sqlite_client.mjs';
 
 /**
  * Phase 1: Fail-Open CLI Output Compressor & Local SQLite FTS5 Index (`fts5_output_compressor.mjs`)
@@ -150,9 +150,7 @@ export async function compressCliOutputFts5({
   let db = null;
   try {
     const resolvedDbPath = dbPath || getDefaultToolLogsDbPath(homeDir);
-    fs.mkdirSync(path.dirname(resolvedDbPath), { recursive: true });
-    const DbCtor = DatabaseSync || (await import('node:sqlite')).DatabaseSync;
-    db = new DbCtor(resolvedDbPath);
+    db = openLocalHorizonDb(resolvedDbPath, { readOnly: false, DatabaseSync });
 
     db.exec(`
       CREATE VIRTUAL TABLE IF NOT EXISTS tool_logs USING fts5(
@@ -241,8 +239,7 @@ export async function searchToolLogsFts5(dbPath, {
 
   let db = null;
   try {
-    const DbCtor = DatabaseSync || (await import('node:sqlite')).DatabaseSync;
-    db = new DbCtor(resolvedDbPath, SQLITE_OPEN_READONLY_OPTIONS);
+    db = openLocalHorizonDb(resolvedDbPath, { readOnly: true, DatabaseSync });
 
     const cleanKeyword = String(keyword || '')
       .replace(/[^A-Za-z0-9_./:-]/g, ' ')
@@ -310,11 +307,7 @@ export function getFts5CompressionStats(dbPath = null, { DatabaseSync = null, ho
 
   let db = null;
   try {
-    const DbCtor = DatabaseSync || (typeof process !== 'undefined' && process.versions?.node ? (require?.('node:sqlite')?.DatabaseSync) : null);
-    if (!DbCtor) {
-      return { active: true, logCount: 0, savedTokens: 0, formattedSavedK: '0.0k' };
-    }
-    db = new DbCtor(resolvedDbPath, SQLITE_OPEN_READONLY_OPTIONS);
+    db = openLocalHorizonDb(resolvedDbPath, { readOnly: true, DatabaseSync });
     // Approximate saved tokens by measuring raw output length vs summary length (saving ~75-90% of raw output)
     const row = db.prepare(`
       SELECT count(*) as count, coalesce(sum(length(raw_output)), 0) as totalBytes

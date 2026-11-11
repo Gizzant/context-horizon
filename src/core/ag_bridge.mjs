@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { getHomeDir } from './paths.mjs';
+import { atomicWriteFileSync } from './atomic_io.mjs';
 
 /**
  * Phase 0: Native Command & Prompt Dispatch Bridge (`AgBridgeService`)
@@ -301,11 +302,11 @@ export class AgBridgeService {
       `# Implementation Plan (Seeded via Baton Pass)\n\nSeeded from prior session handoff.\n`
     );
 
-    fs.writeFileSync(taskMdPath, taskContent, 'utf8');
-    fs.writeFileSync(planMdPath, planContent, 'utf8');
+    atomicWriteFileSync(taskMdPath, taskContent, { encoding: 'utf8' });
+    atomicWriteFileSync(planMdPath, planContent, { encoding: 'utf8' });
 
     if (initialBrainState.handoffMd) {
-      fs.writeFileSync(path.join(brainDir, 'HANDOFF.md'), String(initialBrainState.handoffMd), 'utf8');
+      atomicWriteFileSync(path.join(brainDir, 'HANDOFF.md'), String(initialBrainState.handoffMd), { encoding: 'utf8' });
     }
 
     let transportUsed = 'filesystem_seed';

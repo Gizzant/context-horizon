@@ -1,4 +1,4 @@
-# `ctxtop` (Context Horizon v3.2.0) — Public Multi-Channel Launch Kit
+# `ctxtop` (Attention Horizon v3.3.0) — Public Multi-Channel Launch Kit
 
 Ready-to-post, technical launch copy tailored to the engineering culture of each target community. Zero marketing fluff, zero AI buzzwords.
 
@@ -12,7 +12,7 @@ Ready-to-post, technical launch copy tailored to the engineering culture of each
 ### First Comment (Author Technical Breakdown)
 Hi HN,
 
-I built `ctxtop` (Context Horizon) because cloud LLM observability tools (Langfuse, Helicone, etc.) only see HTTP request/response payloads—they have no visibility into what is happening on disk inside local coding harnesses like Google Antigravity, Claude Code, and Cursor.
+I built `ctxtop` (Attention Horizon) because cloud LLM observability tools (Langfuse, Helicone, etc.) only see HTTP request/response payloads—they have no visibility into what is happening on disk inside local coding harnesses like Google Antigravity, Claude Code, and Cursor.
 
 When a long coding session degrades at Turn 35, the root cause is almost always local:
 1. **Silent 1h-to-5m KV-Cache Cliffs & Prefix Busts:** If your session drops from a 1-hour cache tier to a 5-minute fallback/overage tier—or if an MCP server dynamically injects `mcp_instructions_delta` / `deferred_tools_delta` mid-run—a single turn on a 150k-token context forces a 100% uncached prefix rebuild (costing 12.5x–80x more than a warm cache read).
@@ -27,8 +27,8 @@ When a long coding session degrades at Turn 35, the root cause is almost always 
 - **Offline Prefix-Safe Tool-Output Surgeon (`--prune-tools`):** Pairs `tool_use` and `tool_result` across turns while pinning Turn 0 and the newest 6 turns. Truncates superseded file reads, unreferenced exploratory `grep` outputs, and resolved test `stderr` traces with an atomic `.pre_surgeon` backup.
 - **`<15ms` PreInvocation Flight Check Router:** Optional lifecycle hook that checks 6 local sensors (`fs.statSync` mtime drift, `<8ms` reverse-import scan for unseen callers, Turn-0 eager MCP schema tax, 3-strike identical command error loops) before a turn executes.
 
-Live interactive WebView demo (runs 8 precomputed crisis scenarios in-browser): https://gizzant.github.io/context-horizon/
-Repo (MIT): https://github.com/Gizzant/context-horizon
+Live interactive WebView demo (runs 8 precomputed crisis scenarios in-browser): https://gizzant.github.io/attention-horizon-antigravity/
+Repo (MIT): https://github.com/Gizzant/attention-horizon-antigravity
 
 Happy to answer questions on the SQLite/protobuf formats across harnesses or prompt-cache invalidation mechanics.
 
@@ -45,7 +45,7 @@ If you run long multi-turn sessions in Google Antigravity (`[App]`, `[IDE]`, or 
 2. **Orphaned `brain/` Directories Across Surface Updates:** Switching between `antigravity-cli`, `antigravity-ide`, and `antigravity` or upgrading across 2.6+ can leave `task.md`, `implementation_plan.md`, and `walkthrough.md` stranded in an older surface directory while the active `.db` session expects them in `~/.gemini/antigravity/brain/<uuid>/`.
 3. **Opaque `.db` Protobuf Steps & Multi-Agent Worktree Collisions:** When `transcript.jsonl` truncates fields or when multiple `invoke_subagent` workers run in parallel, it is hard to see which subagent is burning quota or if two subagents edited the same file concurrently.
 
-I built **`ctxtop` (Context Horizon v3.2.0)**—a zero-dependency local profiler and `<15ms` `PreInvocation` router built specifically around Antigravity's storage architecture:
+I built **`ctxtop` (Attention Horizon v3.3.0)**—a zero-dependency local profiler and `<15ms` `PreInvocation` router built specifically around Antigravity's storage architecture:
 
 - **Read-Only `conversations/<uuid>.db` + Protobuf Stitcher:** Uses Node's built-in `node:sqlite` with `{ readOnly: true }` (`SQLITE_OPEN_READONLY`) to read `gen_metadata` (`input_tokens`, `cache_read_tokens`) and walks binary protobuf `steps` payloads alongside `annotations/<uuid>.pbtxt` and `transcript_full.jsonl`.
 - **Pre-Compaction `.handoff.md` Distiller & `task.md` Drift Guard:** Cross-checks `git status --porcelain=v1 -z` (filtered to files modified in the current session) against `task.md` freshness before you run `/compact`, and deterministically writes `.handoff.md` at `>=80%` saturation.
@@ -54,13 +54,13 @@ I built **`ctxtop` (Context Horizon v3.2.0)**—a zero-dependency local profiler
 
 **Try it locally (0 npm dependencies):**
 ```bash
-git clone https://github.com/Gizzant/context-horizon.git
-cd context-horizon
+git clone https://github.com/Gizzant/attention-horizon-antigravity.git
+cd attention-horizon-antigravity
 node src/cli/doctor.mjs
 node src/cli/horizon_hud.mjs --demo
 ```
-- **Interactive WebView Demo:** https://gizzant.github.io/context-horizon/
-- **GitHub Repository:** https://github.com/Gizzant/context-horizon
+- **Interactive WebView Demo:** https://gizzant.github.io/attention-horizon-antigravity/
+- **GitHub Repository:** https://github.com/Gizzant/attention-horizon-antigravity
 
 ---
 
@@ -76,7 +76,7 @@ Anyone running heavy refactors in Claude Code knows how brutal prompt cache inva
 2. **Mid-Session Prefix Mutations:** Dynamic MCP tool additions (`deferred_tools_delta`, `mcp_instructions_delta`) or `CLAUDE.md` edits mid-session invalidate the KV cache from that block forward without warning.
 3. **Offline Tool Sludge (`Read` x6, Exploratory `grep`, Old `stderr`):** Reading an 800-line file 5 times or dumping 15k tokens of `grep`/test failure output bloats the middle of the context window (the 30%–70% low-attention trough) and triggers autocompact early.
 
-I open-sourced **`ctxtop` (Context Horizon)**, a 100% offline CLI and Edward Tufte WebView that inspects local JSONL/SQLite transcripts with **zero external API keys and zero network calls**:
+I open-sourced **`ctxtop` (Attention Horizon)**, a 100% offline CLI and Edward Tufte WebView that inspects local JSONL/SQLite transcripts with **zero external API keys and zero network calls**:
 
 - **Dual-TTL Countdown & Prefix Mutation Diff:** Tracks `1h` vs. `5m` main-thread TTL alongside `5m` subagent TTLs, and pinpoints the exact turn, component (`system_prompt`, `mcp_tool_declarations`, `mcp_instructions_delta`), block index, and byte/token delta that caused a cache miss.
 - **Cold-Session Cost Gate:** Calculates the exact dollar and quota-unit multiplier before you send a prompt into a cold `0s TTL` window, advising when `/clear` + `.handoff.md` beats paying a cold compaction rebuild.
@@ -85,11 +85,11 @@ I open-sourced **`ctxtop` (Context Horizon)**, a 100% offline CLI and Edward Tuf
 
 **Quick start:**
 ```bash
-npx context-horizon --demo
+npx attention-horizon-antigravity --demo
 node src/cli/doctor.mjs --prune-tools --dry-run
 ```
-- **Live Browser Demo:** https://gizzant.github.io/context-horizon/
-- **GitHub (MIT, 0 dependencies):** https://github.com/Gizzant/context-horizon
+- **Live Browser Demo:** https://gizzant.github.io/attention-horizon-antigravity/
+- **GitHub (MIT, 0 dependencies):** https://github.com/Gizzant/attention-horizon-antigravity
 
 ---
 
@@ -105,7 +105,7 @@ If Cursor's `state.vscdb` has ballooned to 30GB–100GB+ on your machine, you've
 
 On top of that, Cursor splits agent telemetry across three separate places: `state.vscdb` (`cursorDiskKV`), `~/.cursor/chats/.../store.db` (hex-encoded `meta` + `blobs`), and timestamp-less `agent-transcripts/*.jsonl` files—making it nearly impossible to see why an agent session is hitting context rot or re-reading the same files.
 
-I built **`ctxtop` (Context Horizon)**, a zero-dependency local systems utility (Node.js built-in `node:sqlite`, 0 npm packages, 0 network calls) that solves both problems:
+I built **`ctxtop` (Attention Horizon)**, a zero-dependency local systems utility (Node.js built-in `node:sqlite`, 0 npm packages, 0 network calls) that solves both problems:
 
 ### 1. Streaming `state.vscdb` Garbage Collector (`--gc-cursor`)
 Instead of an in-place `VACUUM` lock, `ctxtop` opens `state.vscdb` strictly with `SQLITE_OPEN_READONLY`, audits active `composerData:<id>` roots and live `agentKv:blob:*` references, streams only live rows into a clean `.compact.sqlite` file, writes a `.pre_gc.<timestamp>.bak` backup, and atomically swaps it in:
@@ -121,5 +121,5 @@ node src/cli/doctor.mjs --gc-cursor --vscdb "/path/to/Cursor/User/globalStorage/
 - Correlates `composerData`, `bubbleId`, `agentKv:blob:*` (`providerOptions.cursor.requestId` / `ai_code_hashes.requestId`), `store.db`, and `agent-transcripts/*.jsonl` into a unified timeline.
 - Visualizes your 40-cell context window, highlights duplicate file reads and stale disk snapshots (`DIRTY_SNAP`), and lets you prune stale tool outputs offline (`--prune-tools`).
 
-- **Live Interactive Demo:** https://gizzant.github.io/context-horizon/
-- **GitHub Repo (MIT, 0 runtime dependencies):** https://github.com/Gizzant/context-horizon
+- **Live Interactive Demo:** https://gizzant.github.io/attention-horizon-antigravity/
+- **GitHub Repo (MIT, 0 runtime dependencies):** https://github.com/Gizzant/attention-horizon-antigravity

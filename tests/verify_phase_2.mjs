@@ -3,7 +3,8 @@ import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { JSDOM } from 'jsdom';
 import {
   classifyHorizonWindow,
   CATEGORIES
@@ -20,8 +21,7 @@ import { normalizeModelId, resolveModelCeiling, resolvePricePerM } from '../src/
 import { evaluateCompositeSessionRisk } from '../src/core/classifier.mjs';
 import { evaluateCompactionCacheAdvisory } from '../src/core/prompt_rubric.mjs';
 
-const require = createRequire(import.meta.url);
-const { JSDOM } = require('C:/Users/frank/AppData/Local/Temp/node_modules/jsdom');
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 console.log('--- Verifying Phase 2: Quota Telemetry, Real Cache TTL & Overage Guardrails (Layer 2) ---');
 
@@ -30,7 +30,7 @@ const config = {
   amputation_token_threshold: 140000,
   deprecated_paths: ['**/legacy/**', '**/deprecated/**'],
   model_pricing_per_1m_input: {
-    'gemini-3.8-flash': 0.15,
+    'gemini-3.8-flash': resolvePricePerM('gemini-3.8-flash'),
     'gemini-3.1-pro': 1.25
   }
 };
@@ -292,7 +292,7 @@ assert.deepEqual(
 );
 assert.equal(resolveSessionModel({ stdinData: { model: { id: 'gemini-4-argon' } }, steps: [{ type: 'USER_INPUT', content: switchText }] }).source, 'stdin', 'stdin model must take precedence');
 assert.equal(resolveSessionModel({ stdinData: {}, steps: [] }).source, 'fallback');
-assert.equal(resolveModelCeiling('claude-sonnet-5.5'), 256000, 'claude-sonnet-5.5 ceiling must be 256000');
+assert.equal(resolveModelCeiling('claude-sonnet-5.5'), 1000000, 'claude-sonnet-5.5 ceiling must be 1000000');
 assert.equal(resolvePricePerM('Claude Sonnet 5.5 (Medium)'), 2.00, 'claude-sonnet-5.5 price must be 2.00/M');
 
 // 7f. Model-switch bust: amber label naming the target model; advisory not COMPACT_NOW solely because of the bust.
@@ -344,11 +344,15 @@ const estRisk = evaluateCompositeSessionRisk({ totalActiveTokens: 55000, weekly7
 assert.notEqual(estRisk.band, 'RED', 'Estimated 7d at 100% must not produce a RED band');
 const hostRisk = evaluateCompositeSessionRisk({ totalActiveTokens: 55000, weekly7dUsedPct: 100, weekly7dLockoutRisk: true, weekly7dSource: 'host' });
 assert.equal(hostRisk.band, 'RED', 'Host-sourced 7d at 100% must still produce RED');
-try { fs.rmSync(estTmp, { recursive: true, force: true }); } catch {}
+try {
+  fs.rmSync(estTmp, { recursive: true, force: true });
+} catch (err) {
+  if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+}
 console.log('✓ Check 7: Prefix Bust vs. Natural TTL Expiration & Uninstrumented Session Guard verified.');
 
 // 8. WebView JSDOM Verification of Layer 2 Quota Strip Elements
-const html = fs.readFileSync('C:/Projects/ga-visualizer-v2/src/webview/horizon_panel.html', 'utf8');
+const html = fs.readFileSync(path.join(ROOT, 'src', 'webview', 'horizon_panel.html'), 'utf8');
 const dom = new JSDOM(html, {
   runScripts: 'dangerously',
   pretendToBeVisual: true,
@@ -415,6 +419,10 @@ assert.ok(d.getElementById('quotaPills').textContent.includes('Cache: Warm (270s
 assert.ok(!d.getElementById('quotaPills').textContent.includes('Prefix Bust'), 'Uninstrumented session must not cry wolf with Prefix Bust');
 
 dom.window.close();
-try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+try {
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+} catch (err) {
+  if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+}
 console.log('✓ Check 8: WebView JSDOM Layer 2 rendering verified.');
 console.log('✓ Phase 2 verification PASSED with 0 errors.');

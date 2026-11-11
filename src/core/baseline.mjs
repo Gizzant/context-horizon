@@ -527,15 +527,14 @@ export function computeMcpTokenRoiMatrix({
 }
 
 /**
- * Audits workspace instruction files (`AGENTS.md`, `CLAUDE.md`, `.cursorrules`) for static rot:
+ * Audits workspace instruction files (`AGENTS.md`, `GEMINI.md`, `.agents/CONTEXT.md`) for static rot:
  * broken `@path` references to non-existent files and oversized instruction files.
  */
 export function auditInstructionStaticRot(workspaceDir = '', homeDir = getHomeDir()) {
   const ws = workspaceDir || process.cwd();
   const candidates = [
     path.join(ws, 'AGENTS.md'),
-    path.join(ws, 'CLAUDE.md'),
-    path.join(ws, '.cursorrules'),
+    path.join(ws, 'GEMINI.md'),
     path.join(ws, '.agents', 'CONTEXT.md')
   ];
 

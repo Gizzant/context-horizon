@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import { execSync } from 'node:child_process';
 import path from 'node:path';
-import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { JSDOM } from 'jsdom';
 import { readSidecarSync } from '../src/core/sidecar_store.mjs';
 import {
   COMPACTION_ADVISORY_MESSAGES,
@@ -19,14 +20,13 @@ import {
 } from '../src/core/handoff_audit.mjs';
 import { describeStep } from '../src/core/history.mjs';
 
-const require = createRequire(import.meta.url);
-const { JSDOM } = require('C:/Users/frank/AppData/Local/Temp/node_modules/jsdom');
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 console.log('--- Verifying Phase 4: Dual-Surface HUD (statusLine CLI & Tufte Webview) ---');
 
 const samplePayload = {
   conversation_id: 'test_phase_4_session',
-  workspacePath: 'c:/projects/ga-visualizer-v2',
+  workspacePath: ROOT.replace(/\\/g, '/'),
   modelName: 'gemini-3.8-flash',
   mode: 'auto',
   agent_state: 'working',
@@ -204,7 +204,9 @@ assert.ok(handoffMdRes.markdown.includes('Implement Phase 4'));
 try {
   fs.rmSync(tmpBrainDir, { recursive: true, force: true });
   fs.rmSync(tmpWsDir, { recursive: true, force: true });
-} catch {}
+} catch (err) {
+  if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+}
 console.log('✓ Check 6 & 7: Brain Artifact & Git Drift Check + Baton Pass Markdown Generator verified.');
 
 // Test 8: JSDOM Verification of Phase 4 UI Elements & POST /api/handoff

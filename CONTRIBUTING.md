@@ -1,17 +1,17 @@
-# Contributing to Context Horizon (`ctxtop`)
+# Contributing to Attention Horizon (`attention-horizon-antigravity` / `ctxtop`)
 
-Thank you for helping build `context-horizon` (`ctxtop`)! Our goal is to keep AI coding agent context windows transparent, fast (`<15ms` hook latency), and 100% dependency-free.
+Thank you for helping build Attention Horizon (`attention-horizon-antigravity` / `ctxtop`)! Our goal is to keep AI coding agent context windows transparent, fast (`<15ms` hook latency), and 100% dependency-free.
 
 ---
 
 ## Quick Local Development Setup
 
-Requires **Node.js 22.5.0+** (Windows, macOS, or Linux) for built-in `node:sqlite` (`DatabaseSync`). Because `context-horizon` has **zero external npm runtime dependencies**, you do not even need to run `npm install` to run the core engine, CLI tools, or test suite:
+Requires **Node.js 22.5.0+** (Windows, macOS, or Linux) for built-in `node:sqlite` (`DatabaseSync`). Because `attention-horizon-antigravity` has **zero external npm runtime dependencies**, you do not even need to run `npm install` to run the core engine, CLI tools, or test suite:
 
 ```bash
 # 1. Clone your fork
-git clone https://github.com/<your-username>/context-horizon.git
-cd context-horizon
+git clone https://github.com/<your-username>/attention-horizon-antigravity.git
+cd attention-horizon-antigravity
 
 # 2. Preview the 40-cell ANSI HUD & Flight Check Scorecard
 npm start

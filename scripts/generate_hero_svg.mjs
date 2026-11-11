@@ -74,7 +74,7 @@ const heroSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" w
   <circle cx="42" cy="20" r="6" fill="#f59e0b"/>
   <circle cx="62" cy="20" r="6" fill="#22c55e"/>
   <text x="480" y="25" text-anchor="middle" fill="#94a3b8" font-size="13" font-weight="600" class="mono">
-    context-horizon (ctxtop v3.2.0) — 40-Cell Context Telemetry HUD &amp; PreInvocation Flight Check
+    Attention Horizon (ctxtop v3.3.0) — 40-Cell Context Telemetry HUD &amp; PreInvocation Flight Check
   </text>
 
   <!-- Section 1: Turn 50 Prefix Amputation & Sludge Crisis -->
@@ -144,9 +144,9 @@ const heroSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" w
 
     <!-- Panel C: Instant CLI Quickstart -->
     <rect x="622" y="86" width="274" height="122" rx="6" fill="#090d16" stroke="#1e293b" stroke-width="1"/>
-    <text x="634" y="105" fill="#94a3b8" font-size="11" font-weight="700" class="mono">ZERO-CONFIG CLI (NODE 20+)</text>
-    <text x="634" y="129" fill="#38bdf8" font-size="11" class="mono">$ npx context-horizon --demo</text>
-    <text x="634" y="151" fill="#4ade80" font-size="11" class="mono">$ npx context-horizon init</text>
+    <text x="634" y="105" fill="#94a3b8" font-size="11" font-weight="700" class="mono">ZERO-CONFIG CLI (NODE 22.5+)</text>
+    <text x="634" y="129" fill="#38bdf8" font-size="10.5" class="mono">$ npx attention-horizon-antigravity --demo</text>
+    <text x="634" y="151" fill="#4ade80" font-size="10.5" class="mono">$ npx attention-horizon-antigravity init</text>
     <text x="634" y="173" fill="#f472b6" font-size="11" class="mono">$ npx ctxtop --roast</text>
     <text x="634" y="195" fill="#64748b" font-size="10" class="mono">0 deps • &lt;15ms hooks • 100% local</text>
   </g>
@@ -168,12 +168,12 @@ const socialPreviewSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1
   <rect x="36" y="36" width="1208" height="568" rx="20" fill="#0b1120" stroke="#1e293b" stroke-width="3"/>
 
   <!-- Top Pill -->
-  <rect x="84" y="82" width="440" height="38" rx="19" fill="#00d7ff" fill-opacity="0.12" stroke="#00d7ff" stroke-width="1.5"/>
-  <text x="304" y="107" text-anchor="middle" fill="#38bdf8" font-size="18" font-weight="700" class="mono">⚡ context-horizon (ctxtop v3.1)</text>
+  <rect x="84" y="82" width="460" height="38" rx="19" fill="#00d7ff" fill-opacity="0.12" stroke="#00d7ff" stroke-width="1.5"/>
+  <text x="314" y="107" text-anchor="middle" fill="#38bdf8" font-size="18" font-weight="700" class="mono">⚡ Attention Horizon (ctxtop v3.3)</text>
 
   <!-- Main Headline -->
   <text x="84" y="185" fill="#f8fafc" font-size="52" font-weight="800" class="sans">htop for AI Coding Agent</text>
-  <text x="84" y="248" fill="#38bdf8" font-size="52" font-weight="800" class="sans">200k Context Windows.</text>
+  <text x="84" y="248" fill="#38bdf8" font-size="52" font-weight="800" class="sans">Context Windows.</text>
   <text x="84" y="302" fill="#94a3b8" font-size="24" class="sans">Stop silent AGENTS.md prefix amputation, stale-file overwrites, and 5-hour quota burn.</text>
 
   <!-- 40-Cell Visual Bar -->
@@ -183,7 +183,7 @@ const socialPreviewSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1
 
   <!-- Bottom Metrics Strip -->
   <rect x="84" y="445" width="1112" height="108" rx="12" fill="#111827" stroke="#334155" stroke-width="1.5"/>
-  <text x="116" y="490" fill="#4ade80" font-size="24" font-weight="700" class="mono">$ npx context-horizon init</text>
+  <text x="116" y="490" fill="#4ade80" font-size="24" font-weight="700" class="mono">$ npx attention-horizon-antigravity init</text>
   <text x="116" y="528" fill="#cbd5e1" font-size="19" class="mono">40-Cell ANSI HUD  •  Edward Tufte Webview  •  6 Blind-Spot Sensors  •  0 Dependencies  •  &lt;15ms SLA</text>
 </svg>
 `;

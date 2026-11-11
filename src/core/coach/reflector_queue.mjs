@@ -5,28 +5,29 @@ import { execFileSync } from 'node:child_process';
 import { canonicalizePath } from '../paths.mjs';
 import { SESSION_RISK_THRESHOLDS } from '../constants.mjs';
 import { auditRuleContradictions } from './contradiction_auditor.mjs';
+import { atomicWriteFileSync } from '../atomic_io.mjs';
+import {
+  PREFIX_CACHE_SHIELD_CONSTANTS,
+  isProtectedPrefixFile,
+  isWarmCacheState
+} from '../prefix_cache_shield.mjs';
 
 /**
- * Phase 2.2: "Teachable Moments" Reflector Queue & Project-Scoped Hash Isolation (`DET-16`)
+ * Phase 2.2: "Teachable Moments" Reflector Queue & Project-Scoped Hash Isolation (`DET-29`)
  * (`src/core/coach/reflector_queue.mjs`)
- *
- * Features #12, #16, #18 (Top Unbuilt Gap #2):
- *  - Stages mid-session user corrections in `.agents/cache/learnings-queue.json` so
- *    `AGENTS.md` / `GEMINI.md` are never mutated while the 5-minute KV cache is warm.
- *  - Isolates learned rules by a 12-char repository identity hash (`project_hash`) to
- *    prevent cross-project Knowledge Bleed.
- *  - Enforces the Global Promotion Pipeline: a rule only promotes to global scope once
- *    it achieves `confidence >= 0.80` across `>= 2` distinct `project_hash` repositories.
- *  - Routes domain clusters (`>= 3` approved learnings) into `.agents/skills/<domain>/SKILL.md`
- *    (which lazy-loads on demand at 0 Turn-0 token cost) strictly when the cache is cold.
  */
 
 export const REFLECTOR_CONSTANTS = Object.freeze({
   WARM_CACHE_LOCK_TOKENS: SESSION_RISK_THRESHOLDS.WARM_CACHE_LOCK_TOKENS,
+  PROTECTED_FILE_REGEX: PREFIX_CACHE_SHIELD_CONSTANTS.PROTECTED_FILE_REGEX,
   GLOBAL_PROMOTION_MIN_CONFIDENCE: 0.80,
   GLOBAL_PROMOTION_MIN_REPOS: 2,
   SKILL_CLUSTER_MIN_COUNT: 3
 });
+
+export function isReflectorProtectedFile(filePath = '') {
+  return isProtectedPrefixFile(filePath);
+}
 
 function tryGetGitRemoteOrigin(workspaceDir) {
   if (!workspaceDir || !fs.existsSync(workspaceDir)) return '';
@@ -131,7 +132,13 @@ export class ReflectorQueue {
     this.skillsBaseDir =
       options.skillsBaseDir ||
       path.join(this.workspaceDir, '.agents', 'skills');
+    this.prefixShield = options.prefixShield || null;
     this.nowFn = typeof options.nowFn === 'function' ? options.nowFn : () => Date.now();
+  }
+
+  attachPrefixCacheShield(prefixShield) {
+    this.prefixShield = prefixShield || null;
+    return this;
   }
 
   _readQueueData() {
@@ -158,9 +165,8 @@ export class ReflectorQueue {
   }
 
   _writeQueueData(data) {
-    fs.mkdirSync(path.dirname(this.queuePath), { recursive: true });
     data.updated_at = new Date(this.nowFn()).toISOString();
-    fs.writeFileSync(this.queuePath, JSON.stringify(data, null, 2) + '\n', 'utf8');
+    atomicWriteFileSync(this.queuePath, JSON.stringify(data, null, 2) + '\n', { encoding: 'utf8' });
   }
 
   /**
@@ -219,7 +225,7 @@ export class ReflectorQueue {
 
     const item = {
       id: learning.id || `learn-${crypto.randomBytes(6).toString('hex')}`,
-      detectorId: 'DET-16',
+      detectorId: 'DET-29',
       project_hash: projHash,
       scope: learning.scope === 'global' ? 'global' : 'project',
       domain,
@@ -288,8 +294,12 @@ export class ReflectorQueue {
   routeDomainToSkill(domain, { session = {}, minCount = REFLECTOR_CONSTANTS.SKILL_CLUSTER_MIN_COUNT } = {}) {
     const cachedTokens = Number(session.cachedTokens ?? 0);
     const ttlRemainingSeconds = Number(session.ttlRemainingSeconds ?? session.cacheTtlSeconds ?? 0);
+    const cacheWarm = isWarmCacheState(
+      { ...session, cachedTokens, cacheTtlSeconds: ttlRemainingSeconds },
+      REFLECTOR_CONSTANTS.WARM_CACHE_LOCK_TOKENS
+    );
 
-    if (cachedTokens >= REFLECTOR_CONSTANTS.WARM_CACHE_LOCK_TOKENS && ttlRemainingSeconds > 0) {
+    if (cacheWarm) {
       return {
         routed: false,
         deferredByWarmCache: true,
@@ -334,8 +344,7 @@ export class ReflectorQueue {
       ''
     ];
 
-    fs.mkdirSync(path.dirname(skillPath), { recursive: true });
-    fs.writeFileSync(skillPath, lines.join('\n'), 'utf8');
+    atomicWriteFileSync(skillPath, lines.join('\n'), { encoding: 'utf8' });
 
     for (const it of eligible) {
       it.status = 'promoted_to_skill';
@@ -351,6 +360,59 @@ export class ReflectorQueue {
       skillPath,
       promotedCount: eligible.length,
       projectHash: this.projectHash
+    };
+  }
+
+  /**
+   * Flushes approved learnings into `AGENTS.md` (or target rule file) strictly when
+   * the prompt cache is cold / `PostCompact`.
+   */
+  flushApprovedWhenCold(options = {}) {
+    const session = options.session || options;
+    const cacheWarm = !options.bypassShield && isWarmCacheState(session, REFLECTOR_CONSTANTS.WARM_CACHE_LOCK_TOKENS);
+    if (cacheWarm) {
+      return {
+        flushed: false,
+        deferredByWarmCache: true,
+        flushedCount: 0,
+        flushedItems: []
+      };
+    }
+
+    const data = this._readQueueData();
+    const approved = data.items.filter(
+      (it) => it.project_hash === this.projectHash && it.status === 'approved'
+    );
+    if (approved.length === 0) {
+      return {
+        flushed: true,
+        deferredByWarmCache: false,
+        flushedCount: 0,
+        flushedItems: []
+      };
+    }
+
+    const targetPath = options.targetPath || path.join(this.workspaceDir, 'AGENTS.md');
+    let content = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, 'utf8') : '# Agent Directives\n';
+    const flushedItems = [];
+    for (const it of approved) {
+      const bullet = `- ${it.directive_action}`;
+      if (!content.includes(it.directive_action)) {
+        content = `${content.replace(/\s+$/, '')}\n${bullet}\n`;
+      }
+      it.status = 'flushed';
+      it.updated_at = new Date(this.nowFn()).toISOString();
+      flushedItems.push({ ...it, targetPath });
+    }
+    atomicWriteFileSync(targetPath, content, { encoding: 'utf8' });
+    this._writeQueueData(data);
+
+    return {
+      flushed: true,
+      deferredByWarmCache: false,
+      flushedCount: flushedItems.length,
+      targetPath,
+      flushedItems
     };
   }
 }

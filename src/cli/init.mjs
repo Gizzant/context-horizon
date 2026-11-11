@@ -3,13 +3,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { exec } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { getHomeDir, ensureSupportedNodeVersion } from '../core/paths.mjs';
+import { getHomeDir, ensureSupportedNodeVersion, parseCliHarnessArg } from '../core/paths.mjs';
 import { findSessionDirectory } from '../core/parser.mjs';
+import { atomicWriteFileSync } from '../core/atomic_io.mjs';
 import { runCLI, runDemoShowcase, formatActionQueueAnsi } from './horizon_hud.mjs';
 import { startServer } from '../../sidecars/horizon-daemon/server.mjs';
 import { runPostmortem, printPostmortemSummary } from './postmortem.mjs';
 import { runDoctor, parseDoctorArgs } from './doctor.mjs';
 import { compressCliOutputFts5, searchToolLogsFts5 } from '../core/fts5_output_compressor.mjs';
+import { SWARM_TOOL_MATCHER, FULL_TOOL_HOOK_MATCHER, validateAntigravityHooksSchema } from '../core/layer5_hygiene.mjs';
+
+export { SWARM_TOOL_MATCHER, FULL_TOOL_HOOK_MATCHER, validateAntigravityHooksSchema };
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(__dirname, '../..');
@@ -53,6 +57,29 @@ export function buildHooksConfig(targetPluginDir) {
           command: `node --no-warnings "${norm('src/hooks/post_invocation.mjs')}"`,
           timeout: 5
         }
+      ],
+      Stop: [
+        {
+          type: 'command',
+          command: `node --no-warnings "${norm('src/hooks/post_invocation.mjs')}"`,
+          timeout: 5
+        }
+      ],
+      PreToolUse: [
+        {
+          matcher: FULL_TOOL_HOOK_MATCHER,
+          type: 'command',
+          command: `node --no-warnings "${norm('src/hooks/pre_invocation.mjs')}"`,
+          timeout: 5
+        }
+      ],
+      PostToolUse: [
+        {
+          matcher: FULL_TOOL_HOOK_MATCHER,
+          type: 'command',
+          command: `node --no-warnings "${norm('src/hooks/post_invocation.mjs')}"`,
+          timeout: 5
+        }
       ]
     }
   };
@@ -65,7 +92,7 @@ export function installPlugin(options = {}) {
     ? path.resolve(process.cwd(), '.agents', 'plugins', 'agy-horizon-flightcheck')
     : path.join(home, '.gemini', 'config', 'plugins', 'agy-horizon-flightcheck');
 
-  console.log(`\n\x1b[1m\x1b[38;5;51m⚡ Context Horizon (ctxtop v${VERSION}) — Zero-Config Installer\x1b[0m`);
+  console.log(`\n\x1b[1m\x1b[38;5;51m⚡ Attention Horizon (attention-horizon-antigravity v${VERSION}) — Zero-Config Installer\x1b[0m`);
   console.log(`  • Mode   : ${workspace ? 'Workspace (.agents/plugins)' : 'Global (~/.gemini/config/plugins)'}${dryRun ? ' [DRY RUN]' : ''}`);
   console.log(`  • Source : ${PACKAGE_ROOT}`);
   console.log(`  • Target : ${targetPluginDir}`);
@@ -96,8 +123,7 @@ export function installPlugin(options = {}) {
     'rules',
     'skills',
     'sidecars',
-    'src',
-    'tests'
+    'src'
   ];
 
   if (!dryRun) {
@@ -112,10 +138,10 @@ export function installPlugin(options = {}) {
 
     // Write dynamically resolved hooks.json so both global and workspace installs work across Windows/macOS/Linux
     const resolvedHooks = buildHooksConfig(targetPluginDir);
-    fs.writeFileSync(
+    atomicWriteFileSync(
       path.join(targetPluginDir, 'hooks.json'),
       JSON.stringify(resolvedHooks, null, 2) + '\n',
-      'utf8'
+      { encoding: 'utf8' }
     );
   }
   console.log('  \x1b[38;5;82m✓\x1b[0m Deployed plugin files & cross-platform lifecycle hooks (SessionStart, PreInvocation, PostInvocation)');
@@ -127,13 +153,12 @@ export function installPlugin(options = {}) {
 
   const hudScriptPath = path.join(targetPluginDir, 'src', 'cli', 'horizon_hud.mjs').replace(/\\/g, '/');
   for (const sPath of settingsPaths) {
-    const sDir = path.dirname(sPath);
     let settings = {};
     if (fs.existsSync(sPath)) {
       try {
         settings = JSON.parse(fs.readFileSync(sPath, 'utf8'));
         if (!dryRun) {
-          fs.writeFileSync(`${sPath}.bak`, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+          atomicWriteFileSync(`${sPath}.bak`, JSON.stringify(settings, null, 2) + '\n', { encoding: 'utf8' });
         }
       } catch (err) {
         settings = {};
@@ -149,8 +174,7 @@ export function installPlugin(options = {}) {
     };
 
     if (!dryRun) {
-      fs.mkdirSync(sDir, { recursive: true });
-      fs.writeFileSync(sPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+      atomicWriteFileSync(sPath, JSON.stringify(settings, null, 2) + '\n', { encoding: 'utf8' });
     }
     console.log(`  \x1b[38;5;82m✓\x1b[0m Configured CLI statusLine in ${sPath}`);
   }
@@ -170,7 +194,7 @@ export async function runContextRoast() {
   const worstPurity = `${result.worstPurityPct}%`;
   const sludgeUsd = result.sludgeUsdFormatted;
 
-  console.log(`\n\x1b[1m\x1b[38;5;208m╭── CONTEXT HORIZON FORENSIC AUDIT (ctxtop v${VERSION}) ─────────────────────────╮\x1b[0m`);
+  console.log(`\n\x1b[1m\x1b[38;5;208m╭── ATTENTION HORIZON FORENSIC AUDIT (ctxtop v${VERSION}) ───────────────────────╮\x1b[0m`);
   console.log(`\x1b[38;5;208m│\x1b[0m Sessions Audited : \x1b[1m${auditedSessions} sessions\x1b[0m (${estTokensM} cumulative tokens inspected)${isSynthetic ? ' [Demo]' : ''}`);
   console.log(`\x1b[38;5;208m│\x1b[0m Useful Context % : \x1b[38;5;196m\x1b[1m${worstPurity} worst\x1b[0m (${result.avgPurityPct}% avg across sessions)`);
   console.log(`\x1b[38;5;208m│\x1b[0m Redundant Reads  : \x1b[38;5;214m${dupCount} duplicate file reads\x1b[0m + \x1b[38;5;196m${errCount} dead stack traces\x1b[0m kept in memory`);
@@ -197,18 +221,18 @@ export async function runContextRoast() {
 
 function printHelp() {
   console.log(`
-\x1b[1m\x1b[38;5;51m⚡ context-horizon (ctxtop v${VERSION})\x1b[0m — htop for AI Coding Agent Context Windows
+\x1b[1m\x1b[38;5;51m⚡ Attention Horizon (attention-horizon-antigravity / ctxtop v${VERSION})\x1b[0m — htop for AI Coding Agent Context Windows
 
 \x1b[1mUSAGE:\x1b[0m
-  npx ctxtop                                           Auto-discover active Claude Code, Cursor, or Antigravity session & print live 40-cell HUD
-  npx ctxtop ui [--open]                               Launch local Simple View Web UI on 127.0.0.1:62935 & open in browser (no hooks required)
-  npx ctxtop init [--workspace] [--dry-run]            Install plugin, hooks & CLI statusLine
-  npx ctxtop --demo [--scenario 1..8]                  Preview 40-cell HUD & Flight Check Scorecard
-  npx ctxtop --demo-animate                            Play live 5-stage terminal crisis animation
-  npx ctxtop --roast                                   Audit local logs & print shareable Context Roast Card
-  npx ctxtop doctor                                    Diagnose hooks, configuration, mirrors & transcript health
-  npx ctxtop prune [--dry-run]                         Prune stale tool outputs and fold AST stubs in active transcript
-  npx ctxtop postmortem [--last N] [--json]            Generate forensic report & diagnostic dataset
+  npx attention-horizon-antigravity [--harness=claude|cursor] Auto-discover active Antigravity session & print live 40-cell HUD
+  npx attention-horizon-antigravity ui [--open]               Launch local Simple View Web UI on 127.0.0.1:62935 & open in browser
+  npx attention-horizon-antigravity init [--workspace]        Install plugin, hooks & CLI statusLine
+  npx attention-horizon-antigravity --demo [--scenario 1..8]  Preview 40-cell HUD & Flight Check Scorecard
+  npx attention-horizon-antigravity --demo-animate            Play live 5-stage terminal crisis animation
+  npx attention-horizon-antigravity --roast                   Audit local logs & print shareable Context Roast Card
+  npx attention-horizon-antigravity doctor                    Diagnose hooks, configuration, mirrors & transcript health
+  npx attention-horizon-antigravity prune [--dry-run]         Prune stale tool outputs and fold AST stubs in active transcript
+  npx attention-horizon-antigravity postmortem [--last N]     Generate forensic report & diagnostic dataset
 `);
 }
 
@@ -226,7 +250,11 @@ export function openBrowserUrl(url) {
 
 export async function runLiveOrDemoCli(options = {}) {
   const home = options.homeDir || getHomeDir();
-  const sessionInfo = findSessionDirectory(options.sessionId || null, home);
+  const discoveryOpts = {
+    harness: options.harness || null,
+    includeCrossHost: Boolean(options.includeCrossHost)
+  };
+  const sessionInfo = findSessionDirectory(options.sessionId || null, home, discoveryOpts);
   if (sessionInfo && sessionInfo.sessionDir && fs.existsSync(sessionInfo.sessionDir)) {
     const res = await runCLI({
       silent: true,
@@ -236,28 +264,29 @@ export async function runLiveOrDemoCli(options = {}) {
     if (res && res.state) {
       const sTag = res.state.surfaceTag || sessionInfo.surfaceTag || '[App]';
       const title = res.state.sessionTitle ? ` · "${res.state.sessionTitle}"` : '';
-      console.log(`\n\x1b[1m\x1b[38;5;51m⚡ CONTEXT HORIZON (ctxtop v${VERSION})\x1b[0m — Live ${sTag} Session (${res.state.sessionId.slice(0, 8)})${title}`);
+      console.log(`\n\x1b[1m\x1b[38;5;51m⚡ ATTENTION HORIZON (ctxtop v${VERSION})\x1b[0m — Live ${sTag} Session (${res.state.sessionId.slice(0, 8)})${title}`);
       console.log(res.output);
       const aq = formatActionQueueAnsi(res.state);
       if (aq) console.log(aq);
-      console.log(`\x1b[38;5;245mTip: Run 'npx ctxtop ui' for interactive browser view | 'npx ctxtop --roast' for multi-session audit\x1b[0m\n`);
+      console.log(`\x1b[38;5;245mTip: Run 'npx attention-horizon-antigravity ui' for interactive browser view | 'npx ctxtop --roast' for multi-session audit\x1b[0m\n`);
       return { mode: 'live', state: res.state, output: res.output };
     }
   }
-  console.log('\x1b[38;5;245mℹ No active Claude Code, Cursor, or Antigravity session found on disk — showing interactive demo:\x1b[0m');
+  console.log('\x1b[38;5;245mℹ No active Antigravity session found on disk — showing interactive demo:\x1b[0m');
   await runDemoShowcase({ scenarioId: 5, animate: false });
   return { mode: 'demo', state: null };
 }
 
-const isMain = process.argv[1] && (
-  process.argv[1].endsWith('init.mjs') ||
-  process.argv[1].endsWith('context-horizon') ||
-  process.argv[1].endsWith('ctxtop') ||
-  process.argv[1].endsWith('agy-horizon') ||
-  process.argv[1].endsWith('agy-horizon-flightcheck') ||
-  process.argv[1].endsWith('agy-horizon-exec') ||
-  process.argv[1].endsWith('agy-log-search')
-);
+export function isCliMain(argv1 = process.argv[1], metaUrl = import.meta.url) {
+  if (!argv1) return false;
+  try {
+    return fs.realpathSync(argv1) === fs.realpathSync(fileURLToPath(metaUrl));
+  } catch {
+    return path.resolve(argv1) === path.resolve(fileURLToPath(metaUrl));
+  }
+}
+
+const isMain = isCliMain();
 
 if (isMain) {
   ensureSupportedNodeVersion();
@@ -327,7 +356,7 @@ if (isMain) {
     const shouldOpenBrowser = (cmd === 'ui' || args.includes('ui') || args.includes('--open')) && !args.includes('--no-open');
     startServer().then(({ port }) => {
       const url = `http://127.0.0.1:${port}`;
-      console.log(`\x1b[1m\x1b[38;5;82m✓ Context Horizon Web UI Live at:\x1b[0m \x1b[38;5;51m${url}\x1b[0m (Press Ctrl+C to stop)`);
+      console.log(`\x1b[1m\x1b[38;5;82m✓ Attention Horizon Web UI Live at:\x1b[0m \x1b[38;5;51m${url}\x1b[0m (Press Ctrl+C to stop)`);
       if (shouldOpenBrowser) {
         openBrowserUrl(url);
       }
@@ -337,6 +366,7 @@ if (isMain) {
     const scenarioId = scenIdx !== -1 ? Number(args[scenIdx + 1]) : null;
     runDemoShowcase({ scenarioId, animate: args.includes('--demo-animate') });
   } else {
-    runLiveOrDemoCli();
+    const cliHarness = parseCliHarnessArg(args);
+    runLiveOrDemoCli({ harness: cliHarness });
   }
 }

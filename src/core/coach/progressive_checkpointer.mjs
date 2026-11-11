@@ -3,6 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
+import { atomicWriteFileSync } from '../atomic_io.mjs';
 
 /**
  * Phase 1.1: Progressive Checkpoint & Session Continuity Sync (`DET-10`)
@@ -233,7 +234,7 @@ export class ProgressiveCheckpointer {
 
     const checkpoint = {
       id: `ckpt-${safeSession}-${safeBand}-${nowMs}`,
-      detectorId: 'DET-10',
+      detectorId: 'DET-25',
       sessionId,
       bandLabel: primaryBandLabel,
       triggeredBands: newlyTriggeredBands.length > 0 ? newlyTriggeredBands : [primaryBandLabel],
@@ -249,8 +250,9 @@ export class ProgressiveCheckpointer {
       zeroTokenOverhead: true
     };
 
-    fs.mkdirSync(this.checkpointDir, { recursive: true });
-    fs.writeFileSync(filePath, JSON.stringify(checkpoint, null, 2) + '\n', 'utf8');
+    if (input.writeToDisk !== false) {
+      atomicWriteFileSync(filePath, JSON.stringify(checkpoint, null, 2) + '\n', { encoding: 'utf8' });
+    }
 
     const sessionList = this._getSessionCheckpoints(sessionId);
     sessionList.push(checkpoint);
@@ -384,7 +386,7 @@ export class ProgressiveCheckpointer {
 
     return {
       evaporated,
-      detectorId: 'DET-10',
+      detectorId: 'DET-25',
       bandLabel: latest.bandLabel,
       missingConstraints,
       missingActiveTasks,

@@ -28,7 +28,7 @@ export function analyzePromptSprawl(promptText = '', options = {}) {
   if (!raw) {
     return {
       isMegaPrompt: false,
-      detectorId: 'DET-12',
+      detectorId: 'DET-26',
       blocking: false,
       wordCount: 0,
       distinctVerbCount: 0,
@@ -83,7 +83,7 @@ export function analyzePromptSprawl(promptText = '', options = {}) {
   if (!isMegaPrompt) {
     return {
       isMegaPrompt: false,
-      detectorId: 'DET-12',
+      detectorId: 'DET-26',
       blocking: false,
       wordCount,
       distinctVerbCount: distinctVerbs.length,
@@ -111,7 +111,7 @@ export function analyzePromptSprawl(promptText = '', options = {}) {
 
   return {
     isMegaPrompt: true,
-    detectorId: 'DET-12',
+    detectorId: 'DET-26',
     blocking: false, // Strictly advisory in COACH mode
     mode: 'ADVISORY_COACH',
     wordCount,
@@ -125,7 +125,7 @@ export function analyzePromptSprawl(promptText = '', options = {}) {
     alternativeSlashCommand: '/grill-me',
     decomposedStages,
     advisoryPrompt,
-    message: `💡 DET-12 Mega-Prompt Advisory: Detected ${distinctVerbs.length} action verbs across ${targetFiles.length || bulletObjectiveCount || 'multiple'} targets. Consider running /plan or /grill-me first to prevent unaligned multi-file edits.`
+    message: `💡 DET-26 Mega-Prompt Advisory: Detected ${distinctVerbs.length} action verbs across ${targetFiles.length || bulletObjectiveCount || 'multiple'} targets. Consider running /plan or /grill-me first to prevent unaligned multi-file edits.`
   };
 }
 

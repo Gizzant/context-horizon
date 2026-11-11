@@ -34,7 +34,7 @@ When writing or updating `task.md`, apply the **KEEP / DROP** filter:
 ## Recommended Usage
 
 1. Write or update `task.md`, `implementation_plan.md`, and `walkthrough.md` in the session brain directory using the State Compressor format, and verify working-tree git status (`git status --porcelain`).
-2. Generate a structured Baton Pass handoff artifact (`docs/HANDOFF_<timestamp>.md`) via the Context Memory panel's **"Generate Handoff Markdown"** button (`POST /api/handoff/generate`) or run audit verification:
+2. Generate a structured Baton Pass handoff artifact (`docs/HANDOFF_<timestamp>.md`) via the Attention Horizon panel's **"Generate Handoff Markdown"** button (`POST /api/handoff/generate`) or run audit verification:
    ```bash
    node --no-warnings ./src/cli/init.mjs --demo
    ```

@@ -3,19 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { createRequire } from 'node:module';
-
-const require = createRequire(import.meta.url);
-let JSDOM = null;
-try {
-  ({ JSDOM } = require('jsdom'));
-} catch {
-  try {
-    ({ JSDOM } = require('C:/Users/frank/AppData/Local/Temp/node_modules/jsdom'));
-  } catch {
-    JSDOM = null;
-  }
-}
+import { JSDOM } from 'jsdom';
 
 import {
   computeDualTtlState,
@@ -312,10 +300,10 @@ describe('Wave 1 — Wedge F3 (Multi-Harness Trajectory Stitcher)', () => {
     const pbtxtPath = path.join(tmpDir, 'session.pbtxt');
     fs.writeFileSync(pbtxtPath, `
       title: "Trajectory Stitcher Audit"
-      workspace_uri: "file:///c:/Projects/ga-visualizer-v2"
+      workspace_uri: "file:///workspace/attention-horizon"
     `, 'utf8');
 
-    const uriBytes = Buffer.from('file:///c:/Projects/ga-visualizer-v2/src/core/quota.mjs', 'utf8');
+    const uriBytes = Buffer.from('file:///workspace/attention-horizon/src/core/quota.mjs', 'utf8');
     const payloadBlob = Buffer.concat([Buffer.from([0x0a, uriBytes.length]), uriBytes]);
 
     const res = await stitchAntigravityCliTrajectory(path.join(tmpDir, 'nonexistent.db'), {
@@ -327,7 +315,7 @@ describe('Wave 1 — Wedge F3 (Multi-Harness Trajectory Stitcher)', () => {
     });
     assert.equal(res.title, 'Trajectory Stitcher Audit');
     assert.equal(res.steps.length, 2);
-    assert.ok(res.workspaceUri.includes('file:///c:/Projects/ga-visualizer-v2'));
+    assert.ok(res.workspaceUri.includes('file:///workspace/attention-horizon'));
   });
 
   test('F3: stitchCursorTrajectory merges agent-transcripts, composerData, and bubbleId rows', async () => {

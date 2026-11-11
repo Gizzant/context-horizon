@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary
 
-Ring 1 represents the inner security, context hygiene, and multi-agent coordination boundary of **Attention Horizon (`ga-visualizer-v2`)**. While outer rings handle visual dashboard rendering and token telemetry analytics, Ring 1 directly intercepts execution at the shell, prompt, and filesystem boundaries to prevent:
+Ring 1 represents the inner security, context hygiene, and multi-agent coordination boundary of **Attention Horizon (`attention-horizon-antigravity`)**. While outer rings handle visual dashboard rendering and token telemetry analytics, Ring 1 directly intercepts execution at the shell, prompt, and filesystem boundaries to prevent:
 1. **Automated Hook Evasion:** Coding agents silencing pre-commit test assertions or lint errors using `--no-verify`.
 2. **Indirect Prompt Injection (IPI):** Subagent digests, web-scraping responses, or malicious documentation overriding lead agent constraints.
 3. **Terminal ANSI & Spinner Pollution:** Mega-byte escape code floods thrashing the prompt context and KV cache.
@@ -181,7 +181,7 @@ In multi-agent environments (e.g. an Antigravity agent paired with a Cursor wind
 - **Eviction:** Leases expire automatically after 300 seconds or when the owning process terminates (`process.kill(pid, 0)` returns `ESRCH`).
 - **`DET-20` Collision Alert:** If an agent claims a file path held by another live trajectory, the engine halts with:
   > `[HORIZON DET-20] Concurrent file-scope collision: file(s) [src/core/router.mjs] are currently leased by trajectory "traj-alpha" (PID 1420). Run in isolated worktree to prevent merge conflicts.`
-  > Suggested: `git worktree add ../ga-visualizer-v2-worktree-traj-beta -b feature-parallel`
+  > Suggested: `git worktree add ../attention-horizon-worktree-traj-beta -b feature-parallel`
 
 ### 5.3 Cross-Tool Portable Handoff Schema (`src/core/coach/handoff_hydrator.mjs`)
 Generated handoff files (`docs/HANDOFF_<timestamp>.md`) follow a clean, four-part Markdown contract compatible across Google Antigravity, Claude Code, Cursor, and Codex CLI:
@@ -214,7 +214,7 @@ Generated handoff files (`docs/HANDOFF_<timestamp>.md`) follow a clean, four-par
 
 | Component | Test Suite | Assertions Verified |
 | :--- | :--- | :--- |
-| **`DET-19` Git Guard** | [`test/det19_git_guard.test.mjs`](file:///C:/Projects/ga-visualizer-v2/test/det19_git_guard.test.mjs) | Subcommand bypass parsing, short flag clusters (`-amn`), PATH recursion prevention, single-use cryptographic nonce. |
-| **Subagent IPI Sanitizer** | [`test/subagent_ipi_sanitizer.test.mjs`](file:///C:/Projects/ga-visualizer-v2/test/subagent_ipi_sanitizer.test.mjs) | Steganography strip, HTML comments, data-URI scripts, boundary breakout neutralization, `<1ms` speed. |
-| **CLI Noise Profiles** | [`test/cli_ansi_cargo_compressor.test.mjs`](file:///C:/Projects/ga-visualizer-v2/test/cli_ansi_cargo_compressor.test.mjs) | ANSI removal, carriage return collapse, `cargo test` diagnostics retention, `npm install` filtering, FTS5 storage. |
-| **Scope Lockfile `DET-20`** | [`test/scope_lock_registry.test.mjs`](file:///C:/Projects/ga-visualizer-v2/test/scope_lock_registry.test.mjs) | Lease acquisition/release, dead PID eviction, `DET-20` collision alerts, portable handoff markdown schema. |
+| **`DET-19` Git Guard** | [`test/det19_git_guard.test.mjs`](../test/det19_git_guard.test.mjs) | Subcommand bypass parsing, short flag clusters (`-amn`), PATH recursion prevention, single-use cryptographic nonce. |
+| **Subagent IPI Sanitizer** | [`test/subagent_ipi_sanitizer.test.mjs`](../test/subagent_ipi_sanitizer.test.mjs) | Steganography strip, HTML comments, data-URI scripts, boundary breakout neutralization, `<1ms` speed. |
+| **CLI Noise Profiles** | [`test/cli_ansi_cargo_compressor.test.mjs`](../test/cli_ansi_cargo_compressor.test.mjs) | ANSI removal, carriage return collapse, `cargo test` diagnostics retention, `npm install` filtering, FTS5 storage. |
+| **Scope Lockfile `DET-20`** | [`test/scope_lock_registry.test.mjs`](../test/scope_lock_registry.test.mjs) | Lease acquisition/release, dead PID eviction, `DET-20` collision alerts, portable handoff markdown schema. |

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Context Memory</title>
+<title>Attention Horizon</title>
 <link rel="icon" href="data:,">
 <script src="/preload.js"></script>
 <style>
@@ -23,7 +23,8 @@
     --hz-fg: #f8fafc;
     --hz-fg-secondary: #cbd5e1;
     --hz-muted: #94a3b8;         /* WCAG AA 7.1:1 against --hz-bg */
-    --hz-dim: var(--hz-muted);   /* Alias of --hz-muted (~7:1 on --hz-bg) */
+    --hz-text-dim: #828a9a;      /* WCAG AA >= 4.95:1 on #0d0f13 / 5.6:1 on #090d16 */
+    --hz-dim: var(--hz-text-dim);
     --hz-border: rgba(255, 255, 255, 0.10);
     --hz-border-subtle: rgba(255, 255, 255, 0.06);
 
@@ -34,6 +35,24 @@
     --hz-danger: #ef4444;        /* Red: Over limit / errors */
     --hz-free: #1e293b;          /* Dark slate: Free headroom */
     --hz-anchor: #38bdf8;        /* Cyan: Rules & interactive links */
+  }
+
+  [data-theme="light"] {
+    --background: #f6f8fa;
+    --foreground: #1f2328;
+    --muted: #eaeef2;
+    --muted-foreground: #57606a;
+    --border: rgba(31, 35, 40, 0.14);
+    --hz-bg: #f6f8fa;
+    --hz-card: #ffffff;
+    --hz-card-alt: #eaeef2;
+    --hz-fg: #1f2328;
+    --hz-fg-secondary: #424a53;
+    --hz-muted: #57606a;         /* WCAG AA 5.74:1 against #f6f8fa */
+    --hz-text-dim: #57606a;      /* WCAG AA 5.74:1 against #f6f8fa */
+    --hz-dim: var(--hz-text-dim);
+    --hz-border: rgba(31, 35, 40, 0.14);
+    --hz-border-subtle: rgba(31, 35, 40, 0.08);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -174,9 +193,9 @@
   }
 
   .badge {
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 600;
-    padding: 2px 9px;
+    padding: 2px 7px;
     border-radius: 999px;
     background: rgba(16, 185, 129, 0.12);
     color: var(--hz-useful);
@@ -325,6 +344,7 @@
     white-space: nowrap;
   }
   .delta-line .delta-tok { flex-shrink: 0; white-space: pre; }
+  .delta-line .delta-other-steps { flex-shrink: 0; white-space: pre; }
   .delta-line.up { color: #cbd5e1 !important; }
   .delta-line.up.big { color: #f59e0b !important; }
   .delta-line.down { color: #10b981 !important; }
@@ -550,12 +570,20 @@
     flex-shrink: 0;
   }
   .b-val {
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 700;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
     color: var(--hz-fg) !important;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-variant-numeric: tabular-nums;
+  }
+  .b-val .b-pct-sub {
+    font-size: 10px;
+    font-weight: 500;
+    opacity: 0.88;
+    letter-spacing: -0.01em;
   }
   .b-sub {
     font-size: 10.5px;
@@ -1639,8 +1667,8 @@
     .quota-strip {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      padding: 6px 10px;
+      gap: 4px;
+      padding: 5px 8px;
       background: var(--hz-card);
       border: 1px solid var(--hz-border);
       border-radius: 6px;
@@ -1832,10 +1860,12 @@
       border: 1px solid var(--hz-border-subtle);
       font-variant-numeric: tabular-nums;
     }
-    body[data-view-mode="simple"] .host-watchdog-bar,
-    body[data-view-mode="simple"] #hostWatchdogBar {
+    body[data-view-mode="simple"] .host-watchdog-bar:not([data-severity="critical"]):not([data-severity="warning"]),
+    body[data-view-mode="simple"] #hostWatchdogBar:not([data-severity="critical"]):not([data-severity="warning"]) {
       display: none !important;
     }
+    body[data-view-mode="simple"] #hostWatchdogBar[data-severity="critical"]:not([hidden]),
+    body[data-view-mode="simple"] #hostWatchdogBar[data-severity="warning"]:not([hidden]),
     body[data-view-mode="advanced"] .host-watchdog-bar:not([hidden]),
     body[data-view-mode="advanced"] #hostWatchdogBar:not([hidden]) {
       display: flex !important;
@@ -2409,7 +2439,10 @@
     }
     body[data-view-mode="simple"] .session-bar,
     body[data-view-mode="simple"] .storage-card,
-    body[data-view-mode="simple"] .simple-actionable-card {
+    body[data-view-mode="simple"] .quota-strip:not([hidden]),
+    body[data-view-mode="simple"] .simple-actionable-card:not([hidden]),
+    body[data-view-mode="simple"] .coaching-box:not([hidden]),
+    body[data-view-mode="simple"] .rsi-box:not([hidden]) {
       background: transparent !important;
       border: none !important;
       border-radius: 0 !important;
@@ -2422,10 +2455,12 @@
     body[data-view-mode="simple"] .storage-card > .section-box-header,
     body[data-view-mode="simple"] .simple-actionable-card > .section-box-header,
     body[data-view-mode="simple"] #storagePrimaryBloatLine,
-    body[data-view-mode="simple"] #quotaStrip,
-    body[data-view-mode="simple"] #coachingBox,
-    body[data-view-mode="simple"] #rsiBox,
-    body[data-view-mode="simple"] #savedQuotaFooterBar {
+    body[data-view-mode="simple"] #freeLabel,
+    body[data-view-mode="simple"] #detCircuitBreakerAlert,
+    body[data-view-mode="simple"] #highEffortSludgeBanner,
+    body[data-view-mode="simple"] #artifactDriftBanner,
+    body[data-view-mode="simple"] #savedQuotaFooterBar,
+    #sessionHealthSummary {
       display: none !important;
     }
     body[data-view-mode="simple"] .session-bar-controls {
@@ -2539,6 +2574,45 @@
     body[data-view-mode="simple"] #miniTimeline .mini-cell.headroom-empty {
       height: 4px !important;
       background: rgba(51, 65, 85, 0.55) !important;
+    }
+    body[data-view-mode="simple"] #miniTimeline .effort-shift-badge,
+    body[data-view-mode="simple"] #miniTimeline .mini-cell::after,
+    body[data-view-mode="simple"] #miniTimeline .mini-cell::before {
+      display: none !important;
+    }
+    .m3-more-actions-drawer {
+      margin-top: 2px;
+      border-top: 1px dashed rgba(148, 163, 184, 0.16);
+      padding-top: 4px;
+    }
+    .m3-more-actions-summary {
+      list-style: none;
+      cursor: pointer;
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--hz-anchor) !important;
+      padding: 2px 0;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 4px;
+      user-select: none;
+    }
+    .m3-more-actions-summary::-webkit-details-marker {
+      display: none;
+    }
+    .m3-more-actions-summary::before {
+      content: '▸ Show ';
+      color: var(--hz-muted);
+    }
+    .m3-more-actions-drawer[open] > .m3-more-actions-summary::before {
+      content: '▾ Hide ';
+    }
+    .m3-more-actions-body {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 4px;
     }
     .tufte-horizon-scale {
       display: none;
@@ -2662,7 +2736,7 @@
   <header>
     <div class="title-group">
       <div class="dot" id="statusDot"></div>
-      <h1>Attention Horizon<span style="display:none"> Context Memory</span></h1>
+      <h1>Attention Horizon</h1>
     </div>
     <div class="header-right">
       <span class="badge mono advanced-only" id="workloadModeBadge">[Mode: Read-Heavy Audit]</span>
@@ -2718,7 +2792,7 @@
     <div class="storage-top">
       <div>
         <span class="used-big mono" id="usedBig">0k</span>
-        <span class="used-of mono">/ <span id="usedMaxTok">200k</span> tokens (<span id="usedPct">0%</span>)</span>
+        <span class="used-of mono">/ <span id="usedMaxTok">256k</span> tokens (<span id="usedPct">0%</span>)</span>
         <span class="ceiling-clamp-pill mono" id="ceilingClampPill" hidden></span>
       </div>
       <div class="free-wrap">
@@ -2729,7 +2803,7 @@
     </div>
     <form class="settings-pop" id="settingsPop" hidden>
       <label>Safe limit (tokens)
-        <input type="number" id="setSafeLimit" min="20000" max="1000000" step="1000" required>
+        <input type="number" id="setSafeLimit" min="20000" max="1048576" step="1000" required>
       </label>
       <label>Remind me at (% of limit)
         <input type="number" id="setReminderPct" min="50" max="99" step="1" required>
@@ -2764,7 +2838,7 @@
     <details class="advanced-drawer" id="chronoTimelineDrawer" data-slot="collapsible" open>
       <summary><span>40-Cell Context Window Map</span><span class="mono" id="cellSizeTag" style="font-size:10px;">6.4k / cell</span></summary>
       <div class="mini-timeline" id="miniTimeline"></div>
-      <div class="tufte-horizon-scale mono" id="tufteHorizonScale">
+      <div class="tufte-horizon-scale scale-ticks mono" id="tufteHorizonScale">
         <span class="tufte-scale-tick" id="tufteScaleTick0" style="left:0%;">0k</span>
         <span class="tufte-scale-tick" id="tufteScaleTick50" style="left:19.5%;transform:translateX(-50%);">50k</span>
         <span class="tufte-scale-tick" id="tufteScaleTickTrough" style="left:36%;transform:translateX(-50%);">trough</span>
@@ -3164,8 +3238,8 @@
     <button type="button" class="mini-btn" id="btnExportSanitized" title="Export a zero-PII sanitized JSON snapshot with secrets and tokens scrubbed">[Export Sanitized Snapshot]</button>
   </div>
 
-  <!-- Host Runtime Watchdog Bar (Advanced View Only) -->
-  <div class="host-watchdog-bar mono advanced-only" id="hostWatchdogBar" hidden>
+  <!-- Host Runtime Watchdog Bar (Simple Alert + Advanced View) -->
+  <div class="host-watchdog-bar mono" id="hostWatchdogBar" hidden>
     <div class="section-box-header">
       <div class="section-box-title-group">
         <span class="section-box-icon" aria-hidden="true">&#x1F5A5;&#xFE0F;</span>
@@ -3217,7 +3291,7 @@
     return Boolean(targetSurface && hostSurface && targetSurface !== hostSurface);
   }
 
-  // Propagate Antigravity sidecar gateway token (?token= / X-Sidecar-Token) to all /api/* requests
+  // Propagate Antigravity sidecar gateway token (?token= / X-Sidecar-Token) and CSRF token to /api/* requests
   const __sidecarSearchParams = (() => {
     try { return new URLSearchParams(window.location.search || ''); } catch { return new URLSearchParams(); }
   })();
@@ -3227,12 +3301,25 @@
     const sep = rawUrl.includes('?') ? '&' : '?';
     return rawUrl.includes('token=') ? rawUrl : `${rawUrl}${sep}token=${encodeURIComponent(__sidecarUiToken)}`;
   }
-  if (__sidecarUiToken && typeof window.fetch === 'function') {
+  function buildHorizonPostHeaders(extra = {}) {
+    return Object.assign(
+      { 'Content-Type': 'application/json', 'X-Horizon-CSRF': window.__HORIZON_CSRF_TOKEN__ || '' },
+      extra
+    );
+  }
+  if (typeof window.fetch === 'function') {
     const __origFetch = window.fetch.bind(window);
     window.fetch = function(input, init) {
       if (typeof input === 'string' && input.startsWith('/api/')) {
         const nextInit = Object.assign({}, init);
-        const nextHeaders = Object.assign({}, nextInit.headers || {}, { 'X-Sidecar-Token': __sidecarUiToken });
+        const nextHeaders = Object.assign({}, nextInit.headers || {});
+        if (__sidecarUiToken) {
+          nextHeaders['X-Sidecar-Token'] = __sidecarUiToken;
+        }
+        const method = String(nextInit.method || 'GET').toUpperCase();
+        if (method === 'POST' && nextHeaders['X-Horizon-CSRF'] === undefined) {
+          nextHeaders['X-Horizon-CSRF'] = window.__HORIZON_CSRF_TOKEN__ || '';
+        }
         nextInit.headers = nextHeaders;
         return __origFetch(withSidecarAuthUrl(input), nextInit);
       }
@@ -3257,16 +3344,20 @@
 
   function fmtK(n) {
     if (!n || n <= 0) return '0k';
+    if (n === 1048576 || n === 1000000) return '1M';
+    if (n >= 1000000) return (n / 1000000).toFixed(2).replace(/\.?0+$/, '') + 'M';
     return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
   }
 
   function formatShortPath(p) {
     if (!p) return 'workspace file';
-    const clean = String(p).replace(/\\/g, '/');
+    const clean = String(p).replace(/\\/g, '/').replace(/^(\.\.\.\/)+/, '');
     if (/\.system_generated(\/|$)|(^|\/)steps\/\d+\/output\.txt$/i.test(clean)) return 'tool output';
+    const rel = formatWorkspaceRelativePath(clean);
+    if (rel && !/^([a-zA-Z]:|\/)/.test(rel)) return rel;
     const segs = clean.split('/').filter(Boolean);
     if (segs.length <= 2) return clean;
-    return '.../' + segs.slice(-2).join('/');
+    return segs.slice(-2).join('/');
   }
 
   // clean workspace-relative path for the /compact template (never `.../` prefixed).
@@ -3391,7 +3482,7 @@
       if (b) flashButton(b, '&#x23F3; Registering hook...', 2000);
       const r = await fetch('/api/hooks/dampen', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildHorizonPostHeaders(),
         body: JSON.stringify({
           command: command || '',
           maxLines: 100,
@@ -3430,7 +3521,7 @@
       const ws = currentRenderedState?.workspace?.canonicalPath || '';
       const r = await fetch('/api/rules/promote', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildHorizonPostHeaders(),
         body: JSON.stringify({
           zone: zone || 'primacy',
           ruleText: cleanText,
@@ -3777,18 +3868,16 @@
     const routeLabel = formatEffortRouteLabel(autoState);
     const fallbackTitle = stripTokPrefix(autoState?.sessionTitle || 'Active Conversation');
     const autoTitle = autoMeta
-      ? `${autoSurfaceTag} [${autoTok ? fmtK(autoTok) : '?'} \u2022 ${routeLabel}] ${stripTokPrefix(autoMeta.title)}`
-      : (autoTok ? `${autoSurfaceTag} [${fmtK(autoTok)} \u2022 ${routeLabel}] ${fallbackTitle}` : '\u26A1 Auto (Active Conversation)');
+      ? `${autoSurfaceTag} [${autoTok ? fmtK(autoTok) : '?'}] ${stripTokPrefix(autoMeta.title)}`
+      : (autoTok ? `${autoSurfaceTag} [${fmtK(autoTok)}] ${fallbackTitle}` : '\u26A1 Auto (Active Conversation)');
 
     let html = `<option value="auto" data-surface="${escAttr(autoMeta?.surface || autoState?.storeSource || 'antigravity')}">${autoTitle}</option>`;
     for (const s of sessions) {
-      if (s.sessionId === autoId) continue; // Deduplicate: autoId is already surfaced as the active session top option
+      if (s.sessionId === autoId && s.sessionId !== selectedSessionMode) continue; // Deduplicate: autoId is already surfaced as the active session top option
       const tok = tokensFor(s.sessionId, s);
       const tokStr = tok ? fmtK(tok) : `${s.stepCount}t`;
       const sState = s.sessionId === currentRenderedState?.sessionId ? currentRenderedState : catalog[s.sessionId];
-      const sRoute = sState && (sState.effortTransitions?.length || sState.activeEffortProfile) ? formatEffortRouteLabel(sState) : '';
-      const badgeMid = sRoute && sRoute !== 'Auto' ? sRoute : (s.workspace || sRoute);
-      const prefix = badgeMid ? `${tokStr} \u2022 ${badgeMid}` : tokStr;
+      const prefix = tokStr;
       const sSurface = s.surface || sState?.storeSource || 'antigravity';
       const sTag = s.surfaceTag || sState?.surfaceTag || resolveSurfaceTag(sSurface);
       html += `<option value="${s.sessionId}" data-surface="${escAttr(sSurface)}">${sTag} [${prefix}] ${stripTokPrefix(s.title)}</option>`;
@@ -3929,7 +4018,7 @@
       try {
         const r = await fetch('/api/settings', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: buildHorizonPostHeaders(),
           body: JSON.stringify({ safeLimitTokens: Number(inLimit.value), reminderAtPct: Number(inPct.value) })
         });
         const data = await r.json();
@@ -4235,7 +4324,7 @@
       }
     }
     if (!fromCatalog) {
-      if (selectedSessionMode === 'auto' && !raw.pinnedConversationId) {
+      if (!latestAutoState || (selectedSessionMode === 'auto' && !raw.pinnedConversationId)) {
         latestAutoState = raw;
         if (!initialHostSurface && raw.storeSource) initialHostSurface = raw.storeSource;
       }
@@ -4267,10 +4356,21 @@
     const signals = raw.brainSignals || {};
 
 
-    // 1. Token Totals (Dynamic 200k / 256k / 512k / 900k / 1M Ceiling)
-    const modelIdLower = String(raw.model?.id || sessionMeta.activeModel || '').toLowerCase().trim();
-    const isClaude46Model = modelIdLower.includes('claude-sonnet') || modelIdLower.includes('claude-opus-4-6') || modelIdLower.includes('claude-opus-4.6') || modelIdLower.includes('claude-3-5-sonnet');
-    const maxTokens = win.maxTokens || (raw.model?.nativeCeilingTokens) || (isClaude46Model ? 200000 : 200000);
+    // 1. Token Totals (Dynamic 200k / 256k / 512k / 900k / 1M / 1.048M Ceiling)
+    const modelIdLower = String(raw.model?.id || sessionMeta.activeModel || raw.activeModel || '').toLowerCase().trim();
+    const isCarbonModel = modelIdLower.includes('carbon') || modelIdLower === 'm670';
+    const isArgonModel = modelIdLower.includes('argon');
+    const isClaude55OrFable = modelIdLower.includes('opus-5') || modelIdLower.includes('sonnet-5') || modelIdLower.includes('haiku-5') || modelIdLower.includes('fable-5');
+    const isClaude46Model = !isClaude55OrFable && (
+      modelIdLower.includes('claude-sonnet') ||
+      modelIdLower.includes('claude-opus-4') ||
+      modelIdLower.includes('claude-haiku-4') ||
+      modelIdLower.includes('claude-3-5-sonnet')
+    );
+    const inferredModelCeiling = (isCarbonModel || isArgonModel)
+      ? 1048576
+      : (isClaude55OrFable ? 1000000 : (isClaude46Model ? 200000 : 256000));
+    const maxTokens = win.maxTokens || raw.contextWindow || telemetry.contextWindow || (raw.model?.nativeCeilingTokens) || inferredModelCeiling;
     const totalTokens = isV3 ? (telemetry.totalInputTokens || 0) : (win.totalActiveTokens || 0);
     const usedPct = Math.min(100, Math.round((totalTokens / maxTokens) * 100));
     const maxTokEl = document.getElementById('usedMaxTok');
@@ -4284,9 +4384,9 @@
 
     const clampPillEl = document.getElementById('ceilingClampPill');
     if (clampPillEl) {
-      const isArgonClamped = Boolean(
+      const isGemini4Clamped = Boolean(
         raw.model?.isClamped1MModel ||
-        ((modelIdLower.includes('argon') || modelIdLower.includes('gemini-4')) && maxTokens === 256000)
+        ((isCarbonModel || isArgonModel || modelIdLower.includes('gemini-4')) && maxTokens === 256000)
       );
       const isPatchedCli = Boolean(
         raw.model?.ceilingSource === 'patched_cli' ||
@@ -4294,10 +4394,11 @@
         maxTokens === 512000 ||
         maxTokens === 900000
       );
-      if (isArgonClamped) {
+      if (isGemini4Clamped) {
+        const gemini4FamilyLabel = isCarbonModel ? 'Gemini 4 Carbon' : 'Gemini 4 Argon';
         clampPillEl.hidden = false;
         clampPillEl.textContent = raw.model?.clampedLabel || '256k Host Cap (1M model)';
-        clampPillEl.title = 'Capped by host Cortex checkpoint ceiling (0x3E800). Gemini 4 Argon has a 1M native context window but is capped at 256k.';
+        clampPillEl.title = `Capped by host Cortex checkpoint ceiling (0x3E800). ${gemini4FamilyLabel} has a 1M native context window but is capped at 256k.`;
       } else if (isPatchedCli) {
         clampPillEl.hidden = false;
         clampPillEl.textContent = `${fmtK(maxTokens)} Patched CLI`;
@@ -4319,16 +4420,19 @@
     const selEl = document.getElementById('sessionSelect');
     if (selEl && selEl.selectedOptions && selEl.selectedOptions[0]) {
       const activeOpt = selEl.selectedOptions[0];
-      const liveRoute = formatEffortRouteLabel(raw);
       const liveTag = raw.surfaceTag || resolveSurfaceTag(raw.storeSource || raw.logFilePath || activeOpt.dataset?.surface);
       const liveTitle = stripTokPrefix(raw.sessionTitle || activeOpt.textContent || 'Conversation');
-      activeOpt.textContent = `${liveTag} [${fmtK(totalTokens)} \u2022 ${liveRoute}] ${liveTitle}`;
+      activeOpt.textContent = `${liveTag} [${fmtK(totalTokens)}] ${liveTitle}`;
     }
 
     const modelPillEl = document.getElementById('sessionModelPill');
     if (modelPillEl) {
-      const activeModelName = typeof raw.activeModel === 'string' ? raw.activeModel : (typeof raw.model === 'string' ? raw.model : '');
-      const shortModel = activeModelName.replace('gemini-3.1-', '').replace('gemini-1.5-', '');
+      const activeModelName = typeof raw.activeModel === 'string'
+        ? raw.activeModel
+        : (typeof raw.model === 'string' ? raw.model : (raw.model?.id || ''));
+      const shortModel = isCarbonModel
+        ? 'Gemini 4 Carbon'
+        : activeModelName.replace('gemini-3.1-', '').replace('gemini-1.5-', '');
       const liveRoute = formatEffortRouteLabel(raw);
       modelPillEl.textContent = liveRoute && liveRoute !== 'Auto' ? `${shortModel ? `${shortModel} · ` : ''}${liveRoute}` : (shortModel || 'Auto');
     }
@@ -4405,8 +4509,8 @@
       const q = raw.quota || {};
       const s5 = q.sprint5h?.usedPct ?? 0;
       const w7 = q.weekly7d?.usedPct ?? 0;
-      const cHit = q.cache?.hitRatePct ?? 0;
-      const ttlSec = q.cache?.ttlRemainingSec ?? 300;
+      const cHit = Math.max(0, Number(q.cache?.hitRatePct ?? 0) || 0);
+      const ttlSec = Math.max(0, Math.round(Number(q.cache?.ttlRemainingSec ?? (q.cache?.isCacheCold ? 0 : 300)) || 0));
       const isPrefixBust = Boolean(
         ttlSec > 0 &&
         !q.cache?.isCacheCold &&
@@ -4471,26 +4575,28 @@
       const estTooltip = 'Local estimate from transcript token counts; Antigravity does not expose quota to this panel.';
       const s5WarnCls = s5 >= 99 ? ' style="color:var(--hz-danger) !important;font-weight:700;"' : (s5 >= 85 ? ' style="color:var(--hz-clutter) !important;font-weight:700;"' : '');
       const w7WarnCls = w7 >= 99 ? ' style="color:var(--hz-danger) !important;font-weight:700;"' : (w7 >= 85 ? ' style="color:var(--hz-clutter) !important;font-weight:700;"' : '');
-      const s5Left = Math.max(0, 100 - s5);
-      const w7Left = Math.max(0, 100 - w7);
+      const s5Left = Math.round(Math.max(0, 100 - s5) * 10) / 10;
+      const w7Left = Math.round(Math.max(0, 100 - w7) * 10) / 10;
       const s5Html = s5IsEstimate
-        ? `<span class="quota-est" title="${estTooltip}">5h ~${s5}% est. (~${s5Left}% left)</span>`
+        ? `<span class="quota-est" title="${estTooltip} (~${s5Left}% remaining)">5h ~${s5}% est.</span>`
         : `5h Sprint: <strong${s5WarnCls}>${s5}%</strong>`;
       const w7Html = w7IsEstimate
-        ? `<span class="quota-est" title="${estTooltip}">7d ~${w7}% est. (~${w7Left}% left)</span>`
+        ? `<span class="quota-est" title="${estTooltip} (~${w7Left}% remaining)">7d ~${w7}% est.</span>`
         : `7d: <strong${w7WarnCls}>${w7}%</strong>`;
       quotaPills.innerHTML = `<span class="quota-telemetry">${s5Html} &middot; ${w7Html} &middot; ${cacheInline}</span>${lockoutWarn}`;
+      const isTrulyWarmCache = isCacheTrulyWarmInline(q.cache);
+      const isUninstrumentedWarm = isWarmWindow && !hasCacheReadTelemetry && !isPrefixBust;
       const quotaPill = document.getElementById('quotaCacheStatusPill');
       if (quotaPill) {
-        if (isCacheTrulyWarmInline(q.cache)) {
+        if (isTrulyWarmCache) {
           quotaPill.className = 'summary-status-pill mono';
           quotaPill.textContent = `Warm (${cHit}% hit · 95% off)`;
-        } else if (isWarmWindow) {
-          quotaPill.className = 'summary-status-pill mono';
-          quotaPill.textContent = `Warm (${ttlSec}s TTL)`;
         } else if (isPrefixBust) {
           quotaPill.className = 'summary-status-pill warn mono';
-          quotaPill.textContent = 'Prefix Bust';
+          quotaPill.textContent = ttlSec > 0 ? `Prefix Rebuilt (${ttlSec}s)` : 'Prefix Bust';
+        } else if (isUninstrumentedWarm) {
+          quotaPill.className = 'summary-status-pill mono';
+          quotaPill.textContent = `TTL Open (${ttlSec}s)`;
         } else {
           quotaPill.className = 'summary-status-pill warn mono';
           quotaPill.textContent = 'Cold (0s TTL)';
@@ -4512,21 +4618,31 @@
         if (hitValEl) hitValEl.textContent = `${cHit}%`;
         const cachedTok = Number(q.cache?.cacheReadTokens || (cHit > 0 ? Math.round(totalTokens * (cHit / 100)) : 0));
         if (splitEl) {
-          splitEl.textContent = isWarmWindow
+          splitEl.textContent = isTrulyWarmCache
             ? `95% discount active (${fmtK(cachedTok)} tokens)`
-            : `No active discount`;
+            : (isPrefixBust && ttlSec > 0
+                ? `Cache miss — fresh prefix written`
+                : (isUninstrumentedWarm
+                    ? `TTL window open (hit % unreported)`
+                    : `No active discount`));
         }
         if (countdownEl) {
           const mins = Math.floor(ttlSec / 60);
           const secs = ttlSec % 60;
           const friendlyTime = mins > 0 ? `${mins}m ${secs}s left` : `${secs}s left`;
-          countdownEl.textContent = isWarmWindow ? friendlyTime : `Expired`;
-          countdownEl.className = isWarmWindow ? 'cache-meter-countdown ttl-countdown-clock mono warm' : 'cache-meter-countdown ttl-countdown-clock mono cold';
+          countdownEl.textContent = isTrulyWarmCache
+            ? friendlyTime
+            : (isPrefixBust && ttlSec > 0
+                ? `${friendlyTime} (rebuilt)`
+                : (isUninstrumentedWarm ? friendlyTime : `Cold`));
+          countdownEl.className = (isTrulyWarmCache || isUninstrumentedWarm)
+            ? 'cache-meter-countdown ttl-countdown-clock mono warm'
+            : 'cache-meter-countdown ttl-countdown-clock mono cold';
         }
         if (timerBarFillEl) {
-          const pct = isWarmWindow ? Math.max(4, Math.min(100, Math.round((ttlSec / 300) * 100))) : 0;
+          const pct = (isTrulyWarmCache || isUninstrumentedWarm) ? Math.max(4, Math.min(100, Math.round((ttlSec / 300) * 100))) : 0;
           timerBarFillEl.style.width = `${pct}%`;
-          timerBarFillEl.className = !isWarmWindow
+          timerBarFillEl.className = !(isTrulyWarmCache || isUninstrumentedWarm)
             ? 'cache-timer-bar-fill cold'
             : (ttlSec <= 60 ? 'cache-timer-bar-fill expiring' : 'cache-timer-bar-fill');
         }
@@ -4535,14 +4651,22 @@
           savedEl.textContent = `+${fmtK(savedTok)} saved`;
         }
         if (guideEl && guideTextEl) {
-          if (isWarmWindow && ttlSec <= 45) {
+          if (isTrulyWarmCache && ttlSec <= 45) {
             guideEl.className = 'cache-operational-guide warm';
             if (guideIconEl) guideIconEl.textContent = '\u23F3';
             guideTextEl.innerHTML = `<strong>What to do now:</strong> Cache expires in ${ttlSec}s! Send your next message soon to keep your 95% discount active.`;
-          } else if (isWarmWindow) {
+          } else if (isTrulyWarmCache) {
             guideEl.className = 'cache-operational-guide warm';
             if (guideIconEl) guideIconEl.textContent = '\uD83D\uDD12';
             guideTextEl.innerHTML = `<strong>What to do now:</strong> Keep chatting normally for 95% off token usage. Wait until this timer expires before running <code>/compact</code> or switching models.`;
+          } else if (isPrefixBust && ttlSec > 0) {
+            guideEl.className = 'cache-operational-guide cold';
+            if (guideIconEl) guideIconEl.textContent = '\uD83D\uDD04';
+            guideTextEl.innerHTML = `<strong>What to do now:</strong> Last turn missed cache (0% hit) and wrote a fresh prefix. Safe to run <code>/compact</code> now, or keep chatting on this model to hit 95% off next turn.`;
+          } else if (isUninstrumentedWarm) {
+            guideEl.className = 'cache-operational-guide warm';
+            if (guideIconEl) guideIconEl.textContent = '\u23F1';
+            guideTextEl.innerHTML = `<strong>What to do now:</strong> 5m TTL window is open (${ttlSec}s left; host did not log cache-read tokens). Keep chatting on this model to preserve prefix locality.`;
           } else {
             guideEl.className = 'cache-operational-guide cold';
             if (guideIconEl) guideIconEl.textContent = '\uD83D\uDD13';
@@ -4559,7 +4683,8 @@
       quotaForecast.hidden = !isHighForecast;
 
       // Pool-specific reset timers & Google One AI Credits
-      const s5PoolLabelBase = q.sprint5h?.poolCountdownLabel || (q.sprint5h?.resetLabel ? `${q.sprint5h.modelPoolName || 'Gemini 4 Argon'} resets in ${q.sprint5h.resetLabel}` : '');
+      const defaultGemini4PoolLabel = isCarbonModel ? 'Gemini 4 Carbon' : 'Gemini 4 Argon';
+      const s5PoolLabelBase = q.sprint5h?.poolCountdownLabel || (q.sprint5h?.resetLabel ? `${q.sprint5h.modelPoolName || defaultGemini4PoolLabel} resets in ${q.sprint5h.resetLabel}` : '');
       // Model provenance: anything not supplied by the host (stdin) is marked inferred.
       const modelSource = raw.model?.source || null;
       const isLiveSynced = raw.coachState?.taskQuotaRouter?.syncStatus === 'live synced';
@@ -4595,7 +4720,7 @@
       const coachActionPill = document.getElementById('coachActionPill');
       const coachData = raw.coachState?.taskQuotaRouter;
       if (coachBarEl && coachLiveLabel) {
-        const activeModelName = coachData?.activeModelLabel || q.sprint5h?.modelPoolName || raw.model?.label || 'Gemini 4 Argon';
+        const activeModelName = coachData?.activeModelLabel || q.sprint5h?.modelPoolName || raw.model?.label || (isCarbonModel ? 'Gemini 4 Carbon' : 'Gemini 4 Argon');
         const activeEffortStr = coachData?.activeEffort ? (coachData.activeEffort.charAt(0).toUpperCase() + coachData.activeEffort.slice(1)) : 'High';
         const burnMultiplier = coachData?.activeBurnMultiplier || 9.25;
         const liveStatus = coachData?.syncStatus || (isLiveSynced ? 'live synced' : (modelSource === 'stdin' ? 'live synced' : 'model inferred'));
@@ -4729,7 +4854,7 @@
       : Math.round(safeLimit * 0.85);
     const limitK = fmtK(safeLimit);
     const showProfileTag = hasEffortMeta || safeLimit === effortProfile.safeLimit;
-    renderLimitLine(safeLimit, win.maxTokens || 200000, showProfileTag ? effortProfile : null);
+    renderLimitLine(safeLimit, maxTokens, showProfileTag ? effortProfile : null);
     const safeLimitTenths = Math.round(Math.max(0, Number(safeLimit) || 0) / 100);
     const toLimitTenths = safeLimitTenths - displayParity.displayTotalTenths;
     const toLimit = safeLimit - totalTokens;
@@ -4746,38 +4871,79 @@
       const shortMod = String(rawModelName).replace(/^Gemini\s+/i, '').replace(/\s+\(.*\)$/, '').trim();
       const effShort = effortProfile?.shortLabel || 'Auto';
       const burnMult = coachData?.activeBurnMultiplier ?? (effShort === 'High' ? 1.5 : (effShort === 'Fast' ? 0.5 : 1.0));
-      tufteModelBurnEl.textContent = `${shortMod} \u00B7 ${effShort} (${burnMult}x)`;
+      tufteModelBurnEl.textContent = `${shortMod} \u00B7 ${effShort}`;
+      tufteModelBurnEl.title = `Active Model: ${rawModelName} (${effShort}) · Quota burn weight: ${burnMult}x baseline`;
     }
-    const maxTokensVal = maxTokens || 256000;
-    const p50 = Math.min(100, Math.max(0, (50000 / maxTokensVal) * 100));
+    const maxTokensVal = maxTokens || raw.contextWindow || 256000;
+    const scaleContainer = document.getElementById('tufteHorizonScale');
+    const scaleWidthPx = (scaleContainer && scaleContainer.clientWidth > 0)
+      ? scaleContainer.clientWidth
+      : 260;
+    const minTickGapPx = 28;
+    const midTickVal = maxTokensVal >= 1000000 ? 256000 : 50000;
+    const midTickLabel = maxTokensVal >= 1000000 ? '256k' : '50k';
+    const p50 = Math.min(100, Math.max(0, (midTickVal / maxTokensVal) * 100));
     const pLim = Math.min(92, Math.max(8, (safeLimit / maxTokensVal) * 100));
+    const troughPct = maxTokensVal >= 1000000
+      ? Math.min(100, Math.max(0, (512000 / maxTokensVal) * 100))
+      : (Math.abs(pLim - 50) < 18 ? 37 : 50);
+    const troughLabel = maxTokensVal >= 1000000 ? '512k' : 'trough';
+
+    const pxOfPct = (pct) => (pct / 100) * scaleWidthPx;
+    const placedTickPx = [0, scaleWidthPx];
+    const tryPlaceTickPct = (pct) => {
+      const px = pxOfPct(pct);
+      if (placedTickPx.some(existing => Math.abs(existing - px) < minTickGapPx)) {
+        return false;
+      }
+      placedTickPx.push(px);
+      return true;
+    };
+
+    const showLimTick = tryPlaceTickPct(pLim);
+    const show50Tick = tryPlaceTickPct(p50);
+    const showTroughTick = tryPlaceTickPct(troughPct);
+
     const tick0 = document.getElementById('tufteScaleTick0');
-    if (tick0) { tick0.style.left = '0%'; tick0.style.transform = 'none'; }
-    const tick50 = document.getElementById('tufteScaleTick50');
-    if (tick50) {
-      tick50.style.left = `${p50}%`;
-      tick50.style.transform = 'translateX(-50%)';
-      tick50.style.display = (p50 < 10 || Math.abs(pLim - p50) < 12) ? 'none' : '';
-    }
-    const tickTrough = document.getElementById('tufteScaleTickTrough');
-    if (tickTrough) {
-      const troughPct = Math.abs(pLim - 50) < 18 ? 37 : 50;
-      tickTrough.style.left = `${troughPct}%`;
-      tickTrough.style.transform = 'translateX(-50%)';
-      tickTrough.style.display = (Math.abs(pLim - troughPct) < 13 || Math.abs(troughPct - p50) < 11) ? 'none' : '';
-    }
-    const tufteScaleLimitEl = document.getElementById('tufteScaleLimitLabel');
-    if (tufteScaleLimitEl) {
-      tufteScaleLimitEl.style.left = `${pLim}%`;
-      tufteScaleLimitEl.style.transform = 'translateX(-50%)';
-      tufteScaleLimitEl.textContent = `${limitK}\u26A1 ${effortProfile?.shortLabel || 'Auto'} limit`;
+    if (tick0) {
+      tick0.style.left = '0%';
+      tick0.style.right = 'auto';
+      tick0.style.transform = 'none';
+      tick0.style.display = '';
+      tick0.dataset.px = '0';
     }
     const tufteScaleMaxEl = document.getElementById('tufteScaleMaxLabel');
     if (tufteScaleMaxEl) {
       tufteScaleMaxEl.style.left = 'auto';
       tufteScaleMaxEl.style.right = '0%';
       tufteScaleMaxEl.style.transform = 'none';
+      tufteScaleMaxEl.style.display = '';
       tufteScaleMaxEl.textContent = fmtK(maxTokensVal);
+      tufteScaleMaxEl.dataset.px = String(Math.round(scaleWidthPx));
+    }
+    const tufteScaleLimitEl = document.getElementById('tufteScaleLimitLabel');
+    if (tufteScaleLimitEl) {
+      tufteScaleLimitEl.style.left = `${pLim}%`;
+      tufteScaleLimitEl.style.transform = 'translateX(-50%)';
+      tufteScaleLimitEl.textContent = `${limitK}\u26A1 ${effortProfile?.shortLabel || 'Auto'} limit`;
+      tufteScaleLimitEl.style.display = showLimTick ? '' : 'none';
+      tufteScaleLimitEl.dataset.px = String(Math.round(pxOfPct(pLim)));
+    }
+    const tick50 = document.getElementById('tufteScaleTick50');
+    if (tick50) {
+      tick50.style.left = `${p50}%`;
+      tick50.style.transform = 'translateX(-50%)';
+      tick50.textContent = midTickLabel;
+      tick50.style.display = show50Tick ? '' : 'none';
+      tick50.dataset.px = String(Math.round(pxOfPct(p50)));
+    }
+    const tickTrough = document.getElementById('tufteScaleTickTrough');
+    if (tickTrough) {
+      tickTrough.style.left = `${troughPct}%`;
+      tickTrough.style.transform = 'translateX(-50%)';
+      tickTrough.textContent = troughLabel;
+      tickTrough.style.display = showTroughTick ? '' : 'none';
+      tickTrough.dataset.px = String(Math.round(pxOfPct(troughPct)));
     }
     const storageHorizonBadge = document.getElementById('storageHorizonBadge');
     if (storageHorizonBadge) {
@@ -4811,22 +4977,28 @@
     const barClutterEl = document.getElementById('barClutter');
     const barErrorEl = document.getElementById('barError');
     if (barUsefulEl) barUsefulEl.style.width = `${usefulWidthPct}%`;
-    // Single source of truth for the history segment state: drives both the bar and the middle card.
-    const cacheTtlSec = raw.quota?.cache?.ttlRemainingSec ?? (raw.quota?.cache?.isCacheCold ? 0 : 300);
-    const isWarmCandidate = Number(cacheTtlSec) > 0 && !raw.quota?.cache?.isCacheCold;
+    // Single source of truth for the history segment state: decouples context-horizon overflow
+    // (totalTokens > safeLimit) from KV-cache warmth (isTrulyWarm && ttlRemSec > 0) so warm >179k
+    // sessions NEVER render contradictory "Cache cold" or "Cold · 0s TTL" labels.
+    const cacheTtlSec = Math.max(0, Math.round(Number(raw.quota?.cache?.ttlRemainingSec ?? (raw.quota?.cache?.isCacheCold ? 0 : 300)) || 0));
+    const isWarmCandidate = cacheTtlSec > 0 && !raw.quota?.cache?.isCacheCold;
     const historyBarStatePayload = raw.window?.historyBarState || raw.historyBarState;
     const hasZeroHitFalseWarm = Boolean(raw.quota?.cache && typeof raw.quota.cache.hitRatePct === 'number' && raw.quota.cache.hitRatePct === 0 && Number(raw.quota.cache.cacheReadTokens ?? 0) === 0);
-    const isColdBloat = Boolean(historyBarStatePayload?.state === 'COLD_BLOAT') ||
+    const isOverSafeHorizon = totalTokens > safeLimit;
+    const isColdBloat = Boolean(historyBarStatePayload?.state === 'COLD_BLOAT' && (!isWarmCandidate || isOverSafeHorizon)) ||
       (!isWarmCandidate) ||
       hasZeroHitFalseWarm ||
-      (totalTokens > 179000);
+      isOverSafeHorizon;
     if (barClutterEl) {
       barClutterEl.style.width = `${clutterWidthPct}%`;
       if (isColdBloat) {
         barClutterEl.className = 'seg-clutter cold-bloat';
         barClutterEl.dataset.barState = 'cold-bloat';
-        barClutterEl.dataset.barLabel = 'Reclaimable Cold Bloat';
-        barClutterEl.title = 'Reclaimable Cold Bloat';
+        const barLbl = (isWarmCandidate && !hasZeroHitFalseWarm && isOverSafeHorizon)
+          ? 'Over Safe Limit (Warm Cache Active)'
+          : 'Reclaimable Cold Bloat';
+        barClutterEl.dataset.barLabel = barLbl;
+        barClutterEl.title = barLbl;
       } else {
         barClutterEl.className = 'seg-clutter cached-warm';
         barClutterEl.dataset.barState = 'cached-warm';
@@ -4837,11 +5009,12 @@
     if (barErrorEl) barErrorEl.style.width = '0%';
 
     // 3. 3 Beginner-Friendly Breakdown Boxes
-    document.getElementById('valUseful').textContent = `${fmtTenths(displayParity.displayActiveTenths)} \u00B7 ${parityPureRound}% of used`;
+    document.getElementById('valUseful').innerHTML = `${escAttr(fmtTenths(displayParity.displayActiveTenths))}<span class="b-pct-sub"> \u00B7 ${parityPureRound}% of used</span>`;
     document.getElementById('valUseful').style.setProperty('color', '#10b981', 'important');
-    document.getElementById('valClutter').textContent = `${fmtTenths(displayParity.displayReclaimableTenths)} \u00B7 ${parityClutterPct}% of used`;
-    // Middle card mirrors the history bar segment directly above it: Violet "Cached History" while truly warm,
-    // Amber "Reclaimable" when cold or over the 70% horizon.
+    document.getElementById('valClutter').innerHTML = `${escAttr(fmtTenths(displayParity.displayReclaimableTenths))}<span class="b-pct-sub"> \u00B7 ${parityClutterPct}% of used</span>`;
+    // Middle card mirrors the history bar segment directly above it: Violet "Cached History" while truly warm
+    // and within safe horizon, Amber "Reclaimable" when cold or over safeLimit — without ever misreporting
+    // KV-cache warmth as "Cache cold" / "0s TTL".
     const swatchClutterEl = document.getElementById('swatchClutter');
     const lblClutterEl = document.getElementById('lblClutter');
     const clutterCardColor = isColdBloat ? 'var(--hz-clutter)' : 'var(--hz-cached-history)';
@@ -4852,9 +5025,9 @@
     const conf = telemetry.confidence || raw.confidence || 'HIGH';
     const isLowConfidence = conf === 'LOW' || conf === 'DEGRADED';
     const qCache = raw.quota?.cache || {};
-    const ttlRemSec = Math.max(0, Number(qCache.ttlRemainingSec ?? (qCache.isCacheCold ? 0 : 300)));
+    const ttlRemSec = Math.max(0, Math.round(Number(qCache.ttlRemainingSec ?? (qCache.isCacheCold ? 0 : 300)) || 0));
     const isTrulyWarm = isCacheTrulyWarmInline(qCache);
-    const isCacheWarmNow = isTrulyWarm && !isColdBloat;
+    const isCacheWarmNow = Boolean(isTrulyWarm && ttlRemSec > 0 && !hasZeroHitFalseWarm);
     const fmtTtlShort = (s) => {
       if (s <= 0) return '0s';
       const m = Math.floor(s / 60);
@@ -4863,9 +5036,11 @@
     };
     document.getElementById('subClutter').textContent = isLowConfidence
       ? 'Transcript not indexed'
-      : (!isColdBloat
-        ? (isCacheWarmNow ? `95% discounted \u00B7 hold /compact` : `Cache cold \u00B7 /compact ready`)
-        : (clutterTokens > 0 ? `Can be cleared` : `Zero outdated noise`));
+      : (isCacheWarmNow
+        ? `95% discounted \u00B7 hold /compact`
+        : (!isColdBloat
+          ? `Cache cold \u00B7 /compact ready`
+          : (clutterTokens > 0 ? `Can be cleared` : `Zero outdated noise`)));
 
     // Coupled 300s Cache TTL Strip inside Column 2 & Unified Top Verdict Line
     const col2TtlLbl = document.getElementById('tufteCol2TtlLabel');
@@ -4895,7 +5070,8 @@
       const leftTok = Math.max(0, safeLimit - totalTokens);
       if (trippedBreaker) {
         const bId = typeof trippedBreaker === 'object' ? (trippedBreaker.detectorId || 'DET-19') : 'DET-19';
-        const bReason = typeof trippedBreaker === 'object' ? (trippedBreaker.reason || 'Guardrail intervention') : String(trippedBreaker);
+        const rawReason = typeof trippedBreaker === 'object' ? (trippedBreaker.reason || 'Guardrail intervention') : String(trippedBreaker);
+        const bReason = String(rawReason).replace(/^[\u26A0\uFE0F\uD83D\uDEA8\s]+/u, '');
         verdictBarEl.dataset.verdictState = 'CIRCUIT_BREAKER';
         verdictTextEl.textContent = `GUARDRAIL TRIPPED (${bId}) \u00B7 ${bReason}`;
         if (routerHoldNoteEl) routerHoldNoteEl.hidden = true;
@@ -4928,7 +5104,9 @@
         if (routerHoldNoteEl) routerHoldNoteEl.hidden = true;
       } else {
         verdictBarEl.dataset.verdictState = 'NOMINAL';
-        const cacheClause = isCacheWarmNow ? `Cache warm ${fmtTtlShort(ttlRemSec)} (95% off)` : 'Cache cold';
+        const cacheClause = isCacheWarmNow
+          ? `Cache warm ${fmtTtlShort(ttlRemSec)} (95% off)`
+          : (qCache.nextTurnLikelyWarm && ttlRemSec > 0 ? `Prefix rebuilt (${fmtTtlShort(ttlRemSec)})` : 'Cache cold');
         verdictTextEl.textContent = `NOMINAL \u00B7 ${cacheClause} \u00B7 ${fmtK(leftTok)} below ${limitK} ${effShortLabel}`;
         if (routerHoldNoteEl) {
           if (routerNudge && isCacheWarmNow) {
@@ -5085,18 +5263,20 @@
 
     const cacheAdvisoryEl = document.getElementById('cacheCompactionAdvisory');
     if (cacheAdvisoryEl) {
-      const ttlVal = raw.quota?.cache?.ttlRemainingSec ?? (raw.quota?.cache?.isCacheCold ? 0 : 300);
-      const isColdOrOver179k = Boolean(raw.compaction?.cacheAdvisory?.state === 'COMPACT_NOW') ||
-        !isNextTurnLikelyWarmInline(raw.quota?.cache) ||
-        (Number(ttlVal) <= 0) ||
-        (totalTokens > 179000);
+      const ttlVal = Math.max(0, Math.round(Number(raw.quota?.cache?.ttlRemainingSec ?? (raw.quota?.cache?.isCacheCold ? 0 : 300)) || 0));
+      const isTrulyWarmAdv = Boolean(isCacheTrulyWarmInline(raw.quota?.cache) && ttlVal > 0 && !hasZeroHitFalseWarm);
+      const isColdAdvisory = !isTrulyWarmAdv && (
+        Boolean(raw.compaction?.cacheAdvisory?.state === 'COMPACT_NOW') ||
+        ttlVal <= 0 ||
+        !isCacheTrulyWarmInline(raw.quota?.cache)
+      );
       cacheAdvisoryEl.hidden = false;
       if (!compactionRelevant) {
         cacheAdvisoryEl.className = 'cache-compaction-advisory lean-no-compact';
         cacheAdvisoryEl.dataset.advisoryState = 'lean';
         cacheAdvisoryEl.textContent = 'Session is lean \u2014 no compaction needed until >50k tokens';
         cacheAdvisoryEl.hidden = true;
-      } else if (isColdOrOver179k) {
+      } else if (isColdAdvisory) {
         cacheAdvisoryEl.className = 'cache-compaction-advisory cold-compact-now';
         cacheAdvisoryEl.dataset.advisoryState = 'cold-compact-now';
         cacheAdvisoryEl.textContent = hasDriftWarn
@@ -5267,11 +5447,11 @@
       cards.push(`
         <details class="diag-item diag-rollup">
           <summary class="diag-top">
-            <span class="diag-name"><span class="diag-caret">&#x25B6;</span> &#x26A1; Large Output at Turn #${topBlowup.stepIndex}</span>
+            <span class="diag-name"><span class="diag-caret">&#x25B6;</span> &#x26A1; Large Output at Step #${topBlowup.stepIndex}</span>
             <span class="diag-impact mono">${fmtK(topBlowup.tokens)} in 1 step</span>
           </summary>
           <div class="diag-body">
-            <div class="diag-desc">Turn #${topBlowup.stepIndex} injected ${fmtK(topBlowup.tokens)} tokens in one go.</div>
+            <div class="diag-desc">Step #${topBlowup.stepIndex} injected ${fmtK(topBlowup.tokens)} tokens in one go.</div>
             <div class="payload-box mono">
               <span class="payload-kind">${bpKind === 'command' ? 'Command that produced this output:' : (bpKind === 'file' ? 'File read into context:' : 'Source of this output:')}</span>
               ${escAttr(bp.detail || formatShortPath(topBlowup.target))}
@@ -5744,13 +5924,13 @@
         const maxCell = Math.max(...strandedTargets.map(s => s.cellNumber));
         const cellSpan = minCell === maxCell ? `Cell ${minCell}` : `Cells ${minCell}–${maxCell}`;
         const distinctNames = Array.from(new Set(strandedTargets.map(s => s.target).filter(Boolean)));
-        const targetSummary = distinctNames.length > 0 ? `(${distinctNames.slice(0, 3).join(', ')})` : '';
+        const targetSummary = distinctNames.length > 0 ? ` \u00B7 ${distinctNames.slice(0, 3).join(', ')}` : '';
         const reanchorFiles = distinctNames.length > 0 ? distinctNames.join(', ') : 'critical rules and active specifications';
         const reanchorPrompt = `To keep stranded context active, please reference: ${reanchorFiles} in the next turn and note progress in task.md.`;
 
         strandedBannerEl.hidden = false;
         strandedBannerEl.innerHTML =
-          `<span class="stranded-banner-text">\u26A0 ${cellSpan} ${escAttr(targetSummary)}: ${escAttr(STRANDED_WARNING_TEXT)}</span>` +
+          `<span class="stranded-banner-text">\u26A0 ${cellSpan}${escAttr(targetSummary)}: ${escAttr(STRANDED_WARNING_TEXT)}</span>` +
           `<button type="button" class="mini-btn stranded-reanchor-btn" id="btnStrandedReanchor" title="Copy recency reminder for stranded files">&#x1F4CB; Re-anchor</button>`;
 
         const btnReanchor = document.getElementById('btnStrandedReanchor');
@@ -5920,11 +6100,13 @@
       if (isNominal) {
         hostBar.hidden = true;
         hostBar.className = 'host-watchdog-bar mono';
+        hostBar.removeAttribute('data-severity');
         if (btnReap) btnReap.hidden = true;
       } else {
         const rssVal = hh.rssGb ?? (hh.orphanRamMb ? Math.round((hh.orphanRamMb / 1024) * 100) / 100 : 0);
-        const isAlert = hh.status === 'ZOMBIE_LEAK' || hh.status === 'HIGH_RAM' || orphanCount > 3;
+        const isAlert = hh.status === 'ZOMBIE_LEAK' || hh.status === 'HIGH_RAM' || orphanCount > 3 || Number(rssVal) >= 2.0;
         hostBar.hidden = false;
+        hostBar.dataset.severity = isAlert ? 'critical' : 'warning';
         hostBar.className = isAlert ? 'host-watchdog-bar mono alert' : 'host-watchdog-bar mono';
         const firstOrphan = Array.isArray(hh.orphans) && hh.orphans[0];
         const isScheduled = firstOrphan?.reason === 'active_scheduled_task';
@@ -5950,6 +6132,7 @@
       }
     } else if (hostBar) {
       hostBar.hidden = true;
+      hostBar.removeAttribute('data-severity');
     }
 
     // Tier 2: Update Material 3 Action Rows (compact impact badge, task.md sync, high-leverage candidate)
@@ -6118,8 +6301,8 @@
 
     // 3. Cache & Quota Pacing (Fixed Bullet 3)
     const q = raw.quota || {};
-    const cHit = q.cache?.hitRatePct ?? 0;
-    const ttlSec = q.cache?.ttlRemainingSec ?? 300;
+    const cHit = Math.max(0, Number(q.cache?.hitRatePct ?? 0) || 0);
+    const ttlSec = Math.max(0, Math.round(Number(q.cache?.ttlRemainingSec ?? (q.cache?.isCacheCold ? 0 : 300)) || 0));
     const isTrulyWarm = isCacheTrulyWarmInline(q.cache);
     const w7 = q.weekly7d?.usedPct ?? 0;
     const w7Lockout = Boolean(q.weekly7d?.lockoutRisk);
@@ -6143,7 +6326,9 @@
           cachePart = `Prompt cache is warm (${cHit}% hit \u00B7 ${ttlSec}s TTL, 95% token cost discount).`;
         } else if (isNextWarm) {
           const standbyStr = (standby && standby.modelName) ? ` (${standby.modelName} pool warm: ${standby.remainingTtl}s)` : '';
-          cachePart = `Prompt cache is warm (${ttlSec}s TTL${standbyStr}).`;
+          cachePart = `Last turn missed cache and wrote a fresh prefix (${ttlSec}s window${standbyStr}).`;
+        } else if (ttlSec > 0 && !q.cache?.isCacheCold && !q.cache?.prefixBustDetected) {
+          cachePart = `5m TTL window is open (${ttlSec}s left; host did not log cache-read tokens).`;
         } else {
           cachePart = `Prompt cache is cold (0s TTL) — next turn will incur a fresh KV cache write.`;
         }
@@ -6151,10 +6336,10 @@
         if (w7Lockout) {
           quotaPart = ` 7-day quota is at ${w7}% used (Lockout Risk — keep turns lean).`;
         } else if (w7 >= 80) {
-          const w7Left = Math.max(0, 100 - w7);
+          const w7Left = Math.round(Math.max(0, 100 - w7) * 10) / 10;
           quotaPart = ` 7-day quota is at ${w7}% used (~${w7Left}% left).`;
         } else if (w7 > 0) {
-          const w7Left = Math.max(0, 100 - w7);
+          const w7Left = Math.round(Math.max(0, 100 - w7) * 10) / 10;
           quotaPart = ` 7-day quota is healthy at ${w7}% used (~${w7Left}% left).`;
         }
         txtQuota.textContent = `${cachePart}${quotaPart}`;
@@ -6165,15 +6350,21 @@
     const fts5Data = raw.coachState?.fts5Compressor;
     const detBreakerAlert = document.getElementById('detCircuitBreakerAlert');
     const detBreakerMsg = document.getElementById('detCircuitBreakerMsg');
+    const trippedBreakerState = raw.coachState?.detectors?.tripped || raw.circuitBreakerTripped;
     if (txtGuardrails) {
       const savedK = ((fts5Data?.savedTokens || 0) / 1000).toFixed(1);
-      txtGuardrails.textContent = `\uD83D\uDEE1\uFE0F 20 guards quiet (DET-01..20 Active) \u00B7 FTS5 Log Compression: ${savedK}k tokens saved`;
+      if (trippedBreakerState) {
+        const bId = trippedBreakerState.detectorId || trippedBreakerState.id || 'Breaker';
+        txtGuardrails.textContent = `\u26A0\uFE0F 1 guard tripped (${bId}) \u00B7 19 nominal \u00B7 FTS5 Log Compression: ${savedK}k tokens saved`;
+      } else {
+        txtGuardrails.textContent = `\uD83D\uDEE1\uFE0F 20 guards quiet (DET-01..20 Active) \u00B7 FTS5 Log Compression: ${savedK}k tokens saved`;
+      }
     }
-    const trippedBreakerState = raw.coachState?.detectors?.tripped || raw.circuitBreakerTripped;
     if (detBreakerAlert && detBreakerMsg) {
       if (trippedBreakerState) {
         detBreakerAlert.hidden = false;
-        detBreakerMsg.textContent = `\u26A0\uFE0F Circuit Breaker Tripped: ${trippedBreakerState.reason || 'Execution halted to prevent quota burn'}`;
+        const cleanBreakerReason = String(trippedBreakerState.reason || 'Execution halted to prevent quota burn').replace(/^[\u26A0\uFE0F\uD83D\uDEA8\s]+/u, '');
+        detBreakerMsg.textContent = `Circuit Breaker Tripped: ${cleanBreakerReason}`;
       } else {
         detBreakerAlert.hidden = true;
       }
@@ -6642,7 +6833,7 @@
                   `<span class="m3-action-title">Compact conversation history</span>` +
                   `<span class="m3-action-sub mono compact-instruction-adv" id="compactInstructionAdv">Type /compact in the chat box and press Enter</span>` +
                 `</div>` +
-                `<span class="m3-impact-badge compact-reclaim mono" id="compactReclaimAdv" style="font-variant-numeric:tabular-nums;color:var(--hz-muted);font-size:10px;background:none;border:none;padding:0;">reclaims ${reclaimLabel}</span>` +
+                `<span class="m3-impact-badge amber compact-reclaim mono" id="compactReclaimAdv" title="Reclaims ${reclaimLabel}">${reclaimLabel}</span>` +
               `</summary>` +
               `<div class="m3-action-body">` +
                 `<div class="m3-action-inst">Type <kbd class="cmd-kbd">/compact</kbd> in the chat box and press <kbd>Enter</kbd>. Summarizes completed conversation turns and duplicate file snapshots (reclaims up to ${reclaimLabel}) while keeping <code>AGENTS.md</code> rules, <code>task.md</code> state, and active working summary intact.</div>` +
@@ -6736,8 +6927,8 @@
 
           const spikePrompt = isFile ? fileSpikePrompt : cmdSpikePrompt;
           const instText = isFile
-            ? `Turn #${topBlowup.stepIndex} injected ~${fmtK(blowTok)} in 1 step (<code>${escAttr(shortSrc)}</code>). Copy this prompt and paste it into chat so the agent uses <code>view_file_outline</code> or specific line ranges instead of reading/emitting the full file in one step:`
-            : `Turn #${topBlowup.stepIndex} injected ~${fmtK(blowTok)} in 1 step (<code>${escAttr(shortSrc)}</code>). Copy this prompt and paste it into chat to cap CLI command output in <code>.agents/hooks.json</code>:`;
+            ? `Step #${topBlowup.stepIndex} injected ~${fmtK(blowTok)} in 1 step (<code>${escAttr(shortSrc)}</code>). Copy this prompt and paste it into chat so the agent uses <code>view_file_outline</code> or specific line ranges instead of reading/emitting the full file in one step:`
+            : `Step #${topBlowup.stepIndex} injected ~${fmtK(blowTok)} in 1 step (<code>${escAttr(shortSrc)}</code>). Copy this prompt and paste it into chat to cap CLI command output in <code>.agents/hooks.json</code>:`;
 
           const buttonsHtml = `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(spikePrompt)}" data-dismiss-key="${escAttr(spikeDismissKey)}" title="Copy prompt and dismiss">&#x1F4CB; Copy Prompt</button>`;
 
@@ -6747,7 +6938,7 @@
                 `<span class="m3-action-caret">&#x25B6;</span>` +
                 `<span class="m3-action-icon amber">&#x1F6E1;</span>` +
                 `<div class="m3-action-text">` +
-                  `<span class="m3-action-title">Dampen large single-turn spike at Turn #${topBlowup.stepIndex}</span>` +
+                  `<span class="m3-action-title">Dampen large single-turn spike at Step #${topBlowup.stepIndex}</span>` +
                 `</div>` +
                 `<span class="m3-impact-badge amber mono">~${fmtK(blowTok)}</span>` +
                 `<div class="m3-action-btn-row">` +
@@ -6995,7 +7186,27 @@
             .map(el => el.dataset.actionId)
             .filter(Boolean)
         );
-        const htmlSig = allActionRows.join('');
+        const wasDrawerOpen = Boolean(document.getElementById('simpleMoreActionsDrawer')?.open);
+        let seenActionCount = 0;
+        const primaryHtmlRows = [];
+        const overflowHtmlRows = [];
+        for (const r of allActionRows) {
+          const isActionRow = r.includes('m3-action-row');
+          if (isActionRow) seenActionCount++;
+          if (seenActionCount <= 2 && !( !isActionRow && seenActionCount === 2 )) {
+            primaryHtmlRows.push(r);
+          } else {
+            overflowHtmlRows.push(r);
+          }
+        }
+        const overflowActionCount = overflowHtmlRows.filter(r => r.includes('m3-action-row')).length;
+        const htmlSig = overflowActionCount > 0
+          ? primaryHtmlRows.join('') +
+            `<details class="m3-more-actions-drawer" id="simpleMoreActionsDrawer"${wasDrawerOpen ? ' open' : ''}>` +
+              `<summary class="m3-more-actions-summary mono">${overflowActionCount} more optimization${overflowActionCount === 1 ? '' : 's'}</summary>` +
+              `<div class="m3-more-actions-body">${overflowHtmlRows.join('')}</div>` +
+            `</details>`
+          : allActionRows.join('');
         if (actionListEl.dataset.sig !== htmlSig) {
           actionListEl.innerHTML = htmlSig;
           actionListEl.dataset.sig = htmlSig;
@@ -7171,7 +7382,7 @@
         flashButton(btnGenerateHandoff, '&#x23F3; Generating...', 2000);
         const r = await fetch('/api/handoff', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: buildHorizonPostHeaders(),
           body: JSON.stringify({ conversationId: currentRenderedState?.sessionId })
         });
         const data = await r.json();
@@ -7194,7 +7405,7 @@
         flashButton(btnCondense, '&#x23F3; Condensing...', 2500);
         let r = await fetch('/api/prune', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: buildHorizonPostHeaders(),
           body: JSON.stringify({ conversationId: currentRenderedState?.sessionId, forceHotCache: false })
         });
         let data = await r.json();
@@ -7205,7 +7416,7 @@
           if (!confirmHot) return;
           r = await fetch('/api/prune', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: buildHorizonPostHeaders(),
             body: JSON.stringify({ conversationId: currentRenderedState?.sessionId, forceHotCache: true })
           });
           data = await r.json();
@@ -7241,7 +7452,7 @@
       try {
         const r = await fetch('/api/host/reap', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: buildHorizonPostHeaders(),
           body: JSON.stringify({ pids: orphans.map(o => Number(o.pid)) })
         });
         const data = await r.json();
@@ -7262,7 +7473,7 @@
       try {
         const r = await fetch('/api/export/sanitized', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: buildHorizonPostHeaders(),
           body: JSON.stringify({ conversationId: currentRenderedState?.sessionId, state: currentRenderedState })
         });
         const data = await r.json();
@@ -7305,7 +7516,7 @@
         try {
           await fetch('/api/router/mode', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: buildHorizonPostHeaders(),
             body: JSON.stringify({ mode })
           });
           showToast(`&#x2713; Model router mode set to <strong>${escAttr(mode.toUpperCase())}</strong>`);
@@ -7324,7 +7535,7 @@
       try {
         const r = await fetch('/api/open-brain', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: buildHorizonPostHeaders(),
           body: JSON.stringify({ conversationId: targetId, surface: targetSurface })
         });
         const data = await r.json();

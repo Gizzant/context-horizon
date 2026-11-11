@@ -74,13 +74,14 @@ export function selectHighestPriorityTier2Card(coachState = {}) {
     };
   }
 
-  // Priority 4: Turn-45 Baton Pass
+  // Priority 4: DET-24 High-Turn Degradation / Turn-45 Baton Pass
   if (Number(coachState.turnCount || 0) >= 45 || coachState.compactionCoach?.recommendBatonPass) {
     return {
+      detectorId: 'DET-24',
       cardType: 'TURN_45_BATON_PASS',
       critical: false,
-      title: '🤝 Turn-45 Baton Pass Recommended',
-      subtitle: 'Context horizon approaching high-turn degradation. Execute zero-amnesia Baton Pass.',
+      title: '🤝 Turn-45 Baton Pass Recommended (DET-24)',
+      subtitle: 'Attention Horizon approaching high-turn degradation. Execute zero-amnesia Baton Pass.',
       buttonLabel: 'Launch Hydrated Session',
       actionKind: 'LAUNCH_HYDRATED_SESSION',
       actionPayload: coachState.handoffBundle || {}
@@ -114,15 +115,14 @@ export function renderThreeTierTufteHud(doc, state = {}) {
   // Tier 1A: 5m TTL Countdown Clock
   const ttlClockEl = doc.getElementById('ttlCountdownClock');
   if (ttlClockEl) {
-    const ttlSec = Number(
-      coach.ttlWatchdog?.ttlRemainingSeconds ??
+    const rawTtl = coach.ttlWatchdog?.ttlRemainingSeconds ??
       state.quota?.cache?.ttlRemainingSec ??
       state.cache?.ttlRemainingSec ??
-      300
-    );
+      0;
+    const ttlSec = Math.max(0, Number(rawTtl) || 0);
     ttlClockEl.textContent = `TTL: ${formatFiveMinTtlClock(ttlSec)}`;
     ttlClockEl.classList.remove('ttl-warning-pulse', 'ttl-expired-cold-risk');
-    if (ttlSec === 0) {
+    if (ttlSec <= 0) {
       ttlClockEl.classList.add('ttl-expired-cold-risk');
     } else if (ttlSec <= 45) {
       ttlClockEl.classList.add('ttl-warning-pulse');

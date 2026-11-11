@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { canonicalizePath } from '../paths.mjs';
+import { atomicWriteFileSync } from '../atomic_io.mjs';
+import { recordHookDiagnostic } from '../hook_diagnostics.mjs';
 
 /**
  * Phase 4 / Ring 1 Hardening: Advisory Workspace Scope Registry & DET-20 Collision Alert
@@ -19,10 +21,12 @@ import { canonicalizePath } from '../paths.mjs';
  */
 
 export const SCOPE_LOCK_CONSTANTS = Object.freeze({
-  DEFAULT_TTL_SECONDS: 300,
+  DEFAULT_TTL_SECONDS: 900,
+  DEFAULT_TTL_MS: 900_000,
   LOCK_FILE_NAME: 'active_scopes.json',
   DETECTOR_ID: 'DET-20',
-  VERSION: 1
+  VERSION: 1,
+  SCHEMA_VERSION: '2026.11.1'
 });
 
 /**
@@ -39,14 +43,21 @@ export function isPidAlive(pid) {
 }
 
 /**
- * Returns the path to `.agents/locks/active_scopes.json`.
+ * Returns the path to `.agents/locks/active_scopes.json` (Antigravity's owned lockfile).
  */
 export function getLockFilePath(workspaceDir = process.cwd()) {
   return path.join(workspaceDir, '.agents', 'locks', SCOPE_LOCK_CONSTANTS.LOCK_FILE_NAME);
 }
 
 /**
- * Normalizes relative file paths for cross-platform comparison.
+ * Returns the path to `.claude/locks/active_scopes.json` (Claude Code cross-harness lockfile, read-only).
+ */
+export function getClaudeLockFilePath(workspaceDir = process.cwd()) {
+  return path.join(workspaceDir, '.claude', 'locks', SCOPE_LOCK_CONSTANTS.LOCK_FILE_NAME);
+}
+
+/**
+ * Normalizes relative file paths or scope globs for cross-platform comparison.
  */
 export function normalizeClaimedPath(filePath = '') {
   return String(filePath || '')
@@ -57,93 +68,318 @@ export function normalizeClaimedPath(filePath = '') {
     .toLowerCase();
 }
 
+function compileScopeGlob(pattern) {
+  const norm = normalizeClaimedPath(pattern);
+  if (!norm) return null;
+  if (norm.endsWith('/') && !norm.includes('*') && !norm.includes('?')) {
+    const base = norm.slice(0, -1);
+    const escapedBase = base.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`^${escapedBase}(?:/.*)?$`, 'i');
+  }
+  let regexSrc = '^';
+  for (let i = 0; i < norm.length; i++) {
+    const ch = norm[i];
+    if (ch === '*') {
+      if (norm[i + 1] === '*') {
+        if (norm[i + 2] === '/') {
+          regexSrc += '(?:.+/)?';
+          i += 2;
+        } else {
+          regexSrc += '.*';
+          i += 1;
+        }
+      } else {
+        regexSrc += '[^/]*';
+      }
+    } else if (ch === '?') {
+      regexSrc += '[^/]';
+    } else {
+      regexSrc += ch.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+    }
+  }
+  regexSrc += '$';
+  return new RegExp(regexSrc, 'i');
+}
+
 /**
- * Loads the active scope registry, automatically pruning expired or dead-PID leases.
+ * Returns true if two normalized paths or glob patterns overlap (exact match, directory prefix, or glob).
  */
-export function loadRegistry(workspaceDir = process.cwd()) {
-  const lockFile = getLockFilePath(workspaceDir);
-  if (!fs.existsSync(lockFile)) {
-    return { version: SCOPE_LOCK_CONSTANTS.VERSION, leases: [] };
+export function scopesOverlap(scopeA, scopeB) {
+  const a = normalizeClaimedPath(scopeA);
+  const b = normalizeClaimedPath(scopeB);
+  if (!a || !b) return false;
+  if (a === b) return true;
+
+  const aHasGlob = a.includes('*') || a.includes('?') || a.endsWith('/');
+  const bHasGlob = b.includes('*') || b.includes('?') || b.endsWith('/');
+  if (!aHasGlob && !bHasGlob) return false;
+
+  if (aHasGlob) {
+    const reA = compileScopeGlob(a);
+    if (reA && reA.test(b)) return true;
+  }
+  if (bHasGlob) {
+    const reB = compileScopeGlob(b);
+    if (reB && reB.test(a)) return true;
+  }
+  if (aHasGlob && bHasGlob) {
+    const prefixA = a.split(/[*?]/)[0].replace(/\/+$/, '');
+    const prefixB = b.split(/[*?]/)[0].replace(/\/+$/, '');
+    if (!prefixA || !prefixB) return true;
+    if (prefixA === prefixB || prefixA.startsWith(`${prefixB}/`) || prefixB.startsWith(`${prefixA}/`)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Normalizes either an Antigravity `leases[]` item or a Claude Code `locks[]` item
+ * into a unified cross-edition lease record.
+ */
+export function normalizeScopeLeaseEntry(rawEntry = {}, {
+  source = 'local',
+  defaultTool = 'antigravity',
+  now = Date.now()
+} = {}) {
+  if (!rawEntry || typeof rawEntry !== 'object') return null;
+  const trajectoryId = String(
+    rawEntry.trajectoryId ||
+    rawEntry.ownerId ||
+    rawEntry.agent_id ||
+    rawEntry.session_id ||
+    ''
+  ).trim();
+  if (!trajectoryId) return null;
+
+  const rawPaths = Array.isArray(rawEntry.claimedPaths)
+    ? rawEntry.claimedPaths
+    : (Array.isArray(rawEntry.scopes)
+      ? rawEntry.scopes
+      : (Array.isArray(rawEntry.files_locked) ? rawEntry.files_locked : []));
+  const claimedPaths = Array.from(
+    new Set(rawPaths.map((p) => String(p || '').trim()).filter(Boolean))
+  );
+
+  const parsedAcquired = typeof rawEntry.acquiredAt === 'number' && Number.isFinite(rawEntry.acquiredAt)
+    ? rawEntry.acquiredAt
+    : Date.parse(rawEntry.acquired_at || rawEntry.updatedAtIso || '');
+  const acquiredAtMs = Number.isFinite(parsedAcquired) ? parsedAcquired : now;
+
+  let expiresAtMs = null;
+  if (typeof rawEntry.expiresAtMs === 'number' && Number.isFinite(rawEntry.expiresAtMs)) {
+    expiresAtMs = rawEntry.expiresAtMs;
+  } else if (typeof rawEntry.expiresAt === 'number' && Number.isFinite(rawEntry.expiresAt)) {
+    expiresAtMs = rawEntry.expiresAt;
+  } else if (typeof rawEntry.expiresAt === 'string' && rawEntry.expiresAt.trim()) {
+    const parsedExp = Date.parse(rawEntry.expiresAt);
+    if (Number.isFinite(parsedExp)) expiresAtMs = parsedExp;
+  } else if (typeof rawEntry.expires_at === 'string' && rawEntry.expires_at.trim()) {
+    const parsedExp = Date.parse(rawEntry.expires_at);
+    if (Number.isFinite(parsedExp)) expiresAtMs = parsedExp;
+  }
+  if (!Number.isFinite(expiresAtMs)) {
+    const ttlMs = Number(rawEntry.ttl_ms) > 0
+      ? Number(rawEntry.ttl_ms)
+      : SCOPE_LOCK_CONSTANTS.DEFAULT_TTL_MS;
+    expiresAtMs = acquiredAtMs + ttlMs;
   }
 
+  const ttlMs = Number(rawEntry.ttl_ms) > 0
+    ? Number(rawEntry.ttl_ms)
+    : Math.max(1000, expiresAtMs - acquiredAtMs);
+  const pid = typeof rawEntry.pid === 'number' && Number.isFinite(rawEntry.pid) ? rawEntry.pid : undefined;
+  const tool = String(rawEntry.tool || (source === 'cross_harness' ? 'claude-code' : defaultTool));
+
+  return {
+    trajectoryId,
+    ownerId: rawEntry.ownerId || trajectoryId,
+    agent_id: rawEntry.agent_id || trajectoryId,
+    session_id: rawEntry.session_id || trajectoryId,
+    ...(pid !== undefined ? { pid } : {}),
+    tool,
+    claimedPaths,
+    files_locked: claimedPaths,
+    scopes: claimedPaths,
+    acquiredAt: acquiredAtMs,
+    acquired_at: new Date(acquiredAtMs).toISOString(),
+    updatedAtIso: rawEntry.updatedAtIso || new Date(acquiredAtMs).toISOString(),
+    expiresAt: expiresAtMs,
+    expiresAtMs,
+    expires_at: new Date(expiresAtMs).toISOString(),
+    ttl_ms: ttlMs,
+    source
+  };
+}
+
+function readLockFileEntriesSafe(lockFilePath, { source, defaultTool, now }) {
+  if (!lockFilePath || !fs.existsSync(lockFilePath)) return [];
   try {
-    const raw = fs.readFileSync(lockFile, 'utf8');
+    const raw = fs.readFileSync(lockFilePath, 'utf8');
     const data = JSON.parse(raw);
-    const now = Date.now();
-    const validLeases = [];
-
-    for (const lease of Array.isArray(data.leases) ? data.leases : []) {
-      const isExpired = typeof lease.expiresAtMs === 'number' && now > lease.expiresAtMs;
-      const pidAlive = typeof lease.pid === 'number' ? isPidAlive(lease.pid) : true;
-
+    const combinedRaw = [
+      ...(Array.isArray(data?.leases) ? data.leases : []),
+      ...(Array.isArray(data?.locks) ? data.locks : [])
+    ];
+    const dedupedByOwner = new Map();
+    for (const item of combinedRaw) {
+      const normalized = normalizeScopeLeaseEntry(item, { source, defaultTool, now });
+      if (!normalized) continue;
+      const isExpired = typeof normalized.expiresAtMs === 'number' && now > normalized.expiresAtMs;
+      const pidAlive = typeof normalized.pid === 'number' ? isPidAlive(normalized.pid) : true;
       if (!isExpired && pidAlive) {
-        validLeases.push(lease);
+        dedupedByOwner.set(normalized.trajectoryId, normalized);
       }
     }
-
-    return {
-      version: data.version || SCOPE_LOCK_CONSTANTS.VERSION,
-      leases: validLeases
-    };
-  } catch {
-    return { version: SCOPE_LOCK_CONSTANTS.VERSION, leases: [] };
+    return Array.from(dedupedByOwner.values());
+  } catch (err) {
+    recordHookDiagnostic('scope_lock_registry', 'readLockFileEntriesSafe', err, {
+      ignoreCodes: ['ENOENT'],
+      persist: false
+    });
+    return [];
   }
 }
 
 /**
- * Saves the registry atomically and Windows-safely using a temp file rename.
+ * Loads the active scope registry from BOTH `.agents/locks/active_scopes.json` (local)
+ * and `.claude/locks/active_scopes.json` (read-only cross-harness visibility),
+ * automatically pruning expired or dead-PID leases.
  */
-export function saveRegistry(workspaceDir = process.cwd(), registry = { version: 1, leases: [] }) {
-  const lockFile = getLockFilePath(workspaceDir);
-  const locksDir = path.dirname(lockFile);
-  fs.mkdirSync(locksDir, { recursive: true });
+export function loadRegistry(workspaceDir = process.cwd(), options = {}) {
+  const now = typeof options.now === 'number' ? options.now : Date.now();
+  const includeCrossHarness = options.includeCrossHarness !== false;
 
-  const tempFile = path.join(
-    locksDir,
-    `${SCOPE_LOCK_CONSTANTS.LOCK_FILE_NAME}.tmp.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 6)}`
-  );
+  const localEntries = readLockFileEntriesSafe(getLockFilePath(workspaceDir), {
+    source: 'local',
+    defaultTool: 'antigravity',
+    now
+  });
+  const crossEntries = includeCrossHarness
+    ? readLockFileEntriesSafe(getClaudeLockFilePath(workspaceDir), {
+        source: 'cross_harness',
+        defaultTool: 'claude-code',
+        now
+      })
+    : [];
 
-  const payload = JSON.stringify(registry, null, 2);
-  fs.writeFileSync(tempFile, payload, 'utf8');
-
-  // Atomic rename with Windows retry fallback
-  try {
-    fs.renameSync(tempFile, lockFile);
-  } catch {
-    try {
-      if (fs.existsSync(lockFile)) {
-        fs.unlinkSync(lockFile);
-      }
-      fs.renameSync(tempFile, lockFile);
-    } catch {
-      // Fallback direct write
-      fs.writeFileSync(lockFile, payload, 'utf8');
-      try {
-        fs.unlinkSync(tempFile);
-      } catch {}
+  const mergedByKey = new Map();
+  for (const entry of localEntries) {
+    mergedByKey.set(`local::${entry.trajectoryId}`, entry);
+  }
+  for (const entry of crossEntries) {
+    if (!localEntries.some((l) => l.trajectoryId === entry.trajectoryId)) {
+      mergedByKey.set(`cross::${entry.trajectoryId}`, entry);
     }
   }
 
+  const validLeases = Array.from(mergedByKey.values());
+  const locks = validLeases.map((l) => ({
+    ownerId: l.ownerId || l.trajectoryId,
+    ...(l.pid !== undefined ? { pid: l.pid } : {}),
+    tool: l.tool,
+    scopes: l.scopes || l.claimedPaths,
+    acquiredAt: l.acquiredAt,
+    expiresAt: l.expiresAtMs,
+    source: l.source
+  }));
+
+  return {
+    version: SCOPE_LOCK_CONSTANTS.VERSION,
+    schemaVersion: SCOPE_LOCK_CONSTANTS.SCHEMA_VERSION,
+    updatedAt: new Date(now).toISOString(),
+    leases: validLeases,
+    locks
+  };
+}
+
+export const loadScopeLockRegistry = loadRegistry;
+
+/**
+ * Saves Antigravity's local registry atomically to `.agents/locks/active_scopes.json`
+ * (emitting both `leases[]` and `locks[]` for cross-edition interoperability while never
+ * modifying `.claude/locks/active_scopes.json`).
+ */
+export function saveRegistry(workspaceDir = process.cwd(), registry = { version: 1, leases: [] }) {
+  const now = Date.now();
+  const lockFile = getLockFilePath(workspaceDir);
+  const rawItems = Array.isArray(registry?.leases)
+    ? registry.leases
+    : (Array.isArray(registry?.locks) ? registry.locks : []);
+
+  const localLeases = [];
+  const seenOwners = new Set();
+  for (const item of rawItems) {
+    if (item?.source === 'cross_harness') continue;
+    const norm = normalizeScopeLeaseEntry(item, { source: 'local', defaultTool: 'antigravity', now });
+    if (!norm || seenOwners.has(norm.trajectoryId)) continue;
+    seenOwners.add(norm.trajectoryId);
+    localLeases.push(norm);
+  }
+
+  const locks = localLeases.map((l) => ({
+    ownerId: l.ownerId || l.trajectoryId,
+    ...(l.pid !== undefined ? { pid: l.pid } : {}),
+    tool: l.tool,
+    scopes: l.claimedPaths,
+    acquiredAt: l.acquiredAt,
+    expiresAt: l.expiresAtMs
+  }));
+
+  const payload = JSON.stringify({
+    version: registry?.version || SCOPE_LOCK_CONSTANTS.VERSION,
+    schemaVersion: SCOPE_LOCK_CONSTANTS.SCHEMA_VERSION,
+    updatedAt: new Date(now).toISOString(),
+    leases: localLeases,
+    locks
+  }, null, 2);
+  atomicWriteFileSync(lockFile, payload, { encoding: 'utf8' });
   return true;
 }
 
 /**
- * Checks for file-scope collisions across other active leases.
+ * Checks for file-scope collisions (exact path, directory prefix, or glob) across other active leases/locks.
  */
-export function detectScopeCollision(currentTrajectoryId, claimedPaths = [], activeLeases = []) {
-  const normalizedCurrent = new Set(claimedPaths.map(normalizeClaimedPath).filter(Boolean));
-  if (normalizedCurrent.size === 0) return null;
+export function detectScopeCollision(currentTrajectoryId, claimedPaths = [], activeLeases = [], options = {}) {
+  const normalizedCurrent = Array.from(
+    new Set((Array.isArray(claimedPaths) ? claimedPaths : []).map(normalizeClaimedPath).filter(Boolean))
+  );
+  if (normalizedCurrent.length === 0) return null;
 
-  for (const lease of activeLeases) {
-    if (lease.trajectoryId === currentTrajectoryId) continue;
-    const leasePaths = (lease.claimedPaths || []).map(normalizeClaimedPath);
-    const overlapping = leasePaths.filter((p) => normalizedCurrent.has(p));
+  const now = typeof options.now === 'number' && Number.isFinite(options.now) ? options.now : Date.now();
+
+  for (const lease of Array.isArray(activeLeases) ? activeLeases : []) {
+    if (!lease || typeof lease !== 'object') continue;
+    const ownerId = lease.trajectoryId || lease.ownerId || lease.agent_id || lease.session_id;
+    if (!ownerId || ownerId === currentTrajectoryId) continue;
+
+    let expMs = null;
+    if (typeof lease.expiresAtMs === 'number' && Number.isFinite(lease.expiresAtMs)) {
+      expMs = lease.expiresAtMs;
+    } else if (typeof lease.expiresAt === 'number' && Number.isFinite(lease.expiresAt)) {
+      expMs = lease.expiresAt;
+    } else if (typeof lease.expiresAt === 'string' && lease.expiresAt.trim()) {
+      const parsed = Date.parse(lease.expiresAt);
+      if (Number.isFinite(parsed)) expMs = parsed;
+    } else if (typeof lease.expires_at === 'string' && lease.expires_at.trim()) {
+      const parsed = Date.parse(lease.expires_at);
+      if (Number.isFinite(parsed)) expMs = parsed;
+    }
+    if (Number.isFinite(expMs) && now > expMs) continue;
+
+    const rawLeasePaths = lease.claimedPaths || lease.scopes || lease.files_locked || [];
+    const leasePaths = rawLeasePaths.map(normalizeClaimedPath).filter(Boolean);
+    const overlapping = normalizedCurrent.filter((cp) =>
+      leasePaths.some((lp) => scopesOverlap(cp, lp))
+    );
 
     if (overlapping.length > 0) {
       return {
-        trajectoryId: lease.trajectoryId,
+        trajectoryId: ownerId,
+        ownerId,
         pid: lease.pid,
         tool: lease.tool || 'antigravity',
+        source: lease.source || 'local',
         overlappingPaths: overlapping
       };
     }
@@ -169,7 +405,12 @@ export function deriveSessionClaimedPaths({
     if (fs.existsSync(taskPath)) {
       try {
         resolvedTask = fs.readFileSync(taskPath, 'utf8');
-      } catch {}
+      } catch (err) {
+        recordHookDiagnostic('scope_lock_registry', 'deriveSessionClaimedPaths_readTaskMd', err, {
+          ignoreCodes: ['ENOENT'],
+          persist: false
+        });
+      }
     }
   }
 
@@ -277,28 +518,36 @@ export class ScopeLockRegistry {
     const now = Date.now();
     const expiresAtMs = now + ttlSeconds * 1000;
 
-    // Upsert current lease
-    const updatedLeases = registry.leases.filter((l) => l.trajectoryId !== trajectoryId);
-    const newLease = {
+    // Upsert current local lease (preserving read-only visibility of cross-harness locks without copying them)
+    const crossHarnessCount = registry.leases.filter((l) => l.source === 'cross_harness').length;
+    const updatedLocalLeases = registry.leases.filter(
+      (l) => l.source !== 'cross_harness' && l.trajectoryId !== trajectoryId
+    );
+    const newLease = normalizeScopeLeaseEntry({
       trajectoryId,
+      ownerId: trajectoryId,
+      agent_id: trajectoryId,
+      session_id: trajectoryId,
       pid: this.pid,
       tool: this.tool,
       claimedPaths: normClaimed,
+      acquiredAt: now,
       updatedAtIso: new Date(now).toISOString(),
-      expiresAtMs
-    };
-    updatedLeases.push(newLease);
+      expiresAtMs,
+      ttl_ms: ttlSeconds * 1000
+    }, { source: 'local', defaultTool: this.tool, now });
+    updatedLocalLeases.push(newLease);
 
     saveRegistry(this.workspaceDir, {
       version: SCOPE_LOCK_CONSTANTS.VERSION,
-      leases: updatedLeases
+      leases: updatedLocalLeases
     });
 
     return {
       ok: true,
       collisionDetected: false,
       lease: newLease,
-      activeLeaseCount: updatedLeases.length
+      activeLeaseCount: updatedLocalLeases.length + crossHarnessCount
     };
   }
 
@@ -307,12 +556,15 @@ export class ScopeLockRegistry {
    */
   releaseLease(trajectoryId) {
     const registry = loadRegistry(this.workspaceDir);
-    const updatedLeases = registry.leases.filter((l) => l.trajectoryId !== trajectoryId);
+    const crossHarnessCount = registry.leases.filter((l) => l.source === 'cross_harness').length;
+    const updatedLocalLeases = registry.leases.filter(
+      (l) => l.source !== 'cross_harness' && l.trajectoryId !== trajectoryId
+    );
     saveRegistry(this.workspaceDir, {
       version: SCOPE_LOCK_CONSTANTS.VERSION,
-      leases: updatedLeases
+      leases: updatedLocalLeases
     });
-    return { ok: true, remainingCount: updatedLeases.length };
+    return { ok: true, remainingCount: updatedLocalLeases.length + crossHarnessCount };
   }
 
   /**

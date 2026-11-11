@@ -2,22 +2,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { createRequire } from 'node:module';
 import { getHomeDir, canonicalizePath } from './paths.mjs';
+import { atomicWriteFileSync } from './atomic_io.mjs';
+import { openLocalHorizonDb } from './sqlite_client.mjs';
 import { PrefixCacheShield } from './prefix_cache_shield.mjs';
 import { auditRuleContradictions } from './coach/contradiction_auditor.mjs';
 import {
   computeProjectScopeHash,
   evaluateGlobalPromotionEligibility
 } from './coach/reflector_queue.mjs';
-
-const require = createRequire(import.meta.url);
-let DatabaseSync = null;
-try {
-  ({ DatabaseSync } = require('node:sqlite'));
-} catch {
-  DatabaseSync = null;
-}
 
 /**
  * Phase 3: Bounded Atomic Instinct & Correction Learning Loop (RSI Engine)
@@ -167,7 +160,7 @@ export function inferInstinctDomain(text = '', filePaths = []) {
  */
 export function parseCorrectionSignals(turn = {}) {
   const results = [];
-  const text = String(turn.userMessage || turn.content || turn.text || '').trim();
+  const text = String(turn.userMessage || turn.userText || turn.content || turn.text || '').trim();
   const scope = turn.scope === 'global' ? 'global' : 'project';
   const domain = turn.domain || inferInstinctDomain(text, turn.files || []);
 
@@ -245,6 +238,7 @@ export class RsiInstinctEngine {
     this.dbPath = options.dbPath || getDefaultInstinctsDbPath(this.homeDir);
     this.prefixShield =
       options.prefixShield ||
+      options.prefixCacheShield ||
       new PrefixCacheShield({
         homeDir: this.homeDir,
         queuePath: options.queuePath
@@ -256,15 +250,9 @@ export class RsiInstinctEngine {
   }
 
   _initDb() {
-    if (!DatabaseSync) {
-      throw new Error('node:sqlite DatabaseSync is required for RsiInstinctEngine');
-    }
     fs.mkdirSync(path.dirname(this.dbPath), { recursive: true });
-    this.db = new DatabaseSync(this.dbPath);
+    this.db = openLocalHorizonDb(this.dbPath, { readOnly: false });
     this.db.exec(`
-      PRAGMA journal_mode = WAL;
-      PRAGMA synchronous = NORMAL;
-
       CREATE TABLE IF NOT EXISTS instincts (
         id TEXT PRIMARY KEY,
         scope TEXT NOT NULL DEFAULT 'project',
@@ -571,6 +559,15 @@ export class RsiInstinctEngine {
       targetPath
     });
 
+    const resolvedSession = options.session || {
+      cacheState: options.cacheState,
+      cacheWarm: options.cacheWarm,
+      cachedTokens: options.cachedTokens,
+      cacheTtlSeconds: options.cacheTtlSeconds,
+      forceColdBust: options.forceColdBust,
+      postCompact: options.postCompact
+    };
+
     const shieldResult = this.prefixShield.stageOrApplyDelta(
       {
         targetPath,
@@ -584,7 +581,7 @@ export class RsiInstinctEngine {
           snapshotId
         }
       },
-      options.session || {}
+      resolvedSession
     );
 
     // Also update local Knowledge Items index
@@ -594,6 +591,8 @@ export class RsiInstinctEngine {
       snapshotId,
       targetPath,
       ruleLine,
+      staged: Boolean(shieldResult.staged),
+      deferred: Boolean(shieldResult.deferred),
       shieldResult
     };
   }
@@ -617,7 +616,7 @@ export class RsiInstinctEngine {
         updated_at: new Date(this.nowFn()).toISOString()
       });
       existing.items = filtered;
-      fs.writeFileSync(kiPath, JSON.stringify(existing, null, 2) + '\n', 'utf8');
+      atomicWriteFileSync(kiPath, JSON.stringify(existing, null, 2) + '\n', { encoding: 'utf8' });
     } catch {}
   }
 
@@ -648,8 +647,7 @@ export class RsiInstinctEngine {
 
     if (eligible.length === 0) {
       if (stripped !== existingContent) {
-        fs.mkdirSync(path.dirname(taskMdPath), { recursive: true });
-        fs.writeFileSync(taskMdPath, stripped.trimEnd() + '\n', 'utf8');
+        atomicWriteFileSync(taskMdPath, stripped.trimEnd() + '\n', { encoding: 'utf8' });
       }
       return { injectedCount: 0, instincts: [] };
     }
@@ -665,8 +663,7 @@ export class RsiInstinctEngine {
     ];
 
     const updatedContent = `${stripped.trimEnd()}\n\n${lines.join('\n')}\n`;
-    fs.mkdirSync(path.dirname(taskMdPath), { recursive: true });
-    fs.writeFileSync(taskMdPath, updatedContent, 'utf8');
+    atomicWriteFileSync(taskMdPath, updatedContent, { encoding: 'utf8' });
 
     return {
       injectedCount: eligible.length,
@@ -777,6 +774,15 @@ export class RsiInstinctEngine {
 
     const skillContent = bodyLines.join('\n');
 
+    const resolvedSession = options.session || {
+      cacheState: options.cacheState,
+      cacheWarm: options.cacheWarm,
+      cachedTokens: options.cachedTokens,
+      cacheTtlSeconds: options.cacheTtlSeconds,
+      forceColdBust: options.forceColdBust,
+      postCompact: options.postCompact
+    };
+
     const shieldResult = this.prefixShield.stageOrApplyDelta(
       {
         targetPath: skillPath,
@@ -790,7 +796,7 @@ export class RsiInstinctEngine {
           snapshotId
         }
       },
-      options.session || {}
+      resolvedSession
     );
 
     return {
@@ -800,6 +806,8 @@ export class RsiInstinctEngine {
       instinctCount: instincts.length,
       snapshotId,
       skillContent,
+      staged: Boolean(shieldResult.staged),
+      deferred: Boolean(shieldResult.deferred),
       shieldResult
     };
   }
@@ -948,8 +956,7 @@ export class RsiInstinctEngine {
 
       // Ensure exact pre-mutation working-tree state is restored even if working tree had uncommitted baseline edits
       if (Number(snap.existed_before) === 1 && snap.previous_content !== null) {
-        fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-        fs.writeFileSync(targetPath, snap.previous_content, 'utf8');
+        atomicWriteFileSync(targetPath, snap.previous_content, { encoding: 'utf8' });
       } else if (Number(snap.existed_before) === 0 && fs.existsSync(targetPath)) {
         try {
           fs.unlinkSync(targetPath);

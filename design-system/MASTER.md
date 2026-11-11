@@ -1,6 +1,6 @@
 # Design System Master Specification (`design-system/MASTER.md`)
 
-**Project:** Context Horizon (`ctxtop` / `ga-visualizer-v2`)  
+**Project:** Attention Horizon (`attention-horizon-antigravity` / `ctxtop`)  
 **Domain:** Developer Observability, Real-Time LLM Context Window Telemetry, & Prefix-Cache Hygiene  
 **Design Philosophy:** Edward Tufte High Data-Ink Ratio + `shadcn/ui` Zinc/Slate Architectural Primitives + Strict WCAG AA Accessibility
 

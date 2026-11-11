@@ -90,15 +90,15 @@
 
 /* Tier 2: Single-Slot Priority Intervention Card (Collapsed by default) */
 .tier2-intervention-slot {
-  margin: 6px 0;
-  padding: 8px 10px;
+  margin: 4px 0;
+  padding: 6px 10px;
   border-radius: 6px;
   background: rgba(15, 23, 42, 0.90);
   border: 1px solid rgba(56, 189, 248, 0.45);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   font-size: 11px;
 }
 

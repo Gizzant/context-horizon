@@ -1,6 +1,6 @@
 ﻿$ErrorActionPreference = "Stop"
 
-$ProjectRoot = "C:\Projects\ga-visualizer-v2"
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $OutDir      = Join-Path $ProjectRoot "evaluation_bundles\ui_audit_context"
 
 if (-not (Test-Path $OutDir)) {
@@ -80,14 +80,6 @@ foreach ($sf in $StyleFiles) {
     }
 }
 $TokenLines.Add($fence)
-
-$RefactorDoc = Join-Path $ProjectRoot "docs\HN_REFACTOR_PLAN.md"
-if (Test-Path $RefactorDoc) {
-    $TokenLines.Add("")
-    $TokenLines.Add("## Project Refactoring Constraints (docs/HN_REFACTOR_PLAN.md)")
-    $DocLines = Get-Content $RefactorDoc -TotalCount 120
-    $TokenLines.AddRange([string[]]$DocLines)
-}
 
 $TokenLines | Set-Content -Path $TokensFile -Encoding UTF8
 Write-Host "  [+] Wrote 02_DESIGN_TOKENS_AND_RULES.md" -ForegroundColor Green

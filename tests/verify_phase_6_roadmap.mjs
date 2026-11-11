@@ -20,8 +20,8 @@ console.log('--- Verifying Phase 6: Evaluation Roadmap (Waves 1-4) ---');
 
 // 1. T1.1: Dynamic 256K & 1M Model Ceiling Resolution & Effort Scaling
 assert.equal(resolveModelCeiling('gemini-3.8-flash'), 256000, 'Gemini 3.8 Flash native ceiling should be 256k');
-assert.equal(resolveModelCeiling('gemini-4-argon-high'), 256000, 'Gemini 4 Argon High native ceiling should be 256k');
-assert.equal(resolveModelCeiling('claude-opus-5.5'), 256000, 'Claude Opus 5.5 native ceiling should be 256k');
+assert.equal(resolveModelCeiling('gemini-4-argon-high'), 1048576, 'Gemini 4 Argon High native ceiling should be 1,048,576');
+assert.equal(resolveModelCeiling('claude-opus-5.5'), 1000000, 'Claude Opus 5.5 native ceiling should be 1,000,000');
 assert.equal(resolveModelCeiling('gemini-1.5-pro-1m'), 1000000, '1M model ceiling should resolve to 1,000,000');
 const scaledHigh = scaleEffortProfileForCeiling(EFFORT_PROFILES.HIGH, 256000);
 assert.equal(scaledHigh.safeLimit, 147000, '256k High effort safe limit should scale to 147k');

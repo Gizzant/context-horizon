@@ -99,7 +99,11 @@ test('[GATE-0.1] PrefixCacheShield blocks GEMINI.md disk mutation when cachedTok
     );
     assert.equal(formatStagedBadge(0), '');
   } finally {
-    try { fs.rmSync(tmpHome, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }); } catch {}
+    try {
+      fs.rmSync(tmpHome, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    } catch (err) {
+      if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+    }
   }
 });
 
@@ -174,7 +178,11 @@ test('[GATE-0.2] AgBridgeService dispatches via RPC or CDP OOPIF and falls back 
     assert.equal(fs.existsSync(spawned.planMdPath), true);
     assert.ok(fs.readFileSync(spawned.taskMdPath, 'utf8').includes('- [/] Phase 1'));
   } finally {
-    try { fs.rmSync(tmpHome, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }); } catch {}
+    try {
+      fs.rmSync(tmpHome, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    } catch (err) {
+      if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+    }
   }
 });
 
@@ -224,6 +232,10 @@ test('[GATE-0.3] WalHygieneManager checkpoints Horizon SQLite DBs and guards hos
     assert.ok(sweep.checkpointCount >= 1);
     mgr.stop();
   } finally {
-    try { fs.rmSync(tmpHome, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }); } catch {}
+    try {
+      fs.rmSync(tmpHome, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    } catch (err) {
+      if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+    }
   }
 });

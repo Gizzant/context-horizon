@@ -2,18 +2,12 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { JSDOM } from 'jsdom';
 import { extractEffortTimeline } from '../src/core/parser.mjs';
 
-const require = createRequire(import.meta.url);
-let JSDOM;
-try {
-  ({ JSDOM } = require('jsdom'));
-} catch {
-  try {
-    ({ JSDOM } = require('C:/Users/frank/AppData/Local/Temp/node_modules/jsdom'));
-  } catch {}
-}
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const HTML_PATH = path.join(ROOT, 'src', 'webview', 'horizon_panel.html');
 
 describe('Surgical Patch: 256k 40-Cell Dynamic Scaling & Transition Placement', () => {
   test('extractEffortTimeline maps transitions to Math.floor(cumTokens / 6400) under 256k ceiling and does not default to 39', () => {
@@ -31,13 +25,8 @@ describe('Surgical Patch: 256k 40-Cell Dynamic Scaling & Transition Placement', 
     assert.equal(tr.toTier, 'HIGH');
   });
 
-  test('At totalTokens = 147700, maxTokens = 256000, safeLimit = 147000: filled cells equal 24, red cells equal 1 (index 23), cells 24..39 empty', async (t) => {
-    if (!JSDOM) {
-      t.skip('JSDOM not available');
-      return;
-    }
-    const htmlPath = path.resolve('src/webview/horizon_panel.html');
-    const html = fs.readFileSync(htmlPath, 'utf8');
+  test('At totalTokens = 147700, maxTokens = 256000, safeLimit = 147000: filled cells equal 24, red cells equal 1 (index 23), cells 24..39 empty', async () => {
+    const html = fs.readFileSync(HTML_PATH, 'utf8');
     const dom = new JSDOM(html, {
       url: 'http://127.0.0.1:43210/',
       runScripts: 'dangerously',
@@ -99,13 +88,8 @@ describe('Surgical Patch: 256k 40-Cell Dynamic Scaling & Transition Placement', 
     assert.equal(redCells[0].dataset.cellIndex, '23', 'Cell index 23 must be the single over-limit red cell');
   });
 
-  test('When isCacheWarm === true, /compact and AST stub condensation are staged, and Cached History does not show /compact ready', async (t) => {
-    if (!JSDOM) {
-      t.skip('JSDOM not available');
-      return;
-    }
-    const htmlPath = path.resolve('src/webview/horizon_panel.html');
-    const html = fs.readFileSync(htmlPath, 'utf8');
+  test('When isCacheWarm === true, /compact and AST stub condensation are staged, and Cached History does not show /compact ready', async () => {
+    const html = fs.readFileSync(HTML_PATH, 'utf8');
     const dom = new JSDOM(html, {
       url: 'http://127.0.0.1:43210/',
       runScripts: 'dangerously',
@@ -170,13 +154,8 @@ describe('Surgical Patch: 256k 40-Cell Dynamic Scaling & Transition Placement', 
     assert.ok(!actionList.querySelector('[data-action-id="condense-ast"]'), 'AST condensation must be staged when cache is warm');
   });
 
-  test('#compactInstruction contains exact text Type /compact in the chat box and press Enter with no button inside /compact row', async (t) => {
-    if (!JSDOM) {
-      t.skip('JSDOM not available');
-      return;
-    }
-    const htmlPath = path.resolve('src/webview/horizon_panel.html');
-    const html = fs.readFileSync(htmlPath, 'utf8');
+  test('#compactInstruction contains exact text Type /compact in the chat box and press Enter with no button inside /compact row', async () => {
+    const html = fs.readFileSync(HTML_PATH, 'utf8');
     const dom = new JSDOM(html, {
       url: 'http://127.0.0.1:43210/',
       runScripts: 'dangerously',
@@ -200,13 +179,8 @@ describe('Surgical Patch: 256k 40-Cell Dynamic Scaling & Transition Placement', 
     assert.equal(btns.length, 0, 'Zero buttons allowed in /compact row');
   });
 
-  test('Chronic offender row does not duplicate chat count in title and #strandedSignalBanner renders actionable [Re-anchor] button', async (t) => {
-    if (!JSDOM) {
-      t.skip('JSDOM not available');
-      return;
-    }
-    const htmlPath = path.resolve('src/webview/horizon_panel.html');
-    const html = fs.readFileSync(htmlPath, 'utf8');
+  test('Chronic offender row does not duplicate chat count in title and #strandedSignalBanner renders actionable [Re-anchor] button', async () => {
+    const html = fs.readFileSync(HTML_PATH, 'utf8');
     const dom = new JSDOM(html, {
       url: 'http://127.0.0.1:43210/',
       runScripts: 'dangerously',

@@ -77,7 +77,11 @@ test('Phase 4.3: SavedQuotaReceiptLedger records SQLite savings events, formats 
     assert.ok(copiedText.includes('| Effort Downshifts (`EFFORT_DOWNSHIFT`) | 3 | +46.4k |'));
     assert.ok(copiedText.includes('| CLI Dumps Compressed (`CLI_DUMP_COMPRESSED`) | 1 | +12.0k |'));
   } finally {
-    try { fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }); } catch {}
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    } catch (err) {
+      if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+    }
   }
 });
 
@@ -130,7 +134,11 @@ test('Phase 4.1: TurnZeroGate enforces Invariant 1 (cachedTokens >= 15000), U-sh
     assert.equal(gate.activeMcpProfile, 'Lean Code');
     assert.notEqual(fs.readFileSync(agentsMdPath, 'utf8'), initialText);
   } finally {
-    try { fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }); } catch {}
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    } catch (err) {
+      if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+    }
   }
 });
 
@@ -181,7 +189,11 @@ test('Phase 4.2: HandoffHydrationLauncher generates docs/HANDOFF_<ts>.md, launch
     assert.equal(amnesiaCheck.violationCount, 1);
     assert.equal(amnesiaCheck.violations[0].turnNumber, 1);
   } finally {
-    try { fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }); } catch {}
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    } catch (err) {
+      if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+    }
   }
 });
 

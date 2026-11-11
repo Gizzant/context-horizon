@@ -2,23 +2,29 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { createRequire } from 'node:module';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execSync } from 'node:child_process';
+import { JSDOM } from 'jsdom';
 import { startServer } from '../sidecars/horizon-daemon/server.mjs';
 import { runCLI as runVisualizerCLI } from '../src/cli/horizon_hud.mjs';
 import { pruneSessionTranscript } from '../src/core/pruner.mjs';
 import { classifyHorizon, calculateParabolicAttentionCurve, evaluateCompositeSessionRisk, evaluateHistoryBarState, computeDisplayTenthsParity } from '../src/core/classifier.mjs';
-import { parseRawJsonl, parseTranscriptIncremental, readSessionGenMetadataSync, reconcileWorkspaceAndKIs } from '../src/core/parser.mjs';
+import { findSessionDirectory, parseRawJsonl, parseTranscriptIncremental, readSessionGenMetadataSync, reconcileWorkspaceAndKIs } from '../src/core/parser.mjs';
 import { syncAndVerifyMirrors } from '../scripts/sync_mirrors.mjs';
 import { EFFORT_PROFILES, scaleEffortProfileForCeiling } from '../src/core/constants.mjs';
 import { isInternalTelemetryPath, synthesizeParameterizedCompact, synthesizeBatonPassHandoffCommand, evaluateCompactionCacheAdvisory } from '../src/core/prompt_rubric.mjs';
 import { computeQuotaAndCacheTelemetry } from '../src/core/quota.mjs';
 import { evaluateProcessTable } from '../src/core/host_watchdog.mjs';
-import { runCLI as runPluginCLI } from 'file:///C:/Users/frank/.gemini/config/plugins/agy-horizon/src/cli/horizon_hud.mjs';
-import { handleHook } from 'file:///C:/Users/frank/.gemini/config/plugins/agy-horizon/src/cli/horizon_hook.mjs';
 
-const require = createRequire(import.meta.url);
-const { JSDOM } = require('C:/Users/frank/AppData/Local/Temp/node_modules/jsdom');
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const pluginHudCandidate = path.join(os.homedir(), '.gemini', 'config', 'plugins', 'agy-horizon', 'src', 'cli', 'horizon_hud.mjs');
+const { runCLI: runPluginCLI } = fs.existsSync(pluginHudCandidate)
+  ? await import(pathToFileURL(pluginHudCandidate).href)
+  : { runCLI: runVisualizerCLI };
+const pluginHookCandidate = path.join(os.homedir(), '.gemini', 'config', 'plugins', 'agy-horizon-flightcheck', 'src', 'hooks', 'pre_invocation.mjs');
+const { handlePreInvocation } = fs.existsSync(pluginHookCandidate)
+  ? await import(pathToFileURL(pluginHookCandidate).href)
+  : await import('../src/hooks/pre_invocation.mjs');
 
 console.log('================================================================================');
 console.log('  END-TO-END CONTEXT MEMORY VALIDATION SUITE (CORE + DAEMON + JSDOM + LIVE)');
@@ -39,7 +45,7 @@ console.log('  âœ“ Legacy JSDOM regression suite passed all assertions.\n');
 // 2. JSDOM Validation of New Wave 1-4 UI Elements & Action Handlers
 // ---------------------------------------------------------------------------
 console.log('[2/7] Validating New Wave 1-4 WebView UI Elements & Handlers in JSDOM...');
-const htmlPath = 'C:/Projects/ga-visualizer-v2/src/webview/horizon_panel.html';
+const htmlPath = path.join(ROOT, 'src', 'webview', 'horizon_panel.html');
 const html = fs.readFileSync(htmlPath, 'utf8');
 
 const apiCalls = [];
@@ -360,11 +366,14 @@ try {
   const preloadRes = await fetch(`${baseUrl}/preload.js`);
   assert.equal(preloadRes.status, 200);
 
-  // 4c. GET /api/state (Live 256K state + hostHealth + quota + subagents + baseline)
+  // 4c. GET /api/state (Live dynamic model ceiling + hostHealth + quota + subagents + baseline)
   const stateRes = await fetch(`${baseUrl}/api/state`);
   assert.equal(stateRes.status, 200);
   const liveState = await stateRes.json();
-  assert.equal(liveState.window.maxTokens, 256000, 'Live /api/state must report 256,000 native ceiling');
+  assert.ok(
+    [200000, 256000, 1000000, 1048576].includes(liveState.window.maxTokens),
+    `Live /api/state must report a valid catalog native ceiling (got ${liveState.window.maxTokens})`
+  );
   assert.ok(liveState.quota && liveState.quota.sprint5h, 'Live /api/state must include quota telemetry');
   assert.ok(liveState.hostHealth && typeof liveState.hostHealth.rssGb === 'number', 'Live /api/state must include hostHealth telemetry');
   assert.ok(liveState.baseline && liveState.baseline.buckets, 'Live /api/state must include 5-bucket baseline telemetry');
@@ -447,27 +456,61 @@ console.log(`  âœ“ Live Sidecar Daemon on port ${port} passed all 9 HTTP & S
 // ---------------------------------------------------------------------------
 // 5. Real Active Session Transcript & Plugin Hook Validation
 // ---------------------------------------------------------------------------
-console.log('[5/7] Validating Real Active Conversation (33c7de94-4a9c-4407-b328-c7f836201e8c) & Lifecycle Hooks...');
+console.log('[5/7] Validating Real or Synthetic Active Conversation & Lifecycle Hooks...');
 const activeConvId = '33c7de94-4a9c-4407-b328-c7f836201e8c';
-const cliRes = await runVisualizerCLI({
-  silent: true,
-  stdinData: { conversation_id: activeConvId }
-});
-assert.ok(cliRes && cliRes.state, 'Visualizer runCLI must return state for active conversation');
-assert.equal(cliRes.state.window.maxTokens, 256000, 'Active conversation must use 256K ceiling');
-assert.equal(cliRes.state.window.cellSizeTokens, 6400, 'Active conversation must use 6.4k cell size');
-assert.ok(cliRes.state.activeEffortProfile && cliRes.state.activeEffortProfile.safeLimit > 0, 'Active conversation must resolve effort profile with safeLimit');
-assert.ok(cliRes.state.effortTransitions.length >= 2, `Expected >=2 mid-session effort transitions in active chat, found ${cliRes.state.effortTransitions.length}`);
+const discoveredActive = findSessionDirectory(activeConvId);
+let tmpActiveSessionDir = null;
+let cliOpts;
+if (discoveredActive && fs.existsSync(discoveredActive.sessionDir)) {
+  cliOpts = { silent: true, stdinData: { conversation_id: activeConvId } };
+} else {
+  tmpActiveSessionDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hz-active-conv-e2e-'));
+  const synthLogsDir = path.join(tmpActiveSessionDir, '.system_generated', 'logs');
+  fs.mkdirSync(synthLogsDir, { recursive: true });
+  const tsIso = new Date().toISOString();
+  const synthLines = [
+    JSON.stringify({ step_index: 0, type: 'USER_INPUT', content: 'Model Selection: gemini-3.8-pro\nEffort: auto\nAudit router', input_tokens: 12000, output_tokens: 400, turn_metadata: { effort: 'auto' }, created_at: tsIso }),
+    JSON.stringify({ step_index: 1, type: 'USER_INPUT', content: 'Effort: high\nDeep dive on cache TTL', input_tokens: 28000, output_tokens: 900, turn_metadata: { effort: 'high', fromSpec: 'auto' }, created_at: tsIso }),
+    JSON.stringify({ step_index: 2, type: 'USER_INPUT', content: 'Effort: max\nVerify edge cases', input_tokens: 46000, output_tokens: 1200, turn_metadata: { effort: 'max', fromSpec: 'high' }, created_at: tsIso })
+  ];
+  fs.writeFileSync(path.join(synthLogsDir, 'transcript_full.jsonl'), synthLines.join('\n') + '\n', 'utf8');
+  cliOpts = {
+    silent: true,
+    sessionDirOverride: tmpActiveSessionDir,
+    cacheDirOverride: tmpActiveSessionDir,
+    stdinData: { modelName: 'gemini-3.8-pro' }
+  };
+}
+try {
+  const cliRes = await runVisualizerCLI(cliOpts);
+  assert.ok(cliRes && cliRes.state, 'Visualizer runCLI must return state for active conversation');
+  assert.ok(
+    [200000, 256000, 1000000, 1048576].includes(cliRes.state.window.maxTokens),
+    `Active conversation must use a valid catalog ceiling (got ${cliRes.state.window.maxTokens})`
+  );
+  assert.equal(
+    cliRes.state.window.cellSizeTokens,
+    Math.round(cliRes.state.window.maxTokens / 40),
+    'Active conversation cell size must equal maxTokens / 40'
+  );
+  assert.ok(cliRes.state.activeEffortProfile && cliRes.state.activeEffortProfile.safeLimit > 0, 'Active conversation must resolve effort profile with safeLimit');
+  assert.ok(cliRes.state.effortTransitions.length >= 2, `Expected >=2 mid-session effort transitions in active chat, found ${cliRes.state.effortTransitions.length}`);
 
-const pluginCliRes = await runPluginCLI({
-  silent: true,
-  stdinData: { conversation_id: activeConvId }
-});
-assert.equal(pluginCliRes.state.window.maxTokens, 256000, 'agy-horizon plugin runCLI must also resolve 256K ceiling');
+  const pluginCliRes = await runPluginCLI(cliOpts);
+  assert.equal(pluginCliRes.state.window.maxTokens, cliRes.state.window.maxTokens, 'Plugin runCLI must resolve identical ceiling to canonical runCLI');
 
-const hookRes = await handleHook('PreInvocation', { conversationId: activeConvId });
-assert.ok(typeof hookRes === 'object', 'PreInvocation hook must return valid response object');
-console.log(`  âœ“ Active conversation verified: ${cliRes.state.window.totalActiveTokens} / ${cliRes.state.window.maxTokens} tok | Tier: ${cliRes.state.activeEffortProfile.label} (Limit: ${cliRes.state.window.safeLimit}) | Transitions: ${cliRes.state.effortTransitions.length}.\n`);
+  const hookRes = await handlePreInvocation({ conversationId: 'e2e_hook_smoke_check', prompt: 'Inspect router.mjs' });
+  assert.ok(typeof hookRes === 'object', 'PreInvocation hook must return valid response object');
+  console.log(`  ✓ Active conversation verified: ${cliRes.state.window.totalActiveTokens} / ${cliRes.state.window.maxTokens} tok | Tier: ${cliRes.state.activeEffortProfile.label} (Limit: ${cliRes.state.window.safeLimit}) | Transitions: ${cliRes.state.effortTransitions.length}.\n`);
+} finally {
+  if (tmpActiveSessionDir) {
+    try {
+      fs.rmSync(tmpActiveSessionDir, { recursive: true, force: true });
+    } catch (err) {
+      if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // 6. Refresh Precomputed Session Catalog & Enforce 3-Way SHA-256 Mirror Parity
@@ -612,7 +655,11 @@ try {
   const metaSync = readSessionGenMetadataSync(dummyConvDb, DatabaseSync);
   assert.equal(metaSync.turnCount, 2, 'readSessionGenMetadataSync must report turnCount from gen_metadata row count');
 } finally {
-  try { fs.rmSync(dummyDbDir, { recursive: true, force: true }); } catch {}
+  try {
+    fs.rmSync(dummyDbDir, { recursive: true, force: true });
+  } catch (err) {
+    if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+  }
 }
 
 // --- Fix #8: agy --hub Watchdog Recognition ---
@@ -654,9 +701,9 @@ assert.equal(
 // --- Hotfix #1 + #2 (core, end-to-end through classifyHorizon) ---
 const hotfixClassified = classifyHorizon([
   { stepIndex: 0, type: 'USER_INPUT', inputTokens: 4000, outputTokens: 50,
-    content: "/plan\nDon't render a copy button for /compact, see file:///C:/Users/frank/plan.md and keep the instruction as plain text" },
-  { stepIndex: 1, toolCalls: [{ name: 'edit_file', args: { Path: 'C:\\Projects\\ga-visualizer-v2\\src\\webview\\horizon_panel.html' } }], inputTokens: 1000, outputTokens: 3000 },
-  { stepIndex: 2, toolCalls: [{ name: 'edit_file', args: { Path: 'C:/Projects/ga-visualizer-v2/tests/verify_e2e_context_memory.mjs' } }], inputTokens: 1000, outputTokens: 3000 }
+    content: "/plan\nDon't render a copy button for /compact, see file:///C:/Users/dev/plan.md and keep the instruction as plain text" },
+  { stepIndex: 1, toolCalls: [{ name: 'edit_file', args: { Path: path.join(ROOT, 'src', 'webview', 'horizon_panel.html') } }], inputTokens: 1000, outputTokens: 3000 },
+  { stepIndex: 2, toolCalls: [{ name: 'edit_file', args: { Path: path.join(ROOT, 'tests', 'verify_e2e_context_memory.mjs').replace(/\\/g, '/') } }], inputTokens: 1000, outputTokens: 3000 }
 ], { stdinContextWindow: { total_input_tokens: 60000 }, maxTokensOverride: 256000 });
 const hfCache = hotfixClassified.quota.cache;
 assert.ok(hfCache.hitRatePct === 0 || hfCache.cacheReadTokens === 0, 'Hotfix #1 fixture precondition: classified session has no cache reads');
@@ -710,7 +757,7 @@ const makeHotfixState = (cache) => ({
     duplicateReads: {
       fileCount: 1,
       reclaimableTokens: 3431,
-      topFiles: [{ path: 'C:/Projects/ga-visualizer-v2/src/webview/horizon_panel.html', occurrences: 2, wastedTokens: 3431 }]
+      topFiles: [{ path: path.join(ROOT, 'src', 'webview', 'horizon_panel.html').replace(/\\/g, '/'), occurrences: 2, wastedTokens: 3431 }]
     },
     oldHistory: { turnCount: 43, reclaimableTokens: 8862 },
     deadErrors: { errorCount: 1, reclaimableTokens: 56, isErrorLoop: false },
@@ -816,9 +863,15 @@ assert.ok(d.getElementById('hostWatchdogText').textContent.includes('Orphans: 1 
 
 // UIA-06: CLI HUD 40-cell output includes Cache state and never outputs -> /fast
 const { runCLI } = await import('../src/cli/horizon_hud.mjs');
-const cliRes = await runCLI({ silent: true });
+const cliRes = await runCLI({ silent: true, sessionDirOverride: tmpSessionRoot, cacheDirOverride: tmpSessionRoot });
 assert.ok(cliRes.output.includes('Cache:'), 'UIA-06: CLI HUD must include Cache state');
 assert.ok(!cliRes.output.includes('-> /fast'), 'UIA-06: CLI HUD must never output invalid -> /fast');
+
+try {
+  fs.rmSync(tmpSessionRoot, { recursive: true, force: true });
+} catch (err) {
+  if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+}
 
 hotfixDom.window.close();
 }

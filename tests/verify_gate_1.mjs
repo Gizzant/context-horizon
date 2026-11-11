@@ -15,10 +15,13 @@ import {
 } from '../src/core/fts5_output_compressor.mjs';
 import { AgBridgeService } from '../src/core/ag_bridge.mjs';
 
-test('[GATE-1.1] All 16 Deterministic Circuit Breakers (DET-01..DET-16) fire accurately in <10ms', async () => {
-  assert.equal(Object.keys(DETECTOR_CATALOG).length, 16, 'Must define all 16 detectors DET-01..DET-16');
+test('[GATE-1.1] All 20 Canonical Deterministic Circuit Breakers (DET-01..DET-20) fire accurately in <10ms', async () => {
+  assert.equal(Object.keys(DETECTOR_CATALOG).length, 20, 'Must define all 20 canonical detectors DET-01..DET-20');
 
-  // Construct synthetic transcript stream exercising DET-01 through DET-16
+  const simHome = path.posix.join(os.tmpdir().replace(/\\/g, '/'), 'hz-gate1-sim-home');
+  const brainDir = `${simHome}/.gemini/antigravity/brain/guid-123`;
+
+  // Construct synthetic transcript stream exercising DET-01 through DET-20
   const steps = [
     // DET-01: 3 consecutive identical failed tool calls
     {
@@ -75,7 +78,7 @@ test('[GATE-1.1] All 16 Deterministic Circuit Breakers (DET-01..DET-16) fire acc
       toolCalls: [{
         name: 'write_file',
         args: {
-          Path: 'C:/Users/frank/.gemini/antigravity/brain/guid-123/scratch/gen_proof.py',
+          Path: `${brainDir}/scratch/gen_proof.py`,
           Content: 'from PIL import Image, ImageDraw\nimg = Image.new("RGB", (800, 600))\n'
         }
       }]
@@ -90,7 +93,7 @@ test('[GATE-1.1] All 16 Deterministic Circuit Breakers (DET-01..DET-16) fire acc
       toolCalls: [{
         name: 'edit_file',
         args: {
-          Path: 'C:/Users/frank/.gemini/antigravity/brain/guid-123/task.md',
+          Path: `${brainDir}/task.md`,
           Target: '- [ ] Fix auth',
           Replacement: '- [x] Fix auth'
         }
@@ -113,24 +116,58 @@ test('[GATE-1.1] All 16 Deterministic Circuit Breakers (DET-01..DET-16) fire acc
         fileHash: 'const_sha_1'
       }]
     },
+    // DET-17: Shadow File Context Bloat (full-file read -> edit -> full-file read)
+    {
+      type: 'PLANNER_RESPONSE',
+      tokens: 3200,
+      toolCalls: [{
+        name: 'read_file',
+        args: { Path: 'src/core/router_shadow.mjs' }
+      }]
+    },
+    {
+      type: 'PLANNER_RESPONSE',
+      toolCalls: [{
+        name: 'edit_file',
+        args: { Path: 'src/core/router_shadow.mjs', Target: 'export const v = 1;', Replacement: 'export const v = 2;' }
+      }]
+    },
+    {
+      type: 'PLANNER_RESPONSE',
+      tokens: 3200,
+      toolCalls: [{
+        name: 'read_file',
+        args: { Path: 'src/core/router_shadow.mjs' }
+      }]
+    },
     // DET-07: <rrthought> Panic & Instruction-Loop Spiral
     {
       type: 'PLANNER_RESPONSE',
       thinking: 'CRITICAL INSTRUCTIONS: MUST NOT FAIL! Wait, no, actually let me redo. CRITICAL INSTRUCTIONS!',
       toolCalls: []
     },
-    // DET-08: Unauthorized Brain / Git Destructive Command
+    // DET-08: Unauthorized Brain / Git Destructive Command & DET-19: Git Hook-Bypass Guard
     {
       type: 'PLANNER_RESPONSE',
-      toolCalls: [{ name: 'run_command', args: { CommandLine: 'git reset --hard HEAD~3' }, exitCode: 0 }]
+      toolCalls: [
+        { name: 'run_command', args: { CommandLine: 'git reset --hard HEAD~3' }, exitCode: 0 },
+        { name: 'run_command', args: { CommandLine: 'git commit --no-verify -m "bypass"' }, exitCode: 0 }
+      ]
     },
     // DET-09: Prefix-Busting Config Mutation while Cached History >= 50k and TTL > 0
+    // DET-18: Untrusted Workspace Settings & Hook Injection Guard
     {
       type: 'PLANNER_RESPONSE',
-      toolCalls: [{
-        name: 'edit_file',
-        args: { Path: 'C:/Users/frank/.gemini/GEMINI.md', Target: '# Rules', Replacement: '# Mutated Rules' }
-      }]
+      toolCalls: [
+        {
+          name: 'edit_file',
+          args: { Path: `${simHome}/.gemini/GEMINI.md`, Target: '# Rules', Replacement: '# Mutated Rules' }
+        },
+        {
+          name: 'write_file',
+          args: { Path: '.vscode/settings.json', Content: '{"chat.tools.autoApprove": true}' }
+        }
+      ]
     },
     // DET-10: Unbounded CLI Output Flood (>12,000 chars)
     {
@@ -148,7 +185,7 @@ test('[GATE-1.1] All 16 Deterministic Circuit Breakers (DET-01..DET-16) fire acc
       toolCalls: [{
         name: 'write_file',
         args: {
-          Path: 'C:/Users/frank/.gemini/antigravity/brain/guid-123/implementation_plan.md',
+          Path: `${brainDir}/implementation_plan.md`,
           Content: 'Modify existing file `src/core/non_existent_phantom_module.mjs` to fix routing.'
         }
       }]
@@ -160,7 +197,7 @@ test('[GATE-1.1] All 16 Deterministic Circuit Breakers (DET-01..DET-16) fire acc
         { name: 'edit_file', args: { Path: 'src/core/file_two.mjs', Target: 'c', Replacement: 'd' } }
       ]
     },
-    // DET-14: Subagent File-Write Collision, DET-15: Secret Leakage, DET-16: Silent Truncation Slop, DET-12: Zombie PID
+    // DET-14: Subagent File-Write Collision, DET-15: Secret Leakage, DET-16: Silent Truncation Slop, DET-12: Zombie PID, DET-20: Scope Lock Collision
     {
       type: 'PLANNER_RESPONSE',
       content: 'Leaked token: sk-proj-1234567890abcdefghijklmnopqrstuv',
@@ -178,26 +215,43 @@ test('[GATE-1.1] All 16 Deterministic Circuit Breakers (DET-01..DET-16) fire acc
     }
   ];
 
-  // Warm up V8 JIT to measure steady-state evaluation latency without cold-compilation jitter
-  evaluateDetectorsOnSteps(steps.slice(0, 5), { existingFiles: new Set() });
-
-  const evalResult = evaluateDetectorsOnSteps(steps, {
+  const evalContext = {
     sessionId: 'session-main',
     cachedTokens: 80500,
     cacheTtlSeconds: 240,
     approvalGateEnabled: true,
     userApprovedPlan: false,
-    existingFiles: new Set(['src/core/constants.mjs', 'src/core/file_one.mjs', 'src/core/file_two.mjs']),
+    existingFiles: new Set([
+      'src/core/constants.mjs',
+      'src/core/file_one.mjs',
+      'src/core/file_two.mjs',
+      'src/core/router_shadow.mjs'
+    ]),
     concurrentSessionTargets: {
       'session-subagent-2': ['src/core/shared_target.mjs']
-    }
-  });
+    },
+    scopeLeases: [
+      {
+        trajectoryId: 'agent-peer-alpha',
+        pid: process.pid,
+        claimedPaths: ['src/core/shared_target.mjs'],
+        expiresAt: new Date(Date.now() + 60_000).toISOString()
+      }
+    ]
+  };
+
+  // Warm up V8 JIT across all 20 detector codepaths to measure steady-state evaluation latency without cold-compilation jitter
+  for (let w = 0; w < 3; w++) {
+    evaluateDetectorsOnSteps(steps, evalContext);
+  }
+
+  const evalResult = evaluateDetectorsOnSteps(steps, evalContext);
 
   assert.ok(evalResult.elapsedMs < 10, `Detector latency must be <10ms (got ${evalResult.elapsedMs}ms)`);
   assert.equal(evalResult.shouldHalt, true);
 
   const firedIds = new Set(evalResult.findings.map(f => f.detectorId));
-  for (let i = 1; i <= 16; i++) {
+  for (let i = 1; i <= 20; i++) {
     const id = `DET-${String(i).padStart(2, '0')}`;
     assert.ok(firedIds.has(id), `Expected detector ${id} to fire on synthetic stream (fired: ${Array.from(firedIds).join(', ')})`);
   }
@@ -304,6 +358,184 @@ test('[GATE-1.2] SQLite FTS5 Output Compressor achieves >85% token reduction on 
     assert.equal(failOpenRes.failOpen, true);
     assert.equal(failOpenRes.output, rawOutput, 'Must fail open and return raw output untouched on exception');
   } finally {
-    try { fs.rmSync(tmpHome, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }); } catch {}
+    try {
+      fs.rmSync(tmpHome, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    } catch (err) {
+      if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+    }
   }
+});
+
+test('[GATE-1.3] Benign developer workflow across DET-01..DET-20 emits zero false-positive findings', () => {
+  const simHome = path.posix.join(os.tmpdir().replace(/\\/g, '/'), 'hz-gate1-benign-home');
+  const brainDir = `${simHome}/.gemini/antigravity/brain/guid-benign`;
+
+  const benignSteps = [
+    // DET-01 benign: 2 failed commands followed by a passing fix
+    {
+      type: 'PLANNER_RESPONSE',
+      toolCalls: [{ name: 'run_command', args: { CommandLine: 'npm run build' }, exitCode: 1 }]
+    },
+    {
+      type: 'PLANNER_RESPONSE',
+      toolCalls: [{ name: 'run_command', args: { CommandLine: 'npm run build' }, exitCode: 1 }]
+    },
+    {
+      type: 'PLANNER_RESPONSE',
+      toolCalls: [{ name: 'run_command', args: { CommandLine: 'npm run build' }, exitCode: 0, stdout: 'Build succeeded in 410ms' }]
+    },
+    // DET-06 & DET-17 benign: ranged line reads on distinct sections around an edit
+    {
+      type: 'PLANNER_RESPONSE',
+      toolCalls: [{
+        name: 'read_file',
+        args: { Path: 'src/core/constants.mjs', StartLine: 1, EndLine: 50 },
+        fileHash: 'const_sha_1'
+      }]
+    },
+    {
+      type: 'PLANNER_RESPONSE',
+      toolCalls: [{
+        name: 'read_file',
+        args: { Path: 'src/core/constants.mjs', StartLine: 51, EndLine: 100 },
+        fileHash: 'const_sha_1'
+      }]
+    },
+    // DET-02 & DET-16 benign: progressive non-reverting edits preserving structure
+    {
+      type: 'PLANNER_RESPONSE',
+      toolCalls: [{
+        name: 'edit_file',
+        args: {
+          Path: 'src/app.mjs',
+          Target: 'const a = 1;\nconst b = 2;',
+          Replacement: 'const a = 2;\nconst b = 2;'
+        },
+        beforeHash: 'hash_v1',
+        afterHash: 'hash_v2'
+      }]
+    },
+    {
+      type: 'PLANNER_RESPONSE',
+      toolCalls: [{
+        name: 'edit_file',
+        args: {
+          Path: 'src/app.mjs',
+          Target: 'const a = 2;\nconst b = 2;',
+          Replacement: 'const a = 2;\nconst b = 3;'
+        },
+        beforeHash: 'hash_v2',
+        afterHash: 'hash_v3'
+      }]
+    },
+    // DET-03 benign: adding assertions while refactoring a test file
+    {
+      type: 'PLANNER_RESPONSE',
+      toolCalls: [{
+        name: 'edit_file',
+        args: {
+          Path: 'tests/auth.spec.ts',
+          Target: 'expect(res.status).toBe(200);',
+          Replacement: 'expect(res.status).toBe(200);\nexpect(res.user.id).toBe("u_1");'
+        }
+      }]
+    },
+    // DET-11 & DET-13 benign: plan references existing files + [NEW] file, followed by explicit user approval
+    {
+      type: 'PLANNER_RESPONSE',
+      toolCalls: [{
+        name: 'write_file',
+        args: {
+          Path: `${brainDir}/implementation_plan.md`,
+          Content: [
+            '- Update `src/core/file_one.mjs` and `src/core/file_two.mjs`.',
+            '- [NEW] Create `src/core/new_helper.mjs` for validation.'
+          ].join('\n')
+        }
+      }]
+    },
+    {
+      type: 'USER_INPUT',
+      role: 'user',
+      content: 'Looks good, approved — please proceed!'
+    },
+    {
+      type: 'PLANNER_RESPONSE',
+      thinking: 'Let us apply the two planned edits cleanly and run pytest.',
+      toolCalls: [
+        { name: 'edit_file', args: { Path: 'src/core/file_one.mjs', Target: 'const x = 1;', Replacement: 'const x = 2;' } },
+        { name: 'edit_file', args: { Path: 'src/core/file_two.mjs', Target: 'const y = 1;', Replacement: 'const y = 2;' } }
+      ]
+    },
+    // DET-08 & DET-19 benign: commit message mentions forbidden flags inside quotes without executing them
+    {
+      type: 'PLANNER_RESPONSE',
+      toolCalls: [
+        {
+          name: 'run_command',
+          args: { CommandLine: 'git commit -m "docs: explain why --no-verify and git reset --hard are blocked"' },
+          exitCode: 0,
+          stdout: '[main 1a2b3c4] docs: explain why --no-verify and git reset --hard are blocked'
+        },
+        {
+          name: 'run_command',
+          args: { CommandLine: 'pytest tests/' },
+          exitCode: 0,
+          stdout: '12 passed in 0.44s'
+        }
+      ]
+    },
+    // DET-05, DET-09, DET-12, DET-14, DET-15, DET-18, DET-20 benign:
+    // mark task [x] after passing pytest, edit ordinary settings_view.mjs, active healthy subprocess, non-overlapping leases
+    {
+      type: 'PLANNER_RESPONSE',
+      content: 'Updated task checklist and settings view documentation with example placeholder `sk-example` redacted.',
+      orphanedProcesses: [{ pid: 44100, name: 'node', cpuPct: 14.5, orphaned: false, parentAlive: true }],
+      toolCalls: [
+        {
+          name: 'edit_file',
+          args: {
+            Path: `${brainDir}/task.md`,
+            Target: '- [ ] Fix auth',
+            Replacement: '- [x] Fix auth'
+          }
+        },
+        {
+          name: 'edit_file',
+          args: {
+            Path: 'src/ui/settings_view.mjs',
+            Target: 'export const label = "Settings";',
+            Replacement: 'export const label = "Workspace Settings";'
+          }
+        }
+      ]
+    }
+  ];
+
+  const benignRes = evaluateDetectorsOnSteps(benignSteps, {
+    sessionId: 'session-main',
+    cachedTokens: 80500,
+    cacheTtlSeconds: 240,
+    approvalGateEnabled: true,
+    userApprovedPlan: false,
+    existingFiles: new Set(['src/core/constants.mjs', 'src/core/file_one.mjs', 'src/core/file_two.mjs']),
+    concurrentSessionTargets: {
+      'session-subagent-2': ['src/core/isolated_worker_file.mjs']
+    },
+    scopeLeases: [
+      {
+        trajectoryId: 'agent-peer-alpha',
+        pid: process.pid,
+        claimedPaths: ['src/core/isolated_worker_file.mjs'],
+        expiresAt: new Date(Date.now() + 60_000).toISOString()
+      }
+    ]
+  });
+
+  assert.equal(benignRes.shouldHalt, false);
+  assert.deepEqual(
+    benignRes.findings,
+    [],
+    `Expected 0 false-positive findings on benign developer workflow, got: ${JSON.stringify(benignRes.findings)}`
+  );
 });

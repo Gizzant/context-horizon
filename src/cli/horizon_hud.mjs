@@ -25,10 +25,55 @@ import { computePlanChurn, gradeProofQuality, detectContextRot } from '../core/s
 import { auditHandoff } from '../core/handoff_audit.mjs';
 import { inspectHostProcesses } from '../core/host_watchdog.mjs';
 import { loadFlightcheckConfig } from '../core/config.mjs';
-import { buildDemoHorizonState, DEMO_SCENARIOS } from '../../tests/fixtures/synthetic_states.mjs';
+import { buildDemoHorizonState, DEMO_SCENARIOS } from '../demo/synthetic_states.mjs';
 import { buildActionQueue, formatActionQueueAnsi } from '../core/action_queue.mjs';
 
 export { buildActionQueue, formatActionQueueAnsi };
+
+const ANSI_ESCAPE_RE = /\x1b\[[0-9;]*m/g;
+
+export function stripAnsi(str = '') {
+  return String(str).replace(ANSI_ESCAPE_RE, '');
+}
+
+export function visibleWidth(str = '') {
+  return Array.from(stripAnsi(str)).length;
+}
+
+export function clampAnsiLine(line = '', maxCols = 80) {
+  const limit = Math.max(10, Number(maxCols) || 80);
+  const raw = String(line || '');
+  if (visibleWidth(raw) <= limit) return raw;
+  let vis = 0;
+  let out = '';
+  let i = 0;
+  let hadAnsi = false;
+  const target = Math.max(1, limit - 1);
+  while (i < raw.length && vis < target) {
+    if (raw[i] === '\x1b') {
+      const m = raw.slice(i).match(/^\x1b\[[0-9;]*m/);
+      if (m) {
+        out += m[0];
+        i += m[0].length;
+        hadAnsi = true;
+        continue;
+      }
+    }
+    const cp = raw.codePointAt(i);
+    const ch = String.fromCodePoint(cp);
+    out += ch;
+    i += ch.length;
+    vis += 1;
+  }
+  return `${out}…${hadAnsi ? '\x1b[0m' : ''}`;
+}
+
+export function clampAnsiText(text = '', maxCols = 80) {
+  return String(text || '')
+    .split('\n')
+    .map(l => clampAnsiLine(l, maxCols))
+    .join('\n');
+}
 
 const FALLBACK_BAR = '\x1b[38;5;244m[░░░░░░░░░░░░░░░░░░░░] Purity: 100% | Noise: 0k | Quota: 100% | Effort: OK\x1b[0m';
 
@@ -186,8 +231,8 @@ export async function runHud(options = {}) {
       mode,
       quota: {
         remaining_fraction: minQuotaFraction,
-        remaining_amount: stdinData.quota?.remaining_amount || 100,
-        reset_in_seconds: stdinData.quota?.reset_in_seconds || 18000,
+        remaining_amount: stdinData.quota?.remaining_amount ?? null,
+        reset_in_seconds: stdinData.quota?.reset_in_seconds ?? 0,
         buckets: stdinData.quota?.buckets || {}
       },
       history: (sidecar.telemetry.history || []).slice(-19).concat([{
@@ -274,21 +319,27 @@ export async function runHud(options = {}) {
     const purity = classification.metrics.signalPurityPct;
     const noiseK = Math.round((classification.metrics.sludgeTokens || 0) / 1000);
     const activeK = Math.round((classification.totalInputTokens || 0) / 1000);
-    const maxK = Math.round((classification.model?.maxTokens || 256000) / 1000);
+    const resolvedMaxTokens = classification.model?.maxTokens ||
+      resolveModelCeiling(modelName, stdinData.context_window, { useLegacyDefault: false, config });
+    const maxK = Math.round(resolvedMaxTokens / 1000);
     const usedPct = maxK > 0 ? Math.round((activeK / maxK) * 100) : 0;
     const modeTag = classification.workloadMode?.tag || '[Mode: Read-Heavy Audit]';
     let outputLine = '';
 
     if (isFullMode) {
       const effortStatus = sensorResults.threeStrikeLoop ? 'LOOP_HALT' : (sensorResults.quotaFloorBreached ? 'QUOTA_LOW' : 'OK');
-      const cacheHitPct = classification.metrics?.cacheHitPct ?? 92;
-      const ttlSec = classification.metrics?.ttlRemainingSec ?? 300;
+      const cacheHitPct = Math.max(0, Number(classification.metrics?.cacheHitPct ?? 0) || 0);
+      const ttlSec = Math.max(0, Math.round(Number(classification.metrics?.ttlRemainingSec ?? 0) || 0));
       let extraHints = '';
       if (planChurn.warn) extraHints += ` | Plan: ${planChurn.planRevisions} revs ⚠`;
       if (handoff.result === 'NEEDS_FIXES') extraHints += ' | Handoff: Needs fixes';
       outputLine = `[${glyphStrip}] ${activeK}k / ${maxK}k · ${usedPct}% | Cache Hit: ${cacheHitPct}% | Waste: ${noiseK}k tok | TTL: ${ttlSec}s | Purity: ${purity}% | Noise: ${noiseK}k tok | Quota: ${quotaPct}% | ${modeTag} | Effort: ${effortStatus}${extraHints}`;
     } else {
       outputLine = `[${glyphStrip}] ${activeK}k/${maxK}k·${usedPct}% | P:${purity}% | N:${noiseK}k | Q:${quotaPct}%`;
+    }
+
+    if (columns <= 80) {
+      outputLine = clampAnsiText(outputLine, Math.min(columns, 80));
     }
 
     if (!options.silent) {
@@ -300,7 +351,10 @@ export async function runHud(options = {}) {
   }
 }
 
-export function formatDemoScenarioAnsi(scenarioId = 5) {
+export function formatDemoScenarioAnsi(scenarioId = 5, options = {}) {
+  const maxCols = options.columns && options.columns <= 80
+    ? Math.min(Number(options.columns) || 80, 80)
+    : 80;
   const state = buildDemoHorizonState(scenarioId);
   const meta = state.demoMeta || DEMO_SCENARIOS[4];
   const isAmputation = state.amputation.inAmputationZone;
@@ -321,46 +375,63 @@ export function formatDemoScenarioAnsi(scenarioId = 5) {
   const purity = state.metrics.signalPurityPct;
   const noiseK = Math.round(state.metrics.sludgeTokens / 1000);
   const quotaPct = state.quota.sprint5h.remainingPct;
-  const cacheHitPct = state.quota?.cache?.hitRatePct ?? 92;
-  const ttlSec = state.quota?.cache?.ttlRemainingSec ?? 300;
+  const cacheHitPct = Math.max(0, Number(state.quota?.cache?.hitRatePct ?? 0) || 0);
+  const ttlSec = Math.max(0, Math.round(Number(state.quota?.cache?.ttlRemainingSec ?? 0) || 0));
   const modeTag = state.workloadMode?.tag || '[Mode: Read-Heavy Audit]';
   const statusColor = isAmputation ? '\x1b[38;5;196m' : (purity < 60 ? '\x1b[38;5;214m' : '\x1b[38;5;82m');
 
   const aqAnsi = formatActionQueueAnsi(state);
+  const aqLines = aqAnsi ? aqAnsi.split('\n').filter(Boolean) : [];
+  const boxWidth = Math.max(40, Math.min(78, maxCols));
+  const headerLabel = `╭── Flight Check v3.3 (${meta.routerState}) `;
+  const headerDashCount = Math.max(1, boxWidth - visibleWidth(headerLabel) - 1);
+  const footerLine = `╰${'─'.repeat(Math.max(1, boxWidth - 2))}╯`;
 
-  const lines = [
-    `\x1b[1m\x1b[38;5;51m${meta.title}\x1b[0m  ${modeTag}`,
-    `\x1b[38;5;245mFailure Mode: "${meta.complaint}"\x1b[0m`,
-    `[${glyphStrip}] ${statusColor}${activeK}k / ${maxK}k · ${usedPct}%\x1b[0m | Cache Hit: ${cacheHitPct}% | Waste: ${noiseK}k tok | TTL: ${ttlSec}s | Purity: ${statusColor}${purity}%\x1b[0m | Quota: ${quotaPct}%`,
-    ...(aqAnsi ? [aqAnsi] : []),
-    `\x1b[38;5;244m╭── Flight Check v3.2 (${meta.routerState}) ───────────────────────────────────────────╮\x1b[0m`,
+  const rawLines = [
+    `\x1b[1m\x1b[38;5;51m${meta.title}\x1b[0m`,
+    `\x1b[38;5;245m${modeTag} · "${meta.complaint}"\x1b[0m`,
+    `[${glyphStrip}] ${statusColor}${activeK}k / ${maxK}k · ${usedPct}%\x1b[0m | Purity: ${statusColor}${purity}%\x1b[0m`,
+    `Cache Hit: ${cacheHitPct}% | Waste: ${noiseK}k tok | TTL: ${ttlSec}s | Quota: ${quotaPct}%`,
+    ...aqLines,
+    `\x1b[38;5;244m${headerLabel}${'─'.repeat(headerDashCount)}╮\x1b[0m`,
     `\x1b[38;5;244m│\x1b[0m 1. PROMPT : "${meta.fixture.prompt.slice(0, 56)}"`,
-    `\x1b[38;5;244m│\x1b[0m 2. HORIZON: [${activeK}k / ${maxK}k · ${usedPct}% | Cache Hit: ${cacheHitPct}% | Waste: ${noiseK}k tok | TTL: ${ttlSec}s | Quota: ${quotaPct}%]`,
+    `\x1b[38;5;244m│\x1b[0m 2. HORIZON: [${activeK}k/${maxK}k·${usedPct}% | Cache:${cacheHitPct}% | Waste:${noiseK}k | TTL:${ttlSec}s | Q:${quotaPct}%]`,
     `\x1b[38;5;244m│\x1b[0m 3. ACTION : \x1b[38;5;82m${meta.recommendedAction}\x1b[0m`,
     `\x1b[38;5;244m│\x1b[0m 4. REWRITE: \x1b[38;5;51m"${meta.rewrite}"\x1b[0m`,
-    `\x1b[38;5;244m╰────────────────────────────────────────────────────────────────────────────────────────╯\x1b[0m`
+    `\x1b[38;5;244m${footerLine}\x1b[0m`
   ];
+  const lines = rawLines.map(l => clampAnsiLine(l, maxCols));
   return { text: lines.join('\n'), state };
 }
 
-export async function runDemoShowcase({ scenarioId = null, animate = false } = {}) {
-  console.log('\n\x1b[1m\x1b[38;5;51m⚡ CONTEXT HORIZON (ctxtop v3.2.0) — 40-Cell Context Telemetry & Flight Check Demo\x1b[0m');
-  console.log('\x1b[38;5;244mLegend: \x1b[38;5;51m█ Anchor\x1b[0m  \x1b[38;5;141m▓ Memory KI\x1b[0m  \x1b[38;5;205m▓ Foreign Bleed\x1b[0m  \x1b[38;5;214m▒ Stale/Dirty\x1b[0m  \x1b[38;5;196m▓ Dead Error\x1b[0m  \x1b[38;5;82m█ Active Set\x1b[0m  \x1b[38;5;196m![...]! Amputation (>140k)\x1b[0m\n');
+export async function runDemoShowcase({ scenarioId = null, animate = false, columns = process.stdout.columns || 80 } = {}) {
+  const maxCols = columns <= 80 ? Math.min(columns, 80) : 80;
+  console.log('\n' + clampAnsiLine('\x1b[1m\x1b[38;5;51m⚡ ATTENTION HORIZON (ctxtop v3.3.0) — 40-Cell Context Telemetry & Flight Check\x1b[0m', maxCols));
+  console.log(clampAnsiLine('\x1b[38;5;244mLegend: \x1b[38;5;51m█ Anchor\x1b[0m \x1b[38;5;141m▓ Memory\x1b[0m \x1b[38;5;205m▓ Bleed\x1b[0m \x1b[38;5;214m▒ Stale\x1b[0m \x1b[38;5;196m▓ Error\x1b[0m \x1b[38;5;82m█ Active\x1b[0m \x1b[38;5;196m![..]! (>140k)\x1b[0m', maxCols) + '\n');
 
   const ids = scenarioId ? [Number(scenarioId)] : (animate ? [2, 4, 5, 6, 7] : [5]);
   for (let idx = 0; idx < ids.length; idx++) {
-    const { text } = formatDemoScenarioAnsi(ids[idx]);
+    const { text } = formatDemoScenarioAnsi(ids[idx], { columns: maxCols });
     console.log(text);
     if (idx < ids.length - 1) {
       console.log('');
       if (animate) await new Promise(r => setTimeout(r, 450));
     }
   }
-  console.log('\n\x1b[38;5;245mTry all 8 scenarios: npx context-horizon --demo-animate | Launch Webview: npx context-horizon --serve | Roast local logs: npx ctxtop --roast\x1b[0m\n');
+  console.log('\n' + clampAnsiLine('\x1b[38;5;245mTry: npx attention-horizon-antigravity --demo-animate | Web UI: npx attention-horizon-antigravity ui\x1b[0m', maxCols) + '\n');
+}
+
+export function isHudMain(argv1 = process.argv[1], metaUrl = import.meta.url) {
+  if (!argv1) return false;
+  try {
+    return fs.realpathSync(argv1) === fs.realpathSync(fileURLToPath(metaUrl));
+  } catch {
+    return path.resolve(argv1) === path.resolve(fileURLToPath(metaUrl));
+  }
 }
 
 // Auto-run if executed as main CLI script
-const isMain = process.argv[1] && (process.argv[1].endsWith('horizon_hud.mjs') || process.argv[1].endsWith('horizon_hud.js'));
+const isMain = isHudMain();
 if (isMain) {
   process.on('uncaughtException', () => safeExitFallback());
   process.on('unhandledRejection', () => safeExitFallback());
@@ -399,7 +470,10 @@ export async function runCLI(options = {}) {
   } = options;
 
   if (demoScenario || process.env.HORIZON_DEMO === '1') {
-    const { text, state } = formatDemoScenarioAnsi(Number(demoScenario || process.env.HORIZON_DEMO_SCENARIO || 5));
+    const { text, state } = formatDemoScenarioAnsi(
+      Number(demoScenario || process.env.HORIZON_DEMO_SCENARIO || 5),
+      { columns }
+    );
     if (!options.silent) console.log(text);
     return { output: text, state };
   }
@@ -484,7 +558,13 @@ export async function runCLI(options = {}) {
   state.recentSessions = reconciliation.recentSessions || [];
   state.rewindDetected = Boolean(parsed.rewindDetected);
   try { state.baseline = measureBaseline(reconciliation.primaryWorkspace || ''); } catch { state.baseline = null; }
-  state.chronicReads = updateChronicReads(cacheDir, sessionInfo.sessionId, state.brainSignals?.duplicateReads?.topFiles || []);
+  state.chronicReads = updateChronicReads(
+    cacheDir,
+    sessionInfo.sessionId,
+    state.brainSignals?.duplicateReads?.topFiles || [],
+    10,
+    reconciliation.primaryWorkspace || state.workspace?.canonicalPath || ''
+  );
 
   state.delta = recordAndDelta(cacheDir, sessionInfo.sessionId, state, parsed.steps).delta;
   try {
@@ -527,9 +607,9 @@ export async function runCLI(options = {}) {
   const rawRecCmd = state.diagnostics.recommendedCommand || 'Ready';
   const recCmd = rawRecCmd === '/fast' ? 'Ready' : rawRecCmd;
   const isCacheCold = state.quota?.cache ? Boolean(state.quota.cache.isCacheCold) : false;
-  const ttlSec = Number(state.quota?.cache?.ttlRemainingSec || 0);
-  const cacheHitPct = Number(state.quota?.cache?.hitRatePct || 0);
-  const cacheLabel = isCacheCold ? 'Cold' : (ttlSec > 0 ? `Warm(${ttlSec}s)` : 'Warm');
+  const ttlSec = Math.max(0, Math.round(Number(state.quota?.cache?.ttlRemainingSec || 0) || 0));
+  const cacheHitPct = Math.max(0, Number(state.quota?.cache?.hitRatePct || 0) || 0);
+  const cacheLabel = (!isCacheCold && ttlSec > 0 && cacheHitPct > 0) ? `Warm(${ttlSec}s)` : 'Cold';
   const modeTag = state.workloadMode?.tag || '[Mode: Read-Heavy Audit]';
   const strandedCnt = Number(state.attentionHeatmap?.strandedSignalCount || 0);
   const strandedSuffix = strandedCnt > 0 ? ` | \u26A0 ${strandedCnt}/40 mid-window blocks` : '';
@@ -541,6 +621,9 @@ export async function runCLI(options = {}) {
     line1 = `${bar} [${activeK}k/${maxK}k·${usedPct}%] P:${purity}% Waste:${noiseK}k -> ${recCmd}`;
   } else {
     line1 = `${bar} ${activeK}k P:${purity}% ${recCmd}`;
+  }
+  if (columns <= 80) {
+    line1 = clampAnsiText(line1, Math.min(columns, 80));
   }
 
   if (!options.silent) console.log(line1);

@@ -3,7 +3,7 @@ name: horizon
 description: Inspect real-time 40-cell context health, Context Truncation risk, and Wasted Tokens.
 ---
 
-# Context Horizon (`/horizon`)
+# Attention Horizon (`/horizon`)
 
 When this command is invoked, visualize the current conversation context health.
 
@@ -14,4 +14,4 @@ When this command is invoked, visualize the current conversation context health.
    <agent-embed src="file:///<artifactDirectoryPath>/horizon_widget.html"></agent-embed>
    ```
 3. Offer a one-click auxiliary side pane pill:
-   [Open Context Horizon](sidecar://agy-horizon/horizon-daemon/)
+   [Open Attention Horizon](sidecar://agy-horizon-flightcheck/horizon-daemon/)

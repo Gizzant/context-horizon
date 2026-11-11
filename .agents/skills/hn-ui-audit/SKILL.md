@@ -1,7 +1,7 @@
 ---
 name: hn-ui-audit
 description: >-
-  Audits, inspects, and verifies Context Horizon (ga-visualizer-v2) UI, state, and
+  Audits, inspects, and verifies Attention Horizon (ctxtop) UI, state, and
   telemetry components against Edward Tufte high data-ink standards, WCAG AA contrast,
   and strict architectural invariants. Preloads context from evaluation_bundles/ui_audit_context.
 context_bundles:
@@ -10,7 +10,7 @@ context_bundles:
 
 # Horizon UI Audit (`hn-ui-audit`)
 
-A specialized visual, state, and architectural audit skill for **Context Memory (Chrono-Attention Horizon)** (`ga-visualizer-v2` / `ctxtop`). Use this skill to evaluate UI components, verify state and telemetry contracts, enforce Edward Tufte data-ink principles, prevent UI regressions, and ensure complete compliance with architectural invariants.
+A specialized visual, state, and architectural audit skill for **Attention Horizon** (`attention-horizon-antigravity` / `ctxtop`). Use this skill to evaluate UI components, verify state and telemetry contracts, enforce Edward Tufte data-ink principles, prevent UI regressions, and ensure complete compliance with architectural invariants.
 
 ---
 
@@ -18,10 +18,10 @@ A specialized visual, state, and architectural audit skill for **Context Memory 
 
 Whenever executing this skill or receiving the `/hn-ui-audit` command, **immediately preload and review** the four context documents in `evaluation_bundles/ui_audit_context/`:
 
-1. **[01_UI_COMPONENT_MAP.md](file:///c:/Projects/ga-visualizer-v2/evaluation_bundles/ui_audit_context/01_UI_COMPONENT_MAP.md)**: Index of live UI files, webview HTML views (`src/webview/horizon_panel.html`, `sidepane.html`), and core engine ES modules.
-2. **[02_DESIGN_TOKENS_AND_RULES.md](file:///c:/Projects/ga-visualizer-v2/evaluation_bundles/ui_audit_context/02_DESIGN_TOKENS_AND_RULES.md)**: Semantic design tokens (`--hz-*`), layout rules, typography standards, and refactoring guidelines.
-3. **[03_TELEMETRY_DATA_CONTRACT.md](file:///c:/Projects/ga-visualizer-v2/evaluation_bundles/ui_audit_context/03_TELEMETRY_DATA_CONTRACT.md)**: Schemas, JSDoc definitions, and telemetry data models for layers 1–6, cache states, and effort profiles.
-4. **[04_KNOWN_ANTI_PATTERNS.md](file:///c:/Projects/ga-visualizer-v2/evaluation_bundles/ui_audit_context/04_KNOWN_ANTI_PATTERNS.md)**: Regression guardrails, forbidden UI antipatterns, and non-negotiable architectural constraints.
+1. **[01_UI_COMPONENT_MAP.md](../../../evaluation_bundles/ui_audit_context/01_UI_COMPONENT_MAP.md)**: Index of live UI files, webview HTML views (`src/webview/horizon_panel.html`, `sidepane.html`), and core engine ES modules.
+2. **[02_DESIGN_TOKENS_AND_RULES.md](../../../evaluation_bundles/ui_audit_context/02_DESIGN_TOKENS_AND_RULES.md)**: Semantic design tokens (`--hz-*`), layout rules, typography standards, and refactoring guidelines.
+3. **[03_TELEMETRY_DATA_CONTRACT.md](../../../evaluation_bundles/ui_audit_context/03_TELEMETRY_DATA_CONTRACT.md)**: Schemas, JSDoc definitions, and telemetry data models for layers 1–6, cache states, and effort profiles.
+4. **[04_KNOWN_ANTI_PATTERNS.md](../../../evaluation_bundles/ui_audit_context/04_KNOWN_ANTI_PATTERNS.md)**: Regression guardrails, forbidden UI antipatterns, and non-negotiable architectural constraints.
 
 > [!NOTE]
 > If any of these context files are missing or out-of-date, regenerate the bundle before proceeding:

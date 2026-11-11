@@ -1,20 +1,20 @@
 <div align="center">
 
-# `ctxtop` — Context Horizon (v3.3.0)
+# Attention Horizon for Google Antigravity (`attention-horizon-antigravity` v3.3.0)
 
-**Local Context Window Profiler, KV-Cache TTL Monitor & `<15ms` PreInvocation Router for Google Antigravity, Claude Code & Cursor**
+**Local Context Window Profiler, KV-Cache TTL Monitor & Deterministic PreInvocation Router (`~0.18ms` Tier-1 In-Process / `~25–90ms` Tier-2 CLI Hook) for Google Antigravity**
 
 [![Zero Runtime Dependencies](https://img.shields.io/badge/dependencies-0_runtime-brightgreen.svg)](#systems-architecture--zero-trust-security)
-[![Hook Latency](https://img.shields.io/badge/PreInvocation_hook-%3C15ms_p99-00e5ff.svg)](#deterministic-preinvocation-router--6-local-sensors)
+[![Hook Latency](https://img.shields.io/badge/Tier--1_in--process-~0.18ms_p95_%7C_Tier--2_CLI_hook-~25--90ms-00e5ff.svg)](#deterministic-preinvocation-router--6-local-sensors)
 [![Node.js >= 22](https://img.shields.io/badge/node-%3E%3D22.5_builtin_sqlite-339933.svg)](#quick-start)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Claude Code Edition](https://img.shields.io/badge/Claude_Code-cc--attention--horizon-blueviolet.svg)](https://github.com/Gizzant/cc-attention-horizon)
+[![Claude Code Edition](https://img.shields.io/badge/Claude_Code-attention--horizon--claude-blueviolet.svg)](https://github.com/Gizzant/attention-horizon-claude)
 
-[**Live Interactive Demo**](https://gizzant.github.io/context-horizon/) • [**Quick Start**](#quick-start) • [**Cookbook & Recipes**](docs/COOKBOOK.md) • [**Systems Architecture**](#systems-architecture--zero-trust-security)
+[**Live Interactive Demo**](https://gizzant.github.io/attention-horizon-antigravity/) • [**Quick Start**](#quick-start) • [**Cookbook & Recipes**](docs/COOKBOOK.md) • [**Systems Architecture**](#systems-architecture--zero-trust-security)
 
 <br/>
 
-<img src="assets/hero-demo.svg" alt="Context Horizon 40-Cell ANSI HUD & PreInvocation Router" width="100%" />
+<img src="assets/hero-demo.svg" alt="Attention Horizon 40-Cell ANSI HUD & PreInvocation Router" width="100%" />
 
 </div>
 
@@ -36,7 +36,7 @@ node src/cli/init.mjs doctor
 
 ---
 
-## Why `ctxtop` Exists (vs. Cloud LLM Observability)
+## Why Attention Horizon (`ctxtop`) Exists (vs. Cloud LLM Observability)
 
 Cloud trace platforms (Langfuse, Helicone, Arize) require proxying API keys over the network and only observe HTTP request/response payloads. They have **zero visibility into the local filesystem, git working tree, IDE process table, or local SQLite/JSONL session stores**.
 
@@ -136,7 +136,7 @@ node src/cli/init.mjs init --workspace
 
 ## Deterministic `PreInvocation` Router & 6 Local Sensors
 
-When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incoming prompts in **`< 15ms`** across 8 deterministic router states:
+When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incoming prompts across 8 deterministic router states (**Tier-1 In-Process Router Evaluation: `~0.18ms p95`** inside a warm V8 isolate; **Tier-2 Spawned CLI Hook End-to-End Wall Time: `~25–45ms` POSIX / `~40–90ms` Windows PowerShell** including Node process startup):
 
 1. `ALLOW_SILENT`: Immediate pass-through (`{}`) on `!` bypass prefix or healthy turns.
 2. `ALLOW_ACTIVE_SET`: Silent pass-through when referenced files are already warm in the last 5 turns.
@@ -180,7 +180,7 @@ npm run test:phases
 # End-to-end context memory & live loopback daemon integration suite
 npm run test:e2e
 
-# Latency benchmark (<15ms PreInvocation p99, <45ms CLI statusLine p99)
+# Latency benchmark (Tier-1 In-Process ~0.18ms p95, Tier-2 Spawned CLI Hook E2E ~25-45ms POSIX / ~40-90ms Win32, <45ms in-process HUD p95)
 npm run bench
 ```
 

@@ -1,6 +1,15 @@
 import fs from 'node:fs';
 import { getHomeDir } from './paths.mjs';
 import { findSessionDirectory, parseTranscriptIncremental } from './parser.mjs';
+import {
+  normalizeModelId,
+  resolveModelDescriptor,
+  resolveModelRates,
+  calculateModelCost,
+  createSwarmAgentState,
+  validateSwarmAgentState,
+  CORE_SCHEMAS
+} from './constants.mjs';
 
 /**
  * Multi-Agent (`invoke_subagent`) Context Tree & Handoff Inspector.
@@ -149,7 +158,7 @@ export function buildSubagentWorktreeDag(steps = [], { childTranscripts = [], no
     const modifiedFiles = new Set();
 
     for (const cs of childSteps) {
-      isolatedTokens += Number(cs.outputTokens ?? cs.output_tokens ?? 600);
+      isolatedTokens += Math.max(0, Number(cs.outputTokens ?? cs.output_tokens ?? 0) || 0);
       const ts = cs.createdAt ? Date.parse(cs.createdAt) : (cs.timestamp ? Date.parse(cs.timestamp) : 0);
       if (Number.isFinite(ts) && ts > latestTs) latestTs = ts;
 
@@ -198,4 +207,371 @@ export function buildSubagentWorktreeDag(steps = [], { childTranscripts = [], no
     hasFileCollision: fileCollisions.length > 0
   };
 }
+
+export const SWARM_IDLE_TTL_CONSTANTS = Object.freeze({
+  DEFAULT_CACHE_TTL_MS: 300000, // 5 minutes (300,000 ms)
+  DEFAULT_COLD_WAKE_THRESHOLD_TOKENS: 100000, // 100,000 warm prefix tokens
+  CLIFF_WARNING_SECONDS: 60, // warn when within 60 seconds of falling off cache cliff
+  SWARM_TOOL_MATCHER: 'invoke_subagent|define_subagent|send_message|manage_subagents'
+});
+
+/**
+ * Determines whether a model is considered a frontier model subject to cold-cache wakeup diagnostics.
+ */
+export function isFrontierSwarmModel(modelId = '') {
+  const desc = resolveModelDescriptor(modelId);
+  if (desc && (desc.family === 'carbon' || desc.family === 'argon' || desc.family === 'opus' || desc.family === 'sonnet')) {
+    return true;
+  }
+  const norm = normalizeModelId(modelId);
+  return norm.includes('carbon') || norm.includes('argon') || norm.includes('opus') || norm.includes('pro');
+}
+
+/**
+ * Extracts target recipient agent IDs from a `send_message` tool call or `@mention` text.
+ */
+export function extractTargetRecipientAgents(toolInput = {}, rawText = '') {
+  const targets = new Set();
+  const recipient = toolInput?.Recipient || toolInput?.recipient || toolInput?.targetAgent || toolInput?.agent_id || toolInput?.agentId;
+  if (recipient && typeof recipient === 'string' && recipient.trim()) {
+    targets.add(recipient.trim());
+  }
+  const msgText = String(toolInput?.Message || toolInput?.message || toolInput?.brief || rawText || '');
+  const mentionMatches = msgText.match(/@([a-z0-9_-]+)/gi) || [];
+  for (const m of mentionMatches) {
+    const clean = m.slice(1).trim();
+    if (clean) targets.add(clean);
+  }
+  return Array.from(targets);
+}
+
+/**
+ * Computes per-agent TTL countdown badges for the local state JSON so the UI/statusline
+ * warns when a parked Carbon coordinator or verifier is within 60 seconds of falling off the cache cliff.
+ */
+export function computeSwarmRosterTtlBadges(swarmRoster = {}, {
+  nowMs = Date.now(),
+  cacheTtlMs = SWARM_IDLE_TTL_CONSTANTS.DEFAULT_CACHE_TTL_MS
+} = {}) {
+  const badges = [];
+  const entries = swarmRoster instanceof Map
+    ? Array.from(swarmRoster.entries())
+    : Object.entries(swarmRoster || {});
+
+  for (const [keyId, rawAgent] of entries) {
+    if (!rawAgent || typeof rawAgent !== 'object') continue;
+    const state = createSwarmAgentState({ ...rawAgent, agent_id: rawAgent.agent_id || keyId });
+    const ttlMs = Number(state.cache_ttl_ms || cacheTtlMs || SWARM_IDLE_TTL_CONSTANTS.DEFAULT_CACHE_TTL_MS);
+    const elapsedMs = Math.max(0, nowMs - state.last_active_timestamp);
+    const remainingMs = state.status === 'terminated' ? 0 : Math.max(0, ttlMs - elapsedMs);
+    const remainingSec = Math.ceil(remainingMs / 1000);
+    const isExpired = state.status !== 'terminated' && elapsedMs > ttlMs;
+    const isNearCliff = state.status === 'idle_zero_token' && remainingSec > 0 && remainingSec <= SWARM_IDLE_TTL_CONSTANTS.CLIFF_WARNING_SECONDS;
+
+    const mins = Math.floor(remainingSec / 60);
+    const secs = remainingSec % 60;
+    const countdownLabel = remainingSec > 0
+      ? `${mins}m ${String(secs).padStart(2, '0')}s`
+      : '0m 00s (expired)';
+
+    const badgeText = isNearCliff
+      ? `⚠️ [${state.agent_id} • ${state.model_id}] Cache cliff in ${remainingSec}s (${Math.round(state.warm_prefix_tokens / 1000)}k warm) [CACHE CLIFF WARNING]`
+      : (isExpired
+        ? `❄️ [${state.agent_id} • ${state.model_id}] Cold cache (${Math.round(state.warm_prefix_tokens / 1000)}k expired)`
+        : `🟢 [${state.agent_id} • ${state.model_id}] ${countdownLabel} (${Math.round(state.warm_prefix_tokens / 1000)}k warm)`);
+
+    badges.push({
+      agent_id: state.agent_id,
+      model_id: state.model_id,
+      status: state.status,
+      warm_prefix_tokens: state.warm_prefix_tokens,
+      last_active_timestamp: state.last_active_timestamp,
+      cache_ttl_ms: ttlMs,
+      elapsed_ms: elapsedMs,
+      ttl_remaining_ms: remainingMs,
+      ttl_remaining_sec: remainingSec,
+      remaining_ttl_sec: remainingSec,
+      is_near_cliff: isNearCliff,
+      within_cliff_warning: isNearCliff,
+      is_expired: isExpired,
+      countdown_label: countdownLabel,
+      badge_text: badgeText,
+      badge_label: badgeText
+    });
+  }
+
+  return badges;
+}
+
+/**
+ * Evaluates a `PreToolUse` on `send_message` (or `@mention` dispatch) targeting a specific `Recipient` agent.
+ * If the target agent is running `gemini-4-carbon` (or another frontier model), has
+ * `warm_prefix_tokens >= cold_wake_threshold` (default 100,000), and `now - target.last_active_timestamp > cache_ttl_ms`,
+ * surfaces a Cold-Cache Wakeup diagnostic quantifying the uncached input rebuild cost using `resolveModelRates()`.
+ */
+export function evaluateSwarmColdCacheWakeup({
+  recipientAgentId,
+  swarmRoster = {},
+  nowMs = Date.now(),
+  eventTimestampUtc = null,
+  serviceTier = 'standard',
+  coldWakeThresholdTokens = SWARM_IDLE_TTL_CONSTANTS.DEFAULT_COLD_WAKE_THRESHOLD_TOKENS,
+  cacheTtlMs = SWARM_IDLE_TTL_CONSTANTS.DEFAULT_CACHE_TTL_MS
+} = {}) {
+  const targetRecord = swarmRoster instanceof Map
+    ? swarmRoster.get(recipientAgentId)
+    : (swarmRoster?.[recipientAgentId] || null);
+
+  if (!targetRecord) {
+    return {
+      triggered: false,
+      reason: 'UNKNOWN_AGENT',
+      recipientAgentId: recipientAgentId || null
+    };
+  }
+
+  const state = createSwarmAgentState({ ...targetRecord, agent_id: targetRecord.agent_id || recipientAgentId });
+  const ttlMs = Number(state.cache_ttl_ms || cacheTtlMs || SWARM_IDLE_TTL_CONSTANTS.DEFAULT_CACHE_TTL_MS);
+  const threshold = Number(coldWakeThresholdTokens ?? SWARM_IDLE_TTL_CONSTANTS.DEFAULT_COLD_WAKE_THRESHOLD_TOKENS);
+  const elapsedMs = Math.max(0, nowMs - state.last_active_timestamp);
+  const elapsedSec = Math.round(elapsedMs / 1000);
+  const ttlRemainingSec = Math.max(0, Math.ceil((ttlMs - elapsedMs) / 1000));
+  const isCacheExpired = elapsedMs > ttlMs;
+  const isFrontier = isFrontierSwarmModel(state.model_id);
+  const meetsTokenThreshold = state.warm_prefix_tokens >= threshold;
+
+  const effectiveTimestamp = eventTimestampUtc ?? nowMs;
+  const rates = resolveModelRates(state.model_id, effectiveTimestamp, serviceTier);
+  const uncachedRebuildCost = calculateModelCost(
+    { input_tokens: state.warm_prefix_tokens, output_tokens: 0, thinking_tokens: 0, cached_read_tokens: 0 },
+    { modelId: state.model_id, eventTimestampUtc: effectiveTimestamp, serviceTier }
+  );
+  const warmHitCost = calculateModelCost(
+    { input_tokens: 0, output_tokens: 0, thinking_tokens: 0, cached_read_tokens: state.warm_prefix_tokens },
+    { modelId: state.model_id, eventTimestampUtc: effectiveTimestamp, serviceTier }
+  );
+
+  const rebuildCostUsd = uncachedRebuildCost.inputCostUsd;
+  const warmReadCostUsd = warmHitCost.cachedReadCostUsd;
+  const penaltyDeltaUsd = Number((rebuildCostUsd - warmReadCostUsd).toFixed(6));
+
+  if (state.status !== 'terminated' && isFrontier && meetsTokenThreshold && isCacheExpired) {
+    return {
+      triggered: true,
+      coldWakeDetected: true,
+      cacheWarm: false,
+      diagnosticType: 'COLD_CACHE_WAKEUP',
+      recipientAgentId: state.agent_id,
+      modelId: state.model_id,
+      status: state.status,
+      warmPrefixTokens: state.warm_prefix_tokens,
+      elapsedMs,
+      elapsedSec,
+      cacheTtlMs: ttlMs,
+      ttlRemainingSec: 0,
+      pricingWindow: rates.pricingWindow,
+      serviceTier: rates.serviceTier,
+      inputRatePer1M: rates.input_per_1m,
+      cachedReadRatePer1M: rates.cached_read_per_1m,
+      uncachedRebuildCostUsd: rebuildCostUsd,
+      warmReadCostUsd,
+      penaltyDeltaUsd,
+      incrementalColdPenaltyUsd: penaltyDeltaUsd,
+      message: `[Cold-Cache Wakeup] Waking idle agent "${state.agent_id}" (${state.model_id}) after ${elapsedSec}s (> ${Math.round(ttlMs / 1000)}s TTL) triggers an uncached rebuild of ${state.warm_prefix_tokens.toLocaleString('en-US')} prefix tokens costing $${rebuildCostUsd.toFixed(4)} ($${rates.input_per_1m.toFixed(2)}/1M ${rates.pricingWindow} ${rates.serviceTier} rate vs $${warmReadCostUsd.toFixed(4)} warm hit).`
+    };
+  }
+
+  return {
+    triggered: false,
+    coldWakeDetected: false,
+    cacheWarm: !isCacheExpired,
+    diagnosticType: 'WARM_CACHE_HIT',
+    recipientAgentId: state.agent_id,
+    modelId: state.model_id,
+    status: state.status,
+    warmPrefixTokens: state.warm_prefix_tokens,
+    elapsedMs,
+    elapsedSec,
+    cacheTtlMs: ttlMs,
+    ttlRemainingSec,
+    pricingWindow: rates.pricingWindow,
+    serviceTier: rates.serviceTier,
+    uncachedRebuildCostUsd: 0,
+    warmReadCostUsd,
+    penaltyDeltaUsd: 0,
+    incrementalColdPenaltyUsd: 0,
+    message: ''
+  };
+}
+
+/**
+ * Stateful `/swarm` roster & idle-TTL tracker for coordinator and subagent lifecycles.
+ */
+export class SwarmIdleTtlTracker {
+  constructor(options = {}) {
+    this.cacheTtlMs = Number(options.cacheTtlMs || SWARM_IDLE_TTL_CONSTANTS.DEFAULT_CACHE_TTL_MS);
+    this.coldWakeThresholdTokens = Number(options.coldWakeThresholdTokens || SWARM_IDLE_TTL_CONSTANTS.DEFAULT_COLD_WAKE_THRESHOLD_TOKENS);
+    this.roster = new Map();
+    if (options.initialRoster && typeof options.initialRoster === 'object') {
+      for (const [k, v] of Object.entries(options.initialRoster)) {
+        const st = createSwarmAgentState({ ...v, agent_id: v?.agent_id || k, cache_ttl_ms: v?.cache_ttl_ms || this.cacheTtlMs });
+        this.roster.set(st.agent_id, st);
+      }
+    }
+  }
+
+  registerOrActivateAgent(agentId, {
+    modelId = 'gemini-4-carbon',
+    warmPrefixTokens = 0,
+    timestampMs = Date.now(),
+    role = null
+  } = {}) {
+    const existing = this.roster.get(agentId);
+    const state = createSwarmAgentState({
+      agent_id: agentId,
+      model_id: modelId || existing?.model_id || 'gemini-4-carbon',
+      status: 'active',
+      last_active_timestamp: timestampMs,
+      warm_prefix_tokens: warmPrefixTokens > 0 ? warmPrefixTokens : (existing?.warm_prefix_tokens || 0),
+      cache_ttl_ms: this.cacheTtlMs,
+      role: role || existing?.role || null
+    });
+    this.roster.set(state.agent_id, state);
+    return { ...state };
+  }
+
+  /**
+   * Transitions an agent to `idle_zero_token` when its turn completes while the parent swarm remains live.
+   */
+  markTurnCompleted(agentId, {
+    warmPrefixTokens = undefined,
+    timestampMs = Date.now(),
+    parentSwarmLive = true
+  } = {}) {
+    const existing = this.roster.get(agentId) || createSwarmAgentState({ agent_id: agentId });
+    const nextStatus = parentSwarmLive ? 'idle_zero_token' : 'terminated';
+    const updated = createSwarmAgentState({
+      ...existing,
+      agent_id: agentId,
+      status: nextStatus,
+      last_active_timestamp: timestampMs,
+      warm_prefix_tokens: warmPrefixTokens !== undefined ? warmPrefixTokens : existing.warm_prefix_tokens,
+      cache_ttl_ms: existing.cache_ttl_ms || this.cacheTtlMs
+    });
+    this.roster.set(updated.agent_id, updated);
+    return { ...updated };
+  }
+
+  terminateAgent(agentId, timestampMs = Date.now()) {
+    const existing = this.roster.get(agentId) || createSwarmAgentState({ agent_id: agentId });
+    const updated = createSwarmAgentState({
+      ...existing,
+      agent_id: agentId,
+      status: 'terminated',
+      last_active_timestamp: timestampMs
+    });
+    this.roster.set(updated.agent_id, updated);
+    return { ...updated };
+  }
+
+  interceptSendMessagePreToolUse(toolInput = {}, {
+    nowMs = Date.now(),
+    eventTimestampUtc = null,
+    serviceTier = 'standard'
+  } = {}) {
+    const recipients = extractTargetRecipientAgents(toolInput);
+    const diagnostics = [];
+    for (const recipientId of recipients) {
+      const diag = evaluateSwarmColdCacheWakeup({
+        recipientAgentId: recipientId,
+        swarmRoster: this.roster,
+        nowMs,
+        eventTimestampUtc: eventTimestampUtc ?? nowMs,
+        serviceTier,
+        coldWakeThresholdTokens: this.coldWakeThresholdTokens,
+        cacheTtlMs: this.cacheTtlMs
+      });
+      diagnostics.push(diag);
+    }
+    const triggeredDiagnostics = diagnostics.filter(d => d.triggered);
+    return {
+      triggered: triggeredDiagnostics.length > 0,
+      recipients,
+      diagnostics,
+      coldWakeupAlerts: triggeredDiagnostics,
+      primaryAlert: triggeredDiagnostics[0] || null
+    };
+  }
+
+  getBadges(nowMsOrOpts = Date.now()) {
+    const nowMs = typeof nowMsOrOpts === 'object' && nowMsOrOpts !== null
+      ? (nowMsOrOpts.nowMs ?? Date.now())
+      : nowMsOrOpts;
+    return computeSwarmRosterTtlBadges(this.roster, { nowMs, cacheTtlMs: this.cacheTtlMs });
+  }
+
+  getTtlBadges(nowMsOrOpts = Date.now()) {
+    return this.getBadges(nowMsOrOpts);
+  }
+
+  touchAgentActive(agentId, options = {}) {
+    return this.registerOrActivateAgent(agentId, options);
+  }
+
+  onTurnComplete(agentId, options = {}) {
+    if (options.modelId && !this.roster.has(agentId)) {
+      this.registerOrActivateAgent(agentId, {
+        modelId: options.modelId,
+        warmPrefixTokens: options.warmPrefixTokens ?? 0,
+        timestampMs: options.timestampMs ?? Date.now()
+      });
+    } else if (options.modelId && this.roster.has(agentId)) {
+      const cur = this.roster.get(agentId);
+      this.roster.set(agentId, { ...cur, model_id: normalizeModelId(options.modelId) });
+    }
+    return this.markTurnCompleted(agentId, options);
+  }
+
+  handlePreToolSendMessage(toolInput = {}, options = {}) {
+    const res = this.interceptSendMessagePreToolUse(toolInput, options);
+    const primary = res.primaryAlert || res.diagnostics[0] || {
+      triggered: false,
+      coldWakeDetected: false,
+      cacheWarm: true,
+      uncachedRebuildCostUsd: 0,
+      incrementalColdPenaltyUsd: 0,
+      message: ''
+    };
+    return {
+      ...primary,
+      ...res,
+      coldWakeDetected: Boolean(primary.coldWakeDetected || res.triggered),
+      cacheWarm: Boolean(primary.cacheWarm && !res.triggered),
+      uncachedRebuildCostUsd: primary.uncachedRebuildCostUsd ?? 0,
+      incrementalColdPenaltyUsd: primary.incrementalColdPenaltyUsd ?? 0,
+      warmPrefixTokens: primary.warmPrefixTokens ?? 0,
+      message: primary.message || ''
+    };
+  }
+
+  getRosterSnapshot() {
+    const agents = {};
+    for (const [id, st] of this.roster.entries()) {
+      agents[id] = { ...st };
+    }
+    return agents;
+  }
+
+  toJSON(nowMs = Date.now()) {
+    const agents = {};
+    for (const [id, st] of this.roster.entries()) {
+      agents[id] = { ...st };
+    }
+    return {
+      agents,
+      badges: this.getBadges(nowMs)
+    };
+  }
+}
+
 

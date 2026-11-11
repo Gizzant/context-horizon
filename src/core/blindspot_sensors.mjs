@@ -3,6 +3,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { canonicalizePath } from './path_canonicalizer.mjs';
 import { fingerprintErrorLoop } from './session_forensics.mjs';
+import { resolveModelCeiling } from './constants.mjs';
 
 /**
  * Sensor 1: detectDirtySnapshots (DIRTY_SNAP)
@@ -54,7 +55,12 @@ export function auditSchemaAndPayloads(stepEvents = [], toolUsageLedger = {}, co
     }
   }
 
-  const baseCeiling = config.max_tokens || config.maxTokens || config.nativeCeilingTokens || 200000;
+  const resolvedDynamicCeiling = resolveModelCeiling(
+    config.activeModel || config.modelId || config.model || 'default',
+    config.context_window || config.contextWindow || null,
+    { useLegacyDefault: true, config }
+  );
+  const baseCeiling = config.max_tokens || config.maxTokens || config.nativeCeilingTokens || resolvedDynamicCeiling;
   const schemaTaxPct = Number(((schemaTokens / baseCeiling) * 100).toFixed(1));
   const unusedMcpServers = [];
 

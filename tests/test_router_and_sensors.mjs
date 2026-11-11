@@ -60,7 +60,11 @@ describe('2. Atomic Sidecar Store & JSON Resilience', () => {
     assert.equal(fallback.version, SIDECAR_VERSION);
     assert.equal(fallback.conversationId, cid);
 
-    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch (err) {
+      if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+    }
   });
 });
 
@@ -116,7 +120,11 @@ describe('4. The 6 Blind-Spot Sensors', () => {
     assert.ok(out.streamCutoffRiskFiles.length > 0);
     assert.equal(out.threeStrikeLoop, true);
 
-    try { fs.rmSync(tmp, { recursive: true, force: true }); } catch {}
+    try {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    } catch (err) {
+      if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+    }
   });
 });
 
@@ -324,7 +332,11 @@ describe('8. Stage 3: PostInvocation Incremental Transcript Sync & Absolute Hook
       assert.ok(preCmd.includes('"C:/Users/dev/.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/pre_invocation.mjs"'), `Expected quoted forward-slash absolute path, got: ${preCmd}`);
       assert.ok(!preCmd.includes('\\'), 'Hook command must not contain unescaped Windows backslashes');
     } finally {
-      try { fs.rmSync(tmpBase, { recursive: true, force: true }); } catch {}
+      try {
+        fs.rmSync(tmpBase, { recursive: true, force: true });
+      } catch (err) {
+        if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+      }
     }
   });
 });

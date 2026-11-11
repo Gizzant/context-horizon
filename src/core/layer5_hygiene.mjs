@@ -1,6 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { canonicalizePath } from './paths.mjs';
+import { atomicWriteFileSync } from './atomic_io.mjs';
+import { PrefixCacheShield, isWarmCacheState } from './prefix_cache_shield.mjs';
+
+export function buildTrustedPluginHookCommand(hookFileName) {
+  const safeHook = path.posix.basename(String(hookFileName || ''));
+  return `node --no-warnings -e "import('node:fs').then(fs=>import('node:os').then(os=>import('node:path').then(p=>{const f1=p.join(os.homedir(),'.gemini/config/plugins/agy-horizon-flightcheck/src/hooks/${safeHook}');const f2=p.join(os.homedir(),'.gemini/config/plugins/agy-horizon/src/hooks/${safeHook}');const target=fs.existsSync(f1)?f1:(fs.existsSync(f2)?f2:'');if(target)import(process.platform==='win32'?'file:///'+target.replace(/\\\\/g,'/'):target);})));"`;
+}
 
 /**
  * Epoch-Aware File Re-Read Classifier, Fail-Open CLI Output Dampener,
@@ -9,6 +16,11 @@ import { canonicalizePath } from './paths.mjs';
 
 export const CORTEX_STEP_TYPE_CHECKPOINT = 23;
 export const MEMORY_MD_TRUNCATION_THRESHOLD_LINES = 200;
+export const SWARM_TOOL_MATCHER = 'invoke_subagent|define_subagent|send_message|manage_subagents';
+export const FULL_TOOL_HOOK_MATCHER =
+  'run_command|edit_file|write_file|read_file|view_file|invoke_subagent|define_subagent|send_message|manage_subagents';
+export const CLI_DAMPENER_MATCHER = 'run_command|execute_bash|bash|Bash|PowerShell';
+export const FLAT_LIFECYCLE_EVENTS = Object.freeze(['SessionStart', 'PreInvocation', 'PostInvocation', 'Stop']);
 
 const READ_TOOLS = new Set([
   'view_file',
@@ -182,8 +194,7 @@ export function evaluateSmartFileReReads(steps = []) {
 
       const areDisjointRanges = Boolean(
         first.hasLineRange && second.hasLineRange &&
-        ((first.endLine && second.startLine > first.endLine) ||
-         (second.endLine && first.startLine > second.endLine))
+        (first.startLine !== second.startLine || first.endLine !== second.endLine)
       );
 
       const exemptionReason = hasCheckpointBetween
@@ -224,30 +235,41 @@ export function evaluateSmartFileReReads(steps = []) {
  */
 export function wrapNoisyCommandWithDampener(commandLine, {
   maxLines = 100,
-  logFile = '.agents/tmp/cli_stdout.log'
+  logFile = '.agents/tmp/cli_stdout.log',
+  platform = process.platform
 } = {}) {
   const cleanCmd = String(commandLine || '').trim();
   if (!cleanCmd) return '';
   const limit = Math.max(10, Number(maxLines) || 100);
-  if (cleanCmd.includes('head -n') || cleanCmd.includes(logFile)) {
+  if (
+    cleanCmd.includes('head -n') ||
+    cleanCmd.includes('Select-Object -First') ||
+    cleanCmd.includes('Tee-Object') ||
+    cleanCmd.includes(logFile)
+  ) {
     return cleanCmd;
   }
-  return `(${cleanCmd}) 2>&1 | tee ${logFile} | head -n ${limit} || true`;
+  if (platform === 'win32') {
+    return `& { ${cleanCmd} } *>&1 | Tee-Object -FilePath "${logFile}" | Select-Object -First ${limit}; $LASTEXITCODE = 0`;
+  }
+  return `(${cleanCmd}) 2>&1 | tee "${logFile}" | head -n ${limit} || true`;
 }
 
 /**
  * Registers a fail-open PreToolUse CLI command dampening hook in `.agents/hooks.json`.
- * Wraps noisy commands in `head -n 100` or pipes stdout to a temporary log file.
+ * Wraps noisy commands in PowerShell `Tee-Object | Select-Object -First` on Windows or POSIX `tee | head -n`.
  */
 export function registerCliDampeningHook(workspacePath, {
   command = '',
   maxLines = 100,
   logFile = '.agents/tmp/cli_stdout.log',
+  platform = process.platform,
   writeToDisk = true
 } = {}) {
   const wsRoot = workspacePath || process.cwd();
   const hooksJsonPath = path.join(wsRoot, '.agents', 'hooks.json');
   const limit = Math.max(10, Number(maxLines) || 100);
+  const isWin = platform === 'win32';
 
   let existing = {};
   if (fs.existsSync(hooksJsonPath)) {
@@ -265,7 +287,11 @@ export function registerCliDampeningHook(workspacePath, {
     ? [...existing.PreToolUse]
     : (Array.isArray(existing.hooks?.PreToolUse) ? [...existing.hooks.PreToolUse] : []);
 
-  const wrappedExample = wrapNoisyCommandWithDampener(command || 'npm test', { maxLines: limit, logFile });
+  const wrappedExample = wrapNoisyCommandWithDampener(command || 'npm test', {
+    maxLines: limit,
+    logFile,
+    platform
+  });
   const inlineGuardScript = [
     `let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{`,
     `try{const j=JSON.parse(d||'{}');const cmd=String(j.tool_input?.CommandLine||j.tool_input?.command||j.CommandLine||'');`,
@@ -273,42 +299,84 @@ export function registerCliDampeningHook(workspacePath, {
     `process.stdout.write(JSON.stringify({systemMessage:'[CLI Output Dampener] Pipe large command output through head -n ${limit} (or Select-Object -First ${limit} on PowerShell) or redirect to ${logFile} to prevent >20k single-turn context bloat.'}));`,
     `}}catch{}process.exit(0);});`
   ].join('');
+  const wrappedCommandTemplate = isWin
+    ? `& { <command> } *>&1 | Tee-Object -FilePath "${logFile}" | Select-Object -First ${limit}; $LASTEXITCODE = 0`
+    : `(<command>) 2>&1 | tee "${logFile}" | head -n ${limit} || true`;
   const hookEntry = {
     id: 'horizon-cli-dampener',
     event: 'PreToolUse',
-    matcher: 'run_command',
+    matcher: CLI_DAMPENER_MATCHER,
     failOpen: true,
     maxLines: limit,
     logFile,
-    wrapperStrategy: `head -n ${limit} | tee ${logFile}`,
+    platform,
+    wrapperStrategy: isWin
+      ? `Tee-Object -FilePath "${logFile}" | Select-Object -First ${limit}`
+      : `tee "${logFile}" | head -n ${limit}`,
     targetCommandPattern: String(command || '*').slice(0, 160),
     command: `node -e "${inlineGuardScript.replace(/"/g, '\\"')}"`,
-    wrappedCommandTemplate: `(<command>) 2>&1 | tee ${logFile} | head -n ${limit} || true`,
-    description: `Fail-open PreToolUse wrapper: caps noisy CLI stdout via head -n ${limit} or pipes full output to ${logFile} to prevent 20k+ single-turn bloat.`,
+    wrappedCommandTemplate,
+    description: `Fail-open PreToolUse wrapper: caps noisy CLI stdout via ${isWin ? 'Select-Object -First' : 'head -n'} ${limit} or pipes full output to ${logFile} to prevent 20k+ single-turn bloat.`,
     updatedAt: new Date().toISOString()
   };
 
-  const existingIdx = preToolList.findIndex(h => h && (h.id === 'horizon-cli-dampener' || h.matcher === 'run_command'));
+  const existingIdx = preToolList.findIndex(
+    h => h && (h.id === 'horizon-cli-dampener' || h.matcher === 'run_command' || h.matcher === CLI_DAMPENER_MATCHER)
+  );
   if (existingIdx >= 0) {
     preToolList[existingIdx] = { ...preToolList[existingIdx], ...hookEntry };
   } else {
     preToolList.push(hookEntry);
   }
 
+  const swarmPreIdx = preToolList.findIndex(h => h && (h.id === 'horizon-swarm-pre-tool' || h.matcher === SWARM_TOOL_MATCHER));
+  const swarmPreEntry = {
+    id: 'horizon-swarm-pre-tool',
+    event: 'PreToolUse',
+    matcher: SWARM_TOOL_MATCHER,
+    type: 'command',
+    command: buildTrustedPluginHookCommand('pre_invocation.mjs'),
+    timeout: 5
+  };
+  if (swarmPreIdx >= 0) {
+    preToolList[swarmPreIdx] = { ...preToolList[swarmPreIdx], ...swarmPreEntry };
+  } else {
+    preToolList.push(swarmPreEntry);
+  }
+
+  const postToolList = Array.isArray(existing.PostToolUse)
+    ? [...existing.PostToolUse]
+    : (Array.isArray(existing.hooks?.PostToolUse) ? [...existing.hooks.PostToolUse] : []);
+  const swarmPostIdx = postToolList.findIndex(h => h && (h.id === 'horizon-swarm-post-tool' || h.matcher === SWARM_TOOL_MATCHER));
+  const swarmPostEntry = {
+    id: 'horizon-swarm-post-tool',
+    event: 'PostToolUse',
+    matcher: SWARM_TOOL_MATCHER,
+    type: 'command',
+    command: buildTrustedPluginHookCommand('post_invocation.mjs'),
+    timeout: 5
+  };
+  if (swarmPostIdx >= 0) {
+    postToolList[swarmPostIdx] = { ...postToolList[swarmPostIdx], ...swarmPostEntry };
+  } else {
+    postToolList.push(swarmPostEntry);
+  }
+
   const nextHooksConfig = {
     ...existing,
     PreToolUse: preToolList,
+    PostToolUse: postToolList,
     hooks: {
       ...(existing.hooks && typeof existing.hooks === 'object' ? existing.hooks : {}),
-      PreToolUse: preToolList
+      PreToolUse: preToolList,
+      PostToolUse: postToolList
     }
   };
 
   let written = false;
   if (writeToDisk) {
     try {
-      fs.mkdirSync(path.dirname(hooksJsonPath), { recursive: true });
-      fs.writeFileSync(hooksJsonPath, JSON.stringify(nextHooksConfig, null, 2) + '\n', 'utf8');
+      atomicWriteFileSync(hooksJsonPath, JSON.stringify(nextHooksConfig, null, 2) + '\n', { encoding: 'utf8' });
       written = true;
     } catch (err) {
       return {
@@ -425,7 +493,15 @@ export function promoteRuleWithAttentionZone(targetFileOrWorkspace, ruleText, {
   zone = 'primacy',
   targetFileName = null,
   maxLines = MEMORY_MD_TRUNCATION_THRESHOLD_LINES,
-  writeToDisk = true
+  writeToDisk = true,
+  session = null,
+  cacheState = null,
+  cacheWarm = false,
+  cachedTokens = 0,
+  cacheTtlSeconds = 0,
+  forceColdBust = false,
+  prefixCacheShield = null,
+  homeDir = undefined
 } = {}) {
   const cleanRule = String(ruleText || '').replace(/<\/?USER_REQUEST>/gi, '').trim();
   if (!cleanRule) {
@@ -503,11 +579,53 @@ export function promoteRuleWithAttentionZone(targetFileOrWorkspace, ruleText, {
         : '');
 
   const updatedContent = updatedLines.join('\n');
+  const resolvedSession = session || {
+    cacheState,
+    cacheWarm,
+    cachedTokens,
+    cacheTtlSeconds,
+    forceColdBust
+  };
+  const isWarmLocked = writeToDisk && !forceColdBust && isWarmCacheState(resolvedSession);
+  if (isWarmLocked) {
+    const shield = prefixCacheShield || new PrefixCacheShield({ homeDir });
+    const shieldResult = shield.stageOrApplyDelta(
+      {
+        targetPath: resolvedPath,
+        operation: 'REPLACE',
+        newContent: updatedContent,
+        ruleText: formattedBullet,
+        source: 'layer5-hygiene-promote'
+      },
+      resolvedSession
+    );
+    return {
+      success: true,
+      written: false,
+      staged: true,
+      deferred: true,
+      reason: 'CACHE_WARM_FENCE',
+      shieldResult,
+      targetPath: resolvedPath,
+      zoneUsed: requestedZone,
+      insertedAtLine: insertIdx + 1,
+      totalLinesBefore,
+      totalLinesAfter,
+      normalizedPosition,
+      inPrimacyZone,
+      inRecencyZone,
+      exceeds200LineThreshold,
+      near200LineThreshold,
+      truncationWarning,
+      formattedRule: formattedBullet,
+      content: updatedContent
+    };
+  }
+
   let written = false;
   if (writeToDisk) {
     try {
-      fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
-      fs.writeFileSync(resolvedPath, updatedContent, 'utf8');
+      atomicWriteFileSync(resolvedPath, updatedContent, { encoding: 'utf8' });
       written = true;
     } catch (err) {
       return {
@@ -521,6 +639,8 @@ export function promoteRuleWithAttentionZone(targetFileOrWorkspace, ruleText, {
   return {
     success: true,
     written,
+    staged: false,
+    deferred: false,
     targetPath: resolvedPath,
     zoneUsed: requestedZone,
     insertedAtLine: insertIdx + 1,
@@ -533,6 +653,84 @@ export function promoteRuleWithAttentionZone(targetFileOrWorkspace, ruleText, {
     near200LineThreshold,
     truncationWarning,
     formattedRule: formattedBullet,
+    content: updatedContent
+  };
+}
+
+/**
+ * Updates `.antigravityignore` safely behind `PrefixCacheShield` when prompt cache is warm.
+ */
+export function updateAntigravityIgnore(workspaceOrIgnorePath, patterns = [], {
+  writeToDisk = true,
+  session = null,
+  cacheState = null,
+  cacheWarm = false,
+  cachedTokens = 0,
+  cacheTtlSeconds = 0,
+  forceColdBust = false,
+  prefixCacheShield = null,
+  homeDir = undefined
+} = {}) {
+  const baseStr = String(workspaceOrIgnorePath || process.cwd());
+  const ignorePath = baseStr.endsWith('.antigravityignore')
+    ? path.resolve(baseStr)
+    : path.join(path.resolve(baseStr), '.antigravityignore');
+  const existing = fs.existsSync(ignorePath) ? fs.readFileSync(ignorePath, 'utf8') : '';
+  const lines = existing ? existing.split(/\r?\n/) : [];
+  const existingSet = new Set(lines.map((l) => l.trim()).filter(Boolean));
+  const list = Array.isArray(patterns) ? patterns : [patterns];
+  const added = [];
+  for (const pat of list) {
+    const clean = String(pat || '').trim();
+    if (clean && !existingSet.has(clean)) {
+      lines.push(clean);
+      existingSet.add(clean);
+      added.push(clean);
+    }
+  }
+  const updatedContent = lines.filter((l, idx) => idx < lines.length - 1 || l !== '').join('\n') + '\n';
+  const resolvedSession = session || {
+    cacheState,
+    cacheWarm,
+    cachedTokens,
+    cacheTtlSeconds,
+    forceColdBust
+  };
+  if (writeToDisk && !forceColdBust && isWarmCacheState(resolvedSession)) {
+    const shield = prefixCacheShield || new PrefixCacheShield({ homeDir });
+    const shieldResult = shield.stageOrApplyDelta(
+      {
+        targetPath: ignorePath,
+        operation: 'REPLACE',
+        newContent: updatedContent,
+        source: 'layer5-antigravityignore'
+      },
+      resolvedSession
+    );
+    return {
+      success: true,
+      written: false,
+      staged: true,
+      deferred: true,
+      reason: 'CACHE_WARM_FENCE',
+      targetPath: ignorePath,
+      addedPatterns: added,
+      shieldResult,
+      content: updatedContent
+    };
+  }
+  let written = false;
+  if (writeToDisk) {
+    atomicWriteFileSync(ignorePath, updatedContent, { encoding: 'utf8' });
+    written = true;
+  }
+  return {
+    success: true,
+    written,
+    staged: false,
+    deferred: false,
+    targetPath: ignorePath,
+    addedPatterns: added,
     content: updatedContent
   };
 }
@@ -667,4 +865,92 @@ export function detectEffortThrashing(steps = []) {
     flaggedTurns
   };
 }
+
+/**
+ * Validates that an Antigravity `hooks.json` / `.agents/hooks.json` configuration obeys:
+ *  1. `SessionStart`, `PreInvocation`, `PostInvocation`, and `Stop` MUST be flat handler arrays
+ *     with NO `matcher` wrapper object or `matcher` property.
+ *  2. `PreToolUse` and `PostToolUse` capture swarm coordination and lifecycle tools:
+ *     `"invoke_subagent|define_subagent|send_message|manage_subagents"`.
+ */
+export function validateAntigravityHooksSchema(hooksConfig) {
+  const errors = [];
+  if (!hooksConfig || typeof hooksConfig !== 'object' || Array.isArray(hooksConfig)) {
+    return { valid: false, errors: ['hooksConfig must be a non-null JSON object'] };
+  }
+
+  const scopes = [hooksConfig];
+  if (hooksConfig.hooks && typeof hooksConfig.hooks === 'object' && !Array.isArray(hooksConfig.hooks)) {
+    scopes.push(hooksConfig.hooks);
+  }
+  for (const [key, val] of Object.entries(hooksConfig)) {
+    if (
+      val &&
+      typeof val === 'object' &&
+      !Array.isArray(val) &&
+      key !== 'hooks' &&
+      !FLAT_LIFECYCLE_EVENTS.includes(key) &&
+      key !== 'PreToolUse' &&
+      key !== 'PostToolUse'
+    ) {
+      scopes.push(val);
+    }
+  }
+
+  let hasSwarmPreToolMatcher = false;
+  let hasSwarmPostToolMatcher = false;
+
+  for (const scope of scopes) {
+    for (const evt of FLAT_LIFECYCLE_EVENTS) {
+      if (!(evt in scope)) continue;
+      const arr = scope[evt];
+      if (!Array.isArray(arr)) {
+        errors.push(`${evt} must be a flat array of handlers (found ${typeof arr})`);
+        continue;
+      }
+      for (let i = 0; i < arr.length; i++) {
+        const entry = arr[i];
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+          errors.push(`${evt}[${i}] must be a handler object`);
+          continue;
+        }
+        if ('matcher' in entry || 'hooks' in entry) {
+          errors.push(`${evt}[${i}] must be a flat handler entry with NO matcher wrapper object`);
+        }
+      }
+    }
+
+    for (const toolEvt of ['PreToolUse', 'PostToolUse']) {
+      if (!(toolEvt in scope)) continue;
+      const arr = scope[toolEvt];
+      if (!Array.isArray(arr)) {
+        errors.push(`${toolEvt} must be an array of tool matcher handlers`);
+        continue;
+      }
+      for (let i = 0; i < arr.length; i++) {
+        const entry = arr[i];
+        if (!entry || typeof entry !== 'object') continue;
+        const m = String(entry.matcher || '');
+        if (
+          m.includes('invoke_subagent') &&
+          m.includes('define_subagent') &&
+          m.includes('send_message') &&
+          m.includes('manage_subagents')
+        ) {
+          if (toolEvt === 'PreToolUse') hasSwarmPreToolMatcher = true;
+          if (toolEvt === 'PostToolUse') hasSwarmPostToolMatcher = true;
+        }
+      }
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    hasSwarmPreToolMatcher,
+    hasSwarmPostToolMatcher,
+    swarmToolMatcher: SWARM_TOOL_MATCHER,
+    errors
+  };
+}
+
 

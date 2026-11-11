@@ -6,7 +6,7 @@
 
 ---
 
-**Project:** Context Horizon (ctxtop)
+**Project:** Attention Horizon (`attention-horizon-antigravity` / `ctxtop`)
 **Generated:** 2026-11-06 19:46:03
 **Category:** Developer Tool / IDE
 

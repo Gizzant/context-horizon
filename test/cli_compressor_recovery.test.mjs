@@ -65,7 +65,11 @@ test('Phase 3.2: CLI Output Compressor archives >4KB stdout into .agents/cache/c
     assert.equal(hits[0].sessionId, 'sess-cli-1');
     assert.ok(hits[0].snippet.includes('AssertionError'));
   } finally {
-    try { fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }); } catch {}
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    } catch (err) {
+      if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+    }
   }
 });
 
@@ -96,7 +100,7 @@ test('Phase 3.1: DET-03 detects Test Assertion Weakening in git diff and provide
   assert.ok(!det03.revertAction.command.includes('git checkout'));
 });
 
-test('Phase 3.3: SubagentPhantomAuditor formats Coach Bar pill, kills orphan Chrome/Pyrefly processes, and guards DET-15 Vision HTTP 400 Overage', () => {
+test('Phase 3.3: SubagentPhantomAuditor formats Coach Bar pill, kills orphan Chrome/Pyrefly processes, and guards DET-28 Vision HTTP 400 Overage', () => {
   const killedPids = [];
   const auditor = new SubagentPhantomAuditor({
     killFn: (pid, sig) => { killedPids.push({ pid, sig }); }
@@ -133,12 +137,12 @@ test('Phase 3.3: SubagentPhantomAuditor formats Coach Bar pill, kills orphan Chr
   assert.equal(killRes.signal, 'SIGTERM');
   assert.deepEqual(killedPids, [{ pid: 1001, sig: 'SIGTERM' }]);
 
-  // 3. DET-15 Vision HTTP 400 Overage Guard
+  // 3. DET-28 Vision HTTP 400 Overage Guard
   const visionSafe = auditor.checkVisionOverage({ primaryQuotaUsedPct: 82, googleOneAiCreditOveragesActive: true });
   assert.equal(visionSafe.triggered, false);
 
   const visionDanger = auditor.checkVisionOverage({ primaryQuotaUsedPct: 100, googleOneAiCreditOveragesActive: true });
   assert.equal(visionDanger.triggered, true);
-  assert.equal(visionDanger.detectorId, 'DET-15');
+  assert.equal(visionDanger.detectorId, 'DET-28');
   assert.ok(visionDanger.warningBanner.includes('HTTP 400'));
 });

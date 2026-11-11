@@ -139,7 +139,7 @@ test('Phase 3 (DET-12): PromptDecomposerCoach provides non-blocking /plan adviso
 
   const megaRes = coach.evaluate(megaPrompt);
   assert.equal(megaRes.isMegaPrompt, true);
-  assert.equal(megaRes.detectorId, 'DET-12');
+  assert.equal(megaRes.detectorId, 'DET-26');
   assert.equal(megaRes.blocking, false, 'Must be strictly advisory and never hard-block');
   assert.equal(megaRes.recommendedSlashCommand, '/plan');
   assert.ok(megaRes.distinctVerbCount >= 3);

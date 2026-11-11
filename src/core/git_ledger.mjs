@@ -50,7 +50,9 @@ export function buildGitCommitTokenLedger(workspacePath, steps = [], { headLogCo
 
   for (let i = 0; i < list.length; i++) {
     const s = list[i] || {};
-    const inTok = Number(s.inputTokens ?? s.input_tokens ?? 0);
+    const freshInTok = Number(s.inputTokens ?? s.input_tokens ?? 0);
+    const cacheCreateTok = Number(s.cacheCreationTokens ?? s.cache_creation_input_tokens ?? 0);
+    const inTok = freshInTok + cacheCreateTok;
     const cacheReadTok = Number(s.cacheReadTokens ?? s.cache_read_input_tokens ?? 0);
     const thinkTok = Number(s.thinkingTokens ?? s.thinking_tokens ?? 0);
     const outTok = Number(s.outputTokens ?? s.output_tokens ?? Math.ceil(String(s.content || '').length / 4));
@@ -162,7 +164,7 @@ export function buildGitCommitTokenLedger(workspacePath, steps = [], { headLogCo
   });
 
   const prMarkdownSummary = [
-    `### ⚡ Context Horizon PR Token Ledger`,
+    `### ⚡ Attention Horizon PR Token Ledger`,
     `| Metric | Value |`,
     `| :--- | :--- |`,
     `| **Total Session Tokens** | \`${(totalTokens / 1000).toFixed(1)}k\` |`,

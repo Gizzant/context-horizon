@@ -3,6 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { canonicalizePath } from './path_canonicalizer.mjs';
+import { atomicWriteFileSync } from './atomic_io.mjs';
 
 function resolveVersion() {
   try {
@@ -72,6 +73,8 @@ export function createDefaultSidecar(conversationId = '', workspacePath = '') {
     sessionMeta: {
       turnCount: 0,
       activeModel: 'gemini-3.8-flash',
+      active_model_id: 'gemini-3.8-flash',
+      pending_model_id: null,
       activeEffort: 'high',
       inPlanMode: false,
       effortLocked: false,
@@ -80,6 +83,8 @@ export function createDefaultSidecar(conversationId = '', workspacePath = '') {
       consecutiveErrorStreak: 0,
       turnsSinceLastPassingTest: 0
     },
+    swarmRoster: {},
+    agentCacheMap: {},
     telemetry: {
       totalInputTokens: 0,
       usedPercentage: 0,
@@ -169,57 +174,13 @@ export function readSidecarSync(conversationId, baseDirOverride = null) {
 }
 
 /**
- * Performs atomic rename with exponential backoff on Windows EPERM/EBUSY contention.
- */
-function renameWithBackoffSync(tmpPath, targetPath, fallbackPayloadStr) {
-  const delaysMs = [1, 2];
-  let renamed = false;
-
-  for (let attempt = 0; attempt <= delaysMs.length; attempt++) {
-    try {
-      fs.renameSync(tmpPath, targetPath);
-      renamed = true;
-      break;
-    } catch (err) {
-      if ((err.code === 'EPERM' || err.code === 'EBUSY') && attempt < delaysMs.length) {
-        sleepSync(delaysMs[attempt]);
-      } else if (err.code !== 'EPERM' && err.code !== 'EBUSY') {
-        throw err;
-      }
-    }
-  }
-
-  if (!renamed) {
-    fs.writeFileSync(targetPath, fallbackPayloadStr, 'utf8');
-    try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch {}
-  }
-}
-
-/**
- * Writes an arbitrary JSON object to disk atomically via temporary file and rename with backoff.
+ * Writes an arbitrary JSON object to disk atomically via temporary file, fsync, and bounded rename retry.
  */
 export function writeJsonAtomicSync(filePath, dataObj) {
-  const targetDir = path.dirname(filePath);
-  if (!fs.existsSync(targetDir)) {
-    fs.mkdirSync(targetDir, { recursive: true });
-  }
   const jsonStr = JSON.stringify(dataObj, null, 2);
-  const baseName = path.basename(filePath);
-  const tmpPath = path.join(
-    targetDir,
-    `${baseName}.${process.pid}.${process.hrtime.bigint()}.tmp`
-  );
-  try {
-    fs.writeFileSync(tmpPath, jsonStr, 'utf8');
-    renameWithBackoffSync(tmpPath, filePath, jsonStr);
-    _sidecarMemCache.set(filePath, { timeMs: Date.now(), data: JSON.parse(jsonStr) });
-    return dataObj;
-  } catch {
-    try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch {}
-    fs.writeFileSync(filePath, jsonStr, 'utf8');
-    _sidecarMemCache.set(filePath, { timeMs: Date.now(), data: JSON.parse(jsonStr) });
-    return dataObj;
-  }
+  atomicWriteFileSync(filePath, jsonStr, { encoding: 'utf8' });
+  _sidecarMemCache.set(filePath, { timeMs: Date.now(), data: JSON.parse(jsonStr) });
+  return dataObj;
 }
 
 /**
@@ -267,6 +228,29 @@ export function updateSidecarPartialSync(conversationId, mutatorFn, baseDirOverr
 }
 
 /**
+ * Atomically updates a single `/swarm` agent's state inside `sidecar.swarmRoster`
+ * using UTF-8 temp-file swap-and-rename so concurrent hook processes never corrupt session telemetry.
+ */
+export function updateSwarmAgentStateAtomicSync(conversationId, agentId, agentStatePatch = {}, baseDirOverride = null) {
+  if (!conversationId || !agentId) return null;
+  const current = readSidecarSync(conversationId, baseDirOverride);
+  const roster = (current.swarmRoster && typeof current.swarmRoster === 'object' && !Array.isArray(current.swarmRoster))
+    ? { ...current.swarmRoster }
+    : {};
+  const existingAgent = (roster[agentId] && typeof roster[agentId] === 'object') ? roster[agentId] : {};
+  roster[agentId] = {
+    ...existingAgent,
+    ...agentStatePatch,
+    agent_id: String(agentId)
+  };
+  return writeSidecarAtomicSync(
+    conversationId,
+    { ...current, swarmRoster: roster },
+    baseDirOverride
+  );
+}
+
+/**
  * Reads the 15-session tool usage ledger.
  */
 export function readToolUsageSync(baseDirOverride = null) {
@@ -300,20 +284,8 @@ export function writeToolUsageAtomicSync(ledgerObj, baseDirOverride = null) {
     updatedAtMs: Date.now()
   };
   const jsonStr = JSON.stringify(payload, null, 2);
-  const tmpPath = path.join(
-    targetDir,
-    `tool_usage.${process.pid}.${process.hrtime.bigint()}.tmp`
-  );
-
-  try {
-    fs.writeFileSync(tmpPath, jsonStr, 'utf8');
-    renameWithBackoffSync(tmpPath, filePath, jsonStr);
-    return payload;
-  } catch {
-    try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch {}
-    fs.writeFileSync(filePath, jsonStr, 'utf8');
-    return payload;
-  }
+  atomicWriteFileSync(filePath, jsonStr, { encoding: 'utf8' });
+  return payload;
 }
 
 function sleepSync(ms) {

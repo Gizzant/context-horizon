@@ -2,6 +2,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { AgBridgeService } from './ag_bridge.mjs';
+import {
+  ANTIGRAVITY_ENUM_ALIASES,
+  LEGACY_MODEL_SUNSET_UTC,
+  SHARED_1M_CONTEXT_POOL_TOKENS,
+  resolveModelDescriptor,
+  resolveModelRates,
+  isModelDeprecated,
+  getDeprecatedModelMigrationNotice,
+  isPlanTierEligible
+} from './constants.mjs';
 
 /**
  * Upgraded Phase 5: Task Model & Multi-Tier Quota Router
@@ -13,45 +23,243 @@ import { AgBridgeService } from './ag_bridge.mjs';
 
 export const WARM_CACHE_GRAVITY_THRESHOLD_TOKENS = 60000;
 export const FLOOR_GUARANTEE_CONFIDENCE_THRESHOLD = 0.85;
+export const DEFAULT_EXPECTED_OUTPUT_TOKENS = 1500;
 
 export const MODEL_CATALOG = {
   'gemini-3.8-flash': {
     id: 'gemini-3.8-flash',
     family: 'flash',
     label: 'Gemini 3.8 Flash',
-    multipliers: { low: 1.0, medium: 1.0, high: 1.5 }
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'implicit_only',
+    supports_explicit_cache: false,
+    antigravity_min_tier: 'free',
+    shared_pool_ceiling: 256000,
+    deprecated_after: null,
+    multipliers: { low: 1.0, med: 1.5, medium: 1.5, high: 2.2 }
   },
   'gemini-3.8-pro': {
     id: 'gemini-3.8-pro',
     family: 'pro',
     label: 'Gemini 3.8 Pro',
-    multipliers: { low: 2.0, medium: 3.5, high: 5.0 }
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'implicit_only',
+    supports_explicit_cache: false,
+    antigravity_min_tier: 'pro',
+    deprecated_after: null,
+    multipliers: { low: 2.0, med: 3.5, medium: 3.5, high: 5.0 }
   },
   'gemini-4-argon': {
     id: 'gemini-4-argon',
+    aliases: ['gemini-4-argon-high', 'gemini-4-argon-medium', 'gemini-4-argon-med', 'gemini-4-argon-low'],
     family: 'argon',
     label: 'Gemini 4 Argon',
-    multipliers: { low: 3.0, medium: 6.0, high: 9.25 }
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'implicit_only',
+    supports_explicit_cache: false,
+    antigravity_min_tier: 'pro',
+    shared_pool_ceiling: SHARED_1M_CONTEXT_POOL_TOKENS,
+    deprecated_after: null,
+    multipliers: { low: 3.0, med: 5.5, medium: 5.5, high: 9.25 }
+  },
+  'gemini-4-carbon': {
+    id: 'gemini-4-carbon',
+    aliases: ['gemini-4-carbon-high', 'gemini-4-carbon-medium', 'gemini-4-carbon-med', 'gemini-4-carbon-low', 'M427', 'M437', 'M438'],
+    family: 'carbon',
+    label: 'Gemini 4 Carbon',
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'implicit_only',
+    supports_explicit_cache: false,
+    antigravity_min_tier: 'ultra',
+    shared_pool_ceiling: SHARED_1M_CONTEXT_POOL_TOKENS,
+    deprecated_after: null,
+    multipliers: { low: 3.0, med: 5.5, medium: 5.5, high: 9.25 }
+  },
+  'gemini-4-carbon-cyber-permissive': {
+    id: 'gemini-4-carbon-cyber-permissive',
+    aliases: ['M670'],
+    family: 'carbon',
+    label: 'Gemini 4 Carbon (Cyber Permissive)',
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'implicit_only',
+    supports_explicit_cache: false,
+    antigravity_min_tier: 'ultra',
+    shared_pool_ceiling: SHARED_1M_CONTEXT_POOL_TOKENS,
+    deprecated_after: null,
+    multipliers: { low: 3.0, med: 5.5, medium: 5.5, high: 9.25 }
+  },
+  'claude-haiku-5-5': {
+    id: 'claude-haiku-5-5',
+    aliases: ['claude-haiku-5.5', 'haiku-5-5', 'haiku-5.5'],
+    family: 'haiku',
+    label: 'Claude Haiku 5.5',
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'pro',
+    shared_pool_ceiling: 1000000,
+    deprecated_after: null,
+    multipliers: { low: 0.5, med: 0.8, medium: 0.8, high: 1.2 }
+  },
+  'claude-sonnet-5-5': {
+    id: 'claude-sonnet-5-5',
+    aliases: ['claude-sonnet-5.5', 'sonnet-5-5', 'sonnet-5.5'],
+    family: 'sonnet',
+    label: 'Claude Sonnet 5.5',
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'pro',
+    shared_pool_ceiling: 1000000,
+    deprecated_after: null,
+    multipliers: { low: 3.0, med: 4.5, medium: 4.5, high: 7.0 }
+  },
+  'claude-opus-5-5': {
+    id: 'claude-opus-5-5',
+    aliases: ['claude-opus-5.5', 'opus-5-5', 'opus-5.5'],
+    family: 'opus',
+    label: 'Claude Opus 5.5',
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'pro',
+    shared_pool_ceiling: 1000000,
+    deprecated_after: null,
+    multipliers: { low: 6.0, med: 9.0, medium: 9.0, high: 14.0 }
+  },
+  'claude-fable-5-2': {
+    id: 'claude-fable-5-2',
+    aliases: ['claude-fable-5.2', 'fable-5-2', 'fable-5.2'],
+    family: 'fable',
+    label: 'Claude Fable 5.2',
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'ultra',
+    shared_pool_ceiling: 1000000,
+    deprecated_after: null,
+    multipliers: { low: 10.0, med: 15.0, medium: 15.0, high: 22.0 }
+  },
+  'claude-fable-5-1': {
+    id: 'claude-fable-5-1',
+    aliases: ['claude-fable-5.1', 'fable-5-1', 'fable-5.1'],
+    family: 'fable',
+    label: 'Claude Fable 5.1',
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'ultra',
+    shared_pool_ceiling: 1000000,
+    deprecated_after: null,
+    multipliers: { low: 12.0, med: 18.0, medium: 18.0, high: 26.0 }
+  },
+  'claude-sonnet-4-6': {
+    id: 'claude-sonnet-4-6',
+    family: 'sonnet',
+    label: 'Claude Sonnet 4.6',
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'pro',
+    shared_pool_ceiling: 200000,
+    deprecated_after: LEGACY_MODEL_SUNSET_UTC,
+    multipliers: { low: 3.5, med: 5.0, medium: 5.0, high: 7.5 }
   },
   'claude-sonnet-4.6': {
     id: 'claude-sonnet-4.6',
     family: 'sonnet',
     label: 'Claude Sonnet 4.6',
-    multipliers: { low: 3.0, medium: 5.0, high: 7.5 }
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'pro',
+    shared_pool_ceiling: 200000,
+    deprecated_after: LEGACY_MODEL_SUNSET_UTC,
+    multipliers: { low: 3.5, med: 5.0, medium: 5.0, high: 7.5 }
+  },
+  'claude-sonnet-4-5': {
+    id: 'claude-sonnet-4-5',
+    aliases: ['claude-sonnet-4.5'],
+    family: 'sonnet',
+    label: 'Claude Sonnet 4.5',
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'pro',
+    shared_pool_ceiling: 200000,
+    deprecated_after: null,
+    multipliers: { low: 3.5, med: 5.0, medium: 5.0, high: 7.5 }
+  },
+  'claude-opus-4-6': {
+    id: 'claude-opus-4-6',
+    aliases: ['claude-opus-4.6'],
+    family: 'opus',
+    label: 'Claude Opus 4.6',
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'pro',
+    shared_pool_ceiling: 200000,
+    deprecated_after: LEGACY_MODEL_SUNSET_UTC,
+    multipliers: { low: 5.0, med: 8.5, medium: 8.5, high: 12.0 }
+  },
+  'claude-opus-4-5': {
+    id: 'claude-opus-4-5',
+    aliases: ['claude-opus-4.5'],
+    family: 'opus',
+    label: 'Claude Opus 4.5',
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'pro',
+    shared_pool_ceiling: 200000,
+    deprecated_after: null,
+    multipliers: { low: 5.0, med: 8.5, medium: 8.5, high: 12.0 }
+  },
+  'claude-haiku-4-5': {
+    id: 'claude-haiku-4-5',
+    aliases: ['claude-haiku-4.5'],
+    family: 'haiku',
+    label: 'Claude Haiku 4.5',
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'pro',
+    shared_pool_ceiling: 200000,
+    deprecated_after: null,
+    multipliers: { low: 1.2, med: 1.8, medium: 1.8, high: 2.5 }
+  },
+  'gpt-oss-120b': {
+    id: 'gpt-oss-120b',
+    family: 'gpt-oss',
+    label: 'GPT-OSS 120B',
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'implicit_only',
+    supports_explicit_cache: false,
+    antigravity_min_tier: 'pro',
+    deprecated_after: LEGACY_MODEL_SUNSET_UTC,
+    multipliers: { low: 1.5, med: 2.5, medium: 2.5, high: 3.5 }
   },
   'local-gemma4-26b': {
     id: 'local-gemma4-26b',
     family: 'local',
     label: 'Local LiteRT Gemma 4 26B',
-    multipliers: { low: 0.0, medium: 0.0, high: 0.0 }
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'implicit_only',
+    supports_explicit_cache: false,
+    antigravity_min_tier: 'free',
+    deprecated_after: null,
+    multipliers: { low: 0.0, med: 0.0, medium: 0.0, high: 0.0 }
   }
 };
 
-export const EXPECTED_OUTPUT_TOKENS_BY_EFFORT = {
-  low: 1200,
-  medium: 3500,
-  high: 8500
-};
+export const EXPECTED_OUTPUT_TOKENS_BY_EFFORT = Object.freeze({
+  low: 800,
+  med: 1500,
+  medium: 1500,
+  high: 3500,
+  max: 6000
+});
 
 const LOW_COMPLEXITY_PATTERNS = [
   /\bfix\s+typo\b/i,
@@ -114,12 +322,50 @@ const AMBIGUOUS_PATTERNS = [
 export function normalizeModelId(rawModel = '') {
   const lower = String(rawModel || '').toLowerCase().trim();
   if (!lower) return 'gemini-4-argon';
+  if (Object.prototype.hasOwnProperty.call(ANTIGRAVITY_ENUM_ALIASES, lower)) {
+    return ANTIGRAVITY_ENUM_ALIASES[lower];
+  }
+  if (lower.includes('carbon-cyber-permissive')) return 'gemini-4-carbon-cyber-permissive';
+  if (lower.includes('carbon')) return 'gemini-4-carbon';
   if (lower.includes('flash')) return 'gemini-3.8-flash';
   if (lower.includes('argon')) return 'gemini-4-argon';
-  if (lower.includes('sonnet') || lower.includes('claude')) return 'claude-sonnet-4.6';
+  if (lower.includes('fable-5-2') || lower.includes('fable-5.2')) return 'claude-fable-5-2';
+  if (lower.includes('fable-5-1') || lower.includes('fable-5.1')) return 'claude-fable-5-1';
+  if (lower.includes('fable')) return 'claude-fable-5-2';
+  if (lower.includes('haiku-5-5') || lower.includes('haiku-5.5')) return 'claude-haiku-5-5';
+  if (lower.includes('haiku-4-5') || lower.includes('haiku-4.5')) return 'claude-haiku-4-5';
+  if (lower.includes('haiku')) return 'claude-haiku-5-5';
+  if (lower.includes('opus-5-5') || lower.includes('opus-5.5')) return 'claude-opus-5-5';
+  if (lower.includes('opus-4-6') || lower.includes('opus-4.6')) return 'claude-opus-4-6';
+  if (lower.includes('opus-4-5') || lower.includes('opus-4.5')) return 'claude-opus-4-5';
+  if (lower.includes('opus')) return 'claude-opus-5-5';
+  if (lower.includes('sonnet-5-5') || lower.includes('sonnet-5.5')) return 'claude-sonnet-5-5';
+  if (lower.includes('sonnet-4-6') || lower.includes('sonnet-4.6')) return 'claude-sonnet-4-6';
+  if (lower.includes('sonnet-4-5') || lower.includes('sonnet-4.5')) return 'claude-sonnet-4-5';
+  if (lower.includes('sonnet') || lower.includes('claude')) return 'claude-sonnet-5-5';
+  if (lower.includes('gpt-oss')) return 'gpt-oss-120b';
   if (lower.includes('gemma') || lower.includes('local') || lower.includes('ollama')) return 'local-gemma4-26b';
   if (lower.includes('pro')) return 'gemini-3.8-pro';
   return MODEL_CATALOG[lower] ? lower : 'gemini-4-argon';
+}
+
+/**
+ * Filters MODEL_CATALOG to models that are not deprecated at `eventTimestampUtc`
+ * and satisfy the user's `userTier` (`antigravity_min_tier`).
+ */
+export function getEligibleModelsForRouting({
+  eventTimestampUtc = null,
+  userTier = 'pro',
+  includeLocal = false
+} = {}) {
+  const eligible = [];
+  for (const entry of Object.values(MODEL_CATALOG)) {
+    if (!includeLocal && entry.family === 'local') continue;
+    if (isModelDeprecated(entry.id, eventTimestampUtc)) continue;
+    if (!isPlanTierEligible(userTier, entry.antigravity_min_tier || 'free')) continue;
+    eligible.push(entry.id);
+  }
+  return [...new Set(eligible)];
 }
 
 export function normalizeEffortTier(rawEffort = '') {
@@ -136,7 +382,7 @@ export function getModelFamily(modelId = '') {
 }
 
 export function isSameModelFamily(modelA, modelB) {
-  return getModelFamily(modelA) === getModelFamily(modelB);
+  return normalizeModelId(modelA) === normalizeModelId(modelB);
 }
 
 export function getQuotaMultiplier(modelId = 'gemini-4-argon', effort = 'high') {
@@ -225,8 +471,11 @@ export function inferLifecycleMode(options = {}) {
  * Component 1 & 2: Zero-API-Call Pre-Invocation Task & Brain Classifier (<5ms)
  * + "Floor is the Guarantee" Asymmetric Safety Rule & Loop Escalation
  */
-export function classifyTaskComplexity(options = {}) {
+export function classifyTaskComplexity(promptOrOptions = {}, maybeOptions = {}) {
   const startMs = performance.now();
+  const options = typeof promptOrOptions === 'string'
+    ? { ...(maybeOptions || {}), prompt: promptOrOptions }
+    : (promptOrOptions || {});
   const prompt = String(options.prompt || '').trim();
   const taskMdContent = String(options.taskMdContent || '');
   const lifecycleMode = inferLifecycleMode(options);
@@ -245,7 +494,7 @@ export function classifyTaskComplexity(options = {}) {
   const det01Count = Number(options.det01Count ?? options.retryChurnCount ?? 0);
   const det02Count = Number(options.det02Count ?? options.oscillationCount ?? 0);
 
-  const activeModel = normalizeModelId(options.activeModel || 'gemini-4-argon');
+  const activeModel = normalizeModelId(options.activeModel || options.currentModel || options.modelId || 'gemini-4-argon');
   const activeEffort = normalizeEffortTier(options.activeEffort || 'high');
 
   const matchesLow = LOW_COMPLEXITY_PATTERNS.some((rx) => rx.test(combinedText));
@@ -278,7 +527,16 @@ export function classifyTaskComplexity(options = {}) {
   // "Floor is the Guarantee" Asymmetric Safety Rule:
   // Recommend budget tier (Gemini 3.8 Flash — Low/Medium effort, 1.0x burn) ONLY when
   // complexityTier === 'LOW' && confidence >= 0.85 && !multiFileMutation.
-  let recommendedModel = 'gemini-4-argon';
+  const explicitUserTier = options.userTier || options.planTier || options.antigravityTier || null;
+  const userTier = String(explicitUserTier || (activeModel.includes('carbon') ? 'ultra' : 'pro')).toLowerCase().trim();
+  const eventTimestampUtc = options.eventTimestampUtc ?? options.timestamp ?? null;
+  const canUseCarbon = isPlanTierEligible(userTier, 'ultra');
+  const isActiveCarbon = activeModel.includes('carbon') && canUseCarbon;
+  const frontierModel = ((options.preferCarbon || isActiveCarbon) && canUseCarbon)
+    ? (isActiveCarbon ? activeModel : 'gemini-4-carbon')
+    : 'gemini-4-argon';
+
+  let recommendedModel = frontierModel;
   let recommendedEffort = 'medium';
   let floorGuaranteeApplied = false;
 
@@ -286,7 +544,7 @@ export function classifyTaskComplexity(options = {}) {
     recommendedModel = 'gemini-3.8-flash';
     recommendedEffort = 'low';
   } else if (complexityTier === 'HIGH' || multiFileMutation) {
-    recommendedModel = 'gemini-4-argon';
+    recommendedModel = frontierModel;
     recommendedEffort = 'high';
     if (complexityTier !== 'HIGH') {
       floorGuaranteeApplied = true;
@@ -296,9 +554,20 @@ export function classifyTaskComplexity(options = {}) {
     if (complexityTier === 'LOW' && confidence < FLOOR_GUARANTEE_CONFIDENCE_THRESHOLD) {
       floorGuaranteeApplied = true;
     }
-    recommendedModel = confidence < FLOOR_GUARANTEE_CONFIDENCE_THRESHOLD ? 'gemini-4-argon' : 'gemini-4-argon';
+    recommendedModel = confidence < FLOOR_GUARANTEE_CONFIDENCE_THRESHOLD ? frontierModel : frontierModel;
     recommendedEffort = confidence < FLOOR_GUARANTEE_CONFIDENCE_THRESHOLD ? 'high' : 'medium';
   }
+
+  // Enforce tier eligibility & sunset filtering on recommendedModel
+  const recCatalogEntry = MODEL_CATALOG[recommendedModel];
+  if (recCatalogEntry && !isPlanTierEligible(userTier, recCatalogEntry.antigravity_min_tier || 'free')) {
+    recommendedModel = isPlanTierEligible(userTier, 'pro') ? 'gemini-4-argon' : 'gemini-3.8-flash';
+  }
+  if (isModelDeprecated(recommendedModel, eventTimestampUtc)) {
+    recommendedModel = canUseCarbon ? 'gemini-4-carbon' : 'gemini-4-argon';
+  }
+
+  const migrationNotice = getDeprecatedModelMigrationNotice(activeModel, eventTimestampUtc, userTier);
 
   // Auto-Escalation on Loop Detection (DET-01 >= 2 consecutive failures or DET-02 oscillation >= 1)
   let loopEscalated = false;
@@ -308,13 +577,14 @@ export function classifyTaskComplexity(options = {}) {
   if (hasLoopSignal) {
     const isFlashLow = activeModel === 'gemini-3.8-flash' && activeEffort === 'low';
     const isArgonLow = activeModel === 'gemini-4-argon' && activeEffort === 'low';
-    if (isFlashLow || isArgonLow || recommendedModel === 'gemini-3.8-flash') {
+    const isCarbonLow = activeModel.includes('carbon') && activeEffort === 'low';
+    if (isFlashLow || isArgonLow || isCarbonLow || recommendedModel === 'gemini-3.8-flash') {
       loopEscalated = true;
       escalationReason = det01Count >= 2
         ? `DET-01 retry churn (${det01Count} consecutive failures)`
         : `DET-02 file-hash edit oscillation (${det02Count} flips)`;
-      recommendedModel = 'gemini-4-argon';
-      recommendedEffort = isArgonLow && det01Count >= 3 ? 'high' : 'medium';
+      recommendedModel = isActiveCarbon ? activeModel : 'gemini-4-argon';
+      recommendedEffort = (isArgonLow || isCarbonLow) && det01Count >= 3 ? 'high' : 'medium';
       if (complexityTier === 'LOW') {
         complexityTier = 'MEDIUM';
       }
@@ -334,6 +604,8 @@ export function classifyTaskComplexity(options = {}) {
     loopEscalated,
     escalationReason,
     floorGuaranteeApplied,
+    userTier,
+    migrationNotice,
     signals: {
       fileMentionCount,
       astFileCount,
@@ -359,11 +631,161 @@ export function classifyTaskComplexity(options = {}) {
  *   E_output(e)
  * ]
  */
+export function resolveReadDiscountFactor(modelId = 'gemini-4-argon', options = {}) {
+  if (typeof options.readDiscountFactor === 'number' && Number.isFinite(options.readDiscountFactor) && options.readDiscountFactor >= 0) {
+    return options.readDiscountFactor;
+  }
+  if (typeof options.discountPct === 'number' && Number.isFinite(options.discountPct)) {
+    return Math.max(0, (100 - options.discountPct) / 100);
+  }
+  if (typeof options.cacheDiscount === 'number' && Number.isFinite(options.cacheDiscount)) {
+    return options.cacheDiscount <= 1 ? Math.max(0, 1 - options.cacheDiscount) : Math.max(0, (100 - options.cacheDiscount) / 100);
+  }
+  const rates = resolveModelRates(modelId, options.eventTimestampUtc ?? null, 'standard', options);
+  if (rates && rates.input > 0 && rates.cachedRead >= 0) {
+    return Number((rates.cachedRead / rates.input).toFixed(6));
+  }
+  return 0.05;
+}
+
+/**
+ * Closed-form prefix break-even calculator ($C^*$) for both quota-weight parity pairs
+ * (`Argon -> Flash` = 3,529 @ 95%, 4,286 @ 90%; `Carbon -> Flash` = 3,529 @ 95%, 4,286 @ 90%)
+ * and Anthropic explicit-cache USD pairs (`Opus 5.5 -> Sonnet 5.5` = 6,522, `Opus 4.6 -> Sonnet 4.6` = 4,615).
+ */
+export function computeClosedFormBreakEven({
+  currentModel = 'gemini-4-argon',
+  targetModel = 'gemini-3.8-flash',
+  targetEffort = 'low',
+  cachedTokens = 0,
+  ttlRemainingSeconds = 0,
+  cacheTtlSeconds = undefined,
+  expectedOutputTokens = DEFAULT_EXPECTED_OUTPUT_TOKENS,
+  uncachedDeltaTokens = 0,
+  cacheTtlTier = '5m',
+  readDiscountFactor = undefined,
+  discountPct = undefined,
+  cacheDiscount = undefined,
+  pricingMode = 'auto',
+  eventTimestampUtc = null
+} = {}) {
+  const normCurrent = normalizeModelId(currentModel);
+  const normTarget = normalizeModelId(targetModel);
+  const normTargetEffort = normalizeEffortTier(targetEffort);
+  const tCached = Math.max(0, Number(cachedTokens || 0));
+  const ttlSec = Math.max(0, Number(ttlRemainingSeconds ?? cacheTtlSeconds ?? 0));
+  const tOut = expectedOutputTokens !== null && expectedOutputTokens !== undefined
+    ? Math.max(0, Number(expectedOutputTokens))
+    : DEFAULT_EXPECTED_OUTPUT_TOKENS;
+  const tUncachedDelta = Math.max(0, Number(uncachedDeltaTokens || 0));
+
+  const descCurr = resolveModelDescriptor(normCurrent);
+  const descTarget = resolveModelDescriptor(normTarget);
+  const useUsdExplicitMode =
+    pricingMode === 'usd' ||
+    (pricingMode !== 'quota' && Boolean(descCurr?.supports_explicit_cache && descTarget?.supports_explicit_cache));
+
+  const readFactor = resolveReadDiscountFactor(normCurrent, {
+    readDiscountFactor,
+    discountPct,
+    cacheDiscount,
+    eventTimestampUtc,
+    totalPromptTokens: tCached
+  });
+
+  if (useUsdExplicitMode) {
+    const ratesCurr = resolveModelRates(normCurrent, eventTimestampUtc, 'standard', { totalPromptTokens: tCached });
+    const ratesTarget = resolveModelRates(normTarget, eventTimestampUtc, 'standard', { totalPromptTokens: tCached });
+    const is1h = String(cacheTtlTier || '5m').toLowerCase() === '1h';
+    const pWriteCurr = is1h ? ratesCurr.write1h : ratesCurr.write5m;
+    const pWriteTarget = is1h ? ratesTarget.write1h : ratesTarget.write5m;
+    const pReadCurr = ratesCurr.cachedRead;
+    const pOutCurr = ratesCurr.output;
+    const pOutTarget = ratesTarget.output;
+
+    const denom = pWriteTarget - pReadCurr;
+    const num = (tOut * (pOutCurr - pOutTarget)) + (tUncachedDelta * (pWriteCurr - pWriteTarget));
+    const canHoldWarmPrefix = denom > 0 && pOutCurr > pOutTarget && num > 0;
+    const breakEvenTokens = canHoldWarmPrefix ? Math.round(num / denom) : Infinity;
+
+    const warmCostUsd = ((tCached * pReadCurr) + (tUncachedDelta * pWriteCurr) + (tOut * pOutCurr)) / 1_000_000;
+    const coldSwitchCostUsd = (((tCached + tUncachedDelta) * pWriteTarget) + (tOut * pOutTarget)) / 1_000_000;
+
+    return {
+      mode: 'usd',
+      currentModel: normCurrent,
+      targetModel: normTarget,
+      targetEffort: normTargetEffort,
+      cachedTokens: tCached,
+      ttlRemainingSeconds: ttlSec,
+      expectedOutputTokens: tOut,
+      uncachedDeltaTokens: tUncachedDelta,
+      cacheTtlTier: is1h ? '1h' : '5m',
+      readDiscountFactor: readFactor,
+      pWriteCurr,
+      pWriteTarget,
+      pReadCurr,
+      pOutCurr,
+      pOutTarget,
+      denominator: Number(denom.toFixed(6)),
+      canHoldWarmPrefix,
+      breakEvenTokens,
+      warmCostUsd: Number(warmCostUsd.toFixed(6)),
+      coldSwitchCostUsd: Number(coldSwitchCostUsd.toFixed(6)),
+      deltaCostUsd: Number((warmCostUsd - coldSwitchCostUsd).toFixed(6)),
+      shouldHoldWarmCache: Boolean(canHoldWarmPrefix && tCached > breakEvenTokens && ttlSec > 0 && !isSameModelFamily(normCurrent, normTarget))
+    };
+  }
+
+  const wCurr = getQuotaMultiplier(normCurrent, 'low');
+  const eLow = getQuotaMultiplier(normCurrent, 'low');
+  const wTarget = getQuotaMultiplier(normTarget, 'low');
+  const eTarget = getQuotaMultiplier(normTarget, normTargetEffort);
+
+  const denom = wTarget - (readFactor * wCurr);
+  const num = (tOut * (eLow - eTarget)) + (tUncachedDelta * (wCurr - wTarget));
+  const canHoldWarmPrefix = denom > 0 && eLow > eTarget && num > 0;
+  const breakEvenTokens = canHoldWarmPrefix ? Math.round(num / denom) : Infinity;
+
+  return {
+    mode: 'quota',
+    currentModel: normCurrent,
+    targetModel: normTarget,
+    targetEffort: normTargetEffort,
+    cachedTokens: tCached,
+    ttlRemainingSeconds: ttlSec,
+    expectedOutputTokens: tOut,
+    uncachedDeltaTokens: tUncachedDelta,
+    readDiscountFactor: readFactor,
+    wCurr,
+    eLow,
+    wTarget,
+    eTarget,
+    denominator: Number(denom.toFixed(6)),
+    canHoldWarmPrefix,
+    breakEvenTokens,
+    shouldHoldWarmCache: Boolean(canHoldWarmPrefix && tCached > breakEvenTokens && ttlSec > 0 && !isSameModelFamily(normCurrent, normTarget))
+  };
+}
+
+export function evaluateCacheGravity(params = {}) {
+  const scorer = new CacheGravityScorer(params);
+  return scorer.computeBreakEven(params);
+}
+
 export class CacheGravityScorer {
   constructor(options = {}) {
+    this.explicitWarmCacheThreshold =
+      options.warmCacheThresholdTokens !== undefined && options.warmCacheThresholdTokens !== null
+        ? Number(options.warmCacheThresholdTokens)
+        : null;
     this.warmCacheThresholdTokens = Number(
-      options.warmCacheThresholdTokens ?? WARM_CACHE_GRAVITY_THRESHOLD_TOKENS
+      this.explicitWarmCacheThreshold ?? WARM_CACHE_GRAVITY_THRESHOLD_TOKENS
     );
+  }
+
+  computeBreakEven(params = {}) {
+    return computeClosedFormBreakEven(params);
   }
 
   /**
@@ -390,9 +812,10 @@ export class CacheGravityScorer {
     const tUncachedDelta = Math.max(0, Number(uncachedDeltaTokens || 0));
     const eOutput = expectedOutputTokens !== null && expectedOutputTokens !== undefined
       ? Number(expectedOutputTokens)
-      : (EXPECTED_OUTPUT_TOKENS_BY_EFFORT[normCandidateEffort] || 3500);
+      : (EXPECTED_OUTPUT_TOKENS_BY_EFFORT[normCandidateEffort] || DEFAULT_EXPECTED_OUTPUT_TOKENS);
 
-    const cachedTerm = sameModelIndicator * (0.05 * tCached);
+    const readFactor = resolveReadDiscountFactor(normActiveModel, { totalPromptTokens: tCached });
+    const cachedTerm = sameModelIndicator * (readFactor * tCached);
     const coldPrefillTerm = (1 - sameModelIndicator) * tCached;
     const effectiveTokens = cachedTerm + coldPrefillTerm + tUncachedDelta + eOutput;
     const effectiveQuotaCost = Number((multiplier * effectiveTokens).toFixed(2));
@@ -406,6 +829,7 @@ export class CacheGravityScorer {
       cachedTokens: tCached,
       uncachedDeltaTokens: tUncachedDelta,
       expectedOutputTokens: eOutput,
+      readDiscountFactor: readFactor,
       cachedTerm: Number(cachedTerm.toFixed(2)),
       coldPrefillTerm: Number(coldPrefillTerm.toFixed(2)),
       effectiveTokens: Number(effectiveTokens.toFixed(2)),
@@ -415,19 +839,46 @@ export class CacheGravityScorer {
 
   /**
    * Evaluates candidate (model, effort) pairs and applies Rule A (Modulate Effort Within Same Model)
-   * and Rule B (Subagent / Local Offload for Routine Subtasks) when Cached History >= 60,000 and TTL > 0s.
+   * and Rule B (Subagent / Local Offload for Routine Subtasks) when Cached History > breakEvenTokens and TTL > 0s.
    */
   evaluateCandidates(context = {}) {
     const activeModel = normalizeModelId(context.activeModel || 'gemini-4-argon');
     const activeEffort = normalizeEffortTier(context.activeEffort || 'high');
     const cachedTokens = Math.max(0, Number(context.cachedTokens || 0));
-    const cacheTtlSeconds = Math.max(0, Number(context.cacheTtlSeconds || 0));
+    const cacheTtlSeconds = Math.max(0, Number(context.cacheTtlSeconds ?? context.ttlRemainingSeconds ?? 0));
     const uncachedDeltaTokens = Math.max(0, Number(context.uncachedDeltaTokens ?? 2000));
     const complexityTier = String(context.complexityTier || 'LOW').toUpperCase();
     const confidence = Number(context.confidence ?? 0.90);
+    const explicitUserTier = context.userTier || context.planTier || null;
+    const userTier = String(explicitUserTier || (activeModel.includes('carbon') ? 'ultra' : 'pro')).toLowerCase().trim();
+    const eventTimestampUtc = context.eventTimestampUtc ?? context.timestamp ?? null;
+    const activeModelDeprecated = isModelDeprecated(activeModel, eventTimestampUtc);
+    const migrationNotice = getDeprecatedModelMigrationNotice(activeModel, eventTimestampUtc, userTier);
+
+    const defaultDownshiftPeer = activeModel === 'claude-opus-5-5'
+      ? 'claude-sonnet-5-5'
+      : (activeModel === 'claude-opus-4-6'
+        ? 'claude-sonnet-4-6'
+        : (activeModel === 'claude-opus-4-5'
+          ? 'claude-sonnet-4-5'
+          : (activeModel.startsWith('claude-fable') ? 'claude-opus-5-5' : 'gemini-3.8-flash')));
+
+    const breakEven = this.computeBreakEven({
+      currentModel: activeModel,
+      targetModel: context.targetModel || defaultDownshiftPeer,
+      targetEffort: 'low',
+      cachedTokens,
+      ttlRemainingSeconds: cacheTtlSeconds,
+      expectedOutputTokens: context.expectedOutputTokens ?? DEFAULT_EXPECTED_OUTPUT_TOKENS,
+      eventTimestampUtc
+    });
 
     const hasWarmCacheGravity =
-      cachedTokens >= this.warmCacheThresholdTokens && cacheTtlSeconds > 0;
+      !activeModelDeprecated &&
+      cacheTtlSeconds > 0 &&
+      (this.explicitWarmCacheThreshold !== null
+        ? cachedTokens >= this.explicitWarmCacheThreshold
+        : (breakEven.canHoldWarmPrefix && cachedTokens > breakEven.breakEvenTokens));
 
     const candidatePairs = [
       { model: activeModel, effort: 'low' },
@@ -437,7 +888,10 @@ export class CacheGravityScorer {
       { model: 'gemini-3.8-flash', effort: 'medium' },
       { model: 'gemini-4-argon', effort: 'low' },
       { model: 'gemini-4-argon', effort: 'medium' },
-      { model: 'gemini-4-argon', effort: 'high' }
+      { model: 'gemini-4-argon', effort: 'high' },
+      { model: 'gemini-4-carbon', effort: 'low' },
+      { model: 'gemini-4-carbon', effort: 'medium' },
+      { model: 'gemini-4-carbon', effort: 'high' }
     ];
 
     const seen = new Set();
@@ -446,6 +900,9 @@ export class CacheGravityScorer {
       const key = `${pair.model}:${pair.effort}`;
       if (seen.has(key)) continue;
       seen.add(key);
+      if (isModelDeprecated(pair.model, eventTimestampUtc)) continue;
+      const catEntry = MODEL_CATALOG[pair.model];
+      if (catEntry && !isPlanTierEligible(userTier, catEntry.antigravity_min_tier || 'free')) continue;
       scoredCandidates.push(
         this.computeEffectiveCost({
           candidateModel: pair.model,
@@ -560,7 +1017,12 @@ export class CacheGravityScorer {
         policyApplied = 'RULE_A_AND_B_WARM_CACHE_WITH_SUBAGENT_OFFLOAD';
       }
     } else {
-      // Cache is cold (TTL == 0) or small (< 60k): safe to switch model family directly if complexity allows
+      // Cache is cold (TTL == 0) or below break-even: safe to switch model family directly if complexity allows
+      const canUseCarbon = isPlanTierEligible(userTier, 'ultra');
+      const isActiveCarbon = activeModel.includes('carbon') && canUseCarbon;
+      const frontierTarget = ((context.preferCarbon || isActiveCarbon) && canUseCarbon)
+        ? (isActiveCarbon ? activeModel : 'gemini-4-carbon')
+        : (isPlanTierEligible(userTier, 'pro') ? 'gemini-4-argon' : 'gemini-3.8-flash');
       let targetModel = activeModel;
       let targetEffort = activeEffort;
 
@@ -570,11 +1032,15 @@ export class CacheGravityScorer {
       } else if (complexityTier === 'MEDIUM') {
         targetModel = cacheTtlSeconds === 0 && cachedTokens >= this.warmCacheThresholdTokens
           ? 'gemini-3.8-flash'
-          : 'gemini-4-argon';
+          : frontierTarget;
         targetEffort = 'medium';
       } else {
-        targetModel = 'gemini-4-argon';
+        targetModel = frontierTarget;
         targetEffort = 'high';
+      }
+
+      if (isModelDeprecated(targetModel, eventTimestampUtc) || !isPlanTierEligible(userTier, MODEL_CATALOG[targetModel]?.antigravity_min_tier || 'free')) {
+        targetModel = frontierTarget;
       }
 
       const targetCostObj = this.computeEffectiveCost({
@@ -606,6 +1072,8 @@ export class CacheGravityScorer {
 
     return {
       hasWarmCacheGravity,
+      breakEvenTokens: breakEven.breakEvenTokens,
+      breakEven,
       policyApplied,
       baseline: baselineCost,
       sameModelLowCost,
@@ -613,7 +1081,8 @@ export class CacheGravityScorer {
       primaryRecommendation,
       subagentOffloadOption,
       localOffloadOption,
-      scoredCandidates
+      scoredCandidates,
+      migrationNotice
     };
   }
 }
@@ -963,8 +1432,37 @@ export class ModelSelectorActuator {
     };
 
     if (this.agBridge) {
-      const dispatchRes = await this.agBridge.sendChatCommand(sessionId, commandPayload);
-      transportUsed = dispatchRes.transportUsed || 'rpc';
+      const dispatchRes = await this.agBridge.sendChatCommand(sessionId, commandPayload, request);
+      transportUsed = dispatchRes?.transportUsed || 'rpc';
+      if (
+        dispatchRes &&
+        (dispatchRes.ok === false || dispatchRes.allowed === false || dispatchRes.transportUsed === 'blocked_cdp')
+      ) {
+        const blockedReason = dispatchRes.cdpBlockedReason || dispatchRes.reason || 'EXPERIMENTAL_CDP_DISABLED';
+        this.syncStatus = 'blocked_cdp';
+        const blockedRecord = {
+          ok: false,
+          mode: this.mode,
+          actuated: false,
+          method: 'blocked_cdp',
+          transportUsed: 'blocked_cdp',
+          reason: blockedReason,
+          cdpBlockedReason: blockedReason,
+          preventedColdPrefill,
+          previousModel: currentModel,
+          previousEffort: currentEffort,
+          activeModel: currentModel,
+          activeEffort: currentEffort,
+          recommendedModel: safeMainThreadModel,
+          recommendedEffort: safeMainThreadEffort,
+          activeMultiplier: getQuotaMultiplier(currentModel, currentEffort),
+          syncStatus: this.syncStatus,
+          coachPillText,
+          gravity
+        };
+        this.actuationHistory.push(blockedRecord);
+        return blockedRecord;
+      }
     }
 
     this.activeModel = safeMainThreadModel;
@@ -975,6 +1473,7 @@ export class ModelSelectorActuator {
       ok: true,
       mode: this.mode,
       actuated: true,
+      method: transportUsed,
       preventedColdPrefill,
       previousModel: currentModel,
       previousEffort: currentEffort,
@@ -1090,6 +1589,60 @@ export function evaluateTaskAndQuotaRoute(options = {}) {
   };
 }
 
+/**
+ * Actuates a routing recommendation when `flightMode === 'AUTO_PILOT'` (or `forceActuate === true`),
+ * respecting `AgBridgeService` CDP safety gates (`EXPERIMENTAL_CDP_DISABLED` -> `actuated: false`).
+ */
+export async function actuateRoutingRecommendation(routeOrInput = {}, options = {}) {
+  const actuator = options.actuator || new ModelSelectorActuator({
+    agBridge: options.agBridge,
+    cacheGravityScorer: options.cacheGravityScorer,
+    mode: options.mode || (String(options.flightMode || '').toUpperCase() === 'AUTO_PILOT' ? 'autopilot' : 'coach'),
+    activeModel: routeOrInput.activeModel || options.activeModel || 'gemini-4-argon',
+    activeEffort: routeOrInput.activeEffort || options.activeEffort || 'high'
+  });
+
+  const targetModel = routeOrInput.targetModel ||
+    routeOrInput.gravity?.primaryRecommendation?.model ||
+    routeOrInput.classification?.recommendedModel ||
+    actuator.activeModel;
+  const targetEffort = routeOrInput.targetEffort ||
+    routeOrInput.gravity?.primaryRecommendation?.effort ||
+    routeOrInput.classification?.recommendedEffort ||
+    actuator.activeEffort;
+
+  // No-op when already on the exact recommended model + effort
+  if (
+    normalizeModelId(targetModel) === normalizeModelId(routeOrInput.activeModel || actuator.activeModel) &&
+    normalizeEffortTier(targetEffort) === normalizeEffortTier(routeOrInput.activeEffort || actuator.activeEffort) &&
+    !options.forceActuate
+  ) {
+    return {
+      ok: true,
+      mode: actuator.mode,
+      actuated: false,
+      method: 'noop_already_synced',
+      reason: 'ALREADY_ON_RECOMMENDED_MODEL_EFFORT',
+      activeModel: actuator.activeModel,
+      activeEffort: actuator.activeEffort
+    };
+  }
+
+  return actuator.evaluateAndActuate({
+    sessionId: options.sessionId || routeOrInput.sessionId || 'default_session',
+    activeModel: routeOrInput.activeModel || actuator.activeModel,
+    activeEffort: routeOrInput.activeEffort || actuator.activeEffort,
+    targetModel,
+    targetEffort,
+    cachedTokens: routeOrInput.cachedTokens ?? options.cachedTokens ?? 0,
+    cacheTtlSeconds: routeOrInput.cacheTtlSeconds ?? options.cacheTtlSeconds ?? 0,
+    isCleanBoundary: options.isCleanBoundary ?? true,
+    forceActuate: Boolean(options.forceActuate),
+    enableExperimentalCdpActuation: options.enableExperimentalCdpActuation,
+    settings: options.settings
+  });
+}
+
 export default {
   MODEL_CATALOG,
   WARM_CACHE_GRAVITY_THRESHOLD_TOKENS,
@@ -1098,5 +1651,6 @@ export default {
   CacheGravityScorer,
   TaskMdDirectiveWatcher,
   ModelSelectorActuator,
-  evaluateTaskAndQuotaRoute
+  evaluateTaskAndQuotaRoute,
+  actuateRoutingRecommendation
 };

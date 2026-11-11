@@ -3,19 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { JSDOM } from 'jsdom';
 
-const require = createRequire(import.meta.url);
-let JSDOM = null;
-try {
-  ({ JSDOM } = require('jsdom'));
-} catch {
-  try {
-    ({ JSDOM } = require('C:/Users/frank/AppData/Local/Temp/node_modules/jsdom'));
-  } catch {
-    JSDOM = null;
-  }
-}
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 import {
   computeMcpTokenRoiMatrix,
@@ -117,7 +108,7 @@ describe('Wave 3 — Wedge F10 (SQLite FTS5 Episodic Memory) & F11 (Git Commit T
 
     await upsertEpisodicMemory(dbPath, {
       sessionId: 'sess-alpha-1',
-      workspacePath: 'c:/Projects/ga-visualizer-v2',
+      workspacePath: '/workspace/attention-horizon',
       title: 'Dual-TTL Cache Guardian Implementation',
       summary: 'Implemented 1h vs 5m TTL cliff detection and prefix mutation byte diffs.',
       decisions: ['Use rolling SHA-256 block hashes', 'Open SQLite strictly read-only'],
@@ -126,13 +117,13 @@ describe('Wave 3 — Wedge F10 (SQLite FTS5 Episodic Memory) & F11 (Git Commit T
 
     const q = await queryEpisodicMemoryBm25(dbPath, {
       query: 'TTL cliff prefix',
-      workspacePath: 'c:/Projects/ga-visualizer-v2'
+      workspacePath: '/workspace/attention-horizon'
     });
     assert.equal(q.hits.length, 1);
     assert.equal(q.hits[0].sessionId, 'sess-alpha-1');
 
     const pack = await synthesizeResumeHerePack(dbPath, {
-      workspacePath: 'c:/Projects/ga-visualizer-v2',
+      workspacePath: '/workspace/attention-horizon',
       query: 'TTL cliff'
     });
     assert.equal(pack.header, '[▶ RESUME HERE]');
@@ -156,7 +147,7 @@ describe('Wave 3 — Wedge F10 (SQLite FTS5 Episodic Memory) & F11 (Git Commit T
     assert.equal(ledger.cacheHitPct, 90);
     assert.ok(ledger.estimatedCostUsd > 0);
     assert.equal(ledger.files.length, 1);
-    assert.ok(ledger.prMarkdownSummary.includes('Context Horizon PR Token Ledger'));
+    assert.ok(ledger.prMarkdownSummary.includes('Attention Horizon PR Token Ledger'));
 
     // Verify timestamp-window interval attribution: step1 before commit 1, step2 between commit 1 and commit 2
     const timedSteps = [
@@ -365,12 +356,8 @@ describe('Per-Model Cache Pool Tracking & Auto-Router Thrash Detection', () => {
 });
 
 describe('Simple View Recommended Actions Collapsible Architecture & Open-State Preservation', () => {
-  test('Recommended Actions render as initially-collapsed <details> rows with summary header and body instructions', async (t) => {
-    if (!JSDOM) {
-      t.skip('JSDOM not available in environment');
-      return;
-    }
-    const htmlPath = path.resolve('src/webview/horizon_panel.html');
+  test('Recommended Actions render as initially-collapsed <details> rows with summary header and body instructions', async () => {
+    const htmlPath = path.join(ROOT, 'src', 'webview', 'horizon_panel.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
     const dom = new JSDOM(html, {
       url: 'http://127.0.0.1:43210/',
@@ -475,12 +462,8 @@ describe('Simple View Recommended Actions Collapsible Architecture & Open-State 
     dom.window.close();
   });
 
-  test('5 Engineering Fixes: Preview CSS, Session Sorting, Chronic Badges, Spike Differentiation & AST/Compact Copy', async (t) => {
-    if (!JSDOM) {
-      t.skip('JSDOM not available in environment');
-      return;
-    }
-    const htmlPath = path.resolve('src/webview/horizon_panel.html');
+  test('5 Engineering Fixes: Preview CSS, Session Sorting, Chronic Badges, Spike Differentiation & AST/Compact Copy', async () => {
+    const htmlPath = path.join(ROOT, 'src', 'webview', 'horizon_panel.html');
     const htmlContent = fs.readFileSync(htmlPath, 'utf8');
 
     // 1. Prompt preview CSS check
@@ -744,7 +727,7 @@ describe('Simple View Recommended Actions Collapsible Architecture & Open-State 
                 insertedAtLine: 2,
                 totalLinesAfter: 18,
                 zoneUsed: 'primacy',
-                targetPath: 'C:/Projects/ga-visualizer-v2/AGENTS.md'
+                targetPath: path.join(ROOT, 'AGENTS.md').replace(/\\/g, '/')
               })
             };
           }
@@ -985,19 +968,18 @@ describe('Simple View Recommended Actions Collapsible Architecture & Open-State 
     dom.window.close();
   });
 
-  test('Phase 3: Live DOM Verification - Subject Box Headers, Single Action Button Simplicity & Invariants', async (t) => {
-    if (!JSDOM) {
-      t.skip('jsdom not available in this environment');
-      return;
-    }
-
-    const htmlPath = path.resolve('src/webview/horizon_panel.html');
+  test('Phase 3: Live DOM Verification - Subject Box Headers, Single Action Button Simplicity & Invariants', async () => {
+    const htmlPath = path.join(ROOT, 'src', 'webview', 'horizon_panel.html');
     const rawHtml = fs.readFileSync(htmlPath, 'utf8');
 
     const dom = new JSDOM(rawHtml, {
       runScripts: 'dangerously',
-      resources: 'usable',
-      url: 'http://localhost/'
+      pretendToBeVisual: true,
+      url: 'http://127.0.0.1:43210/',
+      beforeParse(win) {
+        win.EventSource = class { close() {} };
+        win.fetch = async () => ({ ok: true, status: 200, json: async () => ({ success: true }) });
+      }
     });
 
     const d = dom.window.document;

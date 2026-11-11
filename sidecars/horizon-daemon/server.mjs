@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { getHomeDir, getDaemonPortFile, ensureSupportedNodeVersion } from '../../src/core/paths.mjs';
-import { resolveSurfaceTag } from '../../src/core/constants.mjs';
+import { resolveSurfaceTag, resolveModelCeiling } from '../../src/core/constants.mjs';
 import { runCLI } from '../../src/cli/horizon_hud.mjs';
 import { findSessionDirectory } from '../../src/core/parser.mjs';
 import { loadSettings, saveSettings, SETTINGS_LIMITS } from '../../src/core/settings.mjs';
@@ -24,10 +24,12 @@ import { RsiInstinctEngine } from '../../src/core/rsi_instinct_engine.mjs';
 import { UShapedAttentionOptimizer } from '../../src/core/u_shaped_optimizer.mjs';
 import {
   evaluateTaskAndQuotaRoute,
+  actuateRoutingRecommendation,
   CacheGravityScorer,
   TaskMdDirectiveWatcher,
   ModelSelectorActuator
 } from '../../src/core/task_quota_router.mjs';
+import { loadHorizonConfig } from '../../src/core/horizon_config.mjs';
 import { TrajectoryWatcher } from '../../src/core/telemetry/trajectory_watcher.mjs';
 import { detectShadowedFileBloat } from '../../src/core/telemetry/shadow_file_detector.mjs';
 import { CacheTtlWatchdog } from '../../src/core/telemetry/cache_ttl_watchdog.mjs';
@@ -43,6 +45,53 @@ import { TurnZeroGate } from '../../src/core/coach/turn_zero_gate.mjs';
 import { HandoffHydrationLauncher } from '../../src/core/coach/handoff_hydrator.mjs';
 import { SavedQuotaReceiptLedger } from '../../src/core/coach/saved_quota_ledger.mjs';
 import { ProgressiveCheckpointer } from '../../src/core/coach/progressive_checkpointer.mjs';
+import { atomicWriteFileSync } from '../../src/core/atomic_io.mjs';
+
+export const HORIZON_CSRF_TOKEN = crypto.randomBytes(32).toString('hex');
+export const MAX_REQUEST_BODY_BYTES = 1_048_576; // 1 MB
+export const MAX_SSE_CLIENTS = 16;
+export const MAX_DAEMON_DIAGNOSTICS = 50;
+
+const daemonDiagnostics = [];
+let daemonDiagnosticTotalCount = 0;
+
+export function recordDaemonDiagnostic(operation, err) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    operation: String(operation || 'unknown').slice(0, 96),
+    name: err && typeof err === 'object' && err.name ? String(err.name).slice(0, 48) : 'Error',
+    code: err && typeof err === 'object' && err.code ? String(err.code) : null,
+    message: String(err instanceof Error ? err.message : (err ?? 'Unknown error')).slice(0, 240)
+  };
+  daemonDiagnosticTotalCount += 1;
+  daemonDiagnostics.push(entry);
+  while (daemonDiagnostics.length > MAX_DAEMON_DIAGNOSTICS) {
+    daemonDiagnostics.shift();
+  }
+  return entry;
+}
+
+export function getDaemonDiagnostics() {
+  return {
+    count: daemonDiagnostics.length,
+    totalRecorded: daemonDiagnosticTotalCount,
+    recent: [...daemonDiagnostics]
+  };
+}
+
+export function clearDaemonDiagnostics() {
+  daemonDiagnostics.length = 0;
+  daemonDiagnosticTotalCount = 0;
+}
+
+export function isValidCsrfToken(candidate) {
+  if (typeof candidate !== 'string' || candidate.length !== HORIZON_CSRF_TOKEN.length) {
+    return false;
+  }
+  const a = Buffer.from(candidate, 'utf8');
+  const b = Buffer.from(HORIZON_CSRF_TOKEN, 'utf8');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 import { ContradictionAuditor } from '../../src/core/coach/contradiction_auditor.mjs';
 import { ReflectorQueue } from '../../src/core/coach/reflector_queue.mjs';
 import { PromptDecomposerCoach } from '../../src/core/coach/prompt_decomposer_coach.mjs';
@@ -52,6 +101,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 if (process.argv.includes('--demo')) {
   process.env.HORIZON_DEMO = '1';
 }
+const isDemoMode = process.env.HORIZON_DEMO === '1' || process.argv.includes('--demo');
 
 const EXPLICIT_PORT = parseInt(
   process.env.ANTIGRAVITY_SIDECAR_WEB_PORT ||
@@ -74,7 +124,11 @@ const horizonPanelHtml = path.resolve(__dirname, '../../src/webview/horizon_pane
 function getHtmlMtimeMs() {
   const target = fs.existsSync(horizonPanelHtml) ? horizonPanelHtml : (fs.existsSync(sidePaneHtml) ? sidePaneHtml : null);
   if (target) {
-    try { return fs.statSync(target).mtimeMs; } catch {}
+    try {
+      return fs.statSync(target).mtimeMs;
+    } catch (err) {
+      if (err?.code !== 'ENOENT') recordDaemonDiagnostic('getHtmlMtimeMs', err);
+    }
   }
   return 0;
 }
@@ -85,14 +139,15 @@ let pinnedConversationId = null;
 let activeLockfiles = [];
 
 const prefixCacheShield = new PrefixCacheShield();
-const compactionCoach = new CompactionCoach({ prefixShield: prefixCacheShield });
+const compactionCoach = new CompactionCoach({ prefixCacheShield, prefixShield: prefixCacheShield });
 let rsiEngine = null;
 try {
-  rsiEngine = new RsiInstinctEngine({ prefixShield: prefixCacheShield });
-} catch {
+  rsiEngine = new RsiInstinctEngine({ prefixCacheShield, prefixShield: prefixCacheShield });
+} catch (err) {
+  recordDaemonDiagnostic('init:RsiInstinctEngine', err);
   rsiEngine = null;
 }
-const uShapedOptimizer = new UShapedAttentionOptimizer({ prefixShield: prefixCacheShield });
+const uShapedOptimizer = new UShapedAttentionOptimizer({ prefixCacheShield, prefixShield: prefixCacheShield });
 const cacheGravityScorer = new CacheGravityScorer();
 const modelSelectorActuator = new ModelSelectorActuator({ cacheGravityScorer });
 const taskMdWatcher = new TaskMdDirectiveWatcher({ cacheGravityScorer, actuator: modelSelectorActuator });
@@ -103,19 +158,34 @@ const trajectoryWatcher = new TrajectoryWatcher({ hysteresisLock, circuitBreaker
 const handoffHydrator = new HandoffHydrationLauncher();
 const cacheTtlWatchdog = new CacheTtlWatchdog({
   onPreSnapshot: () => {
-    try { handoffHydrator.preStageOnTtlSnapshot({ writeToDisk: false }); } catch {}
+    try {
+      const wsDir = cachedLiveState?.workspace?.canonicalPath || process.cwd();
+      handoffHydrator.preStageOnTtlSnapshot({
+        workspaceDir: wsDir,
+        sessionId: cachedLiveState?.sessionId || pinnedConversationId || 'default-session',
+        writeToDisk: true,
+        writeDocsHandoff: false
+      });
+    } catch (err) {
+      recordDaemonDiagnostic('cacheTtlWatchdog:onPreSnapshot', err);
+    }
   }
 });
 const subagentPhantomAuditor = new SubagentPhantomAuditor();
 const turnZeroGate = new TurnZeroGate();
-const progressiveCheckpointer = new ProgressiveCheckpointer();
+const progressiveCheckpointer = new ProgressiveCheckpointer({
+  checkpointDir: path.join(getFlightcheckDir(), 'checkpoints'),
+  captureGitStat: false
+});
 const contradictionAuditor = new ContradictionAuditor();
-const reflectorQueue = new ReflectorQueue();
+const reflectorQueue = new ReflectorQueue({ prefixCacheShield });
+prefixCacheShield.attachReflectorQueue(reflectorQueue);
 const promptDecomposerCoach = new PromptDecomposerCoach();
 let savedQuotaLedger = null;
 try {
   savedQuotaLedger = new SavedQuotaReceiptLedger();
-} catch {
+} catch (err) {
+  recordDaemonDiagnostic('init:SavedQuotaReceiptLedger', err);
   savedQuotaLedger = null;
 }
 
@@ -132,7 +202,8 @@ function getCachedTaskMdContent(wsDir) {
     const content = fs.readFileSync(candidate, 'utf8');
     cachedTaskMdMeta = { path: candidate, mtimeMs: st.mtimeMs, content };
     return content;
-  } catch {
+  } catch (err) {
+    if (err?.code !== 'ENOENT') recordDaemonDiagnostic('getCachedTaskMdContent', err);
     return '';
   }
 }
@@ -216,7 +287,7 @@ function buildCoachState(state, targetConvId) {
     const livePrompt = String(state?.lastUserPrompt || '');
 
     const cachedTokens = Number(state?.window?.totalActiveTokens || state?.tokens?.total || 0);
-    const ttlSec = Number(state?.quota?.cache?.ttlRemainingSec ?? (state?.cache?.ttlRemainingSec || 0));
+    const ttlSec = Math.max(0, Number(state?.quota?.cache?.ttlRemainingSec ?? state?.cache?.ttlRemainingSec ?? 0) || 0);
     const session = {
       cachedTokens,
       cacheTtlSeconds: ttlSec,
@@ -259,7 +330,9 @@ function buildCoachState(state, targetConvId) {
           };
         }
       }
-    } catch {}
+    } catch (err) {
+      if (err?.code !== 'ENOENT') recordDaemonDiagnostic('buildCoachState:scopeCollision', err);
+    }
 
     const shieldStatus = prefixCacheShield.getStatus(session);
     const compactionEval = assessCompactionState({
@@ -271,6 +344,15 @@ function buildCoachState(state, targetConvId) {
     });
 
     const clusters = rsiEngine?.getDomainClusters ? rsiEngine.getDomainClusters() : [];
+    const horizonCfg = loadHorizonConfig({ cwd: wsDir });
+    const configuredFlightMode = String(horizonCfg.flightMode || 'COACH').toUpperCase();
+    const effectiveRouterMode = modelSelectorActuator.mode === 'autopilot' || configuredFlightMode === 'AUTO_PILOT'
+      ? 'autopilot'
+      : (configuredFlightMode === 'OFF' ? 'off' : modelSelectorActuator.mode);
+    const effectiveFlightMode = effectiveRouterMode === 'autopilot'
+      ? 'AUTO_PILOT'
+      : configuredFlightMode;
+
     const resolvedEffort = String(
       state?.activeEffort ||
       state?.activeEffortProfile?.shortLabel ||
@@ -284,14 +366,15 @@ function buildCoachState(state, targetConvId) {
       activeEffort: resolvedEffort === 'standard' ? 'auto' : resolvedEffort,
       cachedTokens,
       cacheTtlSeconds: ttlSec,
-      routerMode: modelSelectorActuator.mode
+      routerMode: effectiveRouterMode
     });
 
     const det17ShadowBloat = detectShadowedFileBloat(state?.steps || []);
     const elapsedIdleSec = Math.max(0, 300 - ttlSec);
     const ttlWatchdogState = cacheTtlWatchdog.evaluateElapsed(elapsedIdleSec, {
       sessionId: sessionKey,
-      cachedTokens
+      cachedTokens,
+      flightMode: effectiveFlightMode
     });
     const subagentAudit = subagentPhantomAuditor.auditTrajectories(state?.subagents?.invocations || []);
     const ledgerSummary = savedQuotaLedger
@@ -306,10 +389,15 @@ function buildCoachState(state, targetConvId) {
     const ckptEval = progressiveCheckpointer.evaluateAndSnapshot({
       sessionId: sessionKey,
       totalTokens: cachedTokens,
-      maxTokens: Number(state?.window?.maxTokens || 256000),
+      maxTokens: Number(state?.window?.maxTokens) || resolveModelCeiling(
+        state?.model?.id || state?.model?.rawLabel || state?.activeModel || 'gemini-4-argon',
+        null,
+        { useLegacyDefault: false }
+      ),
       taskMdContent,
       agentsMdContent: state?.agentsMdContent || '',
-      userConstraints: state?.userConstraints || []
+      userConstraints: state?.userConstraints || [],
+      writeToDisk: !Boolean(state?.demoMeta || process.env.HORIZON_DEMO === '1')
     });
     const latestCkpt = progressiveCheckpointer.getLatestCheckpoint(sessionKey);
     const evaporationCheck = latestCkpt && state?.contextSummary
@@ -387,7 +475,8 @@ function buildCoachState(state, targetConvId) {
             middleTroughRiskCount: ruleScan?.totalMiddleTroughRisk || 0,
             recencyMirrorActive: Boolean(fs.existsSync(path.join(wsDir || '.', 'task.md')) && fs.readFileSync(path.join(wsDir || '.', 'task.md'), 'utf8').includes('## Active Guardrail Pin'))
           };
-        } catch {
+        } catch (err) {
+          if (err?.code !== 'ENOENT') recordDaemonDiagnostic('buildCoachState:uShapedAttention', err);
           return {
             healthScore: 94,
             middleTroughRiskCount: 0,
@@ -397,7 +486,8 @@ function buildCoachState(state, targetConvId) {
       })(),
       taskQuotaRouter: taskRoute
     };
-  } catch {
+  } catch (err) {
+    recordDaemonDiagnostic('buildCoachState', err);
     return null;
   }
 }
@@ -429,20 +519,24 @@ function writeRuntimeLockfile(boundPort, workspacePath = process.cwd()) {
     const wsJsonFile = path.join(runtimeDir, `horizon-${wsHash}.json`);
     const latestJsonFile = path.join(runtimeDir, 'horizon-latest.json');
 
-    fs.writeFileSync(wsPortFile, String(boundPort), 'utf8');
-    fs.writeFileSync(wsJsonFile, payload, 'utf8');
-    fs.writeFileSync(latestJsonFile, payload, 'utf8');
-    fs.writeFileSync(ctxtopPortFile, String(boundPort), 'utf8');
-    fs.writeFileSync(ctxtopJsonFile, payload, 'utf8');
+    atomicWriteFileSync(wsPortFile, String(boundPort), { encoding: 'utf8' });
+    atomicWriteFileSync(wsJsonFile, payload, { encoding: 'utf8' });
+    atomicWriteFileSync(latestJsonFile, payload, { encoding: 'utf8' });
+    atomicWriteFileSync(ctxtopPortFile, String(boundPort), { encoding: 'utf8' });
+    atomicWriteFileSync(ctxtopJsonFile, payload, { encoding: 'utf8' });
     activeLockfiles = [wsPortFile, wsJsonFile, ctxtopPortFile, ctxtopJsonFile];
-  } catch {}
+  } catch (err) {
+    recordDaemonDiagnostic('writeRuntimeLockfile', err);
+  }
 }
 
 function cleanupRuntimeLockfiles() {
   for (const f of activeLockfiles) {
     try {
       if (fs.existsSync(f)) fs.unlinkSync(f);
-    } catch {}
+    } catch (err) {
+      if (err?.code !== 'ENOENT') recordDaemonDiagnostic('cleanupRuntimeLockfiles', err);
+    }
   }
 }
 
@@ -457,7 +551,11 @@ async function refreshLiveState(force = false, explicitConvId = null) {
   if (!force && !explicitConvId && cachedLiveState && (now - lastEvalMs) < 1000) {
     if (cachedLiveState) {
       cachedLiveState.uiMtimeMs = htmlMtimeMs;
-      try { cachedLiveState.coachState = buildCoachState(cachedLiveState, targetConvId); } catch {}
+      try {
+        cachedLiveState.coachState = buildCoachState(cachedLiveState, targetConvId);
+      } catch (err) {
+        recordDaemonDiagnostic('refreshLiveState:cachedCoachState', err);
+      }
     }
     return cachedLiveState;
   }
@@ -468,7 +566,10 @@ async function refreshLiveState(force = false, explicitConvId = null) {
         useNativeCeiling: true,
         stdinData: targetConvId ? { conversation_id: targetConvId } : null
       }),
-      inspectHostProcesses({ force: false }).catch(() => null)
+      inspectHostProcesses({ force: false }).catch((err) => {
+        recordDaemonDiagnostic('refreshLiveState:inspectHostProcesses', err);
+        return null;
+      })
     ]);
     if (resLive && resLive.state) {
       resLive.state.pinnedConversationId = pinnedConversationId;
@@ -477,24 +578,60 @@ async function refreshLiveState(force = false, explicitConvId = null) {
       try {
         const wsPath = resLive.state.workspace?.canonicalPath || process.cwd();
         resLive.state.gitLedger = buildGitCommitTokenLedger(wsPath, []);
-      } catch {}
+      } catch (err) {
+        if (err?.code !== 'ENOENT') recordDaemonDiagnostic('refreshLiveState:gitLedger', err);
+      }
       cachedLiveState = resLive.state;
       lastEvalMs = now;
-      try { cachedLiveState.coachState = buildCoachState(cachedLiveState, targetConvId); } catch {}
+      try {
+        cachedLiveState.coachState = buildCoachState(cachedLiveState, targetConvId);
+      } catch (err) {
+        recordDaemonDiagnostic('refreshLiveState:liveCoachState', err);
+      }
+      if (
+        cachedLiveState?.coachState?.taskRoute &&
+        (modelSelectorActuator.mode === 'autopilot' || cachedLiveState.coachState.taskRoute.routerMode === 'autopilot')
+      ) {
+        try {
+          cachedLiveState.coachState.autoPilotActuation = await actuateRoutingRecommendation(
+            cachedLiveState.coachState.taskRoute,
+            {
+              actuator: modelSelectorActuator,
+              flightMode: 'AUTO_PILOT',
+              sessionId: targetConvId || cachedLiveState.sessionId || 'default_session',
+              cachedTokens: Number(cachedLiveState?.window?.totalActiveTokens || 0),
+              cacheTtlSeconds: Number(cachedLiveState?.quota?.cache?.ttlRemainingSec || 0)
+            }
+          );
+        } catch (err) {
+          recordDaemonDiagnostic('refreshLiveState:autoPilotActuation', err);
+        }
+      }
       return cachedLiveState;
     }
-  } catch {}
+  } catch (err) {
+    recordDaemonDiagnostic('refreshLiveState:runCLI', err);
+  }
 
   if (fs.existsSync(stateFile)) {
     try {
       cachedLiveState = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
       cachedLiveState.uiMtimeMs = htmlMtimeMs;
       if (!cachedLiveState.hostHealth) {
-        cachedLiveState.hostHealth = await inspectHostProcesses({ force: false }).catch(() => null);
+        cachedLiveState.hostHealth = await inspectHostProcesses({ force: false }).catch((err) => {
+          recordDaemonDiagnostic('refreshLiveState:stateFileHostProcesses', err);
+          return null;
+        });
       }
-      try { cachedLiveState.coachState = buildCoachState(cachedLiveState, targetConvId); } catch {}
+      try {
+        cachedLiveState.coachState = buildCoachState(cachedLiveState, targetConvId);
+      } catch (err) {
+        recordDaemonDiagnostic('refreshLiveState:stateFileCoachState', err);
+      }
       return cachedLiveState;
-    } catch {}
+    } catch (err) {
+      if (err?.code !== 'ENOENT') recordDaemonDiagnostic('refreshLiveState:readStateFile', err);
+    }
   }
 
   // Fallback to FlightCheck session sidecar if present (strictly real UUID sessions, never synthetic test fixtures)
@@ -509,33 +646,56 @@ async function refreshLiveState(force = false, explicitConvId = null) {
       if (files.length > 0) {
         cachedLiveState = JSON.parse(fs.readFileSync(path.join(fcSessionsDir, files[0].name), 'utf8'));
         cachedLiveState.uiMtimeMs = htmlMtimeMs;
-        try { cachedLiveState.coachState = buildCoachState(cachedLiveState, targetConvId); } catch {}
+        try {
+          cachedLiveState.coachState = buildCoachState(cachedLiveState, targetConvId);
+        } catch (err) {
+          recordDaemonDiagnostic('refreshLiveState:sidecarCoachState', err);
+        }
         return cachedLiveState;
       }
-    } catch {}
+    } catch (err) {
+      if (err?.code !== 'ENOENT') recordDaemonDiagnostic('refreshLiveState:readSidecarFallback', err);
+    }
   }
 
-  if (!cachedLiveState) {
+  if (!cachedLiveState && isDemoMode) {
     try {
       const demoRes = await runCLI({ silent: true, demo: true, useNativeCeiling: true });
       if (demoRes && demoRes.state) {
         cachedLiveState = demoRes.state;
       }
-    } catch {}
+    } catch (err) {
+      if (err?.code !== 'ENOENT') recordDaemonDiagnostic('refreshLiveState:demoFallback', err);
+    }
   }
 
   if (cachedLiveState) {
     cachedLiveState.uiMtimeMs = htmlMtimeMs;
-    try { cachedLiveState.coachState = buildCoachState(cachedLiveState, targetConvId); } catch {}
+    try {
+      cachedLiveState.coachState = buildCoachState(cachedLiveState, targetConvId);
+    } catch (err) {
+      recordDaemonDiagnostic('refreshLiveState:finalCoachState', err);
+    }
   }
   return cachedLiveState;
 }
 
 const LOCAL_HOSTNAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
+const LOOPBACK_ORIGIN_RE = /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i;
+const IDE_WEBVIEW_ORIGIN_RE = /^(vscode-webview|antigravity):\/\//i;
+
+export function isAllowedOriginHeader(origin) {
+  if (origin === undefined || origin === '') return true;
+  if (origin === 'null') return false;
+  const s = String(origin);
+  return LOOPBACK_ORIGIN_RE.test(s) || IDE_WEBVIEW_ORIGIN_RE.test(s);
+}
+
 /**
  * Allows only requests addressed to this loopback daemon (Host check blocks DNS rebinding)
- * and, when a browser sends an Origin header, only local loopback pages or IDE webview schemes.
+ * and, when a browser sends an Origin header, only strict local loopback pages or IDE webviews
+ * (explicitly rejecting `Origin: null` sandboxed iframes).
  */
 export function isAllowedLocalRequest(req) {
   const hostHeader = String(req.headers.host || '').toLowerCase();
@@ -547,32 +707,105 @@ export function isAllowedLocalRequest(req) {
     return true;
   }
 
-  const origin = req.headers.origin;
-  if (origin === undefined || origin === '' || origin === 'null') return true;
+  return isAllowedOriginHeader(req.headers.origin);
+}
 
-  // Allow IDE webview schemes & CDNs (Antigravity, VS Code, Electron)
-  if (
-    origin.startsWith('vscode-webview://') ||
-    origin.startsWith('vscode-file://') ||
-    origin.startsWith('antigravity://')
-  ) {
-    return true;
-  }
+/**
+ * Reads an HTTP request body up to `maxBytes` (default 1 MB).
+ * Responds with `413 Payload Too Large` and destroys the socket on oversized payloads.
+ */
+function readRequestBody(req, res, maxBytes = MAX_REQUEST_BODY_BYTES) {
+  return new Promise((resolve) => {
+    const declaredLen = Number(req.headers['content-length']);
+    if (Number.isFinite(declaredLen) && declaredLen > maxBytes) {
+      res.writeHead(413, { 'Content-Type': 'application/json', 'Connection': 'close' });
+      res.end(
+        JSON.stringify({ success: false, error: `Payload Too Large (max ${maxBytes} bytes)` }),
+        () => {
+          try {
+            req.destroy();
+          } catch (err) {
+            if (err?.code !== 'ERR_STREAM_DESTROYED') recordDaemonDiagnostic('readRequestBody:destroy413Header', err);
+          }
+        }
+      );
+      resolve(null);
+      return;
+    }
 
-  try {
-    const o = new URL(origin);
-    const host = o.hostname.toLowerCase();
-    if (LOCAL_HOSTNAMES.has(host)) return true;
-    if (host.endsWith('.vscode-cdn.net') || host.endsWith('.antigravity.dev')) return true;
-    return false;
-  } catch {
-    return false;
-  }
+    const chunks = [];
+    let totalBytes = 0;
+    let aborted = false;
+
+    req.on('data', (chunk) => {
+      if (aborted) return;
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), 'utf8');
+      totalBytes += buf.length;
+      if (totalBytes > maxBytes) {
+        aborted = true;
+        try {
+          req.pause();
+        } catch (err) {
+          recordDaemonDiagnostic('readRequestBody:pause', err);
+        }
+        res.writeHead(413, { 'Content-Type': 'application/json', 'Connection': 'close' });
+        res.end(
+          JSON.stringify({ success: false, error: `Payload Too Large (max ${maxBytes} bytes)` }),
+          () => {
+            try {
+              req.destroy();
+            } catch (err) {
+              if (err?.code !== 'ERR_STREAM_DESTROYED') recordDaemonDiagnostic('readRequestBody:destroy413Stream', err);
+            }
+          }
+        );
+        resolve(null);
+        return;
+      }
+      chunks.push(buf);
+    });
+
+    req.on('end', () => {
+      if (aborted) return;
+      resolve(Buffer.concat(chunks).toString('utf8'));
+    });
+
+    req.on('error', () => {
+      if (aborted) return;
+      aborted = true;
+      resolve(null);
+    });
+  });
 }
 
 const RULE_FILE_RE = /(^|[\\/])(AGENTS\.md|GEMINI\.md)$|[\\/]\.agents[\\/]rules[\\/][^\\/]+\.md$/i;
 
+function parseJsonBodyOrSend400(bodyStr, res, routeName) {
+  const trimmed = String(bodyStr ?? '').trim();
+  if (!trimmed) return {};
+  try {
+    const parsed = JSON.parse(trimmed);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (err) {
+    recordDaemonDiagnostic(`${routeName}:parseBody`, err);
+    if (!res.headersSent) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, success: false, error: err?.message || 'Invalid JSON' }));
+    }
+    return null;
+  }
+}
+
+function sendRouteError500(res, routeName, err) {
+  recordDaemonDiagnostic(routeName, err);
+  if (!res.headersSent) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: false, success: false, error: String(err?.message || err) }));
+  }
+}
+
 const server = http.createServer(async (req, res) => {
+  try {
   const url = new URL(req.url, `http://${req.headers.host || '127.0.0.1'}`);
 
   const isStaticUiAsset = req.method === 'GET' && (
@@ -598,21 +831,45 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Emit CORS headers only on verified allowed local requests
+  // Emit CORS headers ONLY echoing the specific validated origin (never wildcard '*')
   const origin = req.headers.origin;
-  if (origin && origin !== 'null') {
+  if (origin && isAllowedOriginHeader(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Sidecar-Token');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Sidecar-Token, X-Horizon-CSRF');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     res.end();
     return;
+  }
+
+  if (url.pathname === '/api/csrf-token' && req.method === 'GET') {
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store'
+    });
+    res.end(JSON.stringify({ ok: true, csrfToken: HORIZON_CSRF_TOKEN }));
+    return;
+  }
+
+  // Enforce per-boot random CSRF token on browser-originated mutating POST requests
+  if (req.method === 'POST') {
+    const providedCsrf = req.headers['x-horizon-csrf'];
+    const isBrowserOriginated = Boolean(req.headers.origin);
+    const hasValidSidecarHeader = Boolean(sidecarToken && req.headers['x-sidecar-token'] === sidecarToken);
+    if (isBrowserOriginated && !hasValidSidecarHeader && !isValidCsrfToken(providedCsrf)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Forbidden: missing or invalid X-Horizon-CSRF token' }));
+      return;
+    }
+    if (!isBrowserOriginated && providedCsrf !== undefined && !isValidCsrfToken(providedCsrf)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Forbidden: invalid X-Horizon-CSRF token' }));
+      return;
+    }
   }
 
   if (url.pathname === '/favicon.ico') {
@@ -629,7 +886,8 @@ const server = http.createServer(async (req, res) => {
       pid: process.pid,
       port: addr ? addr.port : 0,
       workspace: cachedLiveState?.workspace?.canonicalPath || process.cwd(),
-      pinnedConversationId
+      pinnedConversationId,
+      diagnostics: getDaemonDiagnostics()
     }));
     return;
   }
@@ -661,7 +919,7 @@ const server = http.createServer(async (req, res) => {
     if (rawHtmlPath) {
       let html = fs.readFileSync(rawHtmlPath, 'utf8');
       const mtimeMs = getHtmlMtimeMs();
-      const mtimeScript = `<script id="liveInitialMtime">window.__INITIAL_UI_MTIME__ = ${mtimeMs};</script>`;
+      const mtimeScript = `<script id="liveInitialMtime">window.__INITIAL_UI_MTIME__ = ${mtimeMs}; window.__HORIZON_CSRF_TOKEN__ = ${JSON.stringify(HORIZON_CSRF_TOKEN)};</script>`;
       if (initState) {
         initState.uiMtimeMs = mtimeMs;
         const safeJson = JSON.stringify(initState)
@@ -681,7 +939,7 @@ const server = http.createServer(async (req, res) => {
       }
       res.end(html);
     } else {
-      res.end('<h1>Context Horizon Side-Pane</h1>');
+      res.end('<h1>Attention Horizon Side-Pane</h1>');
     }
     return;
   }
@@ -704,6 +962,12 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname === '/api/stream') {
+    if (clients.size >= MAX_SSE_CLIENTS) {
+      res.writeHead(429, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: `SSE client cap reached (max ${MAX_SSE_CLIENTS})` }));
+      return;
+    }
+
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -729,35 +993,23 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     if (req.method === 'POST') {
-      let bodyStr = '';
-      let tooLarge = false;
-      req.on('data', chunk => {
-        bodyStr += chunk;
-        if (bodyStr.length > 4096) { tooLarge = true; req.destroy(); }
-      });
-      req.on('end', async () => {
-        if (tooLarge) return;
-        let body;
-        try { body = JSON.parse(bodyStr); } catch {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
-          return;
-        }
-        const patch = {};
-        for (const k of ['safeLimitTokens', 'reminderAtPct', 'modelOverrides']) {
-          if (body && body[k] !== undefined) patch[k] = body[k];
-        }
-        try {
-          const settings = saveSettings(defaultCacheDir, patch);
-          const nextState = await refreshLiveState(true, pinnedConversationId);
-          broadcastState(nextState);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true, settings, state: nextState }));
-        } catch (e) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: String(e?.message || e) }));
-        }
-      });
+      const bodyStr = await readRequestBody(req, res);
+      if (bodyStr === null) return;
+      const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/settings');
+      if (body === null) return;
+      const patch = {};
+      for (const k of ['safeLimitTokens', 'reminderAtPct', 'modelOverrides']) {
+        if (body && body[k] !== undefined) patch[k] = body[k];
+      }
+      try {
+        const settings = saveSettings(defaultCacheDir, patch);
+        const nextState = await refreshLiveState(true, pinnedConversationId);
+        broadcastState(nextState);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, settings, state: nextState }));
+      } catch (e) {
+        sendRouteError500(res, 'POST /api/settings', e);
+      }
       return;
     }
     res.writeHead(405);
@@ -767,271 +1019,266 @@ const server = http.createServer(async (req, res) => {
 
   // Route: POST /api/prune (Prefix-Safe Surgical Context Pruner & AST Folder)
   if (url.pathname === '/api/prune' && req.method === 'POST') {
-    let bodyStr = '';
-    req.on('data', chunk => { bodyStr += chunk; });
-    req.on('end', async () => {
-      let body = {};
-      try { body = JSON.parse(bodyStr || '{}'); } catch {}
-      const targetConvId = body.conversationId || pinnedConversationId || cachedLiveState?.sessionId || null;
-      const sessionInfo = findSessionDirectory(targetConvId);
-      if (!sessionInfo || !sessionInfo.sessionDir) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Active session directory not found' }));
-        return;
-      }
-      const pruneResult = pruneSessionTranscript(sessionInfo.sessionDir, {
-        dryRun: Boolean(body.dryRun),
-        forceHotCache: Boolean(body.forceHotCache),
-        cacheDir: defaultCacheDir
-      });
-      const nextState = await refreshLiveState(true, targetConvId);
-      broadcastState(nextState);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ...pruneResult, state: nextState }));
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/prune');
+    if (body === null) return;
+    const targetConvId = body.conversationId || pinnedConversationId || cachedLiveState?.sessionId || null;
+    const sessionInfo = findSessionDirectory(targetConvId);
+    if (!sessionInfo || !sessionInfo.sessionDir) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Active session directory not found' }));
+      return;
+    }
+    const pruneResult = pruneSessionTranscript(sessionInfo.sessionDir, {
+      dryRun: Boolean(body.dryRun),
+      forceHotCache: Boolean(body.forceHotCache),
+      cacheDir: defaultCacheDir
     });
+    const nextState = await refreshLiveState(true, targetConvId);
+    broadcastState(nextState);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ...pruneResult, state: nextState }));
     return;
   }
 
   // Route: POST /api/host/reap (Host Process & Zombie Subagent/MCP Watchdog)
   if (url.pathname === '/api/host/reap' && req.method === 'POST') {
-    let bodyStr = '';
-    req.on('data', chunk => { bodyStr += chunk; });
-    req.on('end', async () => {
-      let body = {};
-      try { body = JSON.parse(bodyStr || '{}'); } catch {}
-      const reapResult = await reapOrphanProcesses(body.pids || null);
-      const nextState = await refreshLiveState(true, pinnedConversationId);
-      broadcastState(nextState);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ...reapResult, state: nextState }));
-    });
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/host/reap');
+    if (body === null) return;
+    const reapResult = await reapOrphanProcesses(body.pids || null);
+    const nextState = await refreshLiveState(true, pinnedConversationId);
+    broadcastState(nextState);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ...reapResult, state: nextState }));
     return;
   }
 
   // Route: POST /api/open-brain (Dual-Target Session Jump: Alt+Click opens ~/.gemini/<surface>/brain/<uuid>/)
   if (url.pathname === '/api/open-brain' && req.method === 'POST') {
-    let bodyStr = '';
-    req.on('data', chunk => { bodyStr += chunk; });
-    req.on('end', async () => {
-      let body = {};
-      try { body = JSON.parse(bodyStr || '{}'); } catch {}
-      const targetConvId = body.conversationId || pinnedConversationId || cachedLiveState?.sessionId || null;
-      const requestedSurface = ['antigravity', 'antigravity-ide', 'antigravity-cli'].includes(body.surface)
-        ? body.surface
-        : null;
-      const sessionInfo = findSessionDirectory(targetConvId);
-      const safeId = String(targetConvId || sessionInfo?.sessionId || '').replace(/[^a-zA-Z0-9_-]/g, '');
-      const matchedInfo = (sessionInfo && sessionInfo.sessionId === safeId) ? sessionInfo : null;
-      const surfaceName = requestedSurface || matchedInfo?.storeName || sessionInfo?.storeName || cachedLiveState?.storeSource || 'antigravity';
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/open-brain');
+    if (body === null) return;
+    const targetConvId = body.conversationId || pinnedConversationId || cachedLiveState?.sessionId || null;
+    const requestedSurface = ['antigravity', 'antigravity-ide', 'antigravity-cli'].includes(body.surface)
+      ? body.surface
+      : null;
+    const sessionInfo = findSessionDirectory(targetConvId);
+    const safeId = String(targetConvId || sessionInfo?.sessionId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    const matchedInfo = (sessionInfo && sessionInfo.sessionId === safeId) ? sessionInfo : null;
+    const surfaceName = requestedSurface || matchedInfo?.storeName || sessionInfo?.storeName || cachedLiveState?.storeSource || 'antigravity';
 
-      let resolvedBrainDir = null;
-      if (matchedInfo && matchedInfo.sessionDir && fs.existsSync(matchedInfo.sessionDir)) {
-        resolvedBrainDir = matchedInfo.sessionDir;
-      } else if (safeId) {
-        const directBrainDir = path.join(getHomeDir(), '.gemini', surfaceName, 'brain', safeId);
-        if (fs.existsSync(directBrainDir)) {
-          resolvedBrainDir = directBrainDir;
-        }
+    let resolvedBrainDir = null;
+    if (matchedInfo && matchedInfo.sessionDir && fs.existsSync(matchedInfo.sessionDir)) {
+      resolvedBrainDir = matchedInfo.sessionDir;
+    } else if (safeId) {
+      const directBrainDir = path.join(getHomeDir(), '.gemini', surfaceName, 'brain', safeId);
+      if (fs.existsSync(directBrainDir)) {
+        resolvedBrainDir = directBrainDir;
       }
-      let fallbackUsed = false;
+    }
+    let fallbackUsed = false;
 
-      if (!resolvedBrainDir || !fs.existsSync(resolvedBrainDir)) {
-        const convDir = path.join(getHomeDir(), '.gemini', surfaceName, 'conversations');
-        if (fs.existsSync(convDir)) {
-          resolvedBrainDir = convDir;
+    if (!resolvedBrainDir || !fs.existsSync(resolvedBrainDir)) {
+      const convDir = path.join(getHomeDir(), '.gemini', surfaceName, 'conversations');
+      if (fs.existsSync(convDir)) {
+        resolvedBrainDir = convDir;
+        fallbackUsed = true;
+      } else {
+        const surfaceRoot = path.join(getHomeDir(), '.gemini', surfaceName);
+        if (fs.existsSync(surfaceRoot)) {
+          resolvedBrainDir = surfaceRoot;
           fallbackUsed = true;
-        } else {
-          const surfaceRoot = path.join(getHomeDir(), '.gemini', surfaceName);
-          if (fs.existsSync(surfaceRoot)) {
-            resolvedBrainDir = surfaceRoot;
-            fallbackUsed = true;
-          }
         }
       }
+    }
 
-      if (!resolvedBrainDir || !fs.existsSync(resolvedBrainDir)) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Session brain directory not found' }));
-        return;
+    if (!resolvedBrainDir || !fs.existsSync(resolvedBrainDir)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Session brain directory not found' }));
+      return;
+    }
+
+    if (!body.dryRun && process.env.HORIZON_TEST_NO_SPAWN !== '1') {
+      try {
+        const onSpawnDone = (spawnErr) => {
+          if (spawnErr) recordDaemonDiagnostic('POST /api/open-brain:execFile', spawnErr);
+        };
+        if (process.platform === 'win32') {
+          execFile('explorer.exe', [resolvedBrainDir], onSpawnDone);
+        } else if (process.platform === 'darwin') {
+          execFile('open', [resolvedBrainDir], onSpawnDone);
+        } else {
+          execFile('xdg-open', [resolvedBrainDir], onSpawnDone);
+        }
+      } catch (err) {
+        recordDaemonDiagnostic('POST /api/open-brain:spawn', err);
       }
+    }
 
-      if (!body.dryRun && process.env.HORIZON_TEST_NO_SPAWN !== '1') {
-        try {
-          if (process.platform === 'win32') {
-            execFile('explorer.exe', [resolvedBrainDir], () => {});
-          } else if (process.platform === 'darwin') {
-            execFile('open', [resolvedBrainDir], () => {});
-          } else {
-            execFile('xdg-open', [resolvedBrainDir], () => {});
-          }
-        } catch {}
-      }
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        success: true,
-        conversationId: safeId,
-        surface: surfaceName,
-        surfaceTag: resolveSurfaceTag(surfaceName),
-        brainDir: resolvedBrainDir,
-        fallbackUsed
-      }));
-    });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      success: true,
+      conversationId: safeId,
+      surface: surfaceName,
+      surfaceTag: resolveSurfaceTag(surfaceName),
+      brainDir: resolvedBrainDir,
+      fallbackUsed
+    }));
     return;
   }
 
   // Route: POST /api/handoff or /api/handoff/generate (The Baton Pass /handoff Markdown Generator)
   if ((url.pathname === '/api/handoff' || url.pathname === '/api/handoff/generate') && req.method === 'POST') {
-    let bodyStr = '';
-    req.on('data', chunk => { bodyStr += chunk; });
-    req.on('end', async () => {
-      let body = {};
-      try { body = JSON.parse(bodyStr || '{}'); } catch {}
-      const targetConvId = body.conversationId || pinnedConversationId || cachedLiveState?.sessionId || null;
-      const state = await refreshLiveState(false, targetConvId) || cachedLiveState || {};
-      const handoffRes = generateHandoffMarkdown(state, {
-        timestamp: body.timestamp || null,
-        workspacePath: body.workspacePath || state?.workspace?.canonicalPath || process.cwd(),
-        writeToDisk: body.writeToDisk !== false
-      });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(handoffRes));
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, `POST ${url.pathname}`);
+    if (body === null) return;
+    const targetConvId = body.conversationId || pinnedConversationId || cachedLiveState?.sessionId || null;
+    const state = await refreshLiveState(false, targetConvId) || cachedLiveState || {};
+    const handoffRes = generateHandoffMarkdown(state, {
+      timestamp: body.timestamp || null,
+      workspacePath: body.workspacePath || state?.workspace?.canonicalPath || process.cwd(),
+      writeToDisk: body.writeToDisk !== false
     });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(handoffRes));
     return;
   }
 
   // Route: POST /api/hooks/dampen (Fail-Open CLI Command Dampening Hook in .agents/hooks.json)
   if (url.pathname === '/api/hooks/dampen' && req.method === 'POST') {
-    let bodyStr = '';
-    req.on('data', chunk => { bodyStr += chunk; });
-    req.on('end', async () => {
-      let body = {};
-      try { body = JSON.parse(bodyStr || '{}'); } catch {}
-      const wsPath = body.workspacePath || cachedLiveState?.workspace?.canonicalPath || process.cwd();
-      const hookRes = registerCliDampeningHook(wsPath, {
-        command: body.command || '',
-        maxLines: body.maxLines || 100,
-        logFile: body.logFile || '.agents/tmp/cli_stdout.log',
-        writeToDisk: body.writeToDisk !== false
-      });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(hookRes));
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/hooks/dampen');
+    if (body === null) return;
+    const wsPath = body.workspacePath || cachedLiveState?.workspace?.canonicalPath || process.cwd();
+    const hookRes = registerCliDampeningHook(wsPath, {
+      command: body.command || '',
+      maxLines: body.maxLines || 100,
+      logFile: body.logFile || '.agents/tmp/cli_stdout.log',
+      writeToDisk: body.writeToDisk !== false
     });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(hookRes));
     return;
   }
 
   // Route: POST /api/rules/promote (Attention-Aware Rule Promotion in Primacy/Recency zones)
   if (url.pathname === '/api/rules/promote' && req.method === 'POST') {
-    let bodyStr = '';
-    req.on('data', chunk => { bodyStr += chunk; });
-    req.on('end', async () => {
-      let body = {};
-      try { body = JSON.parse(bodyStr || '{}'); } catch {}
-      const wsPath = body.targetPath || body.workspacePath || cachedLiveState?.workspace?.canonicalPath || process.cwd();
-      // Only rule files may be written: a directory target, or an explicit AGENTS.md / GEMINI.md / .agents/rules/*.md file.
-      let isDirTarget = false;
-      try { isDirTarget = fs.existsSync(wsPath) && fs.statSync(wsPath).isDirectory(); } catch {}
-      const badTarget = !isDirTarget && !RULE_FILE_RE.test(String(wsPath));
-      const badFileName = body.targetFileName != null && !/^[\w.-]+\.md$/i.test(String(body.targetFileName));
-      if (badTarget || badFileName) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Rule promotion target must be a rule file (AGENTS.md, GEMINI.md, .agents/rules/*.md)' }));
-        return;
-      }
-      const fallbackRule = cachedLiveState?.brainSignals?.userCorrectionTexts?.[0] ||
-        'Follow all in-chat user corrections and architectural constraints.';
-      const resolvedRuleText = body.ruleText || fallbackRule;
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/rules/promote');
+    if (body === null) return;
+    const wsPath = body.targetPath || body.workspacePath || cachedLiveState?.workspace?.canonicalPath || process.cwd();
+    // Only rule files may be written: a directory target, or an explicit AGENTS.md / GEMINI.md / .agents/rules/*.md file.
+    let isDirTarget = false;
+    try {
+      isDirTarget = fs.existsSync(wsPath) && fs.statSync(wsPath).isDirectory();
+    } catch (err) {
+      if (err?.code !== 'ENOENT') recordDaemonDiagnostic('POST /api/rules/promote:statTarget', err);
+    }
+    const badTarget = !isDirTarget && !RULE_FILE_RE.test(String(wsPath));
+    const badFileName = body.targetFileName != null && !/^[\w.-]+\.md$/i.test(String(body.targetFileName));
+    if (badTarget || badFileName) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Rule promotion target must be a rule file (AGENTS.md, GEMINI.md, .agents/rules/*.md)' }));
+      return;
+    }
+    const fallbackRule = cachedLiveState?.brainSignals?.userCorrectionTexts?.[0] ||
+      'Follow all in-chat user corrections and architectural constraints.';
+    const resolvedRuleText = body.ruleText || fallbackRule;
 
-      const liveCachedTokens = Number(
-        body.cachedTokens ??
-        cachedLiveState?.window?.totalActiveTokens ??
-        cachedLiveState?.tokens?.total ??
-        0
-      );
-      const liveTtlSec = Number(
-        body.cacheTtlSeconds ??
-        cachedLiveState?.quota?.cache?.ttlRemainingSec ??
-        cachedLiveState?.cache?.ttlRemainingSec ??
-        0
-      );
-      const liveTurnCount = Number(
-        body.turnCount ??
-        cachedLiveState?.window?.turnCount ??
-        cachedLiveState?.turnCount ??
-        1
-      );
-      const shieldStatus = prefixCacheShield.getStatus({
-        cachedTokens: liveCachedTokens,
-        cacheTtlSeconds: liveTtlSec,
-        turnCount: liveTurnCount
-      });
-
-      if (shieldStatus.locked && body.writeToDisk !== false && !body.forceHotCache) {
-        try {
-          reflectorQueue.enqueue({
-            directive_action: resolvedRuleText,
-            domain: 'rules',
-            sessionId: cachedLiveState?.sessionId || pinnedConversationId || 'default-session'
-          });
-        } catch {}
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          success: false,
-          staged: true,
-          requiresConfirmation: true,
-          ttlRemainingSec: liveTtlSec,
-          cachedTokens: liveCachedTokens,
-          reason: `Warm prompt cache active (${liveTtlSec}s TTL). Rule promotion staged until cache expires to protect your 95% KV discount.`
-        }));
-        return;
-      }
-
-      const promoRes = promoteRuleWithAttentionZone(wsPath, resolvedRuleText, {
-        zone: body.zone || 'primacy',
-        targetFileName: body.targetFileName || null,
-        maxLines: body.maxLines || 200,
-        writeToDisk: body.writeToDisk !== false
-      });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(promoRes));
+    const liveCachedTokens = Number(
+      body.cachedTokens ??
+      cachedLiveState?.window?.totalActiveTokens ??
+      cachedLiveState?.tokens?.total ??
+      0
+    );
+    const liveTtlSec = Math.max(0, Number(
+      body.cacheTtlSeconds ??
+      cachedLiveState?.quota?.cache?.ttlRemainingSec ??
+      cachedLiveState?.cache?.ttlRemainingSec ??
+      0
+    ) || 0);
+    const liveTurnCount = Number(
+      body.turnCount ??
+      cachedLiveState?.window?.turnCount ??
+      cachedLiveState?.turnCount ??
+      1
+    );
+    const shieldStatus = prefixCacheShield.getStatus({
+      cachedTokens: liveCachedTokens,
+      cacheTtlSeconds: liveTtlSec,
+      turnCount: liveTurnCount
     });
+
+    if (shieldStatus.locked && body.writeToDisk !== false && !body.forceHotCache) {
+      try {
+        reflectorQueue.enqueue({
+          directive_action: resolvedRuleText,
+          domain: 'rules',
+          sessionId: cachedLiveState?.sessionId || pinnedConversationId || 'default-session'
+        });
+      } catch (err) {
+        recordDaemonDiagnostic('POST /api/rules/promote:enqueueStaged', err);
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: false,
+        staged: true,
+        requiresConfirmation: true,
+        ttlRemainingSec: liveTtlSec,
+        cachedTokens: liveCachedTokens,
+        reason: `Warm prompt cache active (${liveTtlSec}s TTL). Rule promotion staged until cache expires to protect your 95% KV discount.`
+      }));
+      return;
+    }
+
+    const promoRes = promoteRuleWithAttentionZone(wsPath, resolvedRuleText, {
+      zone: body.zone || 'primacy',
+      targetFileName: body.targetFileName || null,
+      maxLines: body.maxLines || 200,
+      writeToDisk: body.writeToDisk !== false
+    });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(promoRes));
     return;
   }
 
   // Route: POST /api/export/sanitized (Zero-PII Sanitized Snapshot Exporter)
   if (url.pathname === '/api/export/sanitized' && req.method === 'POST') {
-    let bodyStr = '';
-    req.on('data', chunk => { bodyStr += chunk; });
-    req.on('end', async () => {
-      let body = {};
-      try { body = JSON.parse(bodyStr || '{}'); } catch {}
-      const targetState = body.state || cachedLiveState || (await refreshLiveState(true, pinnedConversationId)) || {};
-      const outPath = path.join(defaultCacheDir, `sanitized_snapshot_${Date.now()}.json`);
-      const expRes = exportSanitizedSnapshot(targetState, {
-        format: body.format || 'json',
-        outputPath: outPath
-      });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(expRes));
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/export/sanitized');
+    if (body === null) return;
+    const targetState = body.state || cachedLiveState || (await refreshLiveState(true, pinnedConversationId)) || {};
+    const outPath = path.join(defaultCacheDir, `sanitized_snapshot_${Date.now()}.json`);
+    const expRes = exportSanitizedSnapshot(targetState, {
+      format: body.format || 'json',
+      outputPath: outPath
     });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(expRes));
     return;
   }
 
   // Route: POST /api/surgeon (Offline Tool-Output Surgeon)
   if (url.pathname === '/api/surgeon' && req.method === 'POST') {
-    let bodyStr = '';
-    req.on('data', chunk => { bodyStr += chunk; });
-    req.on('end', async () => {
-      let body = {};
-      try { body = JSON.parse(bodyStr || '{}'); } catch {}
-      const targetConvId = body.conversationId || pinnedConversationId || cachedLiveState?.sessionId || null;
-      const sessionInfo = findSessionDirectory(targetConvId);
-      const transcriptFile = body.transcriptPath ||
-        (sessionInfo?.sessionDir ? path.join(sessionInfo.sessionDir, '.system_generated', 'logs', 'transcript_full.jsonl') : null);
-      const surgRes = executeToolOutputSurgery(transcriptFile, { dryRun: Boolean(body.dryRun) });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(surgRes));
-    });
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/surgeon');
+    if (body === null) return;
+    const targetConvId = body.conversationId || pinnedConversationId || cachedLiveState?.sessionId || null;
+    const sessionInfo = findSessionDirectory(targetConvId);
+    const transcriptFile = body.transcriptPath ||
+      (sessionInfo?.sessionDir ? path.join(sessionInfo.sessionDir, '.system_generated', 'logs', 'transcript_full.jsonl') : null);
+    const surgRes = executeToolOutputSurgery(transcriptFile, { dryRun: Boolean(body.dryRun) });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(surgRes));
     return;
   }
 
@@ -1046,228 +1293,338 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Route: POST /api/shield/flush (Flush PrefixCacheShield staged deltas)
+  // Helper: Resolve live or caller-supplied warm-cache state for ISS-041 PrefixCacheShield fencing
+  const resolveRouteCacheContext = (body = {}) => {
+    const cachedTokens = body.cachedTokens !== undefined
+      ? Number(body.cachedTokens || 0)
+      : Number(cachedLiveState?.window?.totalActiveTokens ?? cachedLiveState?.tokens?.total ?? 0);
+    const cacheTtlSeconds = body.cacheTtlSeconds !== undefined
+      ? Number(body.cacheTtlSeconds || 0)
+      : Number(cachedLiveState?.quota?.cache?.ttlRemainingSec ?? cachedLiveState?.cache?.ttlRemainingSec ?? 0);
+    const cacheState = body.cacheState || body.options?.cacheState || null;
+    const cacheWarm = body.cacheWarm === true || body.options?.cacheWarm === true;
+    return {
+      cachedTokens,
+      cacheTtlSeconds,
+      ttlRemainingSeconds: cacheTtlSeconds,
+      ...(cacheState ? { cacheState } : {}),
+      ...(cacheWarm ? { cacheWarm: true } : {})
+    };
+  };
+
+  // Route: POST /api/shield/flush (Flush PrefixCacheShield staged deltas — fenced when cache is warm unless force=true)
   if (url.pathname === '/api/shield/flush' && req.method === 'POST') {
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/shield/flush');
+    if (body === null) return;
+    const sessCtx = resolveRouteCacheContext(body);
+    const forceFlush = body.force === true || body.forceColdBust === true;
+    if (!forceFlush && prefixCacheShield.isPrefixLocked(sessCtx)) {
+      const shieldState = prefixCacheShield.getStatus(sessCtx);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        flushed: false,
+        deferred: true,
+        reason: 'CACHE_WARM_FENCE',
+        queuedCount: shieldState.queuedCount,
+        ttlRemainingSec: sessCtx.cacheTtlSeconds,
+        cachedTokens: sessCtx.cachedTokens
+      }));
+      return;
+    }
     const resPayload = prefixCacheShield._flushAllNow('MANUAL_FLUSH');
     const nextState = await refreshLiveState(true, pinnedConversationId);
     broadcastState(nextState);
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, ...resPayload, state: nextState }));
+    res.end(JSON.stringify({ success: true, deferred: false, ...resPayload, state: nextState }));
     return;
   }
 
-  // Route: POST /api/tail/trim (Surgical Uncached Tail Truncation)
+  // Route: POST /api/tail/trim (Read-Only Host Transcript Analysis -> Staged Plugin Output)
   if (url.pathname === '/api/tail/trim' && req.method === 'POST') {
-    let bodyStr = '';
-    req.on('data', chunk => { bodyStr += chunk; });
-    req.on('end', async () => {
-      const targetConvId = pinnedConversationId || cachedLiveState?.sessionId || null;
-      const sessionInfo = findSessionDirectory(targetConvId);
-      const transcriptFile = sessionInfo?.sessionDir
-        ? path.join(sessionInfo.sessionDir, '.system_generated', 'logs', 'transcript_full.jsonl')
-        : null;
-      let trimRes = { trimmed: false, message: 'No transcript found' };
-      if (transcriptFile && fs.existsSync(transcriptFile)) {
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/tail/trim');
+    if (body === null) return;
+    const targetConvId = body.conversationId || pinnedConversationId || cachedLiveState?.sessionId || null;
+    const sessionInfo = findSessionDirectory(targetConvId);
+    const transcriptFile = body.transcriptPath || (sessionInfo?.sessionDir
+      ? path.join(sessionInfo.sessionDir, '.system_generated', 'logs', 'transcript_full.jsonl')
+      : null);
+    let trimRes = {
+      trimmed: false,
+      message: 'No transcript found',
+      hostTranscriptMutated: false,
+      persistBlockedReason: body.persist ? 'HOST_TRANSCRIPT_READONLY_GUARD' : null
+    };
+    if (transcriptFile && fs.existsSync(transcriptFile)) {
+      try {
+        // Strictly read-only ('r') on host Antigravity transcript logs (AGENTS.md Invariant 4 & ISS-040)
+        const fd = fs.openSync(transcriptFile, 'r');
+        let rawTranscript = '';
         try {
-          const lines = fs.readFileSync(transcriptFile, 'utf8').trim().split('\n');
-          const steps = lines.map(l => JSON.parse(l));
-          trimRes = trimUncachedTail(steps, {
-            cachedTokens: cachedLiveState?.window?.totalActiveTokens || 50000
-          });
-          if (trimRes && trimRes.modifiedCount > 0 && trimRes.headBytesPreserved) {
-            const backupPath = `${transcriptFile}.pre_tail_trim.${Date.now()}.bak`;
-            fs.copyFileSync(transcriptFile, backupPath);
-            const serialized = trimRes.prunedSteps.map(s => JSON.stringify(s)).join('\n') + '\n';
-            fs.writeFileSync(transcriptFile, serialized, 'utf8');
-            trimRes.trimmed = true;
-            trimRes.backupPath = backupPath;
+          rawTranscript = fs.readFileSync(fd, 'utf8');
+        } finally {
+          fs.closeSync(fd);
+        }
+        const lines = rawTranscript.trim().split('\n').filter(Boolean);
+        const steps = lines.map(l => JSON.parse(l));
+        const offloadDir = body.cwd
+          ? path.join(body.cwd, '.agents', 'tmp')
+          : path.join(defaultCacheDir, 'staged_trims', 'offloads');
+        trimRes = trimUncachedTail(steps, {
+          cachedTokens: cachedLiveState?.window?.totalActiveTokens || 50000,
+          ...(body.cwd ? { cwd: body.cwd } : { offloadDir })
+        });
+        if (trimRes && typeof trimRes === 'object') {
+          trimRes.hostTranscriptMutated = false;
+          trimRes.persistBlockedReason = body.persist ? 'HOST_TRANSCRIPT_READONLY_GUARD' : null;
+        }
+        if (trimRes && trimRes.modifiedCount > 0 && trimRes.headBytesPreserved) {
+          const safeSessionSlug = String(sessionInfo?.sessionId || targetConvId || 'session').replace(/[^a-zA-Z0-9_-]/g, '_');
+          const stagedDir = path.join(defaultCacheDir, 'staged_trims');
+          const stagedFullPath = path.join(stagedDir, `${safeSessionSlug}.transcript_full.staged.jsonl`);
+          const serialized = trimRes.prunedSteps.map(s => JSON.stringify(s)).join('\n') + '\n';
+          atomicWriteFileSync(stagedFullPath, serialized, { encoding: 'utf8' });
+          trimRes.trimmed = true;
+          trimRes.stagedOnly = true;
+          trimRes.hostTranscriptMutated = false;
+          trimRes.stagedPath = stagedFullPath;
 
-            // Also prune companion transcript.jsonl if present
-            const compactFile = path.join(path.dirname(transcriptFile), 'transcript.jsonl');
-            if (fs.existsSync(compactFile)) {
+          // Also stage companion transcript.jsonl preview without mutating host logs
+          const compactFile = path.join(path.dirname(transcriptFile), 'transcript.jsonl');
+          if (fs.existsSync(compactFile)) {
+            try {
+              const cFd = fs.openSync(compactFile, 'r');
+              let rawCompact = '';
               try {
-                const cLines = fs.readFileSync(compactFile, 'utf8').trim().split('\n');
-                const cSteps = cLines.map(l => JSON.parse(l));
-                const cRes = trimUncachedTail(cSteps, {
-                  cachedTokens: cachedLiveState?.window?.totalActiveTokens || 50000
-                });
-                if (cRes && cRes.modifiedCount > 0 && cRes.headBytesPreserved) {
-                  fs.copyFileSync(compactFile, `${compactFile}.pre_tail_trim.${Date.now()}.bak`);
-                  fs.writeFileSync(compactFile, cRes.prunedSteps.map(s => JSON.stringify(s)).join('\n') + '\n', 'utf8');
-                }
-              } catch {}
+                rawCompact = fs.readFileSync(cFd, 'utf8');
+              } finally {
+                fs.closeSync(cFd);
+              }
+              const cLines = rawCompact.trim().split('\n').filter(Boolean);
+              const cSteps = cLines.map(l => JSON.parse(l));
+              const cRes = trimUncachedTail(cSteps, {
+                cachedTokens: cachedLiveState?.window?.totalActiveTokens || 50000,
+                ...(body.cwd ? { cwd: body.cwd } : { offloadDir })
+              });
+              if (cRes && cRes.modifiedCount > 0 && cRes.headBytesPreserved) {
+                const stagedCompactPath = path.join(stagedDir, `${safeSessionSlug}.transcript.staged.jsonl`);
+                atomicWriteFileSync(
+                  stagedCompactPath,
+                  cRes.prunedSteps.map(s => JSON.stringify(s)).join('\n') + '\n',
+                  { encoding: 'utf8' }
+                );
+                trimRes.stagedCompactPath = stagedCompactPath;
+              }
+            } catch (err) {
+              recordDaemonDiagnostic('POST /api/tail/trim:stageCompact', err);
             }
           }
-        } catch (e) {
-          trimRes = { trimmed: false, error: String(e?.message || e) };
         }
+      } catch (e) {
+        recordDaemonDiagnostic('POST /api/tail/trim:readOrStage', e);
+        trimRes = { trimmed: false, hostTranscriptMutated: false, error: String(e?.message || e) };
       }
-      const nextState = await refreshLiveState(true, targetConvId);
-      broadcastState(nextState);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, ...trimRes, state: nextState }));
-    });
+    }
+    const nextState = await refreshLiveState(true, targetConvId);
+    broadcastState(nextState);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, ...trimRes, state: nextState }));
     return;
   }
 
-  // Route: POST /api/rsi/evolve (Synthesize Evolved Domain Skill)
-  if (url.pathname === '/api/rsi/evolve' && req.method === 'POST') {
-    let bodyStr = '';
-    req.on('data', chunk => { bodyStr += chunk; });
-    req.on('end', async () => {
-      let body = {};
-      try { body = JSON.parse(bodyStr || '{}'); } catch {}
-      const domain = body.domain || 'general';
-      let evolveRes = null;
-      try {
-        evolveRes = rsiEngine?.evolveDomainToSkill ? rsiEngine.evolveDomainToSkill(domain, body.options || {}) : { error: 'RSI engine not initialized' };
-      } catch (err) {
-        evolveRes = { success: false, error: String(err?.message || err) };
+  // Route: POST /api/rsi/evolve & POST /api/instincts/promote (Synthesize / Promote Instincts via PrefixCacheShield fence)
+  if ((url.pathname === '/api/rsi/evolve' || url.pathname === '/api/instincts/promote') && req.method === 'POST') {
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, `POST ${url.pathname}`);
+    if (body === null) return;
+    const sessCtx = resolveRouteCacheContext(body);
+    const forceColdBust = Boolean(body.force || body.forceColdBust || body.options?.forceColdBust);
+    let evolveRes = null;
+    try {
+      if (body.ruleText && url.pathname === '/api/instincts/promote') {
+        const wsPath = body.workspacePath || cachedLiveState?.workspace?.canonicalPath || process.cwd();
+        evolveRes = promoteRuleWithAttentionZone(wsPath, body.ruleText, {
+          ...sessCtx,
+          ...(body.options || {}),
+          zone: body.zone || 'primacy',
+          targetFileName: body.targetFileName || 'AGENTS.md',
+          prefixCacheShield,
+          forceColdBust
+        });
+      } else {
+        const domain = body.domain || 'general';
+        evolveRes = rsiEngine?.evolveDomainToSkill
+          ? rsiEngine.evolveDomainToSkill(domain, {
+              ...sessCtx,
+              ...(body.options || {}),
+              prefixCacheShield,
+              forceColdBust
+            })
+          : { error: 'RSI engine not initialized' };
       }
-      const nextState = await refreshLiveState(true, pinnedConversationId);
-      broadcastState(nextState);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: !evolveRes?.error, ...evolveRes, state: nextState }));
-    });
+    } catch (err) {
+      recordDaemonDiagnostic(`POST ${url.pathname}`, err);
+      evolveRes = { success: false, error: String(err?.message || err) };
+    }
+    const nextState = await refreshLiveState(true, pinnedConversationId);
+    broadcastState(nextState);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: !evolveRes?.error, ...evolveRes, state: nextState }));
     return;
   }
 
-  // Route: POST /api/rules/u-curve-optimize (Reorder Rules for U-Shaped Attention)
-  if (url.pathname === '/api/rules/u-curve-optimize' && req.method === 'POST') {
-    let bodyStr = '';
-    req.on('data', chunk => { bodyStr += chunk; });
-    req.on('end', async () => {
-      let body = {};
-      try { body = JSON.parse(bodyStr || '{}'); } catch {}
-      const wsPath = body.workspacePath || cachedLiveState?.workspace?.canonicalPath || process.cwd();
-      const targetRule = body.filePath || path.join(wsPath, 'AGENTS.md');
-      let optRes = null;
-      try {
-        optRes = uShapedOptimizer.optimizeRuleFile(targetRule, body.options || {});
-      } catch (err) {
-        optRes = { success: false, error: String(err?.message || err) };
-      }
-      const nextState = await refreshLiveState(true, pinnedConversationId);
-      broadcastState(nextState);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: !optRes?.error, ...optRes, state: nextState }));
-    });
+  // Route: POST /api/rules/u-curve-optimize & POST /api/ushape/reorder (Reorder Rules via PrefixCacheShield fence)
+  if ((url.pathname === '/api/rules/u-curve-optimize' || url.pathname === '/api/ushape/reorder') && req.method === 'POST') {
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, `POST ${url.pathname}`);
+    if (body === null) return;
+    const wsPath = body.workspacePath || cachedLiveState?.workspace?.canonicalPath || process.cwd();
+    const targetRule = body.filePath || path.join(wsPath, 'AGENTS.md');
+    const sessCtx = resolveRouteCacheContext(body);
+    const forceColdBust = Boolean(body.force || body.forceColdBust || body.options?.forceColdBust);
+    let optRes = null;
+    try {
+      optRes = uShapedOptimizer.optimizeRuleFile(targetRule, {
+        ...sessCtx,
+        ...(body.options || {}),
+        prefixCacheShield,
+        forceColdBust
+      });
+    } catch (err) {
+      recordDaemonDiagnostic(`POST ${url.pathname}`, err);
+      optRes = { success: false, error: String(err?.message || err) };
+    }
+    const nextState = await refreshLiveState(true, pinnedConversationId);
+    broadcastState(nextState);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: !optRes?.error, ...optRes, state: nextState }));
     return;
   }
 
   // Route: POST /api/rsi/queue-action (Approve or dismiss staged learning in ReflectorQueue)
   if (url.pathname === '/api/rsi/queue-action' && req.method === 'POST') {
-    let bodyStr = '';
-    req.on('data', chunk => { bodyStr += chunk; });
-    req.on('end', async () => {
-      let body = {};
-      try { body = JSON.parse(bodyStr || '{}'); } catch {}
-      const itemId = body.id || body.itemId || null;
-      const action = String(body.action || 'approve').toLowerCase();
-      let actionRes = null;
-      if (action === 'approve') {
-        actionRes = reflectorQueue.approve(itemId);
-      } else {
-        actionRes = reflectorQueue.dismiss(itemId);
-      }
-      const nextState = await refreshLiveState(true, pinnedConversationId);
-      broadcastState(nextState);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: Boolean(actionRes), ...actionRes, state: nextState }));
-    });
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/rsi/queue-action');
+    if (body === null) return;
+    const itemId = body.id || body.itemId || null;
+    const action = String(body.action || 'approve').toLowerCase();
+    let actionRes = null;
+    if (action === 'approve') {
+      actionRes = reflectorQueue.approve(itemId);
+    } else {
+      actionRes = reflectorQueue.dismiss(itemId);
+    }
+    const nextState = await refreshLiveState(true, pinnedConversationId);
+    broadcastState(nextState);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: Boolean(actionRes), ...actionRes, state: nextState }));
     return;
   }
 
   // Route: POST /api/checkpoint/evaporation-check
   if (url.pathname === '/api/checkpoint/evaporation-check' && req.method === 'POST') {
-    let bodyStr = '';
-    req.on('data', chunk => { bodyStr += chunk; });
-    req.on('end', async () => {
-      let body = {};
-      try { body = JSON.parse(bodyStr || '{}'); } catch {}
-      const targetConvId = body.conversationId || pinnedConversationId || cachedLiveState?.sessionId || 'default';
-      const evapRes = progressiveCheckpointer.detectConstraintEvaporation(
-        body.summaryText || '',
-        targetConvId
-      );
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, ...evapRes }));
-    });
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/checkpoint/evaporation-check');
+    if (body === null) return;
+    const targetConvId = body.conversationId || pinnedConversationId || cachedLiveState?.sessionId || 'default';
+    const evapRes = progressiveCheckpointer.detectConstraintEvaporation(
+      body.summaryText || '',
+      targetConvId
+    );
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, ...evapRes }));
     return;
   }
 
   // Route: POST /api/router/mode (Set Coach / Auto-Pilot mode)
   if (url.pathname === '/api/router/mode' && req.method === 'POST') {
-    let bodyStr = '';
-    req.on('data', chunk => { bodyStr += chunk; });
-    req.on('end', async () => {
-      let body = {};
-      try { body = JSON.parse(bodyStr || '{}'); } catch {}
-      const mode = body.mode || 'coach';
-      const modeRes = modelSelectorActuator.setMode(mode);
-      const nextState = await refreshLiveState(true, pinnedConversationId);
-      broadcastState(nextState);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, ...modeRes, state: nextState }));
-    });
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/router/mode');
+    if (body === null) return;
+    const mode = body.mode || 'coach';
+    const modeRes = modelSelectorActuator.setMode(mode);
+    cacheTtlWatchdog.setFlightMode(
+      modeRes.mode === 'autopilot' ? 'AUTO_PILOT' : (modeRes.mode === 'off' ? 'OFF' : 'COACH')
+    );
+    const nextState = await refreshLiveState(true, pinnedConversationId);
+    broadcastState(nextState);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, ...modeRes, state: nextState }));
     return;
   }
 
   // Route: POST /api/router/actuate (Actuate model/effort change)
   if (url.pathname === '/api/router/actuate' && req.method === 'POST') {
-    let bodyStr = '';
-    req.on('data', chunk => { bodyStr += chunk; });
-    req.on('end', async () => {
-      let body = {};
-      try { body = JSON.parse(bodyStr || '{}'); } catch {}
-      const actuateRes = await modelSelectorActuator.evaluateAndActuate({
-        ...body,
-        forceActuate: true
-      });
-      const nextState = await refreshLiveState(true, pinnedConversationId);
-      broadcastState(nextState);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, ...actuateRes, state: nextState }));
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/router/actuate');
+    if (body === null) return;
+    const actuateRes = await modelSelectorActuator.evaluateAndActuate({
+      ...body,
+      forceActuate: true
     });
+    const nextState = await refreshLiveState(true, pinnedConversationId);
+    broadcastState(nextState);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, ...actuateRes, state: nextState }));
     return;
   }
 
   if (url.pathname === '/api/action' && req.method === 'POST') {
-    let bodyStr = '';
-    req.on('data', chunk => { bodyStr += chunk; });
-    req.on('end', async () => {
-      let body = {};
-      try { body = JSON.parse(bodyStr); } catch {}
-      if (body.action === 'select_session') {
-        pinnedConversationId = (!body.conversationId || body.conversationId === 'auto') ? null : body.conversationId;
-        const nextState = await refreshLiveState(true, pinnedConversationId);
-        broadcastState(nextState);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, state: nextState }));
-        return;
-      }
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/action');
+    if (body === null) return;
+    if (body.action === 'select_session') {
+      pinnedConversationId = (!body.conversationId || body.conversationId === 'auto') ? null : body.conversationId;
+      const nextState = await refreshLiveState(true, pinnedConversationId);
+      broadcastState(nextState);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, action: body.action }));
-    });
+      res.end(JSON.stringify({ success: true, state: nextState }));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, action: body.action }));
     return;
   }
 
   res.writeHead(404);
   res.end('Not Found');
+  } catch (err) {
+    sendRouteError500(res, `${req.method || 'HTTP'} ${req.url || '/'}`, err);
+  }
 });
 
 function broadcastState(state) {
   if (!state || clients.size === 0) return;
   const payload = `data: ${JSON.stringify(state)}\n\n`;
   for (const client of clients) {
-    try { client.write(payload); } catch {}
+    try {
+      client.write(payload);
+    } catch (err) {
+      clients.delete(client);
+      recordDaemonDiagnostic('broadcastState:write', err);
+    }
   }
 }
 
 setInterval(async () => {
   if (clients.size > 0) {
-    const state = await refreshLiveState(true);
-    broadcastState(state);
+    try {
+      const state = await refreshLiveState(true);
+      broadcastState(state);
+    } catch (err) {
+      recordDaemonDiagnostic('sseBroadcastInterval', err);
+    }
   }
 }, 2000).unref();
 
@@ -1292,6 +1649,10 @@ export function startServer(port = EXPLICIT_PORT) {
         server.removeListener('error', onError);
         const boundPort = server.address().port;
         writeRuntimeLockfile(boundPort);
+        cacheTtlWatchdog.startPolling(1000);
+        server.once('close', () => {
+          cacheTtlWatchdog.stopPolling();
+        });
         console.log(`[Horizon Daemon] Listening on http://${BIND_HOST}:${boundPort}`);
         resolve({ server, port: boundPort });
       };
@@ -1304,7 +1665,17 @@ export function startServer(port = EXPLICIT_PORT) {
   });
 }
 
-const isMain = process.argv[1] && process.argv[1].endsWith('server.mjs');
+function isDaemonMain(argv1 = process.argv[1], metaUrl = import.meta.url) {
+  if (!argv1) return false;
+  try {
+    return fs.realpathSync(argv1) === fs.realpathSync(fileURLToPath(metaUrl));
+  } catch (err) {
+    if (err?.code !== 'ENOENT') recordDaemonDiagnostic('isDaemonMain:realpath', err);
+    return path.resolve(argv1) === path.resolve(fileURLToPath(metaUrl));
+  }
+}
+
+const isMain = isDaemonMain();
 if (isMain) {
   ensureSupportedNodeVersion();
   startServer();

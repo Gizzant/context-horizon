@@ -1,10 +1,45 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { SQLITE_OPEN_READONLY_OPTIONS } from './parser.mjs';
+import {
+  isHostProtectedSqlitePath,
+  openLocalHorizonDb,
+  openHostReadOnlyDb
+} from './sqlite_client.mjs';
+
+const RETRYABLE_RENAME_CODES = new Set(['EPERM', 'EBUSY', 'EACCES']);
+
+function renameSqliteWithRetrySync(srcPath, dstPath, maxAttempts = 5) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      fs.renameSync(srcPath, dstPath);
+      return;
+    } catch (err) {
+      if (RETRYABLE_RENAME_CODES.has(err?.code) && attempt < maxAttempts) {
+        try {
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 15 * attempt);
+        } catch {}
+        continue;
+      }
+      throw err;
+    }
+  }
+}
 
 /**
- * Local Storage Doctor — Cursor `state.vscdb` Streaming GC & Antigravity 2.6+ `brain/` Recovery.
+ * Returns true strictly for plugin-owned `.agents/` SQLite databases (never host
+ * `state.vscdb`, `conversations/*.db`, or `conversation_summaries.db`).
+ */
+export function isPluginOwnedAgentsSqlitePath(dbPath = '') {
+  if (!dbPath || typeof dbPath !== 'string') return false;
+  if (isHostProtectedSqlitePath(dbPath)) return false;
+  const resolved = path.resolve(dbPath).replace(/\\/g, '/').toLowerCase();
+  return /(^|\/)\.agents(\/|$)/.test(resolved);
+}
+
+/**
+ * Local Storage Doctor — Read-only host orphan auditing, `.agents/` SQLite streaming GC,
+ * and Antigravity 2.6+ `brain/` recovery.
  */
 
 export async function auditCursorVscdbOrphans(vscdbPath, options = {}) {
@@ -19,8 +54,7 @@ export async function auditCursorVscdbOrphans(vscdbPath, options = {}) {
   if (!rows && vscdbPath && fs.existsSync(vscdbPath)) {
     let db = null;
     try {
-      const DbCtor = options.DatabaseSync || (await import('node:sqlite')).DatabaseSync;
-      db = new DbCtor(vscdbPath, SQLITE_OPEN_READONLY_OPTIONS);
+      db = openHostReadOnlyDb(vscdbPath, { DatabaseSync: options.DatabaseSync });
       rows = db.prepare('SELECT key, value FROM cursorDiskKV').all();
     } catch {
       rows = [];
@@ -131,7 +165,22 @@ export async function compactCursorVscdbStreaming(vscdbPath, options = {}) {
     };
   }
 
-  if (!vscdbPath || !fs.existsSync(vscdbPath)) {
+  if (!isPluginOwnedAgentsSqlitePath(vscdbPath)) {
+    return {
+      success: false,
+      dryRun: false,
+      blockedHostWrite: true,
+      reason: 'HOST_DB_READONLY_GUARD',
+      exportedLiveRows: 0,
+      removedOrphanRows: 0,
+      reclaimedBytes: 0,
+      backupPath: null,
+      error: 'Compaction is restricted strictly to plugin-owned .agents/ SQLite databases; host state.vscdb and session DBs are read-only.'
+    };
+  }
+
+  const resolvedPath = path.resolve(vscdbPath);
+  if (!fs.existsSync(resolvedPath)) {
     return {
       success: false,
       dryRun: false,
@@ -143,21 +192,24 @@ export async function compactCursorVscdbStreaming(vscdbPath, options = {}) {
     };
   }
 
-  const DbCtor = options.DatabaseSync || (await import('node:sqlite')).DatabaseSync;
   const activeSet = new Set(audit.activeComposerIds);
   const referencedBlobSet = new Set(audit.referencedBlobIds || []);
-  const tmpExportPath = `${vscdbPath}.compact.${process.pid}.sqlite`;
-  if (fs.existsSync(tmpExportPath)) {
-    try { fs.unlinkSync(tmpExportPath); } catch {}
-  }
+  const rand = Math.random().toString(36).slice(2, 8);
+  const tmpExportPath = `${resolvedPath}.compact.${process.pid}.${Date.now()}.${rand}.sqlite`;
 
   let srcDb = null;
   let dstDb = null;
   let exportedLiveRows = 0;
 
   try {
-    srcDb = new DbCtor(vscdbPath, SQLITE_OPEN_READONLY_OPTIONS);
-    dstDb = new DbCtor(tmpExportPath);
+    srcDb = openLocalHorizonDb(resolvedPath, {
+      readOnly: true,
+      DatabaseSync: options.DatabaseSync
+    });
+    dstDb = openLocalHorizonDb(tmpExportPath, {
+      readOnly: false,
+      DatabaseSync: options.DatabaseSync
+    });
 
     dstDb.exec('CREATE TABLE IF NOT EXISTS ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB);');
     dstDb.exec('CREATE TABLE IF NOT EXISTS cursorDiskKV (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB);');
@@ -187,14 +239,34 @@ export async function compactCursorVscdbStreaming(vscdbPath, options = {}) {
         exportedLiveRows += 1;
       }
     }
+
+    try {
+      dstDb.exec('PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode = DELETE;');
+    } catch {}
+  } catch (err) {
+    try { if (srcDb) srcDb.close(); } catch {}
+    try { if (dstDb) dstDb.close(); } catch {}
+    srcDb = null;
+    dstDb = null;
+    for (const cleanupPath of [tmpExportPath, `${tmpExportPath}-wal`, `${tmpExportPath}-shm`]) {
+      try { if (fs.existsSync(cleanupPath)) fs.unlinkSync(cleanupPath); } catch {}
+    }
+    throw err;
   } finally {
     try { if (srcDb) srcDb.close(); } catch {}
     try { if (dstDb) dstDb.close(); } catch {}
   }
 
-  const backupPath = `${vscdbPath}.pre_gc.${Date.now()}.bak`;
-  fs.copyFileSync(vscdbPath, backupPath);
-  fs.renameSync(tmpExportPath, vscdbPath);
+  const backupPath = `${resolvedPath}.pre_gc.${Date.now()}.bak`;
+  fs.copyFileSync(resolvedPath, backupPath);
+
+  for (const sidecarPath of [`${tmpExportPath}-wal`, `${tmpExportPath}-shm`, `${resolvedPath}-wal`, `${resolvedPath}-shm`]) {
+    try {
+      if (fs.existsSync(sidecarPath)) fs.unlinkSync(sidecarPath);
+    } catch {}
+  }
+
+  renameSqliteWithRetrySync(tmpExportPath, resolvedPath);
 
   return {
     success: true,

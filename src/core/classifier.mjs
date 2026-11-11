@@ -16,7 +16,10 @@ import {
   resolveModelCeilingDetailed,
   resolvePricePerM,
   resolveSurfaceTag,
-  scaleEffortProfileForCeiling
+  scaleEffortProfileForCeiling,
+  computeUnifiedContextPool,
+  evaluateCarbonVerbosityGuardrail,
+  getDeprecatedModelMigrationNotice
 } from './constants.mjs';
 import { loadFlightcheckConfig } from './config.mjs';
 import { loadCliSurfaceSettings } from './settings.mjs';
@@ -424,8 +427,7 @@ export function evaluateHistoryBarState({
     ? Number(safeHorizonTokens)
     : SESSION_RISK_THRESHOLDS.SAFE_HORIZON_TOKENS;
   // When strict warmth evidence is supplied, a 0% hit / 0 cache-read session is COLD_BLOAT even if TTL > 0s.
-  // `nextTurnLikelyWarm` (fresh cache write after a miss) supersedes the strict predicate when supplied.
-  const warmEvidence = typeof nextTurnLikelyWarm === 'boolean' ? nextTurnLikelyWarm : isCacheTrulyWarm;
+  const warmEvidence = typeof isCacheTrulyWarm === 'boolean' ? isCacheTrulyWarm : nextTurnLikelyWarm;
   const isNotTrulyWarm = warmEvidence === false;
   const isColdOrOverHorizon = isNotTrulyWarm || Number(cacheTtlRemainingSec) <= 0 || Number(totalActiveTokens) > safeHorizon;
 
@@ -449,8 +451,9 @@ export function evaluateHistoryBarState({
 /**
  * Computes Dual-Watermark + Hard Ceiling visual markers for the context bar.
  */
-export function computeWatermarks(maxTokens = 256000, safeLimit = 179000) {
-  const denom = Math.max(1, Number(maxTokens) || 256000);
+export function computeWatermarks(maxTokens = null, safeLimit = 179000, modelId = 'default') {
+  const dynamicDefault = resolveModelCeiling(modelId, null, { useLegacyDefault: false });
+  const denom = Math.max(1, Number(maxTokens) || dynamicDefault);
   const cascadeTokens = SESSION_RISK_THRESHOLDS.CASCADE_SYNC_WATERMARK_TOKENS;
   const attentionHorizonTokens = Math.round(denom * 0.70);
   return {
@@ -834,10 +837,15 @@ export function classifyHorizon(rawSteps, options = {}) {
     }
   }
 
-  // If session crosses 200k tokens on legacy default, auto-promote ceiling to 256k (or 1M) so 40 cells never overflow
+  // If session crosses legacy default ceiling, dynamically promote ceiling to native model ceiling (256k / 1M / 1.048M) so 40 cells never overflow
+  const nativeModelCeiling = resolveModelCeiling(modelId, null, {
+    useLegacyDefault: false,
+    config: activeConfig,
+    cliSettings
+  });
   const effectiveMaxTokens = (totalActiveTokens > resolvedMaxTokens && resolvedMaxTokens === 200000)
-    ? (totalActiveTokens > 256000 ? 1000000 : 256000)
-    : resolvedMaxTokens;
+    ? (totalActiveTokens > 256000 ? Math.max(1000000, nativeModelCeiling) : 256000)
+    : (totalActiveTokens > resolvedMaxTokens ? Math.max(resolvedMaxTokens, nativeModelCeiling) : resolvedMaxTokens);
   const effectiveCellSize = Math.max(
     Math.round(effectiveMaxTokens / HORIZON_WINDOW.TOTAL_CELLS),
     Math.ceil(totalActiveTokens / HORIZON_WINDOW.TOTAL_CELLS) || HORIZON_WINDOW.CELL_SIZE_TOKENS
@@ -1118,7 +1126,7 @@ export function classifyHorizon(rawSteps, options = {}) {
   const errorOffenders = allOffenders.filter(o => o.category === CATEGORIES.DEAD_ERROR);
 
   const blowupSteps = classifiedSteps
-    .filter(s => s.tokens >= 8000 && s.stepIndex > 0)
+    .filter(s => s.tokens >= 8000 && s.stepIndex > 0 && s.category !== CATEGORIES.ANCHOR && s.target !== 'System & Project Anchors')
     .sort((a, b) => b.tokens - a.tokens)
     .slice(0, 3)
     .map(s => {
@@ -1131,8 +1139,13 @@ export function classifyHorizon(rawSteps, options = {}) {
       const command = args.CommandLine || args.command || null;
       const isFileTool = Boolean(filePath) || /^(view_file|read_file|view_file_outline|view_code_item|replace_file_content|multi_replace_file_content|write_to_file|write_file|edit_file)$/.test(toolName);
       const isCmdTool = Boolean(command) || /^(run_command|bash|execute_command)$/.test(toolName);
+      const userTurnNumber = Math.max(
+        1,
+        steps.slice(0, s.stepIndex + 1).filter(x => x && (x.source === 'USER_EXPLICIT' || x.type === 'USER_INPUT' || x.role === 'user')).length
+      );
       return {
         stepIndex: s.stepIndex,
+        userTurnNumber,
         tokens: s.tokens,
         category: s.category,
         target: s.target || `Step ${s.stepIndex}`,
@@ -1605,7 +1618,15 @@ export function classifyHorizon(rawSteps, options = {}) {
       safeHeadroomTokens: Math.max(0, safeLimit - totalActiveTokens),
       reminderAt,
       watermarks,
-      historyBarState
+      historyBarState,
+      unifiedPool: computeUnifiedContextPool(
+        {
+          input_tokens: totalActiveTokens,
+          thinking_tokens: options.thinkingTokens ?? 0,
+          output_tokens: options.outputTokens ?? 0
+        },
+        modelId
+      )
     },
     breakdown: categoryTotals,
     metrics: {
@@ -1648,7 +1669,13 @@ export function classifyHorizon(rawSteps, options = {}) {
       whatsHappening,
       theSludgeTax,
       actionPlan,
-      recommendedCommand
+      recommendedCommand,
+      migrationNotice: getDeprecatedModelMigrationNotice(modelId, options.eventTimestampUtc ?? null),
+      carbonVerbosity: evaluateCarbonVerbosityGuardrail(steps, {
+        modelId,
+        activeEffort: activeEffortProfile?.effort || options.effort || 'high',
+        eventTimestampUtc: options.eventTimestampUtc ?? null
+      })
     },
     updatedAt: new Date().toISOString()
   };

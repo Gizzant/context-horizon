@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { HORIZON_WINDOW, resolvePatchedCliCeiling } from './constants.mjs';
+import { HORIZON_WINDOW, SHARED_1M_CONTEXT_POOL_TOKENS, resolvePatchedCliCeiling } from './constants.mjs';
+import { atomicWriteFileSync } from './atomic_io.mjs';
 
 /**
  * User-editable Context Memory settings, stored at
@@ -11,7 +12,7 @@ import { HORIZON_WINDOW, resolvePatchedCliCeiling } from './constants.mjs';
 
 export const SETTINGS_LIMITS = {
   SAFE_LIMIT_MIN: 20000,
-  SAFE_LIMIT_MAX: 1000000,
+  SAFE_LIMIT_MAX: SHARED_1M_CONTEXT_POOL_TOKENS,
   REMINDER_PCT_MIN: 50,
   REMINDER_PCT_MAX: 99
 };
@@ -62,11 +63,7 @@ export function loadSettings(cacheDir) {
 /** Merges `patch` over the stored settings, validates, writes atomically, returns the result. */
 export function saveSettings(cacheDir, patch = {}) {
   const merged = validateSettings({ ...loadSettings(cacheDir), ...patch });
-  fs.mkdirSync(cacheDir, { recursive: true });
-  const file = settingsFile(cacheDir);
-  const tmp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(merged, null, 2), 'utf8');
-  fs.renameSync(tmp, file);
+  atomicWriteFileSync(settingsFile(cacheDir), JSON.stringify(merged, null, 2), 'utf8');
   return merged;
 }
 

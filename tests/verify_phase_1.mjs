@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
-import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { JSDOM } from 'jsdom';
 import { canonicalizePath } from '../src/core/path_canonicalizer.mjs';
 import { getAntigravitySurfaces } from '../src/core/paths.mjs';
 import {
@@ -19,8 +20,7 @@ import {
   updateSidecarPartialSync
 } from '../src/core/sidecar_store.mjs';
 
-const require = createRequire(import.meta.url);
-const { JSDOM } = require('C:/Users/frank/AppData/Local/Temp/node_modules/jsdom');
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 console.log('--- Verifying Phase 1: Header Health, Composite Session Risk & Multi-Store Discovery ---');
 
@@ -220,7 +220,7 @@ console.log('✓ Check 3: Multi-Store SQLite discovery & [App]/[IDE]/[CLI] surfa
 
 // 5. WebView JSDOM Verification of Header Dot, Surface Prefixes, Prefix-Lock Tooltip & Dual-Target Open ↗
 console.log('--- Verifying WebView JSDOM Layer 1 Interactions ---');
-const html = fs.readFileSync('C:/Projects/ga-visualizer-v2/src/webview/horizon_panel.html', 'utf8');
+const html = fs.readFileSync(path.join(ROOT, 'src', 'webview', 'horizon_panel.html'), 'utf8');
 const openBrainCalls = [];
 const toggledConversations = [];
 
@@ -238,7 +238,7 @@ const dom = new JSDOM(html, {
           json: async () => ({
             success: true,
             surfaceTag: '[CLI]',
-            brainDir: `C:/Users/frank/.gemini/${body.surface || 'antigravity'}/brain/${body.conversationId}`
+            brainDir: path.join(os.homedir(), '.gemini', body.surface || 'antigravity', 'brain', String(body.conversationId || '')).replace(/\\/g, '/')
           })
         };
       }
@@ -323,6 +323,8 @@ console.log('✓ Check 4: WebView JSDOM Layer 1 interactions passed.');
 // Clean up test dir
 try {
   fs.rmSync(testDir, { recursive: true, force: true });
-} catch {}
+} catch (err) {
+  if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+}
 
 console.log('✓ Phase 1 verification PASSED with 0 errors.');

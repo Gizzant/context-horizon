@@ -1,15 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { createRequire } from 'node:module';
 import { getHomeDir } from '../paths.mjs';
-
-const require = createRequire(import.meta.url);
-let DatabaseSync = null;
-try {
-  ({ DatabaseSync } = require('node:sqlite'));
-} catch {
-  DatabaseSync = null;
-}
+import { openLocalHorizonDb } from '../sqlite_client.mjs';
 
 /**
  * Phase 4.3: Deterministic "Saved-Quota Receipt" Ledger (`src/core/coach/saved_quota_ledger.mjs`)
@@ -50,7 +42,7 @@ export class SavedQuotaReceiptLedger {
 
   _initDb() {
     fs.mkdirSync(path.dirname(this.dbPath), { recursive: true });
-    const db = new DatabaseSync(this.dbPath);
+    const db = openLocalHorizonDb(this.dbPath, { readOnly: false });
     try {
       db.exec(`
         CREATE TABLE IF NOT EXISTS savings_events (
@@ -81,7 +73,7 @@ export class SavedQuotaReceiptLedger {
     const type = String(eventType || SAVINGS_EVENT_TYPES.EFFORT_DOWNSHIFT).toUpperCase();
     const saved = Math.max(0, Math.round(Number(argonEquivTokensSaved ?? tokensSaved ?? 0)));
 
-    const db = new DatabaseSync(this.dbPath);
+    const db = openLocalHorizonDb(this.dbPath, { readOnly: false });
     try {
       db.prepare(`
         INSERT INTO savings_events (session_id, event_type, argon_equiv_tokens_saved, detail, created_at)
@@ -98,25 +90,27 @@ export class SavedQuotaReceiptLedger {
    * Computes aggregated savings and formats the VS Code Status Bar and Horizon Footer string.
    */
   getSummary(sessionId = null) {
-    const db = new DatabaseSync(this.dbPath, { readOnly: true });
     let rows = [];
-    try {
-      if (sessionId) {
-        rows = db.prepare(`
-          SELECT id, session_id AS sessionId, event_type AS eventType, argon_equiv_tokens_saved AS argonEquivTokensSaved, detail, created_at AS createdAt
-          FROM savings_events
-          WHERE session_id = ?
-          ORDER BY id ASC
-        `).all(String(sessionId));
-      } else {
-        rows = db.prepare(`
-          SELECT id, session_id AS sessionId, event_type AS eventType, argon_equiv_tokens_saved AS argonEquivTokensSaved, detail, created_at AS createdAt
-          FROM savings_events
-          ORDER BY id ASC
-        `).all();
+    if (this.dbPath && fs.existsSync(this.dbPath)) {
+      const db = openLocalHorizonDb(this.dbPath, { readOnly: true });
+      try {
+        if (sessionId) {
+          rows = db.prepare(`
+            SELECT id, session_id AS sessionId, event_type AS eventType, argon_equiv_tokens_saved AS argonEquivTokensSaved, detail, created_at AS createdAt
+            FROM savings_events
+            WHERE session_id = ?
+            ORDER BY id ASC
+          `).all(String(sessionId));
+        } else {
+          rows = db.prepare(`
+            SELECT id, session_id AS sessionId, event_type AS eventType, argon_equiv_tokens_saved AS argonEquivTokensSaved, detail, created_at AS createdAt
+            FROM savings_events
+            ORDER BY id ASC
+          `).all();
+        }
+      } finally {
+        db.close();
       }
-    } finally {
-      db.close();
     }
 
     const counts = {

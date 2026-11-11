@@ -3,26 +3,26 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { getHomeDir, canonicalizePath } from './paths.mjs';
 import { SESSION_RISK_THRESHOLDS } from './constants.mjs';
+import { atomicWriteFileSync } from './atomic_io.mjs';
 
 /**
  * Phase 0: PrefixCacheShield Transaction Manager
  *
  * Prevents self-inflicted KV prefix-cache busting by intercepting writes to:
- *  - ~/.gemini/GEMINI.md (global rules)
- *  - workspace GEMINI.md / AGENTS.md / .agents/CONTEXT.md / CLAUDE.md
- *  - ~/.gemini/antigravity/skills/<skill>/SKILL.md (and .agents/skills / antigravity-cli/skills)
+ *  - ~/.gemini/GEMINI.md and .gemini/GEMINI.md / .gemini/rules/**\/*.md
+ *  - workspace GEMINI.md / AGENTS.md / .antigravityignore / mcp_config.json
+ *  - .agents/CONTEXT.md / .agents/rules/**\/*.md / .agents/skills/**\/SKILL.md
+ *  - ~/.gemini/antigravity/skills/<skill>/SKILL.md (and antigravity-cli/skills)
  *
- * Rule: While `session.cachedTokens >= 50000 && session.cacheTtlSeconds > 0` (and not pre-Turn-1),
- * any rule/skill mutation is queued in `~/.gemini/antigravity/agy-horizon/pending_rule_deltas.json`
- * without touching the target file on disk. Queued deltas flush immediately when:
- *  1. `cacheTtlSeconds === 0`
- *  2. Before Turn 1 of a new session (`turnCount === 0` or `isPreTurn1 === true`)
- *  3. During an explicit `/handoff` baton pass (`flushOnHandoff()`)
+ * Strictly excludes CLAUDE.md, .claude/, and .cursorrules per ISS-021.
  */
+
+const FOREIGN_NON_ANTIGRAVITY_RULE_RE = /(^|[\\/])(CLAUDE\.md|\.cursorrules)$|(^|[\\/])\.claude([\\/]|$)/i;
 
 export const PREFIX_CACHE_SHIELD_CONSTANTS = Object.freeze({
   WARM_CACHE_TOKEN_THRESHOLD: SESSION_RISK_THRESHOLDS?.WARM_CACHE_LOCK_TOKENS || 50000,
-  PROTECTED_FILE_REGEX: /(^|[\\/])(GEMINI\.md|AGENTS\.md|CLAUDE\.md|SKILL\.md)$|[\\/]\.agents[\\/](CONTEXT\.md|rules[\\/][^\\/]+\.md)$/i
+  PROTECTED_FILE_REGEX:
+    /(^|[\\/])(GEMINI\.md|AGENTS\.md|SKILL\.md|\.antigravityignore|mcp_config\.json)$|(^|[\\/])\.gemini[\\/](GEMINI\.md|rules[\\/].+\.md)$|(^|[\\/])\.agents[\\/](CONTEXT\.md|rules[\\/].+\.md|skills[\\/].+[\\/]SKILL\.md)$/i
 });
 
 export function getDefaultPendingDeltasPath(homeDir = getHomeDir()) {
@@ -31,7 +31,35 @@ export function getDefaultPendingDeltasPath(homeDir = getHomeDir()) {
 
 export function isProtectedPrefixFile(filePath = '') {
   if (!filePath || typeof filePath !== 'string') return false;
-  return PREFIX_CACHE_SHIELD_CONSTANTS.PROTECTED_FILE_REGEX.test(filePath.trim());
+  const trimmed = filePath.trim();
+  if (!trimmed) return false;
+  if (FOREIGN_NON_ANTIGRAVITY_RULE_RE.test(trimmed)) return false;
+  return PREFIX_CACHE_SHIELD_CONSTANTS.PROTECTED_FILE_REGEX.test(trimmed);
+}
+
+export function isWarmCacheState(session = {}, warmThreshold = PREFIX_CACHE_SHIELD_CONSTANTS.WARM_CACHE_TOKEN_THRESHOLD) {
+  if (!session || typeof session !== 'object') return false;
+  if (
+    session.forceColdBust === true ||
+    session.forceHotCache === true ||
+    session.postCompact === true ||
+    session.isPostCompact === true
+  ) {
+    return false;
+  }
+  if (session.isPreTurn1 === true || (Number(session.turnCount) === 0 && session.forcePreTurn1 === true)) {
+    return false;
+  }
+  const stateStr = String(session.cacheState || '').trim().toUpperCase();
+  if (stateStr === 'COLD' || stateStr === 'POST_COMPACT') {
+    return false;
+  }
+  if (session.cacheWarm === true || stateStr === 'WARM' || stateStr === 'WARM_5M' || stateStr === 'WARM_1H') {
+    return true;
+  }
+  const cachedTokens = Number(session.cachedTokens ?? session.cacheReadTokens ?? 0);
+  const cacheTtlSeconds = Number(session.cacheTtlSeconds ?? session.ttlRemainingSec ?? session.ttlRemainingSeconds ?? 0);
+  return cachedTokens >= warmThreshold && cacheTtlSeconds > 0;
 }
 
 export function formatStagedBadge(stagedCount = 0) {
@@ -44,10 +72,7 @@ export function formatStagedBadge(stagedCount = 0) {
 }
 
 function writeAtomicSync(targetPath, contentStr) {
-  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-  const tmpPath = `${targetPath}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(tmpPath, contentStr, 'utf8');
-  fs.renameSync(tmpPath, targetPath);
+  atomicWriteFileSync(targetPath, contentStr, { encoding: 'utf8' });
 }
 
 /**
@@ -71,10 +96,10 @@ export function applyRuleDeltaToContent(existingText = '', delta = {}) {
   }
 
   if (op === 'MODIFY') {
-    const targetStr = String(delta.targetText || '').trim();
-    const replacementStr = String(delta.replacementText ?? delta.ruleText ?? delta.content ?? '').trim();
+    const targetStr = String(delta.targetText ?? delta.target ?? '').trim();
+    const replacementStr = String(delta.replacementText ?? delta.ruleText ?? delta.content ?? delta.newContent ?? '').trim();
     if (targetStr && base.includes(targetStr)) {
-      return base.replace(targetStr, replacementStr);
+      return base.replace(targetStr, () => replacementStr);
     }
     return base ? `${base.replace(/\s+$/, '')}\n${replacementStr}\n` : `${replacementStr}\n`;
   }
@@ -97,7 +122,13 @@ export class PrefixCacheShield {
     this.warmCacheThreshold = Number.isFinite(options.warmCacheThreshold)
       ? options.warmCacheThreshold
       : PREFIX_CACHE_SHIELD_CONSTANTS.WARM_CACHE_TOKEN_THRESHOLD;
+    this.reflectorQueue = options.reflectorQueue || null;
     this._memoryQueue = null;
+  }
+
+  attachReflectorQueue(reflectorQueue) {
+    this.reflectorQueue = reflectorQueue || null;
+    return this;
   }
 
   _loadQueue() {
@@ -137,13 +168,7 @@ export class PrefixCacheShield {
    * Determines whether the session's prefix cache is currently warm and locked.
    */
   isPrefixLocked(session = {}) {
-    if (!session || typeof session !== 'object') return false;
-    if (session.isPreTurn1 === true || Number(session.turnCount) === 0 && session.forcePreTurn1 === true) {
-      return false;
-    }
-    const cachedTokens = Number(session.cachedTokens ?? session.cacheReadTokens ?? 0);
-    const cacheTtlSeconds = Number(session.cacheTtlSeconds ?? session.ttlRemainingSec ?? 0);
-    return cachedTokens >= this.warmCacheThreshold && cacheTtlSeconds > 0;
+    return isWarmCacheState(session, this.warmCacheThreshold);
   }
 
   /**
@@ -151,11 +176,17 @@ export class PrefixCacheShield {
    */
   getStatus(session = {}) {
     const deltas = this._loadQueue();
+    const reflectorApproved = this.reflectorQueue?.listItems
+      ? this.reflectorQueue.listItems({ status: 'approved' }).length
+      : 0;
+    const totalStaged = deltas.length + reflectorApproved;
     const locked = this.isPrefixLocked(session);
     return {
       locked,
-      stagedCount: deltas.length,
-      badge: formatStagedBadge(deltas.length),
+      stagedCount: totalStaged,
+      pendingDeltasCount: deltas.length,
+      reflectorApprovedCount: reflectorApproved,
+      badge: formatStagedBadge(totalStaged),
       queuePath: this.queuePath,
       deltas: [...deltas]
     };
@@ -163,15 +194,6 @@ export class PrefixCacheShield {
 
   /**
    * Stages or immediately applies a rule/skill file mutation depending on prefix cache warmth.
-   *
-   * @param {object} deltaRequest
-   * @param {string} deltaRequest.targetPath - Path to GEMINI.md, AGENTS.md, .agents/CONTEXT.md, or SKILL.md
-   * @param {string} [deltaRequest.operation='ADD'] - 'ADD' | 'MODIFY' | 'REMOVE' | 'REPLACE' | 'REORDER'
-   * @param {string} [deltaRequest.ruleText] - Directive or content to add/modify
-   * @param {string} [deltaRequest.newContent] - Full replacement content for REPLACE / REORDER
-   * @param {string} [deltaRequest.targetText] - Target substring for MODIFY / REMOVE
-   * @param {string} [deltaRequest.source='coach'] - Origin subsystem (e.g. 'rsi', 'u-curve', 'manual')
-   * @param {object} [session={}] - { cachedTokens, cacheTtlSeconds, turnCount, isPreTurn1 }
    */
   stageOrApplyDelta(deltaRequest = {}, session = {}) {
     const targetPath = path.resolve(String(deltaRequest.targetPath || ''));
@@ -185,7 +207,7 @@ export class PrefixCacheShield {
       canonicalTargetPath: canonicalizePath(targetPath),
       operation: String(deltaRequest.operation || 'ADD').toUpperCase(),
       ruleText: deltaRequest.ruleText ?? null,
-      targetText: deltaRequest.targetText ?? null,
+      targetText: deltaRequest.targetText ?? deltaRequest.target ?? null,
       replacementText: deltaRequest.replacementText ?? null,
       newContent: deltaRequest.newContent ?? deltaRequest.content ?? null,
       source: String(deltaRequest.source || 'coach'),
@@ -194,13 +216,14 @@ export class PrefixCacheShield {
     };
 
     const existingQueue = this._loadQueue();
-    const cacheTtlSeconds = Number(session?.cacheTtlSeconds ?? session?.ttlRemainingSec ?? 0);
+    const cacheTtlSeconds = Number(session?.cacheTtlSeconds ?? session?.ttlRemainingSec ?? session?.ttlRemainingSeconds ?? 0);
+    const forceColdBust = Boolean(session?.forceColdBust === true || session?.forceHotCache === true);
     const isPreTurn1 = Boolean(
       session?.isPreTurn1 === true || (Number(session?.turnCount) === 0 && session?.forcePreTurn1 === true)
     );
     const locked =
-      this.isPrefixLocked(session) ||
-      (existingQueue.length > 0 && cacheTtlSeconds > 0 && !isPreTurn1);
+      !forceColdBust &&
+      (this.isPrefixLocked(session) || (existingQueue.length > 0 && cacheTtlSeconds > 0 && !isPreTurn1));
 
     if (locked) {
       existingQueue.push(deltaRecord);
@@ -208,7 +231,9 @@ export class PrefixCacheShield {
       return {
         staged: true,
         flushed: false,
+        deferred: true,
         locked: true,
+        reason: 'CACHE_WARM_FENCE',
         delta: deltaRecord,
         stagedCount: existingQueue.length,
         badge: formatStagedBadge(existingQueue.length),
@@ -216,16 +241,14 @@ export class PrefixCacheShield {
       };
     }
 
-    // Prefix cache is cold (TTL === 0), below 50k threshold with no active staged lock, or pre-Turn 1:
-    // Apply this delta directly to targetPath without prematurely flushing unrelated queued deltas
-    // unless TTL is explicitly expired (cacheTtlSeconds <= 0) or pre-Turn 1.
-    if (existingQueue.length > 0 && (cacheTtlSeconds <= 0 || isPreTurn1)) {
+    if (existingQueue.length > 0 && (cacheTtlSeconds <= 0 || isPreTurn1 || forceColdBust)) {
       existingQueue.push(deltaRecord);
       this._saveQueue(existingQueue);
-      const flushResult = this._flushAllNow('COLD_OR_PRE_TURN_1');
+      const flushResult = this._flushAllNow(forceColdBust ? 'FORCE_COLD_BUST' : 'COLD_OR_PRE_TURN_1');
       return {
         staged: false,
         flushed: true,
+        deferred: false,
         locked: false,
         delta: deltaRecord,
         flushedCount: flushResult.flushedCount,
@@ -241,6 +264,7 @@ export class PrefixCacheShield {
     return {
       staged: false,
       flushed: true,
+      deferred: false,
       locked: false,
       delta: deltaRecord,
       flushedCount: 1,
@@ -251,48 +275,46 @@ export class PrefixCacheShield {
   }
 
   /**
-   * Flushes staged deltas only if the prefix lock has expired (`cacheTtlSeconds === 0`
-   * or pre-Turn 1). Never flushes queued deltas while `cacheTtlSeconds > 0`.
+   * Flushes staged deltas only if the prefix lock has expired (`cacheTtlSeconds === 0`,
+   * `cacheState === 'COLD'`, `postCompact === true`, or `force === true`).
    */
   flushIfEligible(session = {}) {
-    const cacheTtlSeconds = Number(session?.cacheTtlSeconds ?? session?.ttlRemainingSec ?? 0);
+    const forceFlush = Boolean(session?.force === true || session?.forceColdBust === true);
+    const postCompact = Boolean(session?.postCompact === true || session?.isPostCompact === true);
+    const cacheTtlSeconds = Number(session?.cacheTtlSeconds ?? session?.ttlRemainingSec ?? session?.ttlRemainingSeconds ?? 0);
     const isPreTurn1 = Boolean(
       session?.isPreTurn1 === true || (Number(session?.turnCount) === 0 && session?.forcePreTurn1 === true)
     );
-    if (this.isPrefixLocked(session) || (cacheTtlSeconds > 0 && !isPreTurn1)) {
-      const deltas = this._loadQueue();
+
+    if (!forceFlush && !postCompact && (this.isPrefixLocked(session) || (cacheTtlSeconds > 0 && !isPreTurn1))) {
+      const status = this.getStatus(session);
       return {
         flushed: false,
-        reason: 'PREFIX_CACHE_LOCKED',
-        stagedCount: deltas.length,
-        badge: formatStagedBadge(deltas.length),
+        deferred: true,
+        reason: 'CACHE_WARM_FENCE',
+        stagedCount: status.stagedCount,
+        queuedCount: status.stagedCount,
+        badge: status.badge,
         modifiedFiles: []
       };
     }
-    return this._flushAllNow('TTL_EXPIRED_OR_ELIGIBLE');
+    return this._flushAllNow(forceFlush ? 'FORCE_FLUSH' : (postCompact ? 'POST_COMPACT' : 'TTL_EXPIRED_OR_ELIGIBLE'));
   }
 
   /**
    * Explicitly flushes all queued rule/skill deltas during a `/handoff` baton pass
-   * or new session initialization.
+   * or `PostCompact` lifecycle boundary.
    */
   flushOnHandoff() {
     return this._flushAllNow('EXPLICIT_HANDOFF');
   }
 
+  flushOnPostCompact() {
+    return this._flushAllNow('POST_COMPACT');
+  }
+
   _flushAllNow(reason = 'MANUAL') {
     const queue = this._loadQueue();
-    if (queue.length === 0) {
-      return {
-        flushed: true,
-        reason,
-        flushedCount: 0,
-        stagedCount: 0,
-        badge: '',
-        modifiedFiles: []
-      };
-    }
-
     const modifiedFilesSet = new Set();
     let flushedCount = 0;
 
@@ -306,12 +328,35 @@ export class PrefixCacheShield {
       flushedCount++;
     }
 
-    this._saveQueue([]);
+    if (queue.length > 0) {
+      this._saveQueue([]);
+    }
+
+    // Bridge: flush approved ReflectorQueue items together when cold / PostCompact / handoff
+    if (this.reflectorQueue && typeof this.reflectorQueue.flushApprovedWhenCold === 'function') {
+      try {
+        const rqRes = this.reflectorQueue.flushApprovedWhenCold({
+          isCacheWarm: false,
+          cacheTtlSeconds: 0,
+          cachedTokens: 0,
+          bypassShield: true
+        });
+        if (rqRes && rqRes.flushedCount > 0) {
+          flushedCount += rqRes.flushedCount;
+          for (const f of rqRes.flushedItems || []) {
+            if (f?.targetPath) modifiedFilesSet.add(f.targetPath);
+          }
+        }
+      } catch {}
+    }
+
     return {
       flushed: true,
+      deferred: false,
       reason,
       flushedCount,
       stagedCount: 0,
+      queuedCount: 0,
       badge: '',
       modifiedFiles: Array.from(modifiedFilesSet)
     };

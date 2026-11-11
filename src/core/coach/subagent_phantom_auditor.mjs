@@ -197,12 +197,12 @@ export function evaluateVisionOverageGuard(userStatus = {}) {
   const triggered = primaryQuotaUsedPct >= 100 && aiCreditOveragesActive;
 
   return {
-    detectorId: 'DET-15',
+    detectorId: 'DET-28',
     triggered,
     primaryQuotaUsedPct,
     aiCreditOveragesActive,
     warningBanner: triggered
-      ? '⚠️ DET-15 Vision HTTP 400 Guard: Primary quota is at 100% (Google One AI Credit Overages active). Remove image attachments or switch to text-only before submitting to prevent platform HTTP 400 crash.'
+      ? '⚠️ DET-28 Vision HTTP 400 Guard: Primary quota is at 100% (Google One AI Credit Overages active). Remove image attachments or switch to text-only before submitting to prevent platform HTTP 400 crash.'
       : null
   };
 }

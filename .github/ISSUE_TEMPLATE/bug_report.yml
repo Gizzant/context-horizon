@@ -6,13 +6,13 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting an issue with `context-horizon` (`ctxtop`)!
+        Thanks for reporting an issue with `attention-horizon-antigravity` (`ctxtop`)!
   - type: input
     id: os_env
     attributes:
       label: Operating System & Node.js Version
       description: Output of `node -v` and your OS (Windows 11, macOS, Linux)
-      placeholder: "Windows 11 / Node v22.4.0"
+      placeholder: "Windows 11 / Node v22.5.0"
     validations:
       required: true
   - type: textarea
@@ -21,7 +21,7 @@ body:
       label: Steps to Reproduce
       description: Exact command or prompt that triggered the issue
       placeholder: |
-        1. Run `npx context-horizon --demo`
+        1. Run `npx attention-horizon-antigravity --demo`
         2. Observe...
     validations:
       required: true

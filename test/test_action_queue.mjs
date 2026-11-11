@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createRequire } from 'node:module';
+import { JSDOM } from 'jsdom';
 import {
   buildActionQueue,
   formatActionQueueAnsi,
@@ -11,8 +11,6 @@ import {
 } from '../src/core/action_queue.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
-const { JSDOM } = require('C:/Users/frank/AppData/Local/Temp/node_modules/jsdom');
 
 describe('Zero-Prose ACTION QUEUE & Simple Mode Verification', () => {
   test('1. Zero-Height Collapse When Nominal: returns [] and empty string ""', () => {

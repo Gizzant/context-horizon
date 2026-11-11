@@ -461,12 +461,16 @@ export function stitchClaudeCodeDag(jsonlLinesOrContent = []) {
       });
     }
 
+    const nestedCreate = e.message?.usage?.cache_creation || e.usage?.cache_creation || e.cache_creation || null;
+    const nestedEphemeralCreate = nestedCreate && typeof nestedCreate === 'object'
+      ? (Number(nestedCreate.ephemeral_5m_input_tokens || 0) + Number(nestedCreate.ephemeral_1h_input_tokens || 0))
+      : 0;
     const cacheCreate = Number(
       e.cache_creation_input_tokens ??
       e.message?.usage?.cache_creation_input_tokens ??
       e.usage?.cache_creation_input_tokens ??
       0
-    );
+    ) || nestedEphemeralCreate;
     if (inferredSystemPromptTokens === 0 && cacheCreate > 0) {
       inferredSystemPromptTokens = cacheCreate;
     }
@@ -534,9 +538,102 @@ export function stitchClaudeCodeDag(jsonlLinesOrContent = []) {
     }
   }
 
+  // Deduplicate/consolidate streaming assistant JSONL chunks sharing the same message.id
+  // so content blocks merge cleanly while ONLY the final chunk's usage snapshot is retained.
+  const consolidatedActiveChain = [];
+  const msgIdIndexMap = new Map();
+
+  const mergeMessageContentBlocks = (prevContent, nextContent) => {
+    if (nextContent === undefined || nextContent === null) return prevContent;
+    if (prevContent === undefined || prevContent === null) return nextContent;
+    if (typeof prevContent === 'string' && typeof nextContent === 'string') {
+      if (nextContent.startsWith(prevContent)) return nextContent;
+      if (prevContent === nextContent) return nextContent;
+      return `${prevContent}\n${nextContent}`;
+    }
+    const toBlocks = (val) => (Array.isArray(val) ? val : [{ type: 'text', text: String(val) }]);
+    const merged = [...toBlocks(prevContent)];
+    for (const blk of toBlocks(nextContent)) {
+      if (!blk || typeof blk !== 'object') continue;
+      if (blk.id) {
+        const existingIdx = merged.findIndex((b) => b && b.id === blk.id);
+        if (existingIdx >= 0) {
+          merged[existingIdx] = blk;
+          continue;
+        }
+      }
+      if (blk.type === 'text' && typeof blk.text === 'string') {
+        const prevTextIdx = merged.findIndex(
+          (b) => b && b.type === 'text' && typeof b.text === 'string' &&
+            (b.text === blk.text || blk.text.startsWith(b.text))
+        );
+        if (prevTextIdx >= 0) {
+          merged[prevTextIdx] = blk;
+          continue;
+        }
+      }
+      if (blk.type === 'thinking' && typeof blk.thinking === 'string') {
+        const prevThinkIdx = merged.findIndex(
+          (b) => b && b.type === 'thinking' && typeof b.thinking === 'string' &&
+            (b.thinking === blk.thinking || blk.thinking.startsWith(b.thinking))
+        );
+        if (prevThinkIdx >= 0) {
+          merged[prevThinkIdx] = blk;
+          continue;
+        }
+      }
+      merged.push(blk);
+    }
+    return merged;
+  };
+
+  for (const node of activeChain) {
+    const msg = node?.message && typeof node.message === 'object' ? node.message : null;
+    const role = String(msg?.role || node?.role || node?.type || '').toLowerCase();
+    const msgId = (role === 'assistant' || node?.type === 'assistant')
+      ? String(msg?.id || node?.message_id || node?.messageId || '').trim()
+      : '';
+
+    if (msgId && msgIdIndexMap.has(msgId)) {
+      const idx = msgIdIndexMap.get(msgId);
+      const prev = consolidatedActiveChain[idx];
+      const prevMsg = prev?.message && typeof prev.message === 'object' ? prev.message : {};
+      const nextMsg = msg || {};
+      const mergedContent = mergeMessageContentBlocks(
+        prevMsg.content ?? prev.content,
+        nextMsg.content ?? node.content
+      );
+      consolidatedActiveChain[idx] = {
+        ...prev,
+        ...node,
+        uuid: node.uuid || prev.uuid,
+        parentUuid: prev.parentUuid,
+        content: msg ? prev.content : mergedContent,
+        tool_calls: [
+          ...(Array.isArray(prev.tool_calls) ? prev.tool_calls : []),
+          ...(Array.isArray(node.tool_calls) ? node.tool_calls : [])
+        ],
+        message: msg || prev.message
+          ? {
+              ...prevMsg,
+              ...nextMsg,
+              content: mergedContent,
+              usage: nextMsg.usage || prevMsg.usage
+            }
+          : undefined,
+        usage: node.usage || nextMsg.usage || prev.usage
+      };
+    } else {
+      if (msgId) {
+        msgIdIndexMap.set(msgId, consolidatedActiveChain.length);
+      }
+      consolidatedActiveChain.push(node);
+    }
+  }
+
   return {
     leafUuid: activeTipUuid || null,
-    activeBranchSteps: activeChain.map((n, idx) => ({ ...n, stepIndex: idx })),
+    activeBranchSteps: consolidatedActiveChain.map((n, idx) => ({ ...n, stepIndex: idx })),
     rewindBranches,
     restorePoints,
     inferredSystemPromptTokens

@@ -23,7 +23,9 @@ function cleanupDir(dirPath) {
   if (dirPath && fs.existsSync(dirPath)) {
     try {
       fs.rmSync(dirPath, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
-    } catch {}
+    } catch (err) {
+      if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+    }
   }
 }
 
@@ -225,12 +227,13 @@ test('[GATE-2.2] Surgical Tail Truncation preserves 50k Warm Cache Prefix 100% B
   assert.ok(trimResult.savedTokens > 2000, `Must save significant tokens (saved: ${trimResult.savedTokens})`);
   assert.ok(trimResult.modifiedCount >= 3, `Must modify at least 3 tail offender steps (modified: ${trimResult.modifiedCount})`);
 
-  // Verify DET-06 truncated in tail
-  const step6Pruned = trimResult.prunedSteps[6];
-  assert.equal(step6Pruned.tailSurgeonTruncated, true);
-  assert.equal(step6Pruned.tailSurgeonReason, 'DET-06_REDUNDANT_READ');
-  assert.ok(step6Pruned.content.includes('[Tail Surgeon (DET-06_REDUNDANT_READ): truncated'));
-  assert.ok(step6Pruned.content.length < 500);
+  // Verify DET-06 truncated older superseded read (step 5) while preserving most recent read (step 6) intact (ISS-040)
+  const step5Pruned = trimResult.prunedSteps[5];
+  assert.equal(step5Pruned.tailSurgeonTruncated, true);
+  assert.equal(step5Pruned.tailSurgeonReason, 'DET-06_REDUNDANT_READ');
+  assert.ok(step5Pruned.content.includes('[Tail Surgeon (DET-06_REDUNDANT_READ): truncated'));
+  assert.ok(step5Pruned.content.length < 500);
+  assert.equal(trimResult.prunedSteps[6].tailSurgeonTruncated, undefined);
 
   // Verify DET-10 truncated in tail
   const step7Pruned = trimResult.prunedSteps[7];
@@ -355,32 +358,35 @@ export const MAX_RETRY_COUNT = 5;
     // Read generated handoff markdown
     const handoffMd = fs.readFileSync(handoffResult.handoffFilePath, 'utf8');
 
-    // Verify Section 1: Progressive Checkpoint Summary
-    assert.ok(handoffMd.includes('## 1. Progressive Checkpoint Summary'), 'Must contain Section 1');
+    // Verify Section 1: Active Goal (unified ISS-054 State Baton schema)
+    assert.ok(handoffMd.includes('## 1. Active Goal'), 'Must contain Section 1');
     assert.ok(handoffMd.includes('- [x] Phase 0: Core Dispatch Bridge'), 'Preserves completed Phase 0');
     assert.ok(handoffMd.includes('- [x] Phase 1: Deterministic Circuit Breakers'), 'Preserves completed Phase 1');
     assert.ok(handoffMd.includes('- [/] Phase 2: Cache-Aware Compaction'), 'Preserves in-progress Phase 2');
     assert.ok(handoffMd.includes('- [ ] Phase 3: Bounded Atomic Instinct'), 'Preserves pending Phase 3');
 
-    // Verify Section 2: Active File Schemas & AST Signatures
-    assert.ok(handoffMd.includes('## 2. Active File Schemas & AST Signatures'), 'Must contain Section 2');
+    // Verify Section 2: Working Set Files & AST Signatures
+    assert.ok(handoffMd.includes('## 2. Working Set Files'), 'Must contain Section 2');
     assert.ok(handoffMd.includes('src/core/sample_module.mjs'), 'Must list active sample module');
     assert.ok(handoffMd.includes('computeHealthScore'), 'Must extract computeHealthScore function AST');
     assert.ok(handoffMd.includes('HorizonDiagnosticController'), 'Must extract HorizonDiagnosticController class AST');
 
-    // Verify Section 3: Verified Test & Build State (from FTS5 index)
-    assert.ok(handoffMd.includes('## 3. Verified Test & Build State'), 'Must contain Section 3');
+    // Verify Section 3: Verified Invariants (from FTS5 index)
+    assert.ok(handoffMd.includes('## 3. Verified Invariants'), 'Must contain Section 3');
     assert.ok(handoffMd.includes('node --test tests/verify_gate_1.mjs'), 'Must record last test command');
     assert.ok(handoffMd.includes('PASSED (exit code 0)'), 'Must record passing exit code');
 
-    // Verify Section 4: Negative Constraints & Dead Ends
-    assert.ok(handoffMd.includes('## 4. Negative Constraints & Dead Ends'), 'Must contain Section 4');
+    // Verify Section 4: Dead Ends & Failures to Avoid
+    assert.ok(handoffMd.includes('## 4. Dead Ends & Failures to Avoid'), 'Must contain Section 4');
     assert.ok(handoffMd.includes('DET-01: Blocked write attempt to read-only SQLite'), 'Must retain DET-01 constraint');
     assert.ok(handoffMd.includes('DET-03: Blocked deletion of expect() assertions'), 'Must retain DET-03 constraint');
 
-    // Verify Section 5: Pending RSI Instincts
-    assert.ok(handoffMd.includes('## 5. Pending RSI Instincts & Staged Rules'), 'Must contain Section 5');
+    // Verify Section 5: Queued Cache-Prefix Mutations
+    assert.ok(handoffMd.includes('## 5. Queued Cache-Prefix Mutations (Released on PostCompact)'), 'Must contain Section 5');
     assert.ok(handoffMd.includes('MUST run node scripts/sync_mirrors.mjs'), 'Must record staged rule in handoff');
+
+    // Verify Section 6: Exact Next Step
+    assert.ok(handoffMd.includes('## 6. Exact Next Step'), 'Must contain Section 6');
 
     // Verify Active Guardrail Pin
     assert.ok(handoffMd.includes('## Active Guardrail Pin'), 'Must include Active Guardrail Pin');

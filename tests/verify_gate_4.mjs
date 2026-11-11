@@ -21,7 +21,9 @@ function makeTempEnv() {
 function cleanupTempEnv(root) {
   try {
     fs.rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
-  } catch {}
+  } catch (err) {
+    if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+  }
 }
 
 /**

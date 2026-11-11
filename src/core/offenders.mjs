@@ -117,10 +117,44 @@ export function formatCrossSessionBanner(chronicReads = []) {
 }
 
 /** Records the current session and returns the top-N chronic re-read list for `state.chronicReads`. */
-export function updateChronicReads(cacheDir, sessionId, duplicateFiles, limit = 10) {
+export function updateChronicReads(cacheDir, sessionId, duplicateFiles, limit = 10, workspaceRoot = '') {
   try {
-    const entries = recordSession(cacheDir, sessionId, duplicateFiles);
-    return aggregate(entries).slice(0, limit);
+    let entries = recordSession(cacheDir, sessionId, duplicateFiles);
+    const effectiveRoot = (workspaceRoot && typeof workspaceRoot === 'string') ? workspaceRoot : process.cwd();
+    if (effectiveRoot) {
+      try {
+        const agentsMdPath = path.join(effectiveRoot, 'AGENTS.md');
+        if (fs.existsSync(agentsMdPath)) {
+          const agentsTxt = fs.readFileSync(agentsMdPath, 'utf8');
+          if (/StartLine/i.test(agentsTxt)) {
+            let stripped = false;
+            entries = entries.map(e => {
+              const filteredFiles = (e.files || []).filter(f => {
+                const base = path.basename(String(f.path || ''));
+                const keep = !base || !agentsTxt.includes(base);
+                if (!keep) stripped = true;
+                return keep;
+              });
+              return { ...e, files: filteredFiles };
+            }).filter(e => e.files.length > 0);
+            if (stripped && cacheDir) {
+              try {
+                const file = offendersFile(cacheDir);
+                const tmp = `${file}.${process.pid}.tmp`;
+                fs.writeFileSync(tmp, entries.map(e => JSON.stringify(e)).join('\n') + (entries.length ? '\n' : ''), 'utf8');
+                fs.renameSync(tmp, file);
+              } catch (_writeErr) {
+                // Fail-open on disk write
+              }
+            }
+          }
+        }
+      } catch (_err) {
+        // Fail-open if workspace AGENTS.md is unreadable
+      }
+    }
+    const list = aggregate(entries);
+    return list.slice(0, limit);
   } catch {
     return [];
   }

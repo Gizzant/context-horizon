@@ -15,7 +15,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { createRequire } from 'node:module';
+import { JSDOM } from 'jsdom';
 
 import {
   classifyHorizon,
@@ -26,9 +26,6 @@ import {
   STRANDED_SIGNAL_WARNING_TEXT,
   ATTENTION_TROUGH_CONFIG
 } from '../src/core/constants.mjs';
-
-const require = createRequire(import.meta.url);
-const { JSDOM } = require('C:/Users/frank/AppData/Local/Temp/node_modules/jsdom');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

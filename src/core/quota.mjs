@@ -2,8 +2,159 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { getHomeDir } from './paths.mjs';
-import { EFFORT_PROFILES, normalizeModelId } from './constants.mjs';
+import { atomicWriteFileSync } from './atomic_io.mjs';
+import {
+  EFFORT_PROFILES,
+  normalizeModelId,
+  resolveModelDescriptor,
+  resolveModelRates,
+  formatAgentCacheKey,
+  formatAgentStreamKey,
+  parseAgentCacheKey
+} from './constants.mjs';
 import { parseSettingsChanges } from './parser.mjs';
+
+export { formatAgentCacheKey, formatAgentStreamKey, parseAgentCacheKey };
+
+/**
+ * 5-minute ephemeral cache session read-to-write ratio threshold (`1.25 / 0.90 ≈ 1.39`).
+ * Below 1.39 cached reads per 5m cache write token in a churning session, cache-creation
+ * overhead erodes practical session cache ROI.
+ */
+export const SESSION_5M_READ_TO_WRITE_MIN_ROI_RATIO = 1.39;
+
+/**
+ * Resolves the canonical `agent_id` for a step or turn, defaulting to `"primary"`
+ * when absent in single-agent Claude Code or Antigravity CLI payloads.
+ */
+export function resolveStepAgentId(stepOrTurn = {}) {
+  const raw = stepOrTurn?.agent_id ?? stepOrTurn?.agentId ?? stepOrTurn?.senderId ?? null;
+  if (!raw) return 'primary';
+  const s = String(raw).trim();
+  if (!s || s.toLowerCase() === 'parent' || s.toLowerCase() === 'main') return 'primary';
+  return s;
+}
+
+/**
+ * Phase 3.2: Antigravity Turn-Boundary Model Switch Buffer.
+ *
+ * When a model change is detected mid-turn in Antigravity, records `pending_model_id`
+ * without mutating `active_model_id` for in-flight tool steps.
+ * Promotes `pending_model_id -> active_model_id` only on turn completion (`PostInvocation` or `Stop`).
+ */
+export class TurnBoundaryModelSwitchBuffer {
+  constructor(initialModelId = 'gemini-4-carbon') {
+    this.streams = new Map();
+    this.defaultModelId = normalizeModelId(initialModelId || 'gemini-4-carbon');
+  }
+
+  _getOrCreate(sessionId = 'default_session', agentId = 'primary', initialModel = null) {
+    const key = formatAgentStreamKey(sessionId, agentId);
+    if (!this.streams.has(key)) {
+      this.streams.set(key, {
+        session_id: String(sessionId || 'default_session'),
+        agent_id: resolveStepAgentId({ agent_id: agentId }),
+        active_model_id: normalizeModelId(initialModel || this.defaultModelId),
+        pending_model_id: null,
+        switch_history: []
+      });
+    }
+    return this.streams.get(key);
+  }
+
+  getState(sessionId = 'default_session', agentId = 'primary') {
+    const st = this._getOrCreate(sessionId, agentId);
+    return { ...st, switch_history: [...st.switch_history] };
+  }
+
+  getActiveModelForStep(sessionId = 'default_session', agentId = 'primary') {
+    return this._getOrCreate(sessionId, agentId).active_model_id;
+  }
+
+  recordMidTurnModelChange(newModelId, options = {}) {
+    return this.recordModelSwitch(newModelId, { ...options, eventType: options.eventType || 'PreToolUse', inFlight: true });
+  }
+
+  onTurnBoundary(eventTypeOrOptions = 'PostInvocation', maybeOptions = {}) {
+    const opts = typeof eventTypeOrOptions === 'string'
+      ? { ...maybeOptions, eventType: eventTypeOrOptions }
+      : (eventTypeOrOptions || {});
+    return this.promoteOnTurnCompletion(opts);
+  }
+
+  /**
+   * Buffers a mid-turn model switch in `pending_model_id` while tool calls are in-flight,
+   * or promotes immediately only if the event is already `PostInvocation` or `Stop`.
+   */
+  recordModelSwitch(newModelId, {
+    sessionId = 'default_session',
+    agentId = 'primary',
+    eventType = 'PreToolUse',
+    inFlight = true,
+    timestampMs = Date.now()
+  } = {}) {
+    const st = this._getOrCreate(sessionId, agentId);
+    const normNew = normalizeModelId(newModelId);
+    if (!normNew || normNew === st.active_model_id) {
+      return this.getState(sessionId, agentId);
+    }
+
+    const isTurnCompletionBoundary =
+      eventType === 'PostInvocation' ||
+      eventType === 'Stop' ||
+      inFlight === false;
+
+    if (isTurnCompletionBoundary) {
+      const prev = st.active_model_id;
+      st.active_model_id = normNew;
+      st.pending_model_id = null;
+      st.switch_history.push({
+        from_model_id: prev,
+        to_model_id: normNew,
+        promoted_on: eventType,
+        timestampMs
+      });
+    } else {
+      st.pending_model_id = normNew;
+    }
+
+    return this.getState(sessionId, agentId);
+  }
+
+  /**
+   * Promotes `pending_model_id -> active_model_id` on turn completion (`PostInvocation` or `Stop`).
+   */
+  promoteOnTurnCompletion({
+    sessionId = 'default_session',
+    agentId = 'primary',
+    eventType = 'PostInvocation',
+    timestampMs = Date.now()
+  } = {}) {
+    const st = this._getOrCreate(sessionId, agentId);
+    if (eventType !== 'PostInvocation' && eventType !== 'Stop') {
+      return { promoted: false, ...this.getState(sessionId, agentId) };
+    }
+    if (!st.pending_model_id) {
+      return { promoted: false, ...this.getState(sessionId, agentId) };
+    }
+    const prev = st.active_model_id;
+    const promotedModel = st.pending_model_id;
+    st.active_model_id = promotedModel;
+    st.pending_model_id = null;
+    st.switch_history.push({
+      from_model_id: prev,
+      to_model_id: promotedModel,
+      promoted_on: eventType,
+      timestampMs
+    });
+    return {
+      promoted: true,
+      from_model_id: prev,
+      to_model_id: promotedModel,
+      ...this.getState(sessionId, agentId)
+    };
+  }
+}
 
 /**
  * Dual-Pool Quota Estimator (5-Hour Sprint / 7-Day Weekly),
@@ -55,13 +206,23 @@ export function formatResetCountdown(resetSeconds) {
  */
 export function resolveModelPoolDisplayName(modelId = 'gemini-3.8-flash') {
   const s = normalizeModelId(modelId);
+  if (s.includes('gemini-4-carbon-cyber-permissive')) return 'Gemini 4 Carbon (Cyber Permissive)';
+  if (s.includes('gemini-4-carbon') || s.includes('carbon')) return 'Gemini 4 Carbon';
   if (s.includes('gemini-4-argon') || s.includes('argon')) return 'Gemini 4 Argon';
   if (s.includes('gemini-3.8-flash') || s.includes('3.8-flash')) return 'Gemini 3.8 Flash';
   if (s.includes('gemini-3.1-pro') || s.includes('3.1-pro')) return 'Gemini 3.1 Pro';
+  if (s.includes('claude-fable-5-2') || s.includes('fable-5-2') || s.includes('fable-5.2')) return 'Claude Fable 5.2';
+  if (s.includes('claude-fable-5-1') || s.includes('fable-5-1') || s.includes('fable-5.1')) return 'Claude Fable 5.1';
   if (s.includes('claude-opus-5') || s.includes('opus-5')) return 'Claude Opus 5.5';
   if (s.includes('claude-sonnet-5') || s.includes('sonnet-5')) return 'Claude Sonnet 5.5';
+  if (s.includes('claude-haiku-5') || s.includes('haiku-5')) return 'Claude Haiku 5.5';
+  if (s.includes('claude-opus-4-5') || s.includes('opus-4.5') || s.includes('opus-4-5')) return 'Claude Opus 4.5';
   if (s.includes('claude-opus-4') || s.includes('opus-4')) return 'Claude Opus 4.6';
+  if (s.includes('claude-sonnet-4-5') || s.includes('sonnet-4.5') || s.includes('sonnet-4-5')) return 'Claude Sonnet 4.5';
+  if (s.includes('claude-sonnet-4') || s.includes('sonnet-4')) return 'Claude Sonnet 4.6';
+  if (s.includes('claude-haiku-4') || s.includes('haiku-4')) return 'Claude Haiku 4.5';
   if (s.includes('claude-3-5-sonnet') || s.includes('sonnet')) return 'Claude Sonnet';
+  if (s.includes('gpt-oss')) return 'GPT-OSS 120B';
   if (s.includes('flash')) return 'Gemini Flash';
   return 'Gemini 4 Argon';
 }
@@ -85,10 +246,7 @@ export function loadQuotaLedger(cacheDir = null) {
 export function saveQuotaLedger(ledger, cacheDir = null) {
   try {
     const file = getLedgerPath(cacheDir);
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    const tmp = `${file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(ledger), 'utf8');
-    fs.renameSync(tmp, file);
+    atomicWriteFileSync(file, JSON.stringify(ledger));
   } catch {}
 }
 
@@ -164,13 +322,126 @@ export function humanizeModelLabel(model = '') {
  */
 export function resolveModelShortName(modelId = '') {
   const s = normalizeModelId(String(modelId || ''));
+  if (s.includes('carbon')) return 'Carbon';
   if (s.includes('argon')) return 'Argon';
   if (s.includes('3.8-flash') || s.includes('flash')) return 'Flash';
   if (s.includes('3.1-pro') || s.includes('pro')) return 'Pro';
-  if (s.includes('opus-5') || s.includes('opus')) return 'Opus 5.5';
-  if (s.includes('sonnet-5') || s.includes('sonnet')) return 'Sonnet 5.5';
+  if (s.includes('fable-5-2') || s.includes('fable-5.2')) return 'Fable 5.2';
+  if (s.includes('fable-5-1') || s.includes('fable-5.1') || s.includes('fable')) return 'Fable 5.1';
+  if (s.includes('opus-5')) return 'Opus 5.5';
+  if (s.includes('opus-4-5') || s.includes('opus-4.5')) return 'Opus 4.5';
+  if (s.includes('opus')) return 'Opus 4.6';
+  if (s.includes('sonnet-5')) return 'Sonnet 5.5';
+  if (s.includes('sonnet-4-5') || s.includes('sonnet-4.5')) return 'Sonnet 4.5';
+  if (s.includes('sonnet')) return 'Sonnet 4.6';
+  if (s.includes('haiku-5')) return 'Haiku 5.5';
+  if (s.includes('haiku')) return 'Haiku 4.5';
+  if (s.includes('gpt-oss')) return 'GPT-OSS';
   const human = humanizeModelLabel(modelId);
   return human ? human.split(' ').pop() : 'Model';
+}
+
+/**
+ * Computes exact multi-rate USD cache ROI and 5-minute session read-to-write churn diagnostics.
+ * Single-write algebraic break-even is `(writeRate - inputRate) / (inputRate - cachedReadRate)`
+ * (`~0.2632` at 95% discount, `~0.2778` at 90% discount for 5m `1.25x` writes), while
+ * churning 5m sessions require `readToWriteRatio >= 1.39` (`1.25 / 0.90`) for sustained healthy ROI.
+ */
+export function computeCacheRoi({
+  cacheReadTokens = 0,
+  write5mTokens = 0,
+  write1hTokens = 0,
+  cacheCreationTokens = 0,
+  uncachedInputTokens = 0,
+  outputTokens = 0,
+  modelId = 'claude-sonnet-5-5',
+  eventTimestampUtc = null,
+  serviceTier = 'standard',
+  totalPromptTokens = null
+} = {}) {
+  const readTok = Math.max(0, Number(cacheReadTokens) || 0);
+  const rawW5m = Math.max(0, Number(write5mTokens) || 0);
+  const rawW1h = Math.max(0, Number(write1hTokens) || 0);
+  const rawCreate = Math.max(0, Number(cacheCreationTokens) || 0);
+  const uncachedTok = Math.max(0, Number(uncachedInputTokens) || 0);
+  const outTok = Math.max(0, Number(outputTokens) || 0);
+
+  const effWrite1h = rawW1h;
+  const effWrite5m = (rawW5m > 0 || rawW1h > 0) ? rawW5m : rawCreate;
+  const totalWriteTokens = effWrite5m + effWrite1h;
+  const promptEnvelope = totalPromptTokens !== null && totalPromptTokens !== undefined
+    ? Math.max(0, Number(totalPromptTokens) || 0)
+    : (uncachedTok + readTok + totalWriteTokens);
+
+  const rates = resolveModelRates(modelId, eventTimestampUtc, serviceTier, {
+    totalPromptTokens: promptEnvelope
+  });
+
+  const write5mRate = rates.write5m > 0 ? rates.write5m : rates.input;
+  const write1hRate = rates.write1h > 0 ? rates.write1h : rates.input;
+  const hasExplicitWriteSurcharge = write5mRate > rates.input || write1hRate > rates.input;
+
+  const writePremiumUsd =
+    ((effWrite5m / 1_000_000) * Math.max(0, write5mRate - rates.input)) +
+    ((effWrite1h / 1_000_000) * Math.max(0, write1hRate - rates.input));
+  const readDiscountSavingsUsd =
+    (readTok / 1_000_000) * Math.max(0, rates.input - rates.cachedRead);
+  const netCacheSavingsUsd = Number((readDiscountSavingsUsd - writePremiumUsd).toFixed(6));
+
+  const actualCacheCostUsd = Number((
+    ((uncachedTok / 1_000_000) * rates.input) +
+    ((effWrite5m / 1_000_000) * write5mRate) +
+    ((effWrite1h / 1_000_000) * write1hRate) +
+    ((readTok / 1_000_000) * rates.cachedRead) +
+    ((outTok / 1_000_000) * rates.output)
+  ).toFixed(6));
+
+  const uncachedBaselineUsd = Number((
+    (((uncachedTok + totalWriteTokens + readTok) / 1_000_000) * rates.input) +
+    ((outTok / 1_000_000) * rates.output)
+  ).toFixed(6));
+
+  const readToWriteRatio = totalWriteTokens > 0
+    ? Number((readTok / totalWriteTokens).toFixed(4))
+    : (readTok > 0 ? null : 0);
+
+  const avgWriteRate = totalWriteTokens > 0
+    ? ((effWrite5m * write5mRate + effWrite1h * write1hRate) / totalWriteTokens)
+    : write5mRate;
+  const singleWriteBreakEvenRatio = (avgWriteRate > rates.input && rates.input > rates.cachedRead)
+    ? Number(((avgWriteRate - rates.input) / (rates.input - rates.cachedRead)).toFixed(4))
+    : 0;
+
+  const belowSessionRoiThreshold = totalWriteTokens > 0 &&
+    (readTok / totalWriteTokens) < SESSION_5M_READ_TO_WRITE_MIN_ROI_RATIO;
+  const isNetUsdNegative = netCacheSavingsUsd < 0;
+  const isNegativeCacheRoi = isNetUsdNegative || (hasExplicitWriteSurcharge && belowSessionRoiThreshold);
+
+  return {
+    rates: {
+      input: rates.input,
+      output: rates.output,
+      write5m: rates.write5m,
+      write1h: rates.write1h,
+      cachedRead: rates.cachedRead,
+      isAbovePromptCliff: Boolean(rates.isAbovePromptCliff)
+    },
+    cacheReadTokens: readTok,
+    write5mTokens: effWrite5m,
+    write1hTokens: effWrite1h,
+    totalWriteTokens,
+    readToWriteRatio,
+    singleWriteBreakEvenRatio,
+    minSessionReadToWriteRatio: SESSION_5M_READ_TO_WRITE_MIN_ROI_RATIO,
+    belowSessionRoiThreshold,
+    writePremiumUsd: Number(writePremiumUsd.toFixed(6)),
+    readDiscountSavingsUsd: Number(readDiscountSavingsUsd.toFixed(6)),
+    netCacheSavingsUsd,
+    actualCacheCostUsd,
+    uncachedBaselineUsd,
+    isNetUsdNegative,
+    isNegativeCacheRoi
+  };
 }
 
 /**
@@ -204,28 +475,47 @@ export function formatPrefixBustLabel(cause = null) {
 }
 
 /**
- * Pure, deterministic tracker for per-model KV cache pools.
- * On every turn, tracks Map<modelId, ModelCacheState> and evaluates warm standby
- * caches and underlying prefix mutations on warm-pool misses.
+ * Pure, deterministic tracker for per-model and composite (`${session_id}::${agent_id}::${model_id}`) KV cache pools.
+ * Scopes model-switch detection strictly within the same `(session_id, agent_id)` stream so parallel
+ * `/swarm` and `/teamwork` agents never cross-contaminate each other's cache baselines.
  */
-export function trackModelCachePools(turns = [], { nowMs = Date.now(), prefixDiff = null } = {}) {
+export function trackModelCachePools(turns = [], {
+  sessionId = 'default_session',
+  nowMs = Date.now(),
+  prefixDiff = null
+} = {}) {
   const modelCachePools = new Map();
+  const compositeCachePools = new Map();
+  const prevTurnByStream = new Map();
   let standbyCache = null;
   let lastSwitchEvent = null;
 
   for (let i = 0; i < turns.length; i++) {
     const turn = turns[i];
-    const prevTurn = i > 0 ? turns[i - 1] : null;
-    const mId = normalizeModelId(turn.modelId || turn.model || 'gemini-4-argon');
+    const turnSessionId = String(turn.session_id || turn.sessionId || sessionId || 'default_session');
+    const agentId = resolveStepAgentId(turn);
+    const streamKey = formatAgentStreamKey(turnSessionId, agentId);
+    const prevTurn = prevTurnByStream.get(streamKey) || null;
+
+    const mId = normalizeModelId(turn.active_model_id || turn.modelId || turn.model || 'gemini-4-argon');
+    const compositeKey = formatAgentCacheKey(turnSessionId, agentId, mId);
     const shortName = resolveModelShortName(turn.modelRaw || turn.model || mId);
     const displayName = resolveModelPoolDisplayName(mId);
     const ts = turn.timestampMs || (turn.createdAt ? Date.parse(turn.createdAt) : nowMs);
     const ttlWindow = Number(turn.ttlSeconds || QUOTA_CONSTANTS.CACHE_TTL_SECONDS);
 
-    const prevMId = prevTurn ? normalizeModelId(prevTurn.modelId || prevTurn.model || 'gemini-4-argon') : null;
+    const prevMId = prevTurn
+      ? normalizeModelId(prevTurn.active_model_id || prevTurn.modelId || prevTurn.model || 'gemini-4-argon')
+      : null;
+    const prevCompositeKey = prevTurn ? formatAgentCacheKey(turnSessionId, agentId, prevMId) : null;
     const isModelSwitch = Boolean(prevTurn && prevMId && prevMId !== mId);
 
     // Update remaining TTL for all existing pools up to this turn
+    for (const pool of compositeCachePools.values()) {
+      const elapsedSec = Math.max(0, Math.floor((ts - pool.lastSeenTimestampMs) / 1000));
+      pool.remainingTtl = Math.max(0, pool.ttlSecondsAtLastTurn - elapsedSec);
+      pool.isWarm = pool.remainingTtl > 0 && pool.lastCachedTokens > 0;
+    }
     for (const pool of modelCachePools.values()) {
       const elapsedSec = Math.max(0, Math.floor((ts - pool.lastSeenTimestampMs) / 1000));
       pool.remainingTtl = Math.max(0, pool.ttlSecondsAtLastTurn - elapsedSec);
@@ -233,21 +523,22 @@ export function trackModelCachePools(turns = [], { nowMs = Date.now(), prefixDif
     }
 
     if (isModelSwitch) {
-      const modelA = modelCachePools.get(prevMId);
-      const modelB = modelCachePools.get(mId);
+      const modelA = compositeCachePools.get(prevCompositeKey) || modelCachePools.get(prevMId);
+      const modelB = compositeCachePools.get(compositeKey);
 
       // Check if Model A still has remainingTtl > 30 and lastCachedTokens > 20000
       if (modelA && modelA.remainingTtl > 30 && modelA.lastCachedTokens > 20000) {
         standbyCache = {
           modelName: modelA.shortName,
           remainingTtl: modelA.remainingTtl,
-          cachedTokens: modelA.lastCachedTokens
+          cachedTokens: modelA.lastCachedTokens,
+          agentId
         };
       } else {
         standbyCache = null;
       }
 
-      // Check if Model B already had a warm entry in modelCachePools that unexpectedly missed
+      // Check if Model B already had a warm entry in compositeCachePools for this agent that unexpectedly missed
       let warmPoolBustedReason = null;
       if (modelB && modelB.remainingTtl > 0 && Number(turn.cacheReadTokens || 0) === 0) {
         const isRuleDrift = Boolean(turn.explicitMutation || prefixDiff?.mutated);
@@ -255,6 +546,9 @@ export function trackModelCachePools(turns = [], { nowMs = Date.now(), prefixDif
       }
 
       lastSwitchEvent = {
+        sessionId: turnSessionId,
+        agentId,
+        streamKey,
         fromModelId: prevMId,
         toModelId: mId,
         fromShortName: resolveModelShortName(prevTurn.modelRaw || prevTurn.model || prevMId),
@@ -271,22 +565,33 @@ export function trackModelCachePools(turns = [], { nowMs = Date.now(), prefixDif
       ? turn.cacheReadTokens
       : (turn.cacheCreationTokens > 0 ? turn.cacheCreationTokens : (turn.cachedTokens || 0));
 
-    const existing = modelCachePools.get(mId);
-    modelCachePools.set(mId, {
+    const existingComposite = compositeCachePools.get(compositeKey);
+    const poolEntry = {
+      compositeKey,
+      sessionId: turnSessionId,
+      agentId,
       modelId: mId,
       shortName,
       displayName,
       lastSeenTurnId: turn.stepIndex ?? i,
       lastSeenTimestampMs: ts,
-      lastCachedTokens: cachedTokens > 0 ? cachedTokens : (existing?.lastCachedTokens || 0),
-      lastPrefixHash: turn.prefixHash || existing?.lastPrefixHash || '',
+      lastCachedTokens: cachedTokens > 0 ? cachedTokens : (existingComposite?.lastCachedTokens || 0),
+      lastPrefixHash: turn.prefixHash || existingComposite?.lastPrefixHash || '',
       ttlSecondsAtLastTurn: ttlWindow,
       remainingTtl: ttlWindow,
       isWarm: cachedTokens > 0
-    });
+    };
+    compositeCachePools.set(compositeKey, poolEntry);
+    modelCachePools.set(mId, { ...poolEntry });
+    prevTurnByStream.set(streamKey, turn);
   }
 
   // Final evaluation of remaining TTL against nowMs
+  for (const pool of compositeCachePools.values()) {
+    const elapsedSec = Math.max(0, Math.floor((nowMs - pool.lastSeenTimestampMs) / 1000));
+    pool.remainingTtl = Math.max(0, pool.ttlSecondsAtLastTurn - elapsedSec);
+    pool.isWarm = pool.remainingTtl > 0 && pool.lastCachedTokens > 0;
+  }
   for (const pool of modelCachePools.values()) {
     const elapsedSec = Math.max(0, Math.floor((nowMs - pool.lastSeenTimestampMs) / 1000));
     pool.remainingTtl = Math.max(0, pool.ttlSecondsAtLastTurn - elapsedSec);
@@ -294,7 +599,8 @@ export function trackModelCachePools(turns = [], { nowMs = Date.now(), prefixDif
   }
 
   if (standbyCache && lastSwitchEvent) {
-    const modelA = modelCachePools.get(lastSwitchEvent.fromModelId);
+    const prevKey = formatAgentCacheKey(lastSwitchEvent.sessionId, lastSwitchEvent.agentId, lastSwitchEvent.fromModelId);
+    const modelA = compositeCachePools.get(prevKey) || modelCachePools.get(lastSwitchEvent.fromModelId);
     if (modelA) {
       standbyCache.remainingTtl = modelA.remainingTtl;
       if (standbyCache.remainingTtl <= 0) {
@@ -305,6 +611,7 @@ export function trackModelCachePools(turns = [], { nowMs = Date.now(), prefixDif
 
   return {
     modelCachePools,
+    compositeCachePools,
     standbyCache,
     lastSwitchEvent
   };
@@ -312,8 +619,11 @@ export function trackModelCachePools(turns = [], { nowMs = Date.now(), prefixDif
 
 /**
  * Pure sliding-window (last 5 turns) Auto-Router Thrash and Model Switch detector.
+ * Scopes switch counting strictly within the same `(session_id, agent_id)` stream so multi-agent
+ * `/swarm` turns never trigger false-positive thrash alerts across distinct agents.
  */
 export function detectRouterThrash(recentTurns = [], isAutoMode = false, {
+  sessionId = 'default_session',
   totalTokens = 0,
   reclaimableTokens = 0,
   standbyCache = null,
@@ -322,6 +632,7 @@ export function detectRouterThrash(recentTurns = [], isAutoMode = false, {
   if (!Array.isArray(recentTurns) || recentTurns.length === 0) {
     return {
       detected: false,
+      thrashDetected: false,
       state: 'HEALTHY',
       severity: 'none',
       isAutoMode,
@@ -340,17 +651,21 @@ export function detectRouterThrash(recentTurns = [], isAutoMode = false, {
   const windowTurns = recentTurns.slice(-5);
   let switchCount = 0;
   let thrashUncachedTokens = 0;
+  const lastModelByStream = new Map();
 
-  for (let i = 1; i < windowTurns.length; i++) {
+  for (let i = 0; i < windowTurns.length; i++) {
     const curr = windowTurns[i];
-    const prev = windowTurns[i - 1];
-    const currM = normalizeModelId(curr.modelId || curr.model || 'gemini-4-argon');
-    const prevM = normalizeModelId(prev.modelId || prev.model || 'gemini-4-argon');
-    if (currM !== prevM) {
+    const tSid = String(curr.session_id || curr.sessionId || sessionId || 'default_session');
+    const aId = resolveStepAgentId(curr);
+    const streamKey = formatAgentStreamKey(tSid, aId);
+    const currM = normalizeModelId(curr.active_model_id || curr.modelId || curr.model || 'gemini-4-argon');
+    const prevM = lastModelByStream.get(streamKey);
+    if (prevM && currM !== prevM) {
       switchCount++;
       const uncached = Number(curr.inputTokens || 0) || Number(curr.uncachedInputTokens || 0) || Math.max(0, Number(curr.totalTokens || 0) - Number(curr.cacheReadTokens || 0));
       thrashUncachedTokens += uncached;
     }
+    lastModelByStream.set(streamKey, currM);
   }
 
   if (thrashUncachedTokens === 0 && switchCount > 0 && totalTokens > 0) {
@@ -368,10 +683,23 @@ export function detectRouterThrash(recentTurns = [], isAutoMode = false, {
   const modelsInvolved = [...new Set(seqShort)];
 
   const lastTurn = windowTurns[windowTurns.length - 1];
-  const prevTurn = windowTurns.length > 1 ? windowTurns[windowTurns.length - 2] : null;
+  const lastTurnAgentId = lastTurn ? resolveStepAgentId(lastTurn) : 'primary';
+  const lastTurnSid = lastTurn ? String(lastTurn.session_id || lastTurn.sessionId || sessionId || 'default_session') : sessionId;
+  const lastStreamKey = formatAgentStreamKey(lastTurnSid, lastTurnAgentId);
+  let prevTurnSameStream = null;
+  for (let i = windowTurns.length - 2; i >= 0; i--) {
+    const candidate = windowTurns[i];
+    const cSid = String(candidate.session_id || candidate.sessionId || sessionId || 'default_session');
+    const cAid = resolveStepAgentId(candidate);
+    if (formatAgentStreamKey(cSid, cAid) === lastStreamKey) {
+      prevTurnSameStream = candidate;
+      break;
+    }
+  }
   const isCurrentTurnSwitch = Boolean(
-    lastTurn && prevTurn &&
-    normalizeModelId(lastTurn.modelId || lastTurn.model || '') !== normalizeModelId(prevTurn.modelId || prevTurn.model || '')
+    lastTurn && prevTurnSameStream &&
+    normalizeModelId(lastTurn.active_model_id || lastTurn.modelId || lastTurn.model || '') !==
+      normalizeModelId(prevTurnSameStream.active_model_id || prevTurnSameStream.modelId || prevTurnSameStream.model || '')
   );
   const currentShortName = lastTurn ? resolveModelShortName(lastTurn.modelRaw || lastTurn.model || lastTurn.modelId) : 'Model';
   const currentDisplayName = lastTurn ? resolveModelPoolDisplayName(lastTurn.modelId || lastTurn.model) : 'Model';
@@ -385,6 +713,7 @@ export function detectRouterThrash(recentTurns = [], isAutoMode = false, {
     const tooltip = `Auto-routing is bouncing between models (${modelSequenceString}), paying full uncached prefill cost on every hop. Pin a single model or run /compact.`;
     return {
       detected: true,
+      thrashDetected: true,
       state: 'AUTO_ROUTER_THRASH',
       severity: 'warn',
       isAutoMode,
@@ -422,6 +751,7 @@ export function detectRouterThrash(recentTurns = [], isAutoMode = false, {
 
     return {
       detected: false,
+      thrashDetected: false,
       state: 'MODEL_SWITCH_COLD_START',
       severity,
       isAutoMode,
@@ -444,6 +774,7 @@ export function detectRouterThrash(recentTurns = [], isAutoMode = false, {
   if (!isCurrentTurnSwitch && (cacheHitPct > 50 || Number(lastTurn?.cacheReadTokens || 0) > 0)) {
     return {
       detected: false,
+      thrashDetected: false,
       state: 'HEALTHY',
       severity: 'none',
       isAutoMode,
@@ -463,6 +794,7 @@ export function detectRouterThrash(recentTurns = [], isAutoMode = false, {
 
   return {
     detected: false,
+    thrashDetected: false,
     state: 'HEALTHY',
     severity: 'none',
     isAutoMode,
@@ -501,7 +833,12 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
   let sessionOutputTokens = 0;
   let sessionCacheReadTokens = 0;
   let sessionCacheCreationTokens = 0;
+  let sessionWrite5mTokens = 0;
+  let sessionWrite1hTokens = 0;
   let sessionThinkingTokens = 0;
+  let sessionCostUsd = 0;
+  let sessionUncachedBaselineUsd = 0;
+  let sessionWeightedUnitsExact = 0;
   let latestStepTimestampMs = 0;
   let cumContextEst = 0;
   let stepPrefixBustDetected = false;
@@ -510,91 +847,237 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
   let lastTurnCacheRead = 0;
   let lastTurnCacheCreation = 0;
   const turns = [];
-  let runningModel = modelId || 'gemini-4-argon';
+  let runningModel = normalizeModelId(modelId || 'gemini-4-argon');
   let runningModelRaw = modelId || 'gemini-4-argon';
+  const prevStepByStream = new Map();
+  const hadPriorCacheHitByStream = new Map();
+  const streamTtlSecByStream = new Map();
+  const modelSwitchBuffer = new TurnBoundaryModelSwitchBuffer(runningModel);
 
   for (let i = 0; i < steps.length; i++) {
     const s = steps[i] || {};
     const stepTok = s.outputTokens || Math.round((s.untruncatedLength || 0) / 4) || 0;
     cumContextEst += stepTok;
 
+    const stepSessionId = String(s.session_id || s.sessionId || sessionId || 'default_session');
+    const stepAgentId = resolveStepAgentId(s);
+    const streamKey = formatAgentStreamKey(stepSessionId, stepAgentId);
+    const prevStepSameStream = prevStepByStream.get(streamKey) || null;
+
+    let detectedRawModel = null;
     const changes = s.content ? parseSettingsChanges(s.content).filter(c => /model selection/i.test(c.setting)) : [];
     if (changes.length > 0) {
-      runningModelRaw = changes[changes.length - 1].to;
-      runningModel = normalizeModelId(runningModelRaw);
+      detectedRawModel = changes[changes.length - 1].to;
     } else if (s.turnMetadata?.model) {
-      runningModelRaw = s.turnMetadata.model;
-      runningModel = normalizeModelId(runningModelRaw);
+      detectedRawModel = s.turnMetadata.model;
     } else if (s.model) {
-      runningModelRaw = s.model;
-      runningModel = normalizeModelId(runningModelRaw);
+      detectedRawModel = s.model;
     }
+
+    const currTs = s.createdAt ? Date.parse(s.createdAt) : 0;
+    const isMidTurnInFlight = Boolean(
+      s.inFlight === true ||
+      s.eventType === 'PreToolUse' ||
+      s.eventType === 'PostToolUse' ||
+      s.turnBoundary === false
+    );
+    const isTurnCompletion = Boolean(
+      s.eventType === 'PostInvocation' ||
+      s.eventType === 'Stop' ||
+      s.turnCompleted === true
+    );
+
+    if (detectedRawModel) {
+      runningModelRaw = detectedRawModel;
+      const bufState = modelSwitchBuffer.recordModelSwitch(detectedRawModel, {
+        sessionId: stepSessionId,
+        agentId: stepAgentId,
+        eventType: s.eventType || (isMidTurnInFlight ? 'PreToolUse' : 'PostInvocation'),
+        inFlight: isMidTurnInFlight,
+        timestampMs: currTs || nowMs
+      });
+      runningModel = bufState.active_model_id;
+    } else {
+      const bufState = modelSwitchBuffer._getOrCreate(stepSessionId, stepAgentId, runningModel);
+      runningModel = bufState.active_model_id;
+    }
+
+    if (isTurnCompletion) {
+      const promoted = modelSwitchBuffer.promoteOnTurnCompletion({
+        sessionId: stepSessionId,
+        agentId: stepAgentId,
+        eventType: s.eventType || 'PostInvocation',
+        timestampMs: currTs || nowMs
+      });
+      runningModel = promoted.active_model_id;
+    }
+
+    const stepModelUsage = s.costState?.modelUsage || s['cost-state']?.modelUsage || s.modelUsage || {};
+    const stepWrite1h = Math.max(0, Number(
+      s.write1hTokens ??
+      s.cacheCreationEphemeral1hInputTokens ??
+      s.usage?.cache_creation?.ephemeral_1h_input_tokens ??
+      s.usage?.cache_creation_ephemeral_1h_input_tokens ??
+      stepModelUsage.cacheCreationEphemeral1hInputTokens ??
+      0
+    ));
+    const stepWrite5mRaw = Math.max(0, Number(
+      s.write5mTokens ??
+      s.cacheCreationEphemeral5mInputTokens ??
+      s.usage?.cache_creation?.ephemeral_5m_input_tokens ??
+      s.usage?.cache_creation_ephemeral_5m_input_tokens ??
+      stepModelUsage.cacheCreationEphemeral5mInputTokens ??
+      0
+    ));
 
     const rawInput = Number(s.inputTokens || 0);
     const rawOutput = Number(s.outputTokens || stepTok);
     const rawCacheRead = Number(s.cacheReadTokens || 0);
-    const rawCacheCreate = Number(s.cacheCreationTokens || 0);
+    const rawCacheCreateBase = Number(s.cacheCreationTokens || 0);
+    const rawCacheCreate = rawCacheCreateBase > 0
+      ? rawCacheCreateBase
+      : (stepWrite1h + stepWrite5mRaw);
+    const stepWrite5m = (stepWrite1h > 0 || stepWrite5mRaw > 0)
+      ? stepWrite5mRaw
+      : rawCacheCreate;
     const rawThinking = Number(
       s.thinkingTokens ||
       (s.type === 'PLANNER_RESPONSE' && activeEffortProfile?.tier === 'HIGH' ? 4000 : 0)
     );
 
-    const prevTs = i > 0 && steps[i - 1]?.createdAt ? Date.parse(steps[i - 1].createdAt) : 0;
-    const currTs = s.createdAt ? Date.parse(s.createdAt) : 0;
+    const prevStreamTtlSec = streamTtlSecByStream.get(streamKey) || QUOTA_CONSTANTS.CACHE_TTL_SECONDS;
+    let streamTtlSec = Number(s.ttlSeconds || 0) > 0
+      ? Number(s.ttlSeconds)
+      : (stepWrite1h > 0 ? 3600 : (stepWrite5mRaw > 0 ? 300 : prevStreamTtlSec));
+    streamTtlSecByStream.set(streamKey, streamTtlSec);
+
+    const prevTs = prevStepSameStream?.createdAt ? Date.parse(prevStepSameStream.createdAt) : 0;
     const gapSec = (prevTs > 0 && currTs >= prevTs) ? (currTs - prevTs) / 1000 : null;
 
+    let effInputForStep = rawInput;
+    let effCacheReadForStep = rawCacheRead;
+    let effCacheCreateForStep = rawCacheCreate;
+    let effWrite5mForStep = stepWrite5m;
+    let effWrite1hForStep = stepWrite1h;
+
     if (rawCacheRead > 0 || rawCacheCreate > 0 || rawInput > 0) {
-      const hadPriorCacheHit = sessionCacheReadTokens > 0 || sessionCacheCreationTokens > 0;
-      const explicitMutation = i > 0 && hasExplicitPrefixMutation(s, steps[i - 1]);
+      const hadPriorCacheHit = Boolean(hadPriorCacheHitByStream.get(streamKey));
+      const explicitMutation = Boolean(prevStepSameStream && hasExplicitPrefixMutation(s, prevStepSameStream));
       sessionInputTokens += rawInput;
       sessionCacheReadTokens += rawCacheRead;
       sessionCacheCreationTokens += rawCacheCreate;
+      sessionWrite5mTokens += stepWrite5m;
+      sessionWrite1hTokens += stepWrite1h;
       lastTurnCacheRead = rawCacheRead;
       lastTurnCacheCreation = rawCacheCreate;
-      // Detect mid-run prefix bust: require prior warm cache hit or explicit prefix mutation when cache_read_tokens == 0 within < 300s
+      if (rawCacheRead > 0 || rawCacheCreate > 0) {
+        hadPriorCacheHitByStream.set(streamKey, true);
+      }
+      // Detect mid-run prefix bust strictly within the same (session_id, agent_id) stream
       if (
-        i > 0 &&
+        prevStepSameStream &&
         rawCacheRead === 0 &&
         rawInput > 0 &&
         (hadPriorCacheHit || explicitMutation) &&
         gapSec !== null &&
-        gapSec < QUOTA_CONSTANTS.CACHE_TTL_SECONDS
+        gapSec < prevStreamTtlSec
       ) {
         stepPrefixBustDetected = true;
         stepPrefixBustDeltaSec = Math.round(gapSec);
-        stepPrefixBustCause = detectModelSwitchCause(s, steps[i - 1]);
+        stepPrefixBustCause = detectModelSwitchCause(s, prevStepSameStream);
       } else if (rawCacheRead > 0) {
         stepPrefixBustDetected = false;
         stepPrefixBustCause = null;
       }
-    } else if (s.type === 'PLANNER_RESPONSE' && i > 0 && gapSec !== null) {
-      // Only infer prefix cache read when real step timestamps exist and prove <300s turnaround
-      if (gapSec <= QUOTA_CONSTANTS.CACHE_TTL_SECONDS) {
-        sessionCacheReadTokens += Math.max(0, cumContextEst - stepTok);
-        sessionCacheCreationTokens += stepTok;
-        lastTurnCacheRead = Math.max(0, cumContextEst - stepTok);
-        lastTurnCacheCreation = stepTok;
+    } else if (s.type === 'PLANNER_RESPONSE' && prevStepSameStream && gapSec !== null) {
+      // Only infer prefix cache read when real step timestamps exist and prove turnaround within active TTL
+      if (gapSec <= prevStreamTtlSec) {
+        effCacheReadForStep = Math.max(0, cumContextEst - stepTok);
+        effCacheCreateForStep = stepTok;
+        effWrite5mForStep = stepTok;
+        effWrite1hForStep = 0;
+        sessionCacheReadTokens += effCacheReadForStep;
+        sessionCacheCreationTokens += effCacheCreateForStep;
+        sessionWrite5mTokens += effWrite5mForStep;
+        lastTurnCacheRead = effCacheReadForStep;
+        lastTurnCacheCreation = effCacheCreateForStep;
+        hadPriorCacheHitByStream.set(streamKey, true);
       } else {
+        effInputForStep = cumContextEst;
         sessionInputTokens += cumContextEst;
         lastTurnCacheRead = 0;
         lastTurnCacheCreation = 0;
       }
     }
 
+    const stepTotalPrompt = effInputForStep + effCacheReadForStep + effCacheCreateForStep;
+    const stepRates = resolveModelRates(runningModel, currTs || nowMs, 'standard', {
+      totalPromptTokens: stepTotalPrompt
+    });
+    const effWrite5mRate = stepRates.write5m > 0 ? stepRates.write5m : stepRates.input;
+    const effWrite1hRate = stepRates.write1h > 0 ? stepRates.write1h : stepRates.input;
+    const stepReadWeight = stepRates.input > 0
+      ? (stepRates.cachedRead / stepRates.input)
+      : QUOTA_CONSTANTS.CACHE_READ_WEIGHT;
+    const stepWrite5mWeight = stepRates.input > 0
+      ? (effWrite5mRate / stepRates.input)
+      : QUOTA_CONSTANTS.UNCACHED_INPUT_WEIGHT;
+    const stepWrite1hWeight = stepRates.input > 0
+      ? (effWrite1hRate / stepRates.input)
+      : QUOTA_CONSTANTS.UNCACHED_INPUT_WEIGHT;
+
+    const turnCostUsd =
+      ((effInputForStep / 1_000_000) * stepRates.input) +
+      ((effWrite5mForStep / 1_000_000) * effWrite5mRate) +
+      ((effWrite1hForStep / 1_000_000) * effWrite1hRate) +
+      ((effCacheReadForStep / 1_000_000) * stepRates.cachedRead) +
+      (((rawOutput + rawThinking) / 1_000_000) * stepRates.output);
+    const turnBaselineUsd =
+      (((effInputForStep + effCacheCreateForStep + effCacheReadForStep) / 1_000_000) * stepRates.input) +
+      (((rawOutput + rawThinking) / 1_000_000) * stepRates.output);
+
+    sessionCostUsd += turnCostUsd;
+    sessionUncachedBaselineUsd += turnBaselineUsd;
+    sessionWeightedUnitsExact +=
+      (effCacheReadForStep * stepReadWeight) +
+      (effInputForStep * QUOTA_CONSTANTS.UNCACHED_INPUT_WEIGHT) +
+      (effWrite5mForStep * stepWrite5mWeight) +
+      (effWrite1hForStep * stepWrite1hWeight) +
+      ((rawOutput + rawThinking) * QUOTA_CONSTANTS.OUTPUT_THINKING_WEIGHT);
+
     if (rawCacheRead > 0 || rawCacheCreate > 0 || rawInput > 0 || s.type === 'USER_INPUT' || s.type === 'PLANNER_RESPONSE') {
+      const bufState = modelSwitchBuffer.getState(stepSessionId, stepAgentId);
       turns.push({
         stepIndex: s.stepIndex ?? i,
+        session_id: stepSessionId,
+        agent_id: stepAgentId,
         modelId: runningModel,
+        active_model_id: bufState.active_model_id,
+        pending_model_id: bufState.pending_model_id,
         modelRaw: runningModelRaw,
         inputTokens: rawInput,
         cacheReadTokens: rawCacheRead,
         cacheCreationTokens: rawCacheCreate,
+        write5mTokens: stepWrite5m,
+        write1hTokens: stepWrite1h,
         outputTokens: rawOutput,
+        ttlSeconds: streamTtlSec,
+        rates: {
+          input: stepRates.input,
+          output: stepRates.output,
+          write5m: stepRates.write5m,
+          write1h: stepRates.write1h,
+          cachedRead: stepRates.cachedRead,
+          isAbovePromptCliff: Boolean(stepRates.isAbovePromptCliff)
+        },
+        turnCostUsd: Number(turnCostUsd.toFixed(6)),
         timestampMs: currTs || nowMs,
         createdAt: s.createdAt,
-        explicitMutation: i > 0 && hasExplicitPrefixMutation(s, steps[i - 1])
+        explicitMutation: Boolean(prevStepSameStream && hasExplicitPrefixMutation(s, prevStepSameStream))
       });
     }
+
+    prevStepByStream.set(streamKey, { ...s, model: runningModel });
 
     sessionOutputTokens += rawOutput;
     sessionThinkingTokens += rawThinking;
@@ -612,11 +1095,7 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
     ? Math.min(100, Math.round((sessionCacheReadTokens / totalPromptTokens) * 100))
     : 0;
 
-  const weightedUnits = Math.round(
-    (sessionCacheReadTokens * QUOTA_CONSTANTS.CACHE_READ_WEIGHT) +
-    ((sessionInputTokens + sessionCacheCreationTokens) * QUOTA_CONSTANTS.UNCACHED_INPUT_WEIGHT) +
-    ((sessionOutputTokens + sessionThinkingTokens) * QUOTA_CONSTANTS.OUTPUT_THINKING_WEIGHT)
-  );
+  const weightedUnits = Math.round(sessionWeightedUnitsExact);
 
   // Update rolling 7-day ledger
   const ledger = loadQuotaLedger(cacheDir);
@@ -739,8 +1218,9 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
     isAutoMode ??
     (activeEffortProfile?.tier === 'STANDARD' || activeEffortProfile?.shortLabel === 'Auto')
   );
-  const poolsResult = trackModelCachePools(turnsToUse, { nowMs, prefixDiff });
+  const poolsResult = trackModelCachePools(turnsToUse, { sessionId, nowMs, prefixDiff });
   const thrashResult = detectRouterThrash(turnsToUse, effectiveIsAuto, {
+    sessionId,
     totalTokens: totalActiveTokens,
     reclaimableTokens: reclaimableTokens || sludgeTokens || 0,
     standbyCache: poolsResult.standbyCache,
@@ -770,13 +1250,16 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
     };
   }
 
-  // Prefix cache TTL state & Prefix Bust vs Natural Expiration
+  // Prefix cache TTL state & Prefix Bust vs Natural Expiration (honors 5m 300s vs 1h 3600s TTL)
+  const activeMaxTtlSec = dualTtl.mainTtlTier === '1h'
+    ? 3600
+    : QUOTA_CONSTANTS.CACHE_TTL_SECONDS;
   const idleSeconds = latestStepTimestampMs > 0
     ? Math.max(0, Math.round((nowMs - latestStepTimestampMs) / 1000))
     : 0;
   const cacheTtlRemainingSec = latestStepTimestampMs > 0
-    ? Math.max(0, QUOTA_CONSTANTS.CACHE_TTL_SECONDS - idleSeconds)
-    : QUOTA_CONSTANTS.CACHE_TTL_SECONDS;
+    ? Math.max(0, activeMaxTtlSec - idleSeconds)
+    : activeMaxTtlSec;
   const isCacheCold = latestStepTimestampMs > 0 && cacheTtlRemainingSec === 0;
   const cacheBreakRisk = !isCacheCold && cacheTtlRemainingSec > 0 && cacheTtlRemainingSec <= 60;
   const ttlExpirationPulse = !isCacheCold && cacheTtlRemainingSec > 0 && cacheTtlRemainingSec <= QUOTA_CONSTANTS.TTL_PULSE_THRESHOLD_SECONDS;
@@ -790,7 +1273,7 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
     lastTurnPrefixBust &&
     !isCacheCold &&
     cacheTtlRemainingSec > 0 &&
-    idleSeconds < QUOTA_CONSTANTS.CACHE_TTL_SECONDS
+    idleSeconds < activeMaxTtlSec
   );
   const prefixBustDeltaSec = genMetadata?.prefixBustDeltaSec ?? stepPrefixBustDeltaSec ?? null;
   const prefixBustCause = prefixBustDetected
@@ -807,11 +1290,17 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
     (lastTurnCacheRead > 0 || lastTurnCacheCreation > 0 || prefixBustDetected)
   );
 
-  // Next-turn High-effort quota burn projection at current context depth
+  // Next-turn High-effort quota burn projection at current context depth using model-specific read discount
   const effectiveActive = Math.max(totalActiveTokens, 10000);
+  const activeRates = resolveModelRates(runningModel || modelId, latestStepTimestampMs || nowMs, 'standard', {
+    totalPromptTokens: effectiveActive
+  });
+  const activeReadWeight = activeRates.input > 0
+    ? (activeRates.cachedRead / activeRates.input)
+    : QUOTA_CONSTANTS.CACHE_READ_WEIGHT;
   const nextTurnInputCost = (isCacheCold || prefixBustDetected)
     ? effectiveActive * QUOTA_CONSTANTS.UNCACHED_INPUT_WEIGHT
-    : effectiveActive * QUOTA_CONSTANTS.CACHE_READ_WEIGHT;
+    : effectiveActive * activeReadWeight;
   const nextTurnHighThinkingCost = (EFFORT_PROFILES.HIGH.thinkingReserve + 4000) * QUOTA_CONSTANTS.OUTPUT_THINKING_WEIGHT;
   const nextTurnHighUnits = nextTurnInputCost + nextTurnHighThinkingCost;
   const nextTurnHighSprintPct = parseFloat(((nextTurnHighUnits / QUOTA_CONSTANTS.DEFAULT_SPRINT_POOL_UNITS) * 100).toFixed(2));
@@ -853,10 +1342,28 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
   const costGate = evaluateColdSessionCostGate({
     ttlRemainingSec: effectiveTtlSec,
     totalActiveTokens,
-    modelId,
+    modelId: runningModel || modelId,
+    cacheTtlTier: dualTtl.mainTtlTier || '5m',
+    eventTimestampUtc: latestStepTimestampMs || nowMs,
     isCacheCold: isCacheCold || effectiveTtlSec <= 0,
     hadWarmCache
   });
+
+  const cacheRoi = computeCacheRoi({
+    cacheReadTokens: sessionCacheReadTokens,
+    write5mTokens: sessionWrite5mTokens,
+    write1hTokens: sessionWrite1hTokens,
+    cacheCreationTokens: sessionCacheCreationTokens,
+    uncachedInputTokens: sessionInputTokens,
+    outputTokens: sessionOutputTokens + sessionThinkingTokens,
+    modelId: runningModel || modelId,
+    eventTimestampUtc: latestStepTimestampMs || nowMs,
+    totalPromptTokens: Math.max(totalActiveTokens, totalPromptTokens)
+  });
+
+  const activeDescriptor = resolveModelDescriptor(runningModel || modelId);
+  const supportsExplicitCache = activeDescriptor ? Boolean(activeDescriptor.supports_explicit_cache) : true;
+  const cachingMode = activeDescriptor?.caching_mode || (supportsExplicitCache ? 'explicit_and_implicit' : 'implicit_only');
 
   return {
     sprint5h: {
@@ -894,6 +1401,8 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
       hitRatePct: cacheHitRatePct,
       cacheReadTokens: sessionCacheReadTokens,
       cacheCreationTokens: sessionCacheCreationTokens,
+      write5mTokens: sessionWrite5mTokens,
+      write1hTokens: sessionWrite1hTokens,
       uncachedInputTokens: sessionInputTokens,
       thinkingTokens: sessionThinkingTokens,
       idleSeconds,
@@ -903,20 +1412,43 @@ export function computeQuotaAndCacheTelemetry(steps = [], {
       ttlExpirationPulse,
       lastTurnPrefixBust,
       prefixBustDetected,
+      bustDetected: prefixBustDetected,
       prefixBustDeltaSec,
       prefixBustCause,
       prefixBustLabel,
       lastTurnCacheReadTokens: lastTurnCacheRead,
       lastTurnCacheCreationTokens: lastTurnCacheCreation,
       nextTurnLikelyWarm,
+      cachingMode,
+      supportsExplicitCache,
+      missingExplicitCacheWarning: supportsExplicitCache && sessionCacheCreationTokens === 0 && sessionCacheReadTokens === 0 && sessionInputTokens > 50000,
       dualTtl,
       prefixDiff,
       costGate,
+      roi: cacheRoi,
+      pricing: {
+        rates: {
+          input: activeRates.input,
+          output: activeRates.output,
+          write5m: activeRates.write5m,
+          write1h: activeRates.write1h,
+          cachedRead: activeRates.cachedRead,
+          isAbovePromptCliff: Boolean(activeRates.isAbovePromptCliff)
+        },
+        sessionCostUsd: Number(sessionCostUsd.toFixed(6)),
+        uncachedBaselineUsd: Number(sessionUncachedBaselineUsd.toFixed(6)),
+        netCacheSavingsUsd: Number((sessionUncachedBaselineUsd - sessionCostUsd).toFixed(6))
+      },
       modelPools: Array.from(poolsResult.modelCachePools.values()),
+      compositeModelPools: Array.from(poolsResult.compositeCachePools.values()),
+      compositeCacheMap: Object.fromEntries(poolsResult.compositeCachePools.entries()),
+      agentCacheMap: Object.fromEntries(poolsResult.compositeCachePools.entries()),
+      turnBoundarySwitchState: modelSwitchBuffer.getState(sessionId, 'primary'),
       standbyCache: poolsResult.standbyCache,
       routerThrash: thrashResult,
       preSwitchCompactionAdvice: thrashResult.preSwitchCompactionAdvice || ''
     },
+    routerThrash: thrashResult,
     forecast: {
       nextTurnHighSprintPct,
       nextTurnHighWeeklyPct,
@@ -955,13 +1487,17 @@ export function computeDualTtlState(steps = [], { nowMs = Date.now(), subagentSt
     const s = steps[i] || {};
     const modelUsage = s.costState?.modelUsage || s['cost-state']?.modelUsage || s.modelUsage || {};
     let turn1h = Number(
+      s.write1hTokens ??
       s.cacheCreationEphemeral1hInputTokens ??
+      s.usage?.cache_creation?.ephemeral_1h_input_tokens ??
       s.usage?.cache_creation_ephemeral_1h_input_tokens ??
       modelUsage.cacheCreationEphemeral1hInputTokens ??
       0
     );
     let turn5m = Number(
+      s.write5mTokens ??
       s.cacheCreationEphemeral5mInputTokens ??
+      s.usage?.cache_creation?.ephemeral_5m_input_tokens ??
       s.usage?.cache_creation_ephemeral_5m_input_tokens ??
       modelUsage.cacheCreationEphemeral5mInputTokens ??
       0
@@ -1206,20 +1742,55 @@ export function computePrefixMutationDiff(steps = []) {
 export function evaluateColdSessionCostGate({
   ttlRemainingSec = 300,
   totalActiveTokens = 0,
+  activeTokens = 0,
   modelId = 'gemini-4-argon',
-  pricePerMillionUsd = 3.0,
+  pricePerMillionUsd = null,
+  cacheTtlTier = '5m',
+  eventTimestampUtc = null,
+  serviceTier = 'standard',
   isCacheCold = false,
   hadWarmCache = true
 } = {}) {
-  const activeTok = Math.max(0, Number(totalActiveTokens) || 0);
+  const activeTok = Math.max(0, Number(totalActiveTokens || activeTokens) || 0);
   const ttlSec = Math.max(0, Math.round(Number(ttlRemainingSec ?? 300)));
-  const price = Number(pricePerMillionUsd) > 0 ? Number(pricePerMillionUsd) : 3.0;
+  const resolvedRates = resolveModelRates(modelId, eventTimestampUtc, serviceTier, {
+    totalPromptTokens: activeTok
+  });
 
-  // Warm cache read (0.1x) + compact summary vs Cold 5m/1h cache write (1.25x - 2.0x = 12.5x - 20x warm read)
-  const warmCompactionCostUsd = parseFloat(Math.max(0.01, (activeTok / 1_000_000) * price * 0.125).toFixed(2));
-  const coldRewriteCostUsd = parseFloat(Math.max(0.05, (activeTok / 1_000_000) * price * 3.125).toFixed(2));
-  const costMultiplier = parseFloat((coldRewriteCostUsd / Math.max(0.01, warmCompactionCostUsd)).toFixed(1));
-  const quotaPenaltyUnits = Math.round(activeTok * (QUOTA_CONSTANTS.UNCACHED_INPUT_WEIGHT - QUOTA_CONSTANTS.CACHE_READ_WEIGHT));
+  const hasExplicitOverride = pricePerMillionUsd !== null &&
+    pricePerMillionUsd !== undefined &&
+    Number(pricePerMillionUsd) > 0;
+  const overrideScale = hasExplicitOverride && resolvedRates.input > 0
+    ? (Number(pricePerMillionUsd) / resolvedRates.input)
+    : 1;
+
+  const baseInputRate = hasExplicitOverride ? Number(pricePerMillionUsd) : resolvedRates.input;
+  const warmReadRate = (resolvedRates.cachedRead > 0 ? resolvedRates.cachedRead : baseInputRate * 0.10) * overrideScale;
+  const rawWriteRate = cacheTtlTier === '1h' ? resolvedRates.write1h : resolvedRates.write5m;
+  const coldPrefillRate = (rawWriteRate > 0 ? rawWriteRate : resolvedRates.input) * overrideScale;
+
+  // Warm cache read vs Cold 5m/1h cache write (or cold uncached prefill)
+  const rawWarmUsd = (activeTok / 1_000_000) * warmReadRate;
+  const rawColdUsd = (activeTok / 1_000_000) * coldPrefillRate;
+  const warmCompactionCostUsd = Number(rawWarmUsd.toFixed(6));
+  const coldRewriteCostUsd = Number(rawColdUsd.toFixed(6));
+  const costMultiplier = warmReadRate > 0
+    ? parseFloat((coldPrefillRate / warmReadRate).toFixed(1))
+    : 12.5;
+  const readWeight = baseInputRate > 0
+    ? (warmReadRate / baseInputRate)
+    : QUOTA_CONSTANTS.CACHE_READ_WEIGHT;
+  const quotaPenaltyUnits = Math.round(activeTok * Math.max(0, QUOTA_CONSTANTS.UNCACHED_INPUT_WEIGHT - readWeight));
+
+  const fmtUsd = (val) => (val >= 0.01 ? val.toFixed(2) : val.toFixed(4));
+  const ratesSummary = {
+    input: Number((baseInputRate).toFixed(4)),
+    output: Number((resolvedRates.output * overrideScale).toFixed(4)),
+    write5m: Number((resolvedRates.write5m * overrideScale).toFixed(4)),
+    write1h: Number((resolvedRates.write1h * overrideScale).toFixed(4)),
+    cachedRead: Number((warmReadRate).toFixed(4)),
+    isAbovePromptCliff: Boolean(resolvedRates.isAbovePromptCliff)
+  };
 
   if (activeTok <= 50000 || !hadWarmCache) {
     return {
@@ -1229,6 +1800,7 @@ export function evaluateColdSessionCostGate({
       coldRewriteCostUsd,
       costMultiplier,
       quotaPenaltyUnits,
+      rates: ratesSummary,
       bannerMessage: ''
     };
   }
@@ -1241,7 +1813,8 @@ export function evaluateColdSessionCostGate({
       coldRewriteCostUsd,
       costMultiplier,
       quotaPenaltyUnits,
-      bannerMessage: `🛑 Cold Session Cost Gate: Prefix cache expired (0s TTL). Sending next message cold costs ~$${coldRewriteCostUsd.toFixed(2)} (+${Math.round(quotaPenaltyUnits / 1000)}k quota units, ${costMultiplier}x warm rate) vs $0.00 1-Click Handoff Distillation (.handoff.md).`
+      rates: ratesSummary,
+      bannerMessage: `🛑 Cold Session Cost Gate: Prefix cache expired (0s TTL). Sending next message cold costs ~$${fmtUsd(coldRewriteCostUsd)} (+${Math.round(quotaPenaltyUnits / 1000)}k quota units, ${costMultiplier}x warm rate) vs $0.00 1-Click Handoff Distillation (.handoff.md).`
     };
   }
 
@@ -1253,7 +1826,8 @@ export function evaluateColdSessionCostGate({
       coldRewriteCostUsd,
       costMultiplier,
       quotaPenaltyUnits,
-      bannerMessage: `⏱️ Cache Expiring (${ttlSec}s left): Warm compaction now costs ~$${warmCompactionCostUsd.toFixed(2)} vs ~$${coldRewriteCostUsd.toFixed(2)} cold rewrite after TTL expires.`
+      rates: ratesSummary,
+      bannerMessage: `⏱️ Cache Expiring (${ttlSec}s left): Warm compaction now costs ~$${fmtUsd(warmCompactionCostUsd)} vs ~$${fmtUsd(coldRewriteCostUsd)} cold rewrite after TTL expires.`
     };
   }
 
@@ -1264,6 +1838,7 @@ export function evaluateColdSessionCostGate({
     coldRewriteCostUsd,
     costMultiplier,
     quotaPenaltyUnits,
+    rates: ratesSummary,
     bannerMessage: ''
   };
 }

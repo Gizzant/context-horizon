@@ -50,10 +50,31 @@ export function truncateToApproxTokens(text = '', maxTokens = 200) {
  */
 export function sanitizeSubagentPayload(rawText = '', sourceLabel = 'subagent', {
   maxTokens = 250,
-  truncate = true
+  truncate = true,
+  horizonConfig = null
 } = {}) {
   const startMs = performance.now();
   let text = String(rawText ?? '');
+  const ipiMode = horizonConfig?.semanticDetectors?.['subagent-ipi'] || 'default';
+  if (ipiMode === 'off') {
+    return {
+      cleanedText: text,
+      framedPayload: text,
+      ipiStrippedCount: 0,
+      bypassedByConfig: true,
+      patternsRemoved: {
+        unicodeTags: 0,
+        zeroWidth: 0,
+        bidi: 0,
+        comments: 0,
+        scripts: 0,
+        delimiters: 0,
+        roleSpoofs: 0
+      },
+      sourceLabel: String(sourceLabel || 'subagent'),
+      elapsedMs: Number((performance.now() - startMs).toFixed(3))
+    };
+  }
   let ipiStrippedCount = 0;
 
   const patternsRemoved = {
@@ -164,8 +185,16 @@ export function sanitizeSubagentPayload(rawText = '', sourceLabel = 'subagent', 
   };
 }
 
+export function sanitizeSubagentOutput(rawText = '', sourceLabelOrOptions = 'subagent', maybeOptions = {}) {
+  if (sourceLabelOrOptions && typeof sourceLabelOrOptions === 'object') {
+    return sanitizeSubagentPayload(rawText, sourceLabelOrOptions.sourceLabel || 'subagent', sourceLabelOrOptions);
+  }
+  return sanitizeSubagentPayload(rawText, sourceLabelOrOptions, maybeOptions);
+}
+
 export default {
   IPI_PATTERNS,
   sanitizeSubagentPayload,
+  sanitizeSubagentOutput,
   truncateToApproxTokens
 };

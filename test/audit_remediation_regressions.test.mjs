@@ -285,8 +285,9 @@ test('Stage 7 (Tasks 7.1–7.5): Multi-harness Claude Code + Cursor + Antigravit
     ];
     fs.writeFileSync(claudeSessionFile, claudeLines.join('\n') + '\n', 'utf8');
 
-    const discoveredClaude = findSessionDirectory(null, tmpHome);
-    assert.ok(discoveredClaude, 'findSessionDirectory must auto-discover Claude Code session');
+    assert.equal(findSessionDirectory(null, tmpHome), null, 'Default Antigravity discovery must ignore cross-host ~/.claude/projects unless --harness=claude is specified');
+    const discoveredClaude = findSessionDirectory(null, tmpHome, { harness: 'claude' });
+    assert.ok(discoveredClaude, 'findSessionDirectory must discover Claude Code session when harness=claude is passed');
     assert.equal(discoveredClaude.storeName, 'claude-code');
     assert.equal(discoveredClaude.surfaceTag, '[Claude]');
     assert.equal(discoveredClaude.sessionId, 'claude-sess-001');
@@ -337,8 +338,9 @@ test('Stage 7 (Tasks 7.1–7.5): Multi-harness Claude Code + Cursor + Antigravit
     const futureTime = new Date(Date.now() + 5000);
     fs.utimesSync(vscdbPath, futureTime, futureTime);
 
-    const discoveredCursor = findSessionDirectory(null, tmpHome);
-    assert.ok(discoveredCursor, 'findSessionDirectory must auto-discover newest Cursor state.vscdb session');
+    assert.equal(findSessionDirectory(null, tmpHome), null, 'Default Antigravity discovery must ignore cross-host Cursor state.vscdb unless --harness=cursor is specified');
+    const discoveredCursor = findSessionDirectory(null, tmpHome, { harness: 'cursor' });
+    assert.ok(discoveredCursor, 'findSessionDirectory must discover newest Cursor state.vscdb session when harness=cursor is passed');
     assert.equal(discoveredCursor.storeName, 'cursor');
     assert.equal(discoveredCursor.surfaceTag, '[Cursor]');
     assert.equal(discoveredCursor.sessionId, 'comp-777');
@@ -357,14 +359,14 @@ test('Stage 7 (Tasks 7.1–7.5): Multi-harness Claude Code + Cursor + Antigravit
     });
     assert.equal(cursorState.surfaceTag, '[Cursor]');
 
-    // Verify reconcileWorkspaceAndKIs lists both [Claude] and [Cursor] sessions in recentSessions
-    const recon = await reconcileWorkspaceAndKIs('comp-777', tmpHome);
+    // Verify reconcileWorkspaceAndKIs lists both [Claude] and [Cursor] sessions when includeCrossHost is explicitly opted in
+    const recon = await reconcileWorkspaceAndKIs('comp-777', tmpHome, { includeCrossHost: true });
     assert.equal(recon.sessionSurfaceTag, '[Cursor]');
-    assert.ok(recon.recentSessions.some(s => s.surfaceTag === '[Claude]'), 'recentSessions must include [Claude] session');
-    assert.ok(recon.recentSessions.some(s => s.surfaceTag === '[Cursor]'), 'recentSessions must include [Cursor] session');
+    assert.ok(recon.recentSessions.some(s => s.surfaceTag === '[Claude]'), 'recentSessions must include [Claude] session when opted in');
+    assert.ok(recon.recentSessions.some(s => s.surfaceTag === '[Cursor]'), 'recentSessions must include [Cursor] session when opted in');
 
-    // Verify zero-arg runLiveOrDemoCli picks up the live session
-    const liveCliRes = await runLiveOrDemoCli({ homeDir: tmpHome });
+    // Verify runLiveOrDemoCli picks up the live cross-host session when --harness=cursor is opted in
+    const liveCliRes = await runLiveOrDemoCli({ homeDir: tmpHome, harness: 'cursor' });
     assert.equal(liveCliRes.mode, 'live');
     assert.equal(liveCliRes.state.surfaceTag, '[Cursor]');
   } finally {

@@ -1,5 +1,5 @@
 /**
- * Modular Webview Chart & Small-Multiple Registry for Context Horizon (`ctxtop`).
+ * Modular Webview Chart & Small-Multiple Registry for Attention Horizon (`ctxtop`).
  *
  * Allows contributors to register custom telemetry panels and small-multiple
  * visualizations against the standardized `HorizonStatePayload` returned by `/api/state`
@@ -9,7 +9,7 @@
 export const BUILTIN_PANELS = [
   {
     id: 'chrono-40-cell-bar',
-    title: '40-Cell Chronological Context Horizon',
+    title: '40-Cell Chronological Attention Horizon',
     domSelector: '#horizonGrid',
     dataKeys: ['cells', 'window', 'amputation'],
     description: 'Plots Turn 0 (Left) to Current Turn (Right) across 40 discrete cells with red amputation brackets.'

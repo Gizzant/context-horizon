@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the Context Horizon (`ctxtop` / `agy-horizon`) project will be documented in this file.
+All notable changes to the Attention Horizon (`attention-horizon-antigravity` / `ctxtop`) project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -42,7 +42,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Top Risky Cells Hero Section**: Surfaced top 3–5 highest-risk context cells directly underneath the 40-cell flamegraph with exact file paths, attention recall %, and 1-click remediation actions.
 - **MCP Schema ROI & Lazy Switching**: Added idle bloat tax calculation and one-click `[Switch to Lazy]` action for 0-call eager MCP servers.
 - **Silent-When-Nominal Watchdog**: Host RAM and zombie process counters stay hidden during normal operation to maximize Edward Tufte data-ink ratio.
-- **3-Way WebView Mirror Parity**: Verified SHA-256 byte-for-byte parity across `ga-visualizer-v2`, `agy-horizon`, and `agy-horizon-flightcheck`.
+- **3-Way WebView Mirror Parity**: Verified SHA-256 byte-for-byte parity across `attention-horizon-antigravity`, `agy-horizon`, and `agy-horizon-flightcheck`.
 
 #### Verification & Quality Gates
 - **Unit Suite (`node --test`)**: 62 tests passing across 24 suites (0 failures).
@@ -91,4 +91,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Phases Suite (`npm run test:phases`)**: All 7 Show-HN phase suites verified (0 errors).
 - **End-to-End Suite (`node tests/verify_e2e_context_memory.mjs`)**: 7 validation layers passed (0 errors).
 - **Benchmark Suite (`npm run bench`)**: Met all SLA budgets (`readSidecarSync` p95: 0.312ms, `PreInvocation Gate` p95: 0.150ms, `HUD Render` p95: 28.540ms).
-- **3-Way WebView Mirror Parity**: Byte-for-byte identical across `ga-visualizer-v2`, `agy-horizon`, and `agy-horizon-flightcheck` (`SHA-256: 56eaad262dc9124191d0a03334b1df51d414f81691498612beda71fec6ac6347`).
+- **3-Way WebView Mirror Parity**: Byte-for-byte identical across `attention-horizon-antigravity`, `agy-horizon`, and `agy-horizon-flightcheck` (`SHA-256: 56eaad262dc9124191d0a03334b1df51d414f81691498612beda71fec6ac6347`).

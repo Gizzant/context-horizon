@@ -6,6 +6,7 @@ import {
   MODEL_CATALOG,
   WARM_CACHE_GRAVITY_THRESHOLD_TOKENS,
   FLOOR_GUARANTEE_CONFIDENCE_THRESHOLD,
+  DEFAULT_EXPECTED_OUTPUT_TOKENS,
   EXPECTED_OUTPUT_TOKENS_BY_EFFORT,
   normalizeModelId,
   getModelFamily,
@@ -14,6 +15,8 @@ import {
   extractActiveTaskStep,
   inferLifecycleMode,
   classifyTaskComplexity,
+  resolveReadDiscountFactor,
+  computeClosedFormBreakEven,
   TaskMdDirectiveWatcher,
   ModelSelectorActuator,
   evaluateTaskAndQuotaRoute
@@ -48,7 +51,29 @@ export const SAFE_TURN_BOUNDARY_STATES = Object.freeze(new Set([
 export const COST_MULTIPLIER_MATRIX = Object.freeze({
   'gemini-3.8-flash': Object.freeze({ low: 1.0, med: 1.5, medium: 1.5, high: 2.2 }),
   'gemini-4-argon': Object.freeze({ low: 3.0, med: 5.5, medium: 5.5, high: 9.25 }),
+  'gemini-4-carbon': Object.freeze({ low: 3.0, med: 5.5, medium: 5.5, high: 9.25 }),
+  'gemini-4-carbon-cyber-permissive': Object.freeze({ low: 3.0, med: 5.5, medium: 5.5, high: 9.25 }),
+  'claude-haiku-5-5': Object.freeze({ low: 0.5, med: 0.8, medium: 0.8, high: 1.2 }),
+  'claude-haiku-5.5': Object.freeze({ low: 0.5, med: 0.8, medium: 0.8, high: 1.2 }),
+  'claude-sonnet-5-5': Object.freeze({ low: 3.0, med: 4.5, medium: 4.5, high: 7.0 }),
+  'claude-sonnet-5.5': Object.freeze({ low: 3.0, med: 4.5, medium: 4.5, high: 7.0 }),
+  'claude-opus-5-5': Object.freeze({ low: 6.0, med: 9.0, medium: 9.0, high: 14.0 }),
+  'claude-opus-5.5': Object.freeze({ low: 6.0, med: 9.0, medium: 9.0, high: 14.0 }),
+  'claude-fable-5-2': Object.freeze({ low: 10.0, med: 15.0, medium: 15.0, high: 22.0 }),
+  'claude-fable-5.2': Object.freeze({ low: 10.0, med: 15.0, medium: 15.0, high: 22.0 }),
+  'claude-fable-5-1': Object.freeze({ low: 12.0, med: 18.0, medium: 18.0, high: 26.0 }),
+  'claude-fable-5.1': Object.freeze({ low: 12.0, med: 18.0, medium: 18.0, high: 26.0 }),
+  'claude-sonnet-4-6': Object.freeze({ low: 3.5, med: 5.0, medium: 5.0, high: 7.5 }),
   'claude-sonnet-4.6': Object.freeze({ low: 3.5, med: 5.0, medium: 5.0, high: 7.5 }),
+  'claude-sonnet-4-5': Object.freeze({ low: 3.5, med: 5.0, medium: 5.0, high: 7.5 }),
+  'claude-sonnet-4.5': Object.freeze({ low: 3.5, med: 5.0, medium: 5.0, high: 7.5 }),
+  'claude-opus-4-6': Object.freeze({ low: 5.0, med: 8.5, medium: 8.5, high: 12.0 }),
+  'claude-opus-4.6': Object.freeze({ low: 5.0, med: 8.5, medium: 8.5, high: 12.0 }),
+  'claude-opus-4-5': Object.freeze({ low: 5.0, med: 8.5, medium: 8.5, high: 12.0 }),
+  'claude-opus-4.5': Object.freeze({ low: 5.0, med: 8.5, medium: 8.5, high: 12.0 }),
+  'claude-haiku-4-5': Object.freeze({ low: 1.2, med: 1.8, medium: 1.8, high: 2.5 }),
+  'claude-haiku-4.5': Object.freeze({ low: 1.2, med: 1.8, medium: 1.8, high: 2.5 }),
+  'gpt-oss-120b': Object.freeze({ low: 1.5, med: 2.5, medium: 2.5, high: 3.5 }),
   'local-gemma4-26b': Object.freeze({ low: 0.0, med: 0.0, medium: 0.0, high: 0.0 })
 });
 
@@ -107,13 +132,21 @@ export function formatTtlMinutesSeconds(ttlSeconds = 0) {
  */
 export class CacheGravityScorer {
   constructor(options = {}) {
+    this.explicitWarmCacheThreshold =
+      options.warmCacheThresholdTokens !== undefined && options.warmCacheThresholdTokens !== null
+        ? Number(options.warmCacheThresholdTokens)
+        : null;
     this.warmCacheThresholdTokens = Number(
-      options.warmCacheThresholdTokens ?? WARM_CACHE_GRAVITY_THRESHOLD_TOKENS
+      this.explicitWarmCacheThreshold ?? WARM_CACHE_GRAVITY_THRESHOLD_TOKENS
     );
   }
 
+  computeBreakEven(params = {}) {
+    return this.computeBreakEvenDelta(params);
+  }
+
   /**
-   * Computes exact break-even delta (\Delta_{cost}) and UI tooltip payload.
+   * Computes exact closed-form break-even ($C^*$), break-even delta (\Delta_{cost}), and UI tooltip payload.
    */
   computeBreakEvenDelta({
     currentModel = 'gemini-4-argon',
@@ -122,21 +155,47 @@ export class CacheGravityScorer {
     cachedTokens = 0,
     ttlRemainingSeconds = 0,
     cacheTtlSeconds = undefined,
-    expectedOutputTokens = 1200
+    expectedOutputTokens = DEFAULT_EXPECTED_OUTPUT_TOKENS,
+    uncachedDeltaTokens = 0,
+    cacheTtlTier = '5m',
+    readDiscountFactor = undefined,
+    discountPct = undefined,
+    cacheDiscount = undefined,
+    pricingMode = 'auto',
+    eventTimestampUtc = null
   } = {}) {
     const normCurrent = normalizeModelId(currentModel);
     const normTarget = normalizeModelId(targetModel);
     const normTargetEffort = normalizeEffortKey(targetEffort);
     const tCached = Math.max(0, Number(cachedTokens || 0));
     const ttlSec = Math.max(0, Number(ttlRemainingSeconds ?? cacheTtlSeconds ?? 0));
-    const tOut = Math.max(0, Number(expectedOutputTokens ?? 1200));
+    const tOut = expectedOutputTokens !== null && expectedOutputTokens !== undefined
+      ? Math.max(0, Number(expectedOutputTokens))
+      : DEFAULT_EXPECTED_OUTPUT_TOKENS;
+
+    const closedForm = computeClosedFormBreakEven({
+      currentModel: normCurrent,
+      targetModel: normTarget,
+      targetEffort: normTargetEffort,
+      cachedTokens: tCached,
+      ttlRemainingSeconds: ttlSec,
+      expectedOutputTokens: tOut,
+      uncachedDeltaTokens,
+      cacheTtlTier,
+      readDiscountFactor,
+      discountPct,
+      cacheDiscount,
+      pricingMode,
+      eventTimestampUtc
+    });
 
     const wCurr = getModelBaseWeight(normCurrent);
     const eLow = getCostMultiplier(normCurrent, 'low');
     const wTarget = getModelBaseWeight(normTarget);
     const eTarget = getCostMultiplier(normTarget, normTargetEffort);
+    const readFactor = closedForm.readDiscountFactor;
 
-    const warmCurrentLowCost = Number(((tCached * 0.05 * wCurr) + (tOut * eLow)).toFixed(2));
+    const warmCurrentLowCost = Number(((tCached * readFactor * wCurr) + (tOut * eLow)).toFixed(2));
     const coldTargetSwitchCost = Number(((tCached * 1.00 * wTarget) + (tOut * eTarget)).toFixed(2));
 
     // \Delta_{cost} = Warm(curr, low) - Cold(target, targetEffort)
@@ -144,7 +203,11 @@ export class CacheGravityScorer {
     const deltaCost = Number((warmCurrentLowCost - coldTargetSwitchCost).toFixed(2));
     const coldSwitchPenaltyTokens = Number((coldTargetSwitchCost - warmCurrentLowCost).toFixed(2));
 
-    const hasWarmCacheGravity = tCached >= this.warmCacheThresholdTokens && ttlSec > 0;
+    const hasWarmCacheGravity =
+      ttlSec > 0 &&
+      (this.explicitWarmCacheThreshold !== null
+        ? tCached >= this.explicitWarmCacheThreshold
+        : (closedForm.canHoldWarmPrefix && tCached > closedForm.breakEvenTokens));
     const crossFamily = !isSameModelFamily(normCurrent, normTarget);
     const blockCrossModelSwitch = hasWarmCacheGravity && crossFamily;
 
@@ -157,12 +220,17 @@ export class CacheGravityScorer {
     const tooltip = `Warm Cache: ${cachedK}k tokens (TTL ${formatTtlMinutesSeconds(ttlSec)}) • Cold ${targetShort} switch costs ${penaltySign}${penaltyK}k equiv burn vs ${currShort}-Low`;
 
     return {
+      mode: closedForm.mode,
       currentModel: normCurrent,
       targetModel: normTarget,
       targetEffort: normTargetEffort,
       cachedTokens: tCached,
       ttlRemainingSeconds: ttlSec,
       expectedOutputTokens: tOut,
+      readDiscountFactor: readFactor,
+      breakEvenTokens: closedForm.breakEvenTokens,
+      canHoldWarmPrefix: closedForm.canHoldWarmPrefix,
+      denominator: closedForm.denominator,
       wCurr,
       eLow,
       wTarget,
@@ -199,7 +267,7 @@ export class CacheGravityScorer {
     const normActiveModel = normalizeModelId(activeModel);
     const rawEffort = String(candidateEffort || 'high').toLowerCase();
     const effortKey = rawEffort === 'medium' ? 'medium' : normalizeEffortKey(rawEffort);
-    const ttlSec = Number(ttlRemainingSeconds ?? cacheTtlSeconds ?? 0);
+    const ttlSec = Math.max(0, Number(ttlRemainingSeconds ?? cacheTtlSeconds ?? 0));
 
     const multiplier = MODEL_CATALOG[normCandidateModel]?.multipliers?.[effortKey === 'med' ? 'medium' : effortKey]
       ?? getCostMultiplier(normCandidateModel, effortKey);
@@ -210,9 +278,10 @@ export class CacheGravityScorer {
     const tUncachedDelta = Math.max(0, Number(uncachedDeltaTokens || 0));
     const eOutput = expectedOutputTokens !== null && expectedOutputTokens !== undefined
       ? Number(expectedOutputTokens)
-      : (EXPECTED_OUTPUT_TOKENS_BY_EFFORT[effortKey === 'med' ? 'medium' : effortKey] || 3500);
+      : (EXPECTED_OUTPUT_TOKENS_BY_EFFORT[effortKey === 'med' ? 'medium' : effortKey] || DEFAULT_EXPECTED_OUTPUT_TOKENS);
 
-    const cachedTerm = sameModelIndicator * (0.05 * tCached);
+    const readFactor = resolveReadDiscountFactor(normActiveModel, { totalPromptTokens: tCached });
+    const cachedTerm = sameModelIndicator * (readFactor * tCached);
     const coldPrefillTerm = (1 - sameModelIndicator) * tCached;
     const effectiveTokens = cachedTerm + coldPrefillTerm + tUncachedDelta + eOutput;
     const effectiveQuotaCost = Number((multiplier * effectiveTokens).toFixed(2));
@@ -226,6 +295,7 @@ export class CacheGravityScorer {
       cachedTokens: tCached,
       uncachedDeltaTokens: tUncachedDelta,
       expectedOutputTokens: eOutput,
+      readDiscountFactor: readFactor,
       cachedTerm: Number(cachedTerm.toFixed(2)),
       coldPrefillTerm: Number(coldPrefillTerm.toFixed(2)),
       effectiveTokens: Number(effectiveTokens.toFixed(2)),
@@ -234,7 +304,7 @@ export class CacheGravityScorer {
   }
 
   /**
-   * Evaluates candidate routes and enforces the 60k Cache-Gravity Invariant.
+   * Evaluates candidate routes and enforces dynamic Closed-Form Cache-Gravity Invariant.
    */
   evaluateCandidates(context = {}) {
     const activeModel = normalizeModelId(context.activeModel || 'gemini-4-argon');
@@ -245,16 +315,24 @@ export class CacheGravityScorer {
     const complexityTier = String(context.complexityTier || 'LOW').toUpperCase();
     const confidence = Number(context.confidence ?? 0.90);
 
+    const defaultDownshiftPeer = activeModel === 'claude-opus-5-5'
+      ? 'claude-sonnet-5-5'
+      : (activeModel === 'claude-opus-4-6'
+        ? 'claude-sonnet-4-6'
+        : (activeModel === 'claude-opus-4-5'
+          ? 'claude-sonnet-4-5'
+          : (activeModel.startsWith('claude-fable') ? 'claude-opus-5-5' : 'gemini-3.8-flash')));
+
     const breakEven = this.computeBreakEvenDelta({
       currentModel: activeModel,
-      targetModel: 'gemini-3.8-flash',
+      targetModel: context.targetModel || defaultDownshiftPeer,
       targetEffort: 'low',
       cachedTokens,
       ttlRemainingSeconds: ttlSec,
-      expectedOutputTokens: context.expectedOutputTokens ?? 1200
+      expectedOutputTokens: context.expectedOutputTokens ?? DEFAULT_EXPECTED_OUTPUT_TOKENS
     });
 
-    const hasWarmCacheGravity = cachedTokens >= this.warmCacheThresholdTokens && ttlSec > 0;
+    const hasWarmCacheGravity = breakEven.hasWarmCacheGravity;
 
     const baselineCost = this.computeEffectiveCost({
       candidateModel: activeModel,
@@ -335,6 +413,7 @@ export class CacheGravityScorer {
         policyApplied = 'RULE_A_AND_B_WARM_CACHE_WITH_SUBAGENT_OFFLOAD';
       }
     } else {
+      const frontierDefault = activeModel.includes('carbon') ? activeModel : 'gemini-4-argon';
       let targetModel = activeModel;
       let targetEffort = activeEffort;
       if (complexityTier === 'LOW' && confidence >= FLOOR_GUARANTEE_CONFIDENCE_THRESHOLD) {
@@ -343,10 +422,10 @@ export class CacheGravityScorer {
       } else if (complexityTier === 'MEDIUM') {
         targetModel = ttlSec === 0 && cachedTokens >= this.warmCacheThresholdTokens
           ? 'gemini-3.8-flash'
-          : 'gemini-4-argon';
+          : frontierDefault;
         targetEffort = 'medium';
       } else {
-        targetModel = 'gemini-4-argon';
+        targetModel = frontierDefault;
         targetEffort = 'high';
       }
 
@@ -571,9 +650,17 @@ export class TurnBoundaryActuationQueue {
       dispatchResult = await dispatchFn(actuationPayload);
     }
 
+    const isBlocked = Boolean(
+      dispatchResult &&
+      (dispatchResult.ok === false || dispatchResult.allowed === false || dispatchResult.transportUsed === 'blocked_cdp')
+    );
     const record = {
       queued: false,
-      actuated: true,
+      actuated: !isBlocked,
+      method: isBlocked ? 'blocked_cdp' : (dispatchResult?.transportUsed || 'rpc'),
+      ...(isBlocked
+        ? { reason: dispatchResult.cdpBlockedReason || dispatchResult.reason || 'EXPERIMENTAL_CDP_DISABLED' }
+        : {}),
       languageServerState: this.languageServerState,
       payload: actuationPayload,
       dispatchResult
@@ -618,9 +705,17 @@ export class TurnBoundaryActuationQueue {
       if (typeof item.dispatchFn === 'function') {
         dispatchResult = await item.dispatchFn(item.payload);
       }
+      const isBlocked = Boolean(
+        dispatchResult &&
+        (dispatchResult.ok === false || dispatchResult.allowed === false || dispatchResult.transportUsed === 'blocked_cdp')
+      );
       const record = {
         queued: false,
-        actuated: true,
+        actuated: !isBlocked,
+        method: isBlocked ? 'blocked_cdp' : (dispatchResult?.transportUsed || 'rpc'),
+        ...(isBlocked
+          ? { reason: dispatchResult.cdpBlockedReason || dispatchResult.reason || 'EXPERIMENTAL_CDP_DISABLED' }
+          : {}),
         languageServerState: this.languageServerState,
         payload: item.payload,
         dispatchResult
@@ -680,7 +775,7 @@ export class TaskQuotaRouter {
     targetEffort = 'low',
     cachedTokens = 0,
     ttlRemainingSeconds = 0,
-    expectedOutputTokens = 1200,
+    expectedOutputTokens = DEFAULT_EXPECTED_OUTPUT_TOKENS,
     activeTaskMdStepId = 'step-1',
     det01Triggered = false,
     det02Triggered = false,
@@ -693,9 +788,11 @@ export class TaskQuotaRouter {
     // 1. Check DET-01 / DET-02 tier escalation -> engage HysteresisLock
     if (det01Triggered || det02Triggered) {
       const detectorId = det01Triggered ? 'DET-01' : 'DET-02';
+      const normCurr = normalizeModelId(currentModel);
+      const escalatedModel = normCurr.includes('carbon') ? normCurr : 'gemini-4-argon';
       this.hysteresisLock.engage({
         stepId: activeTaskMdStepId,
-        model: 'gemini-4-argon',
+        model: escalatedModel,
         effort: 'high',
         detectorId,
         reason: `${detectorId} loop escalation`
@@ -775,6 +872,8 @@ export class TaskQuotaRouter {
       recommendedEffort: safeEffort,
       tooltip: breakEven.tooltip,
       actuated: queueRes.actuated,
+      method: queueRes.method || (queueRes.queued ? 'queued_turn_boundary' : 'rpc'),
+      ...(queueRes.reason ? { reason: queueRes.reason } : {}),
       queued: queueRes.queued,
       languageServerState: queueRes.languageServerState,
       queueResult: queueRes
@@ -782,10 +881,16 @@ export class TaskQuotaRouter {
   }
 }
 
+export function evaluateCacheGravity(params = {}) {
+  const scorer = new CacheGravityScorer(params);
+  return scorer.computeBreakEvenDelta(params);
+}
+
 export {
   MODEL_CATALOG,
   WARM_CACHE_GRAVITY_THRESHOLD_TOKENS,
   FLOOR_GUARANTEE_CONFIDENCE_THRESHOLD,
+  DEFAULT_EXPECTED_OUTPUT_TOKENS,
   EXPECTED_OUTPUT_TOKENS_BY_EFFORT,
   normalizeModelId,
   getModelFamily,
@@ -794,6 +899,7 @@ export {
   extractActiveTaskStep,
   inferLifecycleMode,
   classifyTaskComplexity,
+  computeClosedFormBreakEven,
   TaskMdDirectiveWatcher,
   ModelSelectorActuator,
   evaluateTaskAndQuotaRoute
@@ -810,6 +916,8 @@ export default {
   TaskMdDirectiveWatcher,
   ModelSelectorActuator,
   evaluateTaskAndQuotaRoute,
+  evaluateCacheGravity,
+  computeClosedFormBreakEven,
   getCostMultiplier,
   getModelBaseWeight,
   classifyTaskComplexity

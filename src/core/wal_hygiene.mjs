@@ -1,7 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getHomeDir, getAntigravitySurfaces } from './paths.mjs';
-import { SQLITE_OPEN_READONLY_OPTIONS } from './parser.mjs';
+import {
+  isHostProtectedSqlitePath,
+  openLocalHorizonDb,
+  openHostReadOnlyDb
+} from './sqlite_client.mjs';
 
 /**
  * Phase 0: Non-Blocking SQLite WAL Hygiene & Connection Manager
@@ -64,8 +68,7 @@ export async function inspectDatabaseWalHealth(dbPath, options = {}) {
   if (exists && options.probeReadOnlyPragma !== false) {
     let db = null;
     try {
-      const DbCtor = options.DatabaseSync || (await import('node:sqlite')).DatabaseSync;
-      db = new DbCtor(resolved, SQLITE_OPEN_READONLY_OPTIONS);
+      db = openHostReadOnlyDb(resolved, { DatabaseSync: options.DatabaseSync });
       const row = db.prepare('PRAGMA journal_mode').get();
       journalMode = row?.journal_mode || null;
     } catch {
@@ -90,10 +93,9 @@ export async function inspectDatabaseWalHealth(dbPath, options = {}) {
 }
 
 /**
- * Executes `PRAGMA wal_checkpoint(PASSIVE)` on a target SQLite database when idle.
- * By default, host Antigravity DBs (`conversations/*.db`, `conversation_summaries.db`)
- * are skipped in write mode unless `allowHostWriteOverride: true` is explicitly passed
- * in a controlled test environment.
+ * Executes `PRAGMA wal_checkpoint(PASSIVE)` on a plugin-owned SQLite database when idle.
+ * Protected host databases (`conversations/*.db`, `conversation_summaries.db`, `state.vscdb`)
+ * are strictly skipped in write mode (`AGENTS.md` Invariant 4 — no override permitted).
  */
 export async function runPassiveWalCheckpoint(dbPath, options = {}) {
   const resolved = path.resolve(String(dbPath || ''));
@@ -106,8 +108,8 @@ export async function runPassiveWalCheckpoint(dbPath, options = {}) {
     };
   }
 
-  const isHostDb = isHostAntigravitySessionDb(resolved);
-  if (isHostDb && options.allowHostWriteOverride !== true) {
+  const isHostDb = isHostAntigravitySessionDb(resolved) || isHostProtectedSqlitePath(resolved);
+  if (isHostDb) {
     const health = await inspectDatabaseWalHealth(resolved, options);
     return {
       success: true,
@@ -121,8 +123,10 @@ export async function runPassiveWalCheckpoint(dbPath, options = {}) {
 
   let db = null;
   try {
-    const DbCtor = options.DatabaseSync || (await import('node:sqlite')).DatabaseSync;
-    db = new DbCtor(resolved);
+    db = openLocalHorizonDb(resolved, {
+      readOnly: false,
+      DatabaseSync: options.DatabaseSync
+    });
     const row = db.prepare('PRAGMA wal_checkpoint(PASSIVE)').get() || {};
     return {
       success: true,
@@ -152,7 +156,6 @@ export class WalHygieneManager {
       ? Math.max(100, options.intervalMs)
       : WAL_HYGIENE_CONSTANTS.IDLE_CHECKPOINT_INTERVAL_MS;
     this.DatabaseSync = options.DatabaseSync || null;
-    this.allowHostWriteOverride = Boolean(options.allowHostWriteOverride);
     this.managedDbPaths = new Set(Array.isArray(options.dbPaths) ? options.dbPaths.map(p => path.resolve(p)) : []);
     this._timer = null;
     this._isBusy = false;
@@ -179,8 +182,7 @@ export class WalHygieneManager {
       for (const dbPath of this.managedDbPaths) {
         if (!fs.existsSync(dbPath)) continue;
         const res = await runPassiveWalCheckpoint(dbPath, {
-          DatabaseSync: this.DatabaseSync,
-          allowHostWriteOverride: this.allowHostWriteOverride
+          DatabaseSync: this.DatabaseSync
         });
         results.push(res);
       }

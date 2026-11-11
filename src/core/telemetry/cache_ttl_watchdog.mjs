@@ -14,9 +14,10 @@ import { SESSION_RISK_THRESHOLDS } from '../constants.mjs';
 export const CACHE_TTL_WATCHDOG_CONSTANTS = Object.freeze({
   TTL_WINDOW_SECONDS: 300,
   WARM_CACHE_MIN_TOKENS: SESSION_RISK_THRESHOLDS.WARM_CACHE_LOCK_TOKENS,
-  WARNING_PULSE_ELAPSED_SEC: 255, // T-45s
-  PRE_SNAPSHOT_ELAPSED_SEC: 290,  // T-10s
-  EXPIRED_ELAPSED_SEC: 300        // T-0s
+  WARNING_PULSE_ELAPSED_SEC: 255,       // T-45s
+  AUTO_PILOT_KEEPALIVE_ELAPSED_SEC: 270, // T-30s
+  PRE_SNAPSHOT_ELAPSED_SEC: 290,        // T-10s
+  EXPIRED_ELAPSED_SEC: 300              // T-0s
 });
 
 export function formatTtlCountdown(ttlRemainingSeconds = 0) {
@@ -33,9 +34,11 @@ export class CacheTtlWatchdog extends EventEmitter {
     this.warmCacheMinTokens = Number(options.warmCacheMinTokens || CACHE_TTL_WATCHDOG_CONSTANTS.WARM_CACHE_MIN_TOKENS);
     this.sessionId = String(options.sessionId || 'default');
     this.cachedTokens = Math.max(0, Number(options.cachedTokens || 0));
+    this.flightMode = String(options.flightMode || 'COACH').toUpperCase();
     this.lastCompletedTurnTimestampMs = Number(options.lastCompletedTurnTimestampMs || Date.now());
     this.emittedFlags = {
       warningPulse: false,
+      autoPilotKeepAlive: false,
       preSnapshot: false,
       expiredColdRisk: false
     };
@@ -44,17 +47,34 @@ export class CacheTtlWatchdog extends EventEmitter {
     if (typeof options.onPreSnapshot === 'function') {
       this.on('TTL_PRE_SNAPSHOT', options.onPreSnapshot);
     }
+    if (typeof options.onKeepAlive === 'function') {
+      this.on('TTL_AUTO_PILOT_KEEPALIVE', options.onKeepAlive);
+    }
+  }
+
+  setFlightMode(mode = 'COACH') {
+    const norm = String(mode || 'COACH').toUpperCase();
+    this.flightMode = (norm === 'AUTOPILOT' ? 'AUTO_PILOT' : norm);
+    return this.flightMode;
+  }
+
+  isPolling() {
+    return Boolean(this._intervalHandle);
   }
 
   /**
    * Resets the 300s countdown clock when a Language Server turn completes.
    */
-  recordTurnCompleted({ sessionId = this.sessionId, cachedTokens = this.cachedTokens, timestampMs = Date.now() } = {}) {
+  recordTurnCompleted({ sessionId = this.sessionId, cachedTokens = this.cachedTokens, timestampMs = Date.now(), flightMode } = {}) {
     this.sessionId = String(sessionId || this.sessionId);
     this.cachedTokens = Math.max(0, Number(cachedTokens || 0));
+    if (flightMode !== undefined) {
+      this.setFlightMode(flightMode);
+    }
     this.lastCompletedTurnTimestampMs = Number(timestampMs || Date.now());
     this.emittedFlags = {
       warningPulse: false,
+      autoPilotKeepAlive: false,
       preSnapshot: false,
       expiredColdRisk: false
     };
@@ -71,6 +91,9 @@ export class CacheTtlWatchdog extends EventEmitter {
     if (overrides.sessionId !== undefined) {
       this.sessionId = String(overrides.sessionId);
     }
+    if (overrides.flightMode !== undefined) {
+      this.setFlightMode(overrides.flightMode);
+    }
 
     const elapsedSeconds = elapsedSecondsInput !== null && elapsedSecondsInput !== undefined
       ? Math.max(0, Number(elapsedSecondsInput))
@@ -85,6 +108,7 @@ export class CacheTtlWatchdog extends EventEmitter {
         this.emittedFlags.warningPulse = true;
         const payload = {
           event: 'TTL_WARNING_PULSE',
+          flightMode: this.flightMode,
           sessionId: this.sessionId,
           cachedTokens: this.cachedTokens,
           elapsedSeconds: Math.round(elapsedSeconds),
@@ -95,10 +119,30 @@ export class CacheTtlWatchdog extends EventEmitter {
         this.emit('TTL_WARNING_PULSE', payload);
       }
 
+      if (
+        this.flightMode === 'AUTO_PILOT' &&
+        elapsedSeconds >= CACHE_TTL_WATCHDOG_CONSTANTS.AUTO_PILOT_KEEPALIVE_ELAPSED_SEC &&
+        !this.emittedFlags.autoPilotKeepAlive
+      ) {
+        this.emittedFlags.autoPilotKeepAlive = true;
+        const payload = {
+          event: 'TTL_AUTO_PILOT_KEEPALIVE',
+          flightMode: this.flightMode,
+          sessionId: this.sessionId,
+          cachedTokens: this.cachedTokens,
+          elapsedSeconds: Math.round(elapsedSeconds),
+          ttlRemainingSeconds: Math.max(0, this.ttlWindowSeconds - Math.round(elapsedSeconds)),
+          formattedCountdown: formatTtlCountdown(this.ttlWindowSeconds - elapsedSeconds)
+        };
+        eventsEmitted.push('TTL_AUTO_PILOT_KEEPALIVE');
+        this.emit('TTL_AUTO_PILOT_KEEPALIVE', payload);
+      }
+
       if (elapsedSeconds >= CACHE_TTL_WATCHDOG_CONSTANTS.PRE_SNAPSHOT_ELAPSED_SEC && !this.emittedFlags.preSnapshot) {
         this.emittedFlags.preSnapshot = true;
         const payload = {
           event: 'TTL_PRE_SNAPSHOT',
+          flightMode: this.flightMode,
           sessionId: this.sessionId,
           cachedTokens: this.cachedTokens,
           elapsedSeconds: Math.round(elapsedSeconds),
@@ -113,6 +157,7 @@ export class CacheTtlWatchdog extends EventEmitter {
         this.emittedFlags.expiredColdRisk = true;
         const payload = {
           event: 'TTL_EXPIRED_COLD_RISK',
+          flightMode: this.flightMode,
           sessionId: this.sessionId,
           cachedTokens: this.cachedTokens,
           elapsedSeconds: Math.round(elapsedSeconds),
@@ -126,20 +171,25 @@ export class CacheTtlWatchdog extends EventEmitter {
 
     return {
       sessionId: this.sessionId,
+      flightMode: this.flightMode,
+      polling: this.isPolling(),
       isArmed,
       cachedTokens: this.cachedTokens,
       elapsedSeconds: Math.round(elapsedSeconds),
       ttlRemainingSeconds: Math.round(ttlRemainingSeconds),
       formattedCountdown: formatTtlCountdown(ttlRemainingSeconds),
+      keepAliveTriggered: this.emittedFlags.autoPilotKeepAlive,
       state: !isArmed
         ? 'BELOW_WARM_THRESHOLD'
         : (elapsedSeconds >= CACHE_TTL_WATCHDOG_CONSTANTS.EXPIRED_ELAPSED_SEC
           ? 'TTL_EXPIRED_COLD_RISK'
           : (elapsedSeconds >= CACHE_TTL_WATCHDOG_CONSTANTS.PRE_SNAPSHOT_ELAPSED_SEC
             ? 'TTL_PRE_SNAPSHOT'
-            : (elapsedSeconds >= CACHE_TTL_WATCHDOG_CONSTANTS.WARNING_PULSE_ELAPSED_SEC
-              ? 'TTL_WARNING_PULSE'
-              : 'WARM_ACTIVE'))),
+            : (this.flightMode === 'AUTO_PILOT' && elapsedSeconds >= CACHE_TTL_WATCHDOG_CONSTANTS.AUTO_PILOT_KEEPALIVE_ELAPSED_SEC
+              ? 'TTL_AUTO_PILOT_KEEPALIVE'
+              : (elapsedSeconds >= CACHE_TTL_WATCHDOG_CONSTANTS.WARNING_PULSE_ELAPSED_SEC
+                ? 'TTL_WARNING_PULSE'
+                : 'WARM_ACTIVE')))),
       eventsEmitted
     };
   }

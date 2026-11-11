@@ -13,6 +13,7 @@ import { measureBaseline } from '../core/baseline.mjs';
 import { getFlightcheckDir } from '../core/sidecar_store.mjs';
 import { buildGitCommitTokenLedger } from '../core/git_ledger.mjs';
 import { upsertEpisodicMemory } from '../core/episodic_memory.mjs';
+import { atomicWriteFileSync } from '../core/atomic_io.mjs';
 
 export const ROOT_CAUSES = {
   CONTEXT_ROT_DECAY: 'CONTEXT_ROT_DECAY',
@@ -42,7 +43,7 @@ export async function runPostmortem(options = {}) {
     demo = false
   } = options;
 
-  const home = getHomeDir();
+  const home = options.homeDir || getHomeDir();
   const surfaces = getAntigravitySurfaces(home, { includeMissing: false });
   const stores = surfaces.length > 0
     ? surfaces.map(s => ({ name: s.name, path: s.brainDir }))
@@ -262,7 +263,7 @@ export async function runPostmortem(options = {}) {
   const gitLedger = buildGitCommitTokenLedger(workspace || process.cwd(), latestSessionSteps);
 
   const sessionCount = diagnostics.length;
-  const isSynthetic = demo || sessionCount === 0;
+  const isSynthetic = Boolean(demo);
 
   // Baseline Turn-0 MCP & Rule overhead check
   let baseline = null;
@@ -270,12 +271,24 @@ export async function runPostmortem(options = {}) {
     baseline = measureBaseline(workspace || process.cwd(), home);
   } catch {}
 
-  const worstPurityPct = isSynthetic ? 34.8 : Math.min(...diagnostics.map(d => d.signal_purity_pct));
-  const avgPurityPct = isSynthetic ? 62.4 : Math.round(diagnostics.reduce((s, d) => s + d.signal_purity_pct, 0) / sessionCount);
-  const strongProofRatePct = isSynthetic ? 55 : Math.round((strongProofCount / sessionCount) * 100);
-  const avgPlanRevisions = isSynthetic ? 1.2 : Number((totalPlanRevisions / sessionCount).toFixed(1));
-  const estTokensM = isSynthetic ? '1.84M' : `${(totalTokensInspected / 1000000).toFixed(2)}M`;
-  const totalSludgeFormatted = isSynthetic ? '$1.92' : `$${totalSludgeUsd.toFixed(2)}`;
+  const worstPurityPct = isSynthetic
+    ? 34.8
+    : (sessionCount > 0 ? Math.min(...diagnostics.map(d => d.signal_purity_pct)) : 0);
+  const avgPurityPct = isSynthetic
+    ? 62.4
+    : (sessionCount > 0 ? Math.round(diagnostics.reduce((s, d) => s + d.signal_purity_pct, 0) / sessionCount) : 0);
+  const strongProofRatePct = isSynthetic
+    ? 55
+    : (sessionCount > 0 ? Math.round((strongProofCount / sessionCount) * 100) : 0);
+  const avgPlanRevisions = isSynthetic
+    ? 1.2
+    : (sessionCount > 0 ? Number((totalPlanRevisions / sessionCount).toFixed(1)) : 0);
+  const estTokensM = isSynthetic
+    ? '1.84M'
+    : `${(totalTokensInspected / 1000000).toFixed(2)}M`;
+  const totalSludgeFormatted = isSynthetic
+    ? '$1.92'
+    : `$${totalSludgeUsd.toFixed(2)}`;
 
   const recommendations = [];
   const allHotspots = Array.from(hotspotMap.values()).sort((a, b) => b.wastedTokens - a.wastedTokens);
@@ -358,7 +371,7 @@ export async function runPostmortem(options = {}) {
   const outDir = path.join(getFlightcheckDir(), 'postmortems', timestampStr);
 
   const reportMarkdown = [
-    '# Context Horizon Session Postmortem Report',
+    '# Attention Horizon Session Postmortem Report',
     '',
     `**Generated**: ${new Date().toISOString()}  `,
     `**Sessions Audited**: ${isSynthetic ? '14 (Demo)' : sessionCount}  `,
@@ -403,11 +416,10 @@ export async function runPostmortem(options = {}) {
 
   if (writeFiles && !isSynthetic) {
     try {
-      fs.mkdirSync(outDir, { recursive: true });
-      fs.writeFileSync(path.join(outDir, 'session_analysis_report.md'), reportMarkdown, 'utf8');
+      atomicWriteFileSync(path.join(outDir, 'session_analysis_report.md'), reportMarkdown);
 
       const jsonlContent = diagnostics.map(d => JSON.stringify(d)).join('\n');
-      fs.writeFileSync(path.join(outDir, 'conversation_diagnostics.jsonl'), jsonlContent, 'utf8');
+      atomicWriteFileSync(path.join(outDir, 'conversation_diagnostics.jsonl'), jsonlContent);
     } catch {}
   }
 
@@ -449,7 +461,7 @@ export async function runPostmortem(options = {}) {
 }
 
 export function printPostmortemSummary(res) {
-  console.log(`\n\x1b[1mContext Horizon Forensic Postmortem (${res.sessionCount} sessions${res.isSynthetic ? ' [Demo]' : ''})\x1b[0m`);
+  console.log(`\n\x1b[1mAttention Horizon Forensic Postmortem (${res.sessionCount} sessions${res.isSynthetic ? ' [Demo]' : ''})\x1b[0m`);
   console.log('='.repeat(76));
   console.log(`  Tokens Inspected : ${res.estTokensM}   | Avg Purity : ${res.avgPurityPct}% (Worst: ${res.worstPurityPct}%)`);
   console.log(`  Duplicate Reads  : ${res.totalDuplicateReads} reads  | Dead Errors: ${res.totalDeadErrors} traces | Est. Waste: ${res.sludgeUsdFormatted}`);
@@ -479,7 +491,16 @@ export function printPostmortemSummary(res) {
   }
 }
 
-const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+export function isPostmortemMain(argv1 = process.argv[1], metaUrl = import.meta.url) {
+  if (!argv1) return false;
+  try {
+    return fs.realpathSync(argv1) === fs.realpathSync(fileURLToPath(metaUrl));
+  } catch {
+    return path.resolve(argv1) === path.resolve(fileURLToPath(metaUrl));
+  }
+}
+
+const isMain = isPostmortemMain();
 if (isMain) {
   const args = process.argv.slice(2);
   const lastIdx = args.indexOf('--last');

@@ -1,29 +1,34 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { atomicWriteFileSync } from '../src/core/atomic_io.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const BUNDLES_DIR = path.join(ROOT, 'evaluation_bundles');
 
-const TIER_1_FILES = [
+export const TIER_1_FILES = [
   'AGENTS.md',
   'README.md',
   'docs/CONTEXT_MEMORY_EVALUATION_GUIDE.md',
   'docs/FLIGHT_COMPUTER_ACTIVE_COACH.md',
-  'docs/HANDOFF.md',
   'docs/RING1_SECURITY_AND_CONCURRENCY.md',
   'evaluation_bundles/README.md',
   'src/core/classifier.mjs',
   'tests/verify_phase_6_roadmap.mjs'
 ];
 
-const TIER_2_FILES = [
+export const TIER_2_FILES = [
   ...TIER_1_FILES,
   'scripts/sync_mirrors.mjs',
   'sidecars/horizon-daemon/server.mjs',
+  'src/adapters/antigravity/index.mjs',
+  'src/adapters/claude-code/index.mjs',
+  'src/demo/synthetic_states.mjs',
+  'src/webview/registry.mjs',
   'src/core/baseline.mjs',
   'src/core/constants.mjs',
+  'src/core/hook_diagnostics.mjs',
   'src/core/history.mjs',
   'src/core/host_watchdog.mjs',
   'src/core/offenders.mjs',
@@ -74,15 +79,40 @@ function wrapNotebookLM(relPath, content) {
   return `# Source File: ${normRel}\n\n\`\`\`${lang}\n${content.trimEnd()}\n\`\`\`\n`;
 }
 
+function listAllFilesRecursive(dir, out = []) {
+  if (!fs.existsSync(dir)) return out;
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, ent.name);
+    if (ent.isDirectory()) {
+      listAllFilesRecursive(full, out);
+    } else {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
+function pruneEmptyDirs(dir, stopRoot) {
+  if (!fs.existsSync(dir) || path.resolve(dir) === path.resolve(stopRoot)) return;
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (ent.isDirectory()) {
+      pruneEmptyDirs(path.join(dir, ent.name), stopRoot);
+    }
+  }
+  if (fs.readdirSync(dir).length === 0) {
+    fs.rmdirSync(dir);
+  }
+}
+
 function syncBundle(bundleName, files, isNotebookLM = false) {
   const targetDir = path.join(BUNDLES_DIR, bundleName);
   fs.mkdirSync(targetDir, { recursive: true });
+  const expectedDestPaths = new Set();
 
   for (const relPath of files) {
     const srcPath = path.join(ROOT, relPath);
     if (!fs.existsSync(srcPath)) {
-      console.warn(`[WARN] Source file missing: ${srcPath}`);
-      continue;
+      throw new Error(`[build_evaluation_bundles] Missing canonical source file: ${srcPath}`);
     }
 
     const content = fs.readFileSync(srcPath, 'utf8');
@@ -90,25 +120,42 @@ function syncBundle(bundleName, files, isNotebookLM = false) {
     if (isNotebookLM) {
       const flatName = relPath.replace(/[/\\]/g, '__') + (relPath.endsWith('.md') ? '' : '.md');
       const destPath = path.join(targetDir, flatName);
-      fs.writeFileSync(destPath, wrapNotebookLM(relPath, content), 'utf8');
+      expectedDestPaths.add(path.resolve(destPath));
+      atomicWriteFileSync(destPath, wrapNotebookLM(relPath, content), { encoding: 'utf8' });
     } else {
       const destPath = path.join(targetDir, relPath);
-      fs.mkdirSync(path.dirname(destPath), { recursive: true });
-      fs.writeFileSync(destPath, content, 'utf8');
+      expectedDestPaths.add(path.resolve(destPath));
+      atomicWriteFileSync(destPath, content, { encoding: 'utf8' });
     }
   }
+
+  // Prune any orphan/stale files in the bundle directory (e.g., deleted docs/HANDOFF.md or old prompts)
+  for (const existingFile of listAllFilesRecursive(targetDir)) {
+    if (!expectedDestPaths.has(path.resolve(existingFile))) {
+      fs.rmSync(existingFile, { force: true });
+    }
+  }
+  pruneEmptyDirs(targetDir, targetDir);
 }
 
-export function buildEvaluationBundles() {
-  console.log('Building evaluation bundles...');
+export function buildEvaluationBundles({ silent = false } = {}) {
+  if (!silent) console.log('Building evaluation bundles...');
   syncBundle('tier_1_essential', TIER_1_FILES, false);
   syncBundle('tier_2_full', TIER_2_FILES, false);
   syncBundle('notebooklm_tier_1_essential', TIER_1_FILES, true);
   syncBundle('notebooklm_tier_2_full', TIER_2_FILES, true);
-  console.log('✓ All 4 evaluation bundles synchronized successfully.');
+  if (!silent) console.log('✓ All 4 evaluation bundles synchronized successfully.');
 }
 
-const isMain = process.argv[1] && process.argv[1].endsWith('build_evaluation_bundles.mjs');
-if (isMain) {
+function isBundlesMain(argv1 = process.argv[1], metaUrl = import.meta.url) {
+  if (!argv1) return false;
+  try {
+    return fs.realpathSync(argv1) === fs.realpathSync(fileURLToPath(metaUrl));
+  } catch {
+    return path.resolve(argv1) === path.resolve(fileURLToPath(metaUrl));
+  }
+}
+
+if (isBundlesMain()) {
   buildEvaluationBundles();
 }

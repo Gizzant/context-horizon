@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { StringDecoder } from 'node:string_decoder';
 import { canonicalizePath } from './path_canonicalizer.mjs';
 
 function getHomeDir() {
@@ -192,13 +193,25 @@ export function resolveAndReadTranscriptIncremental(conversationId, cursorState 
     return state;
   }
 
+  const CHUNK_BYTES = 64 * 1024;
   const fd = fs.openSync(currentPath, 'r');
   try {
-    const buffer = Buffer.alloc(bytesToRead);
-    fs.readSync(fd, buffer, 0, bytesToRead, state.byteOffset);
-    state.byteOffset = stat.size;
+    const chunkBuf = Buffer.alloc(Math.min(CHUNK_BYTES, Math.max(1, bytesToRead)));
+    const decoder = new StringDecoder('utf8');
+    let rawChunk = '';
+    let readPos = state.byteOffset;
+    let remaining = bytesToRead;
+    while (remaining > 0) {
+      const toRead = Math.min(chunkBuf.length, remaining);
+      const bytesRead = fs.readSync(fd, chunkBuf, 0, toRead, readPos);
+      if (bytesRead <= 0) break;
+      rawChunk += decoder.write(chunkBuf.subarray(0, bytesRead));
+      readPos += bytesRead;
+      remaining -= bytesRead;
+    }
+    rawChunk += decoder.end();
+    state.byteOffset = readPos;
 
-    const rawChunk = buffer.toString('utf8');
     const lines = rawChunk.split(/\r?\n/).filter(l => l.trim().length > 0);
 
     for (let i = 0; i < lines.length; i++) {

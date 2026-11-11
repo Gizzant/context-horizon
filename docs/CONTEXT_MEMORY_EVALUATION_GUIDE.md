@@ -1,6 +1,6 @@
-# Context Memory (Chrono-Attention Horizon): 360Â° Technical & Architectural Evaluation Guide
+# Attention Horizon: 360° Technical & Architectural Evaluation Guide
 
-> **Component:** `context-horizon` (`ctxtop` / `agy-horizon-flightcheck`)  
+> **Component:** `attention-horizon-antigravity` (`ctxtop` / `agy-horizon-flightcheck`)  
 > **Target Platform:** Google Antigravity IDE, CLI, and Standalone Browser Telemetry  
 > **Status:** Production v3.1.0 (Zero-Dependency Node.js 20+ ESM)  
 > **Specification Version:** 1.1.0 (Dynamic Effort-Tier & Transition-Aware)  
@@ -327,12 +327,12 @@ The component is verified via an automated test harness executed against product
 
 ### 3-Way Mirror Parity Verification
 Core modules and panel HTML are maintained in byte-for-byte synchronization across the canonical plugin directory, the workspace repository, and the Flightcheck plugin mirror via `node scripts/sync_mirrors.mjs`:
-1. **UI Panel HTML (3 Copies â€” 100% Identical):**
-   * Canonical Plugin UI: `C:\Users\frank\.gemini\config\plugins\agy-horizon\src\ui\sidepane.html`
-   * Workspace Mirror UI: `C:\Projects\ga-visualizer-v2\src\webview\horizon_panel.html`
-   * Flightcheck Mirror UI: `C:\Users\frank\.gemini\config\plugins\agy-horizon-flightcheck\src\webview\horizon_panel.html`
+1. **UI Panel HTML (3 Copies — 100% Identical):**
+   * Canonical Plugin UI: `~/.gemini/config/plugins/agy-horizon/src/ui/sidepane.html`
+   * Workspace Canonical UI: [`src/webview/horizon_panel.html`](../src/webview/horizon_panel.html)
+   * Flightcheck Mirror UI: `~/.gemini/config/plugins/agy-horizon-flightcheck/src/webview/horizon_panel.html`
    * *Verified SHA-256 Hash:* `520531f158cfe068bc5dc07bd06f5e9f8f82f73bbd0042229d575c5233951ac4`
-2. **Core Engine (`src/core/` across `agy-horizon`, `ga-visualizer-v2`, and `agy-horizon-flightcheck` â€” 100% Identical):**
+2. **Core Engine (`src/core/` across `agy-horizon`, `attention-horizon-antigravity`, and `agy-horizon-flightcheck` — 100% Identical):**
    * `constants.mjs`, `parser.mjs`, `classifier.mjs`, `layer5_hygiene.mjs`, `quota.mjs`, `pruner.mjs`, `host_watchdog.mjs`, `subagents.mjs`, `baseline.mjs`, `history.mjs`, `offenders.mjs`, `settings.mjs`, `paths.mjs`, `prompt_rubric.mjs`, `session_forensics.mjs`, `handoff_audit.mjs`, `blindspot_sensors.mjs`, `horizon_classifier.mjs`, `log_resolver.mjs`, `path_canonicalizer.mjs`, `sidecar_store.mjs`.
 
 ---

@@ -1,26 +1,41 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DEMO_SCENARIOS, buildDemoHorizonState } from '../tests/fixtures/synthetic_states.mjs';
+import { DEMO_SCENARIOS, buildDemoHorizonState } from '../src/demo/synthetic_states.mjs';
+import { atomicWriteFileSync } from '../src/core/atomic_io.mjs';
+
+export function serializeScriptJson(value) {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 const webviewPath = path.join(rootDir, 'src', 'webview', 'horizon_panel.html');
 const docsDir = path.join(rootDir, 'docs');
 
-if (!fs.existsSync(docsDir)) {
-  fs.mkdirSync(docsDir, { recursive: true });
-}
+export function buildDemoPage(options = {}) {
+  const customStates = options.precomputedStates || null;
+  const customMeta = options.demoScenarios || DEMO_SCENARIOS;
+  const outPath = options.outPath || path.join(docsDir, 'index.html');
 
-const rawHtml = fs.readFileSync(webviewPath, 'utf8');
+  if (!fs.existsSync(path.dirname(outPath))) {
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  }
 
-const precomputedStates = {};
-for (const s of DEMO_SCENARIOS) {
-  precomputedStates[s.id] = buildDemoHorizonState(s.id);
-}
+  const rawHtml = fs.readFileSync(webviewPath, 'utf8');
 
-const demoInjector = `
-<!-- Context Horizon Interactive GitHub Pages Demo Harness -->
+  const precomputedStates = customStates || {};
+  if (!customStates) {
+    for (const s of customMeta) {
+      precomputedStates[s.id] = buildDemoHorizonState(s.id);
+    }
+  }
+
+  const demoInjector = `
+<!-- Attention Horizon Interactive GitHub Pages Demo Harness -->
 <style>
   #chDemoBar {
     position: sticky;
@@ -74,8 +89,8 @@ const demoInjector = `
 </style>
 <script>
   (function() {
-    const SCENARIOS = ${JSON.stringify(precomputedStates)};
-    const META = ${JSON.stringify(DEMO_SCENARIOS)};
+    const SCENARIOS = ${serializeScriptJson(precomputedStates)};
+    const META = ${serializeScriptJson(customMeta)};
     const urlParams = (typeof window !== 'undefined' && window.location) ? new URLSearchParams(window.location.search) : new URLSearchParams();
     let activeScenarioId = urlParams.has('scenario') ? Number(urlParams.get('scenario')) : 5;
 
@@ -95,7 +110,7 @@ const demoInjector = `
           status: 200,
           json: async () => ({
             settings: { safeLimitTokens: 140000, reminderAtPct: 85, modelOverrides: {} },
-            limits: { minSafeTokens: 50000, maxSafeTokens: 900000 }
+            limits: { minSafeTokens: 20000, maxSafeTokens: 1048576 }
           })
         };
       }
@@ -200,13 +215,13 @@ const demoInjector = `
       const bar = document.createElement('div');
       bar.id = 'chDemoBar';
       bar.innerHTML = \`
-        <div class="ch-brand">⚡ Context Horizon (ctxtop v3.1) — Live Interactive Demo</div>
+        <div class="ch-brand">⚡ Attention Horizon (ah-antigravity v3.3) — Live Interactive Demo</div>
         <div style="display:flex;align-items:center;gap:8px;">
           <label for="chScenarioSelect" style="font-size:11.5px;color:#94a3b8;">Inspect Crisis Scenario:</label>
           <select id="chScenarioSelect">
             \${META.map(m => \`<option value="\${m.id}" \${m.id === 5 ? 'selected' : ''}>\${m.title}</option>\`).join('')}
           </select>
-          <a class="ch-cta" href="https://github.com/Gizzant/context-horizon" target="_blank" rel="noopener">★ Star on GitHub</a>
+          <a class="ch-cta" href="https://github.com/Gizzant/attention-horizon-antigravity" target="_blank" rel="noopener">★ Star on GitHub</a>
         </div>
         <div id="chComplaintText" class="ch-complaint"></div>
       \`;
@@ -238,6 +253,22 @@ const demoInjector = `
 `;
 
 const bundledHtml = rawHtml.replace('<head>', () => `<head>\n${demoInjector}`);
-const outPath = path.join(docsDir, 'index.html');
-fs.writeFileSync(outPath, bundledHtml, 'utf8');
-console.log(`[Demo Page] Built standalone interactive GitHub Pages demo at ${outPath} (${Buffer.byteLength(bundledHtml)} bytes)`);
+  atomicWriteFileSync(outPath, bundledHtml);
+  if (!options.silent) {
+    console.log(`[Demo Page] Built standalone interactive GitHub Pages demo at ${outPath} (${Buffer.byteLength(bundledHtml)} bytes)`);
+  }
+  return { outPath, bytes: Buffer.byteLength(bundledHtml), html: bundledHtml };
+}
+
+function isDemoBuilderMain(argv1 = process.argv[1], metaUrl = import.meta.url) {
+  if (!argv1) return false;
+  try {
+    return fs.realpathSync(argv1) === fs.realpathSync(fileURLToPath(metaUrl));
+  } catch {
+    return path.resolve(argv1) === path.resolve(fileURLToPath(metaUrl));
+  }
+}
+
+if (isDemoBuilderMain()) {
+  buildDemoPage();
+}

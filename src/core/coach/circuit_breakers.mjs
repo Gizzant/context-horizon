@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
 import { canonicalizePath } from '../paths.mjs';
-import { isTestFilePath } from '../detectors_det01_to_16.mjs';
+import { isTestFilePath, evaluateDet18UntrustedWorkspaceSettings } from '../detectors_det01_to_16.mjs';
 
 /**
  * Phase 3.1: Deterministic Circuit Breakers (`src/core/coach/circuit_breakers.mjs`)
@@ -153,13 +153,15 @@ export function inspectErrorMaskingDiff(diffText = '', filePath = '', { newConte
   const suppressionRegex = /(@ts-ignore|@ts-expect-error|eslint-disable(?:-next-line|-line)?|#\s*type:\s*ignore|#\s*noqa\b)/;
   const singleLineEmptyCatchRegex = /\bcatch\s*(?:\([^)]*\))?\s*\{\s*(?:\/\/[^\n}]*)?\}/;
 
+  const removedCatchEvidence = [];
+
   for (const rawLine of lines) {
     if (rawLine.startsWith('---') || rawLine.startsWith('+++')) continue;
     if (rawLine.startsWith('-')) {
       const body = rawLine.slice(1);
       if (catchBlockRegex.test(body)) {
         removedTryCatchCount++;
-        evidence.push(`Removed error handler: ${body.trim()}`);
+        removedCatchEvidence.push(`Removed error handler: ${body.trim()}`);
       }
     } else if (rawLine.startsWith('+')) {
       const body = rawLine.slice(1);
@@ -177,6 +179,11 @@ export function inspectErrorMaskingDiff(diffText = '', filePath = '', { newConte
     }
   }
 
+  const netRemovedCatchCount = Math.max(0, removedTryCatchCount - addedTryCatchCount);
+  if (netRemovedCatchCount > 0) {
+    evidence.unshift(...removedCatchEvidence.slice(0, netRemovedCatchCount));
+  }
+
   // Also check multi-line empty catch in newContent if provided
   if (newContent) {
     const multiEmptyMatches =
@@ -188,7 +195,6 @@ export function inspectErrorMaskingDiff(diffText = '', filePath = '', { newConte
     }
   }
 
-  const netRemovedCatchCount = Math.max(0, removedTryCatchCount - addedTryCatchCount);
   const masked =
     netRemovedCatchCount > 0 || emptyCatchAddedCount > 0 || suppressionsAddedCount > 0;
 
@@ -207,6 +213,7 @@ export class CircuitBreakers {
     this.hysteresisLock = options.hysteresisLock || null;
     this.workspacePath = options.workspacePath || process.cwd();
     this.enableBlindEditGuard = Boolean(options.enableBlindEditGuard);
+    this.activeModel = options.activeModel || options.model || null;
     // turnRecords: Array<{ turnIndex, toolSig, failed, exitCode, filePath, fileHash }>
     this.turnRecords = [];
     // fileHashHistory: normalizedPath -> Array<{ turnIndex, hash }>
@@ -308,12 +315,23 @@ export class CircuitBreakers {
       }
     }
 
+    const rawActiveModel = String(
+      turnInput.activeModel ||
+      turnInput.currentModel ||
+      turnInput.model ||
+      this.activeModel ||
+      ''
+    ).toLowerCase().trim();
+    const escalatedFrontierModel = rawActiveModel.includes('carbon')
+      ? (rawActiveModel.includes('cyber-permissive') ? 'gemini-4-carbon-cyber-permissive' : 'gemini-4-carbon')
+      : 'gemini-4-argon';
+
     if (failed && (recentFailuresForSig.length >= 2 || consecutiveNonZero.length >= 2)) {
       const retryCount = Math.max(recentFailuresForSig.length, consecutiveNonZero.length);
       if (this.hysteresisLock && typeof this.hysteresisLock.engage === 'function') {
         this.hysteresisLock.engage({
           stepId,
-          model: 'gemini-4-argon',
+          model: escalatedFrontierModel,
           effort: 'high',
           detectorId: 'DET-01',
           reason: `DET-01 Retry Churn (${retryCount} failing attempts)`,
@@ -327,7 +345,7 @@ export class CircuitBreakers {
         severity: 'CRITICAL',
         turnIndex,
         retryCount,
-        escalatedTier: { model: 'gemini-4-argon', effort: 'high' },
+        escalatedTier: { model: escalatedFrontierModel, effort: 'high' },
         message: `🚨 DET-01 Retry Churn: ${retryCount} consecutive failures detected. Sticky tier escalation engaged.`
       };
       triggered.push(alert);
@@ -335,7 +353,7 @@ export class CircuitBreakers {
     }
 
     // 2. Evaluate DET-02 (AST Edit Oscillation: SHA-256 matches T-2 or T-3 within 5 turns)
-    if (normPath && fileHash) {
+    if (normPath && fileHash && !failed) {
       if (!this.fileHashHistory.has(normPath)) {
         this.fileHashHistory.set(normPath, []);
       }
@@ -354,7 +372,7 @@ export class CircuitBreakers {
         if (this.hysteresisLock && typeof this.hysteresisLock.engage === 'function') {
           this.hysteresisLock.engage({
             stepId,
-            model: 'gemini-4-argon',
+            model: escalatedFrontierModel,
             effort: 'high',
             detectorId: 'DET-02',
             reason: `DET-02 AST Edit Oscillation on ${rawPath} (reverted to turn #${priorMatch.turnIndex} state)`,
@@ -419,7 +437,7 @@ export class CircuitBreakers {
       }
     }
 
-    // 4. Evaluate DET-04 (Destructive Code-Stripping / >50% File Shrinkage)
+    // 4. Evaluate DET-22 (Destructive Code-Stripping / >50% File Shrinkage)
     if (rawPath && resolvedPreviousContent !== undefined && resolvedNewContent !== undefined) {
       const shrinkAudit = inspectFileShrinkage({
         previousContent: resolvedPreviousContent,
@@ -429,7 +447,7 @@ export class CircuitBreakers {
       });
       if (shrinkAudit.stripped) {
         const alert = {
-          detectorId: 'DET-04',
+          detectorId: 'DET-22',
           name: 'Destructive Code-Stripping (>50% File Shrinkage)',
           severity: 'CRITICAL',
           turnIndex,
@@ -446,21 +464,21 @@ export class CircuitBreakers {
             prompt: `Restore the stripped code in ${rawPath} (${shrinkAudit.previousLines} -> ${shrinkAudit.newLines} lines) without discarding valid edits (inspect diff via: git diff -- "${rawPath}").`,
             filePath: rawPath
           },
-          message: `🚨 DET-04 Destructive Code-Stripping: ${rawPath} shrank by ${shrinkAudit.shrinkagePct}% (${shrinkAudit.previousLines} -> ${shrinkAudit.newLines} lines) without user authorization.`
+          message: `🚨 DET-22 Destructive Code-Stripping: ${rawPath} shrank by ${shrinkAudit.shrinkagePct}% (${shrinkAudit.previousLines} -> ${shrinkAudit.newLines} lines) without user authorization.`
         };
         triggered.push(alert);
         this.activeAlerts.push(alert);
       }
     }
 
-    // 5. Evaluate DET-05 (Error-Masking & Silent try/catch Stripping)
+    // 5. Evaluate DET-23 (Error-Masking & Silent try/catch Stripping)
     if (rawPath && resolvedDiffText && !isTestFilePath(rawPath)) {
       const maskAudit = inspectErrorMaskingDiff(resolvedDiffText, rawPath, {
         newContent: resolvedNewContent || ''
       });
       if (maskAudit.masked) {
         const alert = {
-          detectorId: 'DET-05',
+          detectorId: 'DET-23',
           name: 'Error-Masking & Try/Catch Stripping',
           severity: 'HIGH',
           turnIndex,
@@ -478,17 +496,39 @@ export class CircuitBreakers {
             prompt: `Restore proper try/catch error handling in ${rawPath} without silent suppression (inspect diff via: git diff -- "${rawPath}").`,
             filePath: rawPath
           },
-          message: `🚨 DET-05 Error-Masking Detected in ${rawPath}: ${maskAudit.evidence[0] || 'Error handler stripped or suppressed'}.`
+          message: `🚨 DET-23 Error-Masking Detected in ${rawPath}: ${maskAudit.evidence[0] || 'Error handler stripped or suppressed'}.`
         };
         triggered.push(alert);
         this.activeAlerts.push(alert);
       }
     }
 
-    // 6. Track read/search indexing and evaluate DET-17b (Blind-Edit / Unindexed File Creation Guard)
+    // 6. Track read/search indexing and evaluate DET-18 (Untrusted Settings) + DET-21 (Blind-Edit / Unindexed File Creation Guard)
     const isReadTool = /^(read_file|view_file|view_file_outline|view_code_item)$/.test(toolName);
     const isSearchTool = /^(grep_search|find_by_name|codebase_search|list_dir)$/.test(toolName);
     const isWriteOrEditTool = /^(edit_file|replace_file_content|multi_replace_file_content|write_file|write_to_file)$/.test(toolName);
+
+    if (isWriteOrEditTool && rawPath) {
+      const det18Check = evaluateDet18UntrustedWorkspaceSettings({
+        targetPath: rawPath,
+        newContent: resolvedNewContent || '',
+        toolName,
+        userAuthorizedSettingsEdit: Boolean(turnInput.userAuthorizedSettingsEdit)
+      });
+      if (det18Check.blocked) {
+        const alert = {
+          detectorId: 'DET-18',
+          name: 'Untrusted Workspace Settings & Hook Injection Guard',
+          severity: 'CRITICAL',
+          turnIndex,
+          filePath: rawPath,
+          hazards: det18Check.hazards,
+          message: det18Check.message
+        };
+        triggered.push(alert);
+        this.activeAlerts.push(alert);
+      }
+    }
 
     if (isReadTool && normPath) {
       this.readFiles.add(normPath);
@@ -502,25 +542,25 @@ export class CircuitBreakers {
       const wasRead = this.readFiles.has(normPath);
       if (!isCreateNew && !wasRead) {
         const alert = {
-          detectorId: 'DET-17b',
+          detectorId: 'DET-21',
           name: 'Blind-Edit Without Prior File Read',
           severity: 'WARN',
           turnIndex,
           filePath: rawPath,
           mode: 'blind_edit',
-          message: `⚠️ DET-17b Blind-Edit Guard: ${rawPath} was modified without prior read_file inspection in this session.`
+          message: `⚠️ DET-21 Blind-Edit Guard: ${rawPath} was modified without prior read_file inspection in this session.`
         };
         triggered.push(alert);
         this.activeAlerts.push(alert);
       } else if (isCreateNew && !this.hasSearchedWorkspace && this.readFiles.size === 0) {
         const alert = {
-          detectorId: 'DET-17b',
+          detectorId: 'DET-21',
           name: 'Unindexed New File Creation',
           severity: 'WARN',
           turnIndex,
           filePath: rawPath,
           mode: 'unindexed_create',
-          message: `⚠️ DET-17b Unindexed File Creation: ${rawPath} was created without prior codebase search or file indexing.`
+          message: `⚠️ DET-21 Unindexed File Creation: ${rawPath} was created without prior codebase search or file indexing.`
         };
         triggered.push(alert);
         this.activeAlerts.push(alert);

@@ -4,9 +4,11 @@ import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
 import { getHomeDir, canonicalizePath, getAntigravitySurfaces } from './paths.mjs';
-import { SESSION_RISK_THRESHOLDS } from './constants.mjs';
+import { SESSION_RISK_THRESHOLDS, resolveModelCeiling } from './constants.mjs';
 import { SQLITE_OPEN_READONLY_OPTIONS } from './parser.mjs';
 import { PrefixCacheShield } from './prefix_cache_shield.mjs';
+import { atomicWriteFileSync } from './atomic_io.mjs';
+import { formatUtcHandoffTimestamp } from './coach/handoff_hydrator.mjs';
 
 /**
  * Phase 2: Cache-Aware Compaction, Tail Surgeon & Baton-Pass (/handoff) Coach (`compaction_coach.mjs`)
@@ -89,13 +91,35 @@ export function assessCompactionState(sessionTelemetry = {}) {
     Math.max(0, 100 - reclaimableWastePct)
   );
 
-  const clampDistance = Math.max(0, WATERMARKS.BINARY_CLAMP - totalTokens);
+  const explicitCeiling = Number(
+    sessionTelemetry.maxTokens ??
+    sessionTelemetry.ceilingTokens ??
+    sessionTelemetry.binaryClamp ??
+    0
+  );
+  const dynamicModelId = sessionTelemetry.modelId || sessionTelemetry.model || null;
+  const resolvedBinaryClamp = explicitCeiling > 0
+    ? explicitCeiling
+    : (dynamicModelId
+      ? resolveModelCeiling(dynamicModelId, sessionTelemetry.contextWindow || null, { useLegacyDefault: false })
+      : WATERMARKS.BINARY_CLAMP);
+  const resolvedSafeLimit = Number(sessionTelemetry.safeLimitTokens) > 0
+    ? Number(sessionTelemetry.safeLimitTokens)
+    : (resolvedBinaryClamp === WATERMARKS.BINARY_CLAMP
+      ? WATERMARKS.AUTO_COMPACT_SAFE
+      : Math.round(resolvedBinaryClamp * 0.70));
+  const resolvedWarmLockMax = resolvedBinaryClamp > WATERMARKS.BINARY_CLAMP
+    ? Math.round(resolvedBinaryClamp * 0.625)
+    : WATERMARKS.WARM_CACHE_LOCK_MAX_TOKENS;
+
+  const clampDistance = Math.max(0, resolvedBinaryClamp - totalTokens);
+  const clampLabelK = `${Math.round(resolvedBinaryClamp / 1000)}k`;
 
   const watermarks = {
     current: totalTokens,
     cascadeSync: WATERMARKS.CASCADE_SYNC,
-    safeLimit: WATERMARKS.AUTO_COMPACT_SAFE,
-    binaryClamp: WATERMARKS.BINARY_CLAMP,
+    safeLimit: resolvedSafeLimit,
+    binaryClamp: resolvedBinaryClamp,
     clampDistance,
     cachedTokens,
     cacheHitRate,
@@ -107,13 +131,13 @@ export function assessCompactionState(sessionTelemetry = {}) {
   };
 
   // Rule 1: Warm Cache Lock
-  // While Cached Tokens >= 50,000, Cache Hit Rate >= 90%, TTL > 60s, and Total Tokens < 160,000,
+  // While Cached Tokens >= 50,000, Cache Hit Rate >= 90%, TTL > 60s, and Total Tokens < warm lock max,
   // suppress /compact and preserve 95% discount.
   if (
     cachedTokens >= WATERMARKS.WARM_CACHE_LOCK_MIN_TOKENS &&
     cacheHitRate >= 0.90 &&
     cacheTtlSeconds > 60 &&
-    totalTokens < WATERMARKS.WARM_CACHE_LOCK_MAX_TOKENS
+    totalTokens < resolvedWarmLockMax
   ) {
     return {
       action: 'DEFER_COMPACTION',
@@ -133,16 +157,16 @@ export function assessCompactionState(sessionTelemetry = {}) {
     };
   }
 
-  // Critical Near-Clamp Alarm (>= 179,000 auto-compact safe limit)
-  if (totalTokens >= WATERMARKS.AUTO_COMPACT_SAFE) {
+  // Critical Near-Clamp Alarm (>= auto-compact safe limit)
+  if (totalTokens >= resolvedSafeLimit) {
     return {
       action: 'EXECUTE_BATON_PASS',
-      badge: '⚠️ Critical Binary Clamp Risk (Approaching 256k limit) — Execute /handoff immediately',
+      badge: `⚠️ Critical Binary Clamp Risk (Approaching ${clampLabelK} limit) — Execute /handoff immediately`,
       shouldCompact: false,
       recommendBatonPass: true,
       recommendTailTrim: false,
       warmCacheLocked: false,
-      reason: `Context is ${clampDistance.toLocaleString()} tokens away from the 256k (0x3e800) binary clamp. Auto-compaction will wipe prefix cache and cause amnesia.`,
+      reason: `Context is ${clampDistance.toLocaleString()} tokens away from the ${clampLabelK} (${resolvedBinaryClamp === 256000 ? '0x3e800 ' : ''}ceiling) clamp. Auto-compaction will wipe prefix cache and cause amnesia.`,
       triggers: {
         warmCacheLock: false,
         tokenTrigger: true,
@@ -296,28 +320,19 @@ export function trimUncachedTail(steps = [], options = {}) {
   let savedTokens = 0;
   let modifiedCount = 0;
 
-  // Track file touches in the uncached tail for DET-06 deduplication
-  const tailReadHistory = new Map();
-
-  for (let i = splitIndex; i < prunedSteps.length; i++) {
-    const step = prunedSteps[i];
-    const content = String(
-      step.content ??
-      step.toolUseResult?.stdout ??
-      step.toolUseResult?.content ??
-      step.toolFormerData?.result ??
-      ''
-    );
-
+  const extractStepCallMeta = (stepsArr, idx) => {
+    const step = stepsArr[idx] || {};
     let calls = Array.isArray(step.toolCalls)
       ? step.toolCalls
       : (Array.isArray(step.tool_calls) ? step.tool_calls : []);
-    if (calls.length === 0 && i > 0) {
-      const prev = prunedSteps[i - 1];
+    if (calls.length === 0 && idx > 0) {
+      const prev = stepsArr[idx - 1] || {};
       const prevCalls = Array.isArray(prev.toolCalls)
         ? prev.toolCalls
         : (Array.isArray(prev.tool_calls) ? prev.tool_calls : []);
-      const curCalls = Array.isArray(step.toolCalls) ? step.toolCalls : (Array.isArray(step.tool_calls) ? step.tool_calls : []);
+      const curCalls = Array.isArray(step.toolCalls)
+        ? step.toolCalls
+        : (Array.isArray(step.tool_calls) ? step.tool_calls : []);
       const isToolResult = prevCalls.length > 0 && curCalls.length === 0 && (
         (prev.type === 'PLANNER_RESPONSE' && (step.type === 'GENERIC' || step.type === 'tool_result' || step.source === 'MODEL')) ||
         (step.type === 'TOOL_RESULT' || step.type === 'tool_result' || step.source === 'TOOL')
@@ -329,22 +344,74 @@ export function trimUncachedTail(steps = [], options = {}) {
     const firstCall = calls[0] || {};
     const rawToolName = String(firstCall.name || firstCall.tool || step.toolName || '').toLowerCase();
     const args = firstCall.args || firstCall.parameters || firstCall.Arguments || {};
-    const rawPath = String(args.Path || args.path || args.TargetFile || step.targetPath || '').trim();
+    const rawPath = String(
+      args.Path || args.path || args.TargetFile || args.AbsolutePath || args.file_path || step.targetPath || ''
+    ).trim();
     const canonPath = rawPath ? canonicalizePath(rawPath) : null;
+    const rawStart = args.StartLine ?? args.start_line ?? args.startLine ?? args.offset ?? firstCall.StartLine ?? step.startLine ?? null;
+    const rawEnd = args.EndLine ?? args.end_line ?? args.endLine ?? args.limit ?? firstCall.EndLine ?? step.endLine ?? null;
+    const normStart = rawStart !== null && rawStart !== undefined && rawStart !== '' && Number.isFinite(Number(rawStart))
+      ? Number(rawStart)
+      : 'FULL';
+    const normEnd = rawEnd !== null && rawEnd !== undefined && rawEnd !== '' && Number.isFinite(Number(rawEnd))
+      ? Number(rawEnd)
+      : 'FULL';
+    return { rawToolName, rawPath, canonPath, startLine: normStart, endLine: normEnd };
+  };
+
+  // Pass 1: Track (canonPath, startLine, endLine, lastEditTurnForPath) across the session
+  // so disjoint line ranges, post-edit verification reads, and the most recent active read are NEVER truncated.
+  const lastEditTurnByPath = new Map();
+  const stepReadKeyByIdx = new Map();
+  const latestTailReadIdxByKey = new Map();
+  const isEditToolRe = /^(edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content|edit|write|multiedit|notebookedit)$/i;
+  const isReadToolRe = /^(read_file|view_file|read)$/i;
+
+  for (let idx = 0; idx < prunedSteps.length; idx++) {
+    const meta = extractStepCallMeta(prunedSteps, idx);
+    if (meta.canonPath && isEditToolRe.test(meta.rawToolName)) {
+      lastEditTurnByPath.set(meta.canonPath, idx);
+    } else if (meta.canonPath && isReadToolRe.test(meta.rawToolName)) {
+      const lastEditTurn = lastEditTurnByPath.has(meta.canonPath)
+        ? lastEditTurnByPath.get(meta.canonPath)
+        : -1;
+      const readKey = `${meta.canonPath}::${meta.startLine}::${meta.endLine}::${lastEditTurn}`;
+      stepReadKeyByIdx.set(idx, { readKey, lastEditTurn, ...meta });
+      if (idx >= splitIndex) {
+        latestTailReadIdxByKey.set(readKey, idx);
+      }
+    }
+  }
+
+  const baseWorkspace = options.cwd || options.workspacePath || null;
+  const resolvedOffloadDir = options.offloadDir || (baseWorkspace ? path.join(baseWorkspace, '.agents', 'tmp') : null);
+
+  for (let i = splitIndex; i < prunedSteps.length; i++) {
+    const step = prunedSteps[i];
+    const content = String(
+      step.content ??
+      step.toolUseResult?.stdout ??
+      step.toolUseResult?.content ??
+      step.toolFormerData?.result ??
+      ''
+    );
+
+    const { rawToolName, rawPath, canonPath } = extractStepCallMeta(prunedSteps, i);
+    const readMeta = stepReadKeyByIdx.get(i) || null;
+    const isReadStep = Boolean(canonPath && isReadToolRe.test(rawToolName));
+    const latestIdxForReadKey = readMeta ? latestTailReadIdxByKey.get(readMeta.readKey) : undefined;
+    const isLatestActiveRead = isReadStep && (latestIdxForReadKey === undefined || latestIdxForReadKey === i);
 
     let candidateReason = null;
 
-    // A. DET-06: Repeated full-file re-read of identical file in the tail
-    if (canonPath && /^(read_file|view_file|read)$/i.test(rawToolName)) {
-      if (tailReadHistory.has(canonPath)) {
-        candidateReason = 'DET-06_REDUNDANT_READ';
-      } else {
-        tailReadHistory.set(canonPath, i);
-      }
+    // A. DET-06: Repeated identical (canonPath, startLine, endLine, lastEditTurn) read in the tail.
+    // Preserve the MOST RECENT read intact; only older superseded identical reads are candidates.
+    if (isReadStep && readMeta && latestIdxForReadKey !== undefined && i < latestIdxForReadKey) {
+      candidateReason = 'DET-06_REDUNDANT_READ';
     }
 
     // B. DET-10: Unbounded CLI output flood (>12,000 characters or >80 lines)
-    if (!candidateReason && /^(run_command|execute_bash|bash|exec)$/i.test(rawToolName)) {
+    if (!candidateReason && /^(run_command|execute_bash|bash|exec|powershell)$/i.test(rawToolName)) {
       const lineCount = content.split(/\r?\n/).length;
       if (content.length > 12000 || lineCount > 80) {
         candidateReason = 'DET-10_CLI_FLOOD';
@@ -352,20 +419,38 @@ export function trimUncachedTail(steps = [], options = {}) {
     }
 
     // C. Explicitly flagged or unreferenced search output (>1,200 chars)
-    if (!candidateReason && /^(grep|find|search)$/i.test(rawToolName) && content.length > 1200) {
+    if (!candidateReason && /^(grep|grep_search|find|find_by_name|search)$/i.test(rawToolName) && content.length > 1200) {
       candidateReason = 'UNREFERENCED_SEARCH_OUTPUT';
     }
 
-    // D. Prunable flag from caller
-    if (!candidateReason && (step.canPrune === true || step.isPrunable === true)) {
+    // D. Prunable flag from caller (never slice the latest active read_file/view_file output)
+    if (!candidateReason && !isLatestActiveRead && (step.canPrune === true || step.isPrunable === true)) {
       candidateReason = step.pruneReason || 'EXPLICIT_TAIL_PRUNE';
     }
 
     if (candidateReason && content.length > maxRetainedChars + 60) {
+      let offloadAbsPath = null;
+      let offloadPointer = null;
+      if (resolvedOffloadDir) {
+        const hash12 = crypto.createHash('sha256').update(content, 'utf8').digest('hex').slice(0, 12);
+        const fileName = `offload_${hash12}.txt`;
+        offloadAbsPath = path.join(resolvedOffloadDir, fileName);
+        offloadPointer = baseWorkspace && !options.offloadDir
+          ? `.agents/tmp/${fileName}`
+          : `.agents/tmp/${fileName}`;
+        try {
+          atomicWriteFileSync(offloadAbsPath, content, { encoding: 'utf8' });
+        } catch {
+          // ISS-040 Safety Invariant: if offload persistence fails, preserve raw output intact!
+          continue;
+        }
+      }
+
       const headSlice = content.slice(0, maxRetainedChars).trimEnd();
       const droppedChars = content.length - headSlice.length;
       const stepSavedTok = Math.max(1, Math.floor(droppedChars / 4));
-      const annotation = `\n... [Tail Surgeon (${candidateReason}): truncated ${droppedChars} chars (~${stepSavedTok} tok) after warm cache watermark]`;
+      const pointerNote = offloadPointer ? ` — full output preserved at ${offloadPointer}` : '';
+      const annotation = `\n... [Tail Surgeon (${candidateReason}): truncated ${droppedChars} chars (~${stepSavedTok} tok) after warm cache watermark${pointerNote}]`;
       const truncatedContent = `${headSlice}${annotation}`;
 
       prunedSteps[i] = {
@@ -375,7 +460,8 @@ export function trimUncachedTail(steps = [], options = {}) {
         outputTokens: Math.ceil(truncatedContent.length / 4),
         tailSurgeonTruncated: true,
         tailSurgeonReason: candidateReason,
-        savedTokens: stepSavedTok
+        savedTokens: stepSavedTok,
+        ...(offloadAbsPath ? { offloadPath: offloadAbsPath, offloadPointer } : {})
       };
 
       candidates.push({
@@ -385,7 +471,8 @@ export function trimUncachedTail(steps = [], options = {}) {
         reason: candidateReason,
         originalLength: content.length,
         truncatedLength: truncatedContent.length,
-        savedTokens: stepSavedTok
+        savedTokens: stepSavedTok,
+        ...(offloadAbsPath ? { offloadPath: offloadAbsPath, offloadPointer } : {})
       });
 
       savedTokens += stepSavedTok;
@@ -572,6 +659,7 @@ export function generateHandoffMarkdown(state = {}, options = {}) {
   const timestamp = options.timestamp || new Date().toISOString();
   const sourceSessionId = state.sessionId || state.guid || 'active-session';
   const targetSessionId = options.newSessionId || options.newGuid || 'new-session';
+  const activeModel = state.modelId || state.model || state.activeModel || 'gemini-3.1-pro';
   const totalTokens = state.totalTokens ?? state.totalActiveTokens ?? 0;
   const workspacePath = options.workspacePath || process.cwd();
 
@@ -631,15 +719,23 @@ export function generateHandoffMarkdown(state = {}, options = {}) {
     ? state.pendingRuleDeltas
     : (Array.isArray(state.stagedDeltas) ? state.stagedDeltas : []);
 
-  // Build markdown
+  const exactNextStep = state.exactNextStep ||
+    checklist.inProgress[0] ||
+    checklist.pending[0] ||
+    'Verify test suite and proceed with next roadmap phase';
+
+  // Build unified cross-edition 6-section State Baton markdown (ISS-054)
   const md = [];
-  md.push(`# Attention Horizon Baton-Pass Handoff Checkpoint`);
-  md.push(`**Generated**: \`${timestamp}\` | **Source Session**: \`${sourceSessionId}\` | **Target Session**: \`${targetSessionId}\``);
-  md.push(`**Context at Handoff**: \`${totalTokens.toLocaleString()} tokens\` (Safe Limit: 179,000 | Clamp: 256,000)`);
+  md.push(`# Attention Horizon State Baton Handoff`);
+  md.push(`- **Session ID:** \`${sourceSessionId}\``);
+  md.push(`- **Target Session:** \`${targetSessionId}\``);
+  md.push(`- **Active Model:** \`${activeModel}\``);
+  md.push(`- **Captured At:** \`${timestamp}\``);
+  md.push(`- **Context at Handoff:** \`${totalTokens.toLocaleString()} tokens\` (Safe Limit: 179,000 | Clamp: 256,000)`);
   md.push(``);
 
-  // Section 1: Progressive Checkpoint Summary
-  md.push(`## 1. Progressive Checkpoint Summary`);
+  // Section 1: Active Goal
+  md.push(`## 1. Active Goal`);
   md.push(`### Completed Milestones (\`[x]\`)`);
   if (checklist.completed.length > 0) {
     for (const item of checklist.completed) {
@@ -670,8 +766,8 @@ export function generateHandoffMarkdown(state = {}, options = {}) {
   }
   md.push(``);
 
-  // Section 2: Active File Schemas & AST Signatures
-  md.push(`## 2. Active File Schemas & AST Signatures`);
+  // Section 2: Working Set Files
+  md.push(`## 2. Working Set Files`);
   if (fileSignatures.length > 0) {
     for (const sig of fileSignatures) {
       md.push(`- **\`${sig.path}\`**:`);
@@ -694,8 +790,8 @@ export function generateHandoffMarkdown(state = {}, options = {}) {
   md.push('```');
   md.push(``);
 
-  // Section 3: Verified Test & Build State
-  md.push(`## 3. Verified Test & Build State`);
+  // Section 3: Verified Invariants
+  md.push(`## 3. Verified Invariants`);
   if (testState) {
     const statusStr = testState.exitCode === 0 ? '✅ PASSED (exit code 0)' : `❌ FAILED (exit code ${testState.exitCode})`;
     md.push(`- **Last Command**: \`${testState.command || 'npm test'}\``);
@@ -711,8 +807,8 @@ export function generateHandoffMarkdown(state = {}, options = {}) {
   }
   md.push(``);
 
-  // Section 4: Negative Constraints & Dead Ends
-  md.push(`## 4. Negative Constraints & Dead Ends`);
+  // Section 4: Dead Ends & Failures to Avoid
+  md.push(`## 4. Dead Ends & Failures to Avoid`);
   if (negativeConstraints.length > 0 || detectorViolations.length > 0) {
     for (const nc of negativeConstraints) {
       md.push(`- 🚫 **Dead End / Blocked**: ${nc}`);
@@ -725,8 +821,8 @@ export function generateHandoffMarkdown(state = {}, options = {}) {
   }
   md.push(``);
 
-  // Section 5: Pending RSI Instincts & Staged Rules
-  md.push(`## 5. Pending RSI Instincts & Staged Rules`);
+  // Section 5: Queued Cache-Prefix Mutations (Released on PostCompact)
+  md.push(`## 5. Queued Cache-Prefix Mutations (Released on PostCompact)`);
   if (pendingRules.length > 0) {
     for (const delta of pendingRules) {
       md.push(`- **[Staged Delta \`${delta.operation || 'ADD'}\`]** \`${delta.targetPath || 'GEMINI.md'}\`:`);
@@ -737,6 +833,11 @@ export function generateHandoffMarkdown(state = {}, options = {}) {
   } else {
     md.push(`- (All staged rules flushed; zero pending mutations)`);
   }
+  md.push(``);
+
+  // Section 6: Exact Next Step
+  md.push(`## 6. Exact Next Step`);
+  md.push(`- ${exactNextStep}`);
   md.push(``);
 
   // Active Guardrail Pin
@@ -752,7 +853,7 @@ export function generateHandoffMarkdown(state = {}, options = {}) {
 
 /**
  * Executes a complete Baton Pass (/handoff) operation:
- *  1. Generates `docs/HANDOFF_<timestamp>.md` and `.gemini/antigravity/agy-horizon/handoffs/HANDOFF_<GUID>.md`
+ *  1. Generates `docs/HANDOFF_<YYYYMMDD_HHMMSS>.md`, `.agents/horizon/HANDOFF_LATEST.md`, and `.gemini/antigravity/agy-horizon/handoffs/HANDOFF_<GUID>.md`
  *  2. Flushes staged `PrefixCacheShield` deltas to disk
  *  3. Pre-seeds `<NEW_GUID>` brain directory with `task.md` and `implementation_plan.md`
  *
@@ -764,7 +865,7 @@ export function executeBatonPassHandoff(state = {}, options = {}) {
   const homeDir = options.homeDir || getHomeDir();
   const workspacePath = options.workspacePath || process.cwd();
   const rawTimestamp = options.timestamp || new Date().toISOString();
-  const safeTimestamp = rawTimestamp.replace(/[:.]/g, '-');
+  const formattedTimestamp = formatUtcHandoffTimestamp(rawTimestamp);
   const newGuid = options.newSessionId || options.newGuid || crypto.randomUUID();
 
   // 1. Initialize PrefixCacheShield if provided or instantiate default
@@ -793,17 +894,17 @@ export function executeBatonPassHandoff(state = {}, options = {}) {
     fts5DbPath: options.fts5DbPath
   });
 
-  // 2. Write `docs/HANDOFF_<timestamp>.md` in workspace
+  // 2. Write `docs/HANDOFF_<YYYYMMDD_HHMMSS>.md` AND `.agents/horizon/HANDOFF_LATEST.md` in workspace
   const docsDir = options.docsDir || path.join(workspacePath, 'docs');
-  fs.mkdirSync(docsDir, { recursive: true });
-  const docsHandoffPath = path.join(docsDir, `HANDOFF_${safeTimestamp}.md`);
-  fs.writeFileSync(docsHandoffPath, handoffContent, 'utf8');
+  const docsHandoffPath = path.join(docsDir, `HANDOFF_${formattedTimestamp}.md`);
+  const latestHandoffPath = path.join(workspacePath, '.agents', 'horizon', 'HANDOFF_LATEST.md');
+  atomicWriteFileSync(docsHandoffPath, handoffContent, { encoding: 'utf8' });
+  atomicWriteFileSync(latestHandoffPath, handoffContent, { encoding: 'utf8' });
 
   // 3. Write `.gemini/antigravity/agy-horizon/handoffs/HANDOFF_<GUID>.md`
   const horizonHandoffDir = options.horizonHandoffDir || path.join(homeDir, '.gemini', 'antigravity', 'agy-horizon', 'handoffs');
-  fs.mkdirSync(horizonHandoffDir, { recursive: true });
   const horizonHandoffPath = path.join(horizonHandoffDir, `HANDOFF_${newGuid}.md`);
-  fs.writeFileSync(horizonHandoffPath, handoffContent, 'utf8');
+  atomicWriteFileSync(horizonHandoffPath, handoffContent, { encoding: 'utf8' });
 
   // 4. Flush PrefixCacheShield deltas now that session is handing off
   const flushResult = shield.flushOnHandoff();
@@ -812,21 +913,22 @@ export function executeBatonPassHandoff(state = {}, options = {}) {
   const defaultBrainBase = getAntigravitySurfaces(homeDir)[0]?.brainDir || path.join(homeDir, '.gemini', 'antigravity', 'brain');
   const brainBaseDir = options.brainBaseDir || defaultBrainBase;
   const newBrainDir = path.join(brainBaseDir, newGuid);
-  fs.mkdirSync(newBrainDir, { recursive: true });
 
   // Generate pre-seeded task.md
   const newTaskMdContent = generateNewSessionTaskMd(compositeState, newGuid, docsHandoffPath);
-  fs.writeFileSync(path.join(newBrainDir, 'task.md'), newTaskMdContent, 'utf8');
+  atomicWriteFileSync(path.join(newBrainDir, 'task.md'), newTaskMdContent, { encoding: 'utf8' });
 
   // Generate pre-seeded implementation_plan.md
   const planMdContent = generateNewSessionPlanMd(compositeState, newGuid, docsHandoffPath);
-  fs.writeFileSync(path.join(newBrainDir, 'implementation_plan.md'), planMdContent, 'utf8');
+  atomicWriteFileSync(path.join(newBrainDir, 'implementation_plan.md'), planMdContent, { encoding: 'utf8' });
 
   return {
     success: true,
     newGuid,
-    timestamp: rawTimestamp,
+    timestamp: formattedTimestamp,
+    capturedAt: rawTimestamp,
     handoffFilePath: docsHandoffPath,
+    latestHandoffPath,
     horizonHandoffPath,
     newBrainDir,
     taskMdPath: path.join(newBrainDir, 'task.md'),

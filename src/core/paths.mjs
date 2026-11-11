@@ -196,16 +196,57 @@ export function readDaemonPort(homeDir = getHomeDir(), fallbackPort = 62935) {
 }
 
 /**
- * Returns Claude Code `~/.claude/projects` directory.
+ * Parses an explicit `--harness=<name>` or `--harness <name>` CLI flag.
+ * Returns normalized harness string ('antigravity' | 'claude' | 'cursor' | 'all') or null when absent.
  */
-export function getClaudeCodeProjectsDir(homeDir = getHomeDir()) {
+export function parseCliHarnessArg(argv = []) {
+  if (!Array.isArray(argv)) return null;
+  for (let i = 0; i < argv.length; i++) {
+    const token = String(argv[i] || '');
+    if (token.startsWith('--harness=')) {
+      return token.slice('--harness='.length).trim().toLowerCase() || null;
+    }
+    if (token === '--harness' && i + 1 < argv.length) {
+      return String(argv[i + 1] || '').trim().toLowerCase() || null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Returns true ONLY when cross-host session discovery (`claude` or `cursor`) is explicitly enabled
+ * via `{ harness: 'claude' | 'cursor' | 'all' }` or `{ includeCrossHost: true }`.
+ */
+export function isCrossHostHarnessEnabled(targetHarness, options = {}) {
+  if (!options || typeof options !== 'object') return false;
+  if (options.includeCrossHost === true) return true;
+  const h = String(options.harness || '').trim().toLowerCase();
+  if (!h) return false;
+  if (h === 'all' || h === 'cross-host') return true;
+  if (targetHarness === 'claude') return h === 'claude' || h === 'claude-code';
+  if (targetHarness === 'cursor') return h === 'cursor';
+  return false;
+}
+
+/**
+ * Returns Claude Code `~/.claude/projects` directory when explicitly gated via `--harness=claude`
+ * (`options.harness === 'claude'` or `options.includeCrossHost === true`), or empty string by default.
+ */
+export function getClaudeCodeProjectsDir(homeDir = getHomeDir(), options = {}) {
+  if (!isCrossHostHarnessEnabled('claude', options)) {
+    return '';
+  }
   return path.join(homeDir, '.claude', 'projects');
 }
 
 /**
- * Returns candidate Cursor `workspaceStorage` directories across Windows, macOS, Linux, and test roots.
+ * Returns candidate Cursor `workspaceStorage` directories ONLY when explicitly gated via `--harness=cursor`
+ * (`options.harness === 'cursor'` or `options.includeCrossHost === true`).
  */
-export function getCursorWorkspaceStorageDirs(homeDir = getHomeDir()) {
+export function getCursorWorkspaceStorageDirs(homeDir = getHomeDir(), options = {}) {
+  if (!isCrossHostHarnessEnabled('cursor', options)) {
+    return [];
+  }
   const candidates = [
     path.join(homeDir, 'AppData', 'Roaming', 'Cursor', 'User', 'workspaceStorage'),
     path.join(homeDir, 'Library', 'Application Support', 'Cursor', 'User', 'workspaceStorage'),

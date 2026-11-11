@@ -9,6 +9,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { isInternalTelemetryPath, isCompactionRelevant, synthesizeParameterizedCompact } from './prompt_rubric.mjs';
 import { canonicalizePath } from './paths.mjs';
+import { atomicWriteFileSync } from './atomic_io.mjs';
 
 export const HANDOFF_RESULTS = {
   CLEAN: 'CLEAN',
@@ -398,8 +399,7 @@ export function generateHandoffMarkdown(state = {}, options = {}) {
   let writtenPath = null;
   if (options.writeToDisk !== false) {
     try {
-      fs.mkdirSync(path.dirname(absPath), { recursive: true });
-      fs.writeFileSync(absPath, markdown, 'utf8');
+      atomicWriteFileSync(absPath, markdown, { encoding: 'utf8' });
       writtenPath = absPath;
     } catch {}
   }
@@ -537,10 +537,7 @@ export function distillPreCompactionHandoff(steps = [], state = {}, options = {}
   let written = false;
   if (shouldTrigger && options.writeToDisk !== false) {
     try {
-      fs.mkdirSync(path.dirname(handoffPath), { recursive: true });
-      const tmp = `${handoffPath}.${process.pid}.tmp`;
-      fs.writeFileSync(tmp, markdown, 'utf8');
-      fs.renameSync(tmp, handoffPath);
+      atomicWriteFileSync(handoffPath, markdown, { encoding: 'utf8' });
       written = true;
     } catch {}
   }

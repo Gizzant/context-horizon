@@ -10,7 +10,10 @@ import { getHomeDir, getBrainStores } from '../core/paths.mjs';
 import { parseTranscriptIncremental } from '../core/parser.mjs';
 import { isCompactionCheckpointStep, evaluateSmartFileReReads } from '../core/layer5_hygiene.mjs';
 import { canonicalizePath } from '../core/path_canonicalizer.mjs';
-import { resolveModelCeiling } from '../core/constants.mjs';
+import { resolveModelCeiling, normalizeModelKey } from '../core/constants.mjs';
+import { SwarmIdleTtlTracker, computeSwarmRosterTtlBadges } from '../core/subagents.mjs';
+import { loadHorizonConfig } from '../core/horizon_config.mjs';
+import { recordHookDiagnostic } from '../core/hook_diagnostics.mjs';
 
 export async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {}) {
   if (process.stdin.isTTY || process.stdin.readableEnded) return {};
@@ -24,12 +27,21 @@ export async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {})
       settled = true;
       clearTimeout(maxTimer);
       if (settleTimer) clearTimeout(settleTimer);
-      try { process.stdin.pause(); } catch {}
+      try {
+        process.stdin.pause();
+      } catch (err) {
+        recordHookDiagnostic('post_invocation', 'stdin.pause', err, { persist: false });
+      }
       resolve(val);
     };
 
     const tryParse = () => {
-      try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+      try {
+        return raw ? JSON.parse(raw) : {};
+      } catch (err) {
+        recordHookDiagnostic('post_invocation', 'stdin.parse', err);
+        return {};
+      }
     };
 
     const maxTimer = setTimeout(() => finish(tryParse()), maxTimeoutMs);
@@ -40,12 +52,19 @@ export async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {})
       if (settleTimer) clearTimeout(settleTimer);
       if (raw.trim().endsWith('}')) {
         settleTimer = setTimeout(() => {
-          try { finish(JSON.parse(raw)); } catch {}
+          try {
+            finish(JSON.parse(raw));
+          } catch (err) {
+            recordHookDiagnostic('post_invocation', 'stdin.settleParse', err, { persist: false });
+          }
         }, settleMs);
       }
     });
     process.stdin.on('end', () => finish(tryParse()));
-    process.stdin.on('error', () => finish({}));
+    process.stdin.on('error', (err) => {
+      recordHookDiagnostic('post_invocation', 'stdin.error', err);
+      finish({});
+    });
   });
 }
 
@@ -84,12 +103,14 @@ function syncTranscriptTelemetryToSidecar(sidecar, sessionDir, inputData = {}) {
 
   for (let idx = 0; idx < activeSteps.length; idx++) {
     const step = activeSteps[idx] || {};
-    const estFromLength = Number(step.untruncatedLength) > 0 ? Math.round(step.untruncatedLength / 4) : 0;
-    let tok = step.inputTokens > 0 && step.outputTokens > 0
-      ? Math.max(step.outputTokens, estFromLength)
-      : (step.outputTokens || estFromLength || 1000);
-    if (step.stepIndex === 0 && step.inputTokens > 0) {
-      tok = step.inputTokens;
+    const estFromLength = Number(step.untruncatedLength) > 0 ? Math.round(Number(step.untruncatedLength) / 4) : 0;
+    const stepPromptEnvelope = Number(step.totalPromptTokens || 0) ||
+      (Number(step.inputTokens || 0) + Number(step.cacheReadTokens || 0) + Number(step.cacheCreationTokens || 0));
+    let tok = stepPromptEnvelope > 0 && Number(step.outputTokens || 0) > 0
+      ? Math.max(Number(step.outputTokens || 0), estFromLength)
+      : (Number(step.outputTokens || 0) || estFromLength || 0);
+    if (step.stepIndex === 0 && stepPromptEnvelope > 0) {
+      tok = stepPromptEnvelope;
     }
     totalTokens += tok;
 
@@ -100,7 +121,16 @@ function syncTranscriptTelemetryToSidecar(sidecar, sessionDir, inputData = {}) {
 
     for (const call of (step.toolCalls || [])) {
       const rawArgs = call?.args || call?.arguments || call?.parameters || call?.Arguments || {};
-      const a = typeof rawArgs === 'string' ? (() => { try { return JSON.parse(rawArgs); } catch { return {}; } })() : rawArgs;
+      const a = typeof rawArgs === 'string'
+        ? (() => {
+            try {
+              return JSON.parse(rawArgs);
+            } catch (err) {
+              recordHookDiagnostic('post_invocation', 'toolCallArgs.parse', err, { persist: false });
+              return {};
+            }
+          })()
+        : rawArgs;
       const fp = a.Path || a.path || a.TargetFile || a.AbsolutePath;
       if (fp && typeof fp === 'string') {
         const canon = canonicalizePath(fp);
@@ -142,11 +172,89 @@ function syncTranscriptTelemetryToSidecar(sidecar, sessionDir, inputData = {}) {
   }
 }
 
+export async function handlePostToolUse(inputData = {}) {
+  const conversationId = inputData.conversationId || inputData.session_id || inputData.conversation_id || 'default_session';
+  const sidecar = readSidecarSync(conversationId);
+  sidecar.sessionMeta = sidecar.sessionMeta || {};
+  sidecar.swarmRoster = sidecar.swarmRoster || {};
+
+  // Phase 3.2: Mid-turn model switch buffer — record pending_model_id without mutating active_model_id
+  const requestedMidTurnModel = inputData.requestedModel || inputData.newModel || inputData.pending_model_id || null;
+  if (requestedMidTurnModel) {
+    const normalizedNext = normalizeModelKey(requestedMidTurnModel);
+    if (!sidecar.sessionMeta.active_model_id) {
+      sidecar.sessionMeta.active_model_id = normalizeModelKey(
+        inputData.active_model_id || inputData.modelName || sidecar.sessionMeta.activeModel || 'gemini-3.8-flash'
+      );
+    }
+    if (normalizedNext !== sidecar.sessionMeta.active_model_id) {
+      sidecar.sessionMeta.pending_model_id = normalizedNext;
+    }
+  }
+
+  const nowMs = inputData.nowMs ?? inputData.eventTimestampUtc ?? Date.now();
+  const tracker = new SwarmIdleTtlTracker({
+    initialRoster: inputData.swarmRoster || sidecar.swarmRoster,
+    cacheTtlMs: inputData.cacheTtlMs ?? 300000
+  });
+
+  if (inputData.agent_id || inputData.agentId) {
+    const aid = String(inputData.agent_id || inputData.agentId).trim();
+    tracker.touchAgentActive(aid, {
+      modelId: inputData.modelId || inputData.modelName || sidecar.sessionMeta.active_model_id || 'gemini-4-carbon',
+      warmPrefixTokens: Number(inputData.warm_prefix_tokens ?? inputData.warmPrefixTokens ?? 0),
+      timestampMs: nowMs
+    });
+  }
+
+  sidecar.swarmRoster = tracker.getRosterSnapshot();
+  sidecar.swarmTtlBadges = computeSwarmRosterTtlBadges(sidecar.swarmRoster, {
+    nowMs,
+    cacheTtlMs: inputData.cacheTtlMs ?? 300000
+  });
+
+  const workspacePath = inputData.cwd || inputData.workspacePath || sidecar.workspacePath || process.cwd();
+  const horizonConfig = inputData.horizonConfig || loadHorizonConfig({
+    cwd: workspacePath,
+    ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {})
+  });
+  const flightMode = String(inputData.flightMode || horizonConfig.flightMode || 'COACH').toUpperCase();
+
+  writeSidecarAtomicSync(conversationId, sidecar);
+  if (flightMode === 'OFF') {
+    return { flightMode };
+  }
+  return {
+    flightMode,
+    active_model_id: sidecar.sessionMeta.active_model_id || sidecar.sessionMeta.activeModel || null,
+    pending_model_id: sidecar.sessionMeta.pending_model_id || null,
+    swarmTtlBadges: sidecar.swarmTtlBadges
+  };
+}
+
 export async function handlePostInvocation(inputData = {}) {
+  if (inputData.hook_event_name === 'PostToolUse' || inputData.event === 'PostToolUse') {
+    return handlePostToolUse(inputData);
+  }
+
   const conversationId = inputData.conversationId || inputData.session_id || inputData.conversation_id || 'default_session';
   const sidecar = readSidecarSync(conversationId);
 
+  sidecar.sessionMeta = sidecar.sessionMeta || {};
   sidecar.sessionMeta.turnCount = (sidecar.sessionMeta.turnCount || 0) + 1;
+
+  // Phase 3.2: Promote pending_model_id -> active_model_id strictly on turn completion (PostInvocation or Stop)
+  const pendingModel = inputData.pending_model_id || sidecar.sessionMeta.pending_model_id || null;
+  if (pendingModel) {
+    const promoted = normalizeModelKey(pendingModel);
+    sidecar.sessionMeta.active_model_id = promoted;
+    sidecar.sessionMeta.activeModel = promoted;
+    sidecar.sessionMeta.pending_model_id = null;
+  } else if (inputData.modelName || inputData.active_model_id) {
+    const current = normalizeModelKey(inputData.active_model_id || inputData.modelName);
+    sidecar.sessionMeta.active_model_id = current;
+    sidecar.sessionMeta.activeModel = current;
+  }
 
   // Track subagent use
   const toolsInvoked = Array.isArray(inputData.toolsInvoked)
@@ -183,8 +291,11 @@ export async function handlePostInvocation(inputData = {}) {
   // Track consecutive trivial on max
   const effort = inputData.effort || sidecar.sessionMeta.activeEffort || 'high';
   const isMaxEffort = effort === 'max';
-  const promptTokens = inputData.promptTokens || inputData.tokens || 100;
-  if (isMaxEffort && promptTokens < 15) {
+  const rawPromptTokens = inputData.promptTokens ?? inputData.tokens ?? null;
+  const promptTokens = rawPromptTokens !== null && rawPromptTokens !== undefined
+    ? Number(rawPromptTokens)
+    : null;
+  if (isMaxEffort && promptTokens !== null && Number.isFinite(promptTokens) && promptTokens > 0 && promptTokens < 15) {
     sidecar.sessionMeta.consecutiveTrivialOnMax = (sidecar.sessionMeta.consecutiveTrivialOnMax || 0) + 1;
   } else {
     sidecar.sessionMeta.consecutiveTrivialOnMax = 0;
@@ -215,12 +326,44 @@ export async function handlePostInvocation(inputData = {}) {
       sidecar.telemetry = sidecar.telemetry || {};
       sidecar.telemetry.totalInputTokens = Number(inputData.context_window.total_input_tokens);
     }
-  } catch {
+  } catch (err) {
     // Fail-open: never break hook execution if transcript file is temporarily unavailable
+    recordHookDiagnostic('post_invocation', 'syncTranscriptTelemetryToSidecar', err, { ignoreCodes: ['ENOENT'] });
   }
 
+  // Phase 4.2: Transition completing /swarm agent to idle_zero_token and compute TTL cliff badges
+  const nowMs = inputData.nowMs ?? inputData.eventTimestampUtc ?? Date.now();
+  const tracker = new SwarmIdleTtlTracker({
+    initialRoster: inputData.swarmRoster || sidecar.swarmRoster || {},
+    cacheTtlMs: inputData.cacheTtlMs ?? 300000
+  });
+  const agentId = inputData.agent_id || inputData.agentId || null;
+  if (agentId) {
+    tracker.onTurnComplete(agentId, {
+      modelId: sidecar.sessionMeta.active_model_id || sidecar.sessionMeta.activeModel || inputData.modelName || 'gemini-4-carbon',
+      warmPrefixTokens: Number(
+        inputData.warm_prefix_tokens ??
+        inputData.warmPrefixTokens ??
+        sidecar.telemetry?.totalInputTokens ??
+        0
+      ),
+      timestampMs: nowMs,
+      parentSwarmLive: inputData.parentSwarmLive !== false
+    });
+  }
+  sidecar.swarmRoster = tracker.getRosterSnapshot();
+  sidecar.swarmTtlBadges = computeSwarmRosterTtlBadges(sidecar.swarmRoster, {
+    nowMs,
+    cacheTtlMs: inputData.cacheTtlMs ?? 300000
+  });
+
   writeSidecarAtomicSync(conversationId, sidecar);
-  return {};
+  return {
+    active_model_id: sidecar.sessionMeta.active_model_id || sidecar.sessionMeta.activeModel || null,
+    pending_model_id: sidecar.sessionMeta.pending_model_id || null,
+    swarmRoster: sidecar.swarmRoster,
+    swarmTtlBadges: sidecar.swarmTtlBadges
+  };
 }
 
 // Auto-run if executed directly
@@ -231,7 +374,8 @@ if (isMain) {
   }).then(output => {
     console.log(JSON.stringify(output || {}));
     process.exit(0);
-  }).catch(() => {
+  }).catch((err) => {
+    recordHookDiagnostic('post_invocation', 'main', err);
     console.log('{}');
     process.exit(0);
   });

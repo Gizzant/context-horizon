@@ -1,5 +1,6 @@
 import { isSameOrSubPath, canonicalizePath } from './path_canonicalizer.mjs';
 import { evaluateSmartFileReReads, isCompactionCheckpointStep } from './layer5_hygiene.mjs';
+import { resolvePricePerM, resolveModelCeilingDetailed } from './constants.mjs';
 
 export const CELL_CAPACITY_TOKENS = 5000;
 export const TOTAL_HORIZON_CELLS = 40;
@@ -61,7 +62,7 @@ export function classifyHorizonWindow(
   let memoryBleedTokens = 0;
   for (const ki of knowledgeItemsMeta) {
     const kiProject = canonicalizePath(ki.projectPath || ki.workspacePath || '');
-    const tokens = ki.tokenCount || 500;
+    const tokens = Math.max(0, Number(ki.tokenCount || 0));
     if (kiProject && normWorkspace && !isSameOrSubPath(normWorkspace, kiProject)) {
       foreignBleedKiIds.push(ki.id || ki.name || 'foreign_ki');
       memoryBleedTokens += tokens;
@@ -263,20 +264,52 @@ export function classifyHorizonWindow(
     tokenBreakdown[CATEGORIES.DEAD_ERROR] +
     tokenBreakdown[CATEGORIES.ANCHOR_SCHEMA];
 
-  const modelPricing = config.model_pricing_per_1m_input || {};
-  const activeModel = contextWindowMeta.modelName || 'gemini-3.8-flash';
-  const pricePer1M = modelPricing[activeModel] || 0.15;
+  const activeModel = contextWindowMeta.modelName || contextWindowMeta.modelId || 'gemini-3.8-flash';
+  const ceilingDetails = resolveModelCeilingDetailed(activeModel, contextWindowMeta, {
+    useLegacyDefault: false,
+    config
+  });
+  const modelMaxTokens = Number(contextWindowMeta.maxTokens) > 0
+    ? Number(contextWindowMeta.maxTokens)
+    : ceilingDetails.ceilingTokens;
+  const pricePer1M = resolvePricePerM(activeModel, config);
   const sludgeTaxUsdPerTurn = Number(((sludgeTokens / 1_000_000) * pricePer1M).toFixed(4));
+
+  let sumCacheRead = 0;
+  let sumPromptEnvelope = 0;
+  for (const ev of stepEvents) {
+    const cr = Math.max(0, Number(ev?.cacheReadTokens || 0));
+    const cc = Math.max(0, Number(ev?.cacheCreationTokens || 0));
+    const inp = Math.max(0, Number(ev?.inputTokens || 0));
+    sumCacheRead += cr;
+    sumPromptEnvelope += cr + cc + inp;
+  }
+  const derivedCacheHitPct = sumPromptEnvelope > 0
+    ? Math.min(100, Math.round((sumCacheRead / sumPromptEnvelope) * 100))
+    : 0;
+  const cacheHitPct = typeof contextWindowMeta.cacheHitPct === 'number' && Number.isFinite(contextWindowMeta.cacheHitPct)
+    ? Math.max(0, Math.min(100, Math.round(contextWindowMeta.cacheHitPct)))
+    : derivedCacheHitPct;
+  const ttlRemainingSec = typeof contextWindowMeta.ttlRemainingSec === 'number' && Number.isFinite(contextWindowMeta.ttlRemainingSec)
+    ? Math.max(0, Math.round(contextWindowMeta.ttlRemainingSec))
+    : 0;
 
   return {
     totalInputTokens,
+    model: {
+      id: activeModel,
+      maxTokens: modelMaxTokens,
+      ceilingSource: ceilingDetails.source
+    },
     cells,
     tokenBreakdown,
     metrics: {
       signalPurityPct,
       sludgeTaxUsdPerTurn,
       pureTokens,
-      sludgeTokens
+      sludgeTokens,
+      cacheHitPct,
+      ttlRemainingSec
     },
     flags: {
       amputationRisk,

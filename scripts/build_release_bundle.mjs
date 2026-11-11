@@ -9,9 +9,9 @@ const ROOT = path.resolve(__dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const VERSION = pkg.version || '3.3.0';
 const DIST_DIR = path.join(ROOT, 'dist');
-const STAGING_DIR = path.join(DIST_DIR, 'staging', 'agy-horizon-flightcheck');
+const STAGING_DIR = path.join(DIST_DIR, 'staging', 'attention-horizon-antigravity');
 
-console.log(`\n\x1b[1m\x1b[38;5;51m📦 Building context-horizon Production Release Bundles v${VERSION}...\x1b[0m`);
+console.log(`\n\x1b[1m\x1b[38;5;51m📦 Building attention-horizon-antigravity Production Release Bundles v${VERSION}...\x1b[0m`);
 
 // 1. Prepare dist & staging directories
 if (fs.existsSync(DIST_DIR)) {
@@ -27,6 +27,7 @@ const TO_COPY = [
   'README.md',
   'LICENSE',
   'SECURITY.md',
+  'config',
   'assets',
   'rules',
   'skills',
@@ -42,21 +43,21 @@ for (const item of TO_COPY) {
   }
 }
 
-const zipName = `agy-horizon-flightcheck-v${VERSION}.zip`;
-const tarName = `agy-horizon-flightcheck-v${VERSION}.tar.gz`;
+const zipName = `attention-horizon-antigravity-v${VERSION}.zip`;
+const tarName = `attention-horizon-antigravity-v${VERSION}.tar.gz`;
 const zipPath = path.join(DIST_DIR, zipName);
 const tarPath = path.join(DIST_DIR, tarName);
 const stagingParent = path.dirname(STAGING_DIR);
 
 // 3. Compress .zip and .tar.gz archives using tar (tar -a auto-selects zip format based on extension)
 console.log(`[zip] Creating ${zipName}...`);
-execSync(`tar -a -cf "${zipPath}" -C "${stagingParent}" agy-horizon-flightcheck`, { stdio: 'inherit' });
+execSync(`tar -a -cf "${zipPath}" -C "${stagingParent}" attention-horizon-antigravity`, { stdio: 'inherit' });
 
 console.log(`[tar.gz] Creating ${tarName}...`);
-execSync(`tar -czf "${tarPath}" -C "${stagingParent}" agy-horizon-flightcheck`, { stdio: 'inherit' });
+execSync(`tar -czf "${tarPath}" -C "${stagingParent}" attention-horizon-antigravity`, { stdio: 'inherit' });
 
 // 4. Create npm pack tarball (for npx / npm registry install)
-console.log('[npm pack] Packing context-horizon tarball...');
+console.log('[npm pack] Packing attention-horizon-antigravity tarball...');
 execSync(`npm pack --pack-destination "${DIST_DIR}"`, { cwd: ROOT, stdio: 'inherit' });
 
 // 5. Clean up staging

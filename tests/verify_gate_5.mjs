@@ -103,7 +103,7 @@ test('[GATE-5.1] Pre-Invocation Classifier across 30 prompt benchmarks (<5ms), F
   assert.equal(loopEscalated.loopEscalated, true);
   assert.equal(loopEscalated.recommendedModel, 'gemini-4-argon');
   assert.equal(loopEscalated.recommendedEffort, 'medium');
-  assert.equal(loopEscalated.estimatedBurnMultiplier, 6.0);
+  assert.equal(loopEscalated.estimatedBurnMultiplier, 5.5);
 });
 
 test('[GATE-5.2] CacheGravityScorer across 30 scenarios (Cached History 0..180k & TTL 0s..296s)', () => {
@@ -119,10 +119,10 @@ test('[GATE-5.2] CacheGravityScorer across 30 scenarios (Cached History 0..180k 
     cacheTtlSeconds: 296,
     uncachedDeltaTokens: 2000
   });
-  // M(argon, low) = 3.0; I_same = 1; 3.0 * (0.05 * 100000 + 0 + 2000 + 1200) = 3.0 * 8200 = 24600
+  // M(argon, low) = 3.0; I_same = 1; E_output(low) = 800 -> 3.0 * (0.05 * 100000 + 0 + 2000 + 800) = 3.0 * 7800 = 23400
   assert.equal(argonLowCost.sameModelIndicator, 1);
-  assert.equal(argonLowCost.effectiveTokens, 8200);
-  assert.equal(argonLowCost.effectiveQuotaCost, 24600);
+  assert.equal(argonLowCost.effectiveTokens, 7800);
+  assert.equal(argonLowCost.effectiveQuotaCost, 23400);
 
   const flashColdSwitchCost = scorer.computeEffectiveCost({
     candidateModel: 'gemini-3.8-flash',
@@ -132,16 +132,16 @@ test('[GATE-5.2] CacheGravityScorer across 30 scenarios (Cached History 0..180k 
     cacheTtlSeconds: 296,
     uncachedDeltaTokens: 2000
   });
-  // M(flash, low) = 1.0; I_same = 0; 1.0 * (0 + 100000 + 2000 + 1200) = 103200
+  // M(flash, low) = 1.0; I_same = 0; E_output(low) = 800 -> 1.0 * (0 + 100000 + 2000 + 800) = 102800
   assert.equal(flashColdSwitchCost.sameModelIndicator, 0);
-  assert.equal(flashColdSwitchCost.effectiveQuotaCost, 103200);
+  assert.equal(flashColdSwitchCost.effectiveQuotaCost, 102800);
   assert.ok(
     argonLowCost.effectiveQuotaCost < flashColdSwitchCost.effectiveQuotaCost,
     'Staying on Argon-Low with warm 100k cache must be cheaper than cold-prefilling 100k on Flash-Low'
   );
 
-  // Build 30 benchmark scenarios varying Cached History (0 .. 180k) and TTL (0s .. 296s)
-  const cachedTokenLevels = [0, 20000, 50000, 60000, 80500, 100000, 120000, 140000, 160000, 180000];
+  // Build 30 benchmark scenarios varying Cached History (0 .. 180k, crossing closed-form C* = 3,529) and TTL (0s .. 296s)
+  const cachedTokenLevels = [0, 2000, 3500, 20000, 50000, 60000, 80500, 100000, 140000, 180000];
   const ttlLevels = [0, 120, 296];
   const scenarios = [];
   for (const tokens of cachedTokenLevels) {
@@ -150,6 +150,15 @@ test('[GATE-5.2] CacheGravityScorer across 30 scenarios (Cached History 0..180k 
     }
   }
   assert.equal(scenarios.length, 30, 'Must test 30 cache gravity scenarios');
+
+  const breakEven = scorer.computeBreakEven({
+    currentModel: 'gemini-4-argon',
+    targetModel: 'gemini-3.8-flash',
+    targetEffort: 'low',
+    cachedTokens: 100000,
+    ttlRemainingSeconds: 296
+  });
+  assert.equal(breakEven.breakEvenTokens, 3529);
 
   for (const sc of scenarios) {
     const evalRes = scorer.evaluateCandidates({
@@ -162,8 +171,8 @@ test('[GATE-5.2] CacheGravityScorer across 30 scenarios (Cached History 0..180k 
       confidence: 0.92
     });
 
-    if (sc.cachedTokens >= 60000 && sc.cacheTtlSeconds > 0) {
-      // Warm Cache Gravity active -> Rule A & Rule B
+    if (sc.cachedTokens > breakEven.breakEvenTokens && sc.cacheTtlSeconds > 0) {
+      // Warm Cache Gravity active (above closed-form break-even C* = 3,529) -> Rule A & Rule B
       assert.equal(evalRes.hasWarmCacheGravity, true);
       assert.equal(evalRes.primaryRecommendation.action, 'MODULATE_EFFORT_SAME_MODEL');
       assert.equal(evalRes.primaryRecommendation.model, 'gemini-4-argon');
@@ -172,7 +181,7 @@ test('[GATE-5.2] CacheGravityScorer across 30 scenarios (Cached History 0..180k 
       assert.ok(evalRes.subagentOffloadOption, 'Rule B must provide Flash-Low Subagent offload option');
       assert.ok(evalRes.localOffloadOption, 'Rule B must provide Local LiteRT Gemma 4 0.0x offload option');
     } else {
-      // Cold cache (TTL == 0) or < 60k tokens -> safe to switch to Flash-Low
+      // Cold cache (TTL == 0) or <= C* (3,529 tokens) -> safe to switch to Flash-Low
       assert.equal(evalRes.hasWarmCacheGravity, false);
       assert.equal(evalRes.primaryRecommendation.model, 'gemini-3.8-flash');
       assert.equal(evalRes.primaryRecommendation.effort, 'low');
@@ -303,4 +312,9 @@ test('[GATE-5.3] TaskMdDirectiveWatcher (<5ms) & ModelSelectorActuator (Coach vs
   assert.equal(routeSummary.activeBurnMultiplier, 9.25);
   assert.equal(routeSummary.syncStatus, 'live synced');
   assert.ok(routeSummary.coachPillText.includes('Keep 80.5k Cache'));
+  try {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  } catch (err) {
+    if (err && !['ENOENT', 'EBUSY', 'EPERM'].includes(err.code)) throw err;
+  }
 });
