@@ -7120,12 +7120,14 @@
       }
 
       // A2. Agent Learning (RSI Action)
-      const userCorr = Number(signals?.userCorrections || 0);
+      const validCorrections = (Array.isArray(signals?.userCorrectionTexts) ? signals.userCorrectionTexts : [])
+        .map((t) => String(t || '').replace(/<\/?(?:USER_REQUEST|system_context_prefix)[^>]*>/gi, '').trim())
+        .filter((t) => t && !/^#+\s*ROLE\b/im.test(t) && !/\bYou are the Principal Systems Architect\b/i.test(t));
+      const userCorr = validCorrections.length > 0
+        ? validCorrections.length
+        : (Array.isArray(signals?.userCorrectionTexts) && signals.userCorrectionTexts.length > 0 ? 0 : Number(signals?.userCorrections || 0));
       if (userCorr >= 1 && !dismissedKeys.has('rule')) {
-        const rawCorrection = Array.isArray(signals.userCorrectionTexts) && signals.userCorrectionTexts.length > 0
-          ? signals.userCorrectionTexts[0]
-          : '';
-        const cleanCorrection = rawCorrection.replace(/<\/?USER_REQUEST>/gi, '').trim();
+        const cleanCorrection = validCorrections[0] || '';
         const previewHtml = cleanCorrection
           ? `<div class="m3-action-data-preview mono">${escAttr(cleanCorrection)}</div>`
           : `<div class="m3-action-data-preview mono">${escAttr(PROMPTS.rule.text)}</div>`;
@@ -7316,10 +7318,20 @@
 
       // A8. Reflector Queue Learnings Review (DET-16 RSI Action)
       const reflectorQueueData = raw.coachState?.reflectorQueue;
-      const stagedCount = reflectorQueueData?.stagedCount || 0;
+      const validStagedItems = (reflectorQueueData?.items || []).filter((it) => {
+        if (it?.status !== 'staged') return false;
+        const d = String(it?.directive_action || '').trim();
+        if (!d) return false;
+        if (/<\/?(?:system_context_prefix|ADDITIONAL_METADATA|USER_SETTINGS_CHANGE|CONTEXT_SUMMARY|SYSTEM_MESSAGE)\b/i.test(d)) return false;
+        if (/^#+\s*ROLE\b/im.test(d) || /\bYou are the Principal Systems Architect\b/i.test(d)) return false;
+        return true;
+      });
+      const stagedCount = validStagedItems.length;
       if (stagedCount > 0 && !dismissedKeys.has('rsi-reflector-review')) {
-        const topItem = (reflectorQueueData?.items || []).find((it) => it.status === 'staged');
-        const previewText = topItem ? `${topItem.directive_action} (${topItem.domain})` : `${stagedCount} corrections staged`;
+        const topItem = validStagedItems[0];
+        const cleanDirective = topItem ? String(topItem.directive_action || '').trim() : `${stagedCount} corrections staged`;
+        const domainLabel = topItem?.domain ? String(topItem.domain) : 'rules';
+        const copyDirectiveText = topItem ? cleanDirective : `${stagedCount} corrections staged`;
         rsiRows.push(
           `<details class="m3-action-row m3-action-collapsible" data-action-id="rsi-reflector-review" data-dismiss-key="rsi-reflector-review">` +
             `<summary class="m3-action-summary">` +
@@ -7327,16 +7339,16 @@
               `<span class="m3-action-icon spark">&#x1F4BE;</span>` +
               `<div class="m3-action-text">` +
                 `<span class="m3-action-title">Review ${stagedCount} Staged Learning${stagedCount === 1 ? '' : 's'} (DET-16)</span>` +
-                `<span class="m3-action-sub mono">Repo-Isolated (${escAttr(reflectorQueueData?.projectHash || 'local')})</span>` +
+                `<span class="m3-action-sub mono">Domain: ${escAttr(domainLabel)} &middot; Repo-Isolated (${escAttr(reflectorQueueData?.projectHash || 'local')})</span>` +
               `</div>` +
               `<span class="m3-impact-badge cyan mono">Staged</span>` +
               `<div class="m3-action-btn-row">` +
-                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(previewText)}" data-dismiss-key="rsi-reflector-review" title="Copy preview to clipboard and dismiss">&#x1F4CB; Copy Learning</button>` +
+                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(copyDirectiveText)}" data-dismiss-key="rsi-reflector-review" title="Copy learning to clipboard and dismiss">&#x1F4CB; Copy Learning</button>` +
               `</div>` +
             `</summary>` +
             `<div class="m3-action-body">` +
               `<div class="m3-action-inst">User corrections staged in <code>learnings-queue.json</code> without invalidating the active KV cache. Will promote cleanly at Turn 0:</div>` +
-              `<div class="m3-action-data-preview mono">${escAttr(previewText)}</div>` +
+              `<div class="m3-action-data-preview mono">${escAttr(cleanDirective)}</div>` +
             `</div>` +
           `</details>`
         );

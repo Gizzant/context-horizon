@@ -1180,19 +1180,36 @@ export function classifyHorizon(rawSteps, options = {}) {
 
   let correctionCount = 0;
   const userCorrectionTexts = [];
+  const CORRECTION_RE = /\b(no[, ]|don't|do not|instead|wrong|looks the same|shouldn't|broken|still not)\b/i;
   for (const s of steps) {
     if (s.source === 'USER_EXPLICIT' || s.type === 'USER_INPUT') {
       const rawTxt = String(s.content || '').trim();
       const strippedHostTxt = rawTxt
         .replace(/<ADDITIONAL_METADATA>[\s\S]*?<\/ADDITIONAL_METADATA>/gi, '')
         .replace(/<USER_SETTINGS_CHANGE>[\s\S]*?<\/USER_SETTINGS_CHANGE>/gi, '')
-        .replace(/<\/?USER_REQUEST>/gi, '')
+        .replace(/<CONTEXT_SUMMARY>[\s\S]*?<\/CONTEXT_SUMMARY>/gi, '')
+        .replace(/<SYSTEM_MESSAGE>[\s\S]*?<\/SYSTEM_MESSAGE>/gi, '')
+        .replace(/<system_context_prefix>[\s\S]*?<\/system_context_prefix>/gi, '')
+        .replace(/<\/?(?:USER_REQUEST|system_context_prefix)[^>]*>/gi, '')
         .trim();
       const cleanTxt = strippedHostTxt;
-      const lower = cleanTxt.toLowerCase();
-      if (cleanTxt && /\b(no[, ]|don't|do not|instead|wrong|looks the same|shouldn't|broken|still not)\b/.test(lower)) {
-        correctionCount++;
-        userCorrectionTexts.push(cleanTxt.slice(0, 100));
+      // Ignore long multi-section specification/persona prompts so role preambles are never mistaken for corrections
+      if (!cleanTxt || cleanTxt.length > 500 || /^(?:#+\s*role\b|you are (?:the|a|evaluating)\b)/im.test(cleanTxt)) {
+        continue;
+      }
+      if (CORRECTION_RE.test(cleanTxt)) {
+        const candidateLines = cleanTxt
+          .split(/\r?\n/)
+          .map(l => l.replace(/^[-*>\s#]+/, '').trim())
+          .filter(l => l.length >= 6 && !/^you are\b/i.test(l));
+        const matchedLine = candidateLines.find(l => CORRECTION_RE.test(l)) || candidateLines[0] || '';
+        if (matchedLine) {
+          correctionCount++;
+          const bounded = matchedLine.length <= 140
+            ? matchedLine
+            : matchedLine.slice(0, 140).replace(/\s+\S*$/, '') + '...';
+          userCorrectionTexts.push(bounded);
+        }
       }
     }
   }

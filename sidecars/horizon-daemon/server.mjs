@@ -445,6 +445,7 @@ function buildCoachState(state, targetConvId) {
       ? progressiveCheckpointer.detectConstraintEvaporation(state.contextSummary, sessionKey, latestCkpt)
       : null;
 
+    reflectorQueue.setWorkspaceDir(wsDir);
     const stagedLearnings = reflectorQueue.listItems();
     const promptAdvisory = promptDecomposerCoach.evaluate(livePrompt);
 
@@ -1294,6 +1295,8 @@ const server = http.createServer(async (req, res) => {
 
     if (shieldStatus.locked && body.writeToDisk !== false && !body.forceHotCache) {
       try {
+        const targetWsDir = isDirTarget ? wsPath : path.dirname(wsPath);
+        reflectorQueue.setWorkspaceDir(targetWsDir);
         reflectorQueue.enqueue({
           directive_action: resolvedRuleText,
           domain: 'rules',
@@ -1604,6 +1607,8 @@ const server = http.createServer(async (req, res) => {
     if (body === null) return;
     const itemId = body.id || body.itemId || null;
     const action = String(body.action || 'approve').toLowerCase();
+    const activeWsDir = body.workspacePath || cachedLiveState?.workspace?.canonicalPath || process.cwd();
+    reflectorQueue.setWorkspaceDir(activeWsDir);
     let actionRes = null;
     if (action === 'approve') {
       actionRes = reflectorQueue.approve(itemId);

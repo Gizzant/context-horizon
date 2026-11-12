@@ -120,9 +120,24 @@ export function evaluateGlobalPromotionEligibility(
   return eligible;
 }
 
+export function isCorruptedDirective(text = '') {
+  const s = String(text || '').trim();
+  if (!s) return true;
+  if (/<\/?(system_context_prefix|ADDITIONAL_METADATA|USER_SETTINGS_CHANGE|CONTEXT_SUMMARY|SYSTEM_MESSAGE)\b/i.test(s)) {
+    return true;
+  }
+  if (/^#+\s*ROLE\b/im.test(s) || /\bYou are the Principal Systems Architect\b/i.test(s)) {
+    return true;
+  }
+  return false;
+}
+
 export class ReflectorQueue {
   constructor(options = {}) {
     this.workspaceDir = options.workspaceDir || process.cwd();
+    this._hasCustomQueuePath = Boolean(options.queuePath);
+    this._hasCustomProjectHash = Boolean(options.projectHash);
+    this._hasCustomSkillsBaseDir = Boolean(options.skillsBaseDir);
     this.projectHash =
       options.projectHash ||
       computeProjectScopeHash(this.workspaceDir, { gitRemoteUrl: options.gitRemoteUrl });
@@ -134,6 +149,25 @@ export class ReflectorQueue {
       path.join(this.workspaceDir, '.agents', 'skills');
     this.prefixShield = options.prefixShield || null;
     this.nowFn = typeof options.nowFn === 'function' ? options.nowFn : () => Date.now();
+  }
+
+  setWorkspaceDir(workspaceDir) {
+    if (!workspaceDir || typeof workspaceDir !== 'string') return this;
+    const resolved = path.resolve(workspaceDir);
+    // Never bind project learnings queue to the internal horizon-daemon sidecar directory
+    if (/sidecars[\\/]horizon-daemon$/i.test(resolved)) return this;
+    if (resolved === path.resolve(this.workspaceDir)) return this;
+    this.workspaceDir = resolved;
+    if (!this._hasCustomProjectHash) {
+      this.projectHash = computeProjectScopeHash(this.workspaceDir);
+    }
+    if (!this._hasCustomQueuePath) {
+      this.queuePath = path.join(this.workspaceDir, '.agents', 'cache', 'learnings-queue.json');
+    }
+    if (!this._hasCustomSkillsBaseDir) {
+      this.skillsBaseDir = path.join(this.workspaceDir, '.agents', 'skills');
+    }
+    return this;
   }
 
   attachPrefixCacheShield(prefixShield) {
@@ -175,9 +209,22 @@ export class ReflectorQueue {
    */
   enqueue(learning = {}, { existingRulesText = '' } = {}) {
     const data = this._readQueueData();
-    const directive = String(learning.directive_action || learning.ruleText || '').trim();
-    if (!directive) {
+    const rawDirective = String(learning.directive_action || learning.ruleText || '').trim();
+    if (!rawDirective) {
       throw new Error('ReflectorQueue.enqueue: directive_action is required');
+    }
+    const directive = rawDirective
+      .replace(/<\/?(?:USER_REQUEST|system_context_prefix)[^>]*>/gi, '')
+      .trim();
+    if (!directive || isCorruptedDirective(directive)) {
+      return {
+        enqueued: false,
+        reinforced: false,
+        blockedByContradiction: false,
+        rejectedCorruptedDirective: true,
+        item: null,
+        contradictionAudit: { hasContradiction: false, conflicts: [] }
+      };
     }
 
     const domain = String(learning.domain || 'general').toLowerCase().trim();
@@ -279,6 +326,7 @@ export class ReflectorQueue {
     const data = this._readQueueData();
     const targetHash = filter.projectHash || (filter.currentProjectOnly !== false ? this.projectHash : null);
     return data.items.filter((it) => {
+      if (isCorruptedDirective(it?.directive_action)) return false;
       if (targetHash && it.project_hash !== targetHash) return false;
       if (filter.status && it.status !== filter.status) return false;
       if (filter.domain && it.domain !== filter.domain) return false;

@@ -224,3 +224,27 @@ test('Phase 2 (Feature #18 & #19): RsiInstinctEngine enforces ContradictionAudit
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
+
+test('Regression: ReflectorQueue rejects <system_context_prefix> / # ROLE persona preambles and ignores internal horizon-daemon cwd', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'horizon-rq-corrupt-'));
+  try {
+    const rq = new ReflectorQueue({
+      workspaceDir: tmpDir,
+      projectHash: 'repo_clean_01'
+    });
+
+    const badRes = rq.enqueue({
+      domain: 'rules',
+      directive_action: '<system_context_prefix>\n# ROLE & OPERATIONAL PROFILE\nYou are the Principal Systems Architect, Compet'
+    });
+    assert.equal(badRes.enqueued, false, 'Must reject <system_context_prefix> / # ROLE preamble');
+    assert.equal(badRes.rejectedCorruptedDirective, true);
+    assert.equal(rq.listItems().length, 0);
+
+    // Ensure setWorkspaceDir refuses to bind to sidecars/horizon-daemon
+    rq.setWorkspaceDir(path.join(tmpDir, 'sidecars', 'horizon-daemon'));
+    assert.equal(rq.workspaceDir, tmpDir);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
