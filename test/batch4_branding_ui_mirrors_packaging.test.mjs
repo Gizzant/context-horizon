@@ -25,7 +25,11 @@ import { upsertFencedCoachBlock } from '../src/core/coach/turn_zero_gate.mjs';
 import { applyRuleDeltaToContent, PrefixCacheShield } from '../src/core/prefix_cache_shield.mjs';
 import { serializeScriptJson, buildDemoPage } from '../scripts/build_demo_page.mjs';
 import { syncAndVerifyMirrors } from '../scripts/sync_mirrors.mjs';
-import { FULL_TOOL_HOOK_MATCHER } from '../src/core/layer5_hygiene.mjs';
+import {
+  FULL_TOOL_HOOK_MATCHER,
+  LEAN_PRE_TOOL_HOOK_MATCHER,
+  LEAN_POST_TOOL_HOOK_MATCHER
+} from '../src/core/layer5_hygiene.mjs';
 import { JSDOM } from 'jsdom';
 
 const INTERNAL_REPO_RE = new RegExp('ga-visualizer' + '-v2', 'i');
@@ -465,8 +469,8 @@ describe('Batch 4 Remediation — ISS-056 & ISS-057: Mirror Sync Parity, 6 Hooks
       for (const ev of ['SessionStart', 'PreInvocation', 'PostInvocation', 'Stop', 'PreToolUse', 'PostToolUse']) {
         assert.ok(Array.isArray(lc[ev]) && lc[ev].length > 0, `Missing hook event ${ev}`);
       }
-      assert.equal(lc.PreToolUse[0].matcher, FULL_TOOL_HOOK_MATCHER);
-      assert.equal(lc.PostToolUse[0].matcher, FULL_TOOL_HOOK_MATCHER);
+      assert.equal(lc.PreToolUse[0].matcher, LEAN_PRE_TOOL_HOOK_MATCHER);
+      assert.equal(lc.PostToolUse[0].matcher, LEAN_POST_TOOL_HOOK_MATCHER);
 
       const legManifest = JSON.parse(fs.readFileSync(path.join(mockLegacy, 'plugin.json'), 'utf8'));
       assert.equal(legManifest.displayName, 'Attention Horizon');

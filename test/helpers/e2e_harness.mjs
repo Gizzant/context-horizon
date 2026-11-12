@@ -1891,63 +1891,43 @@ function _stripTags(html) {
 }
 
 /**
- * Invariant 1: Asserts that #compactInstruction renders plain text instructions
- * without a copy button or paste guidance.
+ * Invariant 1: Asserts that #compactInstruction renders "/compact" instructions
+ * alongside the 1-click Copy /compact button (#btnCompactPrimary) without legacy Ctrl+V guidance.
  * @param {string} htmlOrContent
  */
 export function assertPlainTextCompact(htmlOrContent = '') {
-  // 1. Forbidden document-wide symbols
-  assert.ok(
-    !htmlOrContent.includes('btnCompactPrimary'),
-    'Invariant 1 Violation: Must never render clickable #btnCompactPrimary copy button'
-  );
+  // 1. Forbidden legacy symbol
   assert.ok(
     !htmlOrContent.includes('copyCompactWithGuidance'),
     'Invariant 1 Violation: Must never render copyCompactWithGuidance function'
   );
 
-  // 2. Check for clickable buttons attached to /compact
-  const copyCompactBtnRegex = /<button\b[^>]*>(?:(?!<\/button>)[\s\S])*?(?:copy\s+\/compact|\/compact\s+copy|copyCompact)(?:(?!<\/button>)[\s\S])*?<\/button>/i;
-  assert.ok(
-    !copyCompactBtnRegex.test(htmlOrContent),
-    'Invariant 1 Violation: Must never render a clickable copy button for /compact'
-  );
-
-  // 3. Locate #compactInstruction scope if present
+  // 2. Locate #compactInstruction scope if present
   const compactEl = _extractElementById(htmlOrContent, 'compactInstruction');
   const compactAdvEl = _extractElementById(htmlOrContent, 'compactInstructionAdv');
   const actionRowCompactEl = _extractElementById(htmlOrContent, 'actionRowCompact');
 
-  // Determine the effective scope for compact instruction
   const scopedTarget = compactEl || compactAdvEl || actionRowCompactEl || htmlOrContent;
 
-  // 4. Ctrl+V paste instruction check
+  // 3. Ctrl+V paste instruction check
   if (compactEl || compactAdvEl || actionRowCompactEl) {
-    // When explicit compact container is found, ensure neither container nor row instructs Ctrl+V
     assert.ok(
       !scopedTarget.includes('Ctrl+V'),
       'Invariant 1 Violation: Must never instruct user to press Ctrl+V for /compact'
     );
-    // Also ensure no sentence mentioning /compact in the document instructs Ctrl+V
     const compactCtrlVRegex = /(?:\/compact[^\n.<>]*Ctrl\+V|Ctrl\+V[^\n.<>]*\/compact)/i;
     assert.ok(
       !compactCtrlVRegex.test(htmlOrContent),
       'Invariant 1 Violation: Must never instruct user to press Ctrl+V for /compact'
     );
-    // Ensure no <button> is inside #compactInstruction
-    assert.ok(
-      !/<button\b/i.test(compactEl || ''),
-      'Invariant 1 Violation: Must never render a button inside #compactInstruction'
-    );
   } else {
-    // Unscoped snippet passed directly: forbid Ctrl+V
     assert.ok(
       !htmlOrContent.includes('Ctrl+V'),
       'Invariant 1 Violation: Must never instruct user to press Ctrl+V'
     );
   }
 
-  // 5. Plain text instruction validation: "Type /compact in the chat box and press Enter"
+  // 4. Plain text instruction validation: "Type /compact in the chat box and press Enter"
   const plainScopeText = _stripTags(scopedTarget);
   const plainFullText = _stripTags(htmlOrContent);
   const expectedInstruction = 'Type /compact in the chat box and press Enter';
@@ -1960,7 +1940,7 @@ export function assertPlainTextCompact(htmlOrContent = '') {
 
   assert.ok(
     hasInstruction,
-    'Invariant 1: Must render exact plain-text instruction "Type /compact in the chat box and press Enter"'
+    'Invariant 1: Must render instruction "Type /compact in the chat box and press Enter"'
   );
 }
 

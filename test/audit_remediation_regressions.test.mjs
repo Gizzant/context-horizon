@@ -168,8 +168,8 @@ test('Audit Remediation 5: hooks.json lifecycle hooks run cleanly on Windows/POS
 test('Audit Remediation 6: UI Invariants - Plain-text /compact and active source file protection', () => {
   const html = fs.readFileSync(path.resolve('src/webview/horizon_panel.html'), 'utf8');
 
-  // Invariant 1: No clickable copy button for /compact
-  assert.ok(!html.includes('id="btnCompactPrimary"'));
+  // Invariant 1: 1-Click Copy button for /compact alongside instruction
+  assert.ok(html.includes('id="btnCompactPrimary"'));
   assert.ok(!html.includes('copyCompactWithGuidance'));
   assert.ok(html.includes('Type /compact in the chat box and press Enter'));
 

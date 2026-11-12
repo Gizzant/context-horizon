@@ -214,6 +214,25 @@ export function deactivateProLicense(options = {}) {
 export function getProEntitlementStatus(options = {}) {
   const licensePath = resolveLicenseFilePath(options);
   const nowMs = Number(options.nowMs || Date.now());
+  const isDevOrTest =
+    !options.strict &&
+    Boolean(
+      process.env.CTXTOP_PRO_DEV === '1' ||
+        process.env.NODE_ENV === 'test' ||
+        process.env.NODE_TEST_CONTEXT ||
+        process.execArgv?.includes('--test')
+    );
+
+  if (isDevOrTest && !options.licensePath) {
+    return {
+      entitled: true,
+      tier: 'pro_dev_bypass',
+      source: 'dev_or_test_bypass',
+      isDevOrTestBypass: true,
+      licensePath,
+      pricing: PRO_PRICING_TIERS
+    };
+  }
 
   if (fs.existsSync(licensePath)) {
     try {
@@ -259,12 +278,6 @@ export function getProEntitlementStatus(options = {}) {
     }
   }
 
-  const isDevOrTest =
-    !options.strict &&
-    (process.env.CTXTOP_PRO_DEV === '1' ||
-      process.env.NODE_ENV === 'test' ||
-      process.execArgv?.includes('--test'));
-
   if (isDevOrTest) {
     return {
       entitled: true,
@@ -282,5 +295,48 @@ export function getProEntitlementStatus(options = {}) {
     source: 'free_core',
     licensePath,
     pricing: PRO_PRICING_TIERS
+  };
+}
+
+/**
+ * Evaluates whether a specific commercial Pro or Team feature is permitted.
+ * Preserves automatic dev/test bypass unless `options.strict === true`.
+ *
+ * @param {string} [featureId='pro_feature']
+ * @param {object} [options={}]
+ */
+export function requireProFeature(featureId = 'pro_feature', options = {}) {
+  const status = getProEntitlementStatus(options);
+  const needsTeamTier = featureId === 'team_finops_pack';
+  const isDevOrTest =
+    !options.strict &&
+    Boolean(
+      process.env.CTXTOP_PRO_DEV === '1' ||
+        process.env.NODE_ENV === 'test' ||
+        process.env.NODE_TEST_CONTEXT ||
+        process.execArgv?.includes('--test')
+    );
+
+  const allowed = needsTeamTier
+    ? Boolean(
+        isDevOrTest ||
+          (status.entitled &&
+            (status.tier === 'team' ||
+              status.tier === 'trial' ||
+              status.tier === 'pro_dev_bypass' ||
+              status.tier === 'ltd'))
+      )
+    : Boolean(status.entitled);
+
+  return {
+    allowed,
+    featureId,
+    entitled: status.entitled,
+    tier: status.tier,
+    source: status.source,
+    status,
+    upgradeHint: needsTeamTier
+      ? 'Requires Attention Horizon Team ($299/yr for 5 seats) or an active 14-day trial (`npx ctxtop license trial`).'
+      : 'Requires Attention Horizon Pro ($9/mo · $79/yr · $119 LTD) or an active 14-day trial (`npx ctxtop license trial`).'
   };
 }

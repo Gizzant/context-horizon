@@ -837,8 +837,8 @@ d.querySelector('[data-view-tab="simple"]')?.click();
 assert.equal(d.body.getAttribute('data-view-mode'), 'simple');
 assert.equal(paramDetails.open, false, 'Hotfix #6: Simple mode must collapse the template');
 
-// Invariants: no /compact copy button
-assert.equal(d.getElementById('btnCompactPrimary'), null, 'Invariant: #btnCompactPrimary must never render');
+// Invariants: 1-click /compact copy button present
+assert.ok(d.getElementById('btnCompactPrimary'), 'Invariant: #btnCompactPrimary must render');
 assert.ok(!fs.readFileSync(htmlPath, 'utf8').includes('copyCompactWithGuidance'), 'Invariant: copyCompactWithGuidance must not exist');
 
 // Stage 3 Remediation Matrix (UIA-01..UIA-06) Falsifiable Verification Checks:

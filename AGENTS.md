@@ -2,9 +2,8 @@
 - **User Constraint**: To keep context memory lean, please use `StartLine`/`EndLine` when reading `src/webview/horizon_panel.html`, `src/core/classifier.mjs`, and `sidecars/horizon-daemon/server.mjs` instead of reading full files repeatedly.
 
 ## UI & Architecture Invariants
-1. **No Copy/Paste Button for `/compact`**:
-   - Never render a clickable "Copy `/compact`" button (`#btnCompactPrimary`, `copyCompactWithGuidance`) or `Ctrl+V` paste instructions for `/compact`.
-   - Always render a plain-text instruction (`Type /compact in the chat box and press Enter`) inside `#compactInstruction` with the reclaim summary in `#compactReclaim`.
+1. **1-Click Copy Button for `/compact`**:
+   - Render a clickable "Copy `/compact`" button (`#btnCompactPrimary`, `#btnCopyParameterizedCompact`) alongside `#compactInstruction` (`Type /compact in the chat box and press Enter`) and `#compactReclaim`.
 2. **Active Source File Protection**:
    - Only show the `Ignore file` (`.antigravityignore`) button on lockfiles, logs, build artifacts, or scratch files (`isIgnorablePath`) — never on active source code files.
 3. **Webview Mirror Parity**:

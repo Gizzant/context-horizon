@@ -165,11 +165,22 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
     record('Antigravity Hooks', 'WARN', 'No hooks.json registering PreInvocation found in ~/.gemini/config or workspace');
   }
 
-  // 1b. Duplicate Plugin Integrity Check
+  // 1b. Plugin Mirror & Canonical Integrity Check
   const agyHorizonDir = path.join(home, '.gemini', 'config', 'plugins', 'agy-horizon');
   const flightcheckDir = path.join(home, '.gemini', 'config', 'plugins', 'agy-horizon-flightcheck');
   if (fs.existsSync(agyHorizonDir) && fs.existsSync(flightcheckDir)) {
-    record('Plugin Canonical Integrity', 'WARN', 'Duplicate plugin directories detected (~/agy-horizon & ~/agy-horizon-flightcheck). Run `npx attention-horizon-antigravity init --dedupe` to standardize.');
+    let mirrorsInSync = false;
+    try {
+      const mCheck = syncAndVerifyMirrors({ verifyOnly: true });
+      mirrorsInSync = Boolean(mCheck && mCheck.parityOk);
+    } catch (_err) {
+      mirrorsInSync = false;
+    }
+    if (mirrorsInSync) {
+      record('Plugin Canonical Integrity', 'PASS', 'Canonical & mirror plugin directories synced (SHA-256 parity verified)');
+    } else {
+      record('Plugin Canonical Integrity', 'WARN', 'Out-of-sync plugin mirrors detected (~/agy-horizon & ~/agy-horizon-flightcheck). Run `node scripts/sync_mirrors.mjs` or `npx ctxtop init --dedupe`.');
+    }
   } else if (fs.existsSync(flightcheckDir)) {
     record('Plugin Canonical Integrity', 'PASS', 'Canonical plugin directory active (~/.gemini/config/plugins/agy-horizon-flightcheck)');
   }

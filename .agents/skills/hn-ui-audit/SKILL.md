@@ -35,9 +35,8 @@ Whenever executing this skill or receiving the `/hn-ui-audit` command, **immedia
 
 Any proposed UI change or code review must strictly adhere to the project invariants defined in `AGENTS.md`:
 
-1. **No Copy/Paste Button for `/compact`**:
-   - Never render a clickable "Copy `/compact`" button (`#btnCompactPrimary`, `copyCompactWithGuidance`) or `Ctrl+V` paste instructions for `/compact`.
-   - Always render a plain-text instruction (`Type /compact in the chat box and press Enter`) inside `#compactInstruction` with the reclaim summary in `#compactReclaim`.
+1. **1-Click Copy Button for `/compact`**:
+   - Render a clickable "Copy `/compact`" button (`#btnCompactPrimary`, `#btnCopyParameterizedCompact`) alongside `#compactInstruction` (`Type /compact in the chat box and press Enter`) and `#compactReclaim`.
 2. **Active Source File Protection**:
    - Only show the `Ignore file` (`.antigravityignore`) button on lockfiles, logs, build artifacts, or scratch files (`isIgnorablePath`) — never on active source code files (`*.mjs`, `*.js`, `*.html`, `*.py`, `*.ts`).
 3. **Webview Mirror Parity**:

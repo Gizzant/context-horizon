@@ -174,9 +174,9 @@ describe('Surgical Patch: 256k 40-Cell Dynamic Scaling & Transition Placement', 
     assert.ok(compactInst, '#compactInstruction must exist');
     assert.ok(compactInst.textContent.includes('Type /compact in the chat box and press Enter'), 'Instruction must be exact');
 
-    // Double check zero clickable buttons on the /compact row
+    // Verify 1-click Copy /compact button on the /compact row
     const btns = compactRow.querySelectorAll('button');
-    assert.equal(btns.length, 0, 'Zero buttons allowed in /compact row');
+    assert.equal(btns.length, 1, '1-click Copy /compact button allowed in /compact row');
   });
 
   test('Chronic offender row does not duplicate chat count in title and #strandedSignalBanner renders actionable [Re-anchor] button', async () => {

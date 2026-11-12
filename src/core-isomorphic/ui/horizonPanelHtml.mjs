@@ -567,6 +567,7 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
       <div class="ah-action-hdr">
         <span id="priorityActionTitle">${escapeHtml(priorityAction.title)}</span>
         <span class="ah-action-reclaim" id="compactReclaim">${escapeHtml(compactReclaimText)}</span>
+        <button type="button" class="ah-btn-copy-compact" id="btnCompactPrimary" onclick="navigator.clipboard&&navigator.clipboard.writeText('/compact')">Copy /compact</button>
       </div>
       <div class="ah-action-instr" id="compactInstruction">${escapeHtml(compactInstructionText)}</div>
       ${

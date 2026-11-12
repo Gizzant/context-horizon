@@ -19,6 +19,10 @@ export const MEMORY_MD_TRUNCATION_THRESHOLD_LINES = 200;
 export const SWARM_TOOL_MATCHER = 'invoke_subagent|define_subagent|send_message|manage_subagents';
 export const FULL_TOOL_HOOK_MATCHER =
   'run_command|edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content|read_file|view_file|grep_search|find_by_name|list_dir|invoke_subagent|define_subagent|send_message|manage_subagents|swarm';
+export const LEAN_PRE_TOOL_HOOK_MATCHER =
+  'run_command|edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content|read_file|view_file|invoke_subagent|define_subagent|send_message|manage_subagents|swarm';
+export const LEAN_POST_TOOL_HOOK_MATCHER =
+  'run_command|edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content|invoke_subagent|define_subagent|send_message|manage_subagents|swarm';
 export const CLI_DAMPENER_MATCHER = 'run_command|execute_bash|bash|Bash|PowerShell';
 export const FLAT_LIFECYCLE_EVENTS = Object.freeze(['SessionStart', 'PreInvocation', 'PostInvocation', 'Stop']);
 

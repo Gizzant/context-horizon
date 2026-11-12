@@ -2948,9 +2948,9 @@ describe('Feature 36: Plain-Text /compact Invariant', () => {
     }
   });
 
-  it('36.4 Plain-Text /compact Invariant: unit tests assert absence of #btnCompactPrimary', () => {
-    const badHtml = '<button id="btnCompactPrimary">Copy /compact</button>';
-    assert.throws(() => assertPlainTextCompact(badHtml), /Invariant 1 Violation/);
+  it('36.4 1-Click Copy /compact Invariant: unit tests assert presence of #btnCompactPrimary alongside #compactInstruction', () => {
+    const validHtml = '<div id="compactInstruction">Type /compact in the chat box and press Enter</div><button id="btnCompactPrimary">Copy /compact</button>';
+    assert.doesNotThrow(() => assertPlainTextCompact(validHtml));
   });
 
   it('36.5 Plain-Text /compact Invariant: unit tests assert absence of copyCompactWithGuidance and Ctrl+V instructions', () => {

@@ -172,7 +172,7 @@ const syncRes = syncAndVerifyMirrors();
 assert.equal(syncRes.parityOk, true, '3-Way WebView Mirror SHA-256 parity must hold');
 const htmlContent = fs.readFileSync(path.join(REPO_ROOT, 'src', 'webview', 'horizon_panel.html'), 'utf8');
 assert.ok(htmlContent.includes('id="compactInstruction"'), 'Must retain #compactInstruction');
-assert.ok(!htmlContent.includes('id="btnCompactPrimary"'), 'Must NEVER render clickable copy button for /compact');
+assert.ok(htmlContent.includes('id="btnCompactPrimary"'), 'Must render clickable Copy /compact button (#btnCompactPrimary)');
 assert.ok(htmlContent.includes('id="quotaStrip"'), 'Must include Dual-Pool Quota strip');
 assert.ok(htmlContent.includes('id="hostWatchdogBar"'), 'Must include Host Watchdog footer bar');
 console.log('✓ Check 8 (T4.1 & T4.2): 3-Way SHA-256 Mirror Parity & UI Invariants verified.');

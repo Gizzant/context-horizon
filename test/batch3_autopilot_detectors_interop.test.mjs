@@ -16,6 +16,8 @@ import {
 import { TaskQuotaRouter, COACH_MODES } from '../src/core/coach/task_quota_router.mjs';
 import {
   FULL_TOOL_HOOK_MATCHER,
+  LEAN_PRE_TOOL_HOOK_MATCHER,
+  LEAN_POST_TOOL_HOOK_MATCHER,
   CLI_DAMPENER_MATCHER,
   validateAntigravityHooksSchema,
   wrapNoisyCommandWithDampener,
@@ -253,8 +255,6 @@ describe('Batch 3 Regression Suite — ISS-039, ISS-040, ISS-041, ISS-042, ISS-0
         'run_command',
         'edit_file',
         'write_file',
-        'read_file',
-        'view_file',
         'invoke_subagent',
         'define_subagent',
         'send_message',
@@ -263,13 +263,16 @@ describe('Batch 3 Regression Suite — ISS-039, ISS-040, ISS-041, ISS-042, ISS-0
         assert.ok(preMatcher.includes(expectedTool), `PreToolUse matcher missing ${expectedTool}`);
         assert.ok(postMatcher.includes(expectedTool), `PostToolUse matcher missing ${expectedTool}`);
       }
-      assert.equal(preMatcher, FULL_TOOL_HOOK_MATCHER);
+      assert.ok(preMatcher.includes('read_file') && preMatcher.includes('view_file'));
+      assert.equal(postMatcher.includes('read_file'), false);
+      assert.equal(preMatcher, LEAN_PRE_TOOL_HOOK_MATCHER);
+      assert.equal(postMatcher, LEAN_POST_TOOL_HOOK_MATCHER);
       assert.equal(validateAntigravityHooksSchema(hooksJson).valid, true);
 
       const generatedHooks = buildHooksConfig('/tmp/plugin');
       const genRoot = generatedHooks.hooks || generatedHooks['horizon-flightcheck-lifecycle'];
-      assert.equal(genRoot.PreToolUse[0].matcher, FULL_TOOL_HOOK_MATCHER);
-      assert.equal(genRoot.PostToolUse[0].matcher, FULL_TOOL_HOOK_MATCHER);
+      assert.equal(genRoot.PreToolUse[0].matcher, LEAN_PRE_TOOL_HOOK_MATCHER);
+      assert.equal(genRoot.PostToolUse[0].matcher, LEAN_POST_TOOL_HOOK_MATCHER);
     });
 
     test('pre_invocation.mjs honors .attention-horizon.json flightMode (OFF, SILENT, AUTO_PILOT) while keeping Ring-0 blocks active', async () => {

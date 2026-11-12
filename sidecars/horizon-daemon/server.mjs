@@ -51,6 +51,7 @@ import {
 } from '../../src/core/coach/saved_quota_ledger.mjs';
 import {
   getProEntitlementStatus,
+  requireProFeature,
   activateProLicense,
   activateLocalTrial
 } from '../../src/core/pro_license.mjs';
@@ -1684,6 +1685,21 @@ const server = http.createServer(async (req, res) => {
       workspace30dSavedUSD: Number(unified.estimatedSavedUSD || (Number(ledgerSum.totalArgonEquivTokensSaved || 0) * 0.000015) || 0)
     });
     if (fmt === 'pdf') {
+      const proCheck = requireProFeature('corporate_expense_receipts', {
+        strict: url.searchParams.get('strict') === '1'
+      });
+      if (!proCheck.allowed) {
+        res.writeHead(402, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            ok: false,
+            requiresPro: true,
+            shadowSavedUSD: rcpt.workspace30dSavedUSD,
+            upgradeHint: proCheck.upgradeHint
+          })
+        );
+        return;
+      }
       const buf = Buffer.from(rcpt.pdfBytes);
       res.writeHead(200, {
         'Content-Type': 'application/pdf',

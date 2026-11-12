@@ -8,6 +8,7 @@ import { computeTotalPromptTokens } from '../../src/core-isomorphic/config/catal
 import { loadHorizonConfig, resolveDetectorOverride } from '../../src/core-isomorphic/config/horizonConfig.mjs';
 import { CacheGravityRouter } from '../../src/core-isomorphic/coach/cacheGravityRouter.mjs';
 import { recordInterventionSavings } from '../../src/core-isomorphic/coach/savedQuotaLedger.mjs';
+import { requireProFeature } from '../../src/core/pro_license.mjs';
 import {
   isCliEntrypoint,
   readStdinJsonAsync,
@@ -48,13 +49,17 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
   const configHasDiskSource = Boolean(
     horizonConfig?.sources?.projectLoaded || horizonConfig?.sources?.globalLoaded
   );
-  const effectiveMode =
+  const rawEffectiveMode =
     event.mode ||
     options.mode ||
     options.telemetryState?.flightMode ||
     (configHasDiskSource
       ? horizonConfig.flightMode
       : liveState?.flightMode || horizonConfig?.flightMode || 'COACH');
+  const proAutoPilot =
+    rawEffectiveMode === 'AUTO_PILOT' ? requireProFeature('auto_pilot_locks', options) : { allowed: true };
+  const effectiveMode =
+    rawEffectiveMode === 'AUTO_PILOT' && !proAutoPilot.allowed ? 'COACH' : rawEffectiveMode;
 
   const router =
     options.router ||

@@ -1,11 +1,14 @@
 {
   "name": "@ctxtop/pro",
   "version": "4.0.0",
-  "description": "Attention Horizon Pro — Offline Ed25519 License Verifier & Cross-Harness Commercial Entitlements (Polar.sh)",
+  "description": "Attention Horizon Pro — Offline Ed25519 License Verifier, Team FinOps Pack & Commercial Entitlements (Polar.sh)",
+  "license": "SEE LICENSE IN LICENSE-COMMERCIAL.md",
   "type": "module",
   "main": "./src/index.mjs",
   "exports": {
-    ".": "./src/index.mjs"
+    ".": "./src/index.mjs",
+    "./worker": "./workers/polar_webhook_worker.mjs",
+    "./team-finops": "./src/team_finops_pack.mjs"
   },
   "engines": {
     "node": ">=20.0.0"

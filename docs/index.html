@@ -3458,7 +3458,7 @@
               </div>
             </div>
 
-            <!-- Action 1: /compact instruction (Strictly preserves UI Invariant 1) -->
+            <!-- Action 1: /compact instruction & 1-click copy button -->
             <div class="m3-action-row" id="actionRowCompact">
               <div class="compact-instruction" id="compactInstruction">
                 <span class="m3-action-icon amber" aria-hidden="true">&#x26A1;</span>
@@ -3467,6 +3467,7 @@
                   <span class="compact-instruction-sub mono">Type <kbd class="cmd-kbd">/compact</kbd> in the chat box and press <kbd>Enter</kbd></span>
                 </div>
                 <span class="compact-reclaim mono" id="compactReclaim">reclaims ~0k</span>
+                <button type="button" class="mini-btn m3-action-btn mono" id="btnCompactPrimary" title="Copy /compact command to clipboard">&#x1F4CB; Copy /compact</button>
               </div>
             </div>
 
@@ -3484,7 +3485,10 @@
           <details class="param-compact-details advanced-only" id="parameterizedCompactDetails">
             <summary>Parameterized <code>/compact</code> template</summary>
             <div class="param-compact-box mono" id="parameterizedCompactBox">
-              <span class="param-compact-label">Parameterized Compaction Template (Select &amp; Type in Chat)</span>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
+                <span class="param-compact-label">Parameterized Compaction Template (Copy or Type in Chat)</span>
+                <button type="button" class="mini-btn m3-action-btn mono" id="btnCopyParameterizedCompact" title="Copy parameterized /compact command to clipboard">&#x1F4CB; Copy Template</button>
+              </div>
               <div id="parameterizedCompactText">/compact Focus on preserving: 1) Exported symbol signatures and state scales for [active workspace files], 2) Current checklist state in task.md.</div>
             </div>
           </details>
@@ -7604,14 +7608,14 @@
       const currentSessionTokenRows = [];
       const crossSessionRows = [];
 
-      // B1. Context Compaction (/compact — Strictly Plain Text per UI Invariant 1; hidden until actually needed)
-      if (isCompactNeeded) {
+      // B1. Context Compaction (/compact — with 1-click Copy /compact button; hidden until actually needed)
+      if (isCompactNeeded && !dismissedKeys.has('compact-context')) {
         const compactImpactTok = Math.max(clutterTokens, Math.round(reclaimSumK * 1000), isOverLimit ? (totalTokens - safeLimit) : 0, 1);
         const reclaimLabel = reclaimSumStr && reclaimSumStr !== '0k' ? `~${reclaimSumStr}` : `~${fmtK(compactImpactTok)}`;
         currentSessionTokenRows.push({
           impactTokens: compactImpactTok + 1, // tie-breaker above subset surgical actions of identical size
           html:
-            `<details class="m3-action-row m3-action-collapsible" data-action-id="compact-context" data-impact-tokens="${compactImpactTok}">` +
+            `<details class="m3-action-row m3-action-collapsible" data-action-id="compact-context" data-impact-tokens="${compactImpactTok}" data-dismiss-key="compact-context">` +
               `<summary class="m3-action-summary">` +
                 `<span class="m3-action-caret">&#x25B6;</span>` +
                 `<span class="m3-action-icon amber">&#x26A1;</span>` +
@@ -7620,6 +7624,9 @@
                   `<span class="m3-action-sub mono compact-instruction-adv" id="compactInstructionAdv">Type /compact in the chat box and press Enter</span>` +
                 `</div>` +
                 `<span class="m3-impact-badge amber compact-reclaim mono" id="compactReclaimAdv" title="Reclaims ${reclaimLabel}">${reclaimLabel}</span>` +
+                `<div class="m3-action-btn-row">` +
+                  `<button type="button" class="mini-btn m3-action-btn" id="btnSimpleCopyCompact" data-simple-copy="/compact" data-dismiss-key="compact-context" title="Copy /compact to clipboard">&#x1F4CB; Copy /compact</button>` +
+                `</div>` +
               `</summary>` +
               `<div class="m3-action-body">` +
                 `<div class="m3-action-inst">Type <kbd class="cmd-kbd">/compact</kbd> in the chat box and press <kbd>Enter</kbd>. Summarizes completed conversation turns and duplicate file snapshots (reclaims up to ${reclaimLabel}) while keeping <code>AGENTS.md</code> rules, <code>task.md</code> state, and active working summary intact.</div>` +
@@ -8454,6 +8461,39 @@
   const btnCopySavingsReceipt = document.getElementById('btnCopySavingsReceipt');
   if (btnCopySavingsReceipt) {
     btnCopySavingsReceipt.onclick = copyVerifiedTokensSavedReceipt;
+  }
+
+  const btnCompactPrimary = document.getElementById('btnCompactPrimary');
+  if (btnCompactPrimary) {
+    btnCompactPrimary.onclick = async (e) => {
+      e.stopPropagation();
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText('/compact');
+        }
+      } catch (err) {
+        void err;
+      }
+      flashButton(btnCompactPrimary, '\u2713 Copied!', 1800);
+      showToast('&#x2713; <strong>Copied <code>/compact</code></strong> to clipboard.');
+    };
+  }
+
+  const btnCopyParameterizedCompact = document.getElementById('btnCopyParameterizedCompact');
+  if (btnCopyParameterizedCompact) {
+    btnCopyParameterizedCompact.onclick = async (e) => {
+      e.stopPropagation();
+      const cmdText = document.getElementById('parameterizedCompactText')?.textContent?.trim() || '/compact';
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(cmdText);
+        }
+      } catch (err) {
+        void err;
+      }
+      flashButton(btnCopyParameterizedCompact, '\u2713 Copied!', 1800);
+      showToast('&#x2713; <strong>Copied Parameterized <code>/compact</code></strong> to clipboard.');
+    };
   }
   const btnCopySimpleSavingsReceipt = document.getElementById('btnCopySimpleSavingsReceipt');
   if (btnCopySimpleSavingsReceipt) {

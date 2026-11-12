@@ -19,3 +19,9 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+Open-Core Dual-License Notice:
+The MIT License above applies to `@ctxtop/core`, `@ctxtop/antigravity`, `@ctxtop/claude-code`, the 40-cell HUD, 5-minute TTL clock, `--roast`, and advisory `COACH` guards.
+Commercial modules under `packages/pro/**` (`@ctxtop/pro`) and `src/core/pro_license.mjs` are governed by `packages/pro/LICENSE-COMMERCIAL.md`.

@@ -108,6 +108,39 @@ export function buildOtelMetricRecords(telemetryState = {}, vcsMetadata = {}) {
     }
   });
 
+  if (
+    telemetryState.savedQuotaUSD !== undefined ||
+    telemetryState.workspace30dSavedUSD !== undefined ||
+    telemetryState.interventionCount !== undefined ||
+    telemetryState.breakerTrips !== undefined ||
+    telemetryState.includeHorizonMetrics
+  ) {
+    records.push({
+      metricName: 'attention_horizon.saved_quota.usd',
+      timestamp,
+      value: Number(
+        telemetryState.savedQuotaUSD ??
+          telemetryState.workspace30dSavedUSD ??
+          costs.netCacheSavingsUSD ??
+          0
+      ),
+      unit: 'USD',
+      attributes: {
+        ...baseAttributes
+      }
+    });
+
+    records.push({
+      metricName: 'attention_horizon.intervention.count',
+      timestamp,
+      value: Number(telemetryState.interventionCount ?? telemetryState.breakerTrips ?? 0),
+      unit: 'count',
+      attributes: {
+        ...baseAttributes
+      }
+    });
+  }
+
   return records;
 }
 

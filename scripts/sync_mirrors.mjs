@@ -4,7 +4,11 @@ import crypto from 'node:crypto';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { atomicWriteFileSync } from '../src/core/atomic_io.mjs';
-import { FULL_TOOL_HOOK_MATCHER } from '../src/core/layer5_hygiene.mjs';
+import {
+  FULL_TOOL_HOOK_MATCHER,
+  LEAN_PRE_TOOL_HOOK_MATCHER,
+  LEAN_POST_TOOL_HOOK_MATCHER
+} from '../src/core/layer5_hygiene.mjs';
 import { buildDemoPage } from './build_demo_page.mjs';
 import { buildEvaluationBundles, TIER_1_FILES, TIER_2_FILES } from './build_evaluation_bundles.mjs';
 
@@ -89,7 +93,7 @@ export function buildFullLifecycleHooksBlock(pluginRoot, enabled = true) {
     ],
     PreToolUse: [
       {
-        matcher: FULL_TOOL_HOOK_MATCHER,
+        matcher: LEAN_PRE_TOOL_HOOK_MATCHER,
         hooks: [
           {
             type: 'command',
@@ -101,7 +105,7 @@ export function buildFullLifecycleHooksBlock(pluginRoot, enabled = true) {
     ],
     PostToolUse: [
       {
-        matcher: FULL_TOOL_HOOK_MATCHER,
+        matcher: LEAN_POST_TOOL_HOOK_MATCHER,
         hooks: [
           {
             type: 'command',
@@ -127,8 +131,8 @@ function hasCompleteSixLifecycleHooks(lifecycleBlock, pluginRoot) {
   if (!preCmd.includes(normPre)) return false;
   if (!expectQuoted && (preCmd.includes(`"${normPre}"`) || preToolCmd.includes(`"${normPre}"`))) return false;
   if (!preToolCmd.includes('--event=PreToolUse')) return false;
-  if (lifecycleBlock.PreToolUse?.[0]?.matcher !== FULL_TOOL_HOOK_MATCHER) return false;
-  if (lifecycleBlock.PostToolUse?.[0]?.matcher !== FULL_TOOL_HOOK_MATCHER) return false;
+  if (lifecycleBlock.PreToolUse?.[0]?.matcher !== LEAN_PRE_TOOL_HOOK_MATCHER) return false;
+  if (lifecycleBlock.PostToolUse?.[0]?.matcher !== LEAN_POST_TOOL_HOOK_MATCHER) return false;
   return true;
 }
 

@@ -46,3 +46,4 @@ import './micro_ipc_bridge.test.mjs';
 import './test_bad_habit_delta_and_micro_skills.test.mjs';
 import './node20_antigravity_compat.test.mjs';
 import './roadmap_items_2_to_7.test.mjs';
+import './pre_launch_v4_pack.test.mjs';

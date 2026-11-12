@@ -12,9 +12,21 @@ import { runPostmortem, printPostmortemSummary } from './postmortem.mjs';
 import { runDoctor, parseDoctorArgs } from './doctor.mjs';
 import { runCostRadar, parseCostRadarArgs } from './cost_radar.mjs';
 import { compressCliOutputFts5, searchToolLogsFts5 } from '../core/fts5_output_compressor.mjs';
-import { SWARM_TOOL_MATCHER, FULL_TOOL_HOOK_MATCHER, validateAntigravityHooksSchema } from '../core/layer5_hygiene.mjs';
+import {
+  SWARM_TOOL_MATCHER,
+  FULL_TOOL_HOOK_MATCHER,
+  LEAN_PRE_TOOL_HOOK_MATCHER,
+  LEAN_POST_TOOL_HOOK_MATCHER,
+  validateAntigravityHooksSchema
+} from '../core/layer5_hygiene.mjs';
 
-export { SWARM_TOOL_MATCHER, FULL_TOOL_HOOK_MATCHER, validateAntigravityHooksSchema };
+export {
+  SWARM_TOOL_MATCHER,
+  FULL_TOOL_HOOK_MATCHER,
+  LEAN_PRE_TOOL_HOOK_MATCHER,
+  LEAN_POST_TOOL_HOOK_MATCHER,
+  validateAntigravityHooksSchema
+};
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(__dirname, '../..');
@@ -33,8 +45,10 @@ function getVersion() {
 }
 const VERSION = getVersion();
 
-export function buildHooksConfig(targetPluginDir = '.') {
+export function buildHooksConfig(targetPluginDir = '.', options = {}) {
   const useRelative = !targetPluginDir || targetPluginDir === '.';
+  const preMatcher = options.fullHooks ? FULL_TOOL_HOOK_MATCHER : LEAN_PRE_TOOL_HOOK_MATCHER;
+  const postMatcher = options.fullHooks ? FULL_TOOL_HOOK_MATCHER : LEAN_POST_TOOL_HOOK_MATCHER;
   const cmdFor = (relHook, fallbackScript, extraArg = '') => {
     const suffix = extraArg ? ` ${extraArg}` : '';
     if (useRelative) return `node ./hooks/${relHook}`;
@@ -74,7 +88,7 @@ export function buildHooksConfig(targetPluginDir = '.') {
       ],
       PreToolUse: [
         {
-          matcher: FULL_TOOL_HOOK_MATCHER,
+          matcher: preMatcher,
           hooks: [
             {
               type: 'command',
@@ -86,7 +100,7 @@ export function buildHooksConfig(targetPluginDir = '.') {
       ],
       PostToolUse: [
         {
-          matcher: FULL_TOOL_HOOK_MATCHER,
+          matcher: postMatcher,
           hooks: [
             {
               type: 'command',

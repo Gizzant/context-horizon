@@ -355,7 +355,7 @@ describe('Batch 4 — HUD Hygiene: Read-Only U-Curve Transcript Heatmap, Vertica
 
       const compactInst = d.getElementById('compactInstruction');
       assert.ok(compactInst.textContent.includes('Type /compact in the chat box and press Enter'));
-      assert.equal(d.getElementById('btnCompactPrimary'), null, 'Must never render a clickable Copy /compact button');
+      assert.ok(d.getElementById('btnCompactPrimary'), 'Must render clickable 1-click Copy /compact button');
     } finally {
       dom.window.close();
     }

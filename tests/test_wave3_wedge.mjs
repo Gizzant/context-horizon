@@ -428,10 +428,10 @@ describe('Simple View Recommended Actions Collapsible Architecture & Open-State 
       assert.ok(body.querySelector('.m3-action-inst'), `Body must have instructions .m3-action-inst`);
     }
 
-    // 2. Strict UI Invariant 1: compact-context has NO copy button
+    // 2. UI Invariant 1: compact-context has 1-click Copy /compact button
     const compactRow = actionListEl.querySelector('details[data-action-id="compact-context"]');
     assert.ok(compactRow, 'Must have compact-context row');
-    assert.equal(compactRow.querySelector('[data-simple-copy]'), null, 'UI Invariant 1: compact-context must NEVER have a copy button');
+    assert.ok(compactRow.querySelector('[data-simple-copy="/compact"]'), 'UI Invariant 1: compact-context must have a 1-click Copy /compact button');
     assert.ok(compactRow.querySelector('.m3-action-inst').textContent.includes('Type /compact in the chat box and press Enter'));
 
     // 3. Rows with copyable data have [data-simple-copy]
@@ -1123,8 +1123,8 @@ describe('Simple View Recommended Actions Collapsible Architecture & Open-State 
       }
     });
 
-    // 4. Verify Compaction Invariants: NO copy button for /compact anywhere
-    assert.equal(d.getElementById('btnCompactPrimary'), null, 'Clickable #btnCompactPrimary must NEVER exist in DOM');
+    // 4. Verify Compaction Invariants: 1-click Copy button for /compact
+    assert.ok(d.getElementById('btnCompactPrimary'), 'Clickable #btnCompactPrimary must exist in DOM');
     const globalCompactInst = d.getElementById('compactInstruction');
     assert.ok(globalCompactInst, '#compactInstruction must exist in #actionCard');
     assert.match(globalCompactInst.textContent, /Type \/compact in the chat box and press Enter/i);
@@ -1132,7 +1132,7 @@ describe('Simple View Recommended Actions Collapsible Architecture & Open-State 
     const compactRow = actionList.querySelector('details[data-action-id="compact-context"]');
     if (compactRow) {
       const compactButtons = compactRow.querySelectorAll('button');
-      assert.equal(compactButtons.length, 0, 'compact-context row must contain 0 buttons (plain text instructions only)');
+      assert.equal(compactButtons.length, 1, 'compact-context row must contain 1 Copy /compact button');
       const inst = compactRow.querySelector('.m3-action-inst');
       assert.ok(inst, 'compact row must have .m3-action-inst');
       assert.match(inst.textContent, /Type \/compact in the chat box and press Enter/i);

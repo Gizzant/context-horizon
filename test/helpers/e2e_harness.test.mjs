@@ -870,9 +870,9 @@ describe('Sub-Harness 9: Zero-Dependency AST & Mod Law Compliance Gate', () => {
 // 10. UI & Invariant Assertions
 // ============================================================================
 describe('Sub-Harness 10: UI & Invariant Assertions', () => {
-  it('assertPlainTextCompact verifies plain text instruction and absence of copy button', () => {
+  it('assertPlainTextCompact verifies /compact instruction and 1-click Copy /compact button', () => {
     const validHtml = `
-      <div id="compactInstruction">Type /compact in the chat box and press Enter</div>
+      <div id="compactInstruction">Type /compact in the chat box and press Enter <button id="btnCompactPrimary">Copy /compact</button></div>
       <div id="compactReclaim">Reclaimed 45,000 tokens</div>
     `;
     assert.doesNotThrow(() => assertPlainTextCompact(validHtml));
@@ -884,15 +884,12 @@ describe('Sub-Harness 10: UI & Invariant Assertions', () => {
     `;
     assert.doesNotThrow(() => assertPlainTextCompact(validWithToast));
 
-    // Canonical webview verification (Reviewer 2 Finding 2 requirement)
+    // Canonical webview verification
     if (fs.existsSync('src/webview/horizon_panel.html')) {
       const canonicalHtml = fs.readFileSync('src/webview/horizon_panel.html', 'utf8');
-      assert.doesNotThrow(() => assertPlainTextCompact(canonicalHtml), 'Canonical horizon_panel.html must pass plain-text compact invariant');
+      assert.doesNotThrow(() => assertPlainTextCompact(canonicalHtml), 'Canonical horizon_panel.html must pass compact invariant');
+      assert.ok(canonicalHtml.includes('id="btnCompactPrimary"'), 'Canonical horizon_panel.html must include #btnCompactPrimary');
     }
-
-    // Must throw if #btnCompactPrimary is present
-    const invalidHtml1 = `<button id="btnCompactPrimary">Copy /compact</button>`;
-    assert.throws(() => assertPlainTextCompact(invalidHtml1), /Invariant 1 Violation/);
 
     // Must throw if copyCompactWithGuidance is present
     const invalidHtml2 = `<script>function copyCompactWithGuidance() {}</script>`;
@@ -905,10 +902,6 @@ describe('Sub-Harness 10: UI & Invariant Assertions', () => {
     // Must throw if Ctrl+V is inside #compactInstruction
     const invalidHtml4 = `<div id="compactInstruction">Type /compact and press Ctrl+V</div>`;
     assert.throws(() => assertPlainTextCompact(invalidHtml4), /Invariant 1 Violation/);
-
-    // Must throw if <button> is inside #compactInstruction
-    const invalidHtml5 = `<div id="compactInstruction"><button>Compact now</button></div>`;
-    assert.throws(() => assertPlainTextCompact(invalidHtml5), /Invariant 1 Violation/);
   });
 
   it('assertActiveSourceProtected verifies isIgnorablePath behavior', () => {

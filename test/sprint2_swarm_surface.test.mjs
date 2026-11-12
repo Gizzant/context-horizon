@@ -195,7 +195,7 @@ test('Sprint 2 wiring: skill registered, CLI subcommand, loopback API route, pan
   const html = fs.readFileSync(path.join(ROOT, 'src', 'webview', 'horizon_panel.html'), 'utf8');
   assert.match(html, /id="swarmTopologyDrawer"/);
   assert.match(html, /function renderSwarmTopology\(/);
-  assert.ok(!/btnCompactPrimary/.test(html), 'no copy-/compact button invariant');
+  assert.ok(/btnCompactPrimary/.test(html), '1-click copy-/compact button invariant');
 });
 
 test('Windows PreToolUse hook safety: unquoted space-free hook paths + explicit decision="allow"', async () => {

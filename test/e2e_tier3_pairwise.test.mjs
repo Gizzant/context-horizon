@@ -1437,7 +1437,9 @@ describe('Tier 3: Pairwise Interactions (Features 29 - 41)', () => {
       assert.equal(isIgnorablePath(p), false, `Path ${p} must be recognized as active source`);
     }
 
-    const badSnippet = '<div id="compactInstruction"><button id="btnCompactPrimary">Copy /compact</button></div>';
+    const validSnippet = '<div id="compactInstruction">Type /compact in the chat box and press Enter</div><button id="btnCompactPrimary">Copy /compact</button>';
+    assert.doesNotThrow(() => assertPlainTextCompact(validSnippet));
+    const badSnippet = '<div id="compactInstruction"><button onclick="copyCompactWithGuidance()">Copy</button></div>';
     assert.throws(() => assertPlainTextCompact(badSnippet), /Invariant 1 Violation/);
   });
 
@@ -1566,10 +1568,10 @@ describe('Tier 3: Pairwise Interactions (Features 29 - 41)', () => {
       workers.map(async (workerId) => {
         const ws = createIsolatedTestSandbox({ withAntigravityDir: true });
         try {
-          // Invariant 1: Plain-Text /compact (Feature 36)
-          assertPlainTextCompact('<div id="compactInstruction">Type /compact in the chat box and press Enter</div>');
+          // Invariant 1: 1-Click Copy /compact & Instruction (Feature 36)
+          assertPlainTextCompact('<div id="compactInstruction">Type /compact in the chat box and press Enter</div><button id="btnCompactPrimary">Copy /compact</button>');
           assert.throws(
-            () => assertPlainTextCompact('<button id="btnCompactPrimary">Copy /compact</button>'),
+            () => assertPlainTextCompact('<button onclick="copyCompactWithGuidance()">Copy</button>'),
             /Invariant 1 Violation/
           );
 

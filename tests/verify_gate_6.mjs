@@ -28,10 +28,10 @@ test('[GATE-6.1] 3-Way WebView Mirror Parity & Single Action Button / Plain-Text
 
   const html = fs.readFileSync(primary, 'utf8');
 
-  // UI Invariant 1: No clickable Copy /compact button (#btnCompactPrimary must NEVER exist)
-  assert.ok(!html.includes('id="btnCompactPrimary"'), 'Invariant: #btnCompactPrimary must not exist');
+  // UI Invariant 1: 1-Click Copy /compact button (#btnCompactPrimary) & #compactInstruction
+  assert.ok(html.includes('id="btnCompactPrimary"'), 'Invariant: #btnCompactPrimary must exist');
   assert.ok(!html.includes('copyCompactWithGuidance'), 'Invariant: copyCompactWithGuidance must not exist');
-  assert.ok(html.includes('id="compactInstruction"'), 'Invariant: #compactInstruction plain-text block must exist');
+  assert.ok(html.includes('id="compactInstruction"'), 'Invariant: #compactInstruction block must exist');
   assert.ok(html.includes('Type <kbd class="cmd-kbd">/compact</kbd> in the chat box and press <kbd>Enter</kbd>'));
 
   // Active Source File Protection: only show ignore on non-source paths

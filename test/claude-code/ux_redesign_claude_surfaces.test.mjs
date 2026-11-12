@@ -329,9 +329,10 @@ test('UX-4: Self-contained Claude Code HTML HUD (renderHorizonPanelHtml & npx ah
       assert.match(panel.html, new RegExp(`id="${id}"`), `Missing DOM id="${id}"`);
     }
 
-    // 2. Plain-text /compact instruction invariant (zero Copy/Paste buttons)
+    // 2. /compact instruction & 1-click Copy /compact button (#btnCompactPrimary)
     assert.match(panel.html, /Type \/compact in the chat box and press Enter/);
-    assert.doesNotMatch(panel.html, /btnCompactPrimary|copyCompactWithGuidance|Ctrl\+V/i);
+    assert.match(panel.html, /id="btnCompactPrimary"/);
+    assert.doesNotMatch(panel.html, /copyCompactWithGuidance|Ctrl\+V/i);
 
     // 3. Active source file protection (.claudeignore only on lockfiles/logs/build artifacts)
     assert.equal(isIgnorableClaudePath('pnpm-lock.yaml'), true);

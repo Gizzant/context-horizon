@@ -2750,11 +2750,13 @@ describe('Feature 35: Antigravity Studio Artifacts', () => {
 // Feature 36: Plain-Text `/compact` Invariant (36.B1 - 36.B5)
 // ============================================================================
 describe('Feature 36: Plain-Text /compact Invariant', () => {
-  it('36.B1 Plain-Text /compact Invariant: injected <button> inside #compactInstruction throws Invariant 1 Violation', () => {
+  it('36.B1 1-Click Copy /compact Invariant: #btnCompactPrimary alongside #compactInstruction passes while missing instruction throws', () => {
+    const validHtml = '<div id="compactInstruction">Type /compact in the chat box and press Enter</div><button id="btnCompactPrimary">Copy /compact</button>';
+    assert.doesNotThrow(() => assertPlainTextCompact(validHtml));
     const badHtml = '<div id="compactInstruction"><button>Copy /compact</button></div>';
     assert.throws(
       () => assertPlainTextCompact(badHtml),
-      /Invariant 1 Violation/
+      /Invariant 1/
     );
   });
 

@@ -60,13 +60,13 @@ async function run() {
   ok(/Tell agent:|Prevent re-reads:/.test(actionsRow.textContent), 'action labels present: ' + actionsRow.textContent);
   const btns = actionsRow.querySelectorAll('button');
 
-  // Check typed /compact instruction (no copy button) & footers row
-  ok(!d.getElementById('btnCompactPrimary'), 'copy /compact button removed (no #btnCompactPrimary)');
+  // Check /compact instruction & 1-click Copy /compact button & footers row
+  ok(d.getElementById('btnCompactPrimary'), 'copy /compact button present (#btnCompactPrimary)');
   ok(typeof w.copyCompactWithGuidance === 'undefined', 'copyCompactWithGuidance handler removed');
   const instr = d.getElementById('compactInstruction');
   ok(instr && /Type \/compact in the chat box and press Enter/.test(txt('compactInstruction')), 'instruction text: ' + txt('compactInstruction'));
   ok(/reclaims up to ~32\.3k · keeps rules, (plan & code|task\.md & active summary) intact/.test(txt('compactReclaim')), 'reclaim value: ' + txt('compactReclaim'));
-  ok(!/Ctrl\+V|Copy \/compact/i.test(instr.textContent), 'no copy/paste guidance in compactInstruction');
+  ok(!/Ctrl\+V/i.test(instr.textContent), 'no Ctrl+V paste guidance in compactInstruction');
 
   const footersRow = d.querySelector('.action-footers-row');
   ok(footersRow, 'action-footers-row present');

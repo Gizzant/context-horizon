@@ -276,8 +276,8 @@ w.renderState({
   }
 });
 
-// UI Invariant #1 check: plain-text instruction preserved, no copy button for /compact
-assert.equal(d.getElementById('btnCompactPrimary'), null, 'Must never render #btnCompactPrimary');
+// UI Invariant #1 check: /compact instruction and 1-click Copy /compact button (#btnCompactPrimary)
+assert.ok(d.getElementById('btnCompactPrimary'), 'Must render #btnCompactPrimary');
 assert.ok(/Type \/compact in the chat box and press Enter/.test(d.getElementById('compactInstruction').textContent));
 assert.equal(d.getElementById('parameterizedCompactText').textContent, paramCmd);
 assert.equal(d.getElementById('cacheCompactionAdvisory').dataset.advisoryState, 'warm-defer');
