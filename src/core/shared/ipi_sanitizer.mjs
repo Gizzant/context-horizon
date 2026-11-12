@@ -132,8 +132,13 @@ const IPI_PATTERNS = Object.freeze([
     replacement: '[IPI_FILTERED:TAG]'
   },
   {
+    id: 'unicode_tag_stego',
+    re: /[\u{E0000}-\u{E007F}]/gu,
+    replacement: ''
+  },
+  {
     id: 'zero_width_stego',
-    re: /[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g,
+    re: /[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/gu,
     replacement: ''
   }
 ]);

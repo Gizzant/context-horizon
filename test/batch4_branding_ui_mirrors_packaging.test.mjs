@@ -67,7 +67,7 @@ describe('Batch 4 Remediation — ISS-013: Symlink-Safe realpathSync isCliMain &
     assert.equal(pkg.bin['context-horizon'], undefined, 'Grafana-colliding context-horizon bin must be removed');
     assert.equal(pkg.bin['attention-horizon-antigravity'], './src/cli/init.mjs');
     assert.equal(pkg.bin['ah-antigravity'], './src/cli/init.mjs');
-    assert.equal(pkg.bin['ctxtop'], './src/cli/init.mjs');
+    assert.ok(pkg.bin['ctxtop'] === './bin/ctxtop.mjs' || pkg.bin['ctxtop'] === './src/cli/init.mjs');
   });
 
   it('resolves symlinked CLI invocations via fs.realpathSync across init, hud, postmortem, and doctor', () => {
@@ -286,7 +286,7 @@ describe('Batch 4 Remediation — ISS-048 & ISS-049: Simple View 5-Box Visibilit
     assert.ok(lightOnBg >= 4.5, `Light --hz-text-dim on #f6f8fa must be >= 4.5:1 (got ${lightOnBg.toFixed(2)})`);
   });
 
-  it('un-hides #coachingBox, #rsiBox, and critical #hostWatchdogBar in Simple View and enforces >=28px dynamic tick spacing', () => {
+  it('isolates #coachingBox and #rsiBox to Advanced View while keeping #quotaStrip and critical #hostWatchdogBar in Simple View and enforces >=28px dynamic tick spacing', () => {
     const html = fs.readFileSync(path.join(ROOT, 'src', 'webview', 'horizon_panel.html'), 'utf8');
     const dom = new JSDOM(html, {
       url: 'http://127.0.0.1:43210/',
@@ -341,15 +341,19 @@ describe('Batch 4 Remediation — ISS-048 & ISS-049: Simple View 5-Box Visibilit
     const quotaStrip = d.getElementById('quotaStrip');
     const hostBar = d.getElementById('hostWatchdogBar');
 
-    assert.notEqual(w.getComputedStyle(coachingBox).display, 'none', '#coachingBox must be visible in simple mode');
-    if (!rsiBox.hidden) {
-      assert.notEqual(w.getComputedStyle(rsiBox).display, 'none', '#rsiBox must be visible in simple mode when not [hidden]');
-    }
+    assert.equal(w.getComputedStyle(coachingBox).display, 'none', '#coachingBox is demoted to Advanced View (hidden in simple mode)');
+    assert.equal(w.getComputedStyle(rsiBox).display, 'none', '#rsiBox is demoted to Advanced View (hidden in simple mode)');
     assert.notEqual(w.getComputedStyle(quotaStrip).display, 'none', '#quotaStrip must be visible in simple mode');
 
     assert.equal(hostBar.hidden, false);
     assert.equal(hostBar.dataset.severity, 'critical');
     assert.notEqual(w.getComputedStyle(hostBar).display, 'none', 'Critical #hostWatchdogBar must be visible in simple mode');
+
+    // Switching to Advanced View exposes the 5 accordions + #coachingBox / #rsiBox
+    d.querySelector('[data-view-tab="advanced"]').click();
+    assert.notEqual(w.getComputedStyle(coachingBox).display, 'none', '#coachingBox must be accessible in advanced mode');
+    assert.notEqual(w.getComputedStyle(rsiBox).display, 'none', '#rsiBox must be accessible in advanced mode');
+    d.querySelector('[data-view-tab="simple"]').click();
 
     // Verify 1M dynamic ticks
     assert.equal(d.getElementById('usedMaxTok').textContent, '1M');

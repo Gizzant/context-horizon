@@ -3,6 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 const SQLITE_OPEN_READONLY_OPTIONS = Object.freeze({ readOnly: true });
 import { canonicalizePath } from './paths.mjs';
+import { getDatabaseSyncClass } from '../engine-node/db/probe.mjs';
 
 /**
  * Cross-Harness SQLite & Protobuf Trajectory Stitcher.
@@ -185,7 +186,8 @@ export async function stitchAntigravityCliTrajectory(dbPath, options = {}) {
   if (!dbRows && dbPath && fs.existsSync(dbPath)) {
     let db = null;
     try {
-      const DbCtor = options.DatabaseSync || (await import('node:sqlite')).DatabaseSync;
+      const DbCtor = options.DatabaseSync || getDatabaseSyncClass();
+      if (!DbCtor) throw new Error('node:sqlite unavailable');
       db = new DbCtor(dbPath, SQLITE_OPEN_READONLY_OPTIONS);
       dbRows = db.prepare(
         'SELECT idx, step_type, status, has_subtrajectory, metadata, error_details, permissions, task_details, render_info, step_payload, step_format FROM steps ORDER BY idx ASC'
@@ -297,7 +299,8 @@ export async function stitchCursorTrajectory(sources = {}) {
   if (!kvRows && sources.stateVscdbPath && fs.existsSync(sources.stateVscdbPath)) {
     let db = null;
     try {
-      const DbCtor = sources.DatabaseSync || (await import('node:sqlite')).DatabaseSync;
+      const DbCtor = sources.DatabaseSync || getDatabaseSyncClass();
+      if (!DbCtor) throw new Error('node:sqlite unavailable');
       db = new DbCtor(sources.stateVscdbPath, SQLITE_OPEN_READONLY_OPTIONS);
       kvRows = db.prepare('SELECT key, value FROM cursorDiskKV').all();
     } catch {
@@ -349,7 +352,8 @@ export async function stitchCursorTrajectory(sources = {}) {
   if (!metaRows && sources.storeDbPath && fs.existsSync(sources.storeDbPath)) {
     let db = null;
     try {
-      const DbCtor = sources.DatabaseSync || (await import('node:sqlite')).DatabaseSync;
+      const DbCtor = sources.DatabaseSync || getDatabaseSyncClass();
+      if (!DbCtor) throw new Error('node:sqlite unavailable');
       db = new DbCtor(sources.storeDbPath, SQLITE_OPEN_READONLY_OPTIONS);
       metaRows = db.prepare('SELECT key, value FROM meta').all();
     } catch {

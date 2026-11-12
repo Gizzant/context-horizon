@@ -1,7 +1,7 @@
 /**
  * Pure Zero-I/O Cascade 70k State Baton & Handoff Schemas (`src/core/shared/handoff_schema.mjs`)
  *
- * Shared schema definition between Antigravity (`ga-visualizer-v2`) and `cc-attention-horizon`.
+ * Shared schema definition between `attention-horizon-antigravity` and `attention-horizon-claude`.
  */
 
 export const CASCADE_COMPACTION_CEILING_TOKENS = 70000;

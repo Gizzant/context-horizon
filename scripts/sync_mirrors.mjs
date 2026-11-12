@@ -22,36 +22,44 @@ const homeDir = process.env.USERPROFILE || process.env.HOME || os.homedir();
 const CANONICAL_ROOT = path.resolve(__dirname, '..');
 const AGY_HORIZON_ROOT = path.join(homeDir, '.gemini', 'config', 'plugins', 'agy-horizon');
 const FLIGHTCHECK_ROOT = path.join(homeDir, '.gemini', 'config', 'plugins', 'agy-horizon-flightcheck');
+const IN_REPO_FLIGHTCHECK_ROOT = path.join(CANONICAL_ROOT, '.agents', 'plugins', 'agy-horizon-flightcheck');
 
-export const SYNCED_PLUGIN_SUBDIRS = [
-  ['src', 'core'],
-  ['src', 'core', 'shared'],
-  ['src', 'core', 'telemetry'],
-  ['src', 'core', 'coach'],
-  ['src', 'config'],
-  ['src', 'adapters'],
-  ['src', 'adapters', 'antigravity'],
-  ['src', 'adapters', 'claude-code'],
-  ['src', 'webview'],
-  ['src', 'demo'],
-  ['src', 'shims'],
-  ['src', 'ui'],
-  ['src', 'hooks'],
-  ['src', 'cli'],
-  ['hooks'],
-  ['agents'],
-  ['sidecars', 'horizon-daemon'],
-  ['config'],
-  ['rules']
-];
+export function getSyncedPluginSubdirs(canonicalRoot = CANONICAL_ROOT) {
+  const baseDirNames = ['bin', 'src', 'hooks', 'sidecars', 'agents', 'config', 'rules', 'commands'];
+  const subdirs = [];
+  for (const baseName of baseDirNames) {
+    const baseDir = path.join(canonicalRoot, baseName);
+    if (!fs.existsSync(baseDir)) continue;
+    const walk = (relParts) => {
+      subdirs.push(relParts);
+      const fullPath = path.join(canonicalRoot, ...relParts);
+      let entries = [];
+      try {
+        entries = fs.readdirSync(fullPath, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const ent of entries) {
+        if (ent.isDirectory()) {
+          walk([...relParts, ent.name]);
+        }
+      }
+    };
+    walk([baseName]);
+  }
+  return subdirs.sort((a, b) => a.join('/').localeCompare(b.join('/')));
+}
 
-const SYNCED_FILE_EXT_RE = /\.(mjs|js|css|json|html|md)$/i;
+export const SYNCED_PLUGIN_SUBDIRS = getSyncedPluginSubdirs(CANONICAL_ROOT);
+
+const SYNCED_FILE_EXT_RE = /\.(mjs|js|css|json|html|md|svg|txt)$/i;
 
 const HTML_TARGETS = [
   path.join(CANONICAL_ROOT, 'src', 'webview', 'horizon_panel.html'),
   path.join(AGY_HORIZON_ROOT, 'src', 'ui', 'sidepane.html'),
   path.join(AGY_HORIZON_ROOT, 'src', 'webview', 'horizon_panel.html'),
   path.join(FLIGHTCHECK_ROOT, 'src', 'webview', 'horizon_panel.html'),
+  path.join(IN_REPO_FLIGHTCHECK_ROOT, 'src', 'webview', 'horizon_panel.html'),
   path.join(CANONICAL_ROOT, 'evaluation_bundles', 'tier_2_full', 'src', 'webview', 'horizon_panel.html')
 ];
 
@@ -141,7 +149,11 @@ function listSkillAndAssetFiles(relRootDir) {
 
 export function syncAndVerifyMirrors({
   verifyOnly = false,
-  pluginRoots = [AGY_HORIZON_ROOT, FLIGHTCHECK_ROOT]
+  pluginRoots = [
+    AGY_HORIZON_ROOT,
+    FLIGHTCHECK_ROOT,
+    ...(fs.existsSync(IN_REPO_FLIGHTCHECK_ROOT) ? [IN_REPO_FLIGHTCHECK_ROOT] : [])
+  ]
 } = {}) {
   const canonicalHtml = path.join(CANONICAL_ROOT, 'src', 'webview', 'horizon_panel.html');
   if (!fs.existsSync(canonicalHtml)) {
@@ -149,6 +161,7 @@ export function syncAndVerifyMirrors({
   }
 
   const activePluginRoots = pluginRoots.filter(r => Boolean(r) && fs.existsSync(r));
+  const syncedSubdirs = getSyncedPluginSubdirs(CANONICAL_ROOT);
 
   if (!verifyOnly) {
     // 1. Rebuild standalone docs/index.html & evaluation_bundles/ first so in-repo mirrors are current
@@ -159,7 +172,7 @@ export function syncAndVerifyMirrors({
     }
 
     // 2. Sync all module, config, rule, skill, asset, and sidecar subdirectories to active plugin mirrors
-    for (const subDirParts of SYNCED_PLUGIN_SUBDIRS) {
+    for (const subDirParts of syncedSubdirs) {
       const srcSubDir = path.join(CANONICAL_ROOT, ...subDirParts);
       if (!fs.existsSync(srcSubDir)) continue;
       const entries = fs.readdirSync(srcSubDir, { withFileTypes: true })
@@ -274,6 +287,21 @@ export function syncAndVerifyMirrors({
         atomicWriteFileSync(path.join(root, '.antigravity-plugin', 'plugin.json'), JSON.stringify(manifestOut, null, 2) + '\n', { encoding: 'utf8' });
       }
     }
+
+    const canonicalPkgPath = path.join(CANONICAL_ROOT, 'package.json');
+    if (fs.existsSync(canonicalPkgPath)) {
+      const canonicalPkg = JSON.parse(fs.readFileSync(canonicalPkgPath, 'utf8'));
+      for (const root of activePluginRoots) {
+        const isFlightcheck = path.basename(root) === 'agy-horizon-flightcheck' || root === FLIGHTCHECK_ROOT;
+        const pkgOut = isFlightcheck
+          ? canonicalPkg
+          : {
+              ...canonicalPkg,
+              name: path.basename(root)
+            };
+        atomicWriteFileSync(path.join(root, 'package.json'), JSON.stringify(pkgOut, null, 2) + '\n', { encoding: 'utf8' });
+      }
+    }
   }
 
   // 5. Exhaustive SHA-256 Parity Verification across HTML, .mjs, .js, .css, .json, .md, and evaluation_bundles
@@ -299,8 +327,8 @@ export function syncAndVerifyMirrors({
     }
   }
 
-  // Verify every synced file in SYNCED_PLUGIN_SUBDIRS + skills/ + assets/ across activePluginRoots
-  for (const subDirParts of SYNCED_PLUGIN_SUBDIRS) {
+  // Verify every synced file in syncedSubdirs + skills/ + assets/ across activePluginRoots
+  for (const subDirParts of syncedSubdirs) {
     const srcSubDir = path.join(CANONICAL_ROOT, ...subDirParts);
     if (!fs.existsSync(srcSubDir)) continue;
     const entries = fs.readdirSync(srcSubDir, { withFileTypes: true })

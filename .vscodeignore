@@ -9,6 +9,8 @@ scripts/**
 dist/**
 .github/**
 .agents/**
+.claude/
+.claude/**
 .gemini/**
 .vscode/**
 *.tmp

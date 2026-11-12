@@ -1,0 +1,203 @@
+{
+  "schemaVersion": "2026.11.1",
+  "defaultModel": "claude-sonnet-5-5",
+  "cacheWriteMultipliers": {
+    "5m": 1.25,
+    "1h": 2.0
+  },
+  "effortExpectedOutputTokens": {
+    "low": 800,
+    "medium": 1500,
+    "high": 3500,
+    "max": 6000
+  },
+  "models": {
+    "claude-fable-5-2": {
+      "id": "claude-fable-5-2",
+      "label": "Claude Fable 5.2",
+      "shortLabel": "Fable 5.2",
+      "family": "fable",
+      "generation": "5.2",
+      "contextCeiling": 1000000,
+      "operationalSoftCeiling": 180000,
+      "ratesPer1M": {
+        "input": 8.0,
+        "output": 40.0,
+        "write5m": 10.0,
+        "write1h": 16.0,
+        "read": 0.2
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.025
+      },
+      "pricingCliff": null
+    },
+    "claude-fable-5-1": {
+      "id": "claude-fable-5-1",
+      "label": "Claude Fable 5.1",
+      "shortLabel": "Fable 5.1",
+      "family": "fable",
+      "generation": "5.1",
+      "contextCeiling": 1000000,
+      "operationalSoftCeiling": 180000,
+      "ratesPer1M": {
+        "input": 10.0,
+        "output": 50.0,
+        "write5m": 12.5,
+        "write1h": 20.0,
+        "read": 0.25
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.025
+      },
+      "pricingCliff": null
+    },
+    "claude-opus-5-5": {
+      "id": "claude-opus-5-5",
+      "label": "Claude Opus 5.5",
+      "shortLabel": "Opus 5.5",
+      "family": "opus",
+      "generation": "5.5",
+      "contextCeiling": 1000000,
+      "operationalSoftCeiling": 180000,
+      "ratesPer1M": {
+        "input": 4.0,
+        "output": 20.0,
+        "write5m": 5.0,
+        "write1h": 8.0,
+        "read": 0.2
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.05
+      },
+      "pricingCliff": null
+    },
+    "claude-sonnet-5-5": {
+      "id": "claude-sonnet-5-5",
+      "label": "Claude Sonnet 5.5",
+      "shortLabel": "Sonnet 5.5",
+      "family": "sonnet",
+      "generation": "5.5",
+      "contextCeiling": 1000000,
+      "operationalSoftCeiling": 180000,
+      "ratesPer1M": {
+        "input": 2.0,
+        "output": 10.0,
+        "write5m": 2.5,
+        "write1h": 4.0,
+        "read": 0.1
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.05
+      },
+      "pricingCliff": null
+    },
+    "claude-haiku-5-5": {
+      "id": "claude-haiku-5-5",
+      "label": "Claude Haiku 5.5",
+      "shortLabel": "Haiku 5.5",
+      "family": "haiku",
+      "generation": "5.5",
+      "contextCeiling": 1000000,
+      "operationalSoftCeiling": 90000,
+      "ratesPer1M": {
+        "input": 0.1,
+        "output": 0.5,
+        "write5m": 0.125,
+        "write1h": 0.2,
+        "read": 0.01
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "pricingCliff": {
+        "thresholdTokens": 100000,
+        "preCliffWarningTokens": 90000,
+        "multiplier": 5.0,
+        "ratesPer1MAboveCliff": {
+          "input": 0.5,
+          "output": 2.5,
+          "write5m": 0.625,
+          "write1h": 1.0,
+          "read": 0.05
+        }
+      }
+    },
+    "claude-opus-4-6": {
+      "id": "claude-opus-4-6",
+      "label": "Claude Opus 4.6",
+      "shortLabel": "Opus 4.6",
+      "family": "opus",
+      "generation": "4.6",
+      "contextCeiling": 200000,
+      "operationalSoftCeiling": 160000,
+      "ratesPer1M": {
+        "input": 5.0,
+        "output": 25.0,
+        "write5m": 6.25,
+        "write1h": 10.0,
+        "read": 0.5
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "pricingCliff": null
+    },
+    "claude-sonnet-4-6": {
+      "id": "claude-sonnet-4-6",
+      "label": "Claude Sonnet 4.6",
+      "shortLabel": "Sonnet 4.6",
+      "family": "sonnet",
+      "generation": "4.6",
+      "contextCeiling": 200000,
+      "operationalSoftCeiling": 160000,
+      "ratesPer1M": {
+        "input": 3.0,
+        "output": 15.0,
+        "write5m": 3.75,
+        "write1h": 6.0,
+        "read": 0.3
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "pricingCliff": null
+    },
+    "claude-haiku-4-5": {
+      "id": "claude-haiku-4-5",
+      "label": "Claude Haiku 4.5",
+      "shortLabel": "Haiku 4.5",
+      "family": "haiku",
+      "generation": "4.5",
+      "contextCeiling": 200000,
+      "operationalSoftCeiling": 160000,
+      "ratesPer1M": {
+        "input": 1.0,
+        "output": 5.0,
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "pricingCliff": null
+    }
+  }
+}

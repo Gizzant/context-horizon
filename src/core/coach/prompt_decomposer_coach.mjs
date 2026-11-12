@@ -47,6 +47,9 @@ export function analyzePromptSprawl(promptText = '', options = {}) {
     Boolean(options.hasApprovedPlan) ||
     /(?:^|\s)(\/plan|\/grill-me|implementation_plan\.md)\b/i.test(raw);
 
+  const isReadOnlyAudit =
+    /\b(read-only(?:\s+evaluation|\s+audit|\s+mode|\s+inspection)?|do\s+not\s+(?:edit|modify|write)|never\s+(?:edit|modify)|audit\s+only)\b/i.test(raw);
+
   const words = raw.split(/\s+/).filter(Boolean);
   const wordCount = words.length;
 
@@ -78,7 +81,7 @@ export function analyzePromptSprawl(promptText = '', options = {}) {
     bulletObjectiveCount >= DECOMPOSER_CONSTANTS.MIN_BULLET_OBJECTIVES;
 
   const isMegaPrompt =
-    !hasPlanCommand && (triggersVerbSprawl || triggersFileSprawl || triggersLengthSprawl);
+    !hasPlanCommand && !isReadOnlyAudit && (triggersVerbSprawl || triggersFileSprawl || triggersLengthSprawl);
 
   if (!isMegaPrompt) {
     return {

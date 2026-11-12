@@ -27,8 +27,9 @@ import { inspectHostProcesses } from '../core/host_watchdog.mjs';
 import { loadFlightcheckConfig } from '../core/config.mjs';
 import { buildDemoHorizonState, DEMO_SCENARIOS } from '../demo/synthetic_states.mjs';
 import { buildActionQueue, formatActionQueueAnsi } from '../core/action_queue.mjs';
+import { renderHorizonPanelHtml } from '../core-isomorphic/ui/horizonPanelHtml.mjs';
 
-export { buildActionQueue, formatActionQueueAnsi };
+export { buildActionQueue, formatActionQueueAnsi, renderHorizonPanelHtml };
 
 const ANSI_ESCAPE_RE = /\x1b\[[0-9;]*m/g;
 
@@ -436,7 +437,22 @@ if (isMain) {
   process.on('uncaughtException', () => safeExitFallback());
   process.on('unhandledRejection', () => safeExitFallback());
   const args = process.argv.slice(2);
-  if (args.includes('--demo') || args.includes('--demo-animate')) {
+  if (args.includes('--emit-widget')) {
+    const emitIdx = args.indexOf('--emit-widget');
+    const outIdx = args.indexOf('--out');
+    let targetPath = null;
+    if (outIdx !== -1 && args[outIdx + 1]) {
+      targetPath = args[outIdx + 1];
+    } else if (emitIdx !== -1 && args[emitIdx + 1] && !args[emitIdx + 1].startsWith('-')) {
+      targetPath = args[emitIdx + 1];
+    } else {
+      targetPath = path.resolve('horizon_widget.html');
+    }
+
+    emitHorizonWidget({ out: targetPath, silent: false })
+      .then(() => process.exit(0))
+      .catch(() => safeExitFallback());
+  } else if (args.includes('--demo') || args.includes('--demo-animate')) {
     const scenIdx = args.indexOf('--scenario');
     const scenarioId = scenIdx !== -1 ? Number(args[scenIdx + 1]) : null;
     runDemoShowcase({ scenarioId, animate: args.includes('--demo-animate') })
@@ -474,6 +490,16 @@ export async function runCLI(options = {}) {
       Number(demoScenario || process.env.HORIZON_DEMO_SCENARIO || 5),
       { columns }
     );
+    if (options.emitWidget || (Array.isArray(process.argv) && process.argv.includes('--emit-widget'))) {
+      const target = path.resolve(options.out || 'horizon_widget.html');
+      const { html } = renderHorizonPanelHtml(state, { viewMode: 'simple' });
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, html, 'utf8');
+      const fileUri = `file:///${target.replace(/\\/g, '/').replace(/^\/+/, '')}`;
+      const embedTag = `<agent-embed src="${fileUri}"></agent-embed>`;
+      if (!options.silent) console.log(embedTag);
+      return { output: text, state, html, path: target, fileUri, embedTag };
+    }
     if (!options.silent) console.log(text);
     return { output: text, state };
   }
@@ -626,6 +652,35 @@ export async function runCLI(options = {}) {
     line1 = clampAnsiText(line1, Math.min(columns, 80));
   }
 
+  if (options.emitWidget || (Array.isArray(process.argv) && process.argv.includes('--emit-widget'))) {
+    const target = path.resolve(options.out || 'horizon_widget.html');
+    const { html } = renderHorizonPanelHtml(state, { viewMode: 'simple' });
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, html, 'utf8');
+    const fileUri = `file:///${target.replace(/\\/g, '/').replace(/^\/+/, '')}`;
+    const embedTag = `<agent-embed src="${fileUri}"></agent-embed>`;
+    if (!options.silent) console.log(embedTag);
+    return { output: line1, state, html, path: target, fileUri, embedTag };
+  }
+
   if (!options.silent) console.log(line1);
   return { output: line1, state };
+}
+
+/**
+ * Generates self-contained HTML widget and prints/returns `<agent-embed src="file:///<path>"></agent-embed>`
+ */
+export async function emitHorizonWidget(options = {}) {
+  const targetPath = path.resolve(options.out || 'horizon_widget.html');
+  const cliRes = await runCLI({ ...options, silent: true, useNativeCeiling: true });
+  const state = cliRes?.state || {};
+  const { html } = renderHorizonPanelHtml(state, { viewMode: 'simple' });
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  fs.writeFileSync(targetPath, html, 'utf8');
+  const fileUri = `file:///${targetPath.replace(/\\/g, '/').replace(/^\/+/, '')}`;
+  const embedTag = `<agent-embed src="${fileUri}"></agent-embed>`;
+  if (!options.silent) {
+    process.stdout.write(`${embedTag}\n`);
+  }
+  return { ok: true, path: targetPath, fileUri, embedTag, html, state };
 }

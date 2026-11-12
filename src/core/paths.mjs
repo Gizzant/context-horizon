@@ -28,6 +28,14 @@ export function parseNodeVersion(versionStr = (typeof process !== 'undefined' &&
 }
 
 export function isSupportedNodeVersion(versionStr = (typeof process !== 'undefined' && process.versions?.node) || '0.0.0') {
+  const { major } = parseNodeVersion(versionStr);
+  return major >= 20;
+}
+
+export function hasNativeNodeSqlite(versionStr = (typeof process !== 'undefined' && process.versions?.node) || '0.0.0') {
+  if (typeof process !== 'undefined' && process.env?.CTXTOP_FORCE_NO_SQLITE === '1') {
+    return false;
+  }
   const { major, minor } = parseNodeVersion(versionStr);
   return major > 22 || (major === 22 && minor >= 5);
 }
@@ -35,7 +43,7 @@ export function isSupportedNodeVersion(versionStr = (typeof process !== 'undefin
 export function formatNodeUpgradeHint(versionStr = (typeof process !== 'undefined' && process.versions?.node) || '0.0.0') {
   const cleanVer = String(versionStr || '0.0.0').replace(/^v/i, '');
   return [
-    `\x1b[33m▲ ctxtop requires Node.js >= 22.5.0 for built-in zero-dependency SQLite (detected v${cleanVer}).\x1b[0m`,
+    `\x1b[33m▲ ctxtop requires Node.js >= 20.0.0 LTS (Node.js >= 22.5.0 for built-in zero-dependency SQLite; detected v${cleanVer}).\x1b[0m`,
     `  Upgrade in 10s: \x1b[36mnvm install 22 && nvm use 22\x1b[0m (or download from https://nodejs.org)`
   ].join('\n');
 }
@@ -106,6 +114,9 @@ export function isIgnorablePath(p) {
   const s = raw
     .replace(/^[a-z]:\/users\/[^/]+\/appdata\/local\/temp\/[^/]+\//i, '')
     .replace(/^\/(?:private\/)?tmp\/[^/]+\//i, '');
+  if (/(?:^|\/)(?:src|lib|packages|app)\/.*\.(?:[mc]?[jt]sx?|py|rs|go|java|c|cpp|h|hpp|rb|php|swift|kt|vue|svelte)$/i.test(s)) {
+    return false;
+  }
   if (/(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lock|Cargo\.lock|Gemfile\.lock|composer\.lock|\.lock)$/i.test(s)) return true;
   if (/\.log$/i.test(s) || /(^|\/)logs?(\/|$)/i.test(s) || /\.jsonl$/i.test(s)) return true;
   if (/(^|\/)(dist|build|out|target|\.next|\.nuxt|coverage|node_modules)(\/|$)/i.test(s)) return true;

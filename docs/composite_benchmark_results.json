@@ -1,0 +1,126 @@
+{
+  "timestamp": "2026-11-12T06:47:51.134Z",
+  "nodeVersion": "v25.6.0",
+  "platform": "win32",
+  "dimensions": {
+    "D1": {
+      "name": "Processing Observability & Runtime Control",
+      "weight": 0.2,
+      "target": 96,
+      "score": 96,
+      "status": "PASS",
+      "metrics": {
+        "spanTracking": {
+          "avg": 0.0011465199999997936,
+          "p50": 0.0008000000000265572,
+          "p95": 0.0024000000000228283,
+          "p99": 0.004000000000019099,
+          "min": 0.0004999999999881766,
+          "max": 0.25610000000000355
+        },
+        "callTreeAssembly": {
+          "avg": 0.030248000000000844,
+          "p50": 0.014099999999984902,
+          "p95": 0.04950000000002319,
+          "p99": 0.5276000000000067,
+          "min": 0.006900000000030104,
+          "max": 1.676400000000001
+        },
+        "flamegraphGeneration": {
+          "avg": 0.01888600000000025,
+          "p50": 0.010199999999997544,
+          "p95": 0.028499999999951342,
+          "p99": 0.47950000000003,
+          "min": 0.004799999999988813,
+          "max": 0.8340000000000032
+        }
+      }
+    },
+    "D2": {
+      "name": "Token Economics, Latency & Retention Radar",
+      "weight": 0.2,
+      "target": 97,
+      "score": 97,
+      "status": "PASS",
+      "metrics": {
+        "retentionDiffing": {
+          "avg": 0.01112860000000012,
+          "p50": 0.006599999999991724,
+          "p95": 0.04550000000000409,
+          "p99": 0.07299999999997908,
+          "min": 0.00380000000001246,
+          "max": 0.19209999999998217
+        }
+      }
+    },
+    "D3": {
+      "name": "Autonomous Diagnostics & Problem Remediation",
+      "weight": 0.2,
+      "target": 96,
+      "score": 96,
+      "status": "PASS",
+      "metrics": {
+        "blindspotSensors": {
+          "avg": 0.14038700000000234,
+          "p50": 0.12189999999998236,
+          "p95": 0.2026000000000181,
+          "p99": 0.9598000000000297,
+          "min": 0.11400000000003274,
+          "max": 0.9598000000000297
+        },
+        "gitMergeTree": {
+          "avg": 34.770675000000004,
+          "p50": 34.256200000000035,
+          "p95": 38.67439999999999,
+          "p99": 38.67439999999999,
+          "min": 32.97370000000001,
+          "max": 38.67439999999999
+        }
+      }
+    },
+    "D4": {
+      "name": "Developer Workflow & Daily Usability",
+      "weight": 0.15,
+      "target": 95,
+      "score": 95,
+      "status": "PASS",
+      "metrics": {
+        "statuslineRender": {
+          "avg": 0.9851882000000096,
+          "p50": 0.9565000000000055,
+          "p95": 1.2399000000000342,
+          "p99": 1.5276000000001204,
+          "min": 0.8401000000001204,
+          "max": 1.7325000000000728
+        },
+        "microIpcRoundtrip": {
+          "avg": 0.08173099999998612,
+          "p50": 0.07720000000017535,
+          "p95": 0.10869999999999891,
+          "p99": 0.13450000000011642,
+          "min": 0.06760000000008404,
+          "max": 0.1591000000000804
+        }
+      }
+    },
+    "D5": {
+      "name": "Enterprise Security, Privacy & Invariants",
+      "weight": 0.15,
+      "target": 96,
+      "score": 96,
+      "status": "PASS",
+      "metrics": {}
+    },
+    "D6": {
+      "name": "Repository Consolidation & Mod-Safe Parity",
+      "weight": 0.1,
+      "target": 98,
+      "score": 98,
+      "status": "PASS",
+      "metrics": {}
+    }
+  },
+  "compositeScore": 96.25,
+  "targetScore": 96.25,
+  "status": "CERTIFIED_PASS"
+}

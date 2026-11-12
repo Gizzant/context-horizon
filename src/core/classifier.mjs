@@ -297,7 +297,8 @@ export function rankRiskiestCells(cells = [], { totalActiveTokens = 0, safeLimit
  */
 export function evaluateCompositeSessionRisk({
   totalActiveTokens = 0,
-  safeHorizonTokens = SESSION_RISK_THRESHOLDS.SAFE_HORIZON_TOKENS,
+  safeHorizonTokens = undefined,
+  safeLimit = undefined,
   cacheTtlRemainingSec = 300,
   cacheReadTokens = 0,
   cacheHitRatePct = 0,
@@ -311,11 +312,12 @@ export function evaluateCompositeSessionRisk({
   aiCreditOveragesEnabled = false,
   prefixBustDetected = false
 } = {}) {
-  const safeHorizon = Number(safeHorizonTokens) > 0
-    ? Number(safeHorizonTokens)
+  const resolvedHorizon = safeHorizonTokens ?? safeLimit;
+  const safeHorizon = Number(resolvedHorizon) > 0
+    ? Number(resolvedHorizon)
     : SESSION_RISK_THRESHOLDS.SAFE_HORIZON_TOKENS;
 
-  const isSafeHorizonBreached = totalActiveTokens >= safeHorizon || totalActiveTokens >= SESSION_RISK_THRESHOLDS.SAFE_HORIZON_TOKENS;
+  const isSafeHorizonBreached = totalActiveTokens >= safeHorizon;
   // Local quota estimates never escalate to RED; only host-sourced (or legacy unsourced) 7d values do.
   const is7dLockoutWithoutOverages = weekly7dSource !== 'estimate' &&
     (weekly7dUsedPct >= 100 || Boolean(weekly7dLockoutRisk)) && !aiCreditOveragesEnabled;
@@ -324,13 +326,28 @@ export function evaluateCompositeSessionRisk({
   const isCascadeArmedWithPendingTask = totalActiveTokens > SESSION_RISK_THRESHOLDS.CASCADE_SYNC_WATERMARK_TOKENS && Boolean(hasPendingTaskItems);
   const isTaskMdStale = Boolean(taskMdExists) && Boolean(sessionHasWorkspaceEdits) && Number(taskMdTurnsBehind) >= 1;
 
+  const effectiveCachedTokens = Math.max(
+    Number(cacheReadTokens || 0),
+    cacheHitRatePct > 0 ? Math.round(totalActiveTokens * (cacheHitRatePct / 100)) : 0,
+    !isCacheExpired ? totalActiveTokens : 0
+  );
+  // the Warm badge requires real cache-read evidence, not merely TTL > 0s.
+  const isCacheTrulyWarm = computeIsCacheTrulyWarm({
+    ttlRemainingSec: cacheTtlRemainingSec,
+    cacheReadTokens,
+    hitRatePct: cacheHitRatePct,
+    prefixBustDetected
+  });
+  const prefixLockWarning = isCacheTrulyWarm && effectiveCachedTokens > SESSION_RISK_THRESHOLDS.WARM_CACHE_LOCK_TOKENS;
+
+  const safeHorizonK = Math.round(safeHorizon / 1000);
   const reasons = [];
   let band = 'GREEN';
 
   if (isSafeHorizonBreached || is7dLockoutWithoutOverages) {
     band = 'RED';
     if (isSafeHorizonBreached) {
-      reasons.push(`Safe horizon breached (${Math.round(totalActiveTokens / 1000)}k >= ${Math.round(Math.min(safeHorizon, SESSION_RISK_THRESHOLDS.SAFE_HORIZON_TOKENS) / 1000)}k tokens)`);
+      reasons.push(`Safe horizon breached (${Math.round(totalActiveTokens / 1000)}k >= ${safeHorizonK}k tokens)`);
     }
     if (is7dLockoutWithoutOverages) {
       reasons.push('7d quota lockout risk active without AI Credit overages enabled');
@@ -348,22 +365,11 @@ export function evaluateCompositeSessionRisk({
     }
   } else {
     band = 'GREEN';
-    reasons.push('Healthy (<179k tokens, warm KV cache TTL > 0s, task.md in sync)');
+    const cacheStatusLabel = isCacheTrulyWarm
+      ? 'warm KV cache TTL > 0s'
+      : (Number(cacheTtlRemainingSec) > 0 ? 'cache window open (0 cached reads yet)' : 'lean session');
+    reasons.push(`Healthy (<${safeHorizonK}k tokens, ${cacheStatusLabel}, task.md in sync)`);
   }
-
-  const effectiveCachedTokens = Math.max(
-    Number(cacheReadTokens || 0),
-    cacheHitRatePct > 0 ? Math.round(totalActiveTokens * (cacheHitRatePct / 100)) : 0,
-    !isCacheExpired ? totalActiveTokens : 0
-  );
-  // the Warm badge requires real cache-read evidence, not merely TTL > 0s.
-  const isCacheTrulyWarm = computeIsCacheTrulyWarm({
-    ttlRemainingSec: cacheTtlRemainingSec,
-    cacheReadTokens,
-    hitRatePct: cacheHitRatePct,
-    prefixBustDetected
-  });
-  const prefixLockWarning = isCacheTrulyWarm && effectiveCachedTokens > SESSION_RISK_THRESHOLDS.WARM_CACHE_LOCK_TOKENS;
 
   return {
     band,
@@ -643,6 +649,14 @@ export function classifyHorizon(rawSteps, options = {}) {
   const totalTurns = steps.length;
   const userTurns = steps.filter(x => x && (x.source === 'USER_EXPLICIT' || x.type === 'USER_INPUT' || x.role === 'user'));
   const userTurnCount = userTurns.length > 0 ? userTurns.length : (options.sidecar?.sessionMeta?.turnCount || totalTurns);
+  let lastUserTurnStepIdx = -1;
+  for (let k = steps.length - 1; k >= 0; k--) {
+    const sx = steps[k];
+    if (sx && (sx.source === 'USER_EXPLICIT' || sx.type === 'USER_INPUT' || sx.role === 'user')) {
+      lastUserTurnStepIdx = k;
+      break;
+    }
+  }
   const totalSteps = steps.length;
   let totalActiveTokens = 0;
   const classifiedSteps = [];
@@ -758,7 +772,8 @@ export function classifyHorizon(rawSteps, options = {}) {
       }
 
       let semanticallyPinned = false;
-      if (!isStale && idx < totalTurns - HORIZON_WINDOW.STALE_STEP_THRESHOLD) {
+      const isFromEarlierUserTurn = userTurns.length === 0 ? true : idx < lastUserTurnStepIdx;
+      if (!isStale && isFromEarlierUserTurn && idx < totalTurns - HORIZON_WINDOW.STALE_STEP_THRESHOLD) {
         // Check if this older turn defines a file or schema/type symbol still referenced in the active window
         const declMatch = contentStr.match(/\b(?:interface|type|class|struct|CREATE\s+TABLE|schema)\s+([A-Za-z0-9_]{4,64})/i);
         const declaredSymbol = declMatch ? declMatch[1].toLowerCase() : '';
@@ -1352,9 +1367,12 @@ export function classifyHorizon(rawSteps, options = {}) {
   }
   brainSignals.activeSignal.hasPendingTaskItems = hasPendingTaskItems;
 
+  const effectiveSafeHorizon = effectiveMaxTokens > 256000
+    ? safeLimit
+    : Math.min(safeLimit, SESSION_RISK_THRESHOLDS.SAFE_HORIZON_TOKENS);
   const sessionRisk = evaluateCompositeSessionRisk({
     totalActiveTokens,
-    safeHorizonTokens: Math.min(safeLimit, SESSION_RISK_THRESHOLDS.SAFE_HORIZON_TOKENS),
+    safeHorizonTokens: effectiveSafeHorizon,
     cacheTtlRemainingSec: quota.cache?.ttlRemainingSec ?? 300,
     cacheReadTokens: quota.cache?.cacheReadTokens ?? 0,
     cacheHitRatePct: quota.cache?.hitRatePct ?? 0,

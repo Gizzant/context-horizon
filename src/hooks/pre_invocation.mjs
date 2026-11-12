@@ -34,6 +34,11 @@ import {
 } from '../core/detectors_det01_to_16.mjs';
 import { loadRegistry } from '../core/telemetry/scope_lock_registry.mjs';
 import { recordHookDiagnostic } from '../core/hook_diagnostics.mjs';
+import {
+  evaluateScopeBrake,
+  evaluateRelayBreaker,
+  evaluateTwoStageSightseeingIntercept
+} from '../core/shared/prompt_hygiene_governor.mjs';
 
 export {
   classifyTaskComplexity,
@@ -181,8 +186,39 @@ export async function handlePreToolUse(inputData = {}) {
     }
   }
 
-  // Non-Ring-0 Guardrails (DET-09 warm-cache rule fence, DET-20 concurrent scope lock collision)
+  // Non-Ring-0 Guardrails (DET-09 warm-cache rule fence, DET-20 concurrent scope lock collision, Two-Stage Prompt Hygiene)
   let gateSystemMessage = null;
+  if (!isOffMode) {
+    const scopeOverride = resolveDetectorOverride(horizonConfig, 'vague-prompt-rubric');
+    const relayOverride = resolveDetectorOverride(horizonConfig, 'relay-breaker');
+    const twoStage = evaluateTwoStageSightseeingIntercept({
+      toolName,
+      toolArgs: toolInput && typeof toolInput === 'object' ? toolInput : {},
+      unanchoredTurnFlag: Boolean(inputData.unanchoredTurnFlag ?? sidecar.sessionMeta?.unanchoredTurnFlag),
+      candidateFiles: Array.isArray(inputData.candidateFiles)
+        ? inputData.candidateFiles
+        : (sidecar.fileState?.modifiedFiles || sidecar.fileState?.activeSetPaths || []),
+      relayState: inputData.relayState ?? sidecar.sessionMeta?.relayState,
+      overrideMode: scopeOverride !== 'default' ? scopeOverride : relayOverride,
+      flightMode,
+      detectorId: 'DET-26'
+    });
+    if (twoStage.intercepted) {
+      if (twoStage.consumeFlag && sidecar.sessionMeta) {
+        sidecar.sessionMeta.unanchoredTurnFlag = false;
+        sidecar.sessionMeta.sightseeingToolsPrevented = Number(sidecar.sessionMeta.sightseeingToolsPrevented || 0) + 1;
+        try {
+          writeSidecarAtomicSync(conversationId, sidecar);
+        } catch (err) {
+          recordHookDiagnostic('pre_invocation', 'twoStage.writeSidecar', err);
+        }
+      }
+      if (twoStage.decision === 'deny') {
+        return makeBlockPayload({ id: twoStage.detectorId, message: twoStage.reason });
+      }
+      if (!isSilentMode) gateSystemMessage = twoStage.reason;
+    }
+  }
   if (!isOffMode && /^(edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content)$/i.test(toolName)) {
     const det09Mode = resolveDetectorOverride(horizonConfig, 'DET-09');
     if (det09Mode !== 'off') {
@@ -405,6 +441,44 @@ export async function handlePreInvocation(inputData = {}) {
     return { terminationBehavior: 'terminate', userMessage: card };
   }
 
+  function applyHabitOverride(slug, stateKey, card, { detectorId = null, defaultMode = 'haltOrAdvise', extraWarn = {}, extraBlock = {} } = {}) {
+    const override = resolveDetectorOverride(horizonConfig, slug);
+    if (override === 'off') return null;
+    if (override === 'warn') {
+      return { systemMessage: card, ...(detectorId ? { detectorId } : {}), ...extraWarn };
+    }
+    if (override === 'block') {
+      lastHalts[stateKey] = turnCount;
+      sessionMeta.lastHalts = lastHalts;
+      sidecar.sessionMeta = sessionMeta;
+      try {
+        writeSidecarAtomicSync(conversationId, sidecar);
+      } catch (err) {
+        recordHookDiagnostic('pre_invocation', 'applyHabitOverride.writeSidecar', err);
+      }
+      return {
+        terminationBehavior: 'terminate',
+        decision: 'block',
+        ...(detectorId ? { detectorId } : {}),
+        userMessage: card,
+        ...extraBlock
+      };
+    }
+    if (defaultMode === 'flightMode') {
+      if (flightMode === 'AUTO_PILOT') {
+        return {
+          terminationBehavior: 'terminate',
+          decision: 'block',
+          ...(detectorId ? { detectorId } : {}),
+          userMessage: card,
+          ...extraBlock
+        };
+      }
+      return { systemMessage: card, ...(detectorId ? { detectorId } : {}), ...extraWarn };
+    }
+    return haltOrAdvise(stateKey, card);
+  }
+
   // 2. ALLOW_PLAN_OR_SUBAGENT
   if (!hasCheckTag && (sessionMeta.inPlanMode || sessionMeta.lastTurnUsedSubagent)) {
     if (!telemetry.amputationRisk && !sensors.threeStrikeLoop) {
@@ -499,7 +573,20 @@ export async function handlePreInvocation(inputData = {}) {
       `/model ${fastModel}  •  /effort low`,
       `"Run trivial single-file edit on ${fastModel} / low effort"`
     );
-    return haltOrAdvise('EFFORT_OVERKILL', card);
+    const effortRes = applyHabitOverride('effort-overkill', 'EFFORT_OVERKILL', card);
+    if (effortRes) return effortRes;
+  }
+
+  // 4b. Local Formatter / Import Sorter Bypass (DET-15 / 'formatter-bypass')
+  const isFormattingIntent = /\b(fix\s+(?:the\s+)?indentation|sort\s+(?:the\s+)?imports|format\s+this\s+(?:code|file|block)|convert\s+tabs\s+to\s+spaces|run\s+prettier)\b/i.test(rawPrompt);
+  const pastedLineCount = (rawPrompt.match(/\r?\n/g) || []).length;
+  if (isFormattingIntent && pastedLineCount >= 40 && !/\b(add|implement|refactor|create|fix\s+bug|logic|test|calculate)\b/i.test(rawPrompt)) {
+    const bypassNotice = '[DET-15 Local Formatter Bypass] Prompt requests code formatting / import sorting on a pasted code block. Run `npx prettier --write <file>` or `npx eslint --fix <file>` directly (0 LLM tokens).';
+    const fmtRes = applyHabitOverride('formatter-bypass', 'LOCAL_FORMATTER_BYPASS', bypassNotice, {
+      detectorId: 'DET-15',
+      defaultMode: 'flightMode'
+    });
+    if (fmtRes) return fmtRes;
   }
 
   // 5. INJECT_CONTEXT_GUARD
@@ -554,10 +641,40 @@ export async function handlePreInvocation(inputData = {}) {
   }
 
   // 7. ALLOW_ACTIVE_SET & Trust Decay
-  const hasActiveSetMatch = (fileState.activeSetPaths || []).some(p => {
+  const matchedScope = (fileState.activeSetPaths || fileState.modifiedFiles || []).find(p => {
     const base = path.basename(p);
     return rawPrompt.includes(base) || rawPrompt.includes(p);
-  });
+  }) || '';
+  const hasActiveSetMatch = Boolean(matchedScope);
+
+  // Conversational Drip-Feeding check (DET-02B):
+  // Even if prompt mentions activeSetPaths, 4+ rapid micro-prompts (<= 18 words) targeting the same file within 90s trigger advisory
+  const timestampMs = Number(inputData.timestampMs ?? inputData.nowMs ?? inputData.timestamp ?? Date.now());
+  const wordCount = rawPrompt.split(/\s+/).filter(Boolean).length;
+  sessionMeta.recentPrompts = Array.isArray(sessionMeta.recentPrompts) ? sessionMeta.recentPrompts : [];
+  sessionMeta.recentPrompts = sessionMeta.recentPrompts.filter(e => (timestampMs - e.ts) <= 90000);
+  sessionMeta.recentPrompts.push({ ts: timestampMs, wordCount, targetScope: matchedScope });
+  sidecar.sessionMeta = sessionMeta;
+  try {
+    writeSidecarAtomicSync(conversationId, sidecar);
+  } catch (err) {
+    recordHookDiagnostic('pre_invocation', 'recentPrompts.writeSidecar', err);
+  }
+
+  const rapidSameScopeCount = sessionMeta.recentPrompts.filter(
+    e => e.targetScope && e.targetScope === matchedScope && e.wordCount <= 18
+  ).length;
+
+  if (rapidSameScopeCount >= 4) {
+    const dripCard = `[DET-02B Conversational Drip-Feed Advisory] Detected ${rapidSameScopeCount} rapid single-sentence prompts on ${matchedScope || 'target file'} in <90s. Batch requirements into a single checklist turn to save prefix cache and 4x turn overhead.`;
+    const dripRes = applyHabitOverride('drip-feed', 'CONVERSATIONAL_DRIP_FEED', dripCard, {
+      detectorId: 'DET-02B',
+      defaultMode: 'flightMode',
+      extraWarn: { continue: true },
+      extraBlock: { continue: false }
+    });
+    if (dripRes) return dripRes;
+  }
 
   if (!hasCheckTag) {
     if (hasActiveSetMatch) return {};
@@ -566,13 +683,115 @@ export async function handlePreInvocation(inputData = {}) {
     }
   }
 
-  // 8. HALT_REWRITE_SCORECARD (Explicit #check or Cold Session Vague Multi-File Prompt)
+  // 8a. Prompt Hygiene Governor (v4.1 Phase 1): Relay Breaker ('relay-breaker') & Scope Brake ('vague-prompt-rubric')
+  const relayOverride = resolveDetectorOverride(horizonConfig, 'relay-breaker');
+  const relayEval = evaluateRelayBreaker({
+    prompt: rawPrompt,
+    relayState: inputData.relayState ?? sessionMeta.relayState,
+    sourceCodeEditsInSession: Number(inputData.sourceCodeEditsInSession ?? (fileState.modifiedFiles || []).filter(p => !/\.md$/i.test(String(p || ''))).length),
+    sourceCodeEditedSinceLastRelay: Boolean(inputData.sourceCodeEditedSinceLastRelay),
+    priorTurnWebSearches: Number(inputData.priorTurnWebSearches ?? sessionMeta.priorTurnWebSearches ?? 0),
+    zeroEditSessionTokens: Number(inputData.zeroEditSessionTokens ?? (((fileState.modifiedFiles || []).length === 0) ? tokens : 0)),
+    boundSpecPath: inputData.boundSpecPath ?? sessionMeta.relayState?.boundSpecPath ?? null,
+    overrideMode: relayOverride,
+    flightMode,
+    detectorId: 'DET-26'
+  });
+  sessionMeta.relayState = relayEval.relayStateSnapshot;
+  if (relayEval.triggered) {
+    sidecar.sessionMeta = sessionMeta;
+    try {
+      writeSidecarAtomicSync(conversationId, sidecar);
+    } catch (err) {
+      recordHookDiagnostic('pre_invocation', 'relayBreaker.writeSidecar', err);
+    }
+    if (relayEval.decision === 'block') {
+      sessionMeta.blockedPrompts = Number(sessionMeta.blockedPrompts || 0) + 1;
+      return {
+        terminationBehavior: 'terminate',
+        decision: 'block',
+        detectorId: 'DET-26',
+        subType: relayEval.subType,
+        relayState: relayEval.nextState,
+        userMessage: relayEval.tailInjection
+      };
+    }
+    sessionMeta.steeredPrompts = Number(sessionMeta.steeredPrompts || 0) + 1;
+    return {
+      ephemeralMessage: relayEval.tailInjection,
+      systemMessage: relayEval.tailInjection,
+      detectorId: 'DET-26',
+      subType: relayEval.subType,
+      relayState: relayEval.nextState
+    };
+  }
+
+  const scopeOverride = resolveDetectorOverride(horizonConfig, 'vague-prompt-rubric');
+  const scopeEval = evaluateScopeBrake({
+    prompt: rawPrompt,
+    provenance: inputData.provenance || inputData.source || 'user',
+    isAutonomousTurn: Boolean(inputData.isAutonomousTurn || inputData.autonomous),
+    isSubagent: Boolean(inputData.isSubagent || sessionMeta.isSubagent),
+    isScheduledTask: Boolean(inputData.isScheduledTask),
+    isLoopIteration: Boolean(inputData.isLoopIteration),
+    priorTurnEditedFilesCount: Number(
+      inputData.priorTurnEditedFilesCount ??
+      (Array.isArray(sessionMeta.lastTurnEditedFiles) ? sessionMeta.lastTurnEditedFiles.length : 0)
+    ),
+    priorTurnSingleFileTarget: inputData.priorTurnSingleFileTarget ?? sessionMeta.priorTurnSingleFileTarget ?? null,
+    priorTurnHadToolOrTestFailure: Boolean(
+      inputData.priorTurnHadToolOrTestFailure ??
+      sensors.lastTurnToolFailed ??
+      sensors.threeStrikeLoop
+    ),
+    priorTurnAssistantAskedQuestion: Boolean(
+      inputData.priorTurnAssistantAskedQuestion ?? sessionMeta.lastTurnAskedQuestion
+    ),
+    activeSetPaths: fileState.activeSetPaths || [],
+    modifiedFiles: fileState.modifiedFiles || [],
+    recentlyViewedFiles: fileState.recentlyViewedFiles || [],
+    overrideMode: scopeOverride,
+    flightMode,
+    detectorId: 'DET-26'
+  });
+  if (scopeEval.triggered) {
+    sessionMeta.unanchoredTurnFlag = true;
+    sidecar.sessionMeta = sessionMeta;
+    try {
+      writeSidecarAtomicSync(conversationId, sidecar);
+    } catch (err) {
+      recordHookDiagnostic('pre_invocation', 'scopeBrake.writeSidecar', err);
+    }
+    if (scopeEval.decision === 'block') {
+      sessionMeta.blockedPrompts = Number(sessionMeta.blockedPrompts || 0) + 1;
+      return {
+        terminationBehavior: 'terminate',
+        decision: 'block',
+        detectorId: 'DET-26',
+        subType: scopeEval.subType,
+        userMessage: scopeEval.blockReason
+      };
+    }
+    sessionMeta.steeredPrompts = Number(sessionMeta.steeredPrompts || 0) + 1;
+    return {
+      ephemeralMessage: scopeEval.steerContext,
+      systemMessage: scopeEval.steerContext,
+      detectorId: 'DET-26',
+      subType: scopeEval.subType,
+      candidateFiles: scopeEval.candidateFiles
+    };
+  }
+  sessionMeta.unanchoredTurnFlag = false;
+
+  // 8b. HALT_REWRITE_SCORECARD (Explicit #check or Cold Session Vague Multi-File Prompt)
   const isColdSession = turnCount <= (config.cold_session_max_turns || 3);
   const promptSufficiency = scorePromptSufficiency(rawPrompt, { activeSetPaths: fileState.activeSetPaths });
-  const isVagueMultiFile = /(refactor everything|fix all|update the whole project|caching)/i.test(rawPrompt) && !rawPrompt.includes('@');
+  const isArchitecturalVague = promptSufficiency.score <= 4 &&
+    /\b(refactor|rewrite|rearchitect|migrate|overhaul|redesign)\s+(?:the\s+)?[a-z0-9_-]+\s+(?:pipeline|system|architecture|service|subsystem|layer|workflow|engine)\b/i.test(rawPrompt);
+  const isVagueMultiFile = (/(refactor everything|fix all|update the whole project|caching)/i.test(rawPrompt) || isArchitecturalVague) && !rawPrompt.includes('@');
 
   // Ground rule: "Short prompts are not bad by default" - concise scoped instructions shouldn't trigger vague halt
-  if (hasCheckTag || (isColdSession && isVagueMultiFile && !promptSufficiency.shortPrompt)) {
+  if (hasCheckTag || (isColdSession && isVagueMultiFile && (!promptSufficiency.shortPrompt || isArchitecturalVague))) {
     const cleanedPrompt = rawPrompt.replace(/#check\b/gi, '').trim();
     const recommendedModel = tokens > 50000 ? deepModel : fastModel;
     const recommendedEffort = isComplexTopic ? 'high' : 'medium';
@@ -590,7 +809,8 @@ export async function handlePreInvocation(inputData = {}) {
       `/model ${recommendedModel}  •  /effort ${recommendedEffort}`,
       rewriteSuggestion
     );
-    return haltOrAdvise('REWRITE_SCORECARD', card);
+    const vagueRes = applyHabitOverride('vague-prompt-rubric', 'REWRITE_SCORECARD', card);
+    if (vagueRes) return vagueRes;
   }
 
   return {};

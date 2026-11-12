@@ -86,6 +86,19 @@ export function assessCompactionState(sessionTelemetry = {}) {
     0
   );
 
+  const lastTurnGitCommitted = Boolean(
+    sessionTelemetry.lastTurnGitCommitted ??
+    sessionTelemetry.last_turn_git_committed ??
+    false
+  );
+
+  const topicShiftDetected = Boolean(
+    sessionTelemetry.topicShiftDetected ??
+    sessionTelemetry.topic_shift ??
+    sessionTelemetry.topicShift ??
+    false
+  );
+
   const activeSignalPct = Number(
     sessionTelemetry.activeSignalPct ??
     Math.max(0, 100 - reclaimableWastePct)
@@ -204,18 +217,56 @@ export function assessCompactionState(sessionTelemetry = {}) {
     };
   }
 
+  // Rule 1c (Sim 06): Cold-Cache /compact Block — redirect expired cache (>= 25k tokens) to <300-tok StateBaton handoff
+  const cacheExpired = Boolean(
+    sessionTelemetry.cacheExpired === true ||
+    (cacheTtlSeconds === 0 && Number(sessionTelemetry.elapsedSeconds || 0) > Number(sessionTelemetry.effectiveTtlSeconds || 300))
+  );
+  if (cacheExpired && totalTokens >= 25000 && Boolean(sessionTelemetry.compactRequested)) {
+    return {
+      action: 'EXECUTE_BATON_PASS',
+      detectorId: 'DET-10',
+      coldCompactBlocked: true,
+      badge: '🧊 Cold Cache (/compact Blocked) — Execute <300-tok StateBaton Handoff',
+      shouldCompact: false,
+      recommendBatonPass: true,
+      recommendTailTrim: false,
+      warmCacheLocked: false,
+      reason: `Cache TTL expired (${totalTokens.toLocaleString()} cold tokens). Running /compact now would pay full uncached input rates to summarize stale history — use a <300-token StateBaton (/handoff + /clear) instead.`,
+      triggers: {
+        warmCacheLock: false,
+        coldCompactBlocked: true,
+        tokenTrigger: false,
+        wasteTrigger: false,
+        turnDegradationTrigger: false
+      },
+      watermarks
+    };
+  }
+
   // Rule 2: Dual Token + Waste Trigger
   // Trigger Baton-Pass (/handoff) Coach when:
+  // - Post-Commit Topic Shift (Turn >= 15 && totalTokens >= 25,000 && lastTurnGitCommitted && topicShiftDetected) OR
   // - Total Tokens >= 145,000 OR
   // - (Total Tokens >= 100,000 && Reclaimable Waste >= 45% && Cache TTL === 0) OR
   // - (Turn count > 45 && Active Signal < 35%)
+  const postCommitOverride = String(
+    sessionTelemetry.postCommitHandoffOverride ??
+    sessionTelemetry.horizonConfig?.semanticDetectors?.['post-commit-handoff'] ??
+    'default'
+  ).toLowerCase();
+  const postCommitShiftTrigger =
+    postCommitOverride !== 'off' &&
+    Boolean(lastTurnGitCommitted && topicShiftDetected && (turnCount === 0 || turnCount >= 15) && totalTokens >= 25000);
   const tokenTrigger = totalTokens >= WATERMARKS.BATON_PASS_TOKEN_TRIGGER;
   const wasteTrigger = totalTokens >= WATERMARKS.WASTE_TRIGGER_TOKEN && reclaimableWastePct >= WATERMARKS.WASTE_TRIGGER_PCT && cacheTtlSeconds === 0;
   const turnDegradationTrigger = turnCount > WATERMARKS.HIGH_TURN_THRESHOLD && activeSignalPct < WATERMARKS.LOW_SIGNAL_PCT_THRESHOLD;
 
-  if (tokenTrigger || wasteTrigger || turnDegradationTrigger) {
+  if (postCommitShiftTrigger || tokenTrigger || wasteTrigger || turnDegradationTrigger) {
     let reason = '';
-    if (tokenTrigger) {
+    if (postCommitShiftTrigger) {
+      reason = `Post-commit topic shift detected at Turn ${turnCount} (${Math.round(totalTokens / 1000)}K tokens). Previous milestone is committed to git — run /handoff or /compact before starting a new feature on stale context.`;
+    } else if (tokenTrigger) {
       reason = `Total context tokens (${totalTokens.toLocaleString()}) reached Baton-Pass watermark (${WATERMARKS.BATON_PASS_TOKEN_TRIGGER.toLocaleString()}). Execute zero-amnesia /handoff before hitting the ${WATERMARKS.AUTO_COMPACT_SAFE.toLocaleString()} safe limit.`;
     } else if (wasteTrigger) {
       reason = `Cold cache (TTL=0) with high reclaimable waste (${reclaimableWastePct.toFixed(1)}% >= 45% at ${totalTokens.toLocaleString()} tokens). Baton-pass will reset context cleanly.`;
@@ -235,7 +286,8 @@ export function assessCompactionState(sessionTelemetry = {}) {
         warmCacheLock: false,
         tokenTrigger,
         wasteTrigger,
-        turnDegradationTrigger
+        turnDegradationTrigger,
+        postCommitTopicShift: postCommitShiftTrigger
       },
       watermarks
     };

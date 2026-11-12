@@ -14,14 +14,10 @@ import {
 import { EFFORT_PROFILES, resolveEffortProfile, resolveSurfaceTag, normalizeModelId } from './constants.mjs';
 import { stitchAntigravityCliTrajectory, stitchClaudeCodeDag } from './trajectory_stitcher.mjs';
 import { atomicWriteFileSync } from './atomic_io.mjs';
+import { getDatabaseSyncClass } from '../engine-node/db/probe.mjs';
 
-const require = createRequire(import.meta.url);
 function getSqliteDatabaseSync() {
-  try {
-    return require('node:sqlite').DatabaseSync || null;
-  } catch {
-    return null;
-  }
+  return getDatabaseSyncClass();
 }
 
 /**
@@ -1408,7 +1404,7 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
   const includeCursor = isCrossHostHarnessEnabled('cursor', opts);
 
   try {
-    const { DatabaseSync } = await import('node:sqlite');
+    const DatabaseSync = getDatabaseSyncClass();
     const surfaces = getAntigravitySurfaces(homeDir, { includeMissing: true });
     const discoveredMap = new Map();
 
@@ -1494,7 +1490,7 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
       processSummaryDb(dbOverride, surfaces[0]);
     } else {
       for (const surface of surfaces) {
-        if (fs.existsSync(surface.summariesDbPath)) {
+        if (DatabaseSync && fs.existsSync(surface.summariesDbPath)) {
           let db = null;
           try {
             db = new DatabaseSync(surface.summariesDbPath, SQLITE_OPEN_READONLY_OPTIONS);
@@ -1505,7 +1501,7 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
         }
 
         // Also inspect per-conversation SQLite stores: ~/.gemini/<surface>/conversations/*.db
-        if (fs.existsSync(surface.conversationsDir)) {
+        if (DatabaseSync && fs.existsSync(surface.conversationsDir)) {
           try {
             const dbCandidates = fs.readdirSync(surface.conversationsDir)
               .filter(f => f.endsWith('.db'))
@@ -1554,6 +1550,45 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
                   cacheReadTokens: genMeta.cacheReadTokens
                 } : {})
               });
+            }
+          } catch {}
+        }
+
+        // Node 20 LTS / JSONL fallback: scan brain/<sid>/.system_generated/logs/transcript*.jsonl when SQLite is absent or brainDirs exist
+        if (fs.existsSync(surface.brainDir)) {
+          try {
+            const brainEntries = fs.readdirSync(surface.brainDir, { withFileTypes: true })
+              .filter(d => d.isDirectory());
+            for (const dirent of brainEntries.slice(0, 20)) {
+              const sid = dirent.name;
+              const sessBrainDir = path.join(surface.brainDir, sid);
+              const logsDir = path.join(sessBrainDir, '.system_generated', 'logs');
+              const fullJsonl = path.join(logsDir, 'transcript_full.jsonl');
+              const compactJsonl = path.join(logsDir, 'transcript.jsonl');
+              const targetJsonl = fs.existsSync(fullJsonl)
+                ? fullJsonl
+                : (fs.existsSync(compactJsonl) ? compactJsonl : null);
+              if (!targetJsonl) continue;
+              let stat = null;
+              let stepCount = 0;
+              try {
+                stat = fs.statSync(targetJsonl);
+                const rawLines = fs.readFileSync(targetJsonl, 'utf8').split(/\r?\n/).filter(Boolean);
+                stepCount = rawLines.length;
+              } catch {}
+              if (stepCount > 0) {
+                const mtimeIso = stat && stat.mtimeMs > 0 ? new Date(stat.mtimeMs).toISOString() : '';
+                upsertDiscoveredSession(sid, {
+                  sessionId: sid,
+                  title: sid.slice(0, 8),
+                  stepCount,
+                  workspace: '',
+                  lastModified: mtimeIso,
+                  surface: surface.name,
+                  surfaceTag: surface.surfaceTag,
+                  brainDir: sessBrainDir
+                });
+              }
             }
           } catch {}
         }

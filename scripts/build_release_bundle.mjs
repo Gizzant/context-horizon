@@ -3,6 +3,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import '../src/utils/nodeIo.mjs';
+import { writeTextAtomic } from '../src/core-isomorphic/utils/runtime.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -32,7 +34,10 @@ const TO_COPY = [
   'rules',
   'skills',
   'sidecars',
-  'src'
+  'src',
+  'hooks',
+  'commands',
+  'bin'
 ];
 
 for (const item of TO_COPY) {
@@ -77,7 +82,7 @@ for (const file of distFiles) {
 }
 
 const shaManifestPath = path.join(DIST_DIR, 'SHA256SUMS.txt');
-fs.writeFileSync(shaManifestPath, shaLines.join('\n') + '\n', 'utf8');
+writeTextAtomic(shaManifestPath, shaLines.join('\n') + '\n');
 
 console.log(`\n\x1b[1m\x1b[38;5;82m✓ Release artifacts built successfully in dist/:\x1b[0m`);
 console.log(`  • ${shaManifestPath}`);

@@ -1,0 +1,14 @@
+{
+  "name": "@ctxtop/antigravity",
+  "version": "4.0.0",
+  "description": "Attention Horizon Google Antigravity host adapter, daemon, hooks, and WebView HUD",
+  "type": "module",
+  "main": "./src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {}
+}

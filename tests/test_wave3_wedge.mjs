@@ -987,15 +987,18 @@ describe('Simple View Recommended Actions Collapsible Architecture & Open-State 
 
     await new Promise(r => setTimeout(r, 80));
 
-    // 1. Verify Subject Box Headers in Simple View
-    const sessionBarHeader = d.querySelector('.session-bar .section-box-header');
-    assert.ok(sessionBarHeader, 'Session bar must contain a .section-box-header');
-    assert.match(sessionBarHeader.textContent, /Active Session & Model Context/i);
-    assert.ok(d.getElementById('prefixLockBadge'), '#prefixLockBadge must exist in session bar header');
+    // 1. Verify Active Conversation Strip & Subject Box Headers
+    const activeStrip = d.getElementById('activeConversationStrip');
+    assert.ok(activeStrip, '#activeConversationStrip must exist as read-only conversation context strip');
+    assert.ok(d.getElementById('activeConversationTitle'), '#activeConversationTitle must exist in active conversation strip');
+    assert.ok(d.getElementById('advAccRouter').contains(d.getElementById('sessionSelect')), '#sessionSelect must be tucked inside Advanced #advAccRouter');
+    assert.ok(d.getElementById('advAccRouter').contains(d.getElementById('btnOpenChat')), '#btnOpenChat must be tucked inside Advanced #advAccRouter');
 
     const storageCardHeader = d.querySelector('.storage-card .section-box-header');
     assert.ok(storageCardHeader, 'Storage card (.storage-card) must contain a .section-box-header');
     assert.match(storageCardHeader.textContent, /Context Memory Capacity/i);
+    assert.ok(storageCardHeader.contains(d.getElementById('prefixLockBadge')), '#prefixLockBadge must exist in storage card header');
+    assert.ok(storageCardHeader.contains(d.getElementById('sessionModelPill')), '#sessionModelPill must exist in storage card header');
     assert.ok(d.getElementById('storageHorizonBadge'), '#storageHorizonBadge must exist in storage card header');
 
     const quotaStripHeader = d.querySelector('#quotaStrip .section-box-header');

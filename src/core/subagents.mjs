@@ -50,8 +50,13 @@ export function inspectSubagentTree(steps = [], {
           const lookStep = steps[j] || {};
           const text = String(lookStep.content || '');
           if (!childConversationId) {
-            const m = text.match(/conversation(?:Id|_id)["'\s:=]+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
-            if (m) childConversationId = m[1];
+            const matches = text.matchAll(/conversation(?:Id|_id)["'\s:=]+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi);
+            for (const m of matches) {
+              if (m[1] && !childIdsSeen.has(m[1])) {
+                childConversationId = m[1];
+                break;
+              }
+            }
           }
           const isParentStep = !lookStep.agentId || lookStep.agentId === 'parent';
           if (j > i && isParentStep && (text.toLowerCase().includes('subagent') || text.includes(role))) {
@@ -101,10 +106,15 @@ export function inspectSubagentTree(steps = [], {
         const compressionRatio = parseFloat((isolatedTokens / Math.max(1, handoffTokens)).toFixed(1));
         const rawDumpLeak = handoffTokens >= HANDOFF_BLOAT_THRESHOLD_TOKENS;
 
+        const resolvedConvId = childConversationId || `subagent-step-${i}-${invocations.length}`;
+        if (invocations.some((inv) => inv.conversationId === resolvedConvId)) {
+          continue;
+        }
+
         invocations.push({
           stepIndex: i,
           handoffStepIndex: handoffStepIdx,
-          conversationId: childConversationId || `subagent-step-${i}`,
+          conversationId: resolvedConvId,
           role,
           typeName,
           workspaceMode,
@@ -147,6 +157,7 @@ export function inspectSubagentTree(steps = [], {
 export function buildSubagentWorktreeDag(steps = [], { childTranscripts = [], nowMs = Date.now() } = {}) {
   const baseTree = inspectSubagentTree(steps);
   const editsByAgent = new Map(); // canonPath -> Set<agentId>
+  const readsByAgent = new Map(); // canonPath -> Set<agentId>
   const nodes = [];
 
   for (const child of (childTranscripts || [])) {
@@ -156,6 +167,7 @@ export function buildSubagentWorktreeDag(steps = [], { childTranscripts = [], no
     let isolatedTokens = 0;
     let latestTs = 0;
     const modifiedFiles = new Set();
+    const readFiles = new Set();
 
     for (const cs of childSteps) {
       isolatedTokens += Math.max(0, Number(cs.outputTokens ?? cs.output_tokens ?? 0) || 0);
@@ -173,6 +185,12 @@ export function buildSubagentWorktreeDag(steps = [], { childTranscripts = [], no
           if (!editsByAgent.has(norm)) editsByAgent.set(norm, new Set());
           editsByAgent.get(norm).add(agentId);
         }
+        if (fp && /view|read/i.test(name)) {
+          const norm = String(fp).replace(/\\/g, '/').toLowerCase();
+          readFiles.add(norm);
+          if (!readsByAgent.has(norm)) readsByAgent.set(norm, new Set());
+          readsByAgent.get(norm).add(agentId);
+        }
       }
     }
 
@@ -185,7 +203,8 @@ export function buildSubagentWorktreeDag(steps = [], { childTranscripts = [], no
       isolatedTokens,
       ttlWindowSec: 300,
       ttlRemainingSec,
-      modifiedFiles: Array.from(modifiedFiles)
+      modifiedFiles: Array.from(modifiedFiles),
+      readFiles: Array.from(readFiles)
     });
   }
 
@@ -200,11 +219,24 @@ export function buildSubagentWorktreeDag(steps = [], { childTranscripts = [], no
     }
   }
 
+  const readCollisions = [];
+  for (const [filePath, agentsSet] of readsByAgent.entries()) {
+    if (agentsSet.size >= 2) {
+      readCollisions.push({
+        filePath,
+        agents: Array.from(agentsSet),
+        severity: 'DUPLICATE_READ_COLLISION'
+      });
+    }
+  }
+
   return {
     parentInvocationCount: baseTree.count,
     nodes,
     fileCollisions,
-    hasFileCollision: fileCollisions.length > 0
+    hasFileCollision: fileCollisions.length > 0,
+    readCollisions,
+    hasReadCollision: readCollisions.length > 0
   };
 }
 

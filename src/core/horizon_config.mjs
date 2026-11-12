@@ -2,6 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { atomicWriteFileSync } from './atomic_io.mjs';
+export {
+  LEGACY_GA_V3_ID_MAP,
+  migrateLegacyHorizonConfig
+} from '../core-isomorphic/catalog/detectorCatalog.mjs';
 
 /**
  * Unified Cross-Harness Configuration, Per-Detector Override Engine (`.attention-horizon.json`),
@@ -118,12 +122,29 @@ export const SLUG_TO_ANTIGRAVITY_DETECTOR = Object.freeze({
   'high-turn-degradation': 'DET-24',
   'progressive-checkpoint': 'DET-25',
   'prompt-decomposer': 'DET-26',
+  'vague-prompt-rubric': 'DET-26',
   'rule-file-bloat': 'DET-27',
   'subagent-phantom': 'DET-28',
   'reflector-queue': 'DET-29',
   'thinking-drift-loop': 'DET-30',
   'scratchpad-loop': 'DET-30'
 });
+
+/**
+ * Pure semantic developer-habit slugs (`off | warn | block | default`).
+ * Intentionally unaliased from Ring-0 numeric IDs (`DET-08`, `DET-15`, `DET-18`, `DET-19`)
+ * so disabling e.g. `"formatter-bypass"` never disables Ring-0 `DET-15` (`secret-boundary`).
+ */
+export const HABIT_SEMANTIC_SLUGS = Object.freeze([
+  'formatter-bypass',
+  'drip-feed',
+  'vague-prompt-rubric',
+  'effort-overkill',
+  'post-commit-handoff',
+  'vision-screenshot-coach',
+  'micro-skills',
+  'relay-breaker'
+]);
 
 /**
  * Claude Code numeric DET-01..20 -> Antigravity detector / semantic mapping.
@@ -162,14 +183,23 @@ export const DEFAULT_HORIZON_CONFIG = Object.freeze({
   semanticDetectors: Object.freeze({
     'subagent-ipi': 'default',
     'cache-gravity-hold': 'default',
-    'scope-drift': 'default'
+    'scope-drift': 'default',
+    'formatter-bypass': 'default',
+    'drip-feed': 'default',
+    'vague-prompt-rubric': 'default',
+    'effort-overkill': 'default',
+    'post-commit-handoff': 'default',
+    'vision-screenshot-coach': 'default',
+    'micro-skills': 'default',
+    'relay-breaker': 'default'
   }),
   thresholds: Object.freeze({
     safeLimitTokens: 147000,
     reminderAtPct: 75,
     subagentOffloadTokens: 12000,
     blindSearchLimit: 6,
-    consecutiveFailureLimit: 3
+    consecutiveFailureLimit: 3,
+    microSkillConfirmSessions: 2
   })
 });
 
@@ -181,7 +211,7 @@ function parseNumericDetKey(rawId) {
   const m = s.match(/^DET[-_]?(\d{1,2})$/);
   if (!m) return null;
   const num = Number(m[1]);
-  if (num < 1 || num > 29) return null;
+  if (num < 1 || num > 30) return null;
   return `DET-${String(num).padStart(2, '0')}`;
 }
 
@@ -194,9 +224,12 @@ export function normalizeDetectorId(rawId) {
   if (numeric) return numeric;
 
   const slugKey = trimmed.toLowerCase().replace(/_/g, '-');
+  if (slugKey === 'scope-brake') return 'DET-26';
   if (Object.prototype.hasOwnProperty.call(SLUG_TO_ANTIGRAVITY_DETECTOR, slugKey)) {
     return SLUG_TO_ANTIGRAVITY_DETECTOR[slugKey];
   }
+  if (slugKey === 'spec-relay') return 'relay-breaker';
+  if (HABIT_SEMANTIC_SLUGS.includes(slugKey)) return slugKey;
 
   return null;
 }
@@ -208,7 +241,7 @@ export function normalizeDetectorMode(rawMode) {
     .trim()
     .toLowerCase();
   if (s === 'off' || s === 'disable' || s === 'disabled' || s === 'mute') return 'off';
-  if (s === 'warn' || s === 'advisory' || s === 'coach') return 'warn';
+  if (s === 'warn' || s === 'advisory' || s === 'coach' || s === 'steer') return 'warn';
   if (s === 'block' || s === 'deny' || s === 'strict' || s === 'enforce') return 'block';
   return 'default';
 }
@@ -216,13 +249,29 @@ export function normalizeDetectorMode(rawMode) {
 export function resolveDetectorOverride(config, idOrSlug) {
   if (!config || typeof config !== 'object') return 'default';
   const slugLower = String(idOrSlug || '').trim().toLowerCase().replace(/_/g, '-');
-  if (config.semanticDetectors && Object.prototype.hasOwnProperty.call(config.semanticDetectors, slugLower)) {
-    const semMode = config.semanticDetectors[slugLower];
-    if (semMode && semMode !== 'default') return semMode;
+  const candidateSlugs =
+    slugLower === 'vague-prompt-rubric' || slugLower === 'scope-brake'
+      ? ['vague-prompt-rubric', 'prompt-decomposer', 'scope-brake']
+      : slugLower === 'prompt-decomposer'
+        ? ['prompt-decomposer', 'vague-prompt-rubric', 'scope-brake']
+        : slugLower === 'relay-breaker' || slugLower === 'spec-relay'
+          ? ['relay-breaker', 'spec-relay']
+          : [slugLower];
+
+  for (const cand of candidateSlugs) {
+    if (config.semanticDetectors && Object.prototype.hasOwnProperty.call(config.semanticDetectors, cand)) {
+      const semMode = normalizeDetectorMode(config.semanticDetectors[cand]);
+      if (semMode && semMode !== 'default') return semMode;
+    }
+    if (config.detectors && Object.prototype.hasOwnProperty.call(config.detectors, cand)) {
+      const detSlugMode = normalizeDetectorMode(config.detectors[cand]);
+      if (detSlugMode && detSlugMode !== 'default') return detSlugMode;
+    }
   }
+
   const normId = normalizeDetectorId(idOrSlug);
   if (normId && config.detectors && Object.prototype.hasOwnProperty.call(config.detectors, normId)) {
-    return config.detectors[normId] || 'default';
+    return normalizeDetectorMode(config.detectors[normId]);
   }
   return 'default';
 }
@@ -452,16 +501,16 @@ export function setDetectorOverride(detectorId, mode, options = {}) {
   const normMode = normalizeDetectorMode(mode);
   const { activeWritePath } = resolveHorizonConfigPaths(options);
 
-  if (rawSlug === 'subagent-ipi') {
+  if (rawSlug === 'subagent-ipi' || (HABIT_SEMANTIC_SLUGS.includes(rawSlug) && rawSlug !== 'vague-prompt-rubric')) {
     const existing = readJsonSafe(activeWritePath, {}) || {};
     const nextDetectors = { ...(existing.detectors || {}) };
     const nextSemantic = { ...(existing.semanticDetectors || {}) };
     if (normMode === 'default') {
-      delete nextDetectors['subagent-ipi'];
-      delete nextSemantic['subagent-ipi'];
+      delete nextDetectors[rawSlug];
+      delete nextSemantic[rawSlug];
     } else {
-      nextDetectors['subagent-ipi'] = normMode;
-      nextSemantic['subagent-ipi'] = normMode;
+      nextDetectors[rawSlug] = normMode;
+      nextSemantic[rawSlug] = normMode;
     }
     const nextPayload = {
       schemaVersion: '1.0.0',
@@ -474,8 +523,8 @@ export function setDetectorOverride(detectorId, mode, options = {}) {
     const ok = writeJsonAtomic(activeWritePath, nextPayload);
     return {
       ok,
-      detectorId: 'subagent-ipi',
-      slug: 'subagent-ipi',
+      detectorId: rawSlug,
+      slug: rawSlug,
       mode: normMode,
       configPath: activeWritePath,
       config: loadHorizonConfig(options)

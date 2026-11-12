@@ -46,8 +46,12 @@ export function auditSubagentPhantomBurn(subagents = []) {
   const startMs = performance.now();
   const list = Array.isArray(subagents) ? subagents : [];
   const audited = [];
+  const seenIds = new Set();
 
   for (const sub of list) {
+    const rawId = sub.id || sub.conversationId || null;
+    if (rawId && seenIds.has(String(rawId))) continue;
+    if (rawId) seenIds.add(String(rawId));
     const name = String(sub.name || sub.typeName || sub.role || 'browser_subagent').trim();
     const steps = Array.isArray(sub.steps) ? sub.steps : [];
     const turnCount = Number.isFinite(Number(sub.turns ?? sub.turnCount))

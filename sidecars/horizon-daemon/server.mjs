@@ -44,9 +44,14 @@ import { CircuitBreakers } from '../../src/core/coach/circuit_breakers.mjs';
 import { SubagentPhantomAuditor } from '../../src/core/coach/subagent_phantom_auditor.mjs';
 import { TurnZeroGate } from '../../src/core/coach/turn_zero_gate.mjs';
 import { HandoffHydrationLauncher } from '../../src/core/coach/handoff_hydrator.mjs';
-import { SavedQuotaReceiptLedger } from '../../src/core/coach/saved_quota_ledger.mjs';
+import {
+  SavedQuotaReceiptLedger,
+  SAVINGS_EVENT_TYPES,
+  computeUnifiedSavings
+} from '../../src/core/coach/saved_quota_ledger.mjs';
 import { ProgressiveCheckpointer } from '../../src/core/coach/progressive_checkpointer.mjs';
 import { atomicWriteFileSync } from '../../src/core/atomic_io.mjs';
+import { MicroIpcServer } from '../../src/engine-node/ipc/server.mjs';
 
 export const HORIZON_CSRF_TOKEN = crypto.randomBytes(32).toString('hex');
 export const MAX_REQUEST_BODY_BYTES = 1_048_576; // 1 MB
@@ -388,14 +393,39 @@ function buildCoachState(state, targetConvId) {
       flightMode: effectiveFlightMode
     });
     const subagentAudit = subagentPhantomAuditor.auditTrajectories(state?.subagents?.invocations || []);
+    const fts5SavedTokens = getFts5CompressionStats().savedTokens;
+    const liveCacheReadTok = Math.max(0, Number(state?.quota?.cache?.cacheReadTokens || 0));
+    const liveStepKey = Number(state?.window?.stepCount || state?.window?.turnCount || 0);
+    if (savedQuotaLedger && liveCacheReadTok > 0 && !Boolean(state?.demoMeta || process.env.HORIZON_DEMO === '1')) {
+      try {
+        savedQuotaLedger.recordSaving({
+          sessionId: sessionKey,
+          eventType: SAVINGS_EVENT_TYPES.CACHE_HIT_PRESERVED,
+          tokensSaved: Math.round(liveCacheReadTok * 0.95),
+          dedupeKey: `cachehit:${sessionKey}:step:${liveStepKey}`,
+          detail: `95% KV cache hit on ${Math.round(liveCacheReadTok / 1000)}k tokens (step ${liveStepKey})`
+        });
+      } catch (err) {
+        recordDaemonDiagnostic('buildCoachState:cacheHitLedger', err);
+      }
+    }
     const ledgerSummary = savedQuotaLedger
-      ? savedQuotaLedger.getSummary()
+      ? savedQuotaLedger.getSummary(sessionKey)
       : {
           totalArgonEquivTokensSaved: 0,
           formattedSavedK: '0.0k',
           statusBarText: '$(shield) Horizon: +0.0k Argon-equiv tokens saved (0 Cold Prefills • 0 Downshifts • 0 CLI Compress)',
-          footerText: '🛡️ Horizon: +0.0k Argon-equiv tokens saved (0 Cold Prefills • 0 Downshifts • 0 CLI Compress)'
+          footerText: '🛡️ Horizon: +0.0k Argon-equiv tokens saved (0 Cold Prefills • 0 Downshifts • 0 CLI Compress)',
+          displayFooterText: '🛡️ Tokens Saved: +0.0k (0 Cold Prefills · 0 Downshifts · 0 CLI Compress)'
         };
+    const unifiedSavings = computeUnifiedSavings(state, {
+      ledger: savedQuotaLedger,
+      sessionId: sessionKey,
+      fts5SavedTokens
+    });
+    if (state && typeof state === 'object') {
+      state.savings = unifiedSavings;
+    }
 
     const ckptEval = progressiveCheckpointer.evaluateAndSnapshot({
       sessionId: sessionKey,
@@ -436,7 +466,7 @@ function buildCoachState(state, targetConvId) {
       prefixCacheShield: shieldStatus,
       detectors: {
         active: true,
-        totalCount: 20,
+        totalCount: 30,
         tripped: primaryTripped
           ? {
               detectorId: primaryTripped.detectorId,
@@ -448,7 +478,7 @@ function buildCoachState(state, targetConvId) {
           : null,
         summary: combinedAlerts.length > 0
           ? `${combinedAlerts.length} breaker${combinedAlerts.length === 1 ? '' : 's'} tripped (${combinedAlerts.map(a => a.detectorId).join(', ')})`
-          : '20 guards quiet (DET-01..20 Active)'
+          : '30 guards quiet (DET-01..30 Active)'
       },
       scopeCollision: scopeCollisionAlert,
       thinkingDrift,
@@ -480,9 +510,10 @@ function buildCoachState(state, targetConvId) {
       },
       promptAdvisory,
       savedQuotaLedger: ledgerSummary,
+      savings: unifiedSavings,
       fts5Compressor: {
         active: true,
-        savedTokens: getFts5CompressionStats().savedTokens
+        savedTokens: fts5SavedTokens
       },
       compactionCoach: compactionEval,
       rsiEngine: {
@@ -612,12 +643,12 @@ async function refreshLiveState(force = false, explicitConvId = null) {
         recordDaemonDiagnostic('refreshLiveState:liveCoachState', err);
       }
       if (
-        cachedLiveState?.coachState?.taskRoute &&
-        (modelSelectorActuator.mode === 'autopilot' || cachedLiveState.coachState.taskRoute.routerMode === 'autopilot')
+        cachedLiveState?.coachState?.taskQuotaRouter &&
+        (modelSelectorActuator.mode === 'autopilot' || cachedLiveState.coachState.taskQuotaRouter.routerMode === 'autopilot')
       ) {
         try {
           cachedLiveState.coachState.autoPilotActuation = await actuateRoutingRecommendation(
-            cachedLiveState.coachState.taskRoute,
+            cachedLiveState.coachState.taskQuotaRouter,
             {
               actuator: modelSelectorActuator,
               flightMode: 'AUTO_PILOT',
@@ -1437,6 +1468,19 @@ const server = http.createServer(async (req, res) => {
           trimRes.stagedOnly = true;
           trimRes.hostTranscriptMutated = false;
           trimRes.stagedPath = stagedFullPath;
+          if (savedQuotaLedger && Number(trimRes.tokensSaved) > 0) {
+            try {
+              savedQuotaLedger.recordSaving({
+                sessionId: String(sessionInfo?.sessionId || targetConvId || 'default-session'),
+                eventType: SAVINGS_EVENT_TYPES.COMPACTION_RECLAIMED,
+                tokensSaved: Math.round(Number(trimRes.tokensSaved)),
+                dedupeKey: `tailtrim:${safeSessionSlug}:${trimRes.modifiedCount}`,
+                detail: `Trimmed ${trimRes.modifiedCount} uncached tail step(s)`
+              });
+            } catch (err) {
+              recordDaemonDiagnostic('POST /api/tail/trim:ledger', err);
+            }
+          }
 
           // Also stage companion transcript.jsonl preview without mutating host logs
           const compactFile = path.join(path.dirname(transcriptFile), 'transcript.jsonl');
@@ -1617,10 +1661,43 @@ const server = http.createServer(async (req, res) => {
       ...body,
       forceActuate: true
     });
+    if (savedQuotaLedger && actuateRes && (actuateRes.actuated || actuateRes.changed)) {
+      try {
+        const estTok = Math.max(1500, Math.round(Number(cachedLiveState?.window?.totalActiveTokens || 20000) * 0.2));
+        savedQuotaLedger.recordSaving({
+          sessionId: String(pinnedConversationId || cachedLiveState?.sessionId || 'default-session'),
+          eventType: SAVINGS_EVENT_TYPES.EFFORT_DOWNSHIFT,
+          tokensSaved: estTok,
+          detail: `Actuated model/effort shift to ${actuateRes.targetModel || body.recommendedModel || 'leaner tier'}`
+        });
+      } catch (err) {
+        recordDaemonDiagnostic('POST /api/router/actuate:ledger', err);
+      }
+    }
     const nextState = await refreshLiveState(true, pinnedConversationId);
     broadcastState(nextState);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, ...actuateRes, state: nextState }));
+    return;
+  }
+
+  // Route: POST /api/savings/receipt (Export plain-English verified Tokens Saved receipt)
+  if (url.pathname === '/api/savings/receipt' && req.method === 'POST') {
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = bodyStr ? parseJsonBodyOrSend400(bodyStr, res, 'POST /api/savings/receipt') : {};
+    if (body === null) return;
+    const targetSession = body.conversationId || body.sessionId || pinnedConversationId || cachedLiveState?.sessionId || 'default';
+    const liveSavings = cachedLiveState?.savings || computeUnifiedSavings(cachedLiveState || {}, {
+      ledger: savedQuotaLedger,
+      sessionId: targetSession,
+      fts5SavedTokens: getFts5CompressionStats().savedTokens
+    });
+    const receipt = savedQuotaLedger
+      ? savedQuotaLedger.copyPlainSavingsReceipt({ sessionId: targetSession, liveSavings })
+      : { ok: false, markdown: '' };
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, ...receipt, receiptMarkdown: receipt.markdown || '', savings: liveSavings }));
     return;
   }
 
@@ -1695,11 +1772,27 @@ export function startServer(port = EXPLICIT_PORT) {
         const boundPort = server.address().port;
         writeRuntimeLockfile(boundPort);
         cacheTtlWatchdog.startPolling(1000);
+
+        let ipcServer = null;
+        try {
+          ipcServer = new MicroIpcServer();
+          ipcServer.listen().catch((ipcErr) => {
+            recordDaemonDiagnostic('ipcServer:listen', ipcErr);
+          });
+        } catch (ipcErr) {
+          recordDaemonDiagnostic('ipcServer:init', ipcErr);
+        }
+
         server.once('close', () => {
           cacheTtlWatchdog.stopPolling();
+          if (ipcServer) {
+            ipcServer.close().catch((err) => {
+              recordDaemonDiagnostic('ipcServer:close', err);
+            });
+          }
         });
         console.log(`[Horizon Daemon] Listening on http://${BIND_HOST}:${boundPort}`);
-        resolve({ server, port: boundPort });
+        resolve({ server, port: boundPort, ipcServer });
       };
       server.once('error', onError);
       server.once('listening', onListening);

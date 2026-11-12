@@ -108,9 +108,13 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
 
   // 0. Node.js Runtime & Daemon Port Discovery
   if (isSupportedNodeVersion()) {
-    record('Node.js Runtime', 'PASS', `${process.version} (>= v22.5.0 built-in node:sqlite ready)`);
+    const sqliteDetail =
+      typeof process !== 'undefined' && process.env?.CTXTOP_FORCE_NO_SQLITE === '1'
+        ? `${process.version} (Node >= 20.0.0 LTS JSONL fallback active)`
+        : `${process.version} (>= v22.5.0 built-in node:sqlite ready)`;
+    record('Node.js Runtime', 'PASS', sqliteDetail);
   } else {
-    record('Node.js Runtime', 'FAIL', `${process.version} — Upgrade to Node >= 22.5.0 required for built-in node:sqlite`);
+    record('Node.js Runtime', 'FAIL', `${process.version} — Upgrade to Node >= 20.0.0 LTS required`);
   }
   const portFile = getDaemonPortFile(home);
   const resolvedPort = readDaemonPort(home, 62935);

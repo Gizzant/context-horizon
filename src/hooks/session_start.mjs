@@ -10,6 +10,8 @@ import { loadFlightcheckConfig } from '../core/config.mjs';
 import { resolveModelCeiling } from '../core/constants.mjs';
 import { recordHookDiagnostic } from '../core/hook_diagnostics.mjs';
 import { auditWorkspaceAndGlobalMcpConfigs } from '../core/mcp_auditor.mjs';
+import { loadHorizonConfig, resolveDetectorOverride } from '../core/horizon_config.mjs';
+import { loadMicroSkillsRegistry, formatMicroSkillsBatonSnippet } from '../core/micro_skills_store.mjs';
 
 async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {}) {
   if (process.stdin.isTTY || process.stdin.readableEnded) return {};
@@ -123,8 +125,24 @@ export async function handleSessionStart(inputData = {}) {
     });
   }
 
+  // RSI-04 ('micro-skills'): Inject compact (<80 tok) verified Repo Micro-Skills into SessionStart StateBaton
+  const horizonConfig = inputData.horizonConfig || loadHorizonConfig({
+    cwd: workspacePath,
+    ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {})
+  });
+  let microSkillsSnippet = '';
+  if (resolveDetectorOverride(horizonConfig, 'micro-skills') !== 'off') {
+    const msRegistry = loadMicroSkillsRegistry(workspacePath);
+    const formatted = formatMicroSkillsBatonSnippet(msRegistry);
+    if (formatted.snippet) {
+      microSkillsSnippet = formatted.snippet;
+      sidecar.sessionMeta.microSkillsBaton = formatted.snippet;
+      sidecar.sessionMeta.microSkillsTokens = formatted.estimatedTokens;
+    }
+  }
+
   writeSidecarAtomicSync(conversationId, sidecar);
-  return {};
+  return microSkillsSnippet ? { systemMessage: microSkillsSnippet, microSkillsBaton: microSkillsSnippet } : {};
 }
 
 // Auto-run when executed directly

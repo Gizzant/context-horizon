@@ -5,7 +5,7 @@ description: Audit and write a compressed, actionable task.md checkpoint before 
 
 # Session Handoff & State Compression (`/handoff`)
 
-The `/handoff` command audits the current session checkpoint in `task.md` (or `STATE.md`) to guarantee that all architectural decisions, active blockers, and immediate next steps are preserved before context compaction or session rotation.
+The `/handoff` command audits the current session checkpoint in `task.md`, `STATE.md`, or `HANDOFF.md` to guarantee that all architectural decisions, active blockers, and immediate next steps are preserved before context compaction or session rotation.
 
 ## State Compressor Taxonomy
 

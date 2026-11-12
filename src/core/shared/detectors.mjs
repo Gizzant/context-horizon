@@ -151,10 +151,34 @@ export function evaluateDet05PreWriteIntegrity({
 
   // 2. Compare against existing file on disk when present
   if (typeof currentDiskContent === 'string' && currentDiskContent.length > 0 && !sim.hunkUnmatched) {
-    const beforeLines = currentDiskContent.split(/\r?\n/).length;
-    const afterLines = proposed.split(/\r?\n/).length;
+    const beforeLinesArr = currentDiskContent.split(/\r?\n/);
+    const afterLinesArr = proposed.split(/\r?\n/);
+    const beforeLines = beforeLinesArr.length;
+    const afterLines = afterLinesArr.length;
 
     if (!hasCleanupIntent) {
+      // Full-file regurgitation check on full-file writes (>= 300 lines with >= 90% lines unchanged)
+      if (sim.isFullWrite && beforeLines >= 300 && afterLines >= Math.floor(beforeLines * 0.9)) {
+        const beforeMap = new Map();
+        for (const line of beforeLinesArr) {
+          const trimmed = line.trim();
+          beforeMap.set(trimmed, (beforeMap.get(trimmed) || 0) + 1);
+        }
+        let unchangedCount = 0;
+        for (const line of afterLinesArr) {
+          const trimmed = line.trim();
+          const count = beforeMap.get(trimmed) || 0;
+          if (count > 0) {
+            unchangedCount++;
+            beforeMap.set(trimmed, count - 1);
+          }
+        }
+        const changedLines = beforeLines - unchangedCount;
+        if (unchangedCount / beforeLines >= 0.90 && changedLines <= Math.max(25, Math.floor(beforeLines * 0.10))) {
+          violations.push(`FULL_FILE_REGURGITATION (${unchangedCount}/${beforeLines} lines unchanged — use surgical edit_file/replace_file_content instead of rewriting the full file)`);
+        }
+      }
+
       // > 50% shrinkage on files >= 40 lines
       if (beforeLines >= 40 && afterLines < beforeLines * 0.5) {
         const shrinkPct = Math.round(((beforeLines - afterLines) / beforeLines) * 100);
@@ -222,8 +246,8 @@ export function evaluateDet05PreWriteIntegrity({
 // Rank 2 (DET-06): Unmodified File Re-Read & GitClear Blind-Edit Guard
 // ============================================================================
 
-const SOURCE_CODE_EXT_RE = /\.(mjs|js|ts|tsx|py|go|rs)$/i;
-const BLIND_EDIT_EXEMPT_PATH_RE =
+export const SOURCE_CODE_EXT_RE = /\.(mjs|js|ts|tsx|py|go|rs)$/i;
+export const BLIND_EDIT_EXEMPT_PATH_RE =
   /(?:^|\/)(?:migrations|docs)\/|\.(?:test|spec)\.[a-z0-9]+$|\.md$/i;
 
 function isRangeCovered(prevStart, prevEnd, reqStart, reqEnd) {
@@ -298,14 +322,40 @@ export function evaluateDet06BlindNewModule({
   discoveryCallsCount = 0,
   siblingSourceFileCount = 3,
   userPrompt = '',
-  flightMode = 'COACH'
+  flightMode = 'COACH',
+  editedFilesCount = 0,
+  turnCount = 1
 } = {}) {
+  const mode = String(flightMode || 'COACH').toUpperCase();
   const norm = String(targetPath || '').replace(/\\/g, '/');
+
+  if (norm && (!SOURCE_CODE_EXT_RE.test(norm) || BLIND_EDIT_EXEMPT_PATH_RE.test(norm))) {
+    return { detectorId: 'DET-06', triggered: false, decision: 'allow', exemptReason: 'PATH_EXEMPT' };
+  }
+
+  // Turn 1 blind multi-file edit check on non-exempt source files (TDD *.test.*/*.spec.* companion files exempted)
+  const hasSpecificAnchor = /(?:^|\s)@[A-Za-z0-9_./\\-]+\.[A-Za-z0-9]+/.test(String(userPrompt || ''));
+  const nonTestEditedCount = Array.isArray(arguments[0]?.editedFiles)
+    ? arguments[0].editedFiles.filter((p) => {
+        const np = String(p || '').replace(/\\/g, '/');
+        return SOURCE_CODE_EXT_RE.test(np) && !BLIND_EDIT_EXEMPT_PATH_RE.test(np) && !isTestOrSpecFilePath(np);
+      }).length
+    : Number(editedFilesCount || 0);
+
+  if (turnCount <= 1 && nonTestEditedCount >= 2 && Number(discoveryCallsCount) === 0 && !hasSpecificAnchor) {
+    const reason = `[DET-06] Blind unplanned multi-file edit on Turn 1 (${nonTestEditedCount} non-test source files modified) with 0 prior read/search discovery calls; verify existing code or create a plan first.`;
+    return {
+      detectorId: 'DET-06',
+      subType: 'BLIND_UNPLANNED_MULTI_EDIT',
+      triggered: true,
+      decision: mode === 'AUTO_PILOT' ? 'ask' : 'allow',
+      reason,
+      hudAlert: reason
+    };
+  }
+
   if (!norm || overwrite === true || fileAlreadyExists === true) {
     return { detectorId: 'DET-06', triggered: false, decision: 'allow' };
-  }
-  if (!SOURCE_CODE_EXT_RE.test(norm) || BLIND_EDIT_EXEMPT_PATH_RE.test(norm)) {
-    return { detectorId: 'DET-06', triggered: false, decision: 'allow', exemptReason: 'PATH_EXEMPT' };
   }
   if (Number(siblingSourceFileCount) < 3) {
     return { detectorId: 'DET-06', triggered: false, decision: 'allow', exemptReason: 'GREENFIELD_DIR' };
@@ -318,13 +368,59 @@ export function evaluateDet06BlindNewModule({
     return { detectorId: 'DET-06', triggered: false, decision: 'allow' };
   }
 
-  const mode = String(flightMode || 'COACH').toUpperCase();
   const reason = `[DET-06] Creating new module "${norm}" with 0 prior grep_search/find_by_name/list_dir calls; verify existing utilities first to prevent duplicate modules.`;
   return {
     detectorId: 'DET-06',
     subType: 'BLIND_NEW_MODULE',
     triggered: true,
     decision: mode === 'AUTO_PILOT' ? 'ask' : 'allow',
+    reason,
+    hudAlert: reason
+  };
+}
+
+/**
+ * DET-07: Guard against unbounded reads of package-lock.json, pnpm-lock.yaml, and minified bundles.
+ * Strictly adheres to Active Source File Protection: active source files (.ts, .js, etc.) are never blocked.
+ */
+export function evaluateDet07IgnorableFileReadGuard({
+  toolName = '',
+  targetPath = '',
+  startLine = null,
+  endLine = null,
+  limit = null,
+  flightMode = 'COACH'
+} = {}) {
+  const name = String(toolName || '').toLowerCase();
+  if (!/^(view_file|read_file|read)$/i.test(name)) {
+    return { detectorId: 'DET-07', triggered: false, decision: 'allow' };
+  }
+  const norm = String(targetPath || '').replace(/\\/g, '/');
+  const isLockfileOrBundle =
+    /(?:^|\/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|Cargo\.lock|poetry\.lock|composer\.lock)$/i.test(norm) ||
+    /\.(?:min\.js|bundle\.min\.js|bundle\.js|min\.css|map)$/i.test(norm) ||
+    /(?:^|\/)(dist|build|\.next|out)\/.*\.(?:js|json|css)$/i.test(norm);
+
+  if (!isLockfileOrBundle) {
+    return { detectorId: 'DET-07', triggered: false, decision: 'allow' };
+  }
+
+  const isBounded =
+    (startLine != null && endLine != null && (Number(endLine) - Number(startLine)) <= 100) ||
+    (Number(limit) > 0 && Number(limit) <= 100);
+
+  if (isBounded) {
+    return { detectorId: 'DET-07', triggered: false, decision: 'allow' };
+  }
+
+  const mode = String(flightMode || 'COACH').toUpperCase();
+  const base = norm.split('/').pop() || 'lockfile';
+  const reason = `[DET-07] Unbounded read of lockfile or minified bundle ("${base}"). Dumping full lockfile/bundle wastes context. Inspect package.json or use StartLine/EndLine <= 100.`;
+  return {
+    detectorId: 'DET-07',
+    subType: 'LOCKFILE_OR_BUNDLE_READ_BLOCKED',
+    triggered: true,
+    decision: mode === 'AUTO_PILOT' ? 'deny' : 'allow',
     reason,
     hudAlert: reason
   };
@@ -616,7 +712,13 @@ export function evaluateDet02PreInvocationHold({
 
 export function evaluateDet13EagerMcpAuditor({
   servers = [],
-  eagerTokenThreshold = 15000
+  eagerTokenThreshold = 15000,
+  bundledSkillsTokens = 0,
+  syncedSkillsTokens = 0,
+  mcpSchemaTokens = 0,
+  claudeMdTokens = 0,
+  turnsElapsed = 0,
+  mcpInvocations = 0
 } = {}) {
   const list = Array.isArray(servers) ? servers : [];
   const eagerOverrides = [];
@@ -641,8 +743,29 @@ export function evaluateDet13EagerMcpAuditor({
     }
   }
 
-  const exceedsBudget = totalEagerTokens > eagerTokenThreshold;
-  const triggered = eagerOverrides.length > 0 || unreachableServers.length > 0 || exceedsBudget;
+  const effectiveMcpTokens = Math.max(totalEagerTokens, Math.max(0, Number(mcpSchemaTokens || 0)));
+  const bTok = Math.max(0, Number(bundledSkillsTokens || 0));
+  const sTok = Math.max(0, Number(syncedSkillsTokens || 0));
+  const cTok = Math.max(0, Number(claudeMdTokens || 0));
+  const turn0StaticPrefillBreakdown = {
+    bundledSkillsTokens: bTok,
+    syncedSkillsTokens: sTok,
+    mcpSchemaTokens: effectiveMcpTokens,
+    claudeMdTokens: cTok,
+    totalStaticPrefillTokens: bTok + sTok + effectiveMcpTokens + cTok
+  };
+
+  const idleMcpHoarding5Turns =
+    effectiveMcpTokens >= eagerTokenThreshold &&
+    Number(turnsElapsed) >= 5 &&
+    Number(mcpInvocations) === 0;
+
+  const exceedsBudget = effectiveMcpTokens > eagerTokenThreshold;
+  const triggered =
+    eagerOverrides.length > 0 ||
+    unreachableServers.length > 0 ||
+    exceedsBudget ||
+    idleMcpHoarding5Turns;
   const offendingServers = Array.from(new Set([...eagerOverrides, ...unreachableServers]));
 
   const parts = [];
@@ -653,22 +776,31 @@ export function evaluateDet13EagerMcpAuditor({
     parts.push(`unreachable/orphaned stdio binary on [${unreachableServers.join(', ')}]`);
   }
   if (exceedsBudget) {
-    parts.push(`eager schema overhead ${totalEagerTokens.toLocaleString('en-US')} tok exceeds ${eagerTokenThreshold.toLocaleString('en-US')} tok`);
+    parts.push(`eager schema overhead ${effectiveMcpTokens.toLocaleString('en-US')} tok exceeds ${eagerTokenThreshold.toLocaleString('en-US')} tok`);
+  }
+  if (idleMcpHoarding5Turns) {
+    parts.push(`0 MCP invocations across ${turnsElapsed} turns (set ENABLE_TOOL_SEARCH=auto:5 or lazy loading; Turn-0 static prefill = ${turn0StaticPrefillBreakdown.totalStaticPrefillTokens.toLocaleString('en-US')} tok)`);
   }
 
   return {
     detectorId: 'DET-13',
+    subType: idleMcpHoarding5Turns ? 'IDLE_MCP_HOARDING_5_TURNS' : 'EAGER_MCP_AUDIT',
     triggered,
     eagerOverrides,
     unreachableServers,
     offendingServers,
-    totalEagerTokens,
+    totalEagerTokens: effectiveMcpTokens,
     exceedsBudget,
+    idleMcpHoarding5Turns,
+    recommendedEnv: idleMcpHoarding5Turns ? 'ENABLE_TOOL_SEARCH=auto:5' : null,
+    turn0StaticPrefillBreakdown,
     hudAlert: triggered
       ? `[DET-13 MCP Audit] Antigravity 1.3.3+ defaults to lazy MCP loading, but detected ${parts.join('; ')}.`
       : null
   };
 }
+
+export const evaluateDet09McpSchemaTax = evaluateDet13EagerMcpAuditor;
 
 // ============================================================================
 // Rank 6 (DET-06B): Lean Flash Subagent Search Offloader
@@ -862,19 +994,107 @@ export function evaluateDet16HybridQuotaThrottle({
 export function evaluateDet20VisionOverageGuard({
   quirkConfig = { enabled: true },
   aiCreditOveragesActive = false,
-  hasImageAttachment = false
+  hasImageAttachment = false,
+  consecutiveImageTurns = 0,
+  promptText = '',
+  imageCount = 0,
+  messages = [],
+  contentBlocks = [],
+  tokensPerImage = 1600
 } = {}) {
-  if (!quirkConfig?.enabled || !aiCreditOveragesActive || !hasImageAttachment) {
-    return { detectorId: 'DET-20', triggered: false };
+  // Inspect historical messages & contentBlocks for base64 / image blocks
+  let base64ImageBlockCount = 0;
+  let cumulativeVisionTaxTokens = 0;
+  const msgList = Array.isArray(messages) ? messages : [];
+  const totalMsgLen = msgList.length;
+
+  for (let i = 0; i < totalMsgLen; i++) {
+    const msg = msgList[i];
+    const blocks = Array.isArray(msg?.content) ? msg.content : [];
+    let msgImages = 0;
+    for (const b of blocks) {
+      if (
+        b &&
+        (b.type === 'image' ||
+          b.type === 'image_url' ||
+          b?.source?.type === 'base64' ||
+          String(b?.mime_type || b?.mimeType || '').startsWith('image/'))
+      ) {
+        base64ImageBlockCount += 1;
+        msgImages += 1;
+      }
+    }
+    if (msgImages > 0) {
+      // Each historical image block is re-sent on every subsequent turn (`totalMsgLen - i` turns)
+      const turnsResent = Math.max(1, Math.ceil((totalMsgLen - i) / 2));
+      cumulativeVisionTaxTokens += msgImages * Number(tokensPerImage || 1600) * turnsResent;
+    }
   }
-  const message =
-    quirkConfig.warningMessage ||
-    '[DET-20 Vision Overage Quirk] AI Credit Overages are active and an image/screenshot is attached. Remove image attachments or switch to a text-only turn to avoid Google HTTP 400 Bad Request (Unable to process input image).';
+
+  if (Array.isArray(contentBlocks)) {
+    for (const b of contentBlocks) {
+      if (b && (b.type === 'image' || b?.source?.type === 'base64')) {
+        base64ImageBlockCount += 1;
+        cumulativeVisionTaxTokens += Number(tokensPerImage || 1600);
+      }
+    }
+  }
+
+  const effectiveHasImage = Boolean(hasImageAttachment || base64ImageBlockCount > 0 || imageCount > 0);
+  const effectiveImageCount = Math.max(Number(imageCount || 0), base64ImageBlockCount);
+  if (cumulativeVisionTaxTokens === 0 && effectiveImageCount > 0) {
+    const resendFactor = Math.max(1, Number(consecutiveImageTurns || 1));
+    cumulativeVisionTaxTokens = effectiveImageCount * Number(tokensPerImage || 1600) * resendFactor;
+  }
+
+  if (!quirkConfig?.enabled || !effectiveHasImage) {
+    return {
+      detectorId: 'DET-20',
+      triggered: false,
+      base64ImageBlockCount,
+      cumulativeVisionTaxTokens: 0
+    };
+  }
+
+  // 1. Google HTTP 400 crash during credit overages
+  if (aiCreditOveragesActive) {
+    const message =
+      quirkConfig.warningMessage ||
+      '[DET-20 Vision Overage Quirk] AI Credit Overages are active and an image/screenshot is attached. Remove image attachments or switch to a text-only turn to avoid Google HTTP 400 Bad Request (Unable to process input image).';
+    return {
+      detectorId: 'DET-20',
+      subType: 'VISION_OVERAGE_HTTP400',
+      triggered: true,
+      base64ImageBlockCount,
+      cumulativeVisionTaxTokens,
+      warningMessage: message,
+      ephemeralMessage: message
+    };
+  }
+
+  // 2. Normal billing vision/screenshot abuse on text-based CSS/console errors or multi-turn Base64 accumulation
+  const isTextDebuggablePrompt =
+    /\b(TypeError|ReferenceError|SyntaxError|console\.error|stack\s*trace|padding|margin|z-index|flex|grid|css|align|overflow|dom|selector|button|headless|playwright|puppeteer)\b/i.test(
+      promptText
+    );
+  if ((consecutiveImageTurns >= 2 || effectiveImageCount >= 2) && (isTextDebuggablePrompt || base64ImageBlockCount >= 2)) {
+    const message = `[DET-20 Vision Token Drain Advisory] ${effectiveImageCount} screenshot/image blocks accumulated (~${cumulativeVisionTaxTokens.toLocaleString('en-US')} cumulative vision tokens) for text/DOM/CSS debugging. Paste console logs or DOM/CSS rules as text instead.`;
+    return {
+      detectorId: 'DET-20',
+      subType: 'VISION_SCREENSHOT_ABUSE',
+      triggered: true,
+      base64ImageBlockCount,
+      cumulativeVisionTaxTokens,
+      warningMessage: message,
+      ephemeralMessage: message
+    };
+  }
+
   return {
     detectorId: 'DET-20',
-    triggered: true,
-    warningMessage: message,
-    ephemeralMessage: message
+    triggered: false,
+    base64ImageBlockCount,
+    cumulativeVisionTaxTokens
   };
 }
 
@@ -913,21 +1133,160 @@ export function evaluateDet17CascadeCheckpoints({
 export function evaluateDet10IdleCacheWatchdog({
   elapsedSeconds = 0,
   ttlWindowSeconds = 300,
+  planDefaultTtlSeconds = null,
+  aiCreditOveragesActive = false,
+  isSubagent = false,
+  billingMode = 'subscription',
   cachedTokens = 0,
   workspaceEditsOccurred = false
 } = {}) {
-  const rem = Math.max(0, Number((ttlWindowSeconds - Math.max(0, Number(elapsedSeconds || 0))).toFixed(1)));
+  const force5mDrop =
+    Boolean(aiCreditOveragesActive) ||
+    Boolean(isSubagent) ||
+    String(billingMode || '').toLowerCase() === 'api';
+  const effectiveTtlSeconds =
+    planDefaultTtlSeconds != null
+      ? (force5mDrop ? 300 : Math.max(60, Number(planDefaultTtlSeconds)))
+      : Math.max(1, Number(ttlWindowSeconds ?? 300));
+  const ttlDroppedTo5m =
+    planDefaultTtlSeconds != null &&
+    Number(planDefaultTtlSeconds) > 300 &&
+    effectiveTtlSeconds === 300;
+
+  const elapsed = Math.max(0, Number(elapsedSeconds || 0));
+  const cacheExpired = elapsed > effectiveTtlSeconds;
+  const rem = Math.max(0, Number((effectiveTtlSeconds - elapsed).toFixed(1)));
   const mins = Math.floor(rem / 60);
   const secs = Math.floor(rem % 60);
-  const label = `Est. 5m Implicit Cache: ${mins}m ${String(secs).padStart(2, '0')}s`;
+  const tierPrefix = effectiveTtlSeconds >= 3600 ? 'Est. 1h Cache' : 'Est. 5m Implicit Cache';
+  const label = `${tierPrefix}: ${mins}m ${String(secs).padStart(2, '0')}s`;
   const pulseAmber = rem > 0 && rem <= 45 && Number(cachedTokens) >= 25000 && Boolean(workspaceEditsOccurred);
 
   return {
     detectorId: 'DET-10',
+    subType: cacheExpired ? 'CACHE_TTL_EXPIRED' : (pulseAmber ? 'PRE_EXPIRY_PULSE' : 'NOMINAL'),
+    effectiveTtlSeconds,
+    ttlDroppedTo5m,
+    cacheExpired,
     remainingSeconds: rem,
     label,
     pulseAmber,
-    shouldFlushColdResumeBaton: pulseAmber
+    shouldFlushColdResumeBaton: pulseAmber || (cacheExpired && Number(cachedTokens) >= 25000)
+  };
+}
+
+/**
+ * Pure zero-I/O evaluator for Silent Prefix Mutations (`Sim 01` & `Sim 16`):
+ *  - `LATE_MCP_CONNECT`: MCP server count or schema hash changing after Turn 1
+ *  - `MEMORY_MD_MID_THREAD_MUTATION`: Mid-thread `MEMORY.md` hash/byte change (up to 25KB)
+ *  - `IDE_STATE_PREFIX_MUTATION`: Dynamic IDE state (active tab, line selection, Problems tab) injected into system prefix instead of user-turn tail
+ *  - `LOOKBACK_WINDOW_DELETION`: Message deletion inside 20-block lookback window shifting cached suffix
+ */
+export function evaluateSilentPrefixMutations({
+  turnCount = 1,
+  prevMcpServerCount = null,
+  currMcpServerCount = null,
+  prevMcpSchemaHash = null,
+  currMcpSchemaHash = null,
+  prevMemoryMdHash = null,
+  currMemoryMdHash = null,
+  prevMemoryMdBytes = null,
+  currMemoryMdBytes = null,
+  ideStateInSystemPrefix = false,
+  prevIdePrefixHash = null,
+  currIdePrefixHash = null,
+  prevMessageIds = null,
+  currMessageIds = null,
+  tokensPerMessage = 5000,
+  cachedTokens = 0
+} = {}) {
+  const turn = Math.max(1, Number(turnCount || 1));
+  const subTypes = [];
+  const details = [];
+  let shiftedSuffixTokens = 0;
+
+  if (turn > 1) {
+    const mcpCountChanged =
+      prevMcpServerCount != null &&
+      currMcpServerCount != null &&
+      Number(prevMcpServerCount) !== Number(currMcpServerCount);
+    const mcpHashChanged =
+      Boolean(prevMcpSchemaHash && currMcpSchemaHash) &&
+      String(prevMcpSchemaHash) !== String(currMcpSchemaHash);
+    if (mcpCountChanged || mcpHashChanged) {
+      subTypes.push('LATE_MCP_CONNECT');
+      details.push(
+        `Mid-session MCP server/schema change at Turn ${turn} (${prevMcpServerCount ?? '?'} -> ${currMcpServerCount ?? '?'} servers)`
+      );
+    }
+
+    const memHashChanged =
+      Boolean(prevMemoryMdHash && currMemoryMdHash) &&
+      String(prevMemoryMdHash) !== String(currMemoryMdHash);
+    const memBytesChanged =
+      prevMemoryMdBytes != null &&
+      currMemoryMdBytes != null &&
+      Number(prevMemoryMdBytes) !== Number(currMemoryMdBytes);
+    if (memHashChanged || memBytesChanged) {
+      subTypes.push('MEMORY_MD_MID_THREAD_MUTATION');
+      const kb = currMemoryMdBytes != null ? `${(Number(currMemoryMdBytes) / 1024).toFixed(1)}KB` : 'updated';
+      details.push(`Mid-thread MEMORY.md mutation (${kb}) invalidated static system prefix`);
+    }
+
+    const ideHashChanged =
+      Boolean(prevIdePrefixHash && currIdePrefixHash) &&
+      String(prevIdePrefixHash) !== String(currIdePrefixHash);
+    if (Boolean(ideStateInSystemPrefix) || ideHashChanged) {
+      subTypes.push('IDE_STATE_PREFIX_MUTATION');
+      details.push(
+        'Dynamic IDE state (active tab / highlighted lines / Problems diagnostics) injected into system prefix instead of user-turn tail'
+      );
+    }
+  }
+
+  if (Array.isArray(prevMessageIds) && Array.isArray(currMessageIds) && prevMessageIds.length > 0) {
+    const currSet = new Set(currMessageIds);
+    let firstDeletedIdx = -1;
+    let deletedCount = 0;
+    for (let i = 0; i < prevMessageIds.length; i++) {
+      if (!currSet.has(prevMessageIds[i])) {
+        if (firstDeletedIdx === -1) firstDeletedIdx = i;
+        deletedCount += 1;
+      }
+    }
+    if (firstDeletedIdx !== -1) {
+      const remainingAfterDeletion = Math.max(0, prevMessageIds.length - firstDeletedIdx - deletedCount);
+      const tokPerMsg = Array.isArray(tokensPerMessage)
+        ? 0
+        : Math.max(1, Number(tokensPerMessage || 5000));
+      if (Array.isArray(tokensPerMessage)) {
+        for (let j = firstDeletedIdx + deletedCount; j < prevMessageIds.length; j++) {
+          shiftedSuffixTokens += Math.max(0, Number(tokensPerMessage[j] || 0));
+        }
+      } else {
+        shiftedSuffixTokens = remainingAfterDeletion * tokPerMsg;
+      }
+      subTypes.push('LOOKBACK_WINDOW_DELETION');
+      details.push(
+        `Deleted ${deletedCount} historical message(s) starting at index ${firstDeletedIdx}, shifting ${shiftedSuffixTokens.toLocaleString('en-US')} suffix tokens outside 20-block lookback window`
+      );
+    }
+  }
+
+  const triggered = subTypes.length > 0;
+  const detectorId = subTypes.includes('LOOKBACK_WINDOW_DELETION')
+    ? 'DET-26'
+    : subTypes.includes('LATE_MCP_CONNECT')
+      ? 'DET-25'
+      : 'DET-09';
+
+  return {
+    detectorId,
+    triggered,
+    subTypes,
+    shiftedSuffixTokens: shiftedSuffixTokens || (triggered ? Math.max(0, Number(cachedTokens || 0)) : 0),
+    details,
+    reason: triggered ? `[${detectorId} Silent Prefix Mutation] ${details.join('; ')}.` : null
   };
 }
 
@@ -973,3 +1332,11 @@ export function evaluateRsi01PrefixDietAndSkillFault({
 }
 
 export { fnv1a64Hex, redactSecretsPure };
+export {
+  RELAY_STATES,
+  matchRelayHardNegativeFilter,
+  countRefereeSyntaxMarkers,
+  evaluateScopeBrake,
+  evaluateRelayBreaker,
+  evaluateTwoStageSightseeingIntercept
+} from './prompt_hygiene_governor.mjs';

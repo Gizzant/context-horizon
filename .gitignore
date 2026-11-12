@@ -2,6 +2,11 @@ node_modules/
 .gemini/
 .agents/
 .agents/cache/
+.claude/settings.local.json
+.claude/horizon-state/
+.claude/cache/
+.claude/locks/
+.ctxtop/
 evaluation_bundles/
 dist/
 *.bak

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getHomeDir } from './paths.mjs';
 import { openLocalHorizonDb } from './sqlite_client.mjs';
+import { SavedQuotaReceiptLedger, SAVINGS_EVENT_TYPES } from './coach/saved_quota_ledger.mjs';
 
 /**
  * Phase 1: Fail-Open CLI Output Compressor & Local SQLite FTS5 Index (`fts5_output_compressor.mjs`)
@@ -188,6 +189,23 @@ export async function compressCliOutputFts5({
     const reductionPct = rawTokens > 0
       ? Number(((tokensSaved / rawTokens) * 100).toFixed(1))
       : 0;
+
+    if (tokensSaved > 0 && !DatabaseSync) {
+      try {
+        const ledgerDbPath = path.join(path.dirname(resolvedDbPath), 'saved_quota_ledger.sqlite');
+        const ledger = new SavedQuotaReceiptLedger({ homeDir, dbPath: ledgerDbPath });
+        ledger.recordSaving({
+          sessionId: String(sessionId),
+          eventType: SAVINGS_EVENT_TYPES.CLI_DUMP_COMPRESSED,
+          tokensSaved,
+          rawBytesSaved: Math.max(0, Buffer.byteLength(rawStr, 'utf8') - Buffer.byteLength(summary, 'utf8')),
+          dedupeKey: `fts5:${sessionId}:${turnId}:${command}`,
+          detail: `FTS5 compressed "${String(command).slice(0, 60)}" (${rawLines.length} -> ${summaryLines.length} lines)`
+        });
+      } catch (err) {
+        void err;
+      }
+    }
 
     return {
       compressed: true,

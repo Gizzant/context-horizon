@@ -101,10 +101,16 @@ export function buildHooksConfig(targetPluginDir = '.') {
 }
 
 export function installPlugin(options = {}) {
-  const { dryRun = false, workspace = false, dedupe = false } = options;
-  const home = getHomeDir();
+  const {
+    dryRun = false,
+    workspace = false,
+    dedupe = false,
+    cwd = process.cwd(),
+    homeDir = options.home || getHomeDir()
+  } = options;
+  const home = homeDir;
   const targetPluginDir = workspace
-    ? path.resolve(process.cwd(), '.agents', 'plugins', 'agy-horizon-flightcheck')
+    ? path.resolve(cwd, '.agents', 'plugins', 'agy-horizon-flightcheck')
     : path.join(home, '.gemini', 'config', 'plugins', 'agy-horizon-flightcheck');
 
   console.log(`\n\x1b[1m\x1b[38;5;51m⚡ Attention Horizon (attention-horizon-antigravity v${VERSION}) — Zero-Config Installer\x1b[0m`);
@@ -133,12 +139,15 @@ export function installPlugin(options = {}) {
     'plugin.json',
     'package.json',
     'README.md',
+    'bin',
     'config',
     'assets',
     'rules',
     'skills',
     'sidecars',
-    'src'
+    'src',
+    'hooks',
+    'commands'
   ];
 
   if (!dryRun) {

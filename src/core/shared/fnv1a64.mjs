@@ -1,7 +1,7 @@
 /**
  * Pure 64-bit FNV-1a Content Hash & Rolling 6-Turn Flip-Flop Ring Buffer (`src/core/shared/fnv1a64.mjs`)
  *
- * Zero Node I/O imports so cross-repo sync with `cc-attention-horizon` stays 100% clean.
+ * Zero Node I/O imports so cross-harness sync with `attention-horizon-claude` stays 100% clean.
  */
 
 const FNV1A_64_OFFSET_BASIS = 0xcbf29ce484222325n;

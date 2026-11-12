@@ -1,17 +1,24 @@
 {
-  "name": "attention-horizon-antigravity",
+  "name": "ctxtop",
   "displayName": "Attention Horizon",
-  "version": "3.4.0",
-  "description": "Attention Horizon for Google Antigravity: 40-cell context window visualizer, $/turn Wasted Tokens auditor, and <15ms PreInvocation Flight Check router.",
+  "version": "4.0.0",
+  "description": "Attention Horizon v4.0: Cross-platform AI Developer Assistant Extension for Google Antigravity and Claude Code: 40-cell context visualizer, KV-cache gravity router, and zero-token guardrails.",
   "type": "module",
+  "workspaces": [
+    "packages/core",
+    "packages/engine-node",
+    "packages/antigravity",
+    "packages/claude-code"
+  ],
   "bin": {
+    "ctxtop": "./bin/ctxtop.mjs",
+    "ah-statusline": "./bin/ah-statusline.mjs",
     "attention-horizon-antigravity": "./src/cli/init.mjs",
     "ah-antigravity": "./src/cli/init.mjs",
-    "ctxtop": "./src/cli/init.mjs",
+    "attention-horizon-claude": "./bin/ctxtop.mjs",
+    "ah-claude": "./bin/ctxtop.mjs",
     "agy-horizon": "./src/cli/init.mjs",
-    "agy-horizon-flightcheck": "./src/cli/init.mjs",
-    "agy-horizon-exec": "./src/cli/init.mjs",
-    "agy-log-search": "./src/cli/init.mjs"
+    "agy-horizon-flightcheck": "./src/cli/init.mjs"
   },
   "main": "./src/cli/horizon_hud.mjs",
   "files": [
@@ -20,8 +27,11 @@
     "LICENSE",
     "plugin.json",
     ".antigravity-plugin/",
+    ".claude-plugin/",
     "hooks.json",
     "hooks/",
+    "bin/",
+    "commands/",
     "agents/",
     "config/",
     "assets/",
@@ -43,13 +53,15 @@
     "build:assets": "node --no-warnings scripts/generate_hero_svg.mjs && node --no-warnings scripts/build_demo_page.mjs",
     "build:release": "node scripts/build_release_bundle.mjs",
     "test": "npm run test:unit && npm run test:coach && npm run test:gates && npm run test:phases",
-    "test:unit": "node --test tests/test_router_and_sensors.mjs tests/test_wave1_wedge.mjs tests/test_wave2_wedge.mjs tests/test_wave3_wedge.mjs tests/test_carbon_swarm_patch.mjs tests/test_concurrency.mjs tests/test_postmortem_features.mjs tests/test_schema_drift.mjs && node tests/test_regressions.cjs",
+    "test:unit": "node --test tests/test_router_and_sensors.mjs tests/test_wave1_wedge.mjs tests/test_wave2_wedge.mjs tests/test_wave3_wedge.mjs tests/test_carbon_swarm_patch.mjs tests/test_concurrency.mjs tests/test_postmortem_features.mjs tests/test_schema_drift.mjs tests/test_mirror_boot_smoke.mjs && node tests/test_regressions.cjs",
     "test:coach": "node --test test/all.test.mjs",
+    "test:claude": "node --test test/claude-code/*.test.mjs",
     "test:gates": "node --test tests/verify_gate_0.mjs tests/verify_gate_1.mjs tests/verify_gate_2.mjs tests/verify_gate_3.mjs tests/verify_gate_4.mjs tests/verify_gate_5.mjs tests/verify_gate_6.mjs",
     "test:phases": "node tests/verify_phase_1.mjs && node tests/verify_phase_2.mjs && node tests/verify_phase_3.mjs && node tests/verify_phase_4.mjs && node tests/verify_phase_5.mjs && node tests/verify_phase_6.mjs && node tests/verify_phase_6_roadmap.mjs && node tests/verify_phase_7.mjs",
     "test:e2e": "node tests/verify_e2e_context_memory.mjs",
     "bench": "node tests/bench_latency.mjs",
-    "bench:scenario": "node --no-warnings tests/benchmark_context_scenario.mjs"
+    "bench:scenario": "node --no-warnings tests/benchmark_context_scenario.mjs",
+    "bench:composite": "node scripts/run_composite_benchmarks.mjs"
   },
   "repository": {
     "type": "git",
@@ -60,7 +72,7 @@
     "url": "https://github.com/Gizzant/attention-horizon-antigravity/issues"
   },
   "engines": {
-    "node": ">=22.5.0"
+    "node": ">=20.0.0"
   },
   "keywords": [
     "ai-agents",

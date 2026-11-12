@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { readSidecarSync, writeSidecarAtomicSync } from '../core/sidecar_store.mjs';
 import { loadHorizonConfig, resolveDetectorOverride } from '../core/horizon_config.mjs';
 import { getHomeDir } from '../core/paths.mjs';
+import { SavedQuotaReceiptLedger, SAVINGS_EVENT_TYPES } from '../core/coach/saved_quota_ledger.mjs';
 import {
   evaluateDet02PreInvocationHold,
   isSensitiveCredentialPath,
@@ -13,8 +14,11 @@ import {
   evaluateDet06UnmodifiedReRead,
   evaluateDet06BlindNewModule,
   evaluateDet06bFlashScoutOffloader,
+  evaluateDet07IgnorableFileReadGuard,
   evaluateDet16HybridQuotaThrottle,
-  evaluateDet20VisionOverageGuard
+  evaluateDet20VisionOverageGuard,
+  SOURCE_CODE_EXT_RE,
+  BLIND_EDIT_EXEMPT_PATH_RE
 } from '../core/shared/detectors.mjs';
 import { archiveAndCompressDet07Output } from '../shims/agy_cli_compressor.mjs';
 import {
@@ -23,6 +27,16 @@ import {
   evaluateDet18UntrustedWorkspaceSettings,
   evaluateDet19GitHookBypass
 } from '../core/detectors_det01_to_16.mjs';
+import {
+  loadMicroSkillsRegistry,
+  evaluateMicroSkillIntercept,
+  recordWorkspaceShellOutcome
+} from '../core/micro_skills_store.mjs';
+import {
+  evaluateScopeBrake,
+  evaluateRelayBreaker,
+  evaluateTwoStageSightseeingIntercept
+} from '../core/shared/prompt_hygiene_governor.mjs';
 
 const SOURCE_FILE_EXT_RE = /\.(mjs|js|ts|tsx|py|go|rs)$/i;
 
@@ -63,6 +77,7 @@ function sha256FileSafe(absPath) {
       exists: true,
       sha256: crypto.createHash('sha256').update(buf).digest('hex'),
       mtimeMs: Number(stat.mtimeMs || 0),
+      size: Number(stat.size || buf.length || 0),
       content: buf.toString('utf8')
     };
   } catch {
@@ -167,28 +182,184 @@ export async function runStrictPreInvocation(inputData = {}) {
     return det02.output;
   }
 
-  // 2. Rank 12 (DET-20): Vision Overage HTTP 400 Quirk Guard
+  // 1b. DET-15 ('formatter-bypass'): Local Formatter Bypass on Pasted Indentation / Import Sorting
+  const fmtOverride = resolveDetectorOverride(horizonConfig, 'formatter-bypass');
+  const isFormattingIntent = /\b(fix\s+(?:the\s+)?indentation|sort\s+(?:the\s+)?imports|format\s+this\s+(?:code|file|block)|convert\s+tabs\s+to\s+spaces|run\s+prettier)\b/i.test(prompt);
+  const pastedLineCount = (prompt.match(/\r?\n/g) || []).length;
+  if (fmtOverride !== 'off' && isFormattingIntent && pastedLineCount >= 40 && !/\b(add|implement|refactor|create|fix\s+bug|logic|test|calculate)\b/i.test(prompt)) {
+    const bypassNotice = '[DET-15 Local Formatter Bypass] Prompt requests code formatting / import sorting on a pasted code block. Run `npx prettier --write <file>` or `npx eslint --fix <file>` directly (0 LLM tokens).';
+    pushHudAlert(portfolio, 'DET-15', bypassNotice, sidecar.sessionMeta?.turnCount || 1);
+    writeSidecarAtomicSync(conversationId, sidecar);
+    if (fmtOverride === 'block' || (fmtOverride === 'default' && flightMode === 'AUTO_PILOT')) {
+      return { terminationBehavior: 'terminate', decision: 'block', detectorId: 'DET-15', userMessage: bypassNotice };
+    }
+    return { ephemeralMessage: bypassNotice, systemMessage: bypassNotice };
+  }
+
+  // 1c. DET-02B ('drip-feed'): Rapid <90s Conversational Drip-Feeding in Portfolio PreInvocation
+  const dripOverride = resolveDetectorOverride(horizonConfig, 'drip-feed');
+  if (dripOverride !== 'off') {
+    const tsMs = Number(inputData.timestampMs ?? inputData.nowMs ?? inputData.timestamp ?? Date.now());
+    const wCount = prompt.trim().split(/\s+/).filter(Boolean).length;
+    const inlineFileMatch = prompt.match(/(?:^|\s)@?([A-Za-z0-9_./\\-]+\.(?:ts|tsx|js|mjs|cjs|jsx|py|rs|go|rb|java|cs|css|scss|html|json|md))\b/);
+    const scopeHint = String(
+      inputData.targetScope ||
+      (inlineFileMatch ? inlineFileMatch[1] : '') ||
+      sidecar.fileState?.activeSetPaths?.[0] ||
+      sidecar.fileState?.modifiedFiles?.[0] ||
+      ''
+    );
+    portfolio.recentPromptEvents = (Array.isArray(portfolio.recentPromptEvents) ? portfolio.recentPromptEvents : [])
+      .filter((e) => tsMs - Number(e.ts || 0) <= 90000);
+    portfolio.recentPromptEvents.push({ ts: tsMs, wordCount: wCount, targetScope: scopeHint });
+    const rapidMicroCount = portfolio.recentPromptEvents.filter(
+      (e) => e.wordCount > 0 && e.wordCount <= 18 && Boolean(scopeHint) && e.targetScope === scopeHint
+    ).length;
+    if (rapidMicroCount >= 4) {
+      const dripNotice = `[DET-02B Conversational Drip-Feed Advisory] Detected ${rapidMicroCount} rapid micro-prompts in <90s. Batch requirements into a single numbered checklist prompt.`;
+      pushHudAlert(portfolio, 'DET-02B', dripNotice, sidecar.sessionMeta?.turnCount || 1);
+      writeSidecarAtomicSync(conversationId, sidecar);
+      if (dripOverride === 'block' || (dripOverride === 'default' && flightMode === 'AUTO_PILOT')) {
+        return { terminationBehavior: 'terminate', decision: 'block', detectorId: 'DET-02B', userMessage: dripNotice };
+      }
+      return { ephemeralMessage: dripNotice, systemMessage: dripNotice };
+    }
+  }
+
+  // 2. Rank 12 (DET-20 / 'vision-screenshot-coach'): Vision Overage HTTP 400 & Vision Screenshot Abuse Guard
+  const visionOverride = resolveDetectorOverride(horizonConfig, 'vision-screenshot-coach');
   const quirks = inputData.platformQuirks || loadPlatformQuirksSafe(workspacePath);
   const hasImageAttachment = Boolean(
     inputData.hasImageAttachment ||
     (Array.isArray(inputData.media) && inputData.media.some((m) => String(m?.mime_type || m?.mimeType || '').startsWith('image/'))) ||
-    (Array.isArray(inputData.attachments) && inputData.attachments.some((a) => /image|\.(png|jpg|jpeg|webp|gif)$/i.test(String(a?.mimeType || a?.type || a?.name || ''))))
+    (Array.isArray(inputData.attachments) && inputData.attachments.some((a) => /image|\.(png|jpg|jpeg|webp|gif)$/i.test(String(a?.mimeType || a?.type || a?.name || '')))) ||
+    (Array.isArray(inputData.messages) && inputData.messages.some((m) => Array.isArray(m?.content) && m.content.some((b) => b?.type === 'image' || b?.source?.type === 'base64')))
   );
   const aiCreditOveragesActive = Boolean(
     inputData.aiCreditOveragesActive ??
     sidecar.telemetry?.quota?.aiCreditOveragesActive ??
     (Number(inputData.baseQuotaUsedPct ?? sidecar.telemetry?.quota?.usedPct ?? 0) >= 100 && inputData.overageEnabled !== false)
   );
+  portfolio.consecutiveImageTurns = hasImageAttachment ? Number(portfolio.consecutiveImageTurns || 0) + 1 : 0;
+  const screenshotMatch = prompt.match(/(\d+)\s+screenshots?/i);
+  const imageCount = Number(
+    inputData.imageCount ??
+    (screenshotMatch ? Number(screenshotMatch[1]) : (hasImageAttachment ? 1 : 0))
+  );
   const det20 = evaluateDet20VisionOverageGuard({
     quirkConfig: quirks.visionOverageHttp400 || { enabled: true },
     aiCreditOveragesActive,
-    hasImageAttachment
+    hasImageAttachment,
+    consecutiveImageTurns: portfolio.consecutiveImageTurns,
+    promptText: prompt,
+    imageCount,
+    messages: inputData.messages || [],
+    contentBlocks: inputData.contentBlocks || []
   });
-  if (det20.triggered) {
+  if (det20.triggered && (det20.subType === 'VISION_OVERAGE_HTTP400' || visionOverride !== 'off')) {
     pushHudAlert(portfolio, 'DET-20', det20.warningMessage, sidecar.sessionMeta?.turnCount || 1);
     writeSidecarAtomicSync(conversationId, sidecar);
-    return flightMode === 'SILENT' ? {} : { ephemeralMessage: det20.ephemeralMessage };
+    if (visionOverride === 'block' && det20.subType === 'VISION_SCREENSHOT_ABUSE') {
+      return { terminationBehavior: 'terminate', decision: 'block', detectorId: 'DET-20', userMessage: det20.warningMessage };
+    }
+    return flightMode === 'SILENT' ? {} : { ephemeralMessage: det20.ephemeralMessage, systemMessage: det20.ephemeralMessage, cumulativeVisionTaxTokens: det20.cumulativeVisionTaxTokens };
   }
+
+  // 3. Prompt Hygiene Governor (v4.1 Phase 1): Relay Breaker ('relay-breaker') & Scope Brake ('vague-prompt-rubric')
+  const relayOverride = resolveDetectorOverride(horizonConfig, 'relay-breaker');
+  const relayEval = evaluateRelayBreaker({
+    prompt,
+    relayState: inputData.relayState ?? portfolio.relayState,
+    sourceCodeEditsInSession: Number(
+      inputData.sourceCodeEditsInSession ??
+      (sidecar.fileState?.modifiedFiles || []).filter((p) => !/\.md$/i.test(String(p || ''))).length
+    ),
+    sourceCodeEditedSinceLastRelay: Boolean(inputData.sourceCodeEditedSinceLastRelay),
+    priorTurnWebSearches: Number(inputData.priorTurnWebSearches ?? portfolio.priorTurnWebSearches ?? 0),
+    zeroEditSessionTokens: Number(
+      inputData.zeroEditSessionTokens ??
+      (((sidecar.fileState?.modifiedFiles || []).length === 0) ? (sidecar.telemetry?.totalInputTokens || 0) : 0)
+    ),
+    boundSpecPath: inputData.boundSpecPath ?? portfolio.relayState?.boundSpecPath ?? null,
+    overrideMode: relayOverride,
+    flightMode,
+    detectorId: 'DET-26'
+  });
+  portfolio.relayState = relayEval.relayStateSnapshot;
+  if (relayEval.triggered) {
+    pushHudAlert(portfolio, 'DET-26', relayEval.tailInjection, sidecar.sessionMeta?.turnCount || 1);
+    if (relayEval.decision === 'block') {
+      portfolio.blockedPrompts = Number(portfolio.blockedPrompts || 0) + 1;
+      writeSidecarAtomicSync(conversationId, sidecar);
+      return {
+        terminationBehavior: 'terminate',
+        decision: 'block',
+        detectorId: 'DET-26',
+        subType: relayEval.subType,
+        relayState: relayEval.nextState,
+        userMessage: relayEval.tailInjection
+      };
+    }
+    portfolio.steeredPrompts = Number(portfolio.steeredPrompts || 0) + 1;
+    writeSidecarAtomicSync(conversationId, sidecar);
+    return flightMode === 'SILENT'
+      ? {}
+      : {
+          ephemeralMessage: relayEval.tailInjection,
+          systemMessage: relayEval.tailInjection,
+          detectorId: 'DET-26',
+          subType: relayEval.subType,
+          relayState: relayEval.nextState
+        };
+  }
+
+  const scopeOverride = resolveDetectorOverride(horizonConfig, 'vague-prompt-rubric');
+  const scopeEval = evaluateScopeBrake({
+    prompt,
+    provenance: inputData.provenance || inputData.source || 'user',
+    isAutonomousTurn: Boolean(inputData.isAutonomousTurn || inputData.autonomous),
+    isSubagent: Boolean(inputData.isSubagent || sidecar.sessionMeta?.isSubagent),
+    isScheduledTask: Boolean(inputData.isScheduledTask),
+    isLoopIteration: Boolean(inputData.isLoopIteration),
+    priorTurnEditedFilesCount: Number(inputData.priorTurnEditedFilesCount ?? 0),
+    priorTurnSingleFileTarget: inputData.priorTurnSingleFileTarget ?? null,
+    priorTurnHadToolOrTestFailure: Boolean(inputData.priorTurnHadToolOrTestFailure),
+    priorTurnAssistantAskedQuestion: Boolean(inputData.priorTurnAssistantAskedQuestion),
+    activeSetPaths: sidecar.fileState?.activeSetPaths || [],
+    modifiedFiles: sidecar.fileState?.modifiedFiles || [],
+    recentlyViewedFiles: (portfolio.readLedger || []).map((e) => e.absPath).filter(Boolean),
+    overrideMode: scopeOverride,
+    flightMode,
+    detectorId: 'DET-26'
+  });
+  if (scopeEval.triggered) {
+    portfolio.unanchoredTurnFlag = true;
+    portfolio.candidateFiles = scopeEval.candidateFiles;
+    pushHudAlert(portfolio, 'DET-26', scopeEval.steerContext, sidecar.sessionMeta?.turnCount || 1);
+    if (scopeEval.decision === 'block') {
+      portfolio.blockedPrompts = Number(portfolio.blockedPrompts || 0) + 1;
+      writeSidecarAtomicSync(conversationId, sidecar);
+      return {
+        terminationBehavior: 'terminate',
+        decision: 'block',
+        detectorId: 'DET-26',
+        subType: scopeEval.subType,
+        userMessage: scopeEval.blockReason
+      };
+    }
+    portfolio.steeredPrompts = Number(portfolio.steeredPrompts || 0) + 1;
+    writeSidecarAtomicSync(conversationId, sidecar);
+    return flightMode === 'SILENT'
+      ? {}
+      : {
+          ephemeralMessage: scopeEval.steerContext,
+          systemMessage: scopeEval.steerContext,
+          detectorId: 'DET-26',
+          subType: scopeEval.subType,
+          candidateFiles: scopeEval.candidateFiles
+        };
+  }
+  portfolio.unanchoredTurnFlag = false;
 
   writeSidecarAtomicSync(conversationId, sidecar);
   return {};
@@ -260,6 +431,58 @@ export async function runStrictPreToolUse(inputData = {}) {
     return { decision: 'allow' };
   }
 
+  // Two-Stage Prompt Hygiene Sightseeing Interception (Scope Brake & Relay Breaker Web Search)
+  const scopeOverride = resolveDetectorOverride(horizonConfig, 'vague-prompt-rubric');
+  const relayOverride = resolveDetectorOverride(horizonConfig, 'relay-breaker');
+  const twoStage = evaluateTwoStageSightseeingIntercept({
+    toolName,
+    toolArgs,
+    unanchoredTurnFlag: Boolean(inputData.unanchoredTurnFlag ?? portfolio.unanchoredTurnFlag),
+    candidateFiles: Array.isArray(inputData.candidateFiles)
+      ? inputData.candidateFiles
+      : (portfolio.candidateFiles || sidecar.fileState?.modifiedFiles || sidecar.fileState?.activeSetPaths || []),
+    relayState: inputData.relayState ?? portfolio.relayState,
+    overrideMode: scopeOverride !== 'default' ? scopeOverride : relayOverride,
+    flightMode,
+    detectorId: 'DET-26'
+  });
+  if (twoStage.intercepted) {
+    if (twoStage.consumeFlag) {
+      portfolio.unanchoredTurnFlag = false;
+    }
+    portfolio.sightseeingToolsPrevented = Number(portfolio.sightseeingToolsPrevented || 0) + 1;
+    pushHudAlert(portfolio, 'DET-26', twoStage.reason, currentTurn);
+    writeSidecarAtomicSync(conversationId, sidecar);
+    return {
+      decision: twoStage.decision,
+      reason: twoStage.reason,
+      detectorId: 'DET-26',
+      subType: twoStage.subType
+    };
+  }
+
+  // RSI-04 ('micro-skills'): Intercept known-broken repo shell commands before execution
+  if (/^(run_command|execute_bash|bash|powershell|exec)$/i.test(toolName)) {
+    const msOverride = resolveDetectorOverride(horizonConfig, 'micro-skills');
+    if (msOverride !== 'off') {
+      const cmdStr = String(toolArgs.CommandLine || toolArgs.command || toolArgs.cmd || '');
+      const msRegistry = loadMicroSkillsRegistry(workspacePath);
+      const msIntercept = evaluateMicroSkillIntercept(msRegistry, {
+        command: cmdStr,
+        flightMode,
+        overrideMode: msOverride
+      });
+      if (msIntercept.triggered) {
+        pushHudAlert(portfolio, 'RSI-04', msIntercept.hudAlert, currentTurn);
+        writeSidecarAtomicSync(conversationId, sidecar);
+        if (msIntercept.decision === 'deny') {
+          return { decision: 'deny', reason: msIntercept.reason, detectorId: 'RSI-04', workingCmd: msIntercept.workingCmd };
+        }
+        return { decision: 'allow', reason: msIntercept.reason, detectorId: 'RSI-04', workingCmd: msIntercept.workingCmd };
+      }
+    }
+  }
+
   // TurnZeroGate warm-cache rule fence (Core Invariant: zero mid-session mutations to AGENTS.md / GEMINI.md / .agents/rules/*.md)
   if (/^(edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content)$/i.test(toolName)) {
     const cachedTokens = Number(inputData.cachedTokens ?? sidecar.telemetry?.cachedTokens ?? sidecar.telemetry?.totalInputTokens ?? 0);
@@ -292,6 +515,18 @@ export async function runStrictPreToolUse(inputData = {}) {
     if (det04.hudAlert) pushHudAlert(portfolio, 'DET-04', det04.hudAlert, currentTurn);
     writeSidecarAtomicSync(conversationId, sidecar);
     if (det04.decision === 'deny') {
+      try {
+        const ledger = new SavedQuotaReceiptLedger({ homeDir });
+        ledger.recordSaving({
+          sessionId: String(conversationId),
+          eventType: SAVINGS_EVENT_TYPES.LOOP_TURN_PREVENTED,
+          tokensSaved: Math.max(1500, Math.round(Number(inputData.cachedTokens ?? sidecar.telemetry?.cachedTokens ?? 4000) * 0.15)),
+          dedupeKey: `det04:${conversationId}:${currentTurn}:${toolName}`,
+          detail: `DET-04 blocked 3-strike retry loop on ${toolName}`
+        });
+      } catch (err) {
+        void err;
+      }
       return { decision: 'deny', reason: det04.reason };
     }
   }
@@ -321,12 +556,46 @@ export async function runStrictPreToolUse(inputData = {}) {
     }
   }
 
-  // Rank 2a (DET-06): Unmodified File Re-Read Check
+  // Rank 2a (DET-06): Unmodified File Re-Read Check & DET-20 Cross-Subagent Duplicate Read
   if (/^(view_file|read_file)$/i.test(toolName) && absPath) {
+    const agentId = inputData.agentId || inputData.subagentId || inputData.agent_id || sidecar.sessionMeta?.agentId || null;
+    if (agentId) {
+      portfolio.subagentReadScopes = portfolio.subagentReadScopes || {};
+      const normTarget = absPath.replace(/\\/g, '/').toLowerCase();
+      const readers = Array.isArray(portfolio.subagentReadScopes[normTarget]) ? portfolio.subagentReadScopes[normTarget] : [];
+      if (!readers.includes(agentId)) {
+        readers.push(agentId);
+        portfolio.subagentReadScopes[normTarget] = readers;
+      }
+      if (readers.length >= 2) {
+        const msg = `[DET-20] Cross-subagent duplicate read of "${path.basename(absPath)}" by active agents (${readers.join(', ')}). Coordinate via StateBaton digest to avoid cold context duplication.`;
+        pushHudAlert(portfolio, 'DET-20', msg, currentTurn);
+        writeSidecarAtomicSync(conversationId, sidecar);
+      }
+    }
+
+    // Rank 2a-2 (DET-07): Ignorable Lockfile & Minified Bundle Native Read Guard
+    const startLine = toolArgs.StartLine ?? toolArgs.start_line ?? toolArgs.startLine ?? null;
+    const endLine = toolArgs.EndLine ?? toolArgs.end_line ?? toolArgs.endLine ?? null;
+    const limit = toolArgs.limit ?? toolArgs.Limit ?? null;
+    const det07Ignorable = evaluateDet07IgnorableFileReadGuard({
+      toolName,
+      targetPath: rawTarget || absPath,
+      startLine,
+      endLine,
+      limit,
+      flightMode
+    });
+    if (det07Ignorable.triggered) {
+      pushHudAlert(portfolio, 'DET-07', det07Ignorable.hudAlert, currentTurn);
+      writeSidecarAtomicSync(conversationId, sidecar);
+      if (det07Ignorable.decision === 'deny') {
+        return { decision: 'deny', reason: det07Ignorable.reason, detectorId: 'DET-07' };
+      }
+    }
+
     const fileInfo = sha256FileSafe(absPath);
     if (fileInfo.exists) {
-      const startLine = toolArgs.StartLine ?? toolArgs.start_line ?? toolArgs.startLine ?? null;
-      const endLine = toolArgs.EndLine ?? toolArgs.end_line ?? toolArgs.endLine ?? null;
       const det06Read = evaluateDet06UnmodifiedReRead({
         absPath,
         sha256: fileInfo.sha256,
@@ -342,19 +611,40 @@ export async function runStrictPreToolUse(inputData = {}) {
         pushHudAlert(portfolio, 'DET-06', det06Read.hudAlert, currentTurn);
         writeSidecarAtomicSync(conversationId, sidecar);
         if (det06Read.decision === 'deny') {
+          try {
+            const ledger = new SavedQuotaReceiptLedger({ homeDir });
+            ledger.recordSaving({
+              sessionId: String(conversationId),
+              eventType: SAVINGS_EVENT_TYPES.LOOP_TURN_PREVENTED,
+              rawBytesSaved: Math.max(400, Number(fileInfo.size || 0)),
+              dedupeKey: `det06:${conversationId}:${currentTurn}:${path.basename(absPath)}`,
+              detail: `DET-06 blocked unmodified full-file re-read of ${path.basename(absPath)}`
+            });
+          } catch (err) {
+            void err;
+          }
           return { decision: 'deny', reason: det06Read.reason };
         }
       }
     }
   }
 
-  // Rank 2b (DET-06 Blind New-Module) + Rank 1 (DET-05 Pre-Write Integrity)
+  // Rank 2b (DET-06 Blind New-Module & Turn-1 Blind Multi-File Edit) + Rank 1 (DET-05 Pre-Write Integrity)
   if (/^(write_to_file|write_file|replace_file_content|multi_replace_file_content|edit_file)$/i.test(toolName) && absPath) {
+    portfolio.turn1EditedFiles = Array.isArray(portfolio.turn1EditedFiles) ? portfolio.turn1EditedFiles : [];
+    const normKey = absPath.replace(/\\/g, '/');
+    if (SOURCE_CODE_EXT_RE.test(normKey) && !BLIND_EDIT_EXEMPT_PATH_RE.test(normKey)) {
+      if (currentTurn <= 1 && !portfolio.turn1EditedFiles.includes(normKey)) {
+        portfolio.turn1EditedFiles.push(normKey);
+      }
+    }
     const fileInfo = sha256FileSafe(absPath);
 
-    // Blind New-Module Check when creating a brand-new source file
-    if (/^(write_to_file|write_file)$/i.test(toolName)) {
-      const explicitOverwrite = Boolean(toolArgs.Overwrite === true || toolArgs.overwrite === true);
+    // Blind New-Module & Turn-1 Blind Multi-File Edit Check
+    const explicitOverwrite = Boolean(toolArgs.Overwrite === true || toolArgs.overwrite === true);
+    const isWriteTool = /^(write_to_file|write_file)$/i.test(toolName);
+    const shouldCheckBlind = isWriteTool || (currentTurn <= 1 && portfolio.turn1EditedFiles.length >= 2);
+    if (shouldCheckBlind) {
       const det06Blind = evaluateDet06BlindNewModule({
         targetPath: path.relative(workspacePath, absPath).replace(/\\/g, '/'),
         overwrite: explicitOverwrite,
@@ -362,19 +652,21 @@ export async function runStrictPreToolUse(inputData = {}) {
         discoveryCallsCount: portfolio.discoveryCallsCount,
         siblingSourceFileCount: inputData.siblingSourceFileCount ?? countSiblingSourceFiles(absPath),
         userPrompt,
-        flightMode
+        flightMode,
+        editedFilesCount: portfolio.turn1EditedFiles.length,
+        editedFiles: portfolio.turn1EditedFiles,
+        turnCount: currentTurn
       });
       if (det06Blind.triggered) {
         pushHudAlert(portfolio, 'DET-06', det06Blind.hudAlert, currentTurn);
         writeSidecarAtomicSync(conversationId, sidecar);
         if (det06Blind.decision === 'ask') {
-          return { decision: 'ask', reason: det06Blind.reason };
+          return { decision: 'ask', reason: det06Blind.reason, detectorId: 'DET-06' };
         }
       }
     }
 
     // Rank 1 (DET-05): Pre-Write Destructive Code-Strip, Test-Assertion & 6-Turn FNV-1a Flip-Flop Guard
-    const normKey = absPath.replace(/\\/g, '/');
     const det05 = evaluateDet05PreWriteIntegrity({
       toolName,
       toolArgs,
@@ -473,14 +765,32 @@ export async function runStrictPostToolUse(inputData = {}) {
     }
   }
 
-  // Rank 3 (DET-07): CLI hook integration — archive >4,096-char CLI output into 5 MB FTS5 SQLite
+  // Rank 3 (DET-07) & RSI-04 ('micro-skills'): CLI hook integration & shell recovery learning
   if (/^(run_command|execute_bash|bash|powershell|exec)$/i.test(toolName)) {
+    const workspacePath = inputData.cwd || inputData.workspacePath || sidecar.workspacePath || process.cwd();
+    const cmdStr = String(toolArgs.CommandLine || toolArgs.command || toolArgs.cmd || '');
+    const horizonConfig = inputData.horizonConfig || loadHorizonConfig({
+      cwd: workspacePath,
+      ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {})
+    });
+    if (cmdStr && resolveDetectorOverride(horizonConfig, 'micro-skills') !== 'off') {
+      const currentTurn = Math.max(1, Number(inputData.turn ?? sidecar.sessionMeta?.turnCount ?? 1));
+      const msOutcome = recordWorkspaceShellOutcome(workspacePath, {
+        command: cmdStr,
+        exitCode: typeof exitCode === 'number' ? exitCode : (failed ? 1 : 0),
+        turn: currentTurn,
+        sessionId: String(conversationId),
+        confirmSessions: Number(horizonConfig.thresholds?.microSkillConfirmSessions ?? 2)
+      });
+      if (msOutcome.promotedSkill) {
+        portfolio.lastPromotedMicroSkill = msOutcome.promotedSkill;
+      }
+    }
+
     const rawOut = String(resp.output ?? resp.stdout ?? inputData.stdout ?? '');
     if (rawOut.length > 4096) {
-      const workspacePath = inputData.cwd || inputData.workspacePath || sidecar.workspacePath || process.cwd();
-      const cmdStr = String(toolArgs.CommandLine || toolArgs.command || toolName);
       const det07 = archiveAndCompressDet07Output(rawOut, {
-        command: cmdStr,
+        command: cmdStr || toolName,
         exitCode: typeof exitCode === 'number' ? exitCode : 0,
         sessionId: conversationId,
         workspaceDir: workspacePath,

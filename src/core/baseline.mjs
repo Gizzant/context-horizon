@@ -454,7 +454,40 @@ export function measureBaseline(workspaceDir, homeDir = getHomeDir(), options = 
   const totalEst = rows.reduce((s, r) => s + r.tokens, 0);
   const eagerInjectionWarning = totalEst > 30000 || Object.values(buckets).some(b => b.usedPct >= 60) || mcpAudit.unusedEagerServers.length > 0;
 
+  // Detect duplicate rule/subagent/skill definitions across sibling Horizon plugin installs (e.g., agy-horizon + agy-horizon-flightcheck)
+  const contentSigMap = new Map();
+  const duplicateSources = [];
+  for (const r of rows) {
+    if (!r.path || r.kind === 'mcp') continue;
+    try {
+      const st = statSafe(r.path);
+      if (!st || !st.isFile() || st.size <= 0) continue;
+      const keySig = `${r.kind}|${ path.basename(r.path).toLowerCase() }|${st.size}`;
+      const first = contentSigMap.get(keySig);
+      if (first && first.path !== r.path) {
+        const firstText = fs.readFileSync(first.path, 'utf8');
+        const curText = fs.readFileSync(r.path, 'utf8');
+        if (firstText === curText) {
+          duplicateSources.push({
+            kind: r.kind,
+            source: r.source,
+            duplicateOf: first.source,
+            tokens: r.tokens
+          });
+        }
+      } else if (!first) {
+        contentSigMap.set(keySig, r);
+      }
+    } catch (err) {
+      void err;
+    }
+  }
+  const duplicateOverheadTokens = duplicateSources.reduce((s, d) => s + d.tokens, 0);
+
   const recommendations = [...mcpAudit.recommendations];
+  if (duplicateOverheadTokens > 0) {
+    recommendations.push(`Duplicate plugin files detected (${duplicateSources.length} mirrored rule/skill/agent file${duplicateSources.length === 1 ? '' : 's'}, ~${(duplicateOverheadTokens / 1000).toFixed(1)}k tok/turn). Disable one duplicate Horizon plugin in Antigravity Plugins Manager when not testing mirrors.`);
+  }
   if (buckets.rule.tokens > 8000) {
     recommendations.push(`Move domain-specific rules out of AGENTS.md (${(buckets.rule.tokens / 1000).toFixed(1)}k tok) into on-demand .agents/skills/ frontmatter.`);
   }
@@ -467,6 +500,8 @@ export function measureBaseline(workspaceDir, homeDir = getHomeDir(), options = 
     rows,
     totalEst,
     buckets,
+    duplicateOverheadTokens,
+    duplicateSources,
     eagerInjectionWarning,
     recommendations,
     mcpAudit,

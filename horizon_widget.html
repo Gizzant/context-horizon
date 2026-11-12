@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attention Horizon — Claude Code</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b1020;
+    --card: #111827;
+    --card-alt: #162033;
+    --border: #1e293b;
+    --fg: #e2e8f0;
+    --muted: #94a3b8;
+    --good: #34d399;
+    --warn: #fbbf24;
+    --bad: #f87171;
+    --accent: #60a5fa;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 8px 10px;
+    background: var(--bg);
+    color: var(--fg);
+    font: 12px/1.38 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  .ah-wrap {
+    max-width: 420px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .ah-view-radio {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .ah-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ah-brand {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--fg);
+  }
+  .ah-tabs {
+    display: inline-flex;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 1px;
+  }
+  .ah-tab-label {
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+  }
+  #viewModeSimple:checked ~ .ah-wrap .ah-tabs label[for="viewModeSimple"],
+  #viewModeAdvanced:checked ~ .ah-wrap .ah-tabs label[for="viewModeAdvanced"] {
+    background: var(--card-alt);
+    color: var(--fg);
+  }
+  #viewModeSimple:checked ~ .ah-wrap #advancedViewContainer {
+    display: none;
+  }
+  #viewModeAdvanced:checked ~ .ah-wrap #simpleViewContainer {
+    display: none;
+  }
+  #simpleViewContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .ah-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 9px;
+  }
+  /* Rank 1: Status Verdict & Flight Header */
+  .ah-verdict-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .ah-verdict-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .ah-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .ah-dot-healthy { background: var(--good); }
+  .ah-dot-warn { background: var(--warn); }
+  .ah-dot-critical { background: var(--bad); }
+  .ah-verdict-title {
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ah-pills {
+    display: inline-flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .ah-pill {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--card-alt);
+    border: 1px solid var(--border);
+    color: var(--fg);
+  }
+  .ah-verdict-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* Rank 2: 40-Cell Bar, 3-Stat Row & Cache Shield */
+  .ah-grid-bar {
+    display: grid;
+    grid-template-columns: repeat(40, 1fr);
+    gap: 1px;
+    height: 10px;
+    border-radius: 3px;
+    overflow: hidden;
+    background: #0f172a;
+  }
+  .ah-cell {
+    display: block;
+    height: 100%;
+  }
+  .ah-ruler {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .ah-stats-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 5px;
+    padding-top: 5px;
+    border-top: 1px solid var(--border);
+  }
+  .ah-stat-lbl {
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .ah-stat-val {
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .ah-cache-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 5px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    background: var(--card-alt);
+    font-size: 11px;
+  }
+  /* Rank 3: Priority Next Action */
+  .ah-action-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .ah-action-instr {
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--fg);
+    background: var(--card-alt);
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .ah-action-reclaim {
+    font-size: 10px;
+    color: var(--good);
+    font-weight: 600;
+  }
+  details.ah-overflow {
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  details.ah-overflow summary {
+    cursor: pointer;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  /* Rank 4: Elevated Tokens & USD Saved Card */
+  .ah-saved-card {
+    background: linear-gradient(180deg, #112233 0%, #111827 100%);
+    border-color: #1e3a5f;
+  }
+  .ah-saved-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .ah-saved-lbl {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--good);
+  }
+  .ah-saved-30d {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .ah-saved-main {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--fg);
+    margin-top: 2px;
+  }
+  .ah-saved-driver {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  /* Advanced View Accordions */
+  #advancedViewContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  details.adv-accordion {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 9px;
+  }
+  details.adv-accordion summary {
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--fg);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .adv-body {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .adv-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .adv-badge-ignore {
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: #3b2f13;
+    color: var(--warn);
+    border: 1px solid #785a1a;
+  }
+</style>
+</head>
+<body>
+<input class="ah-view-radio" type="radio" name="ah-view" id="viewModeSimple" checked>
+<input class="ah-view-radio" type="radio" name="ah-view" id="viewModeAdvanced" >
+<div class="ah-wrap" id="ahPanelRoot">
+  <header class="ah-topbar">
+    <span class="ah-brand">Attention Horizon · Claude Code</span>
+    <nav class="ah-tabs" aria-label="View Mode">
+      <label class="ah-tab-label" for="viewModeSimple" id="tabSimple">Simple</label>
+      <label class="ah-tab-label" for="viewModeAdvanced" id="tabAdvanced">Advanced</label>
+    </nav>
+  </header>
+
+  <!-- SIMPLE VIEW: Strict 4-Rank Glanceable Hierarchy (<= 440px at 420px width) -->
+  <main id="simpleViewContainer">
+    <!-- Rank 1: Status Verdict & Flight Header -->
+    <section class="ah-card" id="verdictBanner" data-rank="1">
+      <div class="ah-verdict-row">
+        <div class="ah-verdict-left">
+          <span class="ah-dot ah-dot-healthy"></span>
+          <span class="ah-verdict-title" id="verdictHeadline">Ready — Cold Prompt Prefix</span>
+        </div>
+        <div class="ah-pills">
+          <span class="ah-pill" id="modelBadge">claude-sonnet-5-5</span>
+          <span class="ah-pill" id="flightModeBadge">COACH</span>
+        </div>
+      </div>
+      <div class="ah-verdict-sub" id="verdictDetail">Next turn establishes the 5m warm prompt cache prefix</div>
+    </section>
+
+    <!-- Rank 2: 40-Cell Horizon Bar, 3-Stat Row & 5m/1h Prompt Cache Shield -->
+    <section class="ah-card" id="capacityAndCacheCard" data-rank="2">
+      <div class="ah-grid-bar" id="horizonGridBar" role="img" aria-label="40-Cell Context Horizon Bar">
+        <span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 1: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 2: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 3: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 4: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 5: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 6: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 7: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 8: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 9: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 10: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 11: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 12: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 13: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 14: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 15: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 16: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 17: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 18: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 19: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 20: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 21: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 22: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 23: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 24: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 25: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 26: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 27: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 28: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 29: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 30: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 31: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 32: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 33: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 34: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 35: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 36: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 37: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 38: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 39: [undefined] Available Horizon Capacity"></span><span class="ah-cell ah-cell-undefined" style="background:#1e293b" title="Cell 40: [undefined] Available Horizon Capacity"></span>
+      </div>
+      <div class="ah-ruler">
+        <span>0k</span>
+        <span>100k</span>
+        <span>200k</span>
+      </div>
+      <div class="ah-stats-3">
+        <div>
+          <div class="ah-stat-lbl">Used / Horizon</div>
+          <div class="ah-stat-val" id="statUsed">0 / 200k (0%)</div>
+        </div>
+        <div>
+          <div class="ah-stat-lbl">Stale Tool Debt [D]</div>
+          <div class="ah-stat-val" id="statDebt">0</div>
+        </div>
+        <div>
+          <div class="ah-stat-lbl">Free Headroom</div>
+          <div class="ah-stat-val" id="statHeadroom">200k</div>
+        </div>
+      </div>
+      <div class="ah-cache-strip" id="cacheShieldStrip">
+        <span>Prompt Cache: <strong>COLD</strong> (5m TTL)</span>
+        <span>TTL: <strong>00:00</strong> · Hit <strong>0%</strong></span>
+      </div>
+    </section>
+
+    <!-- Rank 3: Single Priority Next Action -->
+    <section class="ah-card" id="priorityActionCard" data-rank="3">
+      <div class="ah-action-hdr">
+        <span id="priorityActionTitle">Keep coding — context headroom is clean</span>
+        <span class="ah-action-reclaim" id="compactReclaim">Cold prefix — ready for next turn</span>
+      </div>
+      <div class="ah-action-instr" id="compactInstruction">No compaction or intervention needed right now.</div>
+      
+    </section>
+
+    <!-- Rank 4: Elevated Verified Tokens & USD Saved Card -->
+    <section class="ah-card ah-saved-card" id="tokensSavedCard" data-rank="4">
+      <div class="ah-saved-top">
+        <span class="ah-saved-lbl">Tokens &amp; USD Saved</span>
+        <span class="ah-saved-30d" id="savedWorkspace30d">+0 ($0.00) 30d</span>
+      </div>
+      <div class="ah-saved-main" id="savedSessionHeadline">+0 tokens ($0.00) this session</div>
+      <div class="ah-saved-driver" id="savedTopDriver">Top driver: Prompt Cache Read Discounts (0.10x) (+0)</div>
+    </section>
+  </main>
+
+  <!-- ADVANCED VIEW: 5 Progressive-Disclosure Accordions -->
+  <section id="advancedViewContainer">
+    <!-- Accordion 1: Verified 5-Category Savings & Anthropic Cache ROI -->
+    <details class="adv-accordion" id="advSavingsAccordion" open>
+      <summary>
+        <span>1. Verified Savings Breakdown &amp; Cache ROI</span>
+        <span>+0 ($0.00)</span>
+      </summary>
+      <div class="adv-body">
+        <div class="adv-row"><span>Prompt Cache Read Discounts (0.10x)</span><strong>+0 ($0.00)</strong></div><div class="adv-row"><span>Warm-Prefix &amp; Cross-Model Busts Avoided (C*)</span><strong>+0 ($0.00)</strong></div><div class="adv-row"><span>Lossless PostToolUse Sanitizer &amp; &gt;4k Offloads</span><strong>+0 ($0.00)</strong></div><div class="adv-row"><span>Loop, Bounded-Read &amp; Quota Interventions</span><strong>+0 ($0.00)</strong></div><div class="adv-row"><span>Task / Agent Subagent Context Isolation</span><strong>+0 ($0.00)</strong></div>
+        <div class="adv-row"><span>Break-Even Gravity C* (claude-sonnet-5-5 &rarr; claude-haiku-5-5)</span><strong>570,000 tok</strong></div>
+        <div class="adv-row"><span>Reads / Write Ratio (Break-Even &ge; 0.263)</span><strong>0.00</strong></div>
+      </div>
+    </details>
+
+    <!-- Accordion 2: 40-Cell Context Anatomy & Top Offenders -->
+    <details class="adv-accordion" id="advAnatomyAccordion">
+      <summary>
+        <span>2. Context Anatomy ([S]/[C]/[D]/[W]) &amp; Top Offenders</span>
+        <span>0 / 200k</span>
+      </summary>
+      <div class="adv-body">
+        <div class="adv-row"><span>[S] System &amp; MCP Tool Schemas</span><strong>0 cells (0)</strong></div>
+        <div class="adv-row"><span>[C] Warm Cached Prefix</span><strong>0 cells (0)</strong></div>
+        <div class="adv-row"><span>[D] Stale Tool Output Debt</span><strong>0 cells (0)</strong></div>
+        <div class="adv-row"><span>[W] Fresh 1.25x Cache Write Delta</span><strong>0 cells (0)</strong></div>
+        
+      </div>
+    </details>
+
+    <!-- Accordion 3: Circuit Breakers (DET-01..21), Thinking Drift & Retention -->
+    <details class="adv-accordion" id="advBreakersAccordion">
+      <summary>
+        <span>3. Circuit Breakers (DET-01..21) &amp; Thinking Drift</span>
+        <span>21 nominal</span>
+      </summary>
+      <div class="adv-body">
+        <div class="adv-row"><span>Flight Mode</span><strong>COACH</strong></div>
+        <div class="adv-row"><span>Prefix Retention</span><strong>Retain — (no multi-turn usage yet)</strong></div>
+        <div class="adv-row"><span>Thinking Drift (DET-21)</span><strong>Think — · TTFT —</strong></div>
+        <div class="adv-row"><span>Haiku 5.5 100k 5x Cliff (DET-12)</span><strong>Nominal</strong></div>
+      </div>
+    </details>
+
+    <!-- Accordion 4: Subagent Swarm (Task/Agent), Worktrees & Scope Locks -->
+    <details class="adv-accordion" id="advSwarmAccordion">
+      <summary>
+        <span>4. Subagent Swarm (Task/Agent) &amp; Worktrees</span>
+        <span>Solo</span>
+      </summary>
+      <div class="adv-body">
+        <div class="adv-row"><span>Swarm Status</span><strong>Solo main agent</strong></div>
+        <div class="adv-row"><span>Isolated Subagent Tokens</span><strong>0</strong></div>
+      </div>
+    </details>
+
+    <!-- Accordion 5: PreCompact State Baton & Claude Code Forensics -->
+    <details class="adv-accordion" id="advForensicsAccordion">
+      <summary>
+        <span>5. PreCompact State Baton &amp; Session Forensics</span>
+        <span>200k Standard Operational Horizon (5k/cell)</span>
+      </summary>
+      <div class="adv-body">
+        <div class="adv-row"><span>Session ID</span><strong>fff89d16-e2ae-4691-987d-b835d1a35367</strong></div>
+        <div class="adv-row"><span>State Baton Handoff</span><strong>.claude/cache/HANDOFF_LATEST.md</strong></div>
+        <div class="adv-row"><span>Prefix Config Files</span><strong>CLAUDE.md · .claude/rules/ · .mcp.json</strong></div>
+        <div class="adv-row"><span>Diagnostics CLI</span><strong>npx ah-claude doctor</strong></div>
+      </div>
+    </details>
+  </section>
+</div>
+</body>
+</html>

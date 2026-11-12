@@ -4,6 +4,10 @@ import crypto from 'node:crypto';
 import { getHomeDir, canonicalizePath } from './paths.mjs';
 import { SESSION_RISK_THRESHOLDS } from './constants.mjs';
 import { atomicWriteFileSync } from './atomic_io.mjs';
+import { SavedQuotaReceiptLedger, SAVINGS_EVENT_TYPES } from './coach/saved_quota_ledger.mjs';
+import { evaluateSilentPrefixMutations } from './shared/detectors.mjs';
+
+export { evaluateSilentPrefixMutations };
 
 /**
  * Phase 0: PrefixCacheShield Transaction Manager
@@ -228,6 +232,22 @@ export class PrefixCacheShield {
     if (locked) {
       existingQueue.push(deltaRecord);
       this._saveQueue(existingQueue);
+      const protectedTokens = Math.max(0, Math.round(Number(session?.cachedTokens || 0)));
+      if (protectedTokens > 0) {
+        try {
+          const ledgerDbPath = path.join(path.dirname(this.queuePath), 'saved_quota_ledger.sqlite');
+          const ledger = new SavedQuotaReceiptLedger({ homeDir: this.homeDir, dbPath: ledgerDbPath });
+          ledger.recordSaving({
+            sessionId: String(session?.sessionId || session?.conversationId || 'default-session'),
+            eventType: SAVINGS_EVENT_TYPES.COLD_PREFILL_AVOIDED,
+            tokensSaved: protectedTokens,
+            dedupeKey: `shield:${deltaRecord.id}`,
+            detail: `Staged ${path.basename(targetPath)} edit during warm ${Math.round(protectedTokens / 1000)}k prefix cache`
+          });
+        } catch (err) {
+          void err;
+        }
+      }
       return {
         staged: true,
         flushed: false,

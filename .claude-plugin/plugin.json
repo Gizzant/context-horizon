@@ -1,0 +1,14 @@
+{
+  "name": "attention-horizon",
+  "version": "4.0.0",
+  "description": "Attention Horizon KV-Cache & Context Governor for Claude Code",
+  "author": {
+    "name": "Attention Horizon Contributors"
+  },
+  "license": "MIT",
+  "hooks": "./hooks/hooks.json",
+  "commands": [
+    "./commands/horizon.md",
+    "./commands/cost-radar.md"
+  ]
+}

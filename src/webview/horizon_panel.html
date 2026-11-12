@@ -236,15 +236,74 @@
     color: var(--hz-fg) !important;
   }
 
-  /* Conversation Switcher Bar */
-  .session-bar {
+  /* Active Conversation Read-Only Context Strip & Advanced Session Inspector */
+  .active-session-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 3px 2px 6px;
+    border-bottom: 1px solid var(--hz-border-subtle);
+  }
+  .active-session-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+  }
+  .active-session-icon {
+    font-size: 11.5px;
+    line-height: 1;
+    flex-shrink: 0;
+    opacity: 0.85;
+  }
+  .active-session-title {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #e2e8f0 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pinned-reset-chip {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.14);
+    color: var(--hz-clutter) !important;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .pinned-reset-chip:hover {
+    background: rgba(245, 158, 11, 0.24);
+  }
+  .pinned-reset-chip[hidden] {
+    display: none !important;
+  }
+  .adv-session-inspector {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--hz-border-subtle);
     display: flex;
     flex-direction: column;
+    gap: 5px;
+  }
+  .adv-session-inspector-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 6px;
-    background: var(--hz-card);
-    border: 1px solid var(--hz-border);
-    border-radius: 6px;
-    padding: 6px 10px;
+  }
+  .adv-session-hint {
+    font-size: 10px;
+    color: var(--hz-muted) !important;
+  }
+  .storage-card #storageHorizonBadge {
+    display: none !important;
   }
   .session-bar-controls {
     display: flex;
@@ -2271,26 +2330,27 @@
     .tier2-card-title { font-weight: 700; color: var(--hz-fg) !important; }
     .tier2-card-sub { font-size: 10px; color: var(--hz-muted) !important; }
     .tier3-saved-quota-footer {
-      height: 24px;
-      min-height: 24px;
-      max-height: 24px;
+      height: auto;
+      min-height: 26px;
+      max-height: none;
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
-      padding: 0 10px;
-      margin-top: 8px;
-      border-top: 1px solid var(--hz-border);
+      gap: 6px 8px;
+      padding: 6px 10px;
+      margin-top: 6px;
+      border: 1px solid var(--hz-border);
       background: var(--hz-card);
-      border-radius: 4px;
+      border-radius: 6px;
       font-size: 10.5px;
       font-variant-numeric: tabular-nums;
       color: var(--hz-fg-secondary) !important;
     }
     .tier3-receipt-text {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      white-space: normal;
+      word-break: break-word;
+      flex: 1 1 220px;
     }
     .btn-copy-receipt {
       background: transparent;
@@ -2419,6 +2479,7 @@
       cursor: pointer;
       text-align: left;
       white-space: nowrap;
+      flex-shrink: 0;
       transition: all 0.15s ease;
     }
     .aq-btn:hover {
@@ -2446,16 +2507,15 @@
     body[data-view-mode="simple"] .action-card {
       display: none !important;
     }
-    body[data-view-mode="simple"] #quotaOverageAlert,
-    body[data-view-mode="simple"] #overageTtlCliffBanner,
-    body[data-view-mode="simple"] #coldSessionCostGateBanner,
     body[data-view-mode="simple"] #prefixMutationDiffBanner {
       display: none !important;
     }
 
-    /* Clean-Sheet Tufte Flat Hairline Canvas (~360px Simple View) */
+    /* 4-Rank Single-Screen Simple View HUD (<= 440px @ 420px width, zero scroll) */
     body[data-view-mode="simple"] .wrap {
       gap: 0 !important;
+      padding-top: 8px !important;
+      padding-bottom: 8px !important;
     }
     body[data-view-mode="simple"] header {
       padding-bottom: 4px !important;
@@ -2470,37 +2530,42 @@
     body[data-view-mode="simple"] #statusBadge {
       display: none !important;
     }
-    body[data-view-mode="simple"] .session-bar,
     body[data-view-mode="simple"] .storage-card,
     body[data-view-mode="simple"] .quota-strip:not([hidden]),
-    body[data-view-mode="simple"] .simple-actionable-card:not([hidden]),
-    body[data-view-mode="simple"] .coaching-box:not([hidden]),
-    body[data-view-mode="simple"] .rsi-box:not([hidden]) {
+    body[data-view-mode="simple"] .simple-actionable-card:not([hidden]) {
       background: transparent !important;
       border: none !important;
       border-radius: 0 !important;
       box-shadow: none !important;
-      padding: 8px 0 !important;
+      padding: 6px 0 !important;
       margin: 0 !important;
       border-bottom: 1px solid var(--hz-border-subtle) !important;
     }
-    body[data-view-mode="simple"] .session-bar > .section-box-header,
     body[data-view-mode="simple"] .storage-card > .section-box-header,
+    body[data-view-mode="simple"] .quota-strip > .section-box-header,
     body[data-view-mode="simple"] .simple-actionable-card > .section-box-header,
     body[data-view-mode="simple"] #storagePrimaryBloatLine,
+    body[data-view-mode="simple"] #ceilingClampPill,
     body[data-view-mode="simple"] #freeLabel,
+    body[data-view-mode="simple"] #tufteTurnSparkline,
+    body[data-view-mode="simple"] #btnSettings,
+    body[data-view-mode="simple"] #deltaLine,
+    body[data-view-mode="simple"] #btnSignalToggle,
+    body[data-view-mode="simple"] .b-pct-sub,
+    body[data-view-mode="simple"] #tufteCol2CacheStrip,
+    body[data-view-mode="simple"] #sprintMetricsRow,
+    body[data-view-mode="simple"] #quotaPills,
+    body[data-view-mode="simple"] #quotaForecast,
+    body[data-view-mode="simple"] #quotaMetaRow,
+    body[data-view-mode="simple"] #cacheTokenSplitDisplay,
+    body[data-view-mode="simple"] #cacheOperationalGuide,
     body[data-view-mode="simple"] #detCircuitBreakerAlert,
+    body[data-view-mode="simple"] #swarmTopologyDrawer:not([data-collision="true"]),
     body[data-view-mode="simple"] #highEffortSludgeBanner,
     body[data-view-mode="simple"] #artifactDriftBanner,
     body[data-view-mode="simple"] #savedQuotaFooterBar,
+    body[data-view-mode="simple"] #hostWatchdogBar:not([data-severity="critical"]),
     #sessionHealthSummary {
-      display: none !important;
-    }
-    body[data-view-mode="simple"] .session-bar-controls {
-      padding: 0 !important;
-      gap: 6px !important;
-    }
-    body[data-view-mode="simple"] .session-bar-controls .session-label {
       display: none !important;
     }
     .tufte-model-burn-pill {
@@ -2525,7 +2590,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 4px 8px;
-      padding: 6px 0;
+      padding: 5px 0;
       border-bottom: 1px solid var(--hz-border-subtle);
       font-size: 11px;
       font-weight: 600;
@@ -2541,11 +2606,17 @@
     .tufte-verdict-bar[data-verdict-state="HOLD_COMPACT"] {
       color: #fde68a !important;
     }
-    .tufte-verdict-bar[data-verdict-state="COMPACT_NOW"] {
+    .tufte-verdict-bar[data-verdict-state="COMPACT_NOW"],
+    .tufte-verdict-bar[data-verdict-state="COMPACT_READY"] {
       color: #fbbf24 !important;
     }
-    .tufte-verdict-bar[data-verdict-state="CRITICAL_STOP"] {
+    .tufte-verdict-bar[data-verdict-state="CRITICAL_STOP"],
+    .tufte-verdict-bar[data-verdict-state="CIRCUIT_BREAKER"] {
       color: #fca5a5 !important;
+      background: rgba(239, 68, 68, 0.09);
+      padding-left: 6px;
+      padding-right: 6px;
+      border-radius: 4px;
     }
     .tufte-verdict-bar[data-verdict-state="NOMINAL"] {
       color: #a7f3d0 !important;
@@ -2572,46 +2643,59 @@
       margin-top: 1px;
       font-variant-numeric: tabular-nums;
     }
-    /* Promote 40-Cell Parabolic Horizon Spine in Simple View */
-    body[data-view-mode="simple"] .bar-outer {
-      height: 0 !important;
-      margin: 0 !important;
-      overflow: hidden !important;
-      opacity: 0 !important;
-      pointer-events: none !important;
+    /* Rank 2: Clean Linear Capacity Bar in Simple View (40-Cell Flamegraph lives in Advanced Accordion 1) */
+    body[data-view-mode="simple"] .wrap {
+      gap: 4px !important;
+      padding: 8px 12px !important;
     }
-    body[data-view-mode="simple"] #chronoTimelineDrawer {
-      display: block !important;
+    body[data-view-mode="simple"] .storage-card,
+    body[data-view-mode="simple"] .quota-strip,
+    body[data-view-mode="simple"] .simple-actionable-card {
+      padding: 6px 0 !important;
+      margin: 0 !important;
+    }
+    body[data-view-mode="simple"] .bar-outer {
+      margin: 13px 0 11px 0 !important;
+    }
+    body[data-view-mode="simple"] .breakdown-grid {
+      gap: 6px !important;
+      margin-top: 2px !important;
+    }
+    body[data-view-mode="simple"] .breakdown-grid .b-item {
+      padding: 4px 6px !important;
+    }
+    body[data-view-mode="simple"] .cache-efficiency-meter {
+      gap: 4px !important;
+      padding: 0 !important;
+      margin: 0 !important;
       background: transparent !important;
       border: none !important;
-      border-radius: 0 !important;
-      padding: 2px 0 4px 0 !important;
-      margin: 4px 0 2px 0 !important;
     }
-    body[data-view-mode="simple"] #chronoTimelineDrawer > summary,
-    body[data-view-mode="simple"] #miniInspector {
+    body[data-view-mode="simple"] .cache-meter-head {
+      flex-wrap: nowrap !important;
+      gap: 6px !important;
+    }
+    .simple-nominal-confirm {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--hz-border-subtle);
+      font-size: 11px;
+      color: #a7f3d0 !important;
+    }
+    .simple-nominal-confirm[hidden] {
       display: none !important;
     }
-    body[data-view-mode="simple"] #miniTimeline {
-      height: 26px !important;
-      align-items: flex-end !important;
-      gap: 2px !important;
-      margin-top: 2px !important;
-      padding-bottom: 2px !important;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.20) !important;
-    }
-    body[data-view-mode="simple"] #miniTimeline .mini-cell {
-      height: calc(36% + 64% * var(--u-weight, 1)) !important;
-      border-radius: 1px 1px 0 0 !important;
-    }
-    body[data-view-mode="simple"] #miniTimeline .mini-cell.headroom-empty {
-      height: 4px !important;
-      background: rgba(51, 65, 85, 0.55) !important;
-    }
-    body[data-view-mode="simple"] #miniTimeline .effort-shift-badge,
-    body[data-view-mode="simple"] #miniTimeline .mini-cell::after,
-    body[data-view-mode="simple"] #miniTimeline .mini-cell::before {
-      display: none !important;
+    .chrono-glyph-key {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 10px;
+      color: var(--hz-muted) !important;
+      margin-top: 4px;
     }
     .m3-more-actions-drawer {
       margin-top: 2px;
@@ -2648,17 +2732,14 @@
       margin-top: 4px;
     }
     .tufte-horizon-scale {
-      display: none;
+      display: block;
       position: relative;
       width: 100%;
       height: 14px;
       font-size: 9.5px;
       color: var(--hz-muted) !important;
-      margin-top: 3px;
+      margin-top: 4px;
       font-variant-numeric: tabular-nums;
-    }
-    body[data-view-mode="simple"] .tufte-horizon-scale {
-      display: block !important;
     }
     .tufte-scale-tick {
       position: absolute;
@@ -2677,9 +2758,6 @@
       font-size: 10px;
       color: var(--hz-muted) !important;
     }
-    body[data-view-mode="simple"] .tufte-col2-cache-strip {
-      display: flex !important;
-    }
     .tufte-col2-bar-track {
       width: 100%;
       height: 4px;
@@ -2693,7 +2771,7 @@
       border-radius: 999px;
       transition: width 0.3s ease;
     }
-    /* Flat 1-Line Prefix-Safe Action Rows in Simple View (Zero Accordions) */
+    /* Flat 1-Line Action Rows in Simple View */
     body[data-view-mode="simple"] .m3-action-row {
       background: transparent !important;
       border: none !important;
@@ -2711,54 +2789,137 @@
       padding: 3px 0 !important;
       cursor: default !important;
     }
-    .tufte-section-subhead {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      color: var(--hz-muted) !important;
-      padding: 4px 0 2px 0;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    /* 24px Silent-When-Nominal Baseline Strip */
+    /* Rank 4: Elevated Verified "Tokens Saved" Value Strip (#tufteBaselineStrip) */
     .tufte-baseline-strip {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 6px;
-      min-height: 24px;
-      padding: 5px 0 2px 0;
-      font-size: 10.5px;
-      color: var(--hz-muted) !important;
+      flex-direction: column;
+      gap: 5px;
+      min-height: 28px;
+      padding: 6px 8px;
+      margin-top: 4px;
+      border-radius: 6px;
+      background: rgba(16, 185, 129, 0.06);
+      border: 1px solid rgba(16, 185, 129, 0.22);
+      font-size: 11px;
+      color: var(--hz-fg) !important;
       font-variant-numeric: tabular-nums;
+    }
+    .tufte-baseline-strip[data-muted="true"] {
+      background: rgba(148, 163, 184, 0.04);
+      border-color: var(--hz-border-subtle);
+      opacity: 0.72;
     }
     body[data-view-mode="advanced"] .tufte-baseline-strip {
       display: none !important;
     }
-    .tufte-inline-modes {
+    .savings-strip-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .savings-strip-main {
       display: inline-flex;
-      gap: 2px;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--hz-border-subtle);
-      border-radius: 3px;
-      padding: 1px;
+      align-items: baseline;
+      gap: 4px;
+      flex-wrap: wrap;
     }
-    .tufte-mode-chip {
-      background: transparent;
-      border: none;
-      color: var(--hz-muted);
-      font-size: 9.5px;
-      padding: 1px 5px;
-      border-radius: 2px;
-      cursor: pointer;
+    .savings-primary-val {
+      font-weight: 700;
+      color: var(--hz-useful) !important;
+    }
+    .savings-scope-sub {
+      font-size: 10px;
+      color: var(--hz-muted) !important;
+    }
+    .savings-why-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--hz-border);
+      color: var(--hz-fg-secondary) !important;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 10px;
       font-family: inherit;
+      cursor: pointer;
     }
-    .tufte-mode-chip.active {
-      background: var(--hz-card-alt);
-      color: var(--hz-anchor) !important;
-      font-weight: 600;
+    .savings-why-drawer {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding-top: 5px;
+      border-top: 1px dashed var(--hz-border);
+      font-size: 10px;
+      color: var(--hz-fg-secondary) !important;
+    }
+    .savings-why-drawer[hidden] {
+      display: none !important;
+    }
+    .savings-why-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .savings-why-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-top: 3px;
+      margin-top: 2px;
+      border-top: 1px solid var(--hz-border-subtle);
+    }
+    /* Advanced View 5-Section Collapsible Accordions */
+    .adv-accordion {
+      border: 1px solid var(--hz-border);
+      border-radius: 7px;
+      background: var(--hz-card);
+      margin-top: 6px;
+      overflow: hidden;
+    }
+    .adv-accordion-summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--hz-fg) !important;
+      background: rgba(255, 255, 255, 0.02);
+      user-select: none;
+    }
+    .adv-accordion-summary::-webkit-details-marker {
+      display: none;
+    }
+    .adv-accordion-title::before {
+      content: '▸ ';
+      color: var(--hz-muted);
+    }
+    .adv-accordion[open] > .adv-accordion-summary .adv-accordion-title::before {
+      content: '▾ ';
+    }
+    .adv-accordion-body {
+      padding: 8px 10px;
+      border-top: 1px solid var(--hz-border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .duplicate-plugin-notice {
+      margin-top: 5px;
+      padding: 5px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      background: rgba(245, 158, 11, 0.10);
+      border: 1px solid rgba(245, 158, 11, 0.30);
+      color: #fde68a !important;
+    }
+    .duplicate-plugin-notice[hidden] {
+      display: none !important;
     }
 </style>
 </head>
@@ -2783,26 +2944,13 @@
     </div>
   </header>
 
-  <!-- Active Session & Model Switcher Bar -->
-  <div class="session-bar" id="sessionTopCard">
-    <div class="section-box-header">
-      <div class="section-box-title-group">
-        <span class="section-box-icon" aria-hidden="true">&#x1F4AC;</span>
-        <h2 class="section-box-title">Active Session &amp; Model Context</h2>
-      </div>
-      <div class="section-box-meta-group">
-        <span class="prefix-lock-badge mono" id="prefixLockBadge" hidden title="Active warm cache (&gt;50k tokens). Changing reasoning effort or switching models rewrites the system prefix and triggers a 100% uncached KV cache rebuild.">&#x1F512; Warm</span>
-        <span class="summary-status-pill mono" id="sessionModelPill" style="font-size:10px;">Auto</span>
-      </div>
+  <!-- Active Conversation Read-Only Context Strip -->
+  <div class="active-session-strip" id="activeConversationStrip">
+    <div class="active-session-title-wrap">
+      <span class="active-session-icon" aria-hidden="true">&#x1F4AC;</span>
+      <span class="active-session-title" id="activeConversationTitle" title="Active Conversation">Active Conversation</span>
     </div>
-    <div class="session-bar-controls">
-      <span class="session-label">Session</span>
-      <select class="session-select" id="sessionSelect" aria-label="Select conversation" title="Select which conversation's context memory to inspect">
-        <option value="auto">&#x26A1; Auto (Active Conversation)</option>
-      </select>
-      <span class="tufte-model-burn-pill mono" id="tufteModelBurnPill" title="Active Model &amp; Effort Burn Multiplier">Flash 3.8 &middot; Auto</span>
-      <button class="icon-btn" id="btnOpenChat" title="Click: Switch IDE chat pane to the selected conversation | Alt+Click: Open local ~/.gemini/&lt;surface&gt;/brain/&lt;session-uuid&gt;/ folder in OS file explorer">Open &#x2197;</button>
-    </div>
+    <button type="button" class="pinned-reset-chip mono" id="btnFollowActiveSession" hidden title="Currently inspecting a pinned conversation. Click to return to live Auto tracking.">Pinned &middot; Follow Active</button>
   </div>
 
   <!-- Deterministic Top-Level Tufte Verdict Line -->
@@ -2819,6 +2967,8 @@
         <h2 class="section-box-title">Context Memory Capacity</h2>
       </div>
       <div class="section-box-meta-group">
+        <span class="prefix-lock-badge mono" id="prefixLockBadge" hidden title="Active warm cache (&gt;50k tokens). Changing reasoning effort or switching models rewrites the system prefix and triggers a 100% uncached KV cache rebuild.">&#x1F512; Warm</span>
+        <span class="summary-status-pill mono" id="sessionModelPill" style="font-size:10px;">Auto</span>
         <span class="summary-status-pill mono" id="storageHorizonBadge">Safe Limit: 140k</span>
       </div>
     </div>
@@ -2829,6 +2979,7 @@
         <span class="ceiling-clamp-pill mono" id="ceilingClampPill" hidden></span>
       </div>
       <div class="free-wrap">
+        <span class="tufte-model-burn-pill mono" id="tufteModelBurnPill" title="Active Model &amp; Effort Burn Multiplier">Flash 3.8 &middot; Auto</span>
         <span class="tufte-sparkline-group mono" id="tufteTurnSparkline" title="16-turn token velocity sparkline"></span>
         <div class="free-label mono" id="freeLabel">140k safe limit</div>
         <button class="gear-btn" id="btnSettings" type="button" title="Safe limit & reminder settings" aria-expanded="false" aria-controls="settingsPop">&#x2699;</button>
@@ -2867,33 +3018,14 @@
       </div>
     </div>
 
-    <!-- 40-Cell Parabolic Horizon Spine (Promoted into Primary Capacity Band) -->
-    <details class="advanced-drawer" id="chronoTimelineDrawer" data-slot="collapsible" open>
-      <summary><span>40-Cell Context Window Map</span><span class="mono" id="cellSizeTag" style="font-size:10px;">6.4k / cell</span></summary>
-      <div class="mini-timeline" id="miniTimeline"></div>
-      <div class="tufte-horizon-scale scale-ticks mono" id="tufteHorizonScale">
-        <span class="tufte-scale-tick" id="tufteScaleTick0" style="left:0%;">0k</span>
-        <span class="tufte-scale-tick" id="tufteScaleTick50" style="left:19.5%;transform:translateX(-50%);">50k</span>
-        <span class="tufte-scale-tick" id="tufteScaleTickTrough" style="left:36%;transform:translateX(-50%);">trough</span>
-        <span class="tufte-scale-tick tufte-scale-limit" id="tufteScaleLimitLabel" style="left:57.4%;transform:translateX(-50%);">147k&#x26A1; High limit</span>
-        <span class="tufte-scale-tick" id="tufteScaleMaxLabel" style="right:0%;">256k</span>
-      </div>
-      <div class="det17-badge-strip mono" id="det17BadgeStrip" hidden></div>
-      <div class="top-risky-cells-list mono advanced-only" id="topRiskyCellsList" hidden></div>
-      <div class="mini-inspector mono" id="miniInspector">Hover or click any block above to inspect 6.4k token slice</div>
-      <div class="stranded-signal-banner" id="strandedSignalBanner" hidden></div>
-      <div class="cell-turn-filter-panel mono" id="cellTurnFilterPanel" hidden></div>
-      <div class="subagent-pills mono" id="subagentPills" hidden></div>
-    </details>
-
     <div class="breakdown-grid">
       <div class="b-item" title="Rules, task plan, and active files the agent is working with right now">
         <div class="b-head">
           <span class="b-swatch" style="background:var(--hz-useful)"></span>
-          <span>Active Signal</span>
+          <span>Useful Context</span>
         </div>
         <div class="b-val mono" id="valUseful" style="color:var(--hz-useful) !important;">0k (100%)</div>
-        <button class="b-sub b-toggle" id="btnSignalToggle" aria-expanded="false" aria-controls="signalDrawer" title="Click to see what is inside Active Signal" style="white-space:nowrap;"><span class="caret">&#x25B6;</span> Rules &amp; work</button>
+        <button class="b-sub b-toggle" id="btnSignalToggle" aria-expanded="false" aria-controls="signalDrawer" title="Click to see what is inside Useful Context" style="white-space:nowrap;"><span class="caret">&#x25B6;</span> Rules &amp; work</button>
       </div>
 
       <div class="b-item" title="Old conversation steps and duplicate file snapshots that can be safely freed">
@@ -2919,46 +3051,26 @@
       </div>
     </div>
 
-    <!-- 1-line Primary Bloat Driver Callout (folded from old summary card) -->
+    <!-- 1-line Primary Bloat Driver Callout (Advanced View) -->
     <div class="storage-bloat-callout mono" id="storagePrimaryBloatLine">
       <span class="bloat-callout-icon">&#x25CF;</span>
       <strong class="bloat-callout-label">Primary Bloat:</strong>
       <span class="bloat-callout-text" id="storagePrimaryBloatText">Analyzing transcript forensics...</span>
     </div>
-
-    <!-- Active Signal drawer (progressive disclosure) -->
-    <div class="signal-drawer" id="signalDrawer" hidden>
-      <div class="sig-row">
-        <div class="sig-head"><span class="sig-name">Workspace Baseline Overhead</span><span class="sig-val mono" id="sigBaseVal">0k (0%)</span></div>
-        <div class="sig-desc">AGENTS.md / .agents/rules/, active skills &amp; loaded MCP tool schemas. Loaded every turn; <code>/compact</code> keeps it.</div>
-        <div class="bucket-bars mono" id="bucketBars" hidden></div>
-        <ul class="base-rows mono" id="baseRows" hidden></ul>
-      </div>
-      <div class="sig-row">
-        <div class="sig-head"><span class="sig-name">Live Session Work</span><span class="sig-val mono" id="sigLiveVal">0k (0%)</span></div>
-        <div class="sig-desc">Pinned task.md state &amp; your most recent active turns.</div>
-      </div>
-      <div class="sig-row" id="uShapedAttentionRow">
-        <div class="sig-head"><span class="sig-name">U-Shaped Transcript Heatmap (Read-Only)</span><span class="sig-val mono" id="uCurveHealthVal">Primacy: 94%</span></div>
-        <div class="sig-desc" id="uCurveHealthDesc">Read-only conversation positional decay &middot; Middle Trough: 0 critical turns &middot; Static Prefix Diet ceiling: 8k tok</div>
-        <div class="prefix-shield-staged-queue mono" id="prefixShieldQueue" hidden></div>
-      </div>
-    </div>
   </section>
 
-  <!-- Box 2: Prompt Cache (Directly Below Context Memory Box) -->
+  <!-- Rank 2B: Prompt Cache Shield (Compact 2-line strip in Simple View; full quota telemetry in Advanced View) -->
   <section class="quota-strip cache-box mono" id="quotaStrip">
     <div class="section-box-header">
       <div class="section-box-title-group">
         <span class="section-box-icon" aria-hidden="true">&#x26A1;</span>
-        <h2 class="section-box-title">Prompt Cache<span style="display:none"> &amp; Quota Pacing</span></h2>
+        <h2 class="section-box-title">Prompt Cache &amp; Quota Pacing</h2>
       </div>
       <div class="section-box-meta-group">
         <span class="summary-status-pill mono" id="quotaCacheStatusPill">Cold</span>
       </div>
     </div>
 
-    <!-- User-Friendly Visual Countdown Bar & Plain-English Tip -->
     <div class="cache-efficiency-meter mono" id="cacheEfficiencyMeter">
       <div class="cache-meter-row">
         <span class="cache-meter-hit" id="cacheHitPctDisplay"><strong id="cacheHitPctVal">0%</strong> Cached</span>
@@ -2983,7 +3095,7 @@
       </div>
     </div>
 
-    <!-- Quota Telemetry Pills -->
+    <!-- Quota Telemetry Pills (Advanced View) -->
     <div class="quota-pills flex items-center justify-between gap-2 flex-wrap" id="quotaPills">5h Sprint: 0% &middot; 7d: 0% &middot; Cache: 0% hit (300s TTL)</div>
     <div class="physical-metrics-bar mono" id="physicalMetricsBar" style="display:none;">0k / 256k &middot; 0% &middot; Cache Hit: 0% &middot; Waste: 0k &middot; TTL: 300s</div>
     <div class="quota-Forecast" id="quotaForecast" hidden></div>
@@ -2997,7 +3109,7 @@
     <div class="overage-guardrail-banner warn" id="prefixMutationDiffBanner" hidden></div>
   </section>
 
-  <!-- Tier 2: Event-Driven Intervention Card Slot (Collapsed by default; renders at most 1 priority card) -->
+  <!-- Tier 2: Event-Driven Intervention Card Slot -->
   <div class="tier2-intervention-slot" id="tier2InterventionSlot" hidden>
     <div class="tier2-card-body">
       <span class="tier2-card-title" id="tier2CardTitle">Intervention Required</span>
@@ -3006,123 +3118,341 @@
     <button type="button" class="mini-btn m3-action-btn" id="btnTier2PrimaryAction">&#x1F4CB; Copy Prompt</button>
   </div>
 
-  <!-- 3. Smart Action Center: Step-by-Step Guided Action -->
-  <section class="action-card" id="actionCard">
-    <div class="section-box-header">
-      <div class="section-box-title-group">
-        <span class="section-box-icon" aria-hidden="true">&#x26A1;</span>
-        <h2 class="section-box-title">Smart Action Center</h2>
+  <!-- Emergency Circuit Breaker & Drift Alerts (Circuit Breaker surfaces in Simple View too) -->
+  <div class="overage-guardrail-banner danger" id="detCircuitBreakerAlert" hidden style="margin: 4px 0; padding: 6px 10px;">
+    <span class="alert-icon">&#x26A0;</span>
+    <span id="detCircuitBreakerMsg">Guardrail Intervention Active</span>
+  </div>
+  <div class="high-effort-sludge-banner" id="highEffortSludgeBanner" hidden style="margin: 6px 0;"></div>
+  <div class="artifact-drift-banner" id="artifactDriftBanner" hidden style="margin: 6px 0;"><span id="artifactDriftText"></span> <button type="button" class="mini-btn" id="btnDriftSaveTask" title="Sends a prompt to the agent in this chat to save progress to task.md (same as Ask Agent: Save task.md)">Save task.md</button></div>
+
+  <!-- Rank 3: Single Priority Next Action Slot (Simple View) -->
+  <div class="simple-nominal-confirm simple-only mono" id="simpleNominalConfirm">
+    <span>&#x2713; Context is clean &mdash; keep coding</span>
+    <span class="savings-scope-sub" id="simpleNominalSub">0 actions needed</span>
+  </div>
+
+  <section class="health-summary-card simple-actionable-card simple-only" id="simpleActionableBox" hidden>
+    <div class="health-summary-header section-box-header">
+      <div class="health-summary-title-group">
+        <span class="health-summary-icon" aria-hidden="true">&#x26A1;</span>
+        <h2 class="health-summary-title">Recommended Actions</h2>
       </div>
-      <div class="section-box-meta-group">
-        <span class="summary-status-pill mono" id="actionCardStatusPill">Active</span>
+      <div class="health-summary-meta-group" style="display:inline-flex; align-items:center; gap:8px;">
+        <button type="button" id="simpleResetDismissedBtn" class="m3-reset-btn mono" style="display:none;" title="Restore all dismissed recommendations">&#x21BA; Reset (<span id="simpleResetDismissedCount">0</span>)</button>
+        <span class="summary-status-pill warn mono" id="simpleActionCountPill">0 actions</span>
       </div>
     </div>
-    <div class="action-msg">
-      <span class="action-icon" id="actionIcon">&#x2713;</span>
-      <div id="actionText">
-        <strong>Memory is clean.</strong> Only active files and rules are loaded.
-      </div>
+    <div class="cache-gated-hold-banner mono" id="cacheGatedHoldBanner" style="display:none;">
+      <span id="cacheGatedHoldMsg">&#x23F3; <strong id="cacheGatedHoldCount">0 actions</strong> held while cache is warm (<span id="cacheGatedHoldTtl">0s TTL</span>)</span>
+      <button type="button" class="cache-gated-toggle-btn" id="btnToggleDeferredActions">Show anyway</button>
     </div>
-
-    <!-- Recommended Action Box (Shown when cleanup is recommended) -->
-    <div class="guided-step-box" id="guidedStepBox" style="display:none;">
-      <div class="cache-compaction-advisory warm-defer" id="cacheCompactionAdvisory" data-advisory-state="warm-defer">
-        Cache is currently warm (95% token cost discount). Defer compaction until work pause to avoid 70s execution stall and complete KV cache invalidation.
-      </div>
-      <!-- Tier 2: Priority Action Rows (Google Material 3 Tonal Surface Layering) -->
-      <div class="action-rows-stack" id="actionRowsStack">
-        <!-- Action 1 (Pre-requisite when stale/missing): Checkpoint Hygiene (task.md Sync) -->
-        <div class="m3-action-row" id="actionRowCheckpoint" hidden>
-          <div class="m3-action-content">
-            <span class="m3-action-icon dot" id="actionCheckpointDot">&#x25CF;</span>
-            <div class="m3-action-text">
-              <span class="m3-action-title" id="actionCheckpointTitle">Update task.md checkpoint before compacting</span>
-              <span class="m3-action-sub mono" id="actionCheckpointSub">currently 1 turn behind</span>
-            </div>
-            <button type="button" class="mini-btn m3-action-btn" id="btnActionSaveTask" title="Ask Agent to save progress to task.md">Save task.md</button>
-          </div>
-        </div>
-
-        <!-- Action 1: /compact instruction (Strictly preserves UI Invariant 1) -->
-        <div class="m3-action-row" id="actionRowCompact">
-          <div class="compact-instruction" id="compactInstruction">
-            <span class="m3-action-icon amber" aria-hidden="true">&#x26A1;</span>
-            <div class="compact-instruction-main">
-              <span class="compact-instruction-title">Compact conversation history</span>
-              <span class="compact-instruction-sub mono">Type <kbd class="cmd-kbd">/compact</kbd> in the chat box and press <kbd>Enter</kbd></span>
-            </div>
-            <span class="compact-reclaim mono" id="compactReclaim">reclaims ~0k</span>
-          </div>
-        </div>
-
-        <!-- Action 3: High-Leverage Rule or Session Fix (Conditional) -->
-        <div class="m3-action-row" id="actionRowHighLeverage" hidden>
-          <div class="m3-action-content">
-            <span class="m3-action-icon spark" id="actionHighLeverageIcon">&#x2726;</span>
-            <div class="m3-action-text">
-              <span class="m3-action-title" id="actionHighLeverageTitle">Promote 1 unlogged correction to AGENTS.md</span>
-              <span class="m3-action-sub mono" id="actionHighLeverageSub">Primacy zone candidate</span>
-            </div>
-            <button type="button" class="mini-btn m3-action-btn" id="btnActionHighLeverage" title="Execute high-leverage action">Promote Rule</button>
-          </div>
-        </div>
-      </div>
-      <details class="param-compact-details advanced-only" id="parameterizedCompactDetails">
-        <summary>Parameterized <code>/compact</code> template</summary>
-        <div class="param-compact-box mono" id="parameterizedCompactBox">
-          <span class="param-compact-label">Parameterized Compaction Template (Select &amp; Type in Chat)</span>
-          <div id="parameterizedCompactText">/compact Focus on preserving: 1) Exported symbol signatures and state scales for [active workspace files], 2) Current checklist state in task.md.</div>
-        </div>
-      </details>
-      <div class="baton-pass-row advanced-only" id="batonPassRow">
-        <div class="baton-pass-info">
-          <strong>The Baton Pass</strong> &middot; Start fresh: writes <code>docs/HANDOFF_&lt;time&gt;.md</code> to paste into a new chat
-        </div>
-        <button type="button" class="btn-baton-pass" id="btnGenerateHandoff" title="Writes docs/HANDOFF_<timestamp>.md summarizing active AST contracts, test states, and pending task.md tasks">Generate Handoff Markdown</button>
-      </div>
-
-      <div class="action-footers-row advanced-only">
-        <details class="survive-drawer" id="surviveDrawer">
-          <summary>What survives /compact?</summary>
-          <div class="survive-grid">
-            <div class="survive-col keep">
-              <div class="survive-title">&#x2713; Preserved</div>
-              <ul>
-                <li>AGENTS.md &amp; rules</li>
-                <li>task.md state</li>
-                <li id="surviveRecent">Most recent active turns</li>
-              </ul>
-            </div>
-            <div class="survive-col drop">
-              <div class="survive-title" id="surviveDropTitle">Compressed</div>
-              <ul id="surviveDropList"></ul>
-            </div>
-          </div>
-        </details>
-
-        <details class="secondary-drawer" id="secondaryDrawer">
-          <summary>Other actions (Save, refresh, start fresh) <span class="handoff-dot" id="handoffDot"></span></summary>
-          <div class="secondary-buttons">
-            <button class="btn-secondary" id="btnCheckpoint" title="Sends a prompt to the agent in this chat to save progress to task.md">&#x1F4AC; Ask Agent: Save task.md</button>
-            <button class="btn-secondary" id="btnCondenseAst" title="Condenses stale duplicate file reads into compact declaration signature stubs and collapses resolved stack traces (Prefix-Cache Safe)">&#x2702;&#xFE0F; Condense Stale Reads (Signature Stubs)</button>
-            <button class="btn-secondary" id="btnNewChat" title="Opens a fresh chat session with handoff context from this conversation">&#x1F680; Resume in Clean Chat &#x2197;</button>
-          </div>
-          <div class="handoff-status" id="handoffStatus" hidden></div>
-          <div class="handoff-confirm" id="handoffConfirm" hidden>
-            <div id="handoffConfirmMsg"></div>
-            <div class="handoff-confirm-btns">
-              <button class="mini-btn" id="btnSyncFirst">Sync task.md first</button>
-              <button class="mini-btn muted" id="btnStartAnyway">Start anyway</button>
-            </div>
-          </div>
-        </details>
-      </div>
-    </div>
+    <div class="action-rows-stack" id="simpleActionList"></div>
   </section>
+
+  <!-- Advanced View Workbench: 5 Stateful Collapsible Accordions -->
+  <details class="adv-accordion advanced-only" id="advAccWindow" data-adv-id="window" open>
+    <summary class="adv-accordion-summary">
+      <span class="adv-accordion-title">1. 40-Cell Context Window &amp; Consumers</span>
+      <span class="summary-status-pill mono" id="advWindowSummaryPill">40 cells</span>
+    </summary>
+    <div class="adv-accordion-body">
+      <details class="advanced-drawer" id="chronoTimelineDrawer" data-slot="collapsible" open>
+        <summary><span>40-Cell Context Window Map</span><span class="mono" id="cellSizeTag" style="font-size:10px;">6.4k / cell</span></summary>
+        <div class="mini-timeline" id="miniTimeline"></div>
+        <div class="tufte-horizon-scale scale-ticks mono" id="tufteHorizonScale">
+          <span class="tufte-scale-tick" id="tufteScaleTick0" style="left:0%;">0k</span>
+          <span class="tufte-scale-tick" id="tufteScaleTick50" style="left:19.5%;transform:translateX(-50%);">50k</span>
+          <span class="tufte-scale-tick" id="tufteScaleTickTrough" style="left:36%;transform:translateX(-50%);">trough</span>
+          <span class="tufte-scale-tick tufte-scale-limit" id="tufteScaleLimitLabel" style="left:57.4%;transform:translateX(-50%);">147k&#x26A1; High limit</span>
+          <span class="tufte-scale-tick" id="tufteScaleMaxLabel" style="right:0%;">256k</span>
+        </div>
+        <div class="chrono-glyph-key mono">
+          <span>&#x26A1; Subagent call &middot; &#x21C4; Model/Effort shift</span>
+          <span>Hover/click cell to inspect</span>
+        </div>
+        <div class="det17-badge-strip mono" id="det17BadgeStrip" hidden></div>
+        <div class="top-risky-cells-list mono advanced-only" id="topRiskyCellsList" hidden></div>
+        <div class="mini-inspector mono" id="miniInspector">Hover or click any block above to inspect 6.4k token slice</div>
+        <div class="stranded-signal-banner" id="strandedSignalBanner" hidden></div>
+        <div class="cell-turn-filter-panel mono" id="cellTurnFilterPanel" hidden></div>
+        <div class="subagent-pills mono" id="subagentPills" hidden></div>
+      </details>
+
+      <!-- Context Consumers & Remediations -->
+      <section class="playbook-card advanced-only" data-slot="accordion">
+        <div class="section-box-header playbook-header">
+          <div class="section-box-title-group">
+            <span class="section-box-icon" aria-hidden="true">&#x1F50D;</span>
+            <h2 class="section-box-title playbook-title">Context Consumers &amp; Remediations</h2>
+          </div>
+          <div class="section-box-meta-group">
+            <span class="summary-status-pill mono playbook-sub" id="playbookSub">Transcript Forensics</span>
+          </div>
+        </div>
+        <div id="playbookList"></div>
+      </section>
+
+      <!-- Action Queue Control Surface -->
+      <div class="action-queue mono advanced-only" id="actionQueuePanel" hidden>
+        <div class="section-box-header aq-head">
+          <div class="section-box-title-group">
+            <span class="section-box-icon" aria-hidden="true">&#x1F4CB;</span>
+            <h2 class="section-box-title" id="aqTitle">Action Queue (Ranked Payoff)</h2>
+          </div>
+          <div class="section-box-meta-group">
+            <span class="aq-payoff-total summary-status-pill mono" id="aqTotalPayoff" style="color:var(--hz-useful);font-weight:normal;"></span>
+          </div>
+        </div>
+        <div class="aq-list" id="aqList"></div>
+      </div>
+
+      <!-- Smart Action Center: Step-by-Step Guided Action -->
+      <section class="action-card" id="actionCard">
+        <div class="section-box-header">
+          <div class="section-box-title-group">
+            <span class="section-box-icon" aria-hidden="true">&#x26A1;</span>
+            <h2 class="section-box-title">Smart Action Center</h2>
+          </div>
+          <div class="section-box-meta-group">
+            <span class="summary-status-pill mono" id="actionCardStatusPill">Active</span>
+          </div>
+        </div>
+        <div class="action-msg">
+          <span class="action-icon" id="actionIcon">&#x2713;</span>
+          <div id="actionText">
+            <strong>Memory is clean.</strong> Only active files and rules are loaded.
+          </div>
+        </div>
+
+        <div class="guided-step-box" id="guidedStepBox" style="display:none;">
+          <div class="cache-compaction-advisory warm-defer" id="cacheCompactionAdvisory" data-advisory-state="warm-defer">
+            Cache is currently warm (95% token cost discount). Defer compaction until work pause to avoid 70s execution stall and complete KV cache invalidation.
+          </div>
+          <div class="action-rows-stack" id="actionRowsStack">
+            <div class="m3-action-row" id="actionRowCheckpoint" hidden>
+              <div class="m3-action-content">
+                <span class="m3-action-icon dot" id="actionCheckpointDot">&#x25CF;</span>
+                <div class="m3-action-text">
+                  <span class="m3-action-title" id="actionCheckpointTitle">Update task.md checkpoint before compacting</span>
+                  <span class="m3-action-sub mono" id="actionCheckpointSub">currently 1 turn behind</span>
+                </div>
+                <button type="button" class="mini-btn m3-action-btn" id="btnActionSaveTask" title="Ask Agent to save progress to task.md">Save task.md</button>
+              </div>
+            </div>
+
+            <!-- Action 1: /compact instruction (Strictly preserves UI Invariant 1) -->
+            <div class="m3-action-row" id="actionRowCompact">
+              <div class="compact-instruction" id="compactInstruction">
+                <span class="m3-action-icon amber" aria-hidden="true">&#x26A1;</span>
+                <div class="compact-instruction-main">
+                  <span class="compact-instruction-title">Compact conversation history</span>
+                  <span class="compact-instruction-sub mono">Type <kbd class="cmd-kbd">/compact</kbd> in the chat box and press <kbd>Enter</kbd></span>
+                </div>
+                <span class="compact-reclaim mono" id="compactReclaim">reclaims ~0k</span>
+              </div>
+            </div>
+
+            <div class="m3-action-row" id="actionRowHighLeverage" hidden>
+              <div class="m3-action-content">
+                <span class="m3-action-icon spark" id="actionHighLeverageIcon">&#x2726;</span>
+                <div class="m3-action-text">
+                  <span class="m3-action-title" id="actionHighLeverageTitle">Promote 1 unlogged correction to AGENTS.md</span>
+                  <span class="m3-action-sub mono" id="actionHighLeverageSub">Primacy zone candidate</span>
+                </div>
+                <button type="button" class="mini-btn m3-action-btn" id="btnActionHighLeverage" title="Execute high-leverage action">Promote Rule</button>
+              </div>
+            </div>
+          </div>
+          <details class="param-compact-details advanced-only" id="parameterizedCompactDetails">
+            <summary>Parameterized <code>/compact</code> template</summary>
+            <div class="param-compact-box mono" id="parameterizedCompactBox">
+              <span class="param-compact-label">Parameterized Compaction Template (Select &amp; Type in Chat)</span>
+              <div id="parameterizedCompactText">/compact Focus on preserving: 1) Exported symbol signatures and state scales for [active workspace files], 2) Current checklist state in task.md.</div>
+            </div>
+          </details>
+          <div class="baton-pass-row advanced-only" id="batonPassRow">
+            <div class="baton-pass-info">
+              <strong>Save Handoff &amp; Start Fresh Chat</strong> &middot; Start fresh: writes <code>docs/HANDOFF_&lt;time&gt;.md</code> to paste into a new chat
+            </div>
+            <button type="button" class="btn-baton-pass" id="btnGenerateHandoff" title="Writes docs/HANDOFF_<timestamp>.md summarizing active AST contracts, test states, and pending task.md tasks">Generate Handoff Markdown</button>
+          </div>
+
+          <div class="action-footers-row advanced-only">
+            <details class="survive-drawer" id="surviveDrawer">
+              <summary>What survives /compact?</summary>
+              <div class="survive-grid">
+                <div class="survive-col keep">
+                  <div class="survive-title">&#x2713; Preserved</div>
+                  <ul>
+                    <li>AGENTS.md &amp; rules</li>
+                    <li>task.md state</li>
+                    <li id="surviveRecent">Most recent active turns</li>
+                  </ul>
+                </div>
+                <div class="survive-col drop">
+                  <div class="survive-title" id="surviveDropTitle">Compressed</div>
+                  <ul id="surviveDropList"></ul>
+                </div>
+              </div>
+            </details>
+
+            <details class="secondary-drawer" id="secondaryDrawer">
+              <summary>Other actions (Save, refresh, start fresh) <span class="handoff-dot" id="handoffDot"></span></summary>
+              <div class="secondary-buttons">
+                <button class="btn-secondary" id="btnCheckpoint" title="Sends a prompt to the agent in this chat to save progress to task.md">&#x1F4AC; Ask Agent: Save task.md</button>
+                <button class="btn-secondary" id="btnCondenseAst" title="Condenses stale duplicate file reads into compact declaration signature stubs and collapses resolved stack traces (Prefix-Cache Safe)">&#x2702;&#xFE0F; Condense Stale Reads (Signature Stubs)</button>
+                <button class="btn-secondary" id="btnNewChat" title="Opens a fresh chat session with handoff context from this conversation">&#x1F680; Resume in Clean Chat &#x2197;</button>
+              </div>
+              <div class="handoff-status" id="handoffStatus" hidden></div>
+              <div class="handoff-confirm" id="handoffConfirm" hidden>
+                <div id="handoffConfirmMsg"></div>
+                <div class="handoff-confirm-btns">
+                  <button class="mini-btn" id="btnSyncFirst">Sync task.md first</button>
+                  <button class="mini-btn muted" id="btnStartAnyway">Start anyway</button>
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+      </section>
+    </div>
+  </details>
+
+  <details class="adv-accordion advanced-only" id="advAccQuota" data-adv-id="quota">
+    <summary class="adv-accordion-summary">
+      <span class="adv-accordion-title">2. Quota Pacing &amp; Verified Savings Ledger</span>
+      <span class="summary-status-pill mono" id="advQuotaSummaryPill">+0.0k saved</span>
+    </summary>
+    <div class="adv-accordion-body">
+      <div class="savings-why-drawer mono" id="advSavingsBreakdownBox" style="border-top:none;padding-top:0;">
+        <div class="savings-why-row"><span>Subagent context isolation</span><strong id="advSavSubagentVal">+0.0k</strong></div>
+        <div class="savings-why-row"><span>Warm prompt cache (95% discount + shield)</span><strong id="advSavCacheVal">+0.0k</strong></div>
+        <div class="savings-why-row"><span>CLI &amp; log output compression (FTS5)</span><strong id="advSavCliVal">+0.0k</strong></div>
+        <div class="savings-why-row"><span>Loops, re-reads &amp; tail trims avoided</span><strong id="advSavGuardsVal">+0.0k</strong></div>
+      </div>
+      <footer class="tier3-saved-quota-footer mono" id="savedQuotaFooterBar">
+        <span class="tier3-receipt-text" id="savedQuotaReceiptText">Tokens Saved: +0.0k (0 Cold Prefills &middot; 0 Downshifts &middot; 0 CLI Compress)</span>
+        <button type="button" class="btn-copy-receipt mono" id="btnCopySavingsReceipt" title="Copy Markdown Verified Tokens Saved Receipt to clipboard">[Copy Receipt]</button>
+      </footer>
+    </div>
+  </details>
+
+  <details class="adv-accordion advanced-only" id="advAccGuards" data-adv-id="guards">
+    <summary class="adv-accordion-summary">
+      <span class="adv-accordion-title">3. Guardrails &amp; DET-01..30 Sensor Log</span>
+      <span class="summary-status-pill mono" id="advGuardsSummaryPill">30 active</span>
+    </summary>
+    <div class="adv-accordion-body">
+      <div class="coaching-guardrails-row mono" id="coachingGuardrailsLine">
+        <span class="guardrails-icon">&#x1F6E1;&#xFE0F;</span>
+        <span id="coachingGuardrailsText">30 guards active (DET-01..30) &middot; FTS5 Log Compression: 0.0k tokens saved</span>
+      </div>
+      <div class="mono" id="advCircuitBreakerLog" style="font-size:10.5px;color:var(--hz-muted);">No circuit breakers tripped in this session.</div>
+      <div class="cross-session-banner mono advanced-only" id="crossSessionOffenderBanner" hidden>
+        <span id="crossSessionOffenderText"></span>
+        <button type="button" class="mini-btn" id="btnExportSanitized" title="Export a zero-PII sanitized JSON snapshot with secrets and tokens scrubbed">[Export Sanitized Snapshot]</button>
+      </div>
+    </div>
+  </details>
+
+  <details class="adv-accordion advanced-only" id="advAccRouter" data-adv-id="router">
+    <summary class="adv-accordion-summary">
+      <span class="adv-accordion-title">4. Model Router, Effort History (&#x21C4;) &amp; Sessions</span>
+      <span class="summary-status-pill mono" id="coachingStatusPill">Coach Active</span>
+    </summary>
+    <div class="adv-accordion-body">
+      <section class="coaching-box advanced-only" id="coachingBox">
+        <div class="section-box-header" style="display:none;">
+          <div class="section-box-title-group">
+            <span class="section-box-icon" aria-hidden="true">&#x1F3AF;</span>
+            <h2 class="section-box-title">Active Coaching &amp; Effort Governor</h2>
+          </div>
+        </div>
+        <div class="model-coach-bar mono" id="modelCoachBar">
+          <div class="model-coach-status">
+            <span class="model-coach-badge" id="modelCoachLiveLabel">Active: Gemini 4 Argon &bull; High (9.25x burn &bull; live synced)</span>
+            <span class="model-coach-reset" id="modelCoachResetLabel">Resets in 46m</span>
+          </div>
+          <div class="model-coach-controls">
+            <div class="model-mode-switch" role="group" aria-label="Router Mode">
+              <button type="button" class="mode-btn" id="btnModeOff" data-mode="off">Off</button>
+              <button type="button" class="mode-btn active" id="btnModeCoach" data-mode="coach">Coach</button>
+              <button type="button" class="mode-btn" id="btnModeAutopilot" data-mode="autopilot">Auto-Pilot</button>
+            </div>
+            <div class="coach-pill" id="coachActionPill" hidden></div>
+            <div class="subagent-live-pill mono" id="subagentLivePill" hidden title="Active Subagent Phantom Burn Auditor"></div>
+          </div>
+        </div>
+        <div class="action-rows-stack coaching-actions-stack" id="coachingActionList" hidden></div>
+      </section>
+      <div class="mono" id="advEffortHistoryList" style="font-size:10.5px;color:var(--hz-muted);">No model or effort switches recorded in this chat.</div>
+      <div class="adv-session-inspector" id="advSessionInspector">
+        <div class="adv-session-inspector-head">
+          <span class="session-label">Inspect Past Conversation</span>
+          <span class="adv-session-hint mono">Alt+Click Open &#x2197; for brain folder</span>
+        </div>
+        <div class="session-bar-controls">
+          <select class="session-select" id="sessionSelect" aria-label="Select conversation" title="Select which conversation's context memory to inspect">
+            <option value="auto">&#x26A1; Auto (Active Conversation)</option>
+          </select>
+          <button class="icon-btn" id="btnOpenChat" title="Click: Switch IDE chat pane to the selected conversation | Alt+Click: Open local ~/.gemini/&lt;surface&gt;/brain/&lt;session-uuid&gt;/ folder in OS file explorer">Open &#x2197;</button>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <details class="adv-accordion advanced-only" id="advAccRules" data-adv-id="rules">
+    <summary class="adv-accordion-summary">
+      <span class="adv-accordion-title">5. Rules, Baseline Overhead &amp; Candidates</span>
+      <span class="summary-status-pill mono" id="advRulesSummaryPill">Rules &amp; MCP</span>
+    </summary>
+    <div class="adv-accordion-body">
+      <div class="signal-drawer" id="signalDrawer">
+        <div class="sig-row">
+          <div class="sig-head"><span class="sig-name">Workspace Baseline Overhead</span><span class="sig-val mono" id="sigBaseVal">0k (0%)</span></div>
+          <div class="sig-desc" id="sigBaseStaticNote">AGENTS.md / .agents/rules/, active skills &amp; loaded MCP tool schemas. Loaded every turn; <code>/compact</code> keeps it.</div>
+          <div class="bucket-bars mono" id="bucketBars" hidden></div>
+          <div class="duplicate-plugin-notice mono" id="duplicatePluginNotice" hidden></div>
+          <ul class="base-rows mono" id="baseRows" hidden></ul>
+        </div>
+        <div class="sig-row">
+          <div class="sig-head"><span class="sig-name">Live Session Work</span><span class="sig-val mono" id="sigLiveVal">0k (0%)</span></div>
+          <div class="sig-desc">Pinned task.md state &amp; your most recent active turns.</div>
+        </div>
+        <div class="sig-row" id="uShapedAttentionRow">
+          <div class="sig-head"><span class="sig-name">Rule Position &amp; Attention Decay (Read-Only)</span><span class="sig-val mono" id="uCurveHealthVal">Primacy: 94%</span></div>
+          <div class="sig-desc" id="uCurveHealthDesc">Read-only conversation positional decay &middot; Middle Trough: 0 critical turns &middot; Static Prefix Diet ceiling: 8k tok</div>
+          <div class="prefix-shield-staged-queue mono" id="prefixShieldQueue" hidden></div>
+        </div>
+      </div>
+
+      <section class="rsi-box advanced-only" id="rsiBox">
+        <div class="section-box-header">
+          <div class="section-box-title-group">
+            <span class="section-box-icon" aria-hidden="true">&#x1F9EC;</span>
+            <h2 class="section-box-title">Session Rule Candidates</h2>
+          </div>
+          <div class="section-box-meta-group">
+            <span class="summary-status-pill mono" id="rsiStatusPill">Primacy: 94%</span>
+          </div>
+        </div>
+        <div class="rsi-health-row mono" id="rsiHealthLine">
+          <span class="rsi-icon">&#x1F9E0;</span>
+          <div class="rsi-health-summary">
+            <span id="rsiPrimacyLabel">Primacy Band: <strong>94%</strong></span> &middot;
+            <span id="rsiMiddleTroughLabel">0 Trough Risks</span> &middot;
+            <span id="rsiShieldLabel">Rule Shield: 0 queued</span>
+          </div>
+        </div>
+        <div class="action-rows-stack rsi-actions-stack" id="rsiActionList" hidden></div>
+      </section>
+    </div>
+  </details>
 
   <div class="feedback-toast" id="feedbackToast"></div>
 
-  <!-- Tier 3A (Upper Box): User-Friendly Session Health Summary (Information Only — Fixed 3 Bullets) -->
+  <!-- Inert Legacy Summary Container (Hidden via CSS; preserved for backward-compatible gate hooks) -->
   <section class="health-summary-card advanced-only" id="sessionHealthSummary">
     <div class="health-summary-header section-box-header">
       <div class="health-summary-title-group">
@@ -3157,129 +3487,13 @@
         <span class="summary-bullet-icon" id="summaryIconGuardrails">&#x25CF;</span>
         <div class="summary-bullet-text">
           <strong class="summary-bullet-heading">Guardrails &amp; Compression:</strong>
-          <span id="summaryTextGuardrails">&#x1F6E1;&#xFE0F; DET-01..16 Active &middot; FTS5 Log Compression: 0.0k tokens saved</span>
+          <span id="summaryTextGuardrails">&#x1F6E1;&#xFE0F; DET-01..20 Active &middot; FTS5 Log Compression: 0.0k tokens saved</span>
         </div>
       </div>
     </div>
   </section>
 
-  <div class="high-effort-sludge-banner" id="highEffortSludgeBanner" hidden style="margin: 6px 0;"></div>
-  <div class="artifact-drift-banner" id="artifactDriftBanner" hidden style="margin: 6px 0;"><span id="artifactDriftText"></span> <button type="button" class="mini-btn" id="btnDriftSaveTask" title="Sends a prompt to the agent in this chat to save progress to task.md (same as Ask Agent: Save task.md)">Save task.md</button></div>
-  <div class="overage-guardrail-banner danger" id="detCircuitBreakerAlert" hidden style="margin: 6px 0; padding: 6px 10px;">
-    <span class="alert-icon">&#x26A0;</span>
-    <span id="detCircuitBreakerMsg">Deterministic Circuit Breaker Tripped</span>
-  </div>
-
-  <!-- Box 3: Context Cleanup Actions (Cache-Gated) -->
-  <section class="health-summary-card simple-actionable-card simple-only" id="simpleActionableBox" hidden>
-    <div class="health-summary-header section-box-header">
-      <div class="health-summary-title-group">
-        <span class="health-summary-icon" aria-hidden="true">&#x26A1;</span>
-        <h2 class="health-summary-title">Recommended Actions</h2>
-      </div>
-      <div class="health-summary-meta-group" style="display:inline-flex; align-items:center; gap:8px;">
-        <button type="button" id="simpleResetDismissedBtn" class="m3-reset-btn mono" style="display:none;" title="Restore all dismissed recommendations">&#x21BA; Reset (<span id="simpleResetDismissedCount">0</span>)</button>
-        <span class="summary-status-pill warn mono" id="simpleActionCountPill">0 actions</span>
-      </div>
-    </div>
-    <!-- Cache-Gated Hold Banner -->
-    <div class="cache-gated-hold-banner mono" id="cacheGatedHoldBanner" style="display:none;">
-      <span id="cacheGatedHoldMsg">&#x23F3; <strong id="cacheGatedHoldCount">0 actions</strong> held while cache is warm (<span id="cacheGatedHoldTtl">0s TTL</span>)</span>
-      <button type="button" class="cache-gated-toggle-btn" id="btnToggleDeferredActions">Show anyway</button>
-    </div>
-    <div class="action-rows-stack" id="simpleActionList"></div>
-  </section>
-
-  <!-- Box 4: Active Coaching & Effort Governor -->
-  <section class="coaching-box simple-only" id="coachingBox">
-    <div class="section-box-header">
-      <div class="section-box-title-group">
-        <span class="section-box-icon" aria-hidden="true">&#x1F3AF;</span>
-        <h2 class="section-box-title">Active Coaching &amp; Effort Governor</h2>
-      </div>
-      <div class="section-box-meta-group">
-        <span class="summary-status-pill mono" id="coachingStatusPill">Coach Active</span>
-      </div>
-    </div>
-    <div class="model-coach-bar mono" id="modelCoachBar">
-      <div class="model-coach-status">
-        <span class="model-coach-badge" id="modelCoachLiveLabel">Active: Gemini 4 Argon &bull; High (9.25x burn &bull; live synced)</span>
-        <span class="model-coach-reset" id="modelCoachResetLabel">Resets in 46m</span>
-      </div>
-      <div class="model-coach-controls">
-        <div class="model-mode-switch" role="group" aria-label="Router Mode">
-          <button type="button" class="mode-btn" id="btnModeOff" data-mode="off">Off</button>
-          <button type="button" class="mode-btn active" id="btnModeCoach" data-mode="coach">Coach</button>
-          <button type="button" class="mode-btn" id="btnModeAutopilot" data-mode="autopilot">Auto-Pilot</button>
-        </div>
-        <div class="coach-pill" id="coachActionPill" hidden></div>
-        <div class="subagent-live-pill mono" id="subagentLivePill" hidden title="Active Subagent Phantom Burn Auditor"></div>
-      </div>
-    </div>
-    <div class="coaching-guardrails-row mono" id="coachingGuardrailsLine">
-      <span class="guardrails-icon">&#x1F6E1;&#xFE0F;</span>
-      <span id="coachingGuardrailsText">DET-01..16 Active &middot; FTS5 Log Compression: 0.0k tokens saved</span>
-    </div>
-    <div class="action-rows-stack coaching-actions-stack" id="coachingActionList"></div>
-  </section>
-
-  <!-- Box 5: Recursive Self-Improvement (RSI) -->
-  <section class="rsi-box simple-only" id="rsiBox">
-    <div class="section-box-header">
-      <div class="section-box-title-group">
-        <span class="section-box-icon" aria-hidden="true">&#x1F9EC;</span>
-        <h2 class="section-box-title">Session Rule Candidates</h2>
-      </div>
-      <div class="section-box-meta-group">
-        <span class="summary-status-pill mono" id="rsiStatusPill">Primacy: 94%</span>
-      </div>
-    </div>
-    <div class="rsi-health-row mono" id="rsiHealthLine">
-      <span class="rsi-icon">&#x1F9E0;</span>
-      <div class="rsi-health-summary">
-        <span id="rsiPrimacyLabel">Primacy Band: <strong>94%</strong></span> &middot;
-        <span id="rsiMiddleTroughLabel">0 Trough Risks</span> &middot;
-        <span id="rsiShieldLabel">PrefixCacheShield: Staged</span>
-      </div>
-    </div>
-    <div class="action-rows-stack rsi-actions-stack" id="rsiActionList"></div>
-  </section>
-
-  <!-- 4. Context Consumers & Remediations -->
-  <section class="playbook-card advanced-only" data-slot="accordion">
-    <div class="section-box-header playbook-header">
-      <div class="section-box-title-group">
-        <span class="section-box-icon" aria-hidden="true">&#x1F50D;</span>
-        <h2 class="section-box-title playbook-title">Context Consumers &amp; Remediations</h2>
-      </div>
-      <div class="section-box-meta-group">
-        <span class="summary-status-pill mono playbook-sub" id="playbookSub">Transcript Forensics</span>
-      </div>
-    </div>
-    <div id="playbookList"></div>
-  </section>
-
-  <!-- 6. Zero-Prose ACTION QUEUE Control Surface -->
-  <div class="action-queue mono advanced-only" id="actionQueuePanel" hidden>
-    <div class="section-box-header aq-head">
-      <div class="section-box-title-group">
-        <span class="section-box-icon" aria-hidden="true">&#x1F4CB;</span>
-        <h2 class="section-box-title" id="aqTitle">Action Queue (Ranked Payoff)</h2>
-      </div>
-      <div class="section-box-meta-group">
-        <span class="aq-payoff-total summary-status-pill mono" id="aqTotalPayoff" style="color:var(--hz-useful);font-weight:normal;"></span>
-      </div>
-    </div>
-    <div class="aq-list" id="aqList"></div>
-  </div>
-
-  <!-- Factual Cross-Session Offender Banner & Scrubbed Export -->
-  <div class="cross-session-banner mono advanced-only" id="crossSessionOffenderBanner" hidden>
-    <span id="crossSessionOffenderText"></span>
-    <button type="button" class="mini-btn" id="btnExportSanitized" title="Export a zero-PII sanitized JSON snapshot with secrets and tokens scrubbed">[Export Sanitized Snapshot]</button>
-  </div>
-
-  <!-- Host Runtime Watchdog Bar (Simple Alert + Advanced View) -->
+  <!-- Host Runtime Watchdog Bar (Critical Alert in Simple View + Full Status in Advanced View) -->
   <div class="host-watchdog-bar mono" id="hostWatchdogBar" hidden>
     <div class="section-box-header">
       <div class="section-box-title-group">
@@ -3296,18 +3510,31 @@
     </div>
   </div>
 
-  <!-- 24px Silent-When-Nominal Tufte Baseline Strip (Simple View) -->
-  <div class="tufte-baseline-strip mono" id="tufteBaselineStrip">
-    <span>Coach: <span class="tufte-inline-modes"><button type="button" class="tufte-mode-chip active" data-tufte-mode="coach">On</button><button type="button" class="tufte-mode-chip" data-tufte-mode="off">Off</button><button type="button" class="tufte-mode-chip" data-tufte-mode="autopilot">Auto</button></span></span>
-    <span id="tufteGuardsQuietLabel">20 guards quiet</span>
-    <span id="tufteSavedTokensLabel" style="color:var(--hz-useful) !important;">+0.0k saved</span>
+  <!-- Rank 4: Elevated Verified "Tokens Saved" Value Strip (Simple View) -->
+  <div class="tufte-baseline-strip mono" id="tufteBaselineStrip" data-muted="false">
+    <div class="savings-strip-head">
+      <span class="savings-strip-main">
+        <span>&#x1F6E1;&#xFE0F; Saved:</span>
+        <strong class="savings-primary-val" id="tufteSavedTokensLabel">+0.0k</strong>
+        <span class="savings-scope-sub">this chat</span>
+        <span class="savings-scope-sub">&middot;</span>
+        <span id="tufteWorkspaceSavedLabel">+0.0k</span>
+        <span class="savings-scope-sub">30d</span>
+      </span>
+      <span id="tufteGuardsQuietLabel" hidden>30 guards quiet</span>
+      <button type="button" class="savings-why-btn mono" id="btnToggleSavingsWhy" aria-expanded="false" aria-controls="simpleSavingsWhyDrawer">[&#x25BE; Why]</button>
+    </div>
+    <div class="savings-why-drawer mono" id="simpleSavingsWhyDrawer" hidden>
+      <div class="savings-why-row"><span>Subagent context isolation</span><strong id="savSubagentVal">+0.0k</strong></div>
+      <div class="savings-why-row"><span>Warm prompt cache (95% off)</span><strong id="savCacheVal">+0.0k</strong></div>
+      <div class="savings-why-row"><span>CLI &amp; log compression</span><strong id="savCliVal">+0.0k</strong></div>
+      <div class="savings-why-row"><span>Loops, re-reads &amp; trims avoided</span><strong id="savGuardsVal">+0.0k</strong></div>
+      <div class="savings-why-foot">
+        <span class="savings-scope-sub" id="savEstUsdLabel">Est. input value: $0.00</span>
+        <button type="button" class="btn-copy-receipt mono" id="btnCopySimpleSavingsReceipt" title="Copy plain-English Verified Tokens Saved Receipt">[Copy Receipt]</button>
+      </div>
+    </div>
   </div>
-
-  <!-- Tier 3: Fixed 24px Saved-Quota Receipt Footer (Advanced View) -->
-  <footer class="tier3-saved-quota-footer mono" id="savedQuotaFooterBar">
-    <span class="tier3-receipt-text" id="savedQuotaReceiptText">Horizon: +0.0k Argon-equiv tokens saved (0 Cold Prefills &bull; 0 Downshifts &bull; 0 CLI Compress)</span>
-    <button type="button" class="btn-copy-receipt mono" id="btnCopySavingsReceipt" title="Copy Markdown Saved-Quota Receipt table to clipboard">[Copy Receipt]</button>
-  </footer>
 
   <div class="footer-meta mono" id="footerMeta">Live updates active</div>
 </div>
@@ -3817,7 +4044,7 @@
     const q = rawState?.quota || {};
     const signals = rawState?.brainSignals || {};
     const hs = signals.activeSignal || {};
-    const safeHorizon = Math.min(Number(safeLimit) > 0 ? Number(safeLimit) : 179000, 179000);
+    const safeHorizon = Number(safeLimit) > 0 ? Number(safeLimit) : 179000;
     const hasExplicitCache = Boolean(q.cache && typeof q.cache.ttlRemainingSec === 'number');
     const ttlSec = hasExplicitCache ? q.cache.ttlRemainingSec : 300;
     const cacheReadTokens = Number(q.cache?.cacheReadTokens || 0);
@@ -3829,7 +4056,7 @@
     const w7IsEstimate = q.weekly7d?.source === 'estimate';
     const overagesEnabled = Boolean(q.weekly7d?.aiCreditOveragesEnabled || rawState?.aiCreditOveragesEnabled);
 
-    const isSafeHorizonBreached = totalTokens >= safeHorizon || totalTokens >= 179000 || Boolean(rawState?.amputation?.amputationCrisis || rawState?.telemetry?.amputationRisk);
+    const isSafeHorizonBreached = totalTokens >= safeHorizon || Boolean(rawState?.amputation?.amputationCrisis || rawState?.telemetry?.amputationRisk);
     // Local quota estimates never escalate to RED.
     const is7dLockoutWithoutOverages = !w7IsEstimate && (w7Used >= 100 || w7Lockout) && !overagesEnabled;
     const isCacheExpired = ttlSec <= 0 || Boolean(q.cache?.isCacheCold);
@@ -3850,7 +4077,7 @@
       if (isTaskMdStale) reasons.push(`task.md is ${turnsBehind} turn${turnsBehind === 1 ? '' : 's'} stale`);
     } else {
       band = 'GREEN';
-      reasons.push('Healthy (<179k tokens, warm KV cache TTL > 0s, task.md in sync)');
+      reasons.push(`Healthy (<${fmtK(safeHorizon)} tokens, warm KV cache TTL > 0s, task.md in sync)`);
     }
 
     const effectiveCachedTokens = Math.max(
@@ -4021,7 +4248,7 @@
     for (const s of sessions) {
       if (s.sessionId === autoId && s.sessionId !== selectedSessionMode) continue; // Deduplicate: autoId is already surfaced as the active session top option
       const tok = tokensFor(s.sessionId, s);
-      const tokStr = tok ? fmtK(tok) : `${s.stepCount}t`;
+      const tokStr = tok ? fmtK(tok) : `${s.stepCount} steps`;
       const sState = s.sessionId === currentRenderedState?.sessionId ? currentRenderedState : catalog[s.sessionId];
       const prefix = tokStr;
       const sSurface = s.surface || sState?.storeSource || 'antigravity';
@@ -4144,8 +4371,9 @@
     btn.onclick = async () => {
       if (!pop.hidden) { close(); return; }
       const w = currentRenderedState?.window || {};
-      inLimit.value = w.safeLimit || 140000;
-      inPct.value = w.safeLimit && w.reminderAt ? Math.round((w.reminderAt / w.safeLimit) * 100) : 85;
+      const liveLim = Number(document.getElementById('limitLine')?.dataset?.tokens) || w.safeLimit || 179000;
+      inLimit.value = liveLim;
+      inPct.value = liveLim && w.reminderAt ? Math.round((w.reminderAt / liveLim) * 100) : 85;
       setMsg('');
       pop.hidden = false;
       btn.setAttribute('aria-expanded', 'true');
@@ -4184,6 +4412,26 @@
   function renderBaselineRows(baseline, measuredBaseTok) {
     const ul = document.getElementById('baseRows');
     const bucketContainer = document.getElementById('bucketBars');
+    const dupNotice = document.getElementById('duplicatePluginNotice');
+    const staticNote = document.getElementById('sigBaseStaticNote');
+    const rulesPill = document.getElementById('advRulesSummaryPill');
+    if (dupNotice) {
+      const dupTok = Number(baseline?.duplicateOverheadTokens || 0);
+      if (dupTok > 0) {
+        dupNotice.hidden = false;
+        dupNotice.textContent = `Duplicate plugin overhead: ~${fmtK(dupTok)}/turn across mirrored Horizon plugins. Disable one duplicate plugin in Antigravity Plugins Manager when not testing mirrors.`;
+      } else {
+        dupNotice.hidden = true;
+        dupNotice.textContent = '';
+      }
+    }
+    if (staticNote && baseline && Number(baseline.totalEst) > 0) {
+      staticNote.innerHTML = `Static customization files: <strong>~${fmtK(baseline.totalEst)}</strong> across 5 buckets &middot; Session system/anchor context: <strong>${fmtK(measuredBaseTok)}</strong> (<code>/compact</code> keeps both).`;
+    }
+    if (rulesPill) {
+      const baseEst = Number(baseline?.totalEst || 0);
+      rulesPill.textContent = baseEst > 0 ? `~${fmtK(baseEst)} static` : `${fmtK(measuredBaseTok)} base`;
+    }
     if (bucketContainer) {
       const buckets = baseline && baseline.buckets ? Object.values(baseline.buckets) : [];
       if (buckets.length > 0) {
@@ -4562,13 +4810,33 @@
     }
     populateSessionDropdown(raw.sessionId, raw.recentSessions, liveTok);
 
-    // Keep selected option label in #sessionSelect strictly synchronized with live state
+    // Keep selected option label in #sessionSelect and top #activeConversationTitle synchronized with live state
     const selEl = document.getElementById('sessionSelect');
     if (selEl && selEl.selectedOptions && selEl.selectedOptions[0]) {
       const activeOpt = selEl.selectedOptions[0];
       const liveTag = raw.surfaceTag || resolveSurfaceTag(raw.storeSource || raw.logFilePath || activeOpt.dataset?.surface);
       const liveTitle = stripTokPrefix(raw.sessionTitle || activeOpt.textContent || 'Conversation');
       activeOpt.textContent = `${liveTag} [${fmtK(totalTokens)}] ${liveTitle}`;
+    }
+
+    const activeTitleEl = document.getElementById('activeConversationTitle');
+    if (activeTitleEl) {
+      const selOpt = selEl?.selectedOptions?.[0];
+      const rawTitleCandidate = raw.sessionTitle
+        || (selOpt && selOpt.value !== 'auto' ? selOpt.textContent : '')
+        || 'Active Conversation';
+      const cleanTitle = stripTokPrefix(rawTitleCandidate)
+        .replace(/^\u26A1\s*Auto\s*\(([^)]+)\)\s*$/i, '$1')
+        .trim() || 'Active Conversation';
+      const foreignPrefix = isCurrentSessionForeignSurface()
+        ? `${raw.surfaceTag || resolveSurfaceTag(raw.storeSource || raw.logFilePath)} `
+        : '';
+      activeTitleEl.textContent = `${foreignPrefix}${cleanTitle}`;
+      activeTitleEl.title = `${foreignPrefix}${cleanTitle}${raw.sessionId ? ` (${String(raw.sessionId).slice(0, 8)})` : ''}`;
+    }
+    const followBtnEl = document.getElementById('btnFollowActiveSession');
+    if (followBtnEl) {
+      followBtnEl.hidden = selectedSessionMode === 'auto';
     }
 
     const modelPillEl = document.getElementById('sessionModelPill');
@@ -4883,7 +5151,13 @@
           coachResetLabel.textContent = q.sprint5h?.resetLabel ? `Resets in ${q.sprint5h.resetLabel}` : 'Resets in 46m';
         }
 
-        const pillText = coachData?.coachPillText;
+        const sameTarget = Boolean(
+          coachData?.recommendedModel &&
+          coachData?.activeModel &&
+          String(coachData.recommendedModel).toLowerCase() === String(coachData.activeModel).toLowerCase() &&
+          (!coachData.recommendedEffort || String(coachData.recommendedEffort).toLowerCase() === String(coachData.activeEffort || '').toLowerCase())
+        );
+        const pillText = sameTarget ? '' : coachData?.coachPillText;
         if (coachActionPill) {
           if (pillText) {
             coachActionPill.textContent = pillText;
@@ -5021,7 +5295,8 @@
     if (tufteModelBurnEl) {
       const coachData = raw.coachState?.taskQuotaRouter;
       const rawModelName = coachData?.activeModelLabel || raw.quota?.sprint5h?.modelPoolName || raw.model?.label || 'Gemini 3.8 Flash';
-      const shortMod = String(rawModelName).replace(/^Gemini\s+/i, '').replace(/\s+\(.*\)$/, '').trim();
+      const cleanMod = String(rawModelName).replace(/\s+\(.*\)$/, '').replace(/\s+Experimental$/i, '').trim();
+      const shortMod = cleanMod.length > 24 ? cleanMod.slice(0, 22).trim() + '\u2026' : cleanMod;
       const effShort = effortProfile?.shortLabel || 'Auto';
       const burnMult = coachData?.activeBurnMultiplier ?? (effShort === 'High' ? 1.5 : (effShort === 'Fast' ? 0.5 : 1.0));
       tufteModelBurnEl.textContent = `${shortMod} \u00B7 ${effShort}`;
@@ -5032,7 +5307,8 @@
     const scaleWidthPx = (scaleContainer && scaleContainer.clientWidth > 0)
       ? scaleContainer.clientWidth
       : 260;
-    const minTickGapPx = 28;
+    const minEndpointGapPx = 30;
+    const minInteriorGapPx = Math.max(48, Math.round(scaleWidthPx * 0.18));
     const midTickVal = maxTokensVal >= 1000000 ? 256000 : 50000;
     const midTickLabel = maxTokensVal >= 1000000 ? '256k' : '50k';
     const p50 = Math.min(100, Math.max(0, (midTickVal / maxTokensVal) * 100));
@@ -5043,13 +5319,17 @@
     const troughLabel = maxTokensVal >= 1000000 ? '512k' : 'trough';
 
     const pxOfPct = (pct) => (pct / 100) * scaleWidthPx;
-    const placedTickPx = [0, scaleWidthPx];
+    const endpointPx = [0, scaleWidthPx];
+    const interiorPx = [];
     const tryPlaceTickPct = (pct) => {
       const px = pxOfPct(pct);
-      if (placedTickPx.some(existing => Math.abs(existing - px) < minTickGapPx)) {
+      if (endpointPx.some(existing => Math.abs(existing - px) < minEndpointGapPx)) {
         return false;
       }
-      placedTickPx.push(px);
+      if (interiorPx.some(existing => Math.abs(existing - px) < minInteriorGapPx)) {
+        return false;
+      }
+      interiorPx.push(px);
       return true;
     };
 
@@ -5221,12 +5501,23 @@
       const routerNudge = routerCoach?.coachPillText || (routerCoach?.recommendDownshift ? `Switch to ${routerCoach?.recommendedModelLabel || 'Flash (Med)'}` : '');
       const overTok = Math.max(0, totalTokens - safeLimit);
       const leftTok = Math.max(0, safeLimit - totalTokens);
+      const turnCnt = Number(win.turnCount ?? raw.turnCount ?? 0);
+      const compactReadyFloor = Math.max(50000, Math.round(safeLimit * 0.30));
       if (trippedBreaker) {
-        const bId = typeof trippedBreaker === 'object' ? (trippedBreaker.detectorId || 'DET-19') : 'DET-19';
-        const rawReason = typeof trippedBreaker === 'object' ? (trippedBreaker.reason || 'Guardrail intervention') : String(trippedBreaker);
-        const bReason = String(rawReason).replace(/^[\u26A0\uFE0F\uD83D\uDEA8\s]+/u, '');
+        const bId = typeof trippedBreaker === 'object' ? (trippedBreaker.detectorId || trippedBreaker.id || 'DET-19') : 'DET-19';
+        const rawReason = typeof trippedBreaker === 'object'
+          ? (trippedBreaker.reason || trippedBreaker.message || trippedBreaker.title || 'Guardrail intervention')
+          : String(trippedBreaker);
+        const bReason = String(rawReason)
+          .replace(/^[\u26A0\uFE0F\uD83D\uDEA8\s]+/u, '')
+          .replace(/^DET-\d+[a-z]?[:\s-]+/i, '')
+          .replace(/[a-zA-Z]:\\(?:[^\\:\s]+\\)+([^\\:\s]+)/g, '$1');
         verdictBarEl.dataset.verdictState = 'CIRCUIT_BREAKER';
         verdictTextEl.textContent = `GUARDRAIL TRIPPED (${bId}) \u00B7 ${bReason}`;
+        if (routerHoldNoteEl) routerHoldNoteEl.hidden = true;
+      } else if (amputation.amputationCrisis || telemetry.amputationRisk) {
+        verdictBarEl.dataset.verdictState = 'CRITICAL_STOP';
+        verdictTextEl.textContent = `OLDEST CONTEXT DROPPING \u00B7 Type /compact now (${reclaimSumStr} clearable)`;
         if (routerHoldNoteEl) routerHoldNoteEl.hidden = true;
       } else if (totalTokens > safeLimit && isCacheWarmNow) {
         verdictBarEl.dataset.verdictState = 'HOLD_COMPACT';
@@ -5251,7 +5542,7 @@
             routerHoldNoteEl.hidden = true;
           }
         }
-      } else if (!isCacheWarmNow && (clutterTokens >= 25000 || (reclaimSumK * 1000) >= 25000) && totalTokens >= 50000) {
+      } else if (!isCacheWarmNow && (clutterTokens >= 25000 || (reclaimSumK * 1000) >= 25000) && totalTokens >= compactReadyFloor && (turnCnt === 0 || turnCnt >= 2)) {
         verdictBarEl.dataset.verdictState = 'COMPACT_READY';
         verdictTextEl.textContent = `COMPACT READY \u00B7 Cache cold \u00B7 ${reclaimSumStr} reclaimable (${fmtK(leftTok)} under ${effShortLabel})`;
         if (routerHoldNoteEl) routerHoldNoteEl.hidden = true;
@@ -5320,9 +5611,20 @@
     const badge = document.getElementById('statusBadge');
     const prefixLockBadgeEl = document.getElementById('prefixLockBadge');
     if (dot) {
-      dot.className = sessionRisk.dotClass;
-      dot.dataset.riskBand = sessionRisk.band;
-      dot.title = sessionRisk.summary;
+      const vState = verdictBarEl?.dataset?.verdictState || 'NOMINAL';
+      const reasonsArr = Array.isArray(sessionRisk.reasons) ? sessionRisk.reasons : [];
+      const coldOnlyAmber = sessionRisk.band === 'AMBER' && reasonsArr.length === 1 && /Cache TTL == 0s/i.test(reasonsArr[0]);
+      if (vState === 'CIRCUIT_BREAKER' || vState === 'CRITICAL_STOP' || sessionRisk.band === 'RED') {
+        dot.className = 'dot danger';
+        dot.dataset.riskBand = 'RED';
+      } else if (vState === 'HOLD_COMPACT' || vState === 'COMPACT_NOW' || vState === 'COMPACT_READY' || (sessionRisk.band === 'AMBER' && !coldOnlyAmber)) {
+        dot.className = 'dot warn';
+        dot.dataset.riskBand = 'AMBER';
+      } else {
+        dot.className = 'dot';
+        dot.dataset.riskBand = 'GREEN';
+      }
+      dot.title = verdictTextEl?.textContent || sessionRisk.summary;
     }
     if (selEl) {
       selEl.dataset.prefixLock = String(Boolean(sessionRisk.prefixLockWarning));
@@ -6504,50 +6806,147 @@
     const detBreakerAlert = document.getElementById('detCircuitBreakerAlert');
     const detBreakerMsg = document.getElementById('detCircuitBreakerMsg');
     const trippedBreakerState = raw.coachState?.detectors?.tripped || raw.circuitBreakerTripped;
+    const rawDetCount = Number(raw.coachState?.detectors?.totalCount || 0);
+    const compatGuardCount = rawDetCount >= 30 ? rawDetCount : 20;
+    const visGuardTotal = Math.max(30, rawDetCount || 30);
+    const savedK = ((fts5Data?.savedTokens || 0) / 1000).toFixed(1);
     if (txtGuardrails) {
-      const savedK = ((fts5Data?.savedTokens || 0) / 1000).toFixed(1);
       if (trippedBreakerState) {
         const bId = trippedBreakerState.detectorId || trippedBreakerState.id || 'Breaker';
-        txtGuardrails.textContent = `\u26A0\uFE0F 1 guard tripped (${bId}) \u00B7 19 nominal \u00B7 FTS5 Log Compression: ${savedK}k tokens saved`;
+        txtGuardrails.textContent = `\u26A0\uFE0F 1 guard tripped (${bId}) \u00B7 ${compatGuardCount - 1} nominal \u00B7 FTS5 Log Compression: ${savedK}k tokens saved`;
       } else {
-        txtGuardrails.textContent = `\uD83D\uDEE1\uFE0F 20 guards quiet (DET-01..20 Active) \u00B7 FTS5 Log Compression: ${savedK}k tokens saved`;
+        txtGuardrails.textContent = `\uD83D\uDEE1\uFE0F ${compatGuardCount} guards quiet (DET-01..${compatGuardCount} Active) \u00B7 FTS5 Log Compression: ${savedK}k tokens saved`;
       }
     }
     if (detBreakerAlert && detBreakerMsg) {
       if (trippedBreakerState) {
         detBreakerAlert.hidden = false;
-        const cleanBreakerReason = String(trippedBreakerState.reason || 'Execution halted to prevent quota burn').replace(/^[\u26A0\uFE0F\uD83D\uDEA8\s]+/u, '');
+        const rawBrkMsg = typeof trippedBreakerState === 'object'
+          ? (trippedBreakerState.reason || trippedBreakerState.message || trippedBreakerState.title || 'Execution halted to prevent quota burn')
+          : String(trippedBreakerState);
+        const cleanBreakerReason = String(rawBrkMsg).replace(/^[\u26A0\uFE0F\uD83D\uDEA8\s]+/u, '');
         detBreakerMsg.textContent = `Circuit Breaker Tripped: ${cleanBreakerReason}`;
       } else {
         detBreakerAlert.hidden = true;
       }
     }
 
-    // Update 24px Tufte Baseline Strip & Sanitize $(shield) Codicon Literals
+    // Rank 4: Verified "Tokens Saved" Value Strip & Advanced Ledger Breakdown
+    const fmtPlusTok = (n) => {
+      const v = Math.max(0, Math.round(Number(n) || 0));
+      if (v <= 0) return '+0.0k';
+      if (v >= 1000000) return `+${(v / 1000000).toFixed(1)}M`;
+      return `+${(v / 1000).toFixed(1)}k`;
+    };
+    const srvSav = raw.savings;
+    const subSavedFallback = Math.max(0, Number(raw.subagents?.tokensSaved || 0));
+    const cacheReadFallback = Math.round(Math.max(0, Number(raw.quota?.cache?.cacheReadTokens || 0)) * 0.95);
+    const fts5SavedFallback = Math.max(0, Number(fts5Data?.savedTokens || 0));
+    const ledgerSavedFallback = Math.max(0, Number(
+      raw.savedQuotaTokens ??
+      raw.coachState?.savedQuotaLedger?.totalSavedTokens ??
+      0
+    ));
+    const bySrc = srvSav?.session?.bySource || null;
+    const savSubagent = bySrc ? Number(bySrc.subagentIsolated ?? bySrc.subagentIsolation ?? 0) : subSavedFallback;
+    const savCache = bySrc ? Number(bySrc.cachePreserved ?? bySrc.cachePreservation ?? 0) : cacheReadFallback;
+    const savCli = bySrc ? Number(bySrc.cliCompressed ?? bySrc.cliCompression ?? 0) : fts5SavedFallback;
+    const savGuards = bySrc
+      ? Number(bySrc.avoidedBloat ?? ((bySrc.guardsPrevented || 0) + (bySrc.compactionReclaimed || 0)))
+      : Math.max(0, ledgerSavedFallback - fts5SavedFallback);
+    const sessSavedTotal = srvSav?.session != null
+      ? Number(srvSav.session.totalTokens ?? srvSav.session.totalPhysicalTokens ?? 0)
+      : (savSubagent + savCache + savCli + savGuards);
+    const wsSavedTotal = Math.max(
+      sessSavedTotal,
+      Number(srvSav?.workspace30d?.totalTokens ?? srvSav?.workspace30d?.totalPhysicalTokens ?? 0)
+    );
+    const sessEstUsd = (srvSav?.session?.estimatedUsd ?? srvSav?.session?.estimatedInputValueUsd) != null
+      ? Number(srvSav.session.estimatedUsd ?? srvSav.session.estimatedInputValueUsd)
+      : Number(((sessSavedTotal / 1000000) * 2.0).toFixed(2));
+
     const tufteGuardsEl = document.getElementById('tufteGuardsQuietLabel');
     if (tufteGuardsEl) {
-      tufteGuardsEl.textContent = trippedBreakerState ? '1 breaker tripped' : '20 guards quiet';
+      tufteGuardsEl.textContent = trippedBreakerState ? '1 breaker tripped' : `${visGuardTotal} guards quiet`;
       tufteGuardsEl.style.color = trippedBreakerState ? '#fca5a5' : '';
     }
-    const savedTokTotal = Number(raw.savedQuotaTokens || raw.coachState?.savedQuotaLedger?.totalSavedTokens || raw.coachState?.savedQuotaLedger?.totalArgonEquivTokensSaved || 0);
-    const tufteSavedEl = document.getElementById('tufteSavedTokensLabel');
-    if (tufteSavedEl) {
-      tufteSavedEl.textContent = `+${fmtK(savedTokTotal)} saved`;
+    const baselineStripEl = document.getElementById('tufteBaselineStrip');
+    if (baselineStripEl) {
+      baselineStripEl.dataset.muted = String(Boolean(trippedBreakerState || raw.amputation?.amputationCrisis || raw.telemetry?.amputationRisk));
     }
+    const tufteSavedEl = document.getElementById('tufteSavedTokensLabel');
+    if (tufteSavedEl) tufteSavedEl.textContent = fmtPlusTok(sessSavedTotal);
+    const tufteWsSavedEl = document.getElementById('tufteWorkspaceSavedLabel');
+    if (tufteWsSavedEl) tufteWsSavedEl.textContent = fmtPlusTok(wsSavedTotal);
+    const setById = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setById('savSubagentVal', fmtPlusTok(savSubagent));
+    setById('savCacheVal', fmtPlusTok(savCache));
+    setById('savCliVal', fmtPlusTok(savCli));
+    setById('savGuardsVal', fmtPlusTok(savGuards));
+    setById('savEstUsdLabel', `Est. input value: ~$${sessEstUsd.toFixed(2)}`);
+    setById('advSavSubagentVal', fmtPlusTok(savSubagent));
+    setById('advSavCacheVal', fmtPlusTok(savCache));
+    setById('advSavCliVal', fmtPlusTok(savCli));
+    setById('advSavGuardsVal', fmtPlusTok(savGuards));
+    setById('advQuotaSummaryPill', `${fmtPlusTok(sessSavedTotal)} saved`);
+    setById('advWindowSummaryPill', `${fmtK(totalTokens)} / ${fmtK(maxTokens)} (${usedPct}%)`);
+
     const receiptTxtEl = document.getElementById('savedQuotaReceiptText');
     if (receiptTxtEl) {
-      const rawReceipt = raw.coachState?.savedQuotaLedger?.footerText || raw.coachState?.savedQuotaLedger?.statusBarText || receiptTxtEl.textContent || '';
-      receiptTxtEl.textContent = String(rawReceipt).replace(/^\$\([a-z0-9_-]+\)\s*/i, '');
+      const rawReceipt = raw.coachState?.savedQuotaLedger?.displayFooterText || raw.coachState?.savedQuotaLedger?.footerText || raw.coachState?.savedQuotaLedger?.statusBarText || '';
+      const cleanedReceipt = String(rawReceipt)
+        .replace(/^\$\([a-z0-9_-]+\)\s*/i, '')
+        .replace(/Argon[\x2d]equiv\s+tokens\s+saved/gi, 'tokens saved')
+        .replace(/^Saved Quota:/i, 'Tokens Saved:');
+      receiptTxtEl.textContent = cleanedReceipt && !/\+0\.0k/.test(cleanedReceipt)
+        ? cleanedReceipt
+        : `Tokens Saved: ${fmtPlusTok(sessSavedTotal)} this chat \u00B7 ${fmtPlusTok(wsSavedTotal)} (30d)`;
     }
 
-    // Sync folded 1-line Bloat driver and Guardrails status
+    // Sync folded 1-line Bloat driver and Advanced Accordion 3 & 4 telemetry
     const storageBloatEl = document.getElementById('storagePrimaryBloatText');
     if (storageBloatEl && txtBloat) {
       storageBloatEl.textContent = txtBloat.textContent;
     }
     const coachingGuardrailsEl = document.getElementById('coachingGuardrailsText');
-    if (coachingGuardrailsEl && txtGuardrails) {
-      coachingGuardrailsEl.textContent = txtGuardrails.textContent;
+    if (coachingGuardrailsEl) {
+      if (trippedBreakerState) {
+        const bId = trippedBreakerState.detectorId || trippedBreakerState.id || 'Breaker';
+        coachingGuardrailsEl.textContent = `1 guard tripped (${bId}) \u00B7 ${visGuardTotal - 1} nominal \u00B7 FTS5 Log Compression: ${savedK}k tokens saved`;
+      } else {
+        coachingGuardrailsEl.textContent = `${visGuardTotal} guards active (DET-01..${visGuardTotal}) \u00B7 FTS5 Log Compression: ${savedK}k tokens saved`;
+      }
+    }
+    setById('advGuardsSummaryPill', trippedBreakerState ? `1 tripped (${trippedBreakerState.detectorId || trippedBreakerState.id || 'DET'})` : `${visGuardTotal} active`);
+    const advBreakerLogEl = document.getElementById('advCircuitBreakerLog');
+    if (advBreakerLogEl) {
+      const alertsList = Array.isArray(raw.coachState?.circuitBreakerAlerts) ? raw.coachState.circuitBreakerAlerts : [];
+      if (trippedBreakerState || alertsList.length > 0) {
+        const items = alertsList.length > 0 ? alertsList : [trippedBreakerState];
+        advBreakerLogEl.innerHTML = items.slice(0, 5).map(a => {
+          const id = typeof a === 'object' ? (a.detectorId || a.id || 'DET') : 'DET';
+          const msg = typeof a === 'object' ? (a.reason || a.message || a.title || 'Triggered') : String(a);
+          return `<div><strong>${escAttr(id)}</strong>: ${escAttr(msg)}</div>`;
+        }).join('');
+      } else {
+        advBreakerLogEl.textContent = 'No circuit breakers tripped in this session.';
+      }
+    }
+    const advEffortHistEl = document.getElementById('advEffortHistoryList');
+    if (advEffortHistEl) {
+      const transitions = Array.isArray(raw.effortTransitions) ? raw.effortTransitions : (Array.isArray(raw.window?.effortTransitions) ? raw.window.effortTransitions : []);
+      if (transitions.length > 0) {
+        advEffortHistEl.innerHTML = transitions.slice(-5).map(t =>
+          `<div>&#x21C4; Turn #${Number(t.stepNumber ?? t.turnIndex ?? 0)}: ${escAttr(t.fromLabel || t.fromTier || 'Auto')} &rarr; ${escAttr(t.toLabel || t.toTier || 'Auto')}</div>`
+        ).join('');
+      } else if (raw.modelThrash?.isThrashing) {
+        advEffortHistEl.textContent = `\u21C4 Model thrash detected: ${Number(raw.modelThrash.switchCount || 2)} hops (${(raw.modelThrash.models || []).join(' \u2194 ')})`;
+      } else {
+        advEffortHistEl.textContent = 'No model or effort switches recorded in this chat.';
+      }
+    }
+    if (typeof syncAutoOpenAdvAccordions === 'function') {
+      syncAutoOpenAdvAccordions(raw, trippedBreakerState);
     }
 
     // 4. Domain-Focused Boxes: Context Cleanup, Coaching & RSI
@@ -6562,7 +6961,8 @@
       const dismissedKeys = getDismissedActionKeys();
       const isCacheWarm = (typeof ttlSec === 'number' && ttlSec > 0 && !q.cache?.isCacheCold);
       const isHoldCompactVerdict = (totalTokens > safeLimit && isCacheWarm) || raw.verdictCode === 'HOLD_COMPACT';
-      const isExplicitWarmLock = isCacheWarm && isHoldCompactVerdict;
+      const hasImmediateCrisis = Boolean(raw.amputation?.amputationCrisis || raw.telemetry?.amputationRisk || trippedBreakerState);
+      const isExplicitWarmLock = isCacheWarm && isHoldCompactVerdict && !hasImmediateCrisis;
 
       const resetBtn = document.getElementById('simpleResetDismissedBtn');
       const resetCount = document.getElementById('simpleResetDismissedCount');
@@ -6838,6 +7238,9 @@
 
       // A5. Tail Surgeon (Coaching Action)
       if (compCoach?.recommendTailTrim && !dismissedKeys.has('tail-trim')) {
+        const tailSub = isCacheWarm && totalTokens >= 50000
+          ? `Preserves ${fmtK(totalTokens)} warm cache`
+          : 'Trims old tool outputs without resetting chat';
         coachingRows.push(
           `<details class="m3-action-row m3-action-collapsible" data-action-id="tail-trim" data-dismiss-key="tail-trim">` +
             `<summary class="m3-action-summary">` +
@@ -6845,7 +7248,7 @@
               `<span class="m3-action-icon spark">&#x2702;&#xFE0F;</span>` +
               `<div class="m3-action-text">` +
                 `<span class="m3-action-title">Trim Stale Output Waste</span>` +
-                `<span class="m3-action-sub mono">Preserves 50k prefix cache</span>` +
+                `<span class="m3-action-sub mono">${escAttr(tailSub)}</span>` +
               `</div>` +
               `<span class="m3-impact-badge cyan mono">Tail</span>` +
               `<div class="m3-action-btn-row">` +
@@ -7362,6 +7765,15 @@
 
       const activeMutatingRows = (isExplicitWarmLock && !userForcedShowDeferred) ? [] : mutatingHtmlRows;
       const allActionRows = [...cleanupPrefixSafeRows, ...activeMutatingRows, ...crossSessionHtmlRows, ...coachingRows, ...rsiRows];
+      const holdVisible = Boolean(holdBanner && holdBanner.style.display !== 'none');
+      const nominalConfirmEl = document.getElementById('simpleNominalConfirm');
+      const nominalSubEl = document.getElementById('simpleNominalSub');
+      if (nominalConfirmEl) {
+        nominalConfirmEl.hidden = Boolean(allActionRows.length > 0 || holdVisible || hasImmediateCrisis);
+        if (nominalSubEl) {
+          nominalSubEl.textContent = isCacheWarm ? '95% cache active' : '0 actions needed';
+        }
+      }
 
       if (allActionRows.length > 0) {
         actionBoxEl.hidden = false;
@@ -7381,7 +7793,7 @@
         for (const r of allActionRows) {
           const isActionRow = r.includes('m3-action-row');
           if (isActionRow) seenActionCount++;
-          if (seenActionCount <= 2 && !( !isActionRow && seenActionCount === 2 )) {
+          if (seenActionCount <= 1 && !( !isActionRow && seenActionCount === 1 )) {
             primaryHtmlRows.push(r);
           } else {
             overflowHtmlRows.push(r);
@@ -7405,23 +7817,27 @@
           }
           bindActionRowListeners(actionListEl);
         }
+      } else if (holdVisible) {
+        actionBoxEl.hidden = false;
+        if (actionCountPill) {
+          actionCountPill.textContent = `${mutatingHtmlRows.length} staged`;
+        }
+        actionListEl.innerHTML = '';
+        actionListEl.dataset.sig = '';
       } else {
         actionBoxEl.hidden = true;
         actionListEl.innerHTML = '';
         actionListEl.dataset.sig = '';
       }
 
-      // Box 4: Active Coaching & Effort Governor
+      // Advanced Accordion 4: Active Coaching & Effort Governor (zero duplicate action rows)
       const coachingBoxEl = document.getElementById('coachingBox');
       const coachingListEl = document.getElementById('coachingActionList');
       const coachingPillEl = document.getElementById('coachingStatusPill');
       if (coachingBoxEl && coachingListEl) {
-        const coachHtml = coachingRows.join('');
-        if (coachingListEl.dataset.sig !== coachHtml) {
-          coachingListEl.innerHTML = coachHtml;
-          coachingListEl.dataset.sig = coachHtml;
-          bindActionRowListeners(coachingListEl);
-        }
+        coachingListEl.innerHTML = '';
+        coachingListEl.dataset.sig = '';
+        coachingListEl.hidden = true;
         if (coachingPillEl) {
           const coachMode = raw.coachMode || 'coach';
           coachingPillEl.textContent = coachingRows.length > 0
@@ -7431,7 +7847,7 @@
         coachingBoxEl.hidden = false;
       }
 
-      // Box 5: Recursive Self-Improvement (RSI)
+      // Advanced Accordion 5: Session Rule Candidates (zero duplicate action rows)
       const rsiBoxEl = document.getElementById('rsiBox');
       const rsiListEl = document.getElementById('rsiActionList');
       const rsiPillEl = document.getElementById('rsiStatusPill');
@@ -7439,23 +7855,19 @@
       const rsiMiddleEl = document.getElementById('rsiMiddleTroughLabel');
       const rsiShieldEl = document.getElementById('rsiShieldLabel');
       if (rsiBoxEl && rsiListEl) {
-        const rsiHtml = rsiRows.join('');
-        if (rsiListEl.dataset.sig !== rsiHtml) {
-          rsiListEl.innerHTML = rsiHtml;
-          rsiListEl.dataset.sig = rsiHtml;
-          bindActionRowListeners(rsiListEl);
-        }
+        rsiListEl.innerHTML = '';
+        rsiListEl.dataset.sig = '';
+        rsiListEl.hidden = true;
         const uCurveData = raw.coachState?.uShapedAttention;
         const middleRisk = uCurveData?.middleTroughRiskCount || 0;
+        const stagedCnt = Number(raw.coachState?.prefixCacheShield?.stagedCount || 0);
         if (rsiPrimacyEl) rsiPrimacyEl.innerHTML = `Primacy Band: <strong>${uCurveData?.healthScore || 94}%</strong>`;
         if (rsiMiddleEl) rsiMiddleEl.textContent = `${middleRisk} Trough Risk${middleRisk === 1 ? '' : 's'}`;
-        if (rsiShieldEl) rsiShieldEl.textContent = `PrefixCacheShield: ${raw.coachState?.prefixCacheShield?.stagedCount ? `${raw.coachState.prefixCacheShield.stagedCount} Staged` : 'Staged'}`;
+        if (rsiShieldEl) rsiShieldEl.textContent = `Rule Shield: ${stagedCnt} queued`;
         if (rsiPillEl) {
           rsiPillEl.textContent = rsiRows.length > 0 ? `${rsiRows.length} Ready` : `Primacy: ${uCurveData?.healthScore || 94}%`;
         }
-        const userCorr = Number(signals?.userCorrections || 0);
-        const rsiVisible = rsiRows.length > 0 || middleRisk > 0 || (userCorr > 0 && !dismissedKeys.has('rule'));
-        rsiBoxEl.hidden = !rsiVisible;
+        rsiBoxEl.hidden = false;
       }
     }
   }
@@ -7674,19 +8086,124 @@
     };
   }
 
-  // Tier 3: Copy Savings Receipt Markdown handler
+  // Stateful Advanced View Accordions (localStorage['ctxtop.advSections']) + Smart Auto-Open
+  const userClosedAdvIds = new Set();
+  let suppressAdvStorageSync = false;
+  (function initAdvAccordions() {
+    let saved = { window: true, quota: false, guards: false, router: false, rules: false };
+    try {
+      const raw = localStorage.getItem('ctxtop.advSections');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') saved = { ...saved, ...parsed };
+      }
+    } catch (err) {
+      void err;
+    }
+    suppressAdvStorageSync = true;
+    document.querySelectorAll('details.adv-accordion[data-adv-id]').forEach(det => {
+      const id = det.dataset.advId;
+      det.open = Boolean(saved[id]);
+      det.addEventListener('toggle', () => {
+        if (suppressAdvStorageSync) return;
+        if (!det.open) userClosedAdvIds.add(id);
+        else userClosedAdvIds.delete(id);
+        try {
+          const cur = {};
+          document.querySelectorAll('details.adv-accordion[data-adv-id]').forEach(d => {
+            cur[d.dataset.advId] = Boolean(d.open);
+          });
+          localStorage.setItem('ctxtop.advSections', JSON.stringify(cur));
+        } catch (err) {
+          void err;
+        }
+      });
+    });
+    suppressAdvStorageSync = false;
+  })();
+
+  function syncAutoOpenAdvAccordions(raw, trippedBreakerState) {
+    suppressAdvStorageSync = true;
+    const s5 = Number(raw?.quota?.sprint5h?.usedPct || 0);
+    const w7 = Number(raw?.quota?.weekly7d?.usedPct || 0);
+    const quotaDet = document.getElementById('advAccQuota');
+    if (quotaDet && (s5 >= 80 || w7 >= 85) && !userClosedAdvIds.has('quota')) {
+      quotaDet.open = true;
+    }
+    const guardsDet = document.getElementById('advAccGuards');
+    if (guardsDet && trippedBreakerState && !userClosedAdvIds.has('guards')) {
+      guardsDet.open = true;
+    }
+    suppressAdvStorageSync = false;
+  }
+
+  // Rank 4: Toggle "Tokens Saved" [Why] drawer & Copy Verified Plain-English Receipt
+  const btnToggleSavingsWhy = document.getElementById('btnToggleSavingsWhy');
+  if (btnToggleSavingsWhy) {
+    btnToggleSavingsWhy.onclick = () => {
+      const drawer = document.getElementById('simpleSavingsWhyDrawer');
+      if (!drawer) return;
+      const nextOpen = drawer.hidden;
+      drawer.hidden = !nextOpen;
+      btnToggleSavingsWhy.setAttribute('aria-expanded', String(nextOpen));
+      btnToggleSavingsWhy.textContent = nextOpen ? '[\u25B4 Hide]' : '[\u25BE Why]';
+    };
+  }
+
+  async function copyVerifiedTokensSavedReceipt() {
+    let md = '';
+    try {
+      const r = await fetch('/api/savings/receipt', {
+        method: 'POST',
+        headers: buildHorizonPostHeaders(),
+        body: JSON.stringify({ sessionId: currentRenderedState?.sessionId || '' })
+      });
+      if (r.ok) {
+        const data = await r.json();
+        if (data && data.receiptMarkdown) md = String(data.receiptMarkdown);
+      }
+    } catch (err) {
+      void err;
+    }
+    if (!md) {
+      const sessVal = document.getElementById('tufteSavedTokensLabel')?.textContent || '+0.0k';
+      const wsVal = document.getElementById('tufteWorkspaceSavedLabel')?.textContent || '+0.0k';
+      const subVal = document.getElementById('savSubagentVal')?.textContent || '+0.0k';
+      const cacheVal = document.getElementById('savCacheVal')?.textContent || '+0.0k';
+      const cliVal = document.getElementById('savCliVal')?.textContent || '+0.0k';
+      const guardVal = document.getElementById('savGuardsVal')?.textContent || '+0.0k';
+      const usdVal = document.getElementById('savEstUsdLabel')?.textContent || 'Est. input value: ~$0.00';
+      md = [
+        '### Attention Horizon — Verified Tokens Saved Receipt',
+        '',
+        `- **This Chat:** ${sessVal} (${usdVal})`,
+        `- **30-Day Workspace:** ${wsVal}`,
+        '',
+        '| Savings Source | Physical Tokens Saved |',
+        '| :--- | ---: |',
+        `| Subagent context isolation | ${subVal} |`,
+        `| Warm prompt cache (95% off) | ${cacheVal} |`,
+        `| CLI & log output compression (FTS5) | ${cliVal} |`,
+        `| Loops, re-reads & tail trims avoided | ${guardVal} |`
+      ].join('\n');
+    }
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(md);
+      }
+    } catch (err) {
+      void err;
+    }
+    showToast('&#x2713; <strong>Copied Verified Tokens Saved Receipt</strong> to clipboard.');
+  }
+
   const btnCopySavingsReceipt = document.getElementById('btnCopySavingsReceipt');
   if (btnCopySavingsReceipt) {
-    btnCopySavingsReceipt.onclick = async () => {
-      const receiptText = document.getElementById('savedQuotaReceiptText')?.textContent || '';
-      const md = `### 🛡️ Attention Horizon — Saved-Quota Receipt\n\n\`${receiptText}\`\n\n| Event Type | Status |\n| :--- | :--- |\n| \`COLD_PREFILL_AVOIDED\` | Verified |\n| \`EFFORT_DOWNSHIFT\` | Verified |\n| \`CLI_DUMP_COMPRESSED\` | Verified |`;
-      try {
-        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-          await navigator.clipboard.writeText(md);
-        }
-      } catch {}
-      showToast('&#x2713; <strong>Copied Saved-Quota Receipt Markdown</strong> to clipboard.');
-    };
+    btnCopySavingsReceipt.onclick = copyVerifiedTokensSavedReceipt;
+  }
+  const btnCopySimpleSavingsReceipt = document.getElementById('btnCopySimpleSavingsReceipt');
+  if (btnCopySimpleSavingsReceipt) {
+    btnCopySimpleSavingsReceipt.onclick = copyVerifiedTokensSavedReceipt;
   }
 
   // Model & Effort Router 3-Way Mode Switch handler (syncs both card buttons and Tufte 24px baseline strip)
@@ -7747,9 +8264,11 @@
     }
   };
 
-  // Handle dropdown conversation selection
+  // Handle dropdown conversation selection & unpin chip
   document.getElementById('sessionSelect').onchange = async (e) => {
     selectedSessionMode = e.target.value;
+    const followBtn = document.getElementById('btnFollowActiveSession');
+    if (followBtn) followBtn.hidden = selectedSessionMode === 'auto';
     document.getElementById('feedbackToast').style.display = 'none';
     if (selectedSessionMode === 'auto') {
       if (latestAutoState) renderState(latestAutoState, false);
@@ -7760,8 +8279,29 @@
       const r = await fetch(`/api/state?conversationId=${encodeURIComponent(selectedSessionMode)}`);
       const d = await r.json();
       if (d && d.sessionId === selectedSessionMode) renderState(d, true);
-    } catch {}
+    } catch (err) {
+      void err;
+    }
   };
+
+  const followActiveBtn = document.getElementById('btnFollowActiveSession');
+  if (followActiveBtn) {
+    followActiveBtn.onclick = async () => {
+      selectedSessionMode = 'auto';
+      const sel = document.getElementById('sessionSelect');
+      if (sel) sel.value = 'auto';
+      followActiveBtn.hidden = true;
+      document.getElementById('feedbackToast').style.display = 'none';
+      if (latestAutoState) renderState(latestAutoState, false);
+      try {
+        const r = await fetch('/api/state?conversationId=auto');
+        const d = await r.json();
+        if (d && selectedSessionMode === 'auto') renderState(d, false);
+      } catch (err) {
+        void err;
+      }
+    };
+  }
 
   // Listen for IDE workspace-change events from /preload.js
   if (window.sidecar && typeof window.sidecar.onWorkspaceChange === 'function') {

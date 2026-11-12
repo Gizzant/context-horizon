@@ -11,14 +11,14 @@ import { getHomeDir } from './paths.mjs';
  */
 
 const SECRET_PATTERNS = [
-  { name: 'anthropic_key', re: /\bsk-ant-[A-Za-z0-9_-]{8,}\b/g, replacement: '[REDACTED:ANTHROPIC_KEY]' },
-  { name: 'openai_key', re: /\bsk-(?:proj-|live-)?[A-Za-z0-9_-]{16,}\b/g, replacement: '[REDACTED:OPENAI_KEY]' },
-  { name: 'google_api_key', re: /\bAIza[0-9A-Za-z_-]{20,}\b/g, replacement: '[REDACTED:GOOGLE_API_KEY]' },
-  { name: 'github_pat', re: /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{16,}\b/g, replacement: '[REDACTED:GITHUB_PAT]' },
-  { name: 'github_fine_pat', re: /\bgithub_pat_[A-Za-z0-9_]{16,}\b/g, replacement: '[REDACTED:GITHUB_PAT]' },
-  { name: 'aws_access_key', re: /\bAKIA[0-9A-Z]{16}\b/g, replacement: '[REDACTED:AWS_KEY]' },
-  { name: 'bearer_token', re: /\bBearer\s+[A-Za-z0-9._~+/-]{16,}\b/gi, replacement: 'Bearer [REDACTED:TOKEN]' },
-  { name: 'env_secret', re: /\b([A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|API_KEY|PRIVATE_KEY)[A-Z0-9_]*)\s*=\s*(['"]?)[^\s'"]+\2/g, replacement: '$1=[REDACTED:ENV]' }
+  { name: 'anthropic_key', hint: 'sk-ant-', re: /\bsk-ant-[A-Za-z0-9_-]{8,}\b/g, replacement: '[REDACTED:ANTHROPIC_KEY]' },
+  { name: 'openai_key', hint: 'sk-', re: /\bsk-(?:proj-|live-)?[A-Za-z0-9_-]{16,}\b/g, replacement: '[REDACTED:OPENAI_KEY]' },
+  { name: 'google_api_key', hint: 'AIza', re: /\bAIza[0-9A-Za-z_-]{20,}\b/g, replacement: '[REDACTED:GOOGLE_API_KEY]' },
+  { name: 'github_pat', hint: 'gh', re: /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{16,}\b/g, replacement: '[REDACTED:GITHUB_PAT]' },
+  { name: 'github_fine_pat', hint: 'github_pat_', re: /\bgithub_pat_[A-Za-z0-9_]{16,}\b/g, replacement: '[REDACTED:GITHUB_PAT]' },
+  { name: 'aws_access_key', hint: 'AKIA', re: /\bAKIA[0-9A-Z]{16}\b/g, replacement: '[REDACTED:AWS_KEY]' },
+  { name: 'bearer_token', hint: 'earer', re: /\bBearer\s+[A-Za-z0-9._~+/-]{16,}\b/gi, replacement: 'Bearer [REDACTED:TOKEN]' },
+  { name: 'env_secret', hint: '=', re: /\b([A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|API_KEY|PRIVATE_KEY)[A-Z0-9_]*)\s*=\s*(['"]?)[^\s'"]+\2/g, replacement: '$1=[REDACTED:ENV]' }
 ];
 
 export function sanitizeForensicPayload(input, { homeDir = getHomeDir() } = {}) {
@@ -31,6 +31,13 @@ export function sanitizeForensicPayload(input, { homeDir = getHomeDir() } = {}) 
   const scrubString = (str) => {
     let out = String(str);
     for (const pat of SECRET_PATTERNS) {
+      if (pat.hint) {
+        if (pat.name === 'bearer_token') {
+          if (!out.includes('earer') && !out.includes('EARER')) continue;
+        } else if (!out.includes(pat.hint)) {
+          continue;
+        }
+      }
       out = out.replace(pat.re, (...args) => {
         redactedSecretCount += 1;
         if (pat.name === 'env_secret') {
@@ -52,10 +59,12 @@ export function sanitizeForensicPayload(input, { homeDir = getHomeDir() } = {}) 
     }
 
     // Also scrub generic OS user paths like C:\Users\<username> or /Users/<username>
-    out = out.replace(/(?:[A-Za-z]:[\\/]Users[\\/]|\/Users\/|\/home\/)([A-Za-z0-9._-]+)(?=[\\/])/g, () => {
-      redactedPathCount += 1;
-      return '~';
-    });
+    if (out.includes('Users') || out.includes('users') || out.includes('/home/')) {
+      out = out.replace(/(?:[A-Za-z]:[\\/]Users[\\/]|\/Users\/|\/home\/)([A-Za-z0-9._-]+)(?=[\\/])/g, () => {
+        redactedPathCount += 1;
+        return '~';
+      });
+    }
 
     return out;
   };
