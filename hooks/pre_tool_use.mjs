@@ -14,13 +14,20 @@ import { MicroIpcClient } from '../src/engine-node/ipc/client.mjs';
 
 async function checkControlLatchDirectOrIpc(input) {
   const sessionId = input?.sessionId || input?.session_id || 'default';
-  const ipcClient = new MicroIpcClient({ connectTimeoutMs: 15, requestTimeoutMs: 600000 });
+  const homeDir = process.env.USERPROFILE || process.env.HOME || os.homedir();
+  const ctlPath = path.join(homeDir, '.ctxtop', 'runtime', `${sessionId}.ctl`);
+  const hasCtlFile = fs.existsSync(ctlPath);
 
+  if (!hasCtlFile && !input?.forceIpcCheck) {
+    return { decision: 'allow' };
+  }
+
+  const ipcClient = new MicroIpcClient({ connectTimeoutMs: 10, requestTimeoutMs: 600000 });
   try {
     const verdict = await ipcClient.call(
       'hook.preToolUse',
       { ...input, sessionId },
-      { connectTimeoutMs: 15, requestTimeoutMs: 600000 }
+      { connectTimeoutMs: 10, requestTimeoutMs: 600000 }
     );
     if (verdict && verdict.decision) {
       return verdict;
@@ -29,10 +36,7 @@ async function checkControlLatchDirectOrIpc(input) {
     void _ipcErr;
   }
 
-  // Direct .ctl file check fallback
-  const homeDir = process.env.USERPROFILE || process.env.HOME || os.homedir();
-  const ctlPath = path.join(homeDir, '.ctxtop', 'runtime', `${sessionId}.ctl`);
-  if (!fs.existsSync(ctlPath)) {
+  if (!hasCtlFile) {
     return { decision: 'allow' };
   }
 
@@ -71,7 +75,7 @@ async function checkControlLatchDirectOrIpc(input) {
   }
 }
 
-readStdinSafe({ maxTimeoutMs: 500, settleMs: 15 })
+readStdinSafe({ maxTimeoutMs: 250, settleMs: 2 })
   .then(async (input) => {
     const controlVerdict = await checkControlLatchDirectOrIpc(input);
     if (controlVerdict && (controlVerdict.decision === 'deny' || controlVerdict.decision === 'block')) {

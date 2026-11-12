@@ -3367,10 +3367,10 @@
     <div class="action-rows-stack" id="simpleActionList"></div>
   </section>
 
-  <!-- Advanced View Workbench: 5 Stateful Collapsible Accordions -->
-  <details class="adv-accordion advanced-only" id="advAccWindow" data-adv-id="window" open>
+  <!-- Advanced View Workbench: 4 Clean Collapsible Drawers -->
+  <details class="adv-accordion hz-adv-drawer advanced-only" id="advAccWindow" data-adv-id="window" open>
     <summary class="adv-accordion-summary">
-      <span class="adv-accordion-title">1. 40-Cell Context Window &amp; Consumers</span>
+      <span class="adv-accordion-title">1. Context &amp; Cache Physics (40-Cell Map &amp; Consumers)</span>
       <span class="summary-status-pill mono" id="advWindowSummaryPill">40 cells</span>
     </summary>
     <div class="adv-accordion-body">
@@ -3536,46 +3536,46 @@
     </div>
   </details>
 
-  <details class="adv-accordion advanced-only" id="advAccQuota" data-adv-id="quota">
+  <details class="adv-accordion hz-adv-drawer advanced-only" id="advAccGuards" data-adv-id="guards">
     <summary class="adv-accordion-summary">
-      <span class="adv-accordion-title">2. Quota Pacing &amp; Verified Savings Ledger</span>
-      <span class="summary-status-pill mono" id="advQuotaSummaryPill">+0.0k saved</span>
-    </summary>
-    <div class="adv-accordion-body">
-      <div class="savings-why-drawer mono" id="advSavingsBreakdownBox" style="border-top:none;padding-top:0;">
-        <div class="savings-why-row"><span>Subagent context isolation</span><strong id="advSavSubagentVal">+0.0k</strong></div>
-        <div class="savings-why-row"><span>Warm prompt cache (95% discount + shield)</span><strong id="advSavCacheVal">+0.0k</strong></div>
-        <div class="savings-why-row"><span>CLI &amp; log output compression (FTS5)</span><strong id="advSavCliVal">+0.0k</strong></div>
-        <div class="savings-why-row"><span>Loops, re-reads &amp; tail trims avoided</span><strong id="advSavGuardsVal">+0.0k</strong></div>
-      </div>
-      <footer class="tier3-saved-quota-footer mono" id="savedQuotaFooterBar">
-        <span class="tier3-receipt-text" id="savedQuotaReceiptText">Tokens Saved: +0.0k (0 Cold Prefills &middot; 0 Downshifts &middot; 0 CLI Compress)</span>
-        <button type="button" class="btn-copy-receipt mono" id="btnCopySavingsReceipt" title="Copy Markdown Verified Tokens Saved Receipt to clipboard">[Copy Receipt]</button>
-      </footer>
-    </div>
-  </details>
-
-  <details class="adv-accordion advanced-only" id="advAccGuards" data-adv-id="guards">
-    <summary class="adv-accordion-summary">
-      <span class="adv-accordion-title">3. Guardrails &amp; DET-01..30 Sensor Log</span>
-      <span class="summary-status-pill mono" id="advGuardsSummaryPill">30 active</span>
+      <span class="adv-accordion-title">2. Active Guards, DET-01..32 Breakers &amp; Savings Ledger</span>
+      <span class="summary-status-pill mono" id="advGuardsSummaryPill">32 active</span>
     </summary>
     <div class="adv-accordion-body">
       <div class="coaching-guardrails-row mono" id="coachingGuardrailsLine">
         <span class="guardrails-icon">&#x1F6E1;&#xFE0F;</span>
-        <span id="coachingGuardrailsText">30 guards active (DET-01..30) &middot; FTS5 Log Compression: 0.0k tokens saved</span>
+        <span id="coachingGuardrailsText">32 guards active (DET-01..32) &middot; FTS5 Log Compression: 0.0k tokens saved</span>
       </div>
       <div class="mono" id="advCircuitBreakerLog" style="font-size:10.5px;color:var(--hz-muted);">No circuit breakers tripped in this session.</div>
       <div class="cross-session-banner mono advanced-only" id="crossSessionOffenderBanner" hidden>
         <span id="crossSessionOffenderText"></span>
         <button type="button" class="mini-btn" id="btnExportSanitized" title="Export a zero-PII sanitized JSON snapshot with secrets and tokens scrubbed">[Export Sanitized Snapshot]</button>
       </div>
+      <div class="adv-sub-ledger" id="advAccQuota" data-adv-id="quota" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--hz-border);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span class="mono" style="font-size:10.5px;font-weight:600;color:var(--hz-fg);">Verified Savings Ledger</span>
+          <span class="summary-status-pill mono" id="advQuotaSummaryPill">+0.0k saved</span>
+        </div>
+        <div class="savings-why-drawer mono" id="advSavingsBreakdownBox" style="border-top:none;padding-top:0;">
+          <div class="savings-why-row"><span>Subagent context isolation</span><strong id="advSavSubagentVal">+0.0k</strong></div>
+          <div class="savings-why-row"><span>Warm prompt cache (95% discount + shield)</span><strong id="advSavCacheVal">+0.0k</strong></div>
+          <div class="savings-why-row"><span>CLI &amp; log output compression (FTS5)</span><strong id="advSavCliVal">+0.0k</strong></div>
+          <div class="savings-why-row"><span>Loops, re-reads &amp; tail trims avoided</span><strong id="advSavGuardsVal">+0.0k</strong></div>
+        </div>
+        <footer class="tier3-saved-quota-footer mono" id="savedQuotaFooterBar">
+          <span class="tier3-receipt-text" id="savedQuotaReceiptText">Tokens Saved: +0.0k (0 Cold Prefills &middot; 0 Downshifts &middot; 0 CLI Compress)</span>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button type="button" class="btn-copy-receipt mono" id="btnCopySavingsReceipt" title="Copy Markdown Verified Tokens Saved Receipt to clipboard">[Copy Receipt]</button>
+            <a href="/api/receipt/export?format=pdf" download class="btn-copy-receipt mono" id="btnExportPdfReceipt" style="text-decoration:none;" title="Download Signed Corporate Expense Receipt (PDF 1.4)">[Export PDF Receipt]</a>
+          </div>
+        </footer>
+      </div>
     </div>
   </details>
 
-  <details class="adv-accordion advanced-only" id="advAccRouter" data-adv-id="router">
+  <details class="adv-accordion hz-adv-drawer advanced-only" id="advAccRouter" data-adv-id="router">
     <summary class="adv-accordion-summary">
-      <span class="adv-accordion-title">4. Model Router, Effort History (&#x21C4;) &amp; Sessions</span>
+      <span class="adv-accordion-title">3. Model Router, Effort Timeline (&#x21C4;) &amp; Sessions</span>
       <span class="summary-status-pill mono" id="coachingStatusPill">Coach Active</span>
     </summary>
     <div class="adv-accordion-body">
@@ -3597,6 +3597,7 @@
               <button type="button" class="mode-btn active" id="btnModeCoach" data-mode="coach">Coach</button>
               <button type="button" class="mode-btn" id="btnModeAutopilot" data-mode="autopilot">Auto-Pilot</button>
             </div>
+            <button type="button" class="mini-btn mono" id="btnUnlockHysteresis" hidden title="1-click unlock for Hysteresis Tier Escalation">&#x1F513; Unlock Tier</button>
             <div class="coach-pill" id="coachActionPill" hidden></div>
             <div class="subagent-live-pill mono" id="subagentLivePill" hidden title="Active Subagent Phantom Burn Auditor"></div>
           </div>
@@ -3619,9 +3620,9 @@
     </div>
   </details>
 
-  <details class="adv-accordion advanced-only" id="advAccRules" data-adv-id="rules">
+  <details class="adv-accordion hz-adv-drawer advanced-only" id="advAccRules" data-adv-id="rules">
     <summary class="adv-accordion-summary">
-      <span class="adv-accordion-title">5. Rules, Baseline Overhead &amp; Candidates</span>
+      <span class="adv-accordion-title">4. Workspace Rules, MCP Audit &amp; Candidates</span>
       <span class="summary-status-pill mono" id="advRulesSummaryPill">Rules &amp; MCP</span>
     </summary>
     <div class="adv-accordion-body">
@@ -8363,7 +8364,31 @@
     if (guardsDet && trippedBreakerState && !userClosedAdvIds.has('guards')) {
       guardsDet.open = true;
     }
+    const unlockBtn = document.getElementById('btnUnlockHysteresis');
+    if (unlockBtn) {
+      unlockBtn.hidden = !Boolean(raw?.coachState?.hysteresisLock?.locked);
+    }
     suppressAdvStorageSync = false;
+  }
+
+  const btnUnlockHysteresis = document.getElementById('btnUnlockHysteresis');
+  if (btnUnlockHysteresis) {
+    btnUnlockHysteresis.onclick = async () => {
+      try {
+        const r = await fetch('/api/router/unlock-hysteresis', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify({})
+        });
+        if (r.ok) {
+          const data = await r.json();
+          if (data.state) renderState(data.state);
+          showToast('&#x1F513; <strong>Hysteresis Tier Lock Released</strong>. Downshifts re-enabled.');
+        }
+      } catch (err) {
+        void err;
+      }
+    };
   }
 
   // Rank 4: Toggle "Tokens Saved" [Why] drawer & Copy Verified Plain-English Receipt

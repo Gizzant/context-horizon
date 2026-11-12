@@ -29,7 +29,7 @@ const CONCRETE_FILE_OR_PATH_RE =
   /(?:^|\s)@[A-Za-z0-9_./\\-]+|\b[A-Za-z0-9_.-]+\.(?:mjs|cjs|js|ts|tsx|jsx|py|go|rs|rb|java|kt|cs|cpp|c|h|css|scss|html|json|ya?ml|toml|md|sql|sh|ps1)\b|(?:^|[\s'"`(])(?:src|test|tests|lib|app|packages|hooks|scripts|sidecars|bin|config|docs)[\\/][A-Za-z0-9_./\\-]+/i;
 
 const CONCRETE_SYMBOL_OR_METRIC_RE =
-  /`[^`]{2,}`|\b[a-z][a-zA-Z0-9]+_[a-zA-Z0-9_]+\b|\b[a-z][a-z0-9]*[A-Z][A-Za-z0-9]+\b|\b[A-Z][a-z0-9]+[A-Z][A-Za-z0-9]*\b|\b[a-zA-Z_]\w*\s*\([^)]*\)|\b(?:line|ln)\s+\d+\b|\b\d+(?:\.\d+)?\s*(?:ms|s|sec|mb|kb|gb|%|tok|tokens|fps|rps|qps)\b|\b(?:DET|ISS|RSI|SIM)-\d+\b|\b(?:TypeError|ReferenceError|SyntaxError|RangeError|ENOENT|EACCES|ECONNREFUSED|ERR_[A-Z0-9_]+|HTTP\s+[45]\d\d)\b|\b(?:[Uu][Ii]\s+alignment|alignment|margin|padding|z-index|flexbox|grid\s+layout|tooltip|dropdown|sidebar|navbar|modal)\b/;
+  /`[^`]{2,}`|\b[a-z][a-zA-Z0-9]+_[a-zA-Z0-9_]+\b|\b[a-z][a-z0-9]*[A-Z][A-Za-z0-9]+\b|\b[A-Z][a-z0-9]+[A-Z][A-Za-z0-9]*\b|\b[a-zA-Z_]\w*\s*\([^)]*\)|\b(?:line|ln)\s+\d+\b|\b\d+(?:\.\d+)?\s*(?:ms|s|sec|mb|kb|gb|%|tok|tokens|fps|rps|qps)\b|\b(?:DET|ISS|RSI|SIM)-\d+\b|\b(?:TypeError|ReferenceError|SyntaxError|RangeError|ENOENT|EACCES|ECONNREFUSED|ERR_[A-Z0-9_]+|HTTP\s+[45]\d\d)\b|\b(?:[Uu][Ii]\s+alignment|alignment|margin|padding|z-index|flexbox|grid\s+layout|tooltip|dropdown|sidebar|navbar|modal|button|input|form|card|table|header|footer|panel|drawer|badge|icon|color|font|border|layout|style|css|html|test|tests|spec|build|lint|typecheck|commit|branch|merge|hook|daemon|server|client|router|cache|token|prompt|rule|config|package|readme|console)\b/;
 
 // Hard negative filters for Relay Breaker (3.1.4): stack traces, compiler errors, unified diffs, log timestamps, SQL, JSON/CSV payloads
 const HARD_NEGATIVE_STACK_TRACE_RE =

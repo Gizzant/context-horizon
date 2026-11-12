@@ -45,3 +45,4 @@ import './cost_radar_visualizer.test.mjs';
 import './micro_ipc_bridge.test.mjs';
 import './test_bad_habit_delta_and_micro_skills.test.mjs';
 import './node20_antigravity_compat.test.mjs';
+import './roadmap_items_2_to_7.test.mjs';

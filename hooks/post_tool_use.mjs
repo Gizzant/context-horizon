@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 import { runStrictPostToolUse } from '../src/hooks/portfolio_runtime.mjs';
-import { handlePostInvocation, readStdinSafe } from '../src/hooks/post_invocation.mjs';
+import { readStdinSafe } from '../src/hooks/post_invocation.mjs';
 
-readStdinSafe({ maxTimeoutMs: 500, settleMs: 15 })
+readStdinSafe({ maxTimeoutMs: 250, settleMs: 2 })
   .then(async (input) => {
     await runStrictPostToolUse(input);
-    await handlePostInvocation(input);
     return {};
   })
   .then(() => {

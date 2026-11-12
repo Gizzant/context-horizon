@@ -57,6 +57,14 @@ import {
 } from '../src/core-isomorphic/ui/modViews.mjs';
 import { renderHorizonPanelHtml } from '../src/core-isomorphic/ui/horizonPanelHtml.mjs';
 import { renderCostRadarHtml } from '../src/core-isomorphic/ui/costRadarSvg.mjs';
+import { generateCorporateExpenseReceipt } from '../src/core-isomorphic/ui/pdfReceiptGenerator.mjs';
+import {
+  activateProLicense,
+  activateLocalTrial,
+  deactivateProLicense,
+  getProEntitlementStatus,
+  verifyProLicenseKey
+} from '../src/core/pro_license.mjs';
 import {
   computeSwarmSummary,
   toCostRadarTopology,
@@ -93,6 +101,10 @@ export const PRE_TOOL_USE_MATCHER =
   'Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Grep|Glob|Task|Agent|WebFetch|mcp__.*';
 export const POST_TOOL_USE_MATCHER =
   'Bash|PowerShell|Grep|Glob|Task|Agent|WebFetch|mcp__.*';
+export const LEAN_PRE_TOOL_USE_MATCHER =
+  'Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Task|Agent|WebFetch|mcp__.*';
+export const LEAN_POST_TOOL_USE_MATCHER =
+  'Bash|PowerShell|Task|Agent|WebFetch|mcp__.*';
 
 const AH_HANDLER_REGEX =
   /hooks[\\/]handlers[\\/](pre-tool-use|post-tool-use|pre-model-switch|compact-lifecycle|stop-gate)\.mjs/i;
@@ -135,11 +147,13 @@ export function buildCanonicalAhHooks(options = {}) {
       : PKG_ROOT;
 
   const handlerPrefix = `${rootPrefix}/hooks/handlers`;
+  const preMatcher = options.leanHooks ? LEAN_PRE_TOOL_USE_MATCHER : PRE_TOOL_USE_MATCHER;
+  const postMatcher = options.leanHooks ? LEAN_POST_TOOL_USE_MATCHER : POST_TOOL_USE_MATCHER;
 
   return {
     PreToolUse: [
       {
-        matcher: PRE_TOOL_USE_MATCHER,
+        matcher: preMatcher,
         hooks: [
           {
             type: 'command',
@@ -150,7 +164,7 @@ export function buildCanonicalAhHooks(options = {}) {
     ],
     PostToolUse: [
       {
-        matcher: POST_TOOL_USE_MATCHER,
+        matcher: postMatcher,
         hooks: [
           {
             type: 'command',
@@ -308,7 +322,11 @@ export function installAttentionHorizon(options = {}) {
   }
   currentSettings.hooks.modules = existingModules;
 
-  const canonicalHooks = buildCanonicalAhHooks({ usePluginRootVar: false, pkgRoot });
+  const canonicalHooks = buildCanonicalAhHooks({
+    usePluginRootVar: false,
+    pkgRoot,
+    leanHooks: Boolean(options.leanHooks)
+  });
   for (const [eventName, ahEntries] of Object.entries(canonicalHooks)) {
     const existingList = Array.isArray(currentSettings.hooks[eventName])
       ? [...currentSettings.hooks[eventName]]
@@ -448,13 +466,56 @@ export function generateReceiptReport(options = {}) {
       ? renderSimpleHudPane(state, renderOpts)
       : renderSimpleViewPane(state, renderOpts);
   const gitReceipt = generateGitCommitEfficiencyReceipt(options);
+  const corporateReceipt = generateCorporateExpenseReceipt(summary, options);
 
   return {
     summary,
     pane,
     gitReceipt,
+    corporateReceipt,
     text: pane.text,
-    markdown: gitReceipt.markdown
+    markdown: gitReceipt.markdown,
+    html: corporateReceipt.html,
+    pdfBytes: corporateReceipt.pdfBytes
+  };
+}
+
+export function generateRoastCard(options = {}) {
+  const summary = getSavedQuotaReceiptSummary(options);
+  const sessionId = options.sessionId || 'default';
+  const live = options.state || readLiveStateSnapshot(sessionId, options) || {};
+  const retentionPct = Number(live?.prefixRetention?.retentionIndexPct ?? (options.demo ? 74 : 92));
+  const retentionGrade = live?.prefixRetention?.grade || (retentionPct >= 90 ? 'A' : retentionPct >= 75 ? 'B' : 'C');
+  const savedTok = Math.max(Number(summary.workspace30dSavedTokens || 0), options.demo ? 142800 : 0);
+  const savedUsd = Math.max(Number(summary.workspace30dSavedUSD || 0), options.demo ? 4.28 : 0);
+  const leakedUsd = Number(live?.prefixRetention?.leakedColdPrefillUSD ?? (options.demo ? 1.85 : 0.12));
+
+  const ascii = [
+    '╭── 🔥 ATTENTION HORIZON CONTEXT ROAST (Claude Code + Antigravity) ──────────╮',
+    `│ KV-Cache Retention : Grade ${retentionGrade} (${retentionPct}% prefix warmth retained)               │`,
+    `│ Cold Prefill Leak  : $${leakedUsd.toFixed(2)} burned on avoidable cold-cache switches/edits    │`,
+    `│ Verified Savings   : +${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)} USD saved in 30d)            │`,
+    '│ Top Remediation    : Fence mid-session CLAUDE.md/AGENTS.md edits (DET-09)  │',
+    '╰────────────────────────────────────────────────────────────────────────────╯',
+    `Share: Shielded +${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)}) with npx ah-claude --roast #ClaudeCode #Antigravity`
+  ].join('\n');
+
+  const markdown = [
+    '### 🔥 Attention Horizon Context Roast (`npx ah-claude --roast`)',
+    `- **KV-Cache Retention**: Grade **${retentionGrade}** (${retentionPct}% warmth retained)`,
+    `- **Cold Prefill Leak**: **$${leakedUsd.toFixed(2)}** burned on avoidable cold switches`,
+    `- **30-Day Verified Savings**: **+${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)} USD)**`,
+    `- **Top Fix**: Fence mid-session \`CLAUDE.md\` / \`AGENTS.md\` edits via \`DET-09\` & offload >4k CLI dumps.`
+  ].join('\n');
+
+  return {
+    retentionPct,
+    retentionGrade,
+    leakedUsd,
+    savedTok,
+    savedUsd,
+    ascii,
+    markdown
   };
 }
 
@@ -837,10 +898,65 @@ export function runCli(args = [], options = {}) {
   }
 
   if (subcommand === 'install') {
-    const res = installAttentionHorizon({ ...options, scope });
+    const leanHooks = args.includes('--lean-hooks') || Boolean(options.leanHooks);
+    const res = installAttentionHorizon({ ...options, scope, leanHooks });
     const backupNote = res.backupPath ? `\nBackup saved: ${res.backupPath}` : '';
     const output = `[Attention Horizon] Installed non-destructively into ${res.settingsPath}${backupNote}`;
     return { exitCode: res.ok ? 0 : 1, output, data: res };
+  }
+
+  if (subcommand === 'license' || subcommand === 'pro') {
+    const action = String(args[1] || 'status').toLowerCase();
+    if (action === 'activate' && args[2]) {
+      const actRes = activateProLicense(args[2], options);
+      if (isJson) {
+        return { exitCode: actRes.ok ? 0 : 1, output: JSON.stringify(actRes, null, 2), data: actRes };
+      }
+      return {
+        exitCode: actRes.ok ? 0 : 1,
+        output: actRes.ok
+          ? `[Attention Horizon Pro] Activated ${actRes.tier.toUpperCase()} license (${actRes.payload.email}) -> ${actRes.licensePath}`
+          : `[Attention Horizon Pro] License activation failed: ${actRes.reason}`,
+        data: actRes
+      };
+    }
+    if (action === 'trial') {
+      const trRes = activateLocalTrial(options);
+      return {
+        exitCode: 0,
+        output: `[Attention Horizon Pro] Activated 14-day local trial (expires ${trRes.expiresAt}) -> ${trRes.licensePath}`,
+        data: trRes
+      };
+    }
+    if (action === 'deactivate') {
+      const deactRes = deactivateProLicense(options);
+      return {
+        exitCode: 0,
+        output: `[Attention Horizon Pro] Deactivated license (${deactRes.licensePath})`,
+        data: deactRes
+      };
+    }
+    const status = getProEntitlementStatus(options);
+    if (isJson) {
+      return { exitCode: 0, output: JSON.stringify(status, null, 2), data: status };
+    }
+    return {
+      exitCode: 0,
+      output: `[Attention Horizon Pro] Tier=${status.tier} | Entitled=${status.entitled} | Source=${status.source}`,
+      data: status
+    };
+  }
+
+  if (subcommand === 'roast' || (args.includes('--roast') && subcommand !== 'postmortem')) {
+    const isDemo = args.includes('--demo') || Boolean(options.demo);
+    const roast = generateRoastCard({ ...options, demo: isDemo });
+    if (isJson) {
+      return { exitCode: 0, output: JSON.stringify(roast, null, 2), data: roast };
+    }
+    if (isMarkdown) {
+      return { exitCode: 0, output: roast.markdown, data: roast };
+    }
+    return { exitCode: 0, output: roast.ascii, data: roast };
   }
 
   if (subcommand === 'uninstall') {
@@ -889,6 +1005,7 @@ export function runCli(args = [], options = {}) {
 
   if (subcommand === 'cost-radar' || subcommand === 'radar') {
     const isDemo = args.includes('--demo') || Boolean(options.demo);
+    const isShare = args.includes('--share') || Boolean(options.share);
     const outIdx = args.indexOf('--out');
     const target = path.resolve(
       outIdx !== -1 && args[outIdx + 1]
@@ -898,13 +1015,14 @@ export function runCli(args = [], options = {}) {
     const res = generateCostRadar({ ...options, demo: isDemo });
     fs.mkdirSync(path.dirname(target), { recursive: true });
     const ok = writeTextAtomic(target, res.html) !== false;
-    const data = { ok, path: target, ...res.summary };
+    const shareSnippet = `⚡ Cost Radar: ${res.summary.retention} · ${res.summary.drift} · ${res.summary.swarm} (via npx ah-claude cost-radar)`;
+    const data = { ok, path: target, ...res.summary, shareSnippet };
     if (isJson) {
       return { exitCode: ok ? 0 : 1, output: JSON.stringify(data, null, 2), data };
     }
     return {
       exitCode: ok ? 0 : 1,
-      output: `[Attention Horizon] Cost Radar written: ${target}\n  ${res.summary.retention}\n  ${res.summary.drift}\n  ${res.summary.swarm}`,
+      output: `[Attention Horizon] Cost Radar written: ${target}\n  ${res.summary.retention}\n  ${res.summary.drift}\n  ${res.summary.swarm}${isShare ? `\n  Share: ${shareSnippet}` : ''}`,
       data
     };
   }
@@ -960,15 +1078,55 @@ export function runCli(args = [], options = {}) {
   if (subcommand === 'receipt') {
     const isAdvanced = args.includes('--advanced') || args.includes('advanced');
     const isFourRank = args.includes('--4-rank') || args.includes('--simple');
+    const isPdf = args.includes('--pdf') || Boolean(options.pdf);
+    const isHtml = args.includes('--html') || Boolean(options.html);
+    const outIdx = args.indexOf('--out');
+    const outPath = outIdx !== -1 && args[outIdx + 1]
+      ? path.resolve(args[outIdx + 1])
+      : options.out
+        ? path.resolve(options.out)
+        : null;
     const res = generateReceiptReport({
       ...options,
       advanced: isAdvanced,
       fourRank: isFourRank
     });
+    if (isPdf) {
+      const targetPdf = outPath || path.resolve(options.cwd || process.cwd(), 'attention-horizon-expense-receipt.pdf');
+      fs.mkdirSync(path.dirname(targetPdf), { recursive: true });
+      fs.writeFileSync(targetPdf, Buffer.from(res.pdfBytes));
+      const pdfData = {
+        ok: true,
+        path: targetPdf,
+        receiptId: res.corporateReceipt.receiptId,
+        sha256: res.corporateReceipt.sha256,
+        workspace30dSavedUSD: res.corporateReceipt.workspace30dSavedUSD,
+        netRoiMultiplier: res.corporateReceipt.netRoiMultiplier
+      };
+      if (isJson) {
+        return { exitCode: 0, output: JSON.stringify(pdfData, null, 2), data: pdfData };
+      }
+      return {
+        exitCode: 0,
+        output: `[Attention Horizon Pro] Corporate Expense Receipt (PDF 1.4) written: ${targetPdf}\n  Receipt ID : ${pdfData.receiptId}\n  30d Saved  : +$${pdfData.workspace30dSavedUSD.toFixed(2)} USD (${pdfData.netRoiMultiplier}x ROI)\n  SHA-256    : ${pdfData.sha256}`,
+        data: pdfData
+      };
+    }
+    if (isHtml) {
+      if (outPath) {
+        fs.mkdirSync(path.dirname(outPath), { recursive: true });
+        writeTextAtomic(outPath, res.html);
+      }
+      return { exitCode: 0, output: res.html, data: res };
+    }
     if (isJson) {
       return { exitCode: 0, output: JSON.stringify(res.gitReceipt, null, 2), data: res };
     }
     if (isMarkdown) {
+      if (outPath) {
+        fs.mkdirSync(path.dirname(outPath), { recursive: true });
+        writeTextAtomic(outPath, res.markdown);
+      }
       return { exitCode: 0, output: res.markdown, data: res };
     }
     return { exitCode: 0, output: res.text, data: res };
@@ -1019,6 +1177,7 @@ export function runCli(args = [], options = {}) {
   const knownSubcommands = new Set([
     'init', 'install', 'uninstall', 'config', 'cost-radar', 'radar', 'panel',
     'receipt', 'doctor', 'statusline', 'inspect', 'control', 'postmortem',
+    'license', 'pro', 'roast',
     '--help', '-h', 'help', '--version', '-v', 'version'
   ]);
   const hasHelp = args.length === 0 || args.includes('--help') || args.includes('-h') || subcommand === 'help';

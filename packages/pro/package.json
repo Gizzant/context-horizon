@@ -1,0 +1,13 @@
+{
+  "name": "@ctxtop/pro",
+  "version": "4.0.0",
+  "description": "Attention Horizon Pro — Offline Ed25519 License Verifier & Cross-Harness Commercial Entitlements (Polar.sh)",
+  "type": "module",
+  "main": "./src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

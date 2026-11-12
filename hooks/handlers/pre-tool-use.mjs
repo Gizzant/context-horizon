@@ -30,6 +30,21 @@ import { dispatchPreToolUseWithFallback } from './hookIpcClient.mjs';
  * @param {object} [options={}]
  */
 export function runPreToolUseHook(event = {}, options = {}) {
+  const toolName = String(event.tool_name || event.toolName || '');
+  const tier1Active = Boolean(
+    options.tier1ModActive ||
+    event.tier1ModActive ||
+    globalThis.process?.env?.AH_TIER1_MOD_ACTIVE === '1'
+  );
+  if (tier1Active && /^(Grep|Glob)$/i.test(toolName)) {
+    return {
+      exitCode: 0,
+      stdout: '',
+      stderr: '',
+      fastPath: 'tier1_mod_active',
+      verdict: { triggered: false, decision: 'allow', reason: 'Handled in-process by Tier 1 Mod' }
+    };
+  }
   const sessionId = event.session_id || event.sessionId || 'default';
   const cwdOptions = event.cwd && !options.cwd ? { ...options, cwd: event.cwd } : options;
   const horizonConfig = options.horizonConfig || loadHorizonConfig(cwdOptions);

@@ -483,6 +483,7 @@ export class HysteresisLock {
     this.triggerDetectorId = null;
     this.reason = null;
     this.engagedAtTurn = null;
+    this.cleanTurnsSinceEngaged = 0;
     this.lastUnlockReason = null;
   }
 
@@ -501,8 +502,38 @@ export class HysteresisLock {
     this.triggerDetectorId = String(detectorId || 'DET-01');
     this.reason = String(reason || '');
     this.engagedAtTurn = Number(turnIndex || 0);
+    this.cleanTurnsSinceEngaged = 0;
     this.lastUnlockReason = null;
     return this.getStatus();
+  }
+
+  /**
+   * Auto-decays the hysteresis lock after `maxLockedTurns` clean turns so users
+   * who do not maintain `task.md` checkboxes are never permanently trapped on a high tier.
+   */
+  onTurnCompleted({ currentTurnIndex = null, hadBreakerError = false, maxLockedTurns = 3 } = {}) {
+    if (!this.locked) {
+      return { unlocked: false, locked: false, reason: null };
+    }
+    if (hadBreakerError) {
+      this.cleanTurnsSinceEngaged = 0;
+      if (Number.isFinite(currentTurnIndex)) {
+        this.engagedAtTurn = Number(currentTurnIndex);
+      }
+      return { unlocked: false, locked: true, reason: null };
+    }
+    this.cleanTurnsSinceEngaged += 1;
+    const turnDelta =
+      Number.isFinite(currentTurnIndex) && Number.isFinite(this.engagedAtTurn)
+        ? Number(currentTurnIndex) - Number(this.engagedAtTurn)
+        : this.cleanTurnsSinceEngaged;
+    if (this.cleanTurnsSinceEngaged >= maxLockedTurns || turnDelta >= maxLockedTurns) {
+      return this.unlock('AUTO_DECAY_CLEAN_TURNS', {
+        cleanTurns: this.cleanTurnsSinceEngaged,
+        turnDelta
+      });
+    }
+    return { unlocked: false, locked: true, cleanTurns: this.cleanTurnsSinceEngaged };
   }
 
   isLocked() {

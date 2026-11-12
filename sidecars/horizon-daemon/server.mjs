@@ -49,6 +49,12 @@ import {
   SAVINGS_EVENT_TYPES,
   computeUnifiedSavings
 } from '../../src/core/coach/saved_quota_ledger.mjs';
+import {
+  getProEntitlementStatus,
+  activateProLicense,
+  activateLocalTrial
+} from '../../src/core/pro_license.mjs';
+import { generateCorporateExpenseReceipt } from '../../src/core-isomorphic/ui/pdfReceiptGenerator.mjs';
 import { ProgressiveCheckpointer } from '../../src/core/coach/progressive_checkpointer.mjs';
 import { atomicWriteFileSync } from '../../src/core/atomic_io.mjs';
 import { MicroIpcServer } from '../../src/engine-node/ipc/server.mjs';
@@ -512,6 +518,7 @@ function buildCoachState(state, targetConvId) {
       promptAdvisory,
       savedQuotaLedger: ledgerSummary,
       savings: unifiedSavings,
+      proEntitlement: getProEntitlementStatus(),
       fts5Compressor: {
         active: true,
         savedTokens: fts5SavedTokens
@@ -1635,6 +1642,64 @@ const server = http.createServer(async (req, res) => {
     );
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, ...evapRes }));
+    return;
+  }
+
+  // Route: POST /api/router/unlock-hysteresis (1-click manual unlock for HysteresisLock)
+  if (url.pathname === '/api/router/unlock-hysteresis' && req.method === 'POST') {
+    const unlockRes = hysteresisLock.unlock('MANUAL_UI_UNLOCK');
+    const nextState = await refreshLiveState(true, pinnedConversationId);
+    broadcastState(nextState);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, ...unlockRes, hysteresisLock: hysteresisLock.getStatus(), state: nextState }));
+    return;
+  }
+
+  // Route: POST /api/license/activate (Offline Ed25519 Pro license or 14-day local trial activation)
+  if (url.pathname === '/api/license/activate' && req.method === 'POST') {
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/license/activate');
+    if (body === null) return;
+    const actRes = body.trial
+      ? activateLocalTrial()
+      : activateProLicense(body.licenseKey || '');
+    const nextState = await refreshLiveState(true, pinnedConversationId);
+    broadcastState(nextState);
+    res.writeHead(actRes.ok ? 200 : 400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: Boolean(actRes.ok), ...actRes, state: nextState }));
+    return;
+  }
+
+  // Route: GET /api/receipt/export (1-Click Corporate Expense Receipt in PDF 1.4, HTML, or Markdown)
+  if (url.pathname === '/api/receipt/export' && req.method === 'GET') {
+    const fmt = String(url.searchParams.get('format') || 'pdf').toLowerCase();
+    const sessionKey = pinnedConversationId || cachedLiveState?.sessionId || 'default';
+    const ledgerSum = savedQuotaLedger ? savedQuotaLedger.getSummary(sessionKey) : {};
+    const unified = cachedLiveState?.savings || {};
+    const rcpt = generateCorporateExpenseReceipt({
+      sessionSavedTokens: Number(unified.totalSavedTokens || ledgerSum.totalArgonEquivTokensSaved || 0),
+      sessionSavedUSD: Number(unified.estimatedSavedUSD || (Number(ledgerSum.totalArgonEquivTokensSaved || 0) * 0.000015) || 0),
+      workspace30dSavedTokens: Number(unified.totalSavedTokens || ledgerSum.totalArgonEquivTokensSaved || 0),
+      workspace30dSavedUSD: Number(unified.estimatedSavedUSD || (Number(ledgerSum.totalArgonEquivTokensSaved || 0) * 0.000015) || 0)
+    });
+    if (fmt === 'pdf') {
+      const buf = Buffer.from(rcpt.pdfBytes);
+      res.writeHead(200, {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="attention-horizon-receipt-${rcpt.receiptId}.pdf"`,
+        'Content-Length': buf.length
+      });
+      res.end(buf);
+      return;
+    }
+    if (fmt === 'html') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(rcpt.html);
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8' });
+    res.end(rcpt.markdown);
     return;
   }
 

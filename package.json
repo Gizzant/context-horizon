@@ -8,7 +8,8 @@
     "packages/core",
     "packages/engine-node",
     "packages/antigravity",
-    "packages/claude-code"
+    "packages/claude-code",
+    "packages/pro"
   ],
   "bin": {
     "ctxtop": "./bin/ctxtop.mjs",
