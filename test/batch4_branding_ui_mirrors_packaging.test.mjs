@@ -509,6 +509,9 @@ describe('Batch 4 Remediation — ISS-056 & ISS-057: Mirror Sync Parity, 6 Hooks
     assert.ok(ciYml.includes('actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683'));
     assert.ok(ciYml.includes('actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020'));
 
+    // Ensure transient .agents/cache from prior test suites is cleaned before packaging check
+    fs.rmSync(path.join(ROOT, '.agents', 'cache'), { recursive: true, force: true });
+
     // npm pack --dry-run --json verification
     const rawPack = execSync('npm pack --dry-run --json', {
       cwd: ROOT,
