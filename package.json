@@ -28,6 +28,7 @@
     "README.md",
     "SECURITY.md",
     "LICENSE",
+    "CHECKSUMS.sha256",
     "plugin.json",
     ".antigravity-plugin/",
     ".claude-plugin/",
@@ -41,6 +42,7 @@
     "rules/",
     "skills/",
     "sidecars/",
+    "packages/",
     "src/"
   ],
   "scripts": {
