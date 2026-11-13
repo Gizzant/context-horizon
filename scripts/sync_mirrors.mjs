@@ -58,6 +58,7 @@ export function getSyncedPluginSubdirs(canonicalRoot = CANONICAL_ROOT) {
 export const SYNCED_PLUGIN_SUBDIRS = getSyncedPluginSubdirs(CANONICAL_ROOT);
 
 const SYNCED_FILE_EXT_RE = /\.(mjs|js|css|json|html|md|svg|txt)$/i;
+const TEXT_NORMALIZE_EXT_RE = /\.(m?js|cjs|css|json|html|md|svg|ya?ml|txt)$/i;
 
 const HTML_TARGETS = [
   path.join(CANONICAL_ROOT, 'src', 'webview', 'horizon_panel.html'),
@@ -69,8 +70,44 @@ const HTML_TARGETS = [
 ];
 
 function sha256File(filePath) {
+  if (TEXT_NORMALIZE_EXT_RE.test(filePath)) {
+    const normalized = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+    return crypto.createHash('sha256').update(normalized, 'utf8').digest('hex');
+  }
   const buf = fs.readFileSync(filePath);
   return crypto.createHash('sha256').update(buf).digest('hex');
+}
+
+function normalizeTextFileInPlaceSync(filePath) {
+  if (!TEXT_NORMALIZE_EXT_RE.test(filePath) || !fs.existsSync(filePath)) return;
+  const raw = fs.readFileSync(filePath, 'utf8');
+  if (raw.includes('\r\n')) {
+    fs.writeFileSync(filePath, raw.replace(/\r\n/g, '\n'), 'utf8');
+  }
+}
+
+function copyNormalizedSync(srcFile, destFile) {
+  fs.mkdirSync(path.dirname(destFile), { recursive: true });
+  if (TEXT_NORMALIZE_EXT_RE.test(srcFile)) {
+    const normalized = fs.readFileSync(srcFile, 'utf8').replace(/\r\n/g, '\n');
+    fs.writeFileSync(destFile, normalized, 'utf8');
+    return;
+  }
+  fs.copyFileSync(srcFile, destFile);
+}
+
+function copyDirNormalizedSync(srcDir, destDir) {
+  if (!fs.existsSync(srcDir)) return;
+  fs.mkdirSync(destDir, { recursive: true });
+  for (const ent of fs.readdirSync(srcDir, { withFileTypes: true })) {
+    const srcPath = path.join(srcDir, ent.name);
+    const destPath = path.join(destDir, ent.name);
+    if (ent.isDirectory()) {
+      copyDirNormalizedSync(srcPath, destPath);
+    } else if (ent.isFile()) {
+      copyNormalizedSync(srcPath, destPath);
+    }
+  }
 }
 
 export function buildFullLifecycleHooksBlock(pluginRoot, enabled = true) {
@@ -188,6 +225,21 @@ export function syncAndVerifyMirrors({
       }
     }
 
+    // 0b. Normalize canonical synced source text files to LF so raw-byte and checksum hashes match across Windows & POSIX
+    normalizeTextFileInPlaceSync(canonicalHtml);
+    for (const subDirParts of syncedSubdirs) {
+      const srcSubDir = path.join(CANONICAL_ROOT, ...subDirParts);
+      if (!fs.existsSync(srcSubDir)) continue;
+      for (const ent of fs.readdirSync(srcSubDir, { withFileTypes: true })) {
+        if (ent.isFile() && SYNCED_FILE_EXT_RE.test(ent.name)) {
+          normalizeTextFileInPlaceSync(path.join(srcSubDir, ent.name));
+        }
+      }
+    }
+    for (const relAsset of [...listSkillAndAssetFiles('skills'), ...listSkillAndAssetFiles('assets')]) {
+      normalizeTextFileInPlaceSync(path.join(CANONICAL_ROOT, relAsset));
+    }
+
     // 1. Rebuild standalone docs/index.html & evaluation_bundles/ first so in-repo mirrors are current
     buildDemoPage({ silent: false });
     if (fs.existsSync(path.join(CANONICAL_ROOT, 'evaluation_bundles', 'tier_1_essential')) ||
@@ -207,8 +259,7 @@ export function syncAndVerifyMirrors({
         const srcFile = path.join(srcSubDir, file);
         for (const root of activePluginRoots) {
           const destSubDir = path.join(root, ...subDirParts);
-          fs.mkdirSync(destSubDir, { recursive: true });
-          fs.copyFileSync(srcFile, path.join(destSubDir, file));
+          copyNormalizedSync(srcFile, path.join(destSubDir, file));
         }
       }
     }
@@ -217,7 +268,7 @@ export function syncAndVerifyMirrors({
       const srcDir = path.join(CANONICAL_ROOT, dirName);
       if (!fs.existsSync(srcDir)) continue;
       for (const root of activePluginRoots) {
-        fs.cpSync(srcDir, path.join(root, dirName), { recursive: true });
+        copyDirNormalizedSync(srcDir, path.join(root, dirName));
       }
     }
 
@@ -225,11 +276,11 @@ export function syncAndVerifyMirrors({
     for (const root of activePluginRoots) {
       const sidepaneTarget = path.join(root, 'src', 'ui', 'sidepane.html');
       if (fs.existsSync(path.dirname(sidepaneTarget))) {
-        fs.copyFileSync(canonicalHtml, sidepaneTarget);
+        copyNormalizedSync(canonicalHtml, sidepaneTarget);
       }
       const legacyWidget = path.join(root, 'src', 'ui', 'widget.html');
       if (fs.existsSync(legacyWidget)) {
-        fs.copyFileSync(canonicalHtml, legacyWidget);
+        copyNormalizedSync(canonicalHtml, legacyWidget);
       }
       // Clean stale tests/ directory from installed plugin mirrors so plugins never carry test fixtures
       const stalePluginTests = path.join(root, 'tests');

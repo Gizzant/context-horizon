@@ -210,7 +210,7 @@ export function runPreToolUseHook(event = {}, options = {}) {
     Boolean(event.cwd || options.cwd || options.ledgerPath || options.recordLedger)
   ) {
     const isPrefixFence = detId === 'DET-09';
-    const isBoundedRead = detId === 'DET-11' || Boolean(verdict.astSignatureStub);
+    const isBoundedRead = detId === 'DET-11' || Boolean(verdict.astSignatureStub) || Boolean(verdict.deltaDiffStub);
     const estimatedSavedTokens = Math.max(
       0,
       Number(

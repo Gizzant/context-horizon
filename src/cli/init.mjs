@@ -17,6 +17,7 @@ import {
   FULL_TOOL_HOOK_MATCHER,
   LEAN_PRE_TOOL_HOOK_MATCHER,
   LEAN_POST_TOOL_HOOK_MATCHER,
+  ULTRA_LEAN_PRE_TOOL_HOOK_MATCHER,
   validateAntigravityHooksSchema
 } from '../core/layer5_hygiene.mjs';
 
@@ -25,6 +26,7 @@ export {
   FULL_TOOL_HOOK_MATCHER,
   LEAN_PRE_TOOL_HOOK_MATCHER,
   LEAN_POST_TOOL_HOOK_MATCHER,
+  ULTRA_LEAN_PRE_TOOL_HOOK_MATCHER,
   validateAntigravityHooksSchema
 };
 
@@ -47,7 +49,9 @@ const VERSION = getVersion();
 
 export function buildHooksConfig(targetPluginDir = '.', options = {}) {
   const useRelative = !targetPluginDir || targetPluginDir === '.';
-  const preMatcher = options.fullHooks ? FULL_TOOL_HOOK_MATCHER : LEAN_PRE_TOOL_HOOK_MATCHER;
+  const preMatcher = options.fullHooks
+    ? FULL_TOOL_HOOK_MATCHER
+    : (options.leanHooks ? ULTRA_LEAN_PRE_TOOL_HOOK_MATCHER : LEAN_PRE_TOOL_HOOK_MATCHER);
   const postMatcher = options.fullHooks ? FULL_TOOL_HOOK_MATCHER : LEAN_POST_TOOL_HOOK_MATCHER;
   const cmdFor = (relHook, fallbackScript, extraArg = '') => {
     const suffix = extraArg ? ` ${extraArg}` : '';
@@ -119,6 +123,8 @@ export function installPlugin(options = {}) {
     dryRun = false,
     workspace = false,
     dedupe = false,
+    leanHooks = false,
+    fullHooks = false,
     cwd = process.cwd(),
     homeDir = options.home || getHomeDir()
   } = options;
@@ -175,7 +181,7 @@ export function installPlugin(options = {}) {
     }
 
     // Write dynamically resolved hooks.json so both global and workspace installs work across Windows/macOS/Linux
-    const resolvedHooks = buildHooksConfig(targetPluginDir);
+    const resolvedHooks = buildHooksConfig(targetPluginDir, { leanHooks, fullHooks });
     atomicWriteFileSync(
       path.join(targetPluginDir, 'hooks.json'),
       JSON.stringify(resolvedHooks, null, 2) + '\n',
@@ -218,7 +224,7 @@ export function installPlugin(options = {}) {
   }
 
   console.log('\n\x1b[1m\x1b[38;5;82m✓ Installation complete in <2 seconds!\x1b[0m');
-  return { success: true, targetPluginDir, dryRun };
+  return { success: true, targetPluginDir, dryRun, leanHooks: Boolean(leanHooks), fullHooks: Boolean(fullHooks) };
 }
 
 export async function runContextRoast() {
@@ -364,7 +370,9 @@ if (isMain) {
   } else if (cmd === 'init' || args.includes('--install')) {
     const dryRun = args.includes('--dry-run');
     const workspace = args.includes('--workspace');
-    installPlugin({ dryRun, workspace });
+    const leanHooks = args.includes('--lean-hooks');
+    const fullHooks = args.includes('--full-hooks');
+    installPlugin({ dryRun, workspace, leanHooks, fullHooks });
     runDemoShowcase({ scenarioId: 5, animate: false });
   } else if (cmd === 'roast' || args.includes('--roast')) {
     runContextRoast();

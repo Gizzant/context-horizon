@@ -602,6 +602,8 @@ export function executeInitSubcommand(args = [], options = {}) {
   const isWorkspace = args.includes('--workspace') || args.includes('--project') || Boolean(options.workspace);
   const isGlobal = args.includes('--global') || Boolean(options.global);
   const isDedupe = args.includes('--dedupe') || Boolean(options.dedupe);
+  const isLeanHooks = args.includes('--lean-hooks') || Boolean(options.leanHooks);
+  const isFullHooks = args.includes('--full-hooks') || Boolean(options.fullHooks);
 
   const lines = [
     `\x1b[1m\x1b[38;5;51m⚡ Attention Horizon (ctxtop v4.0.0) — Zero-Config Unified Installer\x1b[0m`,
@@ -614,10 +616,13 @@ export function executeInitSubcommand(args = [], options = {}) {
 
   if (isClaude || isAll) {
     const scope = isGlobal ? 'global' : 'project';
+    const hasExplicitLeanArg = args.includes('--lean-hooks') || options.leanHooks !== undefined;
     claudeResult = installAttentionHorizon({
       ...options,
       scope,
       dryRun: isDryRun,
+      ...(hasExplicitLeanArg ? { leanHooks: isLeanHooks } : {}),
+      ...(isFullHooks ? { leanHooks: false, fullHooks: true } : {}),
       cwd: options.cwd || process.cwd()
     });
     const backupNote = claudeResult.backupPath
@@ -630,17 +635,19 @@ export function executeInitSubcommand(args = [], options = {}) {
 
   if (isAntigravity || isAll) {
     try {
-      installPlugin({
+      const agyInstall = installPlugin({
         dryRun: isDryRun,
         workspace: isWorkspace,
         dedupe: isDedupe,
+        leanHooks: isLeanHooks,
+        fullHooks: isFullHooks,
         cwd: options.cwd || process.cwd(),
         homeDir: options.homeDir || options.home
       });
       lines.push(
         `  \x1b[38;5;82m✓\x1b[0m Antigravity   : ${isDryRun ? '[DRY RUN] Would deploy plugin files & lifecycle hooks' : 'Deployed plugin files & lifecycle hooks'}`
       );
-      antigravityResult = { ok: true };
+      antigravityResult = { ok: true, leanHooks: Boolean(agyInstall?.leanHooks) };
     } catch (err) {
       lines.push(`  \x1b[38;5;196m✖\x1b[0m Antigravity   : Failed — ${err.message}`);
       antigravityResult = { ok: false, error: err.message };

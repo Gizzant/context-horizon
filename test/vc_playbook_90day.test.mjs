@@ -255,6 +255,7 @@ describe('VC 90-Day Playbook Verification Suite (Workstreams 1–5)', () => {
         assert.ok(typeof r3.astSignatureStub === 'string' && r3.astSignatureStub.length > 0, 'Antigravity 3rd read_file must return astSignatureStub');
         assert.ok(r3.astSignatureStub.includes('runEngineService'), 'AST stub must preserve function signature');
         assert.ok(r3.savedTokens > 0, 'Must report positive savedTokens');
+        assert.equal(fs.existsSync(path.join(tmpDir, '.claude')), false, 'Antigravity handlePreToolUse must never create .claude/cache in workspace');
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }

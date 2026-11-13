@@ -40,7 +40,6 @@ import {
   evaluateTwoStageSightseeingIntercept
 } from '../core/shared/prompt_hygiene_governor.mjs';
 import { foldCodeToSignatureStub, computeCompactLineDiff } from '../core/pruner.mjs';
-import { recordInterventionSavings } from '../core-isomorphic/coach/savedQuotaLedger.mjs';
 
 export {
   classifyTaskComplexity,
@@ -114,6 +113,30 @@ function formatScorecard(p1, p2, p3, p4) {
     '╰──────────────────────────────────────────────────────────────────────────────╯',
     'Bypass once: prefix with `!`  •  Lock model/effort: include `!lock`'
   ].join('\n');
+}
+
+function recordAntigravitySidecarSavings(sidecar, { category = 'BOUNDED_READ_ENFORCED', savedTokens = 0, detail = '', nowMs = Date.now() } = {}) {
+  const tokens = Math.max(0, Number(savedTokens || 0));
+  if (!sidecar || typeof sidecar !== 'object' || tokens <= 0) return;
+  sidecar.telemetry = sidecar.telemetry && typeof sidecar.telemetry === 'object' ? sidecar.telemetry : {};
+  sidecar.telemetry.savedTokens = Number(sidecar.telemetry.savedTokens || 0) + tokens;
+  sidecar.telemetry.boundedReadInterventions = Number(sidecar.telemetry.boundedReadInterventions || 0) + 1;
+  sidecar.telemetry.savedTokensByCategory =
+    sidecar.telemetry.savedTokensByCategory && typeof sidecar.telemetry.savedTokensByCategory === 'object'
+      ? sidecar.telemetry.savedTokensByCategory
+      : {};
+  sidecar.telemetry.savedTokensByCategory[category] =
+    Number(sidecar.telemetry.savedTokensByCategory[category] || 0) + tokens;
+  const recent = Array.isArray(sidecar.telemetry.recentInterventions)
+    ? sidecar.telemetry.recentInterventions
+    : [];
+  recent.push({
+    ts: new Date(nowMs).toISOString(),
+    category,
+    savedTokens: tokens,
+    detail
+  });
+  sidecar.telemetry.recentInterventions = recent.slice(-25);
 }
 
 export async function handlePreToolUse(inputData = {}) {
@@ -315,15 +338,12 @@ export async function handlePreToolUse(inputData = {}) {
                   systemMessage = deltaNotice;
                 }
                 try {
-                  recordInterventionSavings(
-                    {
-                      sessionId: conversationId,
-                      category: 'BOUNDED_READ_ENFORCED',
-                      savedTokens: delta.savedTokens,
-                      detail: `Post-edit delta read for ${path.basename(resolvedPath)}`
-                    },
-                    { cwd: workspacePath }
-                  );
+                  recordAntigravitySidecarSavings(sidecar, {
+                    category: 'BOUNDED_READ_ENFORCED',
+                    savedTokens: delta.savedTokens,
+                    detail: `Post-edit delta read for ${path.basename(resolvedPath)}`,
+                    nowMs: inputData.nowMs ?? inputData.eventTimestampUtc ?? Date.now()
+                  });
                 } catch (err) {
                   recordHookDiagnostic('pre_invocation', 'handlePreToolUse.recordDeltaSavings', err);
                 }
@@ -343,15 +363,12 @@ export async function handlePreToolUse(inputData = {}) {
               }
               if (astStubSavedTokens > 0) {
                 try {
-                  recordInterventionSavings(
-                    {
-                      sessionId: conversationId,
-                      category: 'BOUNDED_READ_ENFORCED',
-                      savedTokens: astStubSavedTokens,
-                      detail: `AST signature stub read #${nextReads} for ${path.basename(resolvedPath)}`
-                    },
-                    { cwd: workspacePath }
-                  );
+                  recordAntigravitySidecarSavings(sidecar, {
+                    category: 'BOUNDED_READ_ENFORCED',
+                    savedTokens: astStubSavedTokens,
+                    detail: `AST signature stub read #${nextReads} for ${path.basename(resolvedPath)}`,
+                    nowMs: inputData.nowMs ?? inputData.eventTimestampUtc ?? Date.now()
+                  });
                 } catch (err) {
                   recordHookDiagnostic('pre_invocation', 'handlePreToolUse.recordAstStubSavings', err);
                 }

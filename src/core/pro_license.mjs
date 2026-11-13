@@ -23,10 +23,10 @@ export const DEFAULT_PRO_PUBLIC_KEY_PEM = [
 
 export const PRO_PRICING_TIERS = Object.freeze({
   free: { id: 'free', label: 'Free Core (MIT)', priceUSD: 0, billing: 'forever' },
-  pro_monthly: { id: 'pro', label: 'Attention Horizon Pro (Monthly)', priceUSD: 9, priceRangeUSD: [12, 19], billing: 'month' },
-  pro_annual: { id: 'pro', label: 'Attention Horizon Pro (Annual)', priceUSD: 79, billing: 'year' },
-  pro_ltd: { id: 'ltd', label: 'Attention Horizon Pro (Founder Lifetime)', priceUSD: 119, billing: 'lifetime' },
-  team: { id: 'team', label: 'Attention Horizon Team (5 Seats + OTel)', priceUSD: 299, seatMonthlyUSD: 39, billing: 'year' }
+  pro_monthly: { id: 'pro', label: 'Attention Horizon Pro (Monthly)', priceUSD: 15, priceRangeUSD: [12, 19], billing: 'month' },
+  pro_annual: { id: 'pro', label: 'Attention Horizon Pro (Annual)', priceUSD: 149, effectiveMonthlyUSD: 12.42, billing: 'year' },
+  pro_ltd: { id: 'ltd', label: 'Attention Horizon Pro (Founder Lifetime)', priceUSD: 199, billing: 'lifetime' },
+  team: { id: 'team', label: 'Attention Horizon Team (Annual 5-Seat Starter + OTel)', priceUSD: 299, seatMonthlyUSD: 39, billing: 'year' }
 });
 
 /**

@@ -57,16 +57,23 @@ export function computeProjectScopeHash(workspaceDir = process.cwd(), { gitRemot
 }
 
 /**
- * Evaluates which instincts across multiple projects meet the Global Promotion Pipeline
- * threshold (`confidence >= 0.80` across `>= 2` distinct `project_hash` values).
+ * Evaluates which instincts across projects meet the Global Promotion Pipeline
+ * threshold (`confidence >= 0.80` across `>= minDistinctRepos` / `minReposForGlobalPromotion`,
+ * defaulting to 2 distinct `project_hash` values, or 1 when `userConfirmed: true`).
  */
 export function evaluateGlobalPromotionEligibility(
   instinctRows = [],
   {
     minConfidence = REFLECTOR_CONSTANTS.GLOBAL_PROMOTION_MIN_CONFIDENCE,
-    minDistinctRepos = REFLECTOR_CONSTANTS.GLOBAL_PROMOTION_MIN_REPOS
+    minDistinctRepos = REFLECTOR_CONSTANTS.GLOBAL_PROMOTION_MIN_REPOS,
+    minReposForGlobalPromotion,
+    userConfirmed = false
   } = {}
 ) {
+  const effectiveMinRepos = Math.max(
+    1,
+    Number(minReposForGlobalPromotion ?? minDistinctRepos ?? REFLECTOR_CONSTANTS.GLOBAL_PROMOTION_MIN_REPOS)
+  );
   const groups = new Map();
 
   for (const row of Array.isArray(instinctRows) ? instinctRows : []) {
@@ -88,7 +95,8 @@ export function evaluateGlobalPromotionEligibility(
         trigger_condition: String(row.trigger_condition || 'When executing matching domain tasks'),
         projectHashes: new Set(),
         confidences: [],
-        instinctIds: []
+        instinctIds: [],
+        userConfirmed: Boolean(userConfirmed)
       });
     }
 
@@ -96,12 +104,16 @@ export function evaluateGlobalPromotionEligibility(
     entry.projectHashes.add(projHash);
     entry.confidences.push(conf);
     if (row.id) entry.instinctIds.push(row.id);
+    if (row.userConfirmed || row.user_confirmed) {
+      entry.userConfirmed = true;
+    }
   }
 
   const eligible = [];
   for (const entry of groups.values()) {
     const repoCount = entry.projectHashes.size;
-    if (repoCount >= minDistinctRepos) {
+    const requiredRepos = entry.userConfirmed ? 1 : effectiveMinRepos;
+    if (repoCount >= requiredRepos) {
       const avgConf =
         entry.confidences.reduce((a, b) => a + b, 0) / Math.max(1, entry.confidences.length);
       eligible.push({
@@ -112,7 +124,8 @@ export function evaluateGlobalPromotionEligibility(
         projectHashes: Array.from(entry.projectHashes),
         avgConfidence: Number(avgConf.toFixed(4)),
         instinctIds: entry.instinctIds,
-        eligibleForGlobal: true
+        eligibleForGlobal: true,
+        promotedViaUserConfirmation: Boolean(entry.userConfirmed && repoCount < effectiveMinRepos)
       });
     }
   }
@@ -409,6 +422,30 @@ export class ReflectorQueue {
       promotedCount: eligible.length,
       projectHash: this.projectHash
     };
+  }
+
+  /**
+   * Lists instincts eligible for global promotion using `.attention-horizon.json`
+   * `minReposForGlobalPromotion` (default 2, or 1 when userConfirmed).
+   */
+  getGlobalPromotionCandidates(options = {}) {
+    let configMinRepos;
+    try {
+      const cfgPath = path.join(this.workspaceDir, '.attention-horizon.json');
+      if (fs.existsSync(cfgPath)) {
+        const parsedCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+        if (Number.isFinite(Number(parsedCfg?.minReposForGlobalPromotion))) {
+          configMinRepos = Number(parsedCfg.minReposForGlobalPromotion);
+        }
+      }
+    } catch (err) {
+      void err;
+    }
+    const data = this._readQueueData();
+    return evaluateGlobalPromotionEligibility(data.items, {
+      ...options,
+      minReposForGlobalPromotion: options.minReposForGlobalPromotion ?? configMinRepos
+    });
   }
 
   /**

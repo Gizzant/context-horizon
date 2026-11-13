@@ -9,7 +9,8 @@
     "packages/engine-node",
     "packages/antigravity",
     "packages/claude-code",
-    "packages/pro"
+    "packages/pro",
+    "packages/mcp"
   ],
   "bin": {
     "ah": "./bin/ctxtop.mjs",
@@ -70,11 +71,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Gizzant/attention-horizon-antigravity.git"
+    "url": "git+https://github.com/Gizzant/context-horizon.git"
   },
-  "homepage": "https://gizzant.github.io/attention-horizon-antigravity/",
+  "homepage": "https://gizzant.github.io/context-horizon/",
   "bugs": {
-    "url": "https://github.com/Gizzant/attention-horizon-antigravity/issues"
+    "url": "https://github.com/Gizzant/context-horizon/issues"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -95,6 +96,7 @@
   ],
   "author": "Gizzant <frankmiller@gmail.com>",
   "license": "MIT",
+  "commercialLicense": "SEE LICENSE IN packages/pro/LICENSE-COMMERCIAL.md",
   "devDependencies": {
     "jsdom": "^29.1.1"
   }

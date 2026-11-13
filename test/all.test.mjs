@@ -49,3 +49,4 @@ import './roadmap_items_2_to_7.test.mjs';
 import './pre_launch_v4_pack.test.mjs';
 import './vc_playbook_90day.test.mjs';
 import './vc_full_teardown_and_claude_parity.test.mjs';
+import './v4_rc_remediation_and_mcp.test.mjs';

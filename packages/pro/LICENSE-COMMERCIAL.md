@@ -11,7 +11,7 @@ All other components of this repository (`@ctxtop/core`, `@ctxtop/antigravity`, 
 You are permitted to view, inspect, and audit the source code in `packages/pro/**` to verify security, privacy, and zero-network compliance, and to evaluate Pro features during a 14-day local trial (`npx ctxtop license trial`).
 
 ## 3. Commercial Restrictions
-Without a valid, unexpired Attention Horizon Pro (`$9/mo`, `$79/yr`, or `$119` Lifetime) or Team (`$299/yr`) `CTXP1` Ed25519 license key issued to you or your organization, you may **NOT**:
+Without a valid, unexpired Attention Horizon Pro (`$15/mo`, `$149/yr`, or `$199` Lifetime) or Team (`$39/seat/mo` or `$299/yr` 5-seat starter) `CTXP1` Ed25519 license key issued to you or your organization, you may **NOT**:
 1. Remove, patch, stub, or bypass `verifyProLicenseKey()`, `getProEntitlementStatus()`, or `requireProFeature()` checks in production builds or forks.
 2. Redistribute, publish, or host modified packages that unlock `@ctxtop/pro` commercial features without a valid `CTXP1` cryptographic key.
 3. Generate or share forged `CTXP1` license keys for third parties.
