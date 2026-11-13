@@ -171,9 +171,9 @@ describe('VC 90-Day Playbook Verification Suite (Workstreams 1–5)', () => {
   describe('Workstream 3: Brand Consolidation & 6 Core Auditable Guards Rollup', () => {
     it('exposes ah and attention-horizon CLI bin entries in package.json', () => {
       const pkg = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'));
-      assert.equal(pkg.bin.ah, './bin/ctxtop.mjs');
-      assert.equal(pkg.bin['attention-horizon'], './bin/ctxtop.mjs');
-      assert.equal(pkg.bin.ctxtop, './bin/ctxtop.mjs');
+      assert.equal(pkg.bin.ah, 'bin/ctxtop.mjs');
+      assert.equal(pkg.bin['attention-horizon'], 'bin/ctxtop.mjs');
+      assert.equal(pkg.bin.ctxtop, 'bin/ctxtop.mjs');
     });
 
     it('rolls up all 32 DET-01..32 detectors into exactly 6 Core Auditable Guards', () => {

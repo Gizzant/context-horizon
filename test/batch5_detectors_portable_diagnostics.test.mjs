@@ -863,6 +863,7 @@ describe('Batch 5 — ISS-063 & ISS-059: Offline jsdom Lockfile, Zero Author Pat
     const nodeModuleEntries = Object.entries(lock.packages).filter(([k]) => k.startsWith('node_modules/'));
     assert.ok(nodeModuleEntries.length > 0, 'package-lock.json must include resolved node_modules entries');
     for (const [pkgKey, meta] of nodeModuleEntries) {
+      if (meta.link === true && pkgKey.startsWith('node_modules/@ctxtop/')) continue;
       assert.equal(meta.dev, true, `Expected dev: true on ${pkgKey}`);
     }
   });

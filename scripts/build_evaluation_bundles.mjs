@@ -140,6 +140,15 @@ function syncBundle(bundleName, files, isNotebookLM = false) {
 
 export function buildEvaluationBundles({ silent = false } = {}) {
   if (!silent) console.log('Building evaluation bundles...');
+  fs.mkdirSync(BUNDLES_DIR, { recursive: true });
+  const bundleReadmePath = path.join(BUNDLES_DIR, 'README.md');
+  if (!fs.existsSync(bundleReadmePath)) {
+    atomicWriteFileSync(
+      bundleReadmePath,
+      '# Highbeam Evaluation Bundles\n\nPre-packaged context bundles for architectural audits and NotebookLM ingestion.\n',
+      { encoding: 'utf8' }
+    );
+  }
   syncBundle('tier_1_essential', TIER_1_FILES, false);
   syncBundle('tier_2_full', TIER_2_FILES, false);
   syncBundle('notebooklm_tier_1_essential', TIER_1_FILES, true);

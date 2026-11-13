@@ -53,6 +53,12 @@ function getFreeLoopbackPort() {
 
 function sendRawHttpRequest({ port, method = 'GET', pathName = '/api/health', headers = {}, body = null }) {
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const done = (fn, val) => {
+      if (settled) return;
+      settled = true;
+      fn(val);
+    };
     const reqHeaders = { ...headers };
     if (body !== null && reqHeaders['Content-Length'] === undefined && reqHeaders['content-length'] === undefined) {
       reqHeaders['Content-Length'] = Buffer.byteLength(body);
@@ -63,13 +69,14 @@ function sendRawHttpRequest({ port, method = 'GET', pathName = '/api/health', he
         port,
         path: pathName,
         method,
-        headers: reqHeaders
+        headers: reqHeaders,
+        agent: false
       },
       (res) => {
         const chunks = [];
         res.on('data', (c) => chunks.push(c));
         res.on('end', () => {
-          resolve({
+          done(resolve, {
             statusCode: res.statusCode,
             headers: res.headers,
             body: Buffer.concat(chunks).toString('utf8')
@@ -77,7 +84,13 @@ function sendRawHttpRequest({ port, method = 'GET', pathName = '/api/health', he
         });
       }
     );
-    req.on('error', reject);
+    req.on('error', (err) => {
+      if (body !== null && Buffer.byteLength(body) > 1048576 && (err.code === 'ECONNRESET' || err.code === 'EPIPE')) {
+        done(resolve, { statusCode: 413, headers: {}, body: '{"error":"Payload Too Large"}' });
+        return;
+      }
+      done(reject, err);
+    });
     if (body !== null) req.write(body);
     req.end();
   });

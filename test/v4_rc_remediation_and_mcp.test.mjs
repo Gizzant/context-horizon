@@ -222,8 +222,8 @@ describe('v4.0 RC Remediation & @ctxtop/mcp Regression Suite', () => {
     assert.equal(pdfText.includes('$9.00'), false);
 
     const rootPkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-    assert.equal(rootPkg.bin['ah-mcp'], './packages/mcp/src/server.mjs');
-    assert.equal(rootPkg.bin['ctxtop-mcp'], './packages/mcp/src/server.mjs');
+    assert.equal(rootPkg.bin['ah-mcp'], 'packages/mcp/src/server.mjs');
+    assert.equal(rootPkg.bin['ctxtop-mcp'], 'packages/mcp/src/server.mjs');
 
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ctxtop-init-mcp-'));
     try {

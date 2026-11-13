@@ -69,9 +69,9 @@ describe('Batch 4 Remediation — ISS-013: Symlink-Safe realpathSync isCliMain &
   it('removes "context-horizon" from package.json bin while retaining primary branded CLIs', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
     assert.equal(pkg.bin['context-horizon'], undefined, 'Grafana-colliding context-horizon bin must be removed');
-    assert.equal(pkg.bin['attention-horizon-antigravity'], './src/cli/init.mjs');
-    assert.equal(pkg.bin['ah-antigravity'], './src/cli/init.mjs');
-    assert.ok(pkg.bin['ctxtop'] === './bin/ctxtop.mjs' || pkg.bin['ctxtop'] === './src/cli/init.mjs');
+    assert.equal(pkg.bin['attention-horizon-antigravity'], 'src/cli/init.mjs');
+    assert.equal(pkg.bin['ah-antigravity'], 'src/cli/init.mjs');
+    assert.ok(pkg.bin['ctxtop'] === 'bin/ctxtop.mjs' || pkg.bin['ctxtop'] === 'src/cli/init.mjs');
   });
 
   it('resolves symlinked CLI invocations via fs.realpathSync across init, hud, postmortem, and doctor', () => {
