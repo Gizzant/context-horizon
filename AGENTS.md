@@ -1,6 +1,6 @@
 # Attention Horizon (`ctxtop`) — Architectural & UI Invariants
 - **User Constraint**: my account was just re-enabled from getting disabled (see error message below) review tips to avoid
-- **User Constraint**: To keep context memory lean, please use `StartLine`/`EndLine` when reading `src/webview/horizon_panel.html`, `src/core/classifier.mjs`, and `sidecars/horizon-daemon/server.mjs` instead of reading full files repeatedly.
+- **User Constraint**: To keep context memory lean, use `StartLine`/`EndLine` (`<= 150` lines per read) or outline tools when reading any file >150 lines (especially `horizon_panel.html`, `classifier.mjs`, `server.mjs`, `circuitBreakers.mjs`, and large reports) instead of reading full files in one step.
 
 ## UI & Architecture Invariants
 1. **1-Click Copy Button for `/compact`**:
@@ -9,6 +9,7 @@
    - Only show the `Ignore file` (`.antigravityignore`) button on lockfiles, logs, build artifacts, or scratch files (`isIgnorablePath`) — never on active source code files.
 3. **Webview Mirror Parity**:
    - When local Antigravity plugin directories (`~/.gemini/config/plugins/agy-horizon` and `~/.gemini/config/plugins/agy-horizon-flightcheck`) are present on disk, run `node scripts/sync_mirrors.mjs` to keep `horizon_panel.html` and `src/core/*.mjs` byte-for-byte identical (verified via SHA-256).
+   - Always run `node scripts/sync_mirrors.mjs` **before** `node scripts/generate_checksums.mjs` and `node bin/ctxtop.mjs verify --json`; on Windows PowerShell 5.1, wrap `&&` chains in `cmd /c "..."` and invoke `git commit -m '...'` directly.
 4. **Zero-Trust Read-Only Telemetry (`SQLITE_OPEN_READONLY`)**:
    - Open all Antigravity SQLite session databases (`conversations/*.db`, `conversation_summaries.db`) strictly with `{ readOnly: true }` (`SQLITE_OPEN_READONLY_OPTIONS`) and JSONL transcripts with `'r'`. Never make outbound network requests.
 5. **Account & OAuth Seat Safety (Anti-Ban Protocol)**:
