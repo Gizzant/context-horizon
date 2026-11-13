@@ -81,7 +81,7 @@ export function selectHighestPriorityTier2Card(coachState = {}) {
       cardType: 'TURN_45_BATON_PASS',
       critical: false,
       title: '🤝 Turn-45 Baton Pass Recommended (DET-24)',
-      subtitle: 'Attention Horizon approaching high-turn degradation. Execute zero-amnesia Baton Pass.',
+      subtitle: 'Highbeam approaching high-turn degradation. Execute zero-amnesia Baton Pass.',
       buttonLabel: 'Launch Hydrated Session',
       actionKind: 'LAUNCH_HYDRATED_SESSION',
       actionPayload: coachState.handoffBundle || {}

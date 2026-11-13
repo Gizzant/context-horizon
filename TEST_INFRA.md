@@ -1,8 +1,8 @@
-# Attention Horizon v4.0 (`ctxtop`) — End-to-End Test Infrastructure (`TEST_INFRA.md`)
+# Highbeam v4.0 (`ctxtop`) — End-to-End Test Infrastructure (`TEST_INFRA.md`)
 
 ## 1. Testing Philosophy: Pure Opaque-Box Requirement-Driven Simulation
 
-The Attention Horizon v4.0 E2E testing framework provides opaque-box, requirement-driven verification for the unified `ctxtop` platform across Google Antigravity and Claude Code. The test suite operates strictly as an external host environment and client simulator.
+The Highbeam v4.0 E2E testing framework provides opaque-box, requirement-driven verification for the unified `ctxtop` platform across Google Antigravity and Claude Code. The test suite operates strictly as an external host environment and client simulator.
 
 ### Core Testing Tenets:
 1. **Opaque-Box Boundary**: Tests verify observable public contracts—CLI arguments, stdout/stderr, exit codes, IPC socket wire protocols (JSON-RPC 2.0), persisted disk files (`.ctl` state, `.jsonl` audit records, `.ah-backup.*`), and trajectory schemas (`USTF v1`). Tests never couple to private module closures or internal implementation states.

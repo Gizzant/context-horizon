@@ -17,7 +17,9 @@ const TARGET_DIRS_AND_FILES = [
   'hooks',
   'src/core-isomorphic',
   'src/core',
-  'src/webview/horizon_panel.html'
+  'src/webview/horizon_panel.html',
+  'src/webview/simple_view.html',
+  'src/webview/advanced_view.html'
 ];
 
 function collectReleaseFiles(rootDir) {

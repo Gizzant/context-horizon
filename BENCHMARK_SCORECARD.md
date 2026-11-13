@@ -1,9 +1,9 @@
-# Attention Horizon v4.0 (`ctxtop`) — Final Composite Benchmark Scorecard
+# Highbeam v4.0 (`ctxtop`) — Final Composite Benchmark Scorecard
 
 - **Date**: 2026-11-12
 - **Version**: 4.0.0
 - **Package**: `ctxtop`
-- **Lead Architect**: Attention Horizon Core Team
+- **Lead Architect**: Highbeam Core Team
 - **Host Environments**: Google Antigravity & Anthropic Claude Code
 - **Runtime Engines**: Node.js >=20.0.0 (Dual-Runtime Matrix: Node 20 LTS & Node >=22.5)
 - **Runtime Dependencies**: 0 (`"dependencies": {}`)
@@ -14,7 +14,7 @@
 
 ## 1. Executive Summary & Certification Sign-Off
 
-Attention Horizon v4.0 (`ctxtop`) consolidates Google Antigravity and Claude Code developer assistant telemetry into a single, canonical, zero-runtime-dependency cross-platform package. This official scorecard certifies the empirical evaluation of Attention Horizon v4.0 across all 6 core competitive intelligence dimensions ($D_1$ through $D_6$), based on authentic microsecond/millisecond benchmarking, 526 end-to-end automated tests, 20 real-world bad-habit simulation scenarios, and exhaustive architectural invariant enforcement.
+Highbeam v4.0 (`ctxtop`) consolidates Google Antigravity and Claude Code developer assistant telemetry into a single, canonical, zero-runtime-dependency cross-platform package. This official scorecard certifies the empirical evaluation of Highbeam v4.0 across all 6 core competitive intelligence dimensions ($D_1$ through $D_6$), based on authentic microsecond/millisecond benchmarking, 526 end-to-end automated tests, 20 real-world bad-habit simulation scenarios, and exhaustive architectural invariant enforcement.
 
 $$\text{Final Score} = (0.20 \cdot D_1) + (0.20 \cdot D_2) + (0.20 \cdot D_3) + (0.15 \cdot D_4) + (0.15 \cdot D_5) + (0.10 \cdot D_6) = \mathbf{96.25 / 100}$$
 
@@ -39,11 +39,11 @@ $$\text{Final Score} = (0.20 \cdot D_1) + (0.20 \cdot D_2) + (0.20 \cdot D_3) + 
 
 ## 2. Global Competitive Intelligence Ranking (0–100 Rubric)
 
-Attention Horizon v4.0 establishes the #1 market-leading position across all existing AI developer observability frameworks and CLI extensions, outperforming Arize Phoenix, `mksglu/context-mode`, `claude-squad`, and previous legacy repository snapshots:
+Highbeam v4.0 establishes the #1 market-leading position across all existing AI developer observability frameworks and CLI extensions, outperforming Arize Phoenix, `mksglu/context-mode`, `claude-squad`, and previous legacy repository snapshots:
 
 | Rank | Tool / System | Architecture & Focus | 1. Obs. & Ctrl (20%) | 2. Token & Cost (20%) | 3. Diagnostics (20%) | 4. Usability (15%) | 5. Security & Invar (15%) | 6. Parity & Cons (10%) | Overall Composite |
 | :---: | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **🏆 #1** | **Attention Horizon v4.0 (`ctxtop`)** | **Unified SOTA Cross-Platform Extension** | **96.0** | **97.0** | **96.0** | **95.0** | **96.0** | **98.0** | **96.25** |
+| **🏆 #1** | **Highbeam v4.0 (`ctxtop`)** | **Unified SOTA Cross-Platform Extension** | **96.0** | **97.0** | **96.0** | **95.0** | **96.0** | **98.0** | **96.25** |
 | #2 | Project A (`ga-visualizer-v2` v3.4.0) | Antigravity Desktop / CLI Daemon | 84.0 | 89.0 | 92.0 | 83.0 | 95.0 | 68.0 | 85.15 |
 | #3 | Project B (`cc-attention-horizon` v1.1.0) | Claude Code V8 In-Process Mod | 83.0 | 92.0 | 82.0 | 88.0 | 96.0 | 45.0 | 80.95 |
 | #4 | Arize Phoenix (`OpenInference`) | Local Container / OTel Trace Server | 78.0 | 74.0 | 68.0 | 54.0 | 82.0 | 65.0 | 70.05 |
@@ -311,11 +311,11 @@ The 20-scenario bad-habit simulation harness (`simulate_bad_habits.mjs`) execute
 
 ## 8. Final Certification Attestation
 
-The Attention Horizon Core Architecture Team and the Independent Forensic Auditor attest that Attention Horizon v4.0 (`ctxtop`):
+The Highbeam Core Architecture Team and the Independent Forensic Auditor attest that Highbeam v4.0 (`ctxtop`):
 - Has achieved an empirical composite score of **96.25 / 100**, meeting and exceeding the blueprint target ($\ge 96.25 / 100$) and surpassing the minimum bar ($> 95.3 / 100$).
 - Has maintained 100% authentic implementations with zero hardcoded results or dummy facades.
 - Meets all performance, latency, security, and cross-platform parity requirements.
 - **IS OFFICIALLY CERTIFIED AND APPROVED FOR MARKETPLACE PUBLICATION AND ENTERPRISE PRODUCTION USE.**
 
 **Sign-off Date**: 2026-11-12T05:08:00Z  
-**Signed**: *Attention Horizon Core Architecture & Verification Team*
+**Signed**: *Highbeam Core Architecture & Verification Team*

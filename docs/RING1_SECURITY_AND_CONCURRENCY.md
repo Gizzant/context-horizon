@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary
 
-Ring 1 represents the inner security, context hygiene, and multi-agent coordination boundary of **Attention Horizon (`attention-horizon-antigravity`)**. While outer rings handle visual dashboard rendering and token telemetry analytics, Ring 1 directly intercepts execution at the shell, prompt, and filesystem boundaries to prevent:
+Ring 1 represents the inner security, context hygiene, and multi-agent coordination boundary of **Highbeam (`attention-horizon-antigravity`)**. While outer rings handle visual dashboard rendering and token telemetry analytics, Ring 1 directly intercepts execution at the shell, prompt, and filesystem boundaries to prevent:
 1. **Automated Hook Evasion:** Coding agents silencing pre-commit test assertions or lint errors using `--no-verify`.
 2. **Indirect Prompt Injection (IPI):** Subagent digests, web-scraping responses, or malicious documentation overriding lead agent constraints.
 3. **Terminal ANSI & Spinner Pollution:** Mega-byte escape code floods thrashing the prompt context and KV cache.

@@ -1,6 +1,6 @@
 /**
  * @file test/cost_radar_visualizer.test.mjs
- * Unit and integration test suite for Attention Horizon v4.0 Cost Radar Visualizers.
+ * Unit and integration test suite for Highbeam v4.0 Cost Radar Visualizers.
  *
  * Covers:
  *   - Feature 23: Retention Step-Chart SVG, Drift Sparklines & Braille/Block Sparklines

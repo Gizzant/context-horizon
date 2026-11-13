@@ -78,7 +78,7 @@ export function verifyMonorepoSharing() {
 
 if (path.resolve(process.argv[1] || '') === fileURLToPath(import.meta.url)) {
   const report = verifyMonorepoSharing();
-  console.log('\nAttention Horizon v4.0 Monorepo Sharing Verification (Milestone M1)');
+  console.log('\nHighbeam v4.0 Monorepo Sharing Verification (Milestone M1)');
   console.log('===================================================================');
   console.log(
     `  Shared Core & Engine (@ctxtop/core + @ctxtop/engine-node): ${report.sharedCore.totalLines.toLocaleString('en-US')} LOC (${report.sharedCore.totalFiles} files)`

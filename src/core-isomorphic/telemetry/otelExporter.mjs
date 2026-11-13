@@ -1,6 +1,6 @@
 /**
  * @file src/telemetry/otelExporter.mjs
- * Zero-socket local OpenTelemetry metric formatter and sink for Claude Code Attention Horizon.
+ * Zero-socket local OpenTelemetry metric formatter and sink for Claude Code Highbeam.
  * Maps `claude_code.token.usage`, `claude_code.cost.usage`, and `vcs.*` attributes when
  * `CLAUDE_CODE_ENABLE_TELEMETRY=1` is set.
  */

@@ -1,6 +1,6 @@
 /**
  * @file test/e2e_tier5_adversarial.test.mjs
- * Attention Horizon v4.0 (`ctxtop`) — Tier 5 Adversarial Test Suite
+ * Highbeam v4.0 (`ctxtop`) — Tier 5 Adversarial Test Suite
  *
  * Empirical white-box adversarial verification covering:
  *   1. Zero-Trust SQLite Mutation & Path Traversal Attacks (F8, F10, F39)
@@ -1057,8 +1057,8 @@ describe('Tier 5 Suite 8: Heuristic Mutation Testing & 100% Mutant Kills', () =>
   });
 
   it('8.3 retentionRadar.mjs — Multibyte UTF-8 continuation byte clamping kill (zero \\uFFFD in snippet)', () => {
-    const base = 'System Prompt Header: 🚀 Launch Attention Horizon v4.0 with full telemetry.';
-    const mut = 'System Prompt Header: 🛸 Launch Attention Horizon v4.0 with full telemetry.';
+    const base = 'System Prompt Header: 🚀 Launch Highbeam v4.0 with full telemetry.';
+    const mut = 'System Prompt Header: 🛸 Launch Highbeam v4.0 with full telemetry.';
 
     const result = findPrefixMutationOffset(base, mut);
     assert.ok(result.firstDiffOffset >= 0);
@@ -1335,11 +1335,11 @@ describe('Tier 5 Suite 9: Telemetry Fuzzing & Malformed Event Stress', () => {
 // ============================================================================
 describe('Tier 5 Suite 10: Auxiliary Review Invariant Guards & Anti-Regression', () => {
 
-  it('10.1 Canonical Mirror Parity Check (8 HTML targets, 690 mirrored file pairs)', () => {
+  it('10.1 Canonical Mirror Parity Check (8 HTML targets, 702 mirrored file pairs)', () => {
     const parity = syncAndVerifyMirrors({ verifyOnly: true, silent: true });
     assert.equal(parity.parityOk, true, 'Mirror parity must be 100% verified');
     assert.equal(parity.targets, 8, 'Canonical repository must verify exactly 8 HTML targets');
-    assert.equal(parity.verifiedFilePairs, 690, 'Canonical repository must verify exactly 690 mirrored file pairs');
+    assert.equal(parity.verifiedFilePairs, 702, 'Canonical repository must verify exactly 702 mirrored file pairs');
   });
 
   it('10.2 Bare Catch Blocks Scanner in test/ suites (detects 3 blocks in challenger_m5_1)', () => {

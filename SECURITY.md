@@ -2,7 +2,7 @@
 
 ## 1. Zero-Trust Network Profile (100% Local In-Memory Telemetry)
 
-**Attention Horizon** (`attention-horizon-antigravity` / `agy-horizon-flightcheck`) inspects sensitive local engineering artifacts (conversation transcripts, file paths, and tool usage). To guarantee enterprise and individual security for the Antigravity and Hacker News developer community:
+**Highbeam** (`attention-horizon-antigravity` / `agy-horizon-flightcheck`) inspects sensitive local engineering artifacts (conversation transcripts, file paths, and tool usage). To guarantee enterprise and individual security for the Antigravity and Hacker News developer community:
 
 1. **100% In-Memory Local Telemetry Parsing:** All session token accounting, U-shaped attention curve modeling, and waste classification are computed 100% in-memory from local SQLite (`conversations/*.db`, `conversation_summaries.db`) and JSONL (`transcript_full.jsonl`) reads.
 2. **Zero Outbound Network Connections:** Neither the CLI HUD (`src/cli/horizon_hud.mjs`), the lifecycle hooks (`src/hooks/*.mjs`), nor the sidecar daemon (`sidecars/horizon-daemon/server.mjs`) opens any external HTTP, HTTPS, WebSocket, or DNS connections. There are **zero telemetry pings**, **zero analytics endpoints**, and **zero external LLM API keys required**.

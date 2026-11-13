@@ -1,7 +1,7 @@
 {
   "name": "@ctxtop/mcp",
   "version": "4.0.0",
-  "description": "Attention Horizon Zero-Dependency MCP Stdio Server for Cursor, Windsurf, Claude Code & Antigravity",
+  "description": "Highbeam Zero-Dependency MCP Stdio Server for Cursor, Windsurf, Claude Code & Antigravity",
   "license": "MIT",
   "type": "module",
   "main": "./src/server.mjs",

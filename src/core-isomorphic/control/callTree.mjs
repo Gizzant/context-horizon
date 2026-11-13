@@ -327,7 +327,7 @@ export function buildFlamegraphData(spans, options = {}) {
     profiles: [
       {
         type: 'evented',
-        name: options.name || 'Attention Horizon Call-Tree',
+        name: options.name || 'Highbeam Call-Tree',
         unit: 'milliseconds',
         startValue: minTime === Infinity ? 0 : minTime,
         endValue: maxTime,

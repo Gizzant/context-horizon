@@ -1,0 +1,1370 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Highbeam — Simple View</title>
+  <style>
+    /* ==========================================================================
+       Highbeam (ctxtop) — Strict Single-Screen "Simple View" Design System
+       Edward Tufte Data-Ink Principles · 8px Base Rhythm · WCAG 2.1 AA Verified
+       Zero external network requests (Zero-Trust CSP compliant)
+       ========================================================================== */
+
+    /* Light IDE Theme Tokens (vs-light / prefers-color-scheme: light) */
+    :root {
+      --hz-bg: #FFFFFF;
+      --hz-surface: #F8FAFC;
+      --hz-border: #E2E8F0;
+      --hz-fg: #0F172A;           /* 17.8:1 on #FFFFFF */
+      --hz-fg-secondary: #334155; /* 10.4:1 on #FFFFFF */
+      --hz-muted: #475569;        /*  7.5:1 on #FFFFFF */
+      --hz-signal: #047857;       /*  5.4:1 on #FFFFFF */
+      --hz-cached: #0F766E;       /*  5.4:1 on #FFFFFF */
+      --hz-warn: #B45309;         /*  5.1:1 on #FFFFFF */
+      --hz-danger: #BE123C;       /*  6.4:1 on #FFFFFF */
+      --hz-ring: #0284C7;         /*  4.6:1 on #FFFFFF */
+      --hz-track: #E2E8F0;
+    }
+
+    /* Dark IDE Theme Tokens (Default in Google Antigravity & Claude Code) */
+    html.dark,
+    body[data-vscode-theme-kind="vscode-dark"],
+    body[data-vscode-theme-kind="vscode-high-contrast"] {
+      --hz-bg: #0B0F17;
+      --hz-surface: #111827;
+      --hz-border: #1E293B;
+      --hz-fg: #F8FAFC;           /* 18.1:1 on #0B0F17 */
+      --hz-fg-secondary: #CBD5E1; /* 12.6:1 on #0B0F17 */
+      --hz-muted: #94A3B8;        /*  6.8:1 on #0B0F17 */
+      --hz-signal: #10B981;       /*  7.9:1 on #0B0F17 */
+      --hz-cached: #14B8A6;       /*  8.4:1 on #0B0F17 */
+      --hz-warn: #F59E0B;         /*  9.4:1 on #0B0F17 */
+      --hz-danger: #F43F5E;       /*  5.8:1 on #0B0F17 */
+      --hz-ring: #38BDF8;         /*  9.6:1 on #0B0F17 */
+      --hz-track: #1E293B;
+    }
+
+    body[data-vscode-theme-kind="vscode-light"] {
+      --hz-bg: #FFFFFF;
+      --hz-surface: #F8FAFC;
+      --hz-border: #E2E8F0;
+      --hz-fg: #0F172A;
+      --hz-fg-secondary: #334155;
+      --hz-muted: #475569;
+      --hz-signal: #047857;
+      --hz-cached: #0F766E;
+      --hz-warn: #B45309;
+      --hz-danger: #BE123C;
+      --hz-ring: #0284C7;
+      --hz-track: #E2E8F0;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      background-color: var(--hz-bg);
+      color: var(--hz-fg);
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
+      font-size: 13px;
+      line-height: 20px;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+
+    .tnum, code {
+      font-family: ui-monospace, "JetBrains Mono", "Cascadia Code", SFMono-Regular, Consolas, monospace;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1, "zero" 1;
+    }
+
+    code {
+      font-size: 11.5px;
+      color: var(--hz-fg);
+    }
+
+    button:focus-visible {
+      outline: 2px solid var(--hz-ring);
+      outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* Single-Screen Container (8px Rhythm: 16px horizontal, 12px compact vertical rhythm) */
+    .hz-screen {
+      width: 100%;
+      max-width: 440px;
+      min-width: 0;
+      margin: 0 auto;
+      padding: 12px 16px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Top Identity Strip (32px = 4 * 8px) */
+    .hz-header {
+      min-height: 28px;
+      padding-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border-bottom: 1px solid var(--hz-border);
+    }
+
+    .hz-brand-group {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .hz-brand {
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--hz-fg);
+    }
+
+    .hz-brand-sub {
+      font-size: 11px;
+      line-height: 16px;
+      color: var(--hz-muted);
+    }
+
+    .hz-host-tag {
+      font-size: 11px;
+      line-height: 16px;
+      color: var(--hz-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+
+    /* Functional Zones (12px compact IDE rhythm + 1px hairline separator) */
+    .hz-zone {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--hz-border);
+    }
+
+    .hz-zone-last {
+      padding: 12px 0 0 0;
+      border-bottom: none;
+    }
+
+    .hz-zone-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px 8px;
+      margin-bottom: 8px;
+    }
+
+    .hz-overline {
+      font-size: 11px;
+      line-height: 16px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--hz-muted);
+    }
+
+    /* Zone A: System State & Context Meter */
+    .hz-status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .hz-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hz-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 9999px;
+      background-color: var(--hz-signal);
+      flex-shrink: 0;
+    }
+
+    .hz-status-dot[data-tone="warn"] { background-color: var(--hz-warn); border-radius: 2px; }
+    .hz-status-dot[data-tone="danger"] { background-color: var(--hz-danger); border-radius: 2px; }
+    .hz-status-dot[data-tone="active"] { background-color: var(--hz-ring); }
+
+    .hz-status-label {
+      font-size: 15px;
+      line-height: 20px;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      color: var(--hz-fg);
+    }
+
+    .hz-meta-tone {
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 500;
+      color: var(--hz-muted);
+    }
+    .hz-meta-tone[data-tone="signal"] { color: var(--hz-signal); }
+    .hz-meta-tone[data-tone="warn"] { color: var(--hz-warn); }
+    .hz-meta-tone[data-tone="danger"] { color: var(--hz-danger); }
+    .hz-meta-tone[data-tone="active"] { color: var(--hz-ring); }
+
+    .hz-load-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .hz-load-primary {
+      font-size: 16px;
+      line-height: 24px;
+      font-weight: 600;
+      color: var(--hz-fg);
+    }
+
+    .hz-load-secondary {
+      font-size: 12px;
+      line-height: 16px;
+      color: var(--hz-muted);
+    }
+
+    .hz-meter-wrap {
+      position: relative;
+      height: 8px;
+      width: 100%;
+      background-color: var(--hz-track);
+      border-radius: 2px;
+    }
+
+    .hz-meter-track {
+      display: flex;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      border-radius: 2px;
+    }
+
+    .hz-seg-signal {
+      height: 100%;
+      background-color: var(--hz-signal);
+      transition: width 180ms ease-out;
+    }
+
+    .hz-seg-clutter {
+      height: 100%;
+      background-color: var(--hz-warn);
+      transition: width 180ms ease-out, background-color 180ms ease-out;
+    }
+
+    .hz-seg-clutter[data-clutter-tone="cached"] { background-color: var(--hz-cached); }
+    .hz-seg-clutter[data-clutter-tone="warn"] { background-color: var(--hz-warn); }
+    .hz-seg-clutter[data-clutter-tone="danger"] { background-color: var(--hz-danger); }
+
+    .hz-safe-tick {
+      position: absolute;
+      top: -4px;
+      bottom: -4px;
+      width: 2px;
+      background-color: var(--hz-danger);
+      pointer-events: none;
+    }
+
+    .hz-legend-row {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      line-height: 16px;
+      color: var(--hz-muted);
+    }
+
+    .hz-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hz-swatch {
+      width: 8px;
+      height: 8px;
+      border-radius: 1px;
+      display: inline-block;
+    }
+
+    .hz-swatch-signal { background-color: var(--hz-signal); }
+    .hz-swatch-clutter { background-color: var(--hz-warn); }
+    .hz-swatch-clutter[data-clutter-tone="cached"] { background-color: var(--hz-cached); }
+    .hz-swatch-clutter[data-clutter-tone="danger"] { background-color: var(--hz-danger); }
+
+    .hz-legend-val {
+      color: var(--hz-fg);
+      font-weight: 500;
+    }
+
+    /* Zone B: Direct Guidance (Do / Avoid) */
+    .hz-guidance-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .hz-guidance-row {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      align-items: start;
+      gap: 8px;
+      font-size: 13px;
+      line-height: 20px;
+      padding-left: 8px;
+      border-left: 2px solid var(--hz-border);
+    }
+
+    .hz-guidance-row[data-accent="signal"] { border-left-color: var(--hz-signal); }
+    .hz-guidance-row[data-accent="warn"] { border-left-color: var(--hz-warn); }
+    .hz-guidance-row[data-accent="danger"] { border-left-color: var(--hz-danger); }
+
+    .hz-guidance-tag {
+      font-size: 11px;
+      line-height: 20px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .hz-tag-do { color: var(--hz-signal); }
+    .hz-tag-avoid { color: var(--hz-muted); }
+    .hz-guidance-row[data-accent="warn"] .hz-tag-avoid { color: var(--hz-warn); }
+    .hz-guidance-row[data-accent="danger"] .hz-tag-avoid { color: var(--hz-danger); }
+
+    .hz-guidance-copy {
+      color: var(--hz-fg-secondary);
+      max-width: 65ch;
+    }
+
+    /* Zone C: Automated Activity Ledger (Bounded 4-Row Micro-Feed) */
+    .hz-ledger-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .hz-ledger-item {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      line-height: 16px;
+    }
+
+    .hz-ledger-left {
+      color: var(--hz-fg-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+
+    .hz-ledger-age {
+      color: var(--hz-muted);
+      margin-right: 8px;
+      display: inline-block;
+      min-width: 26px;
+    }
+
+    .hz-ledger-delta {
+      color: var(--hz-signal);
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    .hz-ledger-delta[data-muted="true"] {
+      color: var(--hz-muted);
+      font-weight: 400;
+    }
+
+    /* Zone D: Core Impact KPI & Primary CTA */
+    .hz-kpi-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .hz-kpi-number {
+      font-size: 28px;
+      line-height: 32px;
+      font-weight: 600;
+      letter-spacing: -0.025em;
+      color: var(--hz-fg);
+    }
+
+    .hz-kpi-unit {
+      font-size: 13px;
+      line-height: 20px;
+      font-weight: 500;
+      color: var(--hz-muted);
+      margin-left: 4px;
+    }
+
+    .hz-kpi-right {
+      text-align: right;
+    }
+
+    .hz-kpi-usd {
+      font-size: 13px;
+      line-height: 18px;
+      font-weight: 500;
+      color: var(--hz-signal);
+    }
+
+    .hz-kpi-30d {
+      font-size: 11px;
+      line-height: 16px;
+      color: var(--hz-muted);
+    }
+
+    /* Primary CTA Button (40px = 5 * 8px) */
+    .hz-cta-btn {
+      width: 100%;
+      height: 40px;
+      padding: 0 16px;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 13px;
+      line-height: 20px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      border: 1px solid var(--hz-fg);
+      background-color: var(--hz-fg);
+      color: var(--hz-bg);
+      transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease, opacity 140ms ease;
+    }
+
+    .hz-cta-btn:hover:not(:disabled) {
+      opacity: 0.92;
+    }
+
+    /* Guarded State: Protects warm 95% cache discount */
+    .hz-cta-btn[data-cta-state="guarded"] {
+      background-color: var(--hz-surface);
+      color: var(--hz-fg);
+      border-color: var(--hz-border);
+    }
+
+    /* Crisis State: High-contrast crimson urgency above safe horizon */
+    .hz-cta-btn[data-cta-state="crisis"] {
+      background-color: var(--hz-danger);
+      color: #FFFFFF;
+      border-color: var(--hz-danger);
+    }
+
+    /* Active / Executing State */
+    .hz-cta-btn[data-cta-state="active"] {
+      background-color: var(--hz-surface);
+      color: var(--hz-ring);
+      border-color: var(--hz-ring);
+      cursor: progress;
+    }
+
+    /* Completed Feedback State */
+    .hz-cta-btn[data-cta-state="done"] {
+      background-color: var(--hz-surface);
+      color: var(--hz-signal);
+      border-color: var(--hz-signal);
+    }
+
+    /* Disabled State (0.0k Reclaimable) */
+    .hz-cta-btn:disabled,
+    .hz-cta-btn[data-cta-state="disabled"] {
+      background-color: transparent;
+      color: var(--hz-muted);
+      border-color: var(--hz-border);
+      opacity: 0.56;
+      cursor: not-allowed;
+    }
+
+    .hz-cta-caption {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 12px;
+      line-height: 16px;
+    }
+
+    .hz-reclaim-line {
+      color: var(--hz-fg-secondary);
+    }
+
+    .hz-instruction-line {
+      color: var(--hz-muted);
+    }
+  </style>
+</head>
+<body>
+  <main
+    id="highbeamSimpleScreen"
+    class="hz-screen"
+    data-system-state="optimal"
+    aria-label="Highbeam Simple Context and Cache Monitor"
+  >
+    <!-- Top Identity Bar -->
+    <header class="hz-header">
+      <div class="hz-brand-group">
+        <span class="hz-brand">Highbeam</span>
+        <span class="hz-brand-sub">Context &amp; Cache</span>
+      </div>
+      <span id="hostModelTag" class="hz-host-tag tnum">Antigravity &middot; Auto</span>
+    </header>
+
+    <!-- ===================================================================
+         ZONE A: SYSTEM STATE & CONTEXT ("What is happening right now")
+         =================================================================== -->
+    <section class="hz-zone" aria-labelledby="zoneAHeading">
+      <div class="hz-zone-head">
+        <h2 id="zoneAHeading" class="hz-overline">System State</h2>
+        <span id="cacheTtlMeta" class="hz-meta-tone tnum" data-tone="muted">Ready &middot; Cold start</span>
+      </div>
+
+      <div class="hz-status-row">
+        <div class="hz-status-pill" role="status" aria-live="polite">
+          <span id="statusDot" class="hz-status-dot" data-tone="signal" aria-hidden="true"></span>
+          <span id="statusLabel" class="hz-status-label">Optimal Cache</span>
+        </div>
+        <span id="anchorHealthLabel" class="hz-load-secondary tnum">Rules pinned</span>
+      </div>
+
+      <div class="hz-load-row">
+        <div>
+          <span id="activeUsedLabel" class="hz-load-primary tnum">0.0k</span>
+          <span id="safeLimitSubLabel" class="hz-load-secondary tnum"> / 179.0k safe limit</span>
+        </div>
+        <span id="windowPctLabel" class="hz-load-secondary tnum">0% of 256k ceiling</span>
+      </div>
+
+      <div
+        id="contextMeter"
+        class="hz-meter-wrap"
+        role="meter"
+        aria-label="Active context window load"
+        aria-valuemin="0"
+        aria-valuemax="256000"
+        aria-valuenow="0"
+      >
+        <div class="hz-meter-track">
+          <div id="barActiveSignal" class="hz-seg-signal" style="width: 0%"></div>
+          <div id="barReclaimableClutter" class="hz-seg-clutter" data-clutter-tone="cached" style="width: 0%"></div>
+        </div>
+        <span
+          id="safeLimitMarker"
+          class="hz-safe-tick"
+          style="left: 69.9%"
+          title="Safe Attention Horizon"
+          aria-hidden="true"
+        ></span>
+      </div>
+
+      <div class="hz-legend-row">
+        <span class="hz-legend-item">
+          <i class="hz-swatch hz-swatch-signal" aria-hidden="true"></i>
+          <span>Active <strong id="valActiveSignal" class="hz-legend-val tnum">0.0k</strong></span>
+        </span>
+        <span class="hz-legend-item">
+          <i id="swatchClutter" class="hz-swatch hz-swatch-clutter" data-clutter-tone="cached" aria-hidden="true"></i>
+          <span id="labelClutterKind">Reclaimable</span>
+          <strong id="valReclaimable" class="hz-legend-val tnum">0.0k</strong>
+        </span>
+        <span id="legendSafeCap" class="tnum">179k safe</span>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         ZONE B: DIRECT GUIDANCE ("Actions to take or avoid")
+         =================================================================== -->
+    <section class="hz-zone" aria-labelledby="zoneBHeading">
+      <div class="hz-zone-head">
+        <h2 id="zoneBHeading" class="hz-overline">Direct Guidance</h2>
+        <span id="zoneBModelEffortBadge" class="hz-meta-tone tnum" data-tone="signal">Model: OK &middot; Effort: OK</span>
+      </div>
+
+      <div class="hz-guidance-stack">
+        <div id="guidanceDoRow" class="hz-guidance-row" data-accent="signal">
+          <span class="hz-guidance-tag hz-tag-do tnum">DO</span>
+          <p id="guidanceDoText" class="hz-guidance-copy">
+            Safe to run multi-file edits and targeted tests while working memory is lean.
+          </p>
+        </div>
+
+        <div id="guidanceAvoidRow" class="hz-guidance-row" data-accent="neutral">
+          <span class="hz-guidance-tag hz-tag-avoid tnum">AVOID</span>
+          <p id="guidanceAvoidText" class="hz-guidance-copy">
+            Avoid unbounded full-file reads (&gt;150 lines) without line ranges so context stays fast.
+          </p>
+        </div>
+
+        <div id="guidanceModelEffortRow" class="hz-guidance-row" data-accent="signal">
+          <span id="guidanceModelEffortTag" class="hz-guidance-tag hz-tag-do tnum">MODEL</span>
+          <p id="guidanceModelEffortText" class="hz-guidance-copy">
+            Model: OK to switch &middot; Effort: OK to change &mdash; Cache is cold (zero rewrite penalty); use Low/Med for edits or High for specs.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         ZONE C: AUTOMATED ACTIVITY LEDGER ("What was done automatically")
+         =================================================================== -->
+    <section class="hz-zone" aria-labelledby="zoneCHeading">
+      <div class="hz-zone-head">
+        <h2 id="zoneCHeading" class="hz-overline">Automated Activity</h2>
+        <span id="autoLedgerCount" class="hz-load-secondary tnum">Auto-guards armed</span>
+      </div>
+
+      <ul id="activityLedgerList" class="hz-ledger-list" role="list">
+        <li class="hz-ledger-item">
+          <span class="hz-ledger-left">
+            <span class="hz-ledger-age tnum">now</span>CLI log compression, prefix shield &amp; loop guards active
+          </span>
+          <span class="hz-ledger-delta tnum" data-muted="true">armed</span>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ===================================================================
+         ZONE D: CORE IMPACT KPI & PRIMARY ACTION ("Tokens Saved" + Clean CTA)
+         =================================================================== -->
+    <section class="hz-zone-last" aria-labelledby="zoneDHeading">
+      <div class="hz-zone-head">
+        <h2 id="zoneDHeading" class="hz-overline">Session Impact &amp; Memory Cleanup</h2>
+      </div>
+
+      <div class="hz-kpi-row">
+        <div>
+          <span id="kpiSessionSavedTokens" class="hz-kpi-number tnum">0.0k</span>
+          <span class="hz-kpi-unit">tokens saved</span>
+        </div>
+        <div class="hz-kpi-right">
+          <div id="kpiSessionUsd" class="hz-kpi-usd tnum">$0.00 compute saved</div>
+          <div id="kpiCumulative30d" class="hz-kpi-30d tnum">0.0k ($0.00) 30d total</div>
+        </div>
+      </div>
+
+      <!-- Primary CTA: Single-click Memory Clean / Cache Compaction (#btnCompactPrimary per AGENTS.md Invariant 1) -->
+      <button
+        type="button"
+        id="btnCompactPrimary"
+        class="hz-cta-btn"
+        data-cta-state="disabled"
+        data-compact-command="/compact"
+        disabled
+      >
+        <span id="ctaLabel" class="tnum">Memory Clean &middot; 0.0k Reclaimable</span>
+      </button>
+
+      <div class="hz-cta-caption">
+        <p id="compactReclaim" class="hz-reclaim-line tnum">
+          0.0k reclaimable clutter &middot; Active working memory and pinned rules protected
+        </p>
+        <p id="compactInstruction" class="hz-instruction-line">
+          Type <code>/compact</code> in the chat box and press Enter after copying when resetting history.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <script id="precomputedCatalogScript">
+    window.__PRECOMPUTED_SESSIONS__ = {};
+  </script>
+
+  <script>
+    (function bootstrapHighbeamSimpleView() {
+      // 1. Theme synchronization with IDE host (Default to Dark IDE theme unless vscode-light or ?theme=light)
+      const searchParams = (() => {
+        try { return new URLSearchParams(window.location.search || ''); } catch (_) { return new URLSearchParams(); }
+      })();
+      const applyTheme = () => {
+        const bodyKind = document.body.getAttribute('data-vscode-theme-kind') || '';
+        const queryTheme = (searchParams.get('theme') || '').toLowerCase();
+        if (bodyKind.includes('light') || queryTheme === 'light') {
+          document.documentElement.classList.remove('dark');
+        } else {
+          document.documentElement.classList.add('dark');
+        }
+      };
+      applyTheme();
+
+      // 2. Sidecar Token & CSRF Fetch Wrapper (Matches sidecars/horizon-daemon/server.mjs)
+      const sidecarUiToken = searchParams.get('token') || '';
+
+      function withSidecarAuthUrl(rawUrl) {
+        if (!sidecarUiToken || typeof rawUrl !== 'string' || !rawUrl.startsWith('/api/')) return rawUrl;
+        const sep = rawUrl.includes('?') ? '&' : '?';
+        return rawUrl.includes('token=') ? rawUrl : `${rawUrl}${sep}token=${encodeURIComponent(sidecarUiToken)}`;
+      }
+
+      function buildPostHeaders() {
+        const headers = {
+          'Content-Type': 'application/json',
+          'X-Horizon-CSRF': window.__HORIZON_CSRF_TOKEN__ || ''
+        };
+        if (sidecarUiToken) headers['X-Sidecar-Token'] = sidecarUiToken;
+        return headers;
+      }
+
+      // 3. Formatting Helpers (Strict Tabular Tenth-of-a-Kilotoken Sum Parity)
+      function roundTenthsK(tokens) {
+        const n = Math.max(0, Number(tokens) || 0);
+        return Math.round((n / 1000) * 10) / 10;
+      }
+
+      function fmtTenthsK(kVal) {
+        return `${Number(kVal || 0).toFixed(1)}k`;
+      }
+
+      function fmtHumanTokens(tokens) {
+        const n = Math.max(0, Number(tokens) || 0);
+        if (n >= 1000000) return `${(n / 1000000).toFixed(2)}M`;
+        return `${(n / 1000).toFixed(1)}k`;
+      }
+
+      function fmtMmSs(seconds) {
+        const s = Math.max(0, Math.floor(Number(seconds) || 0));
+        const m = Math.floor(s / 60);
+        const rem = s % 60;
+        return `${String(m).padStart(2, '0')}:${String(rem).padStart(2, '0')}`;
+      }
+
+      function fmtRelativeAge(tsOrLabel) {
+        if (!tsOrLabel) return 'live';
+        if (typeof tsOrLabel === 'string' && /^\d+[smhd]$|^now$|^live$/i.test(tsOrLabel.trim())) {
+          return tsOrLabel.trim();
+        }
+        const parsed = typeof tsOrLabel === 'number' ? tsOrLabel : Date.parse(String(tsOrLabel));
+        if (!Number.isFinite(parsed)) return 'live';
+        const diffSec = Math.max(0, Math.floor((Date.now() - parsed) / 1000));
+        if (diffSec < 45) return 'now';
+        if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m`;
+        return `${Math.floor(diffSec / 3600)}h`;
+      }
+
+      function escapeHtml(raw) {
+        return String(raw || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      // 4. DOM References
+      const screenEl = document.getElementById('highbeamSimpleScreen');
+      const hostModelTag = document.getElementById('hostModelTag');
+      const cacheTtlMeta = document.getElementById('cacheTtlMeta');
+      const statusDot = document.getElementById('statusDot');
+      const statusLabel = document.getElementById('statusLabel');
+      const anchorHealthLabel = document.getElementById('anchorHealthLabel');
+      const activeUsedLabel = document.getElementById('activeUsedLabel');
+      const safeLimitSubLabel = document.getElementById('safeLimitSubLabel');
+      const windowPctLabel = document.getElementById('windowPctLabel');
+      const contextMeter = document.getElementById('contextMeter');
+      const barActiveSignal = document.getElementById('barActiveSignal');
+      const barReclaimableClutter = document.getElementById('barReclaimableClutter');
+      const safeLimitMarker = document.getElementById('safeLimitMarker');
+      const valActiveSignal = document.getElementById('valActiveSignal');
+      const swatchClutter = document.getElementById('swatchClutter');
+      const labelClutterKind = document.getElementById('labelClutterKind');
+      const valReclaimable = document.getElementById('valReclaimable');
+      const legendSafeCap = document.getElementById('legendSafeCap');
+      const guidanceDoRow = document.getElementById('guidanceDoRow');
+      const guidanceDoText = document.getElementById('guidanceDoText');
+      const guidanceAvoidRow = document.getElementById('guidanceAvoidRow');
+      const guidanceAvoidText = document.getElementById('guidanceAvoidText');
+      const autoLedgerCount = document.getElementById('autoLedgerCount');
+      const activityLedgerList = document.getElementById('activityLedgerList');
+      const kpiSessionSavedTokens = document.getElementById('kpiSessionSavedTokens');
+      const kpiSessionUsd = document.getElementById('kpiSessionUsd');
+      const kpiCumulative30d = document.getElementById('kpiCumulative30d');
+      const btnCompactPrimary = document.getElementById('btnCompactPrimary');
+      const ctaLabel = document.getElementById('ctaLabel');
+      const compactReclaim = document.getElementById('compactReclaim');
+      const compactInstruction = document.getElementById('compactInstruction');
+
+      let currentState = null;
+      let isPruningInFlight = false;
+      let localTtlDeadlineMs = 0;
+      let lastHitRatePct = 0;
+      const manualReceiptItems = [];
+
+      function buildSpecSafeCompactCommand(state) {
+        if (typeof state?.compaction?.parameterizedCommand === 'string' && state.compaction.parameterizedCommand.trim()) {
+          return state.compaction.parameterizedCommand.trim();
+        }
+        if (typeof state?.parameterizedCompactCommand === 'string' && state.parameterizedCompactCommand.trim()) {
+          return state.parameterizedCompactCommand.trim();
+        }
+        const preserveParts = [];
+        const activeFiles = Array.isArray(state?.brainSignals?.activeFiles)
+          ? state.brainSignals.activeFiles.slice(0, 3)
+          : [];
+        if (activeFiles.length > 0) {
+          preserveParts.push(`active edits (${activeFiles.join(', ')})`);
+        }
+        if (Number(state?.amputation?.anchorsAtRisk || 0) > 0 || Number(state?.brainSignals?.activeSignal?.baselineTokens || 0) > 0) {
+          preserveParts.push('pinned workspace rules (AGENTS.md) and current task.md checklist');
+        }
+        if (preserveParts.length === 0) return '/compact';
+        return `/compact Focus on preserving: ${preserveParts.join('; ')}.`;
+      }
+
+      function deriveAutomatedLedgerRows(state) {
+        const rows = [...manualReceiptItems];
+
+        // 1. Explicit auto-fix / timeline events from state if present
+        const rawEvents = Array.isArray(state?.autoFix?.items)
+          ? state.autoFix.items
+          : (Array.isArray(state?.savingsEvents) ? state.savingsEvents : []);
+        for (const ev of rawEvents) {
+          if (rows.length >= 4) break;
+          const desc = String(ev.label || ev.summary || ev.detail || ev.type || '').trim();
+          if (!desc) continue;
+          const savedTok = Number(ev.tokensSaved ?? ev.argonEquivTokensSaved ?? 0);
+          rows.push({
+            age: fmtRelativeAge(ev.createdAt || ev.age || 'live'),
+            text: desc,
+            delta: savedTok > 0 ? `+${fmtHumanTokens(savedTok)}` : 'saved',
+            muted: savedTok <= 0
+          });
+        }
+
+        // 2. Deterministic synthesis from verified computeUnifiedSavings sources
+        const bySource = state?.savings?.session?.bySource || {};
+        const surfaceName = (state?.storeSource === 'claude-code' || state?.surface === 'claude-code')
+          ? 'Claude Code'
+          : 'Antigravity';
+
+        if (rows.length < 4 && Number(bySource.cliCompressed || bySource.cliCompression || 0) > 0) {
+          const tok = Number(bySource.cliCompressed || bySource.cliCompression);
+          rows.push({
+            age: 'live',
+            text: 'Compressed verbose terminal test output (FTS5)',
+            delta: `+${fmtHumanTokens(tok)}`,
+            muted: false
+          });
+        }
+        if (rows.length < 4 && Number(bySource.cachePreserved || bySource.cachePreservation || 0) > 0) {
+          const tok = Number(bySource.cachePreserved || bySource.cachePreservation);
+          rows.push({
+            age: 'live',
+            text: `Served ${surfaceName} prompt prefix from warm cache`,
+            delta: `+${fmtHumanTokens(tok)}`,
+            muted: false
+          });
+        }
+        if (rows.length < 4 && Number(bySource.subagentIsolated || bySource.subagentIsolation || 0) > 0) {
+          const tok = Number(bySource.subagentIsolated || bySource.subagentIsolation);
+          rows.push({
+            age: 'live',
+            text: 'Isolated heavy search in read-only subagent',
+            delta: `+${fmtHumanTokens(tok)}`,
+            muted: false
+          });
+        }
+        if (rows.length < 4 && Number(bySource.avoidedBloat || bySource.guardsPrevented || 0) > 0) {
+          const tok = Number(bySource.avoidedBloat || bySource.guardsPrevented);
+          rows.push({
+            age: 'live',
+            text: 'Blocked duplicate file re-reads & retry thrash',
+            delta: `+${fmtHumanTokens(tok)}`,
+            muted: false
+          });
+        }
+
+        const stagedDeltas = Number(state?.prefixShield?.queuedCount ?? state?.coachState?.prefixShield?.queuedCount ?? 0);
+        if (rows.length < 4 && stagedDeltas > 0) {
+          rows.push({
+            age: 'live',
+            text: `Staged ${stagedDeltas} rule edit${stagedDeltas === 1 ? '' : 's'} until cache TTL expires`,
+            delta: 'shielded',
+            muted: false
+          });
+        }
+
+        return rows.slice(0, 4);
+      }
+
+      function renderState(state) {
+        if (!state || typeof state !== 'object') return;
+        currentState = state;
+        if (isPruningInFlight) return;
+
+        // Host & Model Identity
+        const isClaude = state.storeSource === 'claude-code' || state.surface === 'claude-code';
+        const surfaceLabel = isClaude ? 'Claude Code' : 'Antigravity';
+        const modelLabel =
+          state.quota?.sprint5h?.modelPoolName ||
+          state.model?.displayName ||
+          state.effortProfile?.shortLabel ||
+          state.effortProfile?.label ||
+          'Auto';
+        hostModelTag.textContent = `${surfaceLabel} \u00B7 ${modelLabel}`;
+
+        // Context Window & Tenth-of-a-Kilotoken Parity
+        const maxTokens = Math.max(1000, Number(state.window?.maxTokens || 256000));
+        const safeLimit = Math.max(1000, Number(state.window?.safeLimit || Math.round(maxTokens * 0.70)));
+        const rawUsedTokens = Math.max(0, Number(state.window?.totalActiveTokens ?? state.tokens?.total ?? 0));
+
+        const bd = state.breakdown || {};
+        const breakdownClutter =
+          Math.max(0, Number(bd.DUPLICATE_READ || 0)) +
+          Math.max(0, Number(bd.STALE_TURN || 0)) +
+          Math.max(0, Number(bd.DEAD_ERROR || 0)) +
+          Math.max(0, Number(bd.DIRTY_SNAP || 0)) +
+          Math.max(0, Number(bd.LEGACY_POISON || 0)) +
+          Math.max(0, Number(bd.MEMORY_BLEED || 0));
+
+        const bs = state.brainSignals || {};
+        const signalsClutter =
+          Math.max(0, Number(bs.duplicateReads?.reclaimableTokens ?? bs.duplicateReads?.totalWastedTokens ?? 0)) +
+          Math.max(0, Number(bs.deadErrors?.reclaimableTokens ?? bs.deadErrors?.totalTokens ?? 0)) +
+          Math.max(0, Number(bs.oldHistory?.reclaimableTokens ?? 0));
+
+        const rawClutterTokens = Math.min(rawUsedTokens, Math.max(breakdownClutter, signalsClutter));
+
+        const totalUsedK = roundTenthsK(rawUsedTokens);
+        const reclaimableK = Math.min(totalUsedK, roundTenthsK(rawClutterTokens));
+        const activeSignalK = Number((totalUsedK - reclaimableK).toFixed(1));
+        const safeLimitK = roundTenthsK(safeLimit);
+        const maxK = Math.round(maxTokens / 1000);
+        const usedPct = Math.min(100, Math.round((rawUsedTokens / maxTokens) * 100));
+
+        // Cache Coherence (isCacheTrulyWarm per hn-ui-audit contract)
+        const cache = state.quota?.cache || state.cache || {};
+        const ttlSec = Math.max(0, Math.floor(Number(cache.ttlRemainingSec ?? cache.cacheTtlRemainingSec ?? 0)));
+        const cacheReadTokens = Math.max(0, Number(cache.cacheReadTokens || 0));
+        const hitRatePct = Math.max(0, Number(cache.hitRatePct ?? cache.hitPercent ?? 0));
+        const isCacheTrulyWarm = ttlSec > 0 && cacheReadTokens > 0 && hitRatePct > 0 && !cache.isCacheCold;
+
+        localTtlDeadlineMs = isCacheTrulyWarm ? (Date.now() + ttlSec * 1000) : 0;
+        lastHitRatePct = hitRatePct;
+
+        // Hazard & Saturation Classification
+        const isCrisis =
+          Boolean(state.amputation?.amputationCrisis || state.telemetry?.amputationRisk) ||
+          state.verdictCode === 'CRITICAL_STOP' ||
+          rawUsedTokens >= safeLimit;
+
+        const reclaimablePct = totalUsedK > 0 ? (reclaimableK / totalUsedK) * 100 : 0;
+        const isColdSaturated = !isCacheTrulyWarm && (reclaimableK >= 15.0 || (reclaimableK >= 5.0 && reclaimablePct >= 25));
+        const isNearHorizon = rawUsedTokens >= Math.min(145000, safeLimit * 0.85);
+        const isSaturationRisk = isCrisis || isColdSaturated || isNearHorizon || state.verdictCode === 'COMPACT_READY';
+
+        // Zone A Updates
+        if (isSaturationRisk) {
+          screenEl.dataset.systemState = 'saturation_risk';
+          statusDot.dataset.tone = isCrisis ? 'danger' : 'warn';
+          statusLabel.textContent = 'Context Saturation Risk';
+        } else {
+          screenEl.dataset.systemState = 'optimal';
+          statusDot.dataset.tone = 'signal';
+          statusLabel.textContent = 'Optimal Cache';
+        }
+
+        if (isCacheTrulyWarm) {
+          cacheTtlMeta.dataset.tone = ttlSec <= 45 ? 'warn' : 'signal';
+          cacheTtlMeta.textContent = `${Math.round(hitRatePct)}% hit \u00B7 ${fmtMmSs(ttlSec)} warm`;
+        } else if (reclaimableK >= 2.0 || rawUsedTokens >= 25000) {
+          cacheTtlMeta.dataset.tone = 'warn';
+          cacheTtlMeta.textContent = '0% hit \u00B7 Cache expired (00:00)';
+        } else {
+          cacheTtlMeta.dataset.tone = 'muted';
+          cacheTtlMeta.textContent = 'Ready \u00B7 Cold start';
+        }
+
+        const anchorsAtRisk = Number(state.amputation?.anchorsAtRisk || 0);
+        anchorHealthLabel.textContent = anchorsAtRisk > 0
+          ? `${anchorsAtRisk} rule${anchorsAtRisk === 1 ? '' : 's'} at risk`
+          : 'Rules pinned';
+
+        activeUsedLabel.textContent = fmtTenthsK(totalUsedK);
+        safeLimitSubLabel.textContent = ` / ${fmtTenthsK(safeLimitK)} safe limit`;
+        windowPctLabel.textContent = `${usedPct}% of ${maxK}k ceiling`;
+
+        contextMeter.setAttribute('aria-valuemax', String(maxTokens));
+        contextMeter.setAttribute('aria-valuenow', String(rawUsedTokens));
+
+        const signalWidthPct = Math.min(100, ((activeSignalK * 1000) / maxTokens) * 100);
+        const clutterWidthPct = Math.min(100 - signalWidthPct, ((reclaimableK * 1000) / maxTokens) * 100);
+        const safeMarkerPct = Math.min(99, Math.max(5, (safeLimit / maxTokens) * 100));
+
+        barActiveSignal.style.width = `${signalWidthPct.toFixed(2)}%`;
+        barReclaimableClutter.style.width = `${clutterWidthPct.toFixed(2)}%`;
+        safeLimitMarker.style.left = `${safeMarkerPct.toFixed(1)}%`;
+
+        const clutterTone = isCrisis ? 'danger' : (isCacheTrulyWarm ? 'cached' : 'warn');
+        barReclaimableClutter.dataset.clutterTone = clutterTone;
+        swatchClutter.dataset.clutterTone = clutterTone;
+        labelClutterKind.textContent = (isCacheTrulyWarm && !isCrisis && reclaimableK > 0) ? 'Cached clutter' : 'Reclaimable';
+
+        valActiveSignal.textContent = fmtTenthsK(activeSignalK);
+        valReclaimable.textContent = fmtTenthsK(reclaimableK);
+        legendSafeCap.textContent = `${Math.round(safeLimitK)}k safe`;
+
+        // Zone B: Direct Guidance ("Do Next" vs. "Avoid Now" + Model/Effort Switch Verdict)
+        const zoneBModelEffortBadge = document.getElementById('zoneBModelEffortBadge');
+        const guidanceModelEffortRow = document.getElementById('guidanceModelEffortRow');
+        const guidanceModelEffortTag = document.getElementById('guidanceModelEffortTag');
+        const guidanceModelEffortText = document.getElementById('guidanceModelEffortText');
+        const errLoopCount = Number(bs.deadErrors?.errorCount || 0);
+        const isStuckErrorLoop = Boolean(bs.deadErrors?.isErrorLoop || errLoopCount >= 3);
+
+        if (isCrisis) {
+          guidanceDoRow.dataset.accent = 'signal';
+          guidanceDoText.textContent =
+            `Clean ${fmtTenthsK(reclaimableK)} of stale reads and run spec-safe /compact immediately—context crossed the ${Math.round(safeLimitK)}k safe limit.`;
+          guidanceAvoidRow.dataset.accent = 'danger';
+          guidanceAvoidText.textContent =
+            'Avoid running another multi-file edit or verbose test suite before compacting; earliest pinned instructions risk truncation.';
+          if (guidanceModelEffortRow && guidanceModelEffortTag && guidanceModelEffortText) {
+            guidanceModelEffortRow.dataset.accent = 'danger';
+            guidanceModelEffortTag.className = 'hz-guidance-tag hz-tag-avoid tnum';
+            guidanceModelEffortTag.textContent = 'LOCK';
+            guidanceModelEffortText.textContent =
+              'Model: Hold until /compact \u00B7 Effort: Not OK for High — Lower effort to Low/Med immediately to prevent thinking-token overflow.';
+          }
+          if (zoneBModelEffortBadge) {
+            zoneBModelEffortBadge.dataset.tone = 'danger';
+            zoneBModelEffortBadge.textContent = 'Model: Hold \u00B7 Effort: Lower';
+          }
+        } else if (isSaturationRisk && !isCacheTrulyWarm) {
+          guidanceDoRow.dataset.accent = 'signal';
+          guidanceDoText.textContent =
+            `Purge ${fmtTenthsK(reclaimableK)} of duplicate file reads and dead error traces now while the prompt cache is already cold.`;
+          guidanceAvoidRow.dataset.accent = 'warn';
+          guidanceAvoidText.textContent =
+            'Avoid starting a multi-file refactor on cold clutter—every turn will bill full uncached input rates until cleaned.';
+          if (guidanceModelEffortRow && guidanceModelEffortTag && guidanceModelEffortText) {
+            guidanceModelEffortRow.dataset.accent = 'warn';
+            guidanceModelEffortTag.className = 'hz-guidance-tag hz-tag-avoid tnum';
+            guidanceModelEffortTag.textContent = isStuckErrorLoop ? 'SWITCH' : 'EFFORT';
+            guidanceModelEffortText.textContent = isStuckErrorLoop
+              ? `Model: OK to upshift (${errLoopCount}x error loop) \u00B7 Effort: OK to raise to High after purging cold clutter.`
+              : 'Model: OK to switch (cache cold) \u00B7 Effort: Avoid High until cold clutter is purged; use Low/Med.';
+          }
+          if (zoneBModelEffortBadge) {
+            zoneBModelEffortBadge.dataset.tone = 'warn';
+            zoneBModelEffortBadge.textContent = 'Model: OK \u00B7 Effort: Low/Med';
+          }
+        } else if (isCacheTrulyWarm) {
+          guidanceDoRow.dataset.accent = 'signal';
+          guidanceDoText.textContent =
+            `Safe to run multi-file refactors and bounded line-range reads while ${Math.round(hitRatePct)}% prompt cache discount is active.`;
+          guidanceAvoidRow.dataset.accent = ttlSec <= 45 ? 'warn' : 'neutral';
+          guidanceAvoidText.textContent =
+            `Avoid purging cache, switching models, or editing AGENTS.md for ${fmtMmSs(ttlSec)} while the system prefix is hot.`;
+          if (guidanceModelEffortRow && guidanceModelEffortTag && guidanceModelEffortText) {
+            guidanceModelEffortRow.dataset.accent = 'warn';
+            guidanceModelEffortTag.className = 'hz-guidance-tag hz-tag-avoid tnum';
+            guidanceModelEffortTag.textContent = 'HOLD';
+            guidanceModelEffortText.textContent =
+              `Model: Not OK to switch for ${fmtMmSs(ttlSec)} (busts warm cache) \u00B7 Effort: OK to change (use Low/Med on same model for routine edits).`;
+          }
+          if (zoneBModelEffortBadge) {
+            zoneBModelEffortBadge.dataset.tone = 'warn';
+            zoneBModelEffortBadge.textContent = `Model: Hold ${fmtMmSs(ttlSec)} \u00B7 Effort: OK`;
+          }
+        } else {
+          guidanceDoRow.dataset.accent = 'signal';
+          guidanceDoText.textContent =
+            `Safe to run multi-file edits and targeted tests—working memory is ${usedPct}% loaded with minimal clutter.`;
+          guidanceAvoidRow.dataset.accent = 'neutral';
+          guidanceAvoidText.textContent =
+            'Avoid unbounded full-file reads (>150 lines) or unthrottled repo-wide greps so working memory stays lean.';
+          if (guidanceModelEffortRow && guidanceModelEffortTag && guidanceModelEffortText) {
+            guidanceModelEffortRow.dataset.accent = 'signal';
+            guidanceModelEffortTag.className = 'hz-guidance-tag hz-tag-do tnum';
+            guidanceModelEffortTag.textContent = 'MODEL';
+            guidanceModelEffortText.textContent =
+              'Model: OK to switch \u00B7 Effort: OK to change — Cache is cold (zero rewrite penalty); use Low/Med for edits or High for specs.';
+          }
+          if (zoneBModelEffortBadge) {
+            zoneBModelEffortBadge.dataset.tone = 'signal';
+            zoneBModelEffortBadge.textContent = 'Model: OK \u00B7 Effort: OK';
+          }
+        }
+
+        // Zone C: Automated Activity Ledger
+        const ledgerRows = deriveAutomatedLedgerRows(state);
+        if (ledgerRows.length === 0) {
+          autoLedgerCount.textContent = 'Auto-guards armed';
+          activityLedgerList.innerHTML =
+            '<li class="hz-ledger-item">' +
+            '<span class="hz-ledger-left"><span class="hz-ledger-age tnum">now</span>CLI log compression, prefix shield &amp; loop guards active</span>' +
+            '<span class="hz-ledger-delta tnum" data-muted="true">armed</span>' +
+            '</li>';
+        } else {
+          autoLedgerCount.textContent = `${ledgerRows.length} auto-intervention${ledgerRows.length === 1 ? '' : 's'}`;
+          activityLedgerList.innerHTML = ledgerRows.map((row) => (
+            `<li class="hz-ledger-item">` +
+            `<span class="hz-ledger-left"><span class="hz-ledger-age tnum">${escapeHtml(row.age)}</span>${escapeHtml(row.text)}</span>` +
+            `<span class="hz-ledger-delta tnum" data-muted="${row.muted ? 'true' : 'false'}">${escapeHtml(row.delta)}</span>` +
+            `</li>`
+          )).join('');
+        }
+
+        // Zone D: Core Impact KPI ("Tokens Saved") & Primary CTA ("Clean/Purge Cache")
+        const sessSav = state.savings?.session || {};
+        const wsSav = state.savings?.workspace30d || {};
+        const sessTok = Math.max(0, Number(sessSav.totalPhysicalTokens ?? sessSav.totalTokens ?? 0));
+        const sessUsd = Math.max(0, Number(sessSav.estimatedInputValueUsd ?? sessSav.estimatedUsd ?? 0));
+        const wsTok = Math.max(sessTok, Number(wsSav.totalPhysicalTokens ?? wsSav.totalTokens ?? 0));
+        const wsUsd = Math.max(sessUsd, Number(wsSav.estimatedInputValueUsd ?? wsSav.estimatedUsd ?? 0));
+
+        kpiSessionSavedTokens.textContent = fmtHumanTokens(sessTok);
+        kpiSessionUsd.textContent = `${sessUsd > 0 ? `~$${sessUsd.toFixed(2)}` : '$0.00'} compute saved`;
+        kpiCumulative30d.textContent = `${fmtHumanTokens(wsTok)} ($${wsUsd.toFixed(2)}) 30d total`;
+
+        const compactCmd = buildSpecSafeCompactCommand(state);
+        btnCompactPrimary.dataset.compactCommand = compactCmd;
+
+        if (reclaimableK < 0.5 && !isCrisis) {
+          btnCompactPrimary.disabled = true;
+          btnCompactPrimary.dataset.ctaState = 'disabled';
+          ctaLabel.textContent = 'Memory Clean \u00B7 0.0k Reclaimable';
+          compactReclaim.textContent = `0.0k reclaimable clutter \u00B7 ${fmtTenthsK(activeSignalK)} active signal & pinned rules protected`;
+          compactInstruction.innerHTML = 'Type <code>/compact</code> in the chat box and press Enter when resetting conversation history.';
+        } else if (isCacheTrulyWarm && !isCrisis) {
+          btnCompactPrimary.disabled = false;
+          btnCompactPrimary.dataset.ctaState = 'guarded';
+          ctaLabel.textContent = `Stage Tail Clean \u00B7 Hold ${fmtMmSs(ttlSec)} (Cache Hot)`;
+          compactReclaim.textContent = `${fmtTenthsK(reclaimableK)} staged to reclaim after TTL \u00B7 Protects 95% warm cache discount`;
+          compactInstruction.innerHTML = 'Type <code>/compact</code> in the chat box and press Enter only after warm cache expires.';
+        } else if (isCrisis) {
+          btnCompactPrimary.disabled = false;
+          btnCompactPrimary.dataset.ctaState = 'crisis';
+          ctaLabel.textContent = `Clean & Compact Now \u00B7 Reclaim ${fmtTenthsK(reclaimableK)}`;
+          compactReclaim.textContent = `Reclaims ${fmtTenthsK(reclaimableK)} clutter & copies spec-safe /compact preserving pinned rules`;
+          compactInstruction.innerHTML = 'Type <code>/compact</code> in the chat box and press Enter immediately after clicking.';
+        } else {
+          btnCompactPrimary.disabled = false;
+          btnCompactPrimary.dataset.ctaState = 'ready';
+          ctaLabel.textContent = `Clean & Purge Stale Cache \u00B7 Reclaim ${fmtTenthsK(reclaimableK)}`;
+          compactReclaim.textContent = `Frees ${fmtTenthsK(reclaimableK)} duplicate reads & dead errors \u00B7 Preserves active working set`;
+          compactInstruction.innerHTML = 'Type <code>/compact</code> in the chat box and press Enter after copying, or surgical prune runs now.';
+        }
+      }
+
+      // Expose renderState globally for daemon bootstrap and deterministic JSDOM tests
+      window.renderState = renderState;
+
+      // 5. Primary CTA Handler: Instant (<16ms) Sensory Feedback + Prefix-Safe Backend Execution
+      btnCompactPrimary.addEventListener('click', async () => {
+        if (btnCompactPrimary.disabled || isPruningInFlight) return;
+        const snapshot = currentState || {};
+        const ctaMode = btnCompactPrimary.dataset.ctaState || 'ready';
+        const compactCmd = btnCompactPrimary.dataset.compactCommand || '/compact';
+
+        isPruningInFlight = true;
+        btnCompactPrimary.setAttribute('aria-busy', 'true');
+        btnCompactPrimary.dataset.ctaState = 'active';
+        screenEl.dataset.systemState = 'pruning';
+        statusDot.dataset.tone = 'active';
+        statusLabel.textContent = 'Memory Pruning Active';
+        cacheTtlMeta.dataset.tone = 'active';
+        cacheTtlMeta.textContent = ctaMode === 'guarded'
+          ? 'Staging uncached tail trim (preserving hot prefix)…'
+          : 'Folding stale reads & copying spec-safe /compact…';
+        ctaLabel.textContent = ctaMode === 'guarded'
+          ? 'Staging prefix-safe tail cleanup…'
+          : 'Pruning stale context & copying /compact…';
+
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          try { await navigator.clipboard.writeText(compactCmd); } catch (_) {}
+        }
+
+        let nextStateFromServer = null;
+        let savedTokensDelta = 0;
+
+        try {
+          const endpoint = ctaMode === 'guarded' ? '/api/tail/trim' : '/api/prune';
+          const payload = ctaMode === 'guarded'
+            ? { conversationId: snapshot.sessionId || null }
+            : { conversationId: snapshot.sessionId || null, forceHotCache: ctaMode === 'crisis' };
+
+          const resp = await fetch(withSidecarAuthUrl(endpoint), {
+            method: 'POST',
+            headers: buildPostHeaders(),
+            body: JSON.stringify(payload)
+          });
+          if (resp && resp.ok) {
+            const data = await resp.json();
+            if (data && data.state) nextStateFromServer = data.state;
+            savedTokensDelta = Math.max(0, Number(data?.savedTokens || data?.reclaimedTokens || 0));
+          }
+        } catch (_) {
+          // Offline / demo fallback continues cleanly below
+        }
+
+        isPruningInFlight = false;
+        btnCompactPrimary.removeAttribute('aria-busy');
+
+        if (ctaMode === 'guarded') {
+          manualReceiptItems.unshift({
+            age: 'now',
+            text: 'Staged tail trim & copied /compact (hot prefix kept)',
+            delta: 'staged',
+            muted: false
+          });
+          if (nextStateFromServer) {
+            renderState(nextStateFromServer);
+          } else if (currentState) {
+            renderState(currentState);
+          }
+          btnCompactPrimary.dataset.ctaState = 'done';
+          ctaLabel.textContent = 'Staged Clean \u00B7 /compact Copied for Expiry';
+          compactInstruction.innerHTML = 'Copied! Wait for warm TTL to reach 00:00, then paste <code>/compact</code> in chat and press Enter.';
+          return;
+        }
+
+        // Compute reclaimed amount for ledger & optimistic UI update when daemon is in mock/demo mode
+        const prevClutterTokens = Math.max(
+          0,
+          Number(snapshot.breakdown?.DUPLICATE_READ || 0) +
+          Number(snapshot.breakdown?.STALE_TURN || 0) +
+          Number(snapshot.breakdown?.DEAD_ERROR || 0),
+          Number(snapshot.brainSignals?.duplicateReads?.reclaimableTokens || 0) +
+          Number(snapshot.brainSignals?.deadErrors?.reclaimableTokens || 0) +
+          Number(snapshot.brainSignals?.oldHistory?.reclaimableTokens || 0)
+        );
+        const effectiveSaved = savedTokensDelta > 0 ? savedTokensDelta : prevClutterTokens;
+
+        manualReceiptItems.unshift({
+          age: 'now',
+          text: 'Pruned stale context & copied spec-safe /compact',
+          delta: effectiveSaved > 0 ? `+${fmtHumanTokens(effectiveSaved)}` : 'cleaned',
+          muted: effectiveSaved <= 0
+        });
+        if (manualReceiptItems.length > 4) manualReceiptItems.length = 4;
+
+        if (nextStateFromServer) {
+          renderState(nextStateFromServer);
+        } else if (currentState) {
+          const prevTotal = Math.max(0, Number(currentState.window?.totalActiveTokens || 0));
+          const nextTotal = Math.max(0, prevTotal - effectiveSaved);
+          const prevSavTok = Math.max(0, Number(currentState.savings?.session?.totalPhysicalTokens || 0));
+          const nextSavTok = prevSavTok + effectiveSaved;
+          const nextUsd = Number(((nextSavTok / 1000000) * 2.0).toFixed(2));
+          renderState({
+            ...currentState,
+            verdictCode: 'NOMINAL',
+            amputation: { amputationCrisis: false, anchorsAtRisk: 0 },
+            telemetry: { amputationRisk: false },
+            window: { ...(currentState.window || {}), totalActiveTokens: nextTotal },
+            breakdown: {
+              ...(currentState.breakdown || {}),
+              DUPLICATE_READ: 0,
+              STALE_TURN: 0,
+              DEAD_ERROR: 0,
+              DIRTY_SNAP: 0,
+              LEGACY_POISON: 0
+            },
+            brainSignals: {
+              ...(currentState.brainSignals || {}),
+              duplicateReads: { reclaimableTokens: 0, totalWastedTokens: 0 },
+              deadErrors: { reclaimableTokens: 0, totalTokens: 0 },
+              oldHistory: { reclaimableTokens: 0 }
+            },
+            savings: {
+              ...(currentState.savings || {}),
+              session: {
+                ...(currentState.savings?.session || {}),
+                totalPhysicalTokens: nextSavTok,
+                estimatedInputValueUsd: nextUsd
+              }
+            }
+          });
+        }
+
+        btnCompactPrimary.dataset.ctaState = 'done';
+        btnCompactPrimary.disabled = true;
+        ctaLabel.textContent = `Cleaned ${fmtHumanTokens(effectiveSaved)} \u00B7 /compact Copied to Clipboard`;
+        compactInstruction.innerHTML = 'Copied! Type <code>/compact</code> in the chat box and press Enter to compact host chat history.';
+      });
+
+      // 6. 1-Second Live Dual-TTL Countdown Ticker (Zero jitter via tabular-nums)
+      const ttlInterval = setInterval(() => {
+        if (isPruningInFlight || localTtlDeadlineMs <= 0) return;
+        const remSec = Math.max(0, Math.floor((localTtlDeadlineMs - Date.now()) / 1000));
+        if (remSec <= 0) {
+          localTtlDeadlineMs = 0;
+          if (currentState) {
+            renderState({
+              ...currentState,
+              quota: {
+                ...(currentState.quota || {}),
+                cache: { ...(currentState.quota?.cache || {}), ttlRemainingSec: 0, isCacheCold: true, hitRatePct: 0 }
+              }
+            });
+          }
+          return;
+        }
+        cacheTtlMeta.dataset.tone = remSec <= 45 ? 'warn' : 'signal';
+        cacheTtlMeta.textContent = `${Math.round(lastHitRatePct)}% hit \u00B7 ${fmtMmSs(remSec)} warm`;
+        if (btnCompactPrimary.dataset.ctaState === 'guarded') {
+          ctaLabel.textContent = `Stage Tail Clean \u00B7 Hold ${fmtMmSs(remSec)} (Cache Hot)`;
+        }
+      }, 1000);
+      if (typeof ttlInterval.unref === 'function') ttlInterval.unref();
+
+      // 7. Live Daemon Hydration & SSE Stream Subscription
+      if (window.__LIVE_INITIAL_STATE__) {
+        try { renderState(window.__LIVE_INITIAL_STATE__); } catch (_) {}
+      }
+
+      if (typeof window.EventSource === 'function') {
+        try {
+          const es = new window.EventSource(withSidecarAuthUrl('/api/stream'));
+          es.onmessage = (ev) => {
+            try { renderState(JSON.parse(ev.data)); } catch (_) {}
+          };
+        } catch (_) {}
+      }
+
+      if (!window.__LIVE_INITIAL_STATE__ && typeof window.fetch === 'function') {
+        window.fetch(withSidecarAuthUrl('/api/state'))
+          .then((r) => (r && r.ok ? r.json() : null))
+          .then((s) => { if (s) renderState(s); })
+          .catch(() => {});
+      }
+    })();
+  </script>
+</body>
+</html>

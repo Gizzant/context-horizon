@@ -116,7 +116,7 @@ export function buildDemoPage(options = {}) {
   }
 
   const demoInjector = `
-<!-- Attention Horizon Interactive GitHub Pages Demo Harness -->
+<!-- Highbeam Interactive GitHub Pages Demo Harness -->
 <style>
   #chDemoBar {
     position: sticky;
@@ -386,7 +386,7 @@ export function buildDemoPage(options = {}) {
       const bar = document.createElement('div');
       bar.id = 'chDemoBar';
       bar.innerHTML = \`
-        <div class="ch-brand">⚡ Attention Horizon (ah v4.0) — Live Interactive Demo</div>
+        <div class="ch-brand">⚡ Highbeam (ah v4.0) — Live Interactive Demo</div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <div id="chSurfaceToggle" role="group" aria-label="Host IDE Surface">
             <button type="button" id="btnSurfaceAntigravity" class="active" data-surface="antigravity">Antigravity IDE</button>
@@ -411,7 +411,7 @@ export function buildDemoPage(options = {}) {
           <div class="cc-term-hdr" style="margin-top:10px;">Tier-1 Pure-V8 Studio Mod — AbovePrompt Band (hooks/register.js)</div>
           <div id="ccDemoAbovePrompt" style="white-space:pre-wrap;color:#cbd5e1;"></div>
         </div>
-        <iframe id="ccStudioFrame" title="Claude Code Attention Horizon Studio HUD"></iframe>
+        <iframe id="ccStudioFrame" title="Claude Code Highbeam Studio HUD"></iframe>
       \`;
       bar.insertAdjacentElement('afterend', ccMount);
 

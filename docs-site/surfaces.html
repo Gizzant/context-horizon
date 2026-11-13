@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Antigravity vs. Claude Code - Highbeam User Guide</title>
+  <meta name="description" content="How Highbeam bridges Google Antigravity sidecar WebViews, Claude Code V8 Mods, CLI lifecycle hooks, statusLine bars, and MCP clients." />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body data-page="surfaces">
+  <header class="site-header" id="site-header"></header>
+
+  <div class="doc-shell">
+    <nav class="sidebar" id="site-sidebar" aria-label="Documentation chapters"></nav>
+
+    <main class="doc-main prose">
+      <p class="doc-eyebrow">Foundations</p>
+      <h1 class="doc-title">Google Antigravity vs. Claude Code</h1>
+      <p class="doc-lead">
+        Highbeam ships one shared isomorphic physics engine wrapped by native host adapters for Google Antigravity, Claude Code, and MCP editors. Each host uses its fastest native extension mechanism while sharing identical detector rules and scope locks on disk.
+      </p>
+
+      <h2 id="surface-comparison-matrix">Host Capability Matrix</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Google Antigravity</th>
+              <th>Claude Code</th>
+              <th>Cursor / Windsurf (<code>@ctxtop/mcp</code>)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Manifest Root</strong></td>
+              <td><code>plugin.json</code> &amp; <code>.antigravity-plugin/plugin.json</code></td>
+              <td><code>.claude-plugin/plugin.json</code> &amp; <code>settings.json</code></td>
+              <td><code>.cursor/mcp.json</code> (stdio JSON-RPC 2.0)</td>
+            </tr>
+            <tr>
+              <td><strong>Install Locations</strong></td>
+              <td><code>.agents/plugins/</code> (workspace) or <code>~/.gemini/config/plugins/</code> (global)</td>
+              <td><code>.claude/settings.json</code> (project) or <code>~/.claude/settings.json</code> (global)</td>
+              <td><code>.cursor/mcp.json</code> or global MCP config</td>
+            </tr>
+            <tr>
+              <td><strong>Execution Path</strong></td>
+              <td>CLI Lifecycle Hooks + Loopback HTTP/SSE Sidecar Daemon + Micro-IPC</td>
+              <td>Tier-1 In-Process V8 Mod (<code>~0.18ms p95</code>) + Tier-2 CLI Hook Fallback</td>
+              <td>On-demand MCP tool calls (<code>ah-mcp</code> / <code>ctxtop-mcp</code>)</td>
+            </tr>
+            <tr>
+              <td><strong>Primary Visual UI</strong></td>
+              <td>Live Sidecar Aux-Pane WebView (<code>127.0.0.1:62935</code>) + Studio <code>&lt;agent-embed&gt;</code></td>
+              <td>Responsive <code>ah-statusline</code> ANSI bar + Docked Mod View + Zero-socket HTML</td>
+              <td>Structured JSON tool responses + PDF/HTML receipts</td>
+            </tr>
+            <tr>
+              <td><strong>Telemetry Source</strong></td>
+              <td><code>SQLITE_OPEN_READONLY</code> on <code>conversations/*.db</code> + JSONL byte-offset slicing</td>
+              <td><code>statusLine</code> stdin stream + <code>.claude/cache/ah_live_state_&lt;id&gt;.json</code></td>
+              <td>Shared live-state snapshots + 30-day quota ledger</td>
+            </tr>
+            <tr>
+              <td><strong>Subagent Strategy</strong></td>
+              <td><code>@ah-flash-scout</code> (<code>&lt;200</code> tok), <code>/browser</code>, <code>/swarm</code> (<code>inherit|branch|share</code>)</td>
+              <td><code>Task</code> / <code>Agent</code> tool delegation + Git worktrees + <code>DET-19</code> IPI sanitizer</td>
+              <td>Cross-editor <code>scope_lock_claim</code> lease coordination</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="google-antigravity-integration">Google Antigravity Surface Architecture</h2>
+      <p>
+        Inside Google Antigravity (App, IDE, and <code>agy</code> CLI), Highbeam operates as a full sidecar-backed plugin registered under <code>attention-horizon-antigravity</code> (and workspace mirror <code>agy-horizon-flightcheck</code>).
+      </p>
+
+      <h3 id="antigravity-sidecar-and-ui">Sidecar Daemon &amp; Edward Tufte WebView</h3>
+      <p>
+        The manifest in <code>sidecars/horizon-daemon/sidecar.json</code> launches <code>node --no-warnings server.mjs</code> on loopback port <code>62935</code> (scanning <code>62935..62945</code> if busy) and mounts directly into Antigravity's auxiliary side pane via <code>SIDECAR_UI_ENTRYPOINT_AUX_PANE</code>. You can also open it from chat via the <code>sidecar://agy-horizon-flightcheck/horizon-daemon/</code> pill or run <code>npx ctxtop --serve</code> in any browser.
+      </p>
+      <p>
+        The WebView enforces strict UI invariants verified in automated JSDOM gates:
+      </p>
+      <ul>
+        <li><strong>1-Click Compaction Copy:</strong> Always renders <code>#btnCompactPrimary</code> and <code>#btnCopyParameterizedCompact</code> beside <code>#compactInstruction</code> and <code>#compactReclaim</code> so you can copy a parameterized <code>/compact</code> prompt in one click.</li>
+        <li><strong>Active Source File Protection:</strong> The <code>Ignore file</code> (<code>.antigravityignore</code>) action is offered exclusively on lockfiles, logs, build artifacts, and scratch outputs (<code>isIgnorablePath</code>), never on active source code files.</li>
+        <li><strong>3-Way Mirror Parity:</strong> When local plugin directories (<code>~/.gemini/config/plugins/agy-horizon</code> and <code>agy-horizon-flightcheck</code>) exist on disk, <code>node scripts/sync_mirrors.mjs</code> keeps <code>horizon_panel.html</code> and <code>src/core/*.mjs</code> byte-for-byte identical via SHA-256 verification.</li>
+      </ul>
+
+      <h3 id="antigravity-subagents-and-modes">Subagents, <code>/browser</code>, <code>/swarm</code> &amp; Workspace Modes</h3>
+      <p>
+        Antigravity provides native multi-agent delegation primitives that Highbeam monitors and protects:
+      </p>
+      <ul>
+        <li><strong>Delegation Scout (<code>@ah-flash-scout</code>):</strong> Defined in <code>agents/ah-flash-scout.md</code> with <code>model: flash</code>, <code>commandExecutionPolicy: off</code>, and read-only search tools (<code>view_file</code>, <code>grep_search</code>, <code>find_by_name</code>, <code>list_dir</code>). It returns compact <code>File:StartLine-EndLine</code> coordinates in under <code>200</code> tokens so your main frontier model avoids reading raw grep dumps.</li>
+        <li><strong><code>/browser</code> Isolation:</strong> Interactive web verification runs inside Antigravity's isolated webview sandbox on Flash by default, staging uploads and visual references under <code>browser_sandbox/</code> without polluting workspace files.</li>
+        <li><strong><code>/swarm</code> &amp; Workspace Modes:</strong> Parallel workers choose one of three <strong>Workspace Modes</strong>:
+          <ul>
+            <li><code>inherit</code>: Shares your current working directory; suited for read-only scouts, reviewers, and verifiers.</li>
+            <li><code>share</code>: Allocates an independent Git working tree sharing your underlying repository object store so parallel authors can edit and build concurrently without duplicating disk storage.</li>
+            <li><code>branch</code>: Clones a fully isolated workspace branch when strict filesystem separation is required.</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h2 id="claude-code-integration">Claude Code Dual-Tier Architecture</h2>
+      <p>
+        Claude Code supports two execution tiers. Highbeam ships both in a single package and coordinates them automatically so guardrails never run twice on the same event.
+      </p>
+
+      <figure class="diagram-frame" aria-label="Claude Code Tier-1 V8 Mod vs Tier-2 CLI Hook deduplication">
+        <svg viewBox="0 0 840 215" role="img" aria-labelledby="cc-tiers-title">
+          <title id="cc-tiers-title">Claude Code Tier-1 In-Process V8 Mod and Tier-2 CLI Hook Architecture</title>
+
+          <rect x="20" y="24" width="240" height="166" rx="12" fill="var(--canvas)" stroke="var(--accent)" stroke-width="1.6" />
+          <text x="38" y="50" font-family="var(--font-sans)" font-size="13" font-weight="700" fill="var(--ink)">Tier-1: In-Process V8 Mod</text>
+          <text x="38" y="70" font-family="var(--font-mono)" font-size="10.5" fill="var(--accent)">hooks/register.js (~0.18ms p95)</text>
+          <text x="38" y="94" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">on('tool.call') / on('turn.step')</text>
+          <text x="38" y="114" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">on('command.horizon') / ui.render</text>
+          <text x="38" y="134" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">Zero node:* imports (Mod Laws 1-5)</text>
+          <text x="38" y="156" font-family="var(--font-mono)" font-size="10.5" fill="var(--status-safe)">Sets AH_TIER1_MOD_ACTIVE=1</text>
+
+          <path d="M 260 107 L 320 107" stroke="var(--border-strong)" stroke-width="2" stroke-dasharray="5 4" />
+
+          <rect x="320" y="24" width="250" height="166" rx="12" fill="var(--canvas)" stroke="var(--border-strong)" />
+          <text x="338" y="50" font-family="var(--font-sans)" font-size="13" font-weight="700" fill="var(--ink)">Tier-2: Spawned CLI Handlers</text>
+          <text x="338" y="70" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">hooks/handlers/*.mjs (~25-45ms)</text>
+          <text x="338" y="94" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">PreToolUse / PostToolUse / Stop</text>
+          <text x="338" y="114" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">PreModelSwitch / PreCompact</text>
+          <text x="338" y="134" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">Short-circuits if Tier-1 active</text>
+          <text x="338" y="156" font-family="var(--font-mono)" font-size="10.5" fill="var(--accent)">Full filesystem &amp; IPC access</text>
+
+          <path d="M 570 107 L 616 107" stroke="var(--accent)" stroke-width="2" />
+
+          <rect x="616" y="24" width="204" height="166" rx="12" fill="var(--canvas)" stroke="var(--border-strong)" />
+          <text x="632" y="50" font-family="var(--font-sans)" font-size="13" font-weight="700" fill="var(--ink)">Live State Bridge</text>
+          <text x="632" y="74" font-family="var(--font-mono)" font-size="10" fill="var(--ink-secondary)">.claude/cache/</text>
+          <text x="632" y="90" font-family="var(--font-mono)" font-size="10" fill="var(--ink)">ah_live_state_&lt;id&gt;.json</text>
+          <text x="632" y="118" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">Feeds ah-statusline,</text>
+          <text x="632" y="136" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">ctxtop receipt, panel,</text>
+          <text x="632" y="154" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">and @ctxtop/mcp tools</text>
+        </svg>
+      </figure>
+
+      <h3 id="responsive-statusline">Responsive Single-Line <code>ah-statusline</code> Tiers</h3>
+      <p>
+        In Claude Code, <code>bin/ah-statusline.mjs</code> ingests Claude Code's <code>statusLine</code> stdin JSON after every turn, writes an atomic snapshot to <code>.claude/cache/ah_live_state_&lt;sessionId&gt;.json</code>, and renders a single-line ANSI bar tailored to your terminal width (overridable via <code>--columns &lt;N&gt;</code> or <code>AH_COLUMNS</code>):
+      </p>
+
+      <div class="code-block terminal">
+        <div class="code-header"><span><span class="window-dots"><span></span><span></span><span></span></span>Claude Code StatusLine Layout Tiers (80 / 110 / 144 Columns)</span></div>
+        <pre><code># Compact Tier (80 columns)
+AH [██▓▓▓▓▓▓░░░░] 64k/200k · Hit 88% · TTL 04:12 · +$1.84
+
+# Standard Tier (110 columns, default fallback)
+AH sonnet-5.5 [██▓▓▓▓▓▓▓▓▒█░░░░░░░░] 64.0k/200k (32%) · Cache 87.5% · 5m TTL 04:12 · Saved +$1.84
+
+# Wide Workbench Tier (144+ columns)
+AH sonnet-5.5 [COACH] [██▓▓▓▓▓▓▓▓▓▓▓▓▒█░░░░░░░░░░░░░░░░] 64.0k/200k (32%) · Hit 87.5% · 5m 04:12 | 1h 51:08 · C* Hold · Saved +$1.84</code></pre>
+      </div>
+
+      <h2 id="workflow-equivalence">Side-by-Side Workflow Switcher</h2>
+      <p>
+        Select a host below to see the exact command sequence for common daily tasks:
+      </p>
+
+      <div class="tabs" data-sync-surface>
+        <div class="tab-list" role="tablist" aria-label="Daily workflow comparison">
+          <button type="button" class="tab-btn" role="tab" aria-selected="true" data-tab="antigravity">Google Antigravity</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="claude">Claude Code</button>
+        </div>
+
+        <div class="tab-panel" data-panel="antigravity">
+          <div class="code-block terminal">
+            <div class="code-header"><span>Google Antigravity Chat &amp; Terminal Workflow</span></div>
+            <pre><code># 1. Inspect 40-cell window as an embedded Studio widget
+/horizon
+
+# 2. Score a complex refactor prompt before spending frontier quota
+#check Refactor src/core/classifier.mjs to extract span categorization
+
+# 3. Delegate fast file discovery to Gemini Flash (<200 tokens returned)
+@ah-flash-scout Locate all callers of classifyHorizonWindow
+
+# 4. Compress state into task.md before running /compact
+/handoff</code></pre>
+          </div>
+        </div>
+
+        <div class="tab-panel" data-panel="claude" hidden>
+          <div class="code-block terminal">
+            <div class="code-header"><span>Claude Code Slash Commands &amp; CLI Workflow</span></div>
+            <pre><code># 1. Open docked Mod pane or print the 4-rank terminal receipt
+/horizon
+npx ah-claude receipt --advanced
+
+# 2. Check warm KV-cache gravity and C* break-even before switching models
+/precheck
+
+# 3. Render self-contained Cost Radar SVG timeline for the active session
+/cost-radar
+
+# 4. Flush State Baton to .claude/cache/HANDOFF_LATEST.md before /compact
+/handoff</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>
+      <footer class="doc-footer" id="doc-footer"></footer>
+    </main>
+
+    <aside class="toc-rail" id="site-toc" aria-label="On this page"></aside>
+  </div>
+
+  <script src="assets/search-index.js"></script>
+  <script src="assets/site.js"></script>
+</body>
+</html>

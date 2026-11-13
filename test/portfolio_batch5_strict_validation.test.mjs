@@ -35,7 +35,7 @@ describe('Batch 5 — Strict Antigravity Plugin Manifest, Hooks Schema, Zero-I/O
     const agyManifest = JSON.parse(fs.readFileSync(agyPluginPath, 'utf8'));
     const rootManifest = JSON.parse(fs.readFileSync(rootPluginPath, 'utf8'));
     assert.equal(agyManifest.name, 'attention-horizon-antigravity');
-    assert.equal(agyManifest.displayName, 'Attention Horizon');
+    assert.equal(agyManifest.displayName, 'Highbeam');
     assert.equal(validateStrictPluginManifest(agyManifest).valid, true);
     assert.deepEqual(validateStrictPluginManifest(agyManifest).errors, []);
     assert.equal(validateStrictPluginManifest(rootManifest).valid, true);
@@ -47,7 +47,7 @@ describe('Batch 5 — Strict Antigravity Plugin Manifest, Hooks Schema, Zero-I/O
       false
     );
     assert.equal(
-      validateStrictPluginManifest({ name: 'attention-horizon-antigravity', displayName: 'Attention Horizon Plugin' }).valid,
+      validateStrictPluginManifest({ name: 'attention-horizon-antigravity', displayName: 'Highbeam Plugin' }).valid,
       false
     );
 

@@ -1,4 +1,4 @@
-# Attention Horizon: 360° Technical & Architectural Evaluation Guide
+# Highbeam: 360° Technical & Architectural Evaluation Guide
 
 > **Component:** `attention-horizon-antigravity` (`ctxtop` / `agy-horizon-flightcheck`)  
 > **Target Platform:** Google Antigravity IDE, CLI, and Standalone Browser Telemetry  
@@ -214,7 +214,7 @@ Every token in the conversation transcript is classified into one of six distinc
 ### 4.13 Show-HN Layers 1â€“4: Composite Session Risk, Dual-Watermark Model & Baton Pass (`/handoff`)
 * **Composite Session Risk (`GREEN` / `AMBER` / `RED`):** Evaluates token headroom (`179k` safe horizon), KV cache TTL (`300s`), `task.md` staleness, and 7d quota lockout risk, plus a **Prefix-Lock Protection Warning** when a warm cache holds `> 50k` tokens (`TTL > 0s`).
 * **Multi-Store Session Discovery (`[App]`, `[IDE]`, `[CLI]`):** Scans `~/.gemini/antigravity`, `~/.gemini/antigravity-ide`, and `~/.gemini/antigravity-cli` with dual-target `Open â†—` (Click to focus chat, `Alt+Click` to open OS brain folder).
-* **Dual-Watermark & Dynamic Ceiling Model (`50k` / `179k` / `256k`):** Renders `50k Cascade Sync Armed`, `179k Attention Horizon (70%)`, and `256k Hard Assembly Limit` (`cortex/utils.GetCheckpointConfig`), coloring older history in **Muted Slate/Teal (`Cached History â€” 95% Discounted`)** while warm and transitioning to **Amber (`Reclaimable Cold Bloat`)** only when cold or over `179k`.
+* **Dual-Watermark & Dynamic Ceiling Model (`50k` / `179k` / `256k`):** Renders `50k Cascade Sync Armed`, `179k Highbeam (70%)`, and `256k Hard Assembly Limit` (`cortex/utils.GetCheckpointConfig`), coloring older history in **Muted Slate/Teal (`Cached History â€” 95% Discounted`)** while warm and transitioning to **Amber (`Reclaimable Cold Bloat`)** only when cold or over `179k`.
 * **Parameterized `/compact` & Baton Pass (`/handoff`):** Synthesizes context-preserving `/compact` prompts, displays a Cache-Aware Compaction Advisory, audits Brain artifacts (`task.md`, `implementation_plan.md`, `walkthrough.md`) + `git status --porcelain` drift, and generates `docs/HANDOFF_<timestamp>.md` with one click (`POST /api/handoff/generate`).
 
 ### 4.14 Show-HN Layer 5: Smart File Re-Read Classifier, MCP Prefix Audit & Lifecycle Hooks (`layer5_hygiene.mjs`)

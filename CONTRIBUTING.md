@@ -1,6 +1,6 @@
-# Contributing to Attention Horizon (`attention-horizon-antigravity` / `ctxtop`)
+# Contributing to Highbeam (`attention-horizon-antigravity` / `ctxtop`)
 
-Thank you for helping build Attention Horizon (`attention-horizon-antigravity` / `ctxtop`)! Our goal is to keep AI coding agent context windows transparent, fast (`<15ms` hook latency), and 100% dependency-free.
+Thank you for helping build Highbeam (`attention-horizon-antigravity` / `ctxtop`)! Our goal is to keep AI coding agent context windows transparent, fast (`<15ms` hook latency), and 100% dependency-free.
 
 ---
 

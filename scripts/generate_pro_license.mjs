@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @file scripts/generate_pro_license.mjs
- * Offline Ed25519 keygen & license signer for Attention Horizon Pro (`@ctxtop/pro` / Polar.sh).
+ * Offline Ed25519 keygen & license signer for Highbeam Pro (`@ctxtop/pro` / Polar.sh).
  *
  * Usage:
  *   node scripts/generate_pro_license.mjs --email dev@example.com --tier pro --days 365

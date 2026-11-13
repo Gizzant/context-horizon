@@ -52,7 +52,7 @@ test('CHALLENGE 1.1: Installer Anti-Clobber — Backup is byte-for-byte identica
     const originalContent = JSON.stringify({
       env: {
         MY_VAR: 'production_val_42',
-        UNICODE_TEST: '🚀 关注视界 Attention Horizon ⚡',
+        UNICODE_TEST: '🚀 关注视界 Highbeam ⚡',
         PATH_OVERRIDE: '/opt/custom/bin:/usr/local/bin'
       },
       permissions: {
@@ -124,7 +124,7 @@ test('CHALLENGE 1.1: Installer Anti-Clobber — Backup is byte-for-byte identica
     // Verify all original settings preserved in merged settings
     const merged = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
     assert.equal(merged.env.MY_VAR, 'production_val_42');
-    assert.equal(merged.env.UNICODE_TEST, '🚀 关注视界 Attention Horizon ⚡');
+    assert.equal(merged.env.UNICODE_TEST, '🚀 关注视界 Highbeam ⚡');
     assert.deepEqual(merged.permissions.deny, ['Bash', 'PowerShell']);
     assert.equal(merged.customRootProperty.nestedSetting, true);
     assert.deepEqual(merged.customRootProperty.flags, [1, 2, 3]);

@@ -10,7 +10,7 @@ export {
 /**
  * Unified Cross-Harness Configuration, Per-Detector Override Engine (`.attention-horizon.json`),
  * Zero-PII Bug Report Generator (`doctor --diagnostic`), and Git Efficiency Receipt Exporter
- * for Attention Horizon (`attention-horizon-antigravity`).
+ * for Highbeam (`attention-horizon-antigravity`).
  */
 
 export const CANONICAL_DETECTOR_IDS = Object.freeze([
@@ -754,7 +754,7 @@ export function generateAntigravityDiagnosticMarkdown(results = [], options = {}
   }));
 
   const mdLines = [
-    '### Attention Horizon (Antigravity Edition) — Zero-PII Diagnostic Report',
+    '### Highbeam (Antigravity Edition) — Zero-PII Diagnostic Report',
     '',
     '| Field | Value |',
     '| :--- | :--- |',

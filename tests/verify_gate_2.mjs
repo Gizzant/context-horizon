@@ -260,7 +260,7 @@ test('[GATE-2.3] Simulated 165k-Token Session Baton-Pass (/handoff) Execution wi
 
   try {
     // 1. Create active task.md in old brain
-    const taskMdContent = `# Attention Horizon Upgrade Task List
+    const taskMdContent = `# Highbeam Upgrade Task List
 
 ## Active Phases
 - [x] Phase 0: Core Dispatch Bridge, WAL Hygiene & PrefixCacheShield ([GATE-0])

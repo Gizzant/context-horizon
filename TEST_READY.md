@@ -1,4 +1,4 @@
-# Attention Horizon v4.0 (`ctxtop`) — TEST_READY Quality Certification
+# Highbeam v4.0 (`ctxtop`) — TEST_READY Quality Certification
 
 - **Date**: 2026-11-12
 - **Version**: 4.0.0
@@ -108,6 +108,6 @@ node --test test/e2e_tier1_features.test.mjs test/e2e_tier2_boundaries.test.mjs 
 ---
 
 ## 6. Certification Sign-off
-- **Lead Architect**: Attention Horizon Core Team
+- **Lead Architect**: Highbeam Core Team
 - **Test Certification**: PASSED (471/471 Tests)
 - **Status**: **READY FOR PRODUCTION DEPLOYMENT & MARKETPLACE PUBLICATION**

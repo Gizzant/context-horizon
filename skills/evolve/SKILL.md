@@ -3,7 +3,7 @@ name: evolve
 description: Audit static AGENTS.md prefix bloat (>8,000 tokens), route post-skill corrections to domain SKILL.md files, and synthesize >=5 validated instincts via 1-click user diff approval gated by TurnZeroGate.
 ---
 
-# Attention Horizon Prefix Diet & Skill Fault Router (`/evolve`)
+# Highbeam Prefix Diet & Skill Fault Router (`/evolve`)
 
 Use `/evolve` when static workspace rules (`AGENTS.md` / `.agents/rules/*.md`) exceed the **8,000-token** static prefix budget, or after repeated domain corrections have accumulated at least **5 validated Atomic Instincts**.
 

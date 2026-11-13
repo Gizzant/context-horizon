@@ -27,7 +27,7 @@ export function buildTeamFinopsArtifacts(options = {}) {
 
   const grafanaDashboard = {
     uid: 'ah-team-finops-v4',
-    title: `Attention Horizon — ${orgName} Context FinOps & KV-Cache ROI`,
+    title: `Highbeam — ${orgName} Context FinOps & KV-Cache ROI`,
     tags: ['attention-horizon', 'claude-code', 'antigravity', 'finops', 'otel'],
     timezone: 'browser',
     schemaVersion: 39,
@@ -37,7 +37,7 @@ export function buildTeamFinopsArtifacts(options = {}) {
       {
         id: 1,
         type: 'timeseries',
-        title: 'Actual LLM Spend vs. Verified Attention Horizon Savings (USD)',
+        title: 'Actual LLM Spend vs. Verified Highbeam Savings (USD)',
         gridPos: { h: 8, w: 12, x: 0, y: 0 },
         targets: [
           {
@@ -90,13 +90,13 @@ export function buildTeamFinopsArtifacts(options = {}) {
   };
 
   const datadogDashboard = {
-    title: `Attention Horizon — ${orgName} Agent FinOps (${seats} Seats)`,
+    title: `Highbeam — ${orgName} Agent FinOps (${seats} Seats)`,
     description: 'Zero-backend Claude Code & Google Antigravity KV-cache efficiency and DET-01..32 circuit breaker telemetry.',
     layout_type: 'ordered',
     widgets: [
       {
         definition: {
-          title: 'LLM Spend vs. Attention Horizon Saved USD',
+          title: 'LLM Spend vs. Highbeam Saved USD',
           type: 'timeseries',
           requests: [
             { q: 'sum:claude_code.cost.usage{*} by {model,vcs.repository.url.full}', display_type: 'bars' },
@@ -148,7 +148,7 @@ export function buildTeamFinopsArtifacts(options = {}) {
   };
 
   const otelCollectorYaml = [
-    '# Attention Horizon — Zero-Backend Team FinOps OpenTelemetry Collector Config',
+    '# Highbeam — Zero-Backend Team FinOps OpenTelemetry Collector Config',
     'receivers:',
     '  filelog/attention_horizon:',
     '    include:',
@@ -176,13 +176,13 @@ export function buildTeamFinopsArtifacts(options = {}) {
   ].join('\n') + '\n';
 
   const readmeMarkdown = [
-    `# Attention Horizon Team FinOps Pack — ${orgName} (${seats} Seats)`,
+    `# Highbeam Team FinOps Pack — ${orgName} (${seats} Seats)`,
     '',
     'Zero-backend team cost attribution, KV-cache warmth telemetry, and cross-harness (`Claude Code` + `Google Antigravity`) governance.',
     '',
     '## Included Files',
     '1. **`.attention-horizon.json`**: Commit this policy file to your repository root to standardize `DET-01..32` circuit breakers and cross-harness `DET-20` file-scope locks across all developers.',
-    '2. **`grafana-dashboard.json`**: Import directly into Grafana (**Dashboards -> New -> Import**) to track actual LLM spend vs. Attention Horizon saved USD.',
+    '2. **`grafana-dashboard.json`**: Import directly into Grafana (**Dashboards -> New -> Import**) to track actual LLM spend vs. Highbeam saved USD.',
     '3. **`datadog-dashboard.json`**: Import into Datadog (**Dashboards -> New Dashboard -> Import Dashboard JSON**).',
     '4. **`otel-collector-config.yaml`**: Point your local or CI OpenTelemetry Collector at `~/.attention-horizon/otel/metrics.jsonl` (`CLAUDE_CODE_ENABLE_TELEMETRY=1`).'
   ].join('\n') + '\n';

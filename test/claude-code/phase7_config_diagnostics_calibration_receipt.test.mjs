@@ -205,7 +205,7 @@ test('P7-06: generateZeroPiiDiagnosticBundle redacts OS home paths and validates
       homeDir: 'C:\\Users\\SecretDeveloperName'
     });
     assert.equal(bundle.ok, true);
-    assert.match(bundle.markdown, /Attention Horizon — Zero-PII Diagnostic Report/);
+    assert.match(bundle.markdown, /Highbeam — Zero-PII Diagnostic Report/);
     assert.match(bundle.markdown, /DET-14=warn/);
     assert.equal(
       redactUserPaths('Loaded from C:\\Users\\SecretDeveloperName\\.claude', 'C:\\Users\\SecretDeveloperName'),

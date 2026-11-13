@@ -1,6 +1,6 @@
 /**
  * @file test/e2e_tier1_features.test.mjs
- * Attention Horizon v4.0 (`ctxtop`) — Tier 1 Feature Coverage Test Suite
+ * Highbeam v4.0 (`ctxtop`) — Tier 1 Feature Coverage Test Suite
  *
  * Verifies all 41 features mapped in TEST_INFRA.md § 4.3 with exactly 5 isolated
  * happy-path tests each (205 tests total).
@@ -1428,7 +1428,7 @@ describe('Feature 16: Lossless PostToolUse Offloader', () => {
       }, { cwd: ws.wsDir });
 
       assert.equal(res.offloaded, true);
-      assert.match(res.updatedToolOutput, /\[Attention Horizon Artifact Offload:/);
+      assert.match(res.updatedToolOutput, /\[Highbeam Artifact Offload:/);
       assert.match(res.updatedToolOutput, /Critical Error \/ Failure Lines Preserved Verbatim/);
       assert.ok(res.updatedToolOutput.includes(errorLine));
     } finally {
@@ -1558,7 +1558,7 @@ describe('Feature 17: TTFT & Drift Detection', () => {
 // ============================================================================
 describe('Feature 18: 95% Prefix-Cache Retention Radar', () => {
   it('18.1 95% Prefix-Cache Retention Radar: calculates prefix byte-offset mutation diff between consecutive prompts', () => {
-    const promptA = 'System Prompt: You are Attention Horizon v4 assistant.'.repeat(10);
+    const promptA = 'System Prompt: You are Highbeam v4 assistant.'.repeat(10);
     const promptB = promptA.slice(0, 200) + ' [MODIFIED RULE] ' + promptA.slice(200);
 
     const diff = verifyRetentionRadarDiff(promptA, promptB);
@@ -2598,7 +2598,7 @@ describe('Feature 31: Unified ctxtop CLI', () => {
   it('31.1 Unified ctxtop CLI: supports init command', async () => {
     const res = await runCli(['init', '--dry-run', '--all']);
     assert.equal(res.exitCode, 0);
-    assert.ok(res.output.includes('DRY RUN') || res.output.includes('Claude Code') || res.output.includes('Attention Horizon'));
+    assert.ok(res.output.includes('DRY RUN') || res.output.includes('Claude Code') || res.output.includes('Highbeam'));
   });
 
   it('31.2 Unified ctxtop CLI: supports statusline command', async () => {
@@ -2610,7 +2610,7 @@ describe('Feature 31: Unified ctxtop CLI', () => {
   it('31.3 Unified ctxtop CLI: supports doctor command', async () => {
     const res = await runCli(['doctor']);
     assert.equal(res.exitCode, 0);
-    assert.ok(res.output.includes('Attention Horizon Doctor'));
+    assert.ok(res.output.includes('Highbeam Doctor'));
   });
 
   it('31.4 Unified ctxtop CLI: supports cost-radar command', async () => {
@@ -2623,7 +2623,7 @@ describe('Feature 31: Unified ctxtop CLI', () => {
   it('31.5 Unified ctxtop CLI: supports config and --help commands', async () => {
     const configRes = await runCli(['config', 'list']);
     assert.equal(configRes.exitCode, 0);
-    assert.ok(configRes.output.includes('Attention Horizon Config'));
+    assert.ok(configRes.output.includes('Highbeam Config'));
 
     const helpRes = await runCli(['--help']);
     assert.equal(helpRes.exitCode, 0);

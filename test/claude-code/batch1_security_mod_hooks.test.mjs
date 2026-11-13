@@ -495,7 +495,7 @@ test('ISS-031 & ISS-033: register.js handles deny, ask, and advisory verdicts cl
     }
   );
   assert.equal(thrownRes.decision, 'deny');
-  assert.match(thrownRes.reason, /\[Attention Horizon Fail-Closed\].*downstream Mod timeout/);
+  assert.match(thrownRes.reason, /\[Highbeam Fail-Closed\].*downstream Mod timeout/);
 });
 
 // ============================================================================
@@ -578,7 +578,7 @@ test('ISS-032: pure-JS sha256Hex & path utilities match Node builtins and full M
       { component: 'Pane', id: 'attention-horizon' },
       sandboxCtx
     );
-    assert.equal(paneRender.title, 'Attention Horizon');
+    assert.equal(paneRender.title, 'Highbeam');
     assert.match(paneRender.content, /\[Box 1\]/);
   } finally {
     process.getBuiltinModule = savedGetBuiltin;
@@ -767,7 +767,7 @@ test('ISS-035: isCliEntrypoint resolves paths safely, readStdinJsonAsync bounds 
       }
     });
     assert.equal(exitCode, 2, `${label} must fail CLOSED with exit code 2 on uncaught error`);
-    assert.match(stderrText, /\[Attention Horizon Fail-Closed\]/);
+    assert.match(stderrText, /\[Highbeam Fail-Closed\]/);
   }
 
   // Non-blocking lifecycle/post hooks (`post-tool-use`, `compact-lifecycle`, `stop-gate`) exit 0 with stderr diagnostic

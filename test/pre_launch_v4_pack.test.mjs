@@ -97,7 +97,7 @@ describe('Pre-Launch v4.0 Finishing Pack (Dual-License, Lean Hooks, BYO-Grafana 
         data: {
           id: 'ord_999',
           amount: 29900,
-          product: { name: 'Attention Horizon Team (5 Seats)' },
+          product: { name: 'Highbeam Team (5 Seats)' },
           customer: { email: 'vp-eng@acme.io' }
         }
       });

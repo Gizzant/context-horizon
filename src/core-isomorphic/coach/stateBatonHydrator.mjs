@@ -196,7 +196,7 @@ export function renderPortableHandoffMarkdown(baton = {}) {
       : '- *(no deferred cache mutations)*';
 
   return [
-    `# Attention Horizon State Baton Handoff`,
+    `# Highbeam State Baton Handoff`,
     ``,
     `- **Session ID:** \`${baton.sessionId || 'default'}\``,
     `- **Active Model:** \`${baton.modelId || 'claude-sonnet-5-5'}\``,

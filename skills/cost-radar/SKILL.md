@@ -18,4 +18,4 @@ When this command is invoked, render a self-contained HTML/SVG timeline of where
    - If `loopTriggered` is `true`, lead with the DET-30 scratchpad-loop warning and recommend injecting a concrete constraint (target file + acceptance test) or stepping effort down.
    - Values shown as `—` are unmeasured — never invent numbers for them.
 4. Offer the live side pane pill:
-   [Open Attention Horizon](sidecar://agy-horizon-flightcheck/horizon-daemon/)
+   [Open Highbeam](sidecar://agy-horizon-flightcheck/horizon-daemon/)

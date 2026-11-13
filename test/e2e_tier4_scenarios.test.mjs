@@ -1,6 +1,6 @@
 /**
  * @file test/e2e_tier4_scenarios.test.mjs
- * Attention Horizon v4.0 (`ctxtop`) — Tier 4 Real-World Application Scenarios
+ * Highbeam v4.0 (`ctxtop`) — Tier 4 Real-World Application Scenarios
  *
  * Comprehensive end-to-end multi-turn simulation across Google Antigravity and Claude Code.
  * Covers all 20 Real-World Application Scenarios detailed in TEST_INFRA.md § 5:
@@ -235,7 +235,7 @@ describe('Tier 4: Real-World Application Scenarios (Scenarios 1 - 7)', () => {
       );
       assert.ok(
         JSON.stringify(mergedSettings.hooks.PreToolUse).includes('pre-tool-use.mjs'),
-        'Canonical Attention Horizon hook must be installed'
+        'Canonical Highbeam hook must be installed'
       );
       assert.ok(
         mergedSettings.hooks.modules.some(m => m.includes('register.js')),

@@ -1,5 +1,5 @@
 {
-  "description": "Attention Horizon KV-Cache & Context Governor lifecycle hooks",
+  "description": "Highbeam KV-Cache & Context Governor lifecycle hooks",
   "hooks": {
     "modules": [
       "${CLAUDE_PLUGIN_ROOT}/hooks/register.js"

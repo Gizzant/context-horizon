@@ -2,7 +2,7 @@
 
 ## Goal Description
 
-Upgrade both **Google Antigravity Attention Horizon (`GA_REPO`: `ga-attention-horizon`)** and **Claude Code Attention Horizon (`CC_REPO`: `claude-code-attention-horizon`)** so that all **20 developer bad-habit scenarios** in [simulate_bad_habits.mjs](./simulate_bad_habits.mjs) achieve **20 / 20 `PASS`** (up from `10 PASS / 9 PARTIAL / 1 FAIL` in [BAD_HABIT_VALIDATION_REPORT.md](./BAD_HABIT_VALIDATION_REPORT.md)).
+Upgrade both **Google Antigravity Highbeam (`GA_REPO`: `ga-attention-horizon`)** and **Claude Code Highbeam (`CC_REPO`: `claude-code-attention-horizon`)** so that all **20 developer bad-habit scenarios** in [simulate_bad_habits.mjs](./simulate_bad_habits.mjs) achieve **20 / 20 `PASS`** (up from `10 PASS / 9 PARTIAL / 1 FAIL` in [BAD_HABIT_VALIDATION_REPORT.md](./BAD_HABIT_VALIDATION_REPORT.md)).
 
 > [!IMPORTANT]
 > **Architectural & UI Invariants (`AGENTS.md`)**

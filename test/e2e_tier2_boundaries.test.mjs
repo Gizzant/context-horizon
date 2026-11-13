@@ -1,6 +1,6 @@
 /**
  * @file test/e2e_tier2_boundaries.test.mjs
- * Attention Horizon v4.0 (`ctxtop`) — Tier 2 Boundary & Corner Cases Test Suite
+ * Highbeam v4.0 (`ctxtop`) — Tier 2 Boundary & Corner Cases Test Suite
  *
  * Verifies all 41 features mapped in TEST_INFRA.md § 4.3 with exactly 5 boundary/corner
  * edge condition tests each (205 tests total).
@@ -391,7 +391,7 @@ describe('Feature 2: Dual Plugin Manifests', () => {
   it('2.B3 Dual Plugin Manifests: unicode characters in description preserve encoding', () => {
     const ws = createTempWorkspace({ prefix: 'manifest-unicode-' });
     try {
-      const unicodeDesc = 'Attention Horizon 关注视界 🚀 — real-time KV cache monitor';
+      const unicodeDesc = 'Highbeam 关注视界 🚀 — real-time KV cache monitor';
       const manifestPath = ws.writeFile('plugin.json', JSON.stringify({
         name: 'attention-horizon',
         version: '4.0.0',
@@ -411,7 +411,7 @@ describe('Feature 2: Dual Plugin Manifests', () => {
       // 1. Antigravity minimal manifest with hooks set to null
       const agManifestData = {
         name: 'attention-horizon-antigravity',
-        displayName: 'Attention Horizon',
+        displayName: 'Highbeam',
         version: '4.0.0',
         description: 'Minimal Antigravity plugin manifest with 0 hooks',
         hooks: null
@@ -514,7 +514,7 @@ describe('Feature 2: Dual Plugin Manifests', () => {
     try {
       ws.writeFile('plugin.json', JSON.stringify({
         name: 'attention-horizon-antigravity',
-        displayName: 'Attention Horizon',
+        displayName: 'Highbeam',
         version: '4.0.0',
         description: 'Antigravity host manifest'
       }, null, 2));
@@ -577,7 +577,7 @@ describe('Feature 3: Zero-Config Installer', () => {
       const finalSettings = JSON.parse(fs.readFileSync(res2.settingsPath, 'utf8'));
       assert.ok(finalSettings.hooks.modules.includes('custom-security-latch.js'));
       assert.equal(finalSettings.ahPreviousStatusLine.command, 'node ./user-statusline.js');
-      // No duplicate registration of Attention Horizon register.js
+      // No duplicate registration of Highbeam register.js
       const regCount = finalSettings.hooks.modules.filter(m => m.includes('register.js')).length;
       assert.equal(regCount, 1, 'register.js must not be duplicated on successive runs');
     } finally {
@@ -2276,7 +2276,7 @@ describe('Feature 28: Atomic Tool-Boundary Suspension', () => {
       }
     });
     assert.equal(exitCode, 2, 'Claude Code CLI runner must exit 2 on hook handler failure per Mod Law 5');
-    assert.ok(stderrMsg.includes('[Attention Horizon Fail-Closed]'), 'Fail-closed diagnostic must be logged');
+    assert.ok(stderrMsg.includes('[Highbeam Fail-Closed]'), 'Fail-closed diagnostic must be logged');
   });
 
   it('28.B5 Atomic Tool-Boundary Suspension: abort during mid-suspension cancels tool execution cleanly', () => {

@@ -1018,7 +1018,7 @@ describe('Batch 3 Regression Suite — ISS-039, ISS-040, ISS-041, ISS-042, ISS-0
         assert.equal(fs.existsSync(coachRes.latestHandoffPath), true);
 
         for (const md of [bundle.markdown, coachRes.markdown]) {
-          assert.ok(md.includes('# Attention Horizon State Baton Handoff'));
+          assert.ok(md.includes('# Highbeam State Baton Handoff'));
           assert.ok(md.includes('## 1. Active Goal'));
           assert.ok(md.includes('## 2. Working Set Files'));
           assert.ok(md.includes('## 3. Verified Invariants'));

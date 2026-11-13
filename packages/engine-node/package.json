@@ -1,7 +1,7 @@
 {
   "name": "@ctxtop/engine-node",
   "version": "4.0.0",
-  "description": "Attention Horizon Node.js >=20 runtime engine (SQLite + JSONL fallback, Micro-IPC, lossless offloader, git sensors)",
+  "description": "Highbeam Node.js >=20 runtime engine (SQLite + JSONL fallback, Micro-IPC, lossless offloader, git sensors)",
   "type": "module",
   "main": "./src/index.mjs",
   "exports": {

@@ -75,7 +75,7 @@ describe('Milestone 5: Developer Workflow, UI Surfaces & Studio Artifacts', () =
     test('31.4 ctxtop postmortem without --json outputs formatted summary text', async () => {
       const res = await runCli(['postmortem', '--demo']);
       assert.equal(res.exitCode, 0);
-      assert.ok(res.output.includes('[Attention Horizon Postmortem]'));
+      assert.ok(res.output.includes('[Highbeam Postmortem]'));
       assert.ok(res.output.includes('Analyzed'));
     });
 

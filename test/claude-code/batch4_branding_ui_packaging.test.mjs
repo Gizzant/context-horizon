@@ -114,7 +114,7 @@ test('ISS-014a: bin/cli.mjs and bin/ah-statusline.mjs resolve symlinks via realp
         timeout: 10000
       });
       assert.equal(cliRun.status, 0);
-      assert.match(cliRun.stdout, /\[Attention Horizon Doctor\] Status: HEALTHY/);
+      assert.match(cliRun.stdout, /\[Highbeam Doctor\] Status: HEALTHY/);
 
       const statusRun = spawnSync(process.execPath, [symStatus, '--demo'], {
         cwd: tmpDir,

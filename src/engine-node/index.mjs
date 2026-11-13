@@ -1,6 +1,6 @@
 /**
  * @file src/engine-node/index.mjs
- * Attention Horizon Node.js runtime engines barrel.
+ * Highbeam Node.js runtime engines barrel.
  */
 
 export * from './db/index.mjs';

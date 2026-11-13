@@ -1,6 +1,6 @@
 /**
  * @file src/ui/modViews.mjs
- * Multi-Surface UI Renderers for Claude Code Attention Horizon:
+ * Multi-Surface UI Renderers for Claude Code Highbeam:
  *   1. `AbovePrompt` Band: 1-line 40-Cell Horizon Bar + active Coach Pill (`OFF | COACH | AUTO_PILOT`)
  *   2. Docked `Pane` (`/horizon`): Strict 5-Box Simple View vertical hierarchy (zero promotional text)
  *   3. `Spinner` Suffix: Compact live status (`· Cache 95% (4m12s) · Saved $1.84`)
@@ -1167,7 +1167,7 @@ export function renderSimpleViewPane(state = {}, options = {}) {
 
   return {
     paneId: 'attention-horizon',
-    title: 'Attention Horizon',
+    title: 'Highbeam',
     viewMode: useRankMode ? 'SIMPLE_4_RANK' : 'SIMPLE_5_BOX',
     ranks,
     simpleText,
@@ -1333,7 +1333,7 @@ export function renderAdvancedViewPane(state = {}, options = {}) {
 
   return {
     paneId: 'attention-horizon',
-    title: 'Attention Horizon (Advanced View)',
+    title: 'Highbeam (Advanced View)',
     viewMode: 'ADVANCED_5_SECTION',
     sections,
     boxes: simple.boxes,

@@ -198,7 +198,7 @@ describe('Milestone 5 Challenger 1: Adversarial Stress & Hard Invariants Suite',
     it('2.5 radar without --json outputs human-readable summary text', () => {
       const res = runCli(['radar', '--demo']);
       assert.equal(res.exitCode, 0);
-      assert.ok(res.output.includes('[Attention Horizon]'));
+      assert.ok(res.output.includes('[Highbeam]'));
       assert.ok(res.output.includes('Cost Radar written:'));
     });
   });
@@ -232,7 +232,7 @@ describe('Milestone 5 Challenger 1: Adversarial Stress & Hard Invariants Suite',
 
       const roastText = await runCli(['postmortem', '--demo', '--roast']);
       assert.equal(roastText.exitCode, 0);
-      assert.ok(roastText.output.includes('[Attention Horizon Postmortem]'));
+      assert.ok(roastText.output.includes('[Highbeam Postmortem]'));
     });
 
     it('3.4 postmortem live mode scans sessions directory and handles corrupt transcripts safely', async () => {
@@ -492,7 +492,7 @@ describe('Milestone 5 Challenger 1: Adversarial Stress & Hard Invariants Suite',
       assert.ok(res);
       assert.ok(res.ranks, 'Must return ranks structure');
       assert.equal(res.ranks.length, 4, 'Must return strictly 4 ranks for SIMPLE_4_RANK');
-      assert.equal(res.title, 'Attention Horizon');
+      assert.equal(res.title, 'Highbeam');
       assert.ok(res.text.includes('[Rank 1]'));
       assert.ok(res.text.includes('[Rank 2]'));
       assert.ok(res.text.includes('[Rank 3]'));
@@ -516,7 +516,7 @@ describe('Milestone 5 Challenger 1: Adversarial Stress & Hard Invariants Suite',
       assert.ok(result.embedTag.endsWith('"></agent-embed>'));
 
       const html = fs.readFileSync(widgetPath, 'utf8');
-      assert.ok(html.includes('Attention Horizon') || html.includes('ctxtop'));
+      assert.ok(html.includes('Highbeam') || html.includes('ctxtop'));
       // Invariant: Plain-Text /compact instruction without copy buttons
       assert.ok(html.includes('id="compactInstruction"'));
       assert.ok(html.includes('id="compactReclaim"'));

@@ -1,6 +1,6 @@
 /**
  * @file test/helpers/e2e_harness.mjs
- * End-to-End Test Harness for Attention Horizon v4.0 (`ctxtop`)
+ * End-to-End Test Harness for Highbeam v4.0 (`ctxtop`)
  * 
  * Pure ESM module with ZERO runtime and ZERO dev external dependencies.
  * Built strictly on Node.js native modules:
@@ -1101,7 +1101,7 @@ export function getPlatformPipePath(name = 'test') {
 }
 
 /**
- * Starts a mock IPC server simulating the Attention Horizon daemon.
+ * Starts a mock IPC server simulating the Highbeam daemon.
  * @param {object} [options]
  * @returns {Promise<{
  *   pipePath: string,

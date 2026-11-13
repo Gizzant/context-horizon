@@ -26,7 +26,7 @@ function calculatePercentiles(durations) {
 }
 
 console.log(`========================================================================`);
-console.log(`  Attention Horizon Latency Benchmark (ctxtop v${SIDECAR_VERSION})`);
+console.log(`  Highbeam Latency Benchmark (ctxtop v${SIDECAR_VERSION})`);
 console.log(`  Running ${ITERATIONS} iterations per critical path`);
 console.log(`========================================================================\n`);
 

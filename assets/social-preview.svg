@@ -14,7 +14,7 @@
 
   <!-- Top Pill -->
   <rect x="84" y="82" width="460" height="38" rx="19" fill="#00d7ff" fill-opacity="0.12" stroke="#00d7ff" stroke-width="1.5"/>
-  <text x="314" y="107" text-anchor="middle" fill="#38bdf8" font-size="18" font-weight="700" class="mono">⚡ Attention Horizon (ctxtop v3.3)</text>
+  <text x="314" y="107" text-anchor="middle" fill="#38bdf8" font-size="18" font-weight="700" class="mono">⚡ Highbeam (ctxtop v3.3)</text>
 
   <!-- Main Headline -->
   <text x="84" y="185" fill="#f8fafc" font-size="52" font-weight="800" class="sans">htop for AI Coding Agent</text>

@@ -147,7 +147,7 @@ describe('Wave 3 — Wedge F10 (SQLite FTS5 Episodic Memory) & F11 (Git Commit T
     assert.equal(ledger.cacheHitPct, 90);
     assert.ok(ledger.estimatedCostUsd > 0);
     assert.equal(ledger.files.length, 1);
-    assert.ok(ledger.prMarkdownSummary.includes('Attention Horizon PR Token Ledger'));
+    assert.ok(ledger.prMarkdownSummary.includes('Highbeam PR Token Ledger'));
 
     // Verify timestamp-window interval attribution: step1 before commit 1, step2 between commit 1 and commit 2
     const timedSteps = [

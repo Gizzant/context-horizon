@@ -1,7 +1,7 @@
 ---
 name: hn-ui-audit
 description: >-
-  Audits, inspects, and verifies Attention Horizon (ctxtop) UI, state, and
+  Audits, inspects, and verifies Highbeam (ctxtop) UI, state, and
   telemetry components against Edward Tufte high data-ink standards, WCAG AA contrast,
   and strict architectural invariants. Preloads context from evaluation_bundles/ui_audit_context.
 context_bundles:
@@ -10,7 +10,7 @@ context_bundles:
 
 # Horizon UI Audit (`hn-ui-audit`)
 
-A specialized visual, state, and architectural audit skill for **Attention Horizon** (`attention-horizon-antigravity` / `ctxtop`). Use this skill to evaluate UI components, verify state and telemetry contracts, enforce Edward Tufte data-ink principles, prevent UI regressions, and ensure complete compliance with architectural invariants.
+A specialized visual, state, and architectural audit skill for **Highbeam** (`attention-horizon-antigravity` / `ctxtop`). Use this skill to evaluate UI components, verify state and telemetry contracts, enforce Edward Tufte data-ink principles, prevent UI regressions, and ensure complete compliance with architectural invariants.
 
 ---
 

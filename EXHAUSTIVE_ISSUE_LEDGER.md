@@ -1,9 +1,9 @@
-# Attention Horizon — Exhaustive Cross-Repository Forensic Issue Ledger (V2)
+# Highbeam — Exhaustive Cross-Repository Forensic Issue Ledger (V2)
 
 - **Audit Date Context:** `2026-11-10`
 - **Audited Repositories (Strictly Read-Only Source Audit):**
-  1. `C:\Projects\ga-visualizer-v2` (**Attention Horizon — Google Antigravity Edition**, `v3.3.0`)
-  2. `C:\Projects\cc-attention-horizon` (**Attention Horizon — Claude Code Edition**, `v1.0.0`)
+  1. `C:\Projects\ga-visualizer-v2` (**Highbeam — Google Antigravity Edition**, `v3.3.0`)
+  2. `C:\Projects\cc-attention-horizon` (**Highbeam — Claude Code Edition**, `v1.0.0`)
 - **Swarm Verification Lineage:** Consolidated & disk-verified by `@verifier` from `@auditor-econ-telemetry` (`Categories A, D`), `@auditor-runtime-security` (`Categories E, F, G`), `@auditor-parity-quality` (`Categories B, C, H, I, J`), and independent `@verifier` read-only disk inspection.
 - **Zero-Sampling & Zero-Hallucination Guarantee:** Every `File:Line` citation and verbatim `Offending Code` snippet below has been verified directly against disk inside the two repositories (`0` `"e.g."`/`"etc."` abbreviations; `100%` of auditor line-number offsets corrected and hallucinated function/detector rows rejected).
 
@@ -346,7 +346,7 @@ const isMain = process.argv[1] && (
  * 3. Renders the Docked `Pane` (`id: 'attention-horizon'`) enforcing `ga-visualizer-v2`'s
 ```
 - **Failure Mechanism:** Node ESM resolves `import.meta.url` via `realpath`, whereas `process.argv[1]` retains the symlink path (`node_modules/.bin/ah-claude`), so `import.meta.url === url.pathToFileURL(argv1).href` evaluates to `false` on POSIX symlink invocations and skips `main()`. In addition, `package.json:11` ships internal folder name `"cc-attention-horizon"`, and `src/ui/modViews.mjs:345` leaks internal repo name `ga-visualizer-v2`.
-- **Exact Fix Specification:** Resolve symlinks via `fs.realpathSync(argv1) === fs.realpathSync(url.fileURLToPath(import.meta.url))` in `bin/cli.mjs:566` and `bin/ah-statusline.mjs:96`, remove `"cc-attention-horizon"` from `package.json:11`, and replace `` `ga-visualizer-v2`'s `` with `Attention Horizon's` in `src/ui/modViews.mjs:345`.
+- **Exact Fix Specification:** Resolve symlinks via `fs.realpathSync(argv1) === fs.realpathSync(url.fileURLToPath(import.meta.url))` in `bin/cli.mjs:566` and `bin/ah-statusline.mjs:96`, remove `"cc-attention-horizon"` from `package.json:11`, and replace `` `ga-visualizer-v2`'s `` with `Highbeam's` in `src/ui/modViews.mjs:345`.
 
 #### `ISS-015` — Broken `sidecar://agy-horizon` Deep-Link, Legacy `"Context Horizon"` Sidecar/Registry Titles & Hidden `Context Memory` DOM Span
 - **Severity:** `[P1 High]`
@@ -361,10 +361,10 @@ const isMain = process.argv[1] && (
 ```
 ```html
 <!-- src/webview/horizon_panel.html:2718 & docs/index.html:2935 -->
-      <h1>Attention Horizon<span style="display:none"> Context Memory</span></h1>
+      <h1>Highbeam<span style="display:none"> Context Memory</span></h1>
 ```
 - **Failure Mechanism:** `src/cli/init.mjs:103-109` deletes `~/.gemini/config/plugins/agy-horizon` and installs under `agy-horizon-flightcheck` (`plugin.json:3`), so `skills/horizon/SKILL.md:17` (`sidecar://agy-horizon/horizon-daemon/`) points to a deleted plugin namespace and fails to open the side-pane. Meanwhile `sidecar.json:3,15`, `server.mjs:684`, `sync_mirrors.mjs:158`, `registry.mjs:2,12`, and `horizon_panel.js:83` still display `"Context Horizon"`, and `<h1>` embeds a hidden `<span style="display:none"> Context Memory</span>` hack that leaks into `textContent` and copy/paste.
-- **Exact Fix Specification:** Update `skills/horizon/SKILL.md:6,17` to `# Attention Horizon (\`/horizon\`)` and `[Open Attention Horizon](sidecar://agy-horizon-flightcheck/horizon-daemon/)`, rebrand `"Context Horizon"` to `"Attention Horizon"` across `sidecar.json:3,15`, `server.mjs:684`, `sync_mirrors.mjs:158`, `registry.mjs:2,12`, and `horizon_panel.js:83`, and delete `<span style="display:none"> Context Memory</span>` from `horizon_panel.html:2718` and `docs/index.html:2935`.
+- **Exact Fix Specification:** Update `skills/horizon/SKILL.md:6,17` to `# Highbeam (\`/horizon\`)` and `[Open Highbeam](sidecar://agy-horizon-flightcheck/horizon-daemon/)`, rebrand `"Context Horizon"` to `"Highbeam"` across `sidecar.json:3,15`, `server.mjs:684`, `sync_mirrors.mjs:158`, `registry.mjs:2,12`, and `horizon_panel.js:83`, and delete `<span style="display:none"> Context Memory</span>` from `horizon_panel.html:2718` and `docs/index.html:2935`.
 
 #### `ISS-016` — CLI Output Banners, Shipped `rules/AGENTS.md`, Issue Templates, Hero SVGs & Scripts Retain `Context Horizon` / `C:\Projects\ga-visualizer-v2`
 - **Severity:** `[P2 Medium]`
@@ -382,7 +382,7 @@ const isMain = process.argv[1] && (
 $ProjectRoot = "C:\Projects\ga-visualizer-v2"
 ```
 - **Failure Mechanism:** Shipped CLI banners, PR ledger comments, agent rule files (`rules/AGENTS.md:1,3,6`), GitHub issue templates, and hero/social SVGs still brand the product as `Context Horizon` and instruct users to run `npx context-horizon`, while `scripts/build-ui-audit-bundle.ps1:3` hardcodes `C:\Projects\ga-visualizer-v2`.
-- **Exact Fix Specification:** Replace `Context Horizon` with `Attention Horizon` and `npx context-horizon` with `npx attention-horizon-antigravity` across all 28 listed lines, regenerate `assets/hero-demo.svg` and `assets/social-preview.svg` via `scripts/generate_hero_svg.mjs`, and derive `$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path` in `scripts/build-ui-audit-bundle.ps1:3`.
+- **Exact Fix Specification:** Replace `Context Horizon` with `Highbeam` and `npx context-horizon` with `npx attention-horizon-antigravity` across all 28 listed lines, regenerate `assets/hero-demo.svg` and `assets/social-preview.svg` via `scripts/generate_hero_svg.mjs`, and derive `$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path` in `scripts/build-ui-audit-bundle.ps1:3`.
 
 #### `ISS-017` — Documentation Naming Drift, Hardcoded `file:///C:/Projects/ga-visualizer-v2` Links & Leaked Internal Authoring Prompts
 - **Severity:** `[P2 Medium]`
@@ -397,7 +397,7 @@ git clone https://github.com/franktatjana/context-horizon.git
 - [agy_git_guard.mjs](file:///C:/Projects/ga-visualizer-v2/src/shims/agy_git_guard.mjs): Dual-layer Git hook-bypass guard (`DET-19`)
 ```
 - **Failure Mechanism:** Public docs still carry `Context Horizon` titles, broken `context-horizon.git` URLs, dead `file:///C:/Projects/ga-visualizer-v2/...` machine-local links, and raw internal LLM authoring system prompts (`*_prompt.md`, `docs/archive/*`, `task.md`) inside tracked repository files.
-- **Exact Fix Specification:** Rebrand public documentation to `Attention Horizon`, convert `file:///C:/Projects/ga-visualizer-v2/...` links to repo-relative Markdown links, and remove internal authoring prompts (`docs/*_prompt.md`, `docs/specs/*_prompt.md`, `docs/archive/*`, `task.md`) from tracked distribution trees.
+- **Exact Fix Specification:** Rebrand public documentation to `Highbeam`, convert `file:///C:/Projects/ga-visualizer-v2/...` links to repo-relative Markdown links, and remove internal authoring prompts (`docs/*_prompt.md`, `docs/specs/*_prompt.md`, `docs/archive/*`, `task.md`) from tracked distribution trees.
 
 ---
 
@@ -673,7 +673,7 @@ export const CANONICAL_AH_HOOKS = Object.freeze(buildCanonicalAhHooks({ usePlugi
         if (verdict.triggered && verdict.decision === 'deny') {
           $.store.set('ah_last_breaker_verdict', verdict);
           $.ui.invalidate('ui.render');
-          throw new Error(verdict.reason || 'Blocked by Attention Horizon circuit breaker');
+          throw new Error(verdict.reason || 'Blocked by Highbeam circuit breaker');
         }
         if (typeof next === 'function') return await next(event);
         return undefined;
@@ -685,7 +685,7 @@ export const CANONICAL_AH_HOOKS = Object.freeze(buildCanonicalAhHooks({ usePlugi
   });
 ```
 - **Failure Mechanism:** In Claude Code's Tier-1 Mod runtime, an unhandled/re-thrown promise rejection from an `on('tool.call', ...)` guard fails **OPEN** (logs a Mod error and proceeds with tool execution) unless `.catch(...)` resolves to an explicit deny/block result object! Furthermore, `lines 95-99` only check `verdict.decision === 'deny'`, silently dropping `DET-03` / `DET-18` `'ask'` verdicts and `DET-06` / `DET-12` advisories in Mod mode, while `test/mod_static_compliance.test.mjs:180-186` merely regex-matches `.catch(` and misses the re-throw.
-- **Exact Fix Specification:** Return structured Mod tool-call decisions (`{ decision: 'deny', reason: verdict.reason }` for `'deny'`, `{ decision: 'ask', reason: verdict.reason }` for `'ask'`, and `{ additionalContext: verdict.reason }` when chaining `next(event)` on advisories), and make `.catch((err) => ({ decision: 'deny', reason: \`[Attention Horizon Fail-Closed] ${err?.message || err}\` }))` return a resolved deny verdict without re-throwing; update `mod_static_compliance.test.mjs:180-186` to invoke a throwing mock and assert a resolved `{ decision: 'deny' }` return value.
+- **Exact Fix Specification:** Return structured Mod tool-call decisions (`{ decision: 'deny', reason: verdict.reason }` for `'deny'`, `{ decision: 'ask', reason: verdict.reason }` for `'ask'`, and `{ additionalContext: verdict.reason }` when chaining `next(event)` on advisories), and make `.catch((err) => ({ decision: 'deny', reason: \`[Highbeam Fail-Closed] ${err?.message || err}\` }))` return a resolved deny verdict without re-throwing; update `mod_static_compliance.test.mjs:180-186` to invoke a throwing mock and assert a resolved `{ decision: 'deny' }` return value.
 
 #### `ISS-032` — Host-Builtin Smuggling via `process.getBuiltinModule` in Transitive Mod Graph Crashes Sandboxed Isolates & Fails Open on Node `20.0.0`–`20.15.x`
 - **Severity:** `[P0 Blocker]`
@@ -1233,7 +1233,7 @@ export function getBypassNonceFilePath(workspaceDir = process.cwd()) {
   1. `scripts/sync_mirrors.mjs:70` omits `['src', 'adapters']` (breaking `src/cli/init.mjs`'s import of `../adapters/adapter_interface.mjs` inside synced plugins) and `src/webview/registry.mjs`.
   2. `lines 109-117` overwrite plugin `hooks.json` with only 3 hooks (`SessionStart`, `PreInvocation`, `PostInvocation`), **wiping `Stop`, `PreToolUse`, and `PostToolUse`** from canonical `hooks.json`!
   3. `lines 157-160` overwrite `displayName` back to `'Context Horizon (ctxtop)'`, `lines 182-195` verify SHA-256 parity only on `HTML_TARGETS` (zero `.mjs` hash verification), and `sync_mirrors.mjs` never rebuilds `docs/index.html` or `evaluation_bundles/`, leaving `docs/index.html` + 43 stale files + 2 orphan `docs/HANDOFF.md` files (`46` total drifted in-repo files) out of sync with canonical `src/`!
-- **Exact Fix Specification:** Add `['src', 'adapters']` and `['src', 'webview']` to `scripts/sync_mirrors.mjs:70`, preserve all 6 lifecycle hooks (`SessionStart`, `PreInvocation`, `PostInvocation`, `Stop`, `PreToolUse`, `PostToolUse`) at `109-117`, update `157-158` to `'Attention Horizon'`, verify SHA-256 parity across every synced `.mjs`/`.json`/`.html` file, and invoke `build_demo_page.mjs` + `build_evaluation_bundles.mjs` (removing orphan `docs/HANDOFF.md`) during sync.
+- **Exact Fix Specification:** Add `['src', 'adapters']` and `['src', 'webview']` to `scripts/sync_mirrors.mjs:70`, preserve all 6 lifecycle hooks (`SessionStart`, `PreInvocation`, `PostInvocation`, `Stop`, `PreToolUse`, `PostToolUse`) at `109-117`, update `157-158` to `'Highbeam'`, verify SHA-256 parity across every synced `.mjs`/`.json`/`.html` file, and invoke `build_demo_page.mjs` + `build_evaluation_bundles.mjs` (removing orphan `docs/HANDOFF.md`) during sync.
 
 #### `ISS-057` — Packaging Ships `tests/` Fixtures, `init.mjs` Omits `config/`, Missing `.npmignore`/`.vscodeignore`, Unpinned CI SHAs & 19 Leaked Artifacts in `ga-visualizer-v2`
 - **Severity:** `[P1 High]`
@@ -1467,7 +1467,7 @@ Every verified defect (`ISS-001` through `ISS-065`, **65 total**) is assigned to
 
 ### Batch 4 — Brand Unification, `$`-Safe Replacements, Tufte HUD/WebView Layout, Mirror Sync & Clean Packaging (`13` Issues)
 - **Assigned Issues (`13`):** `ISS-013`, `ISS-014`, `ISS-015`, `ISS-016`, `ISS-017`, `ISS-046`, `ISS-047`, `ISS-048`, `ISS-049`, `ISS-050`, `ISS-056`, `ISS-057`, `ISS-058`
-- **Technical Rationale (Depends on Batches 1–3 Finalized Core & Detector Logic):** Unifies `"Attention Horizon"` branding and backward-compatible config aliases (`ISS-013`..`ISS-017`), eliminates `.replace()` `$`-corruption and `</script>` injection (`ISS-046`), fixes `ui.render` `Pane` chaining, `"undefined ACTIVE"`, hidden `#coachingBox`/`#rsiBox`/`#hostWatchdogBar`, `256k` scale ticks, WCAG AA contrast, and 80-col ANSI rendering (`ISS-047`..`ISS-050`), then updates `sync_mirrors.mjs` (`src/adapters/`, all 6 hooks, `evaluation_bundles/`) and release packaging/CI/artifact hygiene (`ISS-056`..`ISS-058`) once all runtime files have settled.
+- **Technical Rationale (Depends on Batches 1–3 Finalized Core & Detector Logic):** Unifies `"Highbeam"` branding and backward-compatible config aliases (`ISS-013`..`ISS-017`), eliminates `.replace()` `$`-corruption and `</script>` injection (`ISS-046`), fixes `ui.render` `Pane` chaining, `"undefined ACTIVE"`, hidden `#coachingBox`/`#rsiBox`/`#hostWatchdogBar`, `256k` scale ticks, WCAG AA contrast, and 80-col ANSI rendering (`ISS-047`..`ISS-050`), then updates `sync_mirrors.mjs` (`src/adapters/`, all 6 hooks, `evaluation_bundles/`) and release packaging/CI/artifact hygiene (`ISS-056`..`ISS-058`) once all runtime files have settled.
 
 ### Batch 5 — Portable Test Harnesses, Paired Positive/Negative `DET-01..20` Suites, Subprocess Hook E2E & Catch Diagnostics (`7` Issues)
 - **Assigned Issues (`7`):** `ISS-059`, `ISS-060`, `ISS-061`, `ISS-062`, `ISS-063`, `ISS-064`, `ISS-065`

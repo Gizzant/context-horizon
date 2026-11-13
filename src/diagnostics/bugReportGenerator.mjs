@@ -151,7 +151,7 @@ export function generateZeroPiiDiagnosticBundle(doctorResult, options = {}) {
       : ['- *(0 recent runtime errors recorded)*'];
 
   const mdLines = [
-    '### Attention Horizon — Zero-PII Diagnostic Report',
+    '### Highbeam — Zero-PII Diagnostic Report',
     '',
     '| Field | Value |',
     '| :--- | :--- |',
@@ -211,7 +211,7 @@ export function generateGitCommitEfficiencyReceipt(options = {}) {
       : ['| `NONE_YET` | 0 | 0 tok | `$0.0000` |'];
 
   const mdLines = [
-    `### Attention Horizon — Session & Git Efficiency Receipt (\`${git.branch}@${git.shortCommit}\`)`,
+    `### Highbeam — Session & Git Efficiency Receipt (\`${git.branch}@${git.shortCommit}\`)`,
     '',
     '| Metric | Verified Value |',
     '| :--- | :--- |',

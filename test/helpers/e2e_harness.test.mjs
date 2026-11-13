@@ -1,6 +1,6 @@
 /**
  * @file test/helpers/e2e_harness.test.mjs
- * Verification Test Suite for Attention Horizon v4.0 Shared E2E Test Harness
+ * Verification Test Suite for Highbeam v4.0 Shared E2E Test Harness
  * 
  * Verifies all 10 sub-harnesses exported by e2e_harness.mjs:
  *  1. Runtime Probing & Dynamic Fallback

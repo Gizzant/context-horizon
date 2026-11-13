@@ -837,7 +837,7 @@ test('D02: .claude-plugin/plugin.json uses canonical "attention-horizon" namespa
   );
   assert.equal(pluginJson.name, 'attention-horizon');
   assert.ok(['1.1.0', '4.0.0'].includes(pluginJson.version));
-  assert.match(pluginJson.description, /Attention Horizon/);
+  assert.match(pluginJson.description, /Highbeam/);
 });
 
 test('D03: hooks/hooks.json wraps events in top-level "hooks", uses nested command schema via ${CLAUDE_PLUGIN_ROOT}, and contains zero .gemini paths', () => {
@@ -899,12 +899,12 @@ for (const cols of [80, 100, 110, 120, 144]) {
   });
 }
 
-test('D06: Docked Pane title is "Attention Horizon" (never bare "Horizon" or "Context Horizon")', () => {
+test('D06: Docked Pane title is "Highbeam" (never bare "Horizon" or "Context Horizon")', () => {
   const pane = renderSimpleViewPane(
     { modelId: 'claude-sonnet-5-5' },
     { includeDiskLedger: false }
   );
-  assert.equal(pane.title, 'Attention Horizon');
+  assert.equal(pane.title, 'Highbeam');
   assert.doesNotMatch(pane.title, /Context Horizon/i);
 });
 

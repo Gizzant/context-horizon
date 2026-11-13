@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pro Licensing, FinOps &amp; Troubleshooting - Highbeam User Guide</title>
+  <meta name="description" content="Guide to Highbeam Pro offline Ed25519 licensing, Corporate PDF 1.4 Expense Receipts, BYO-Grafana Team FinOps packs, and troubleshooting platform quirks." />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body data-page="pro-troubleshooting">
+  <header class="site-header" id="site-header"></header>
+
+  <div class="doc-shell">
+    <nav class="sidebar" id="site-sidebar" aria-label="Documentation chapters"></nav>
+
+    <main class="doc-main prose">
+      <p class="doc-eyebrow">Architecture &amp; Ops</p>
+      <h1 class="doc-title">Pro Licensing, FinOps &amp; Troubleshooting</h1>
+      <p class="doc-lead">
+        Highbeam's core HUD and 32 detector rules are MIT-licensed and free forever. Optional Pro and Team tiers add offline Ed25519-verified automation, expensable PDF 1.4 receipts, and zero-cloud Grafana/Datadog observability packs.
+      </p>
+
+      <h2 id="tier-matrix">1. Three-Tier Entitlement Matrix</h2>
+      <p>
+        Run <code>npx ctxtop tiers</code> at any time to inspect the built-in capability matrix from <code>src/core/pro_license.mjs</code>:
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Tier</th>
+              <th>Pricing</th>
+              <th>Included Capabilities</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Free</strong><br /><span class="badge safe">MIT Core</span></td>
+              <td><code>$0/mo</code></td>
+              <td>Simple View HUD &amp; 4-Rank Tufte Verdict Bar, 40-Cell Parabolic U-Curve Context Map, 5m/1h Live Dual-TTL Countdown, <code>HOLD_COMPACT</code> Warm Cache Warning, and all 32 detector rules.</td>
+            </tr>
+            <tr>
+              <td><strong>Pro</strong><br /><span class="badge accent">Solo Dev</span></td>
+              <td><code>$15/mo</code><br />(<code>$12-$19</code> range)</td>
+              <td>Automated <code>PreToolUse</code> Delta-Read &amp; 3rd-Read AST Signature Stub Interception, Cross-Session Chronic Offender Memory, 30-Day Workspace Savings Ledger (<code>#tufteBaselineStrip</code>), Signed Corporate PDF 1.4 Expense Receipt, and <code>AUTO_PILOT</code> Hysteresis Lock &amp; Algebraic <code>C*</code> Switch Hold.</td>
+            </tr>
+            <tr>
+              <td><strong>Team</strong><br /><span class="badge">Zero-Cloud FinOps</span></td>
+              <td><code>$39/seat/mo</code></td>
+              <td>Shared <code>.agents/rules/</code> Primacy-Band Governance, Sanitized Cross-Developer Bloat Analytics (<code>POST /api/export/sanitized</code>), Repo-Wide MCP Lazy-Loading Enforcement, and BYO-Grafana OpenTelemetry &amp; Prometheus Alerting Pack (<code>ctxtop team-pack</code>).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="offline-ed25519-licensing">2. Offline Ed25519 Activation &amp; 14-Day Trial</h2>
+      <p>
+        Pro and Team entitlements never phone home to a license server. Activation tokens are cryptographically signed Ed25519 payloads verified locally against the public key embedded in <code>src/core/pro_license.mjs</code> and stored at <code>~/.ctxtop/license.json</code>:
+      </p>
+
+      <div class="code-block terminal">
+        <div class="code-header"><span>Manage Local Trial, License Token &amp; Receipts</span></div>
+        <pre><code># Start a 14-day local Pro evaluation (zero network calls, no credit card)
+npx ctxtop pro trial
+
+# Activate a signed Ed25519 license token
+npx ctxtop pro activate &lt;ed25519-license-token&gt;
+
+# Verify entitlement status
+npx ctxtop pro status --json
+
+# Export a SHA-256 verified Corporate Expense Receipt (PDF 1.4)
+npx ctxtop receipt --pdf --out ./attention-horizon-expense-receipt.pdf
+
+# Generate or preview the BYO-Grafana &amp; Datadog Team FinOps Pack
+npx ctxtop team-pack --org "Core Infrastructure" --out ./finops-pack --preview</code></pre>
+      </div>
+
+      <h2 id="troubleshooting-playbook">3. Platform Quirks &amp; Diagnostic Playbook</h2>
+      <p>
+        Every failure state below maps to a deterministic check or one-command local repair. Start with <code>npx ctxtop doctor</code> to inspect all host contracts and recent non-fatal hook errors.
+      </p>
+
+      <h3 id="quirk-vision-http400">Upstream HTTP 400 on Image / Screenshot Attachments (<code>DET-20</code>)</h3>
+      <p>
+        <strong>Symptom:</strong> Submitting a screenshot while Google AI Credit Overages are active fails upstream with HTTP <code>400 Bad Request</code> (<code>"Unable to process input image"</code>).<br />
+        <strong>Resolution:</strong> Configured in <code>config/platformQuirks.json</code>, <code>DET-20</code> warns before submission when overage mode and image media coincide. Submit text/DOM snippets only (or delegate DOM inspection) until Base Quota resets.
+      </p>
+
+      <h3 id="quirk-hybrid-lockout">Preventing 168-Hour Hybrid Quota Lockouts (<code>DET-16</code>)</h3>
+      <p>
+        <strong>Symptom:</strong> Aggressive parallel subagent fan-out near quota exhaustion can trigger upstream 7-day (<code>168</code>-hour) rate lockouts.<br />
+        <strong>Resolution:</strong> Keep <code>DET-16</code> enabled. It throttles concurrency to a single worker at <code>80%</code> quota utilization, prompts explicit confirmation at <code>90%</code>, and bounds individual subagents to <code>40,000</code> tokens and <code>12</code> turns.
+      </p>
+
+      <h3 id="quirk-powershell-chains">Windows PowerShell 5.1 Command Chaining</h3>
+      <p>
+        <strong>Symptom:</strong> Shell commands containing POSIX <code>&amp;&amp;</code> operators fail with a parser error in Windows PowerShell 5.1.<br />
+        <strong>Resolution:</strong> Wrap compound verification commands inside <code>cmd /c "node scripts/sync_mirrors.mjs &amp;&amp; node bin/ctxtop.mjs verify --json"</code> or execute semicolon-separated statements cleanly.
+      </p>
+
+      <h3 id="quirk-paused-session">Tool Execution Appears Hung or Frozen</h3>
+      <p>
+        <strong>Symptom:</strong> Tool calls wait indefinitely at the <code>PreToolUse</code> boundary (up to 10 minutes) or immediately reject with <code>Execution halted by control latch</code>.<br />
+        <strong>Resolution:</strong> Check whether the session was placed into <code>PAUSED</code> or terminal <code>ABORTED</code> state via <code>ctxtop control</code>:
+      </p>
+      <div class="code-block terminal">
+        <div class="code-header"><span>Inspect and Clear Runtime Control Latch</span></div>
+        <pre><code>npx ctxtop control status --session default
+npx ctxtop control resume --session default
+# If ABORTED (terminal), remove the session latch file to reset:
+rm ~/.ctxtop/runtime/default.ctl</code></pre>
+      </div>
+
+      <h3 id="quirk-sqlite-and-storage">Missing <code>node:sqlite</code>, Orphaned Brains &amp; Bloated <code>state.vscdb</code></h3>
+      <ul>
+        <li><strong>Force JSONL Mode:</strong> If an older custom Node 20 binary lacks experimental <code>node:sqlite</code>, set <code>CTXTOP_FORCE_NO_SQLITE=1</code>; Highbeam switches cleanly to read-only JSONL offset slicing.</li>
+        <li><strong>Relink Antigravity Brains:</strong> Run <code>npx ctxtop doctor --recover-brain --dry-run</code> (then omit <code>--dry-run</code>) to repair broken brain links after IDE profile upgrades.</li>
+        <li><strong>Compact Cursor SQLite Storage:</strong> Run <code>npx ctxtop doctor --gc-cursor --vscdb &lt;path-to-state.vscdb&gt; --dry-run</code> to preview orphan-row reclamation before compacting.</li>
+        <li><strong>Zero-PII Bug Reports:</strong> Run <code>npx ctxtop doctor --diagnostic &gt; diagnostic.md</code> to generate a sanitized issue bundle with home directories and usernames scrubbed.</li>
+      </ul>
+
+      <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>
+      <footer class="doc-footer" id="doc-footer"></footer>
+    </main>
+
+    <aside class="toc-rail" id="site-toc" aria-label="On this page"></aside>
+  </div>
+
+  <script src="assets/search-index.js"></script>
+  <script src="assets/site.js"></script>
+</body>
+</html>

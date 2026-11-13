@@ -71,7 +71,7 @@ export function verifyPolarWebhookSignature({
 }
 
 /**
- * Maps a Polar.sh order/subscription payload to an Attention Horizon Pro tier and seat count.
+ * Maps a Polar.sh order/subscription payload to an Highbeam Pro tier and seat count.
  * @param {object} eventPayload
  */
 export function mapPolarOrderToLicenseSpec(eventPayload = {}) {

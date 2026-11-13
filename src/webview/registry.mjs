@@ -1,5 +1,5 @@
 /**
- * Modular Webview Chart & Small-Multiple Registry for Attention Horizon (`ctxtop`).
+ * Modular Webview Chart & Small-Multiple Registry for Highbeam (`ctxtop`).
  *
  * Allows contributors to register custom telemetry panels and small-multiple
  * visualizations against the standardized `HorizonStatePayload` returned by `/api/state`
@@ -41,6 +41,22 @@ export const BUILTIN_PANELS = [
     domSelector: '#hostWatchdogBar',
     dataKeys: ['hostHealth', 'subagents'],
     description: 'Detects orphaned language servers and detached MCP stdio pipes.'
+  },
+  {
+    id: 'single-screen-simple-view',
+    title: 'Tufte Single-Screen Simple View',
+    domSelector: '#highbeamSimpleScreen',
+    route: '/simple',
+    dataKeys: ['window', 'breakdown', 'quota', 'brainSignals', 'savings', 'amputation'],
+    description: 'Calm, self-contained single-screen HUD (System State, Direct Guidance, Automated Activity Ledger, and Primary Clean/Saved KPI) without modals or secondary drill-downs.'
+  },
+  {
+    id: 'tufte-advanced-workbench',
+    title: 'Tufte Advanced Telemetry Workbench',
+    domSelector: '#highbeamAdvancedWorkbench',
+    route: '/advanced',
+    dataKeys: ['cells', 'window', 'breakdown', 'quota', 'brainSignals', 'baseline', 'actionQueue', 'savings', 'coachState', 'hostHealth'],
+    description: 'High-density 4-zone forensic workbench (40-cell map, parabolic U-curve recall, ranked payoff queue, KV-cache gravity router, Turn-0 schema tax, DET-01..32 log, and surgical AST pruning).'
   }
 ];
 

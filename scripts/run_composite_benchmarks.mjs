@@ -1,6 +1,6 @@
 /**
  * @file scripts/run_composite_benchmarks.mjs
- * Attention Horizon v4.0 (`ah` / `ctxtop`) — Official Empirical Benchmark & SLA Suite
+ * Highbeam v4.0 (`ah` / `ctxtop`) — Official Empirical Benchmark & SLA Suite
  *
  * Executes authentic runtime measurements across all 6 core dimensions D1..D6:
  *   - D1: Processing Observability & Runtime Control (Weight: 20%, Target: >= 96.0)
@@ -183,7 +183,7 @@ function getTestPipePath() {
 
 async function runEmpiricalBenchmarks() {
   console.log('='.repeat(80));
-  console.log(' ATTENTION HORIZON v4.0 (`ah` / `ctxtop`) — EMPIRICAL BENCHMARK SUITE');
+  console.log(' HIGHBEAM v4.0 (`ah` / `ctxtop`) — EMPIRICAL BENCHMARK SUITE');
   console.log(' Running on Node ' + process.version + ' (' + process.platform + ' ' + process.arch + ')');
   console.log('='.repeat(80) + '\n');
 
@@ -303,8 +303,8 @@ async function runEmpiricalBenchmarks() {
   const d2Metrics = {};
 
   // 2.1 95% Prefix-Cache Retention Radar with Uint32 Chunking (N=1000)
-  const origPrompt = 'SYSTEM: You are Attention Horizon v4.0 assistant.\n'.repeat(100) + 'Active rules: Mod Laws 1-5.\n' + 'Context payload segment...'.repeat(50);
-  const mutPrompt = 'SYSTEM: You are Attention Horizon v4.0 assistant.\n'.repeat(100) + 'Active rules: Mod Laws 1-5 with delta.\n' + 'Context payload segment...'.repeat(50);
+  const origPrompt = 'SYSTEM: You are Highbeam v4.0 assistant.\n'.repeat(100) + 'Active rules: Mod Laws 1-5.\n' + 'Context payload segment...'.repeat(50);
+  const mutPrompt = 'SYSTEM: You are Highbeam v4.0 assistant.\n'.repeat(100) + 'Active rules: Mod Laws 1-5 with delta.\n' + 'Context payload segment...'.repeat(50);
 
   const radarLatencies = [];
   for (let i = 0; i < 10000; i++) {

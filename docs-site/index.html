@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Highbeam User Guide (ctxtop v4.0)</title>
+  <meta name="description" content="Official technical user guide for Highbeam (ctxtop v4.0), the 40-cell context visualizer, KV-cache gravity router, and zero-token guardrail suite for Google Antigravity and Claude Code." />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body data-page="index">
+  <header class="site-header" id="site-header"></header>
+
+  <div class="doc-shell">
+    <nav class="sidebar" id="site-sidebar" aria-label="Documentation chapters"></nav>
+
+    <main class="doc-main prose">
+      <p class="doc-eyebrow">Highbeam &middot; ctxtop v4.0</p>
+      <h1 class="doc-title">Context physics and zero-token guardrails for AI coding sessions.</h1>
+      <p class="doc-lead">
+        Highbeam (<code>ctxtop</code>) maps your live context window across a 40-cell recall bar, protects warm KV prefixes from costly model switches, and blocks destructive shell or file mutations before tokens leave your machine.
+      </p>
+
+      <!-- Hero Architectural Diagram -->
+      <figure class="diagram-frame" aria-label="Highbeam dual-host architecture">
+        <svg viewBox="0 0 880 330" role="img" aria-labelledby="hero-arch-title">
+          <title id="hero-arch-title">Highbeam Dual-Host Architecture across Google Antigravity and Claude Code</title>
+          <defs>
+            <linearGradient id="uCurveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#0071E3" />
+              <stop offset="50%" stop-color="#E91E63" />
+              <stop offset="100%" stop-color="#30D158" />
+            </linearGradient>
+          </defs>
+
+          <!-- Left Host: Google Antigravity -->
+          <rect x="16" y="24" width="236" height="128" rx="14" fill="var(--canvas)" stroke="var(--border-strong)" />
+          <text x="34" y="52" font-family="var(--font-sans)" font-size="13" font-weight="700" fill="var(--ink)">Google Antigravity Host</text>
+          <text x="34" y="74" font-family="var(--font-mono)" font-size="11" fill="var(--ink-secondary)">plugin.json + hooks.json</text>
+          <text x="34" y="94" font-family="var(--font-mono)" font-size="11" fill="var(--ink-secondary)">PreInvocation 8-State Router</text>
+          <text x="34" y="114" font-family="var(--font-mono)" font-size="11" fill="var(--ink-secondary)">Sidecar WebView 127.0.0.1:62935</text>
+          <text x="34" y="134" font-family="var(--font-mono)" font-size="11" fill="var(--accent)">@ah-flash-scout + 6 Skills</text>
+
+          <!-- Left Host Bottom: Claude Code -->
+          <rect x="16" y="176" width="236" height="128" rx="14" fill="var(--canvas)" stroke="var(--border-strong)" />
+          <text x="34" y="204" font-family="var(--font-sans)" font-size="13" font-weight="700" fill="var(--ink)">Claude Code Host</text>
+          <text x="34" y="226" font-family="var(--font-mono)" font-size="11" fill="var(--ink-secondary)">Tier-1 V8 Mod (~0.18ms p95)</text>
+          <text x="34" y="246" font-family="var(--font-mono)" font-size="11" fill="var(--ink-secondary)">Tier-2 CLI Hooks (hooks.json)</text>
+          <text x="34" y="266" font-family="var(--font-mono)" font-size="11" fill="var(--ink-secondary)">ah-statusline (80/110/144 col)</text>
+          <text x="34" y="286" font-family="var(--font-mono)" font-size="11" fill="var(--accent)">6 Slash Commands + Docked HUD</text>
+
+          <!-- Connectors -->
+          <path d="M 252 88 C 288 88, 288 145, 322 145" fill="none" stroke="var(--accent)" stroke-width="2" />
+          <path d="M 252 240 C 288 240, 288 185, 322 185" fill="none" stroke="var(--accent)" stroke-width="2" />
+
+          <!-- Center Core: @ctxtop/core -->
+          <rect x="322" y="34" width="276" height="260" rx="16" fill="var(--canvas)" stroke="var(--accent)" stroke-width="1.8" />
+          <text x="344" y="62" font-family="var(--font-sans)" font-size="14" font-weight="700" fill="var(--ink)">Isomorphic Core (@ctxtop/core)</text>
+          <text x="344" y="81" font-family="var(--font-sans)" font-size="11.5" fill="var(--ink-secondary)">Pure ESM &middot; Zero node:* imports &middot; Zero npm deps</text>
+
+          <!-- Mini U-Curve inside Core -->
+          <rect x="344" y="96" width="232" height="68" rx="8" fill="var(--surface)" stroke="var(--border)" />
+          <path d="M 358 112 Q 460 162 562 112" fill="none" stroke="url(#uCurveGrad)" stroke-width="3" stroke-linecap="round" />
+          <text x="358" y="154" font-family="var(--font-mono)" font-size="9.5" fill="var(--ink-secondary)">Primacy (1..6) &middot; Trough (7..32) &middot; Recency (33..40)</text>
+
+          <rect x="344" y="176" width="232" height="46" rx="8" fill="var(--surface)" stroke="var(--border)" />
+          <text x="356" y="196" font-family="var(--font-mono)" font-size="11" font-weight="600" fill="var(--ink)">Algebraic C* Cache Gravity</text>
+          <text x="356" y="212" font-family="var(--font-mono)" font-size="10" fill="var(--ink-secondary)">5m Ephemeral + 1h Billing Dual-TTL</text>
+
+          <rect x="344" y="232" width="232" height="46" rx="8" fill="var(--surface)" stroke="var(--border)" />
+          <text x="356" y="252" font-family="var(--font-mono)" font-size="11" font-weight="600" fill="var(--ink)">DET-01..DET-32 Circuit Breakers</text>
+          <text x="356" y="268" font-family="var(--font-mono)" font-size="10" fill="var(--ink-secondary)">Ring-0 Secret, Shell &amp; Scope Guards</text>
+
+          <!-- Right Engine: @ctxtop/engine-node & @ctxtop/mcp -->
+          <path d="M 598 112 L 642 112" fill="none" stroke="var(--border-strong)" stroke-width="2" />
+          <path d="M 598 224 L 642 224" fill="none" stroke="var(--border-strong)" stroke-width="2" />
+
+          <rect x="642" y="34" width="222" height="136" rx="14" fill="var(--canvas)" stroke="var(--border-strong)" />
+          <text x="660" y="62" font-family="var(--font-sans)" font-size="13" font-weight="700" fill="var(--ink)">@ctxtop/engine-node</text>
+          <text x="660" y="84" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">SQLITE_OPEN_READONLY</text>
+          <text x="660" y="103" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">JSONL Offset Tail Fallback</text>
+          <text x="660" y="122" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">FTS5 Lossless CLI Offloader</text>
+          <text x="660" y="141" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">Micro-IPC Pipe / Socket</text>
+
+          <rect x="642" y="186" width="222" height="108" rx="14" fill="var(--canvas)" stroke="var(--border-strong)" />
+          <text x="660" y="214" font-family="var(--font-sans)" font-size="13" font-weight="700" fill="var(--ink)">@ctxtop/mcp + @ctxtop/pro</text>
+          <text x="660" y="236" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">4 Stdio JSON-RPC 2.0 Tools</text>
+          <text x="660" y="255" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">Ed25519 Offline Licensing</text>
+          <text x="660" y="274" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">SHA-256 PDF 1.4 Receipts</text>
+        </svg>
+        <figcaption class="diagram-caption">
+          Every telemetry calculation runs locally in memory using Node.js built-in modules. No transcript bytes, file paths, or API keys ever leave <code>127.0.0.1</code>.
+        </figcaption>
+      </figure>
+
+      <h2 id="quick-launch">60-Second Quick Launch</h2>
+      <p>
+        Run the unified installer from your workspace root to wire hooks, status bars, and sidecar configuration non-destructively. Existing settings are backed up automatically before merge.
+      </p>
+
+      <div class="tabs" data-sync-surface>
+        <div class="tab-list" role="tablist" aria-label="Host installation surface">
+          <button type="button" class="tab-btn" role="tab" aria-selected="true" data-tab="dual">Dual-Host (Recommended)</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="antigravity">Google Antigravity</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="claude">Claude Code</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab="mcp">Cursor &amp; Windsurf MCP</button>
+        </div>
+
+        <div class="tab-panel" data-panel="dual">
+          <div class="code-block terminal">
+            <div class="code-header"><span><span class="window-dots"><span></span><span></span><span></span></span>Terminal &middot; Dual-Host Setup</span></div>
+            <pre><code>npx ctxtop init --all
+npx ctxtop doctor</code></pre>
+          </div>
+          <p>Detects both Google Antigravity and Claude Code on your workstation, merges lean lifecycle hooks, configures the responsive <code>ah-statusline</code> bridge, and verifies runtime contracts.</p>
+        </div>
+
+        <div class="tab-panel" data-panel="antigravity" hidden>
+          <div class="code-block terminal">
+            <div class="code-header"><span><span class="window-dots"><span></span><span></span><span></span></span>Terminal &middot; Google Antigravity</span></div>
+            <pre><code>npx attention-horizon-antigravity init --workspace
+npx ctxtop --serve</code></pre>
+          </div>
+          <p>Installs the workspace plugin manifest, registers the 8-state <code>PreInvocation</code> router, enables <code>@ah-flash-scout</code>, and starts the loopback WebView HUD on <code>127.0.0.1:62935</code>.</p>
+        </div>
+
+        <div class="tab-panel" data-panel="claude" hidden>
+          <div class="code-block terminal">
+            <div class="code-header"><span><span class="window-dots"><span></span><span></span><span></span></span>Terminal &middot; Claude Code</span></div>
+            <pre><code>npx ah-claude install --global
+npx ah-claude statusline --demo
+npx ah-claude receipt</code></pre>
+          </div>
+          <p>Merges Highbeam hooks and <code>statusLine</code> into <code>~/.claude/settings.json</code>, enables Tier-1 V8 Mod execution where supported, and prints your live 4-rank context receipt.</p>
+        </div>
+
+        <div class="tab-panel" data-panel="mcp" hidden>
+          <div class="code-block terminal">
+            <div class="code-header"><span><span class="window-dots"><span></span><span></span><span></span></span>Terminal &middot; MCP Stdio Server</span></div>
+            <pre><code>npx ctxtop init --mcp
+npx ctxtop doctor --json</code></pre>
+          </div>
+          <p>Registers the zero-dependency <code>@ctxtop/mcp</code> stdio server inside <code>.cursor/mcp.json</code>, exposing <code>horizon_status</code>, <code>cache_gravity_check</code>, <code>scope_lock_claim</code>, and <code>export_receipt_pdf</code>.</p>
+        </div>
+      </div>
+
+      <h2 id="capabilities">Core Capabilities</h2>
+      <p>
+        Highbeam replaces guesswork about context consumption with physical measurements: exact token counts, cache hit percentages, cache TTL countdowns, and deterministic pre-execution circuit breakers.
+      </p>
+
+      <div class="bento-grid">
+        <div class="bento-card bento-span-8">
+          <div>
+            <p class="bento-kicker">40-Cell Context Telemetry</p>
+            <h3>See where recall drops before rules are forgotten</h3>
+            <p>
+              Maps your active prompt envelope onto 40 chronological cells with automatic zoom across <code>100k</code>, <code>200k</code>, and <code>1M</code> token ceilings. Identifies middle-window distractors, duplicate file reads, and foreign knowledge bleed before server-side truncation occurs.
+            </p>
+          </div>
+          <div class="ui-reconstruction" style="margin: 8px 0 0;">
+            <div class="ui-chrome-bar">
+              <span><strong>Highbeam HUD</strong> &middot; Mode: Multi-File Refactor</span>
+              <span class="badge safe">Cache Hit 87.5% &middot; TTL 04:12</span>
+            </div>
+            <div class="ui-body">
+              <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:0.78rem;margin-bottom:6px;">
+                <span>64,000 / 200,000 tok (32.0%)</span>
+                <span>Waste: 4,200 tok &middot; Saved: +$1.84</span>
+              </div>
+              <div class="horizon-40-grid" aria-label="40-cell context visualization sample">
+                <span class="h-cell s"></span><span class="h-cell s"></span>
+                <span class="h-cell c"></span><span class="h-cell c"></span><span class="h-cell c"></span><span class="h-cell c"></span><span class="h-cell c"></span><span class="h-cell c"></span>
+                <span class="h-cell d"></span><span class="h-cell d"></span>
+                <span class="h-cell c"></span><span class="h-cell c"></span>
+                <span class="h-cell w"></span>
+                <span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span><span class="h-cell e"></span>
+              </div>
+              <div class="horizon-legend">
+                <span><i class="legend-dot" style="background:#1A73E8"></i>[S] System &amp; MCP (8k)</span>
+                <span><i class="legend-dot" style="background:#34A853"></i>[C] Warm Cache (46.8k)</span>
+                <span><i class="legend-dot" style="background:#E91E63"></i>[D] Stale Debt (4.2k)</span>
+                <span><i class="legend-dot" style="background:#FA903E"></i>[W] 1.25x Write (5k)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bento-card bento-span-4">
+          <div>
+            <p class="bento-kicker">KV-Cache Gravity</p>
+            <h3>Algebraic C* Switch Protection</h3>
+            <div class="bento-metric">~0.18ms p95</div>
+            <p>
+              Computes exact cross-model break-even token thresholds in real time. Holds premature downshifts from Opus to Sonnet when rebuilding a warm prefix would cost more than staying on the active model.
+            </p>
+          </div>
+          <a href="concepts.html#cache-gravity">Explore C* physics &rarr;</a>
+        </div>
+
+        <div class="bento-card bento-span-4">
+          <div>
+            <p class="bento-kicker">Pre-Write Circuit Breakers</p>
+            <h3>32 Deterministic Detectors</h3>
+            <div class="bento-metric">DET-01..32</div>
+            <p>
+              Intercepts destructive git commands, secret reads, 3-strike tool loops, Haiku 100k 5x price cliffs, and multi-agent file scope collisions with zero LLM judge calls.
+            </p>
+          </div>
+          <a href="detectors.html">Browse full catalog &rarr;</a>
+        </div>
+
+        <div class="bento-card bento-span-4">
+          <div>
+            <p class="bento-kicker">Lossless CLI Compression</p>
+            <h3>SQLite FTS5 Offloader</h3>
+            <div class="bento-metric">&gt;4,096 chars</div>
+            <p>
+              Strips ANSI control codes, archives verbose test logs into local FTS5 storage, and injects compact head/tail digests with critical error-line recovery.
+            </p>
+          </div>
+          <a href="architecture.html#fts5-compressor">How compression works &rarr;</a>
+        </div>
+
+        <div class="bento-card bento-span-4">
+          <div>
+            <p class="bento-kicker">Zero-Trust Privacy</p>
+            <h3>100% Read-Only Local I/O</h3>
+            <div class="bento-metric">0 Dependencies</div>
+            <p>
+              Opens session SQLite databases strictly with <code>SQLITE_OPEN_READONLY</code>, binds WebViews exclusively to <code>127.0.0.1</code>, and makes zero outbound network requests.
+            </p>
+          </div>
+          <a href="configuration.html#security-sandbox">Review security model &rarr;</a>
+        </div>
+      </div>
+
+      <h2 id="choose-your-path">Start by Engineering Goal</h2>
+      <div class="goal-grid">
+        <a class="goal-card" href="flight-modes.html">
+          <div class="goal-card-title"><span>Set Flight Modes &amp; Levels</span><span>&rarr;</span></div>
+          <p class="goal-card-desc">Compare <code>OFF</code>, <code>SILENT</code>, <code>COACH</code>, and <code>AUTO_PILOT</code> postures, Antigravity <code>hook_level</code> cooldowns, and surgical detector overrides.</p>
+        </a>
+        <a class="goal-card" href="installation.html">
+          <div class="goal-card-title"><span>Install &amp; Verify</span><span>&rarr;</span></div>
+          <p class="goal-card-desc">Set up Highbeam across Antigravity, Claude Code, or Cursor MCP and verify SHA-256 checksums.</p>
+        </a>
+        <a class="goal-card" href="tutorials.html">
+          <div class="goal-card-title"><span>Follow Hands-On Tutorials</span><span>&rarr;</span></div>
+          <p class="goal-card-desc">Walk through prompt prechecks, parallel Git worktree scope locks, surgical pruning, and lossless compaction.</p>
+        </a>
+        <a class="goal-card" href="surfaces.html">
+          <div class="goal-card-title"><span>Compare Host Surfaces</span><span>&rarr;</span></div>
+          <p class="goal-card-desc">Understand how Antigravity sidecar daemons and Claude Code V8 Mods coordinate as conductor and executor.</p>
+        </a>
+        <a class="goal-card" href="cli-reference.html">
+          <div class="goal-card-title"><span>Look Up CLI Flags</span><span>&rarr;</span></div>
+          <p class="goal-card-desc">Inspect every binary, subcommand, flag, exit code, and JSON output contract in <code>ctxtop</code> v4.0.</p>
+        </a>
+        <a class="goal-card" href="detectors.html">
+          <div class="goal-card-title"><span>Tune Guardrails</span><span>&rarr;</span></div>
+          <p class="goal-card-desc">Filter all 32 canonical detectors and 8 semantic habit slugs, and configure per-rule overrides.</p>
+        </a>
+        <a class="goal-card" href="mcp-daemon-api.html">
+          <div class="goal-card-title"><span>Integrate Local APIs</span><span>&rarr;</span></div>
+          <p class="goal-card-desc">Query the 4 MCP stdio tools, 28 loopback HTTP/SSE routes, and Micro-IPC control sockets.</p>
+        </a>
+      </div>
+
+      <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>
+      <footer class="doc-footer" id="doc-footer"></footer>
+    </main>
+
+    <aside class="toc-rail" id="site-toc" aria-label="On this page"></aside>
+  </div>
+
+  <script src="assets/search-index.js"></script>
+  <script src="assets/site.js"></script>
+</body>
+</html>

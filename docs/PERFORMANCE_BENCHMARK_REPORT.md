@@ -1,4 +1,4 @@
-# Attention Horizon (`ctxtop`) — Automated Context/Memory & Performance Benchmark Report
+# Highbeam (`ctxtop`) — Automated Context/Memory & Performance Benchmark Report
 
 > **Generated Automatically by**: [`tests/benchmark_context_scenario.mjs`](../tests/benchmark_context_scenario.mjs)  
 > **Run Command**: `npm run bench:scenario`  

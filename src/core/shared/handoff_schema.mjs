@@ -76,7 +76,7 @@ export function validateStateBaton(baton) {
 export function formatColdResumeBatonPrompt(batonInput = {}) {
   const b = createStateBaton(batonInput);
   const lines = [
-    `[Attention Horizon Cold-Resume Baton • ${b.bandLabel} (${b.currentTokens.toLocaleString('en-US')}/${b.ceilingTokens.toLocaleString('en-US')} tok)]`,
+    `[Highbeam Cold-Resume Baton • ${b.bandLabel} (${b.currentTokens.toLocaleString('en-US')}/${b.ceilingTokens.toLocaleString('en-US')} tok)]`,
     `Goal: ${b.activeGoal}`,
     `Working Set: ${b.workingSetFiles.slice(0, 6).join(', ') || '(none recorded)'}`
   ];
@@ -98,7 +98,7 @@ export function formatHandoffMarkdown(batonInput = {}, meta = {}) {
   const b = createStateBaton(batonInput);
   const bulletOrNone = (arr) => (arr.length > 0 ? arr.map((x) => `- ${x}`).join('\n') : '- *(none)*');
   return [
-    `# Attention Horizon — Session State Baton Handoff`,
+    `# Highbeam — Session State Baton Handoff`,
     ``,
     `- **Generated At:** ${b.updatedAt}`,
     `- **Trigger:** ${String(meta.trigger || 'explicit_export')}`,

@@ -1,4 +1,4 @@
-# Attention Horizon (`ctxtop`) — Architectural & UI Invariants
+# Highbeam (`ctxtop`) — Architectural & UI Invariants
 - **User Constraint**: my account was just re-enabled from getting disabled (see error message below) review tips to avoid
 - **User Constraint**: To keep context memory lean, use `StartLine`/`EndLine` (`<= 150` lines per read) or outline tools when reading any file >150 lines (especially `horizon_panel.html`, `classifier.mjs`, `server.mjs`, `circuitBreakers.mjs`, and large reports) instead of reading full files in one step.
 

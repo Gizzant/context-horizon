@@ -1,6 +1,6 @@
 /**
  * @file src/engine-node/ipc/client.mjs
- * Attention Horizon Micro-IPC Client.
+ * Highbeam Micro-IPC Client.
  *
  * Implements high-performance (<0.8ms SLA, p95 ~0.13ms) local IPC communication
  * with persistent warm socket reuse, message demultiplexing, and 15ms failover

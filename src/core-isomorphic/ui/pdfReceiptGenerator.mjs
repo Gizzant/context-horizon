@@ -123,7 +123,7 @@ export function buildPdf14Document(lines = [], meta = {}) {
     'BT',
     '/F1 15 Tf',
     '48 750 Td',
-    `(${escapePdfText(meta.title || 'ATTENTION HORIZON PRO - CORPORATE FINOPS EXPENSE RECEIPT')}) Tj`,
+    `(${escapePdfText(meta.title || 'HIGHBEAM PRO - CORPORATE FINOPS EXPENSE RECEIPT')}) Tj`,
     '/F2 9 Tf',
     '0 -18 Td',
     `(${escapePdfText(`Receipt ID: ${meta.receiptId || 'AH-RCPT'}   |   Issued: ${meta.issuedAt || ''}`)}) Tj`,
@@ -178,7 +178,7 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
   const issuedAt = options.issuedAt || new Date().toISOString();
   const periodLabel = options.periodLabel || issuedAt.slice(0, 7);
   const employeeEmail = options.email || summary.email || 'developer@workspace.local';
-  const tierLabel = options.tierLabel || 'Attention Horizon Pro ($15.00/mo)';
+  const tierLabel = options.tierLabel || 'Highbeam Pro ($15.00/mo)';
   const subscriptionCostUSD = Number(options.subscriptionCostUSD ?? 15.0);
 
   const sessionSavedTokens = Number(summary.sessionSavedTokens || 0);
@@ -189,6 +189,8 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
     subscriptionCostUSD > 0
       ? Number((Math.max(workspace30dSavedUSD, sessionSavedUSD) / subscriptionCostUSD).toFixed(1))
       : 0;
+  const estimatedGpuWhSaved = Number(((workspace30dSavedTokens / 1_000_000) * 650).toFixed(1));
+  const estimatedCo2GramsSaved = Number(((estimatedGpuWhSaved / 1000) * 380).toFixed(1));
 
   const byCategory = summary.byCategory || {};
   const cacheTok = Number(byCategory.DET_09_PREFIX_FENCE?.savedTokens || 0);
@@ -228,6 +230,7 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
     `Current Session Verified Savings      : +${sessionSavedTokens.toLocaleString('en-US')} tokens ($${sessionSavedUSD.toFixed(2)} USD)`,
     `30-Day Cumulative Workspace Savings   : +${workspace30dSavedTokens.toLocaleString('en-US')} tokens ($${workspace30dSavedUSD.toFixed(2)} USD)`,
     `Net FinOps ROI vs. $${subscriptionCostUSD.toFixed(2)}/mo License  : ${netRoiMultiplier}x Return on Investment`,
+    `GreenOps GPU Compute Energy Avoided   : ~${estimatedGpuWhSaved} Wh (~${estimatedCo2GramsSaved}g CO2e Scope 3)`,
     '-'.repeat(86),
     'Zero-Trust Privacy Attestation: Computed 100% locally from token counters.',
     'Zero prompt text, source code, or PII transmitted off-device.',
@@ -235,14 +238,14 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
   ];
 
   const pdfBytes = buildPdf14Document(pdfLines, {
-    title: 'ATTENTION HORIZON PRO - CORPORATE FINOPS EXPENSE RECEIPT',
+    title: 'HIGHBEAM PRO - CORPORATE FINOPS EXPENSE RECEIPT',
     receiptId,
     issuedAt,
     sha256
   });
 
   const markdown = [
-    `# 🧾 Attention Horizon Pro — Corporate FinOps Expense Receipt`,
+    `# 🧾 Highbeam Pro — Corporate FinOps Expense Receipt`,
     ``,
     `| Field | Value |`,
     `| :--- | :--- |`,
@@ -254,6 +257,7 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
     `| **30-Day Verified API Savings** | **+$${workspace30dSavedUSD.toFixed(2)} USD** (+${workspace30dSavedTokens.toLocaleString('en-US')} tokens) |`,
     `| **Current Session Savings** | **+$${sessionSavedUSD.toFixed(2)} USD** (+${sessionSavedTokens.toLocaleString('en-US')} tokens) |`,
     `| **Net FinOps ROI** | **${netRoiMultiplier}x** |`,
+    `| **GreenOps Compute Energy Avoided** | **~${estimatedGpuWhSaved} Wh** (~${estimatedCo2GramsSaved}g CO₂e Scope 3) |`,
     ``,
     `## Itemized Savings Breakdown`,
     `| Guard Category | Tokens Saved | USD Saved |`,
@@ -264,14 +268,14 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
     `| Circuit Breaker Interventions | +${breakerTok.toLocaleString('en-US')} | $${breakerUsd.toFixed(2)} |`,
     ``,
     `> **SHA-256 Audit Digest**: \`${sha256}\`  `,
-    `> *Computed 100% locally via Attention Horizon (\`ctxtop receipt\`) with zero network calls or PII.*`
+    `> *Computed 100% locally via Highbeam (\`ctxtop receipt\`) with zero network calls or PII.*`
   ].join('\n');
 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Expense Receipt ${escapeHtml(receiptId)} — Attention Horizon Pro</title>
+<title>Expense Receipt ${escapeHtml(receiptId)} — Highbeam Pro</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #111827; max-width: 720px; margin: 32px auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 8px; }
   h1 { font-size: 18px; margin: 0 0 4px 0; }
@@ -285,12 +289,13 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
 </style>
 </head>
 <body>
-  <h1>Attention Horizon Pro — Corporate FinOps Expense Receipt</h1>
+  <h1>Highbeam Pro — Corporate FinOps Expense Receipt</h1>
   <div class="meta">Receipt ID: ${escapeHtml(receiptId)} &middot; Period: ${escapeHtml(periodLabel)} &middot; Issued: ${escapeHtml(issuedAt)}</div>
   <table>
     <tr><th>Product Tier</th><td>${escapeHtml(tierLabel)}</td><th class="num">Subscription Cost</th><td class="num">$${subscriptionCostUSD.toFixed(2)} USD</td></tr>
     <tr><th>30-Day Verified Savings</th><td class="num">+${workspace30dSavedTokens.toLocaleString('en-US')} tok</td><th class="num">30-Day USD Saved</th><td class="num">+$${workspace30dSavedUSD.toFixed(2)} USD</td></tr>
     <tr><th>Session Verified Savings</th><td class="num">+${sessionSavedTokens.toLocaleString('en-US')} tok</td><th class="num">Net FinOps ROI</th><td class="num">${netRoiMultiplier}x</td></tr>
+    <tr><th>GreenOps Energy Avoided</th><td class="num">~${estimatedGpuWhSaved} Wh</td><th class="num">Scope 3 CO2e Avoided</th><td class="num">~${estimatedCo2GramsSaved}g CO2e</td></tr>
   </table>
   <table>
     <thead><tr><th>Guard Category</th><th class="num">Tokens Saved</th><th class="num">USD Saved</th></tr></thead>
@@ -315,6 +320,8 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
     workspace30dSavedTokens,
     workspace30dSavedUSD,
     netRoiMultiplier,
+    estimatedGpuWhSaved,
+    estimatedCo2GramsSaved,
     pdfBytes,
     markdown,
     html

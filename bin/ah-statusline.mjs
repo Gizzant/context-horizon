@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @file bin/ah-statusline.mjs
- * Standalone `statusLine` JSON bridge for Claude Code Attention Horizon.
+ * Standalone `statusLine` JSON bridge for Claude Code Highbeam.
  *
  * Reads Claude Code's `statusLine` JSON payload from `stdin`, updates the atomic
  * bridge snapshot at `.claude/cache/ah_live_state_<sessionId>.json`, and prints

@@ -1,8 +1,8 @@
 {
   "name": "ctxtop",
-  "displayName": "Attention Horizon",
+  "displayName": "Highbeam",
   "version": "4.0.0",
-  "description": "Attention Horizon v4.0: Cross-platform AI Developer Assistant Extension for Google Antigravity and Claude Code: 40-cell context visualizer, KV-cache gravity router, and zero-token guardrails.",
+  "description": "Highbeam v4.0: Cross-platform AI Developer Assistant Extension for Google Antigravity and Claude Code: 40-cell context visualizer, KV-cache gravity router, and zero-token guardrails.",
   "type": "module",
   "workspaces": [
     "packages/core",

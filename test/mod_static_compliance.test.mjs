@@ -1182,7 +1182,7 @@ function registerComplianceTestSuite() {
       async () => 'passed'
     );
     assert.equal(failClosed.decision, 'deny');
-    assert.match(failClosed.reason, /\[Attention Horizon Fail-Closed\].*simulated isolate store fault/);
+    assert.match(failClosed.reason, /\[Highbeam Fail-Closed\].*simulated isolate store fault/);
   });
 
   test('Phase 5.6: CLI `install` & `uninstall` anti-clobber backup and existing user hook preservation', () => {
@@ -1441,7 +1441,7 @@ function registerComplianceTestSuite() {
       await handlers['command.horizon']({}, mockContext);
       assert.deepEqual(openedPane, {
         id: 'attention-horizon',
-        title: 'Attention Horizon',
+        title: 'Highbeam',
         closeOnEscape: true
       });
 

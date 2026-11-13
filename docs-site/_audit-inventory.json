@@ -1,0 +1,873 @@
+{
+  "generatedAt": "2026-11-12T23:10:00-05:00",
+  "product": {
+    "name": "ctxtop",
+    "displayName": "Highbeam",
+    "version": "4.0.0",
+    "nodeEngine": ">=20.0.0",
+    "license": "MIT",
+    "commercialLicense": "SEE LICENSE IN packages/pro/LICENSE-COMMERCIAL.md",
+    "workspaces": [
+      "packages/core",
+      "packages/engine-node",
+      "packages/antigravity",
+      "packages/claude-code",
+      "packages/pro",
+      "packages/mcp"
+    ]
+  },
+  "manifests": {
+    "rootPackageJson": "package.json",
+    "antigravityPluginJson": [
+      "plugin.json",
+      ".antigravity-plugin/plugin.json"
+    ],
+    "claudePluginJson": ".claude-plugin/plugin.json",
+    "antigravityHooksJson": "hooks.json",
+    "claudeHooksJson": "hooks/hooks.json",
+    "sidecarJson": "sidecars/horizon-daemon/sidecar.json",
+    "defaultFlightcheckJson": "config/default_flightcheck.json",
+    "platformQuirksJson": "config/platformQuirks.json",
+    "modelCatalogJson": [
+      "config/modelCatalog.json",
+      "src/core-isomorphic/config/anthropicModelCatalog.json"
+    ],
+    "rulesManifest": [
+      "rules/AGENTS.md",
+      "AGENTS.md"
+    ],
+    "securityManifest": "SECURITY.md",
+    "checksumsManifest": "CHECKSUMS.sha256"
+  },
+  "discrepanciesResolved": [
+    {
+      "area": "Detector Numbering in Legacy README vs v4.0 Isomorphic Catalog",
+      "legacyDocClaim": "README.md references DET-14b for ANSI/CR CLI compression",
+      "groundTruthCode": "src/core-isomorphic/catalog/detectorCatalog.mjs maps Exit-Safe CLI Compressor & Output Bomb Guard to canonical DET-07 across DET-01..DET-32 (with LEGACY_GA_V3_ID_MAP preserving backward migration)."
+    },
+    {
+      "area": "Skills on Disk vs plugin.json Registration",
+      "legacyDocClaim": "plugin.json lists 5 skills (horizon, precheck, handoff, cost-radar, evolve)",
+      "groundTruthCode": "skills/inspect/SKILL.md also exists at root and .claude-plugin/plugin.json registers all 6 commands (horizon, cost-radar, inspect, handoff, precheck, evolve); workspace mirror also includes relay/SKILL.md."
+    },
+    {
+      "area": "CLI Subcommands Coverage",
+      "legacyDocClaim": "README.md CLI table only lists 5 invocations (postmortem, --roast, doctor, --serve, --demo-animate)",
+      "groundTruthCode": "bin/ctxtop.mjs and src/cli/init.mjs implement 20+ subcommands including init, install, uninstall, doctor, postmortem, roast, receipt, panel, radar/cost-radar, statusline, config, inspect, control, tiers, license/pro, team-pack/team-finops, verify, ui/serve, demo, prune, exec, and log-search."
+    },
+    {
+      "area": "Per-Detector Config CLI Validation Range",
+      "legacyDocClaim": "Error string in bin/ctxtop.mjs mentions DET-01..DET-20",
+      "groundTruthCode": "horizonConfig.mjs supports DET-01..DET-20 canonical overrides plus 8 semantic habit slugs (formatter-bypass, drip-feed, vague-prompt-rubric, effort-overkill, post-commit-handoff, vision-screenshot-coach, micro-skills, relay-breaker), while DETECTOR_CATALOG defines DET-01..DET-32."
+    }
+  ],
+  "cliBinaries": {
+    "ah": "./bin/ctxtop.mjs",
+    "attention-horizon": "./bin/ctxtop.mjs",
+    "ctxtop": "./bin/ctxtop.mjs",
+    "ah-statusline": "./bin/ah-statusline.mjs",
+    "attention-horizon-antigravity": "./src/cli/init.mjs",
+    "ah-antigravity": "./src/cli/init.mjs",
+    "attention-horizon-claude": "./bin/ctxtop.mjs",
+    "ah-claude": "./bin/ctxtop.mjs",
+    "agy-horizon": "./src/cli/init.mjs",
+    "agy-horizon-flightcheck": "./src/cli/init.mjs",
+    "ah-mcp": "./packages/mcp/src/server.mjs",
+    "ctxtop-mcp": "./packages/mcp/src/server.mjs"
+  },
+  "cliShims": [
+    "src/shims/agy_cli_compressor.mjs",
+    "src/shims/agy_git_guard.mjs",
+    "src/shims/ah_log_query.mjs"
+  ],
+  "cliSubcommands": [
+    {
+      "name": "init",
+      "entry": "bin/ctxtop.mjs & src/cli/init.mjs",
+      "flags": [
+        "--antigravity",
+        "--claude",
+        "--mcp",
+        "--cursor",
+        "--windsurf",
+        "--all",
+        "--global",
+        "-g",
+        "--workspace",
+        "--project",
+        "--lean-hooks",
+        "--full-hooks",
+        "--dry-run",
+        "--dedupe"
+      ]
+    },
+    {
+      "name": "install",
+      "entry": "bin/ctxtop.mjs",
+      "flags": [
+        "--global",
+        "-g",
+        "--project",
+        "--lean-hooks",
+        "--full-hooks"
+      ]
+    },
+    {
+      "name": "uninstall",
+      "entry": "bin/ctxtop.mjs",
+      "flags": [
+        "--global",
+        "-g",
+        "--project"
+      ]
+    },
+    {
+      "name": "doctor",
+      "entry": "bin/ctxtop.mjs & src/cli/doctor.mjs",
+      "flags": [
+        "--diagnostic",
+        "--bug-report",
+        "--json",
+        "--prune-tools",
+        "--prune",
+        "--uncached-tail",
+        "--tail",
+        "--reap-orphans",
+        "--handoff",
+        "--distill",
+        "--storage-gc",
+        "--gc-cursor",
+        "--recover-brain",
+        "--transcript",
+        "--vscdb",
+        "--dry-run"
+      ]
+    },
+    {
+      "name": "postmortem",
+      "entry": "bin/ctxtop.mjs & src/cli/postmortem.mjs",
+      "flags": [
+        "--last",
+        "--json",
+        "--roast",
+        "--demo"
+      ]
+    },
+    {
+      "name": "roast",
+      "entry": "bin/ctxtop.mjs & src/cli/init.mjs",
+      "flags": [
+        "--demo",
+        "--json",
+        "--markdown",
+        "--md"
+      ]
+    },
+    {
+      "name": "receipt",
+      "entry": "bin/ctxtop.mjs",
+      "flags": [
+        "--advanced",
+        "--4-rank",
+        "--simple",
+        "--markdown",
+        "--md",
+        "--git",
+        "--html",
+        "--pdf",
+        "--out",
+        "--json"
+      ]
+    },
+    {
+      "name": "panel",
+      "entry": "bin/ctxtop.mjs",
+      "flags": [
+        "--advanced",
+        "--out",
+        "--json"
+      ]
+    },
+    {
+      "name": "cost-radar",
+      "aliases": [
+        "radar"
+      ],
+      "entry": "bin/ctxtop.mjs & src/cli/cost_radar.mjs",
+      "flags": [
+        "--out",
+        "--json",
+        "--demo",
+        "--share"
+      ]
+    },
+    {
+      "name": "statusline",
+      "entry": "bin/ctxtop.mjs & bin/ah-statusline.mjs",
+      "flags": [
+        "--demo",
+        "--columns",
+        "--cols"
+      ]
+    },
+    {
+      "name": "config",
+      "entry": "bin/ctxtop.mjs",
+      "actions": [
+        "list",
+        "set <DET-ID|slug> <default|off|warn|block>",
+        "reset"
+      ],
+      "flags": [
+        "--global",
+        "-g",
+        "--project",
+        "--json"
+      ]
+    },
+    {
+      "name": "inspect",
+      "entry": "bin/ctxtop.mjs",
+      "flags": [
+        "--last",
+        "--session",
+        "--out",
+        "--json"
+      ]
+    },
+    {
+      "name": "control",
+      "entry": "bin/ctxtop.mjs",
+      "actions": [
+        "pause",
+        "resume",
+        "step",
+        "abort",
+        "rewind",
+        "status"
+      ],
+      "flags": [
+        "--session",
+        "--target",
+        "--turn"
+      ]
+    },
+    {
+      "name": "tiers",
+      "entry": "bin/ctxtop.mjs",
+      "flags": [
+        "--json"
+      ]
+    },
+    {
+      "name": "license",
+      "aliases": [
+        "pro"
+      ],
+      "entry": "bin/ctxtop.mjs",
+      "actions": [
+        "status",
+        "tiers",
+        "activate <token>",
+        "trial",
+        "deactivate"
+      ],
+      "flags": [
+        "--json"
+      ]
+    },
+    {
+      "name": "team-pack",
+      "aliases": [
+        "team-finops"
+      ],
+      "entry": "bin/ctxtop.mjs",
+      "flags": [
+        "--out",
+        "--org",
+        "--preview",
+        "--json"
+      ]
+    },
+    {
+      "name": "verify",
+      "aliases": [
+        "verify-checksums"
+      ],
+      "entry": "bin/ctxtop.mjs",
+      "flags": [
+        "--json"
+      ]
+    },
+    {
+      "name": "ui",
+      "aliases": [
+        "serve"
+      ],
+      "entry": "src/cli/init.mjs",
+      "flags": [
+        "--serve",
+        "--open",
+        "--no-open",
+        "--demo"
+      ]
+    },
+    {
+      "name": "demo",
+      "entry": "src/cli/init.mjs & src/cli/horizon_hud.mjs",
+      "flags": [
+        "--demo",
+        "--demo-animate",
+        "--scenario",
+        "--emit-widget",
+        "--harness"
+      ]
+    },
+    {
+      "name": "prune",
+      "entry": "src/cli/init.mjs",
+      "flags": [
+        "--prune",
+        "--prune-tools",
+        "--dry-run"
+      ]
+    },
+    {
+      "name": "exec",
+      "aliases": [
+        "agy-horizon-exec"
+      ],
+      "entry": "src/cli/init.mjs",
+      "flags": [
+        "<command...>"
+      ]
+    },
+    {
+      "name": "log-search",
+      "aliases": [
+        "agy-log-search"
+      ],
+      "entry": "src/cli/init.mjs & src/shims/ah_log_query.mjs",
+      "flags": [
+        "<fts5-query>"
+      ]
+    }
+  ],
+  "slashCommandsAndSkills": {
+    "claudeCommands": [
+      "./commands/horizon.md",
+      "./commands/cost-radar.md",
+      "./commands/inspect.md",
+      "./commands/handoff.md",
+      "./commands/precheck.md",
+      "./commands/evolve.md"
+    ],
+    "antigravitySkills": [
+      "./skills/horizon",
+      "./skills/precheck",
+      "./skills/handoff",
+      "./skills/cost-radar",
+      "./skills/evolve",
+      "./skills/inspect",
+      ".agents/skills/relay"
+    ],
+    "inChatPrefixes": [
+      "!",
+      "!force",
+      "!lock",
+      "#check"
+    ],
+    "claudeModCommands": [
+      "command.horizon"
+    ],
+    "subagents": [
+      "agents/ah-flash-scout.md"
+    ]
+  },
+  "lifecycleHooks": {
+    "antigravity": [
+      "SessionStart",
+      "PreInvocation",
+      "PostInvocation",
+      "Stop",
+      "PreToolUse",
+      "PostToolUse"
+    ],
+    "claudeTier1Mod": [
+      "file.changed",
+      "tool.call",
+      "turn.step",
+      "turn.complete",
+      "classic.PreCompact",
+      "classic.SessionStart",
+      "classic.PostCompact",
+      "classic.Stop",
+      "command.horizon",
+      "ui.render"
+    ],
+    "claudeTier2Cli": [
+      "PreToolUse",
+      "PostToolUse",
+      "PreModelSwitch",
+      "PreCompact",
+      "PostCompact",
+      "SessionStart",
+      "Stop",
+      "UserPromptSubmit (handler module)"
+    ]
+  },
+  "detectors": {
+    "canonicalCount": 32,
+    "catalog": [
+      {
+        "id": "DET-01",
+        "name": "Option Argument Skipping & Destructive Git/Shell Guard",
+        "defaultMode": "guard",
+        "severity": "CRITICAL",
+        "ring0": true
+      },
+      {
+        "id": "DET-02",
+        "name": "Zero-Token Secret & Sensitive File Guard",
+        "defaultMode": "guard",
+        "severity": "CRITICAL",
+        "ring0": true
+      },
+      {
+        "id": "DET-03",
+        "name": "Lockfile & Migration Scope Drift Guard",
+        "defaultMode": "guard",
+        "severity": "WARN",
+        "ring0": false
+      },
+      {
+        "id": "DET-04",
+        "name": "3-Strike Consecutive Tool Failure Breaker",
+        "defaultMode": "guard",
+        "severity": "HIGH",
+        "ring0": false
+      },
+      {
+        "id": "DET-05",
+        "name": "Destructive Code-Strip, Test-Weakening & Flip-Flop Guard",
+        "defaultMode": "guard",
+        "severity": "CRITICAL",
+        "ring0": false
+      },
+      {
+        "id": "DET-06",
+        "name": "Unmodified File Re-Read & Blind-Edit Guard",
+        "defaultMode": "advisory",
+        "severity": "MEDIUM",
+        "ring0": false
+      },
+      {
+        "id": "DET-07",
+        "name": "Exit-Safe CLI Compressor & Output Bomb Guard",
+        "defaultMode": "guard",
+        "severity": "HIGH",
+        "ring0": false
+      },
+      {
+        "id": "DET-08",
+        "name": "KV-Cache Gravity Cross-Model Switch Guard",
+        "defaultMode": "guard",
+        "severity": "HIGH",
+        "ring0": false
+      },
+      {
+        "id": "DET-09",
+        "name": "Warm Prefix-Cache Mutation Fence",
+        "defaultMode": "guard",
+        "severity": "HIGH",
+        "ring0": false
+      },
+      {
+        "id": "DET-10",
+        "name": "Idle 5m Implicit-Cache Watchdog",
+        "defaultMode": "advisory",
+        "severity": "WARN",
+        "ring0": false
+      },
+      {
+        "id": "DET-11",
+        "name": "Shadow File Context Bloat & Confabulation Guard",
+        "defaultMode": "advisory",
+        "severity": "MEDIUM",
+        "ring0": false
+      },
+      {
+        "id": "DET-12",
+        "name": "Haiku 100k Cliff Breaker & Zombie Subprocess Leak Guard",
+        "defaultMode": "guard",
+        "severity": "CRITICAL",
+        "ring0": false
+      },
+      {
+        "id": "DET-13",
+        "name": "Eager MCP Override & Startup Bloat Auditor",
+        "defaultMode": "advisory",
+        "severity": "MEDIUM",
+        "ring0": false
+      },
+      {
+        "id": "DET-14",
+        "name": "Premature Stop Gate & Test Verification Guard",
+        "defaultMode": "guard",
+        "severity": "HIGH",
+        "ring0": false
+      },
+      {
+        "id": "DET-15",
+        "name": "Batched Stop-Phase Formatter & Placeholder Slop Guard",
+        "defaultMode": "advisory",
+        "severity": "MEDIUM",
+        "ring0": false
+      },
+      {
+        "id": "DET-16",
+        "name": "Hybrid Quota Fan-Out Throttle & Subagent Recursion Cap",
+        "defaultMode": "advisory",
+        "severity": "HIGH",
+        "ring0": false
+      },
+      {
+        "id": "DET-17",
+        "name": "Blind Edit Mid-Batch & Progressive Checkpoint Deferral",
+        "defaultMode": "advisory",
+        "severity": "MEDIUM",
+        "ring0": false
+      },
+      {
+        "id": "DET-18",
+        "name": "Untrusted Workspace Settings & Hook Injection Guard",
+        "defaultMode": "guard",
+        "severity": "CRITICAL",
+        "ring0": true
+      },
+      {
+        "id": "DET-19",
+        "name": "Subagent IPI Boundary & Unicode Tag Sanitizer",
+        "defaultMode": "guard",
+        "severity": "HIGH",
+        "ring0": true
+      },
+      {
+        "id": "DET-20",
+        "name": "Multi-Agent Scope Collision & Hard Quota Brake",
+        "defaultMode": "guard",
+        "severity": "CRITICAL",
+        "ring0": false
+      },
+      {
+        "id": "DET-21",
+        "name": "Scratchpad Loop Guard (Deprecated Alias -> DET-30)",
+        "defaultMode": "guard",
+        "severity": "CRITICAL",
+        "ring0": false
+      },
+      {
+        "id": "DET-22",
+        "name": "Diff-Thrashing & Rapid Code Mutation Sensor",
+        "defaultMode": "guard",
+        "severity": "HIGH",
+        "ring0": false
+      },
+      {
+        "id": "DET-23",
+        "name": "Empty Catch-Block & Swallowed Error Sensor",
+        "defaultMode": "advisory",
+        "severity": "HIGH",
+        "ring0": false
+      },
+      {
+        "id": "DET-24",
+        "name": "Context Degradation & High-Turn Prompt Bloat Sensor",
+        "defaultMode": "advisory",
+        "severity": "MEDIUM",
+        "ring0": false
+      },
+      {
+        "id": "DET-25",
+        "name": "Cascade 70k Progressive Checkpoint Sensor",
+        "defaultMode": "advisory",
+        "severity": "INFO",
+        "ring0": false
+      },
+      {
+        "id": "DET-26",
+        "name": "Monolithic Prompt Decomposer Sensor",
+        "defaultMode": "advisory",
+        "severity": "INFO",
+        "ring0": false
+      },
+      {
+        "id": "DET-27",
+        "name": "Rule File Bloat & Prefix Diet Auditor",
+        "defaultMode": "advisory",
+        "severity": "WARN",
+        "ring0": false
+      },
+      {
+        "id": "DET-28",
+        "name": "Subagent Phantom & Orphan Process Sensor",
+        "defaultMode": "advisory",
+        "severity": "HIGH",
+        "ring0": false
+      },
+      {
+        "id": "DET-29",
+        "name": "Reflector Queue Starvation & Async Feedback Gate",
+        "defaultMode": "guard",
+        "severity": "MEDIUM",
+        "ring0": false
+      },
+      {
+        "id": "DET-30",
+        "name": "Scratchpad Loop & Reasoning Hallucination Guard",
+        "defaultMode": "guard",
+        "severity": "CRITICAL",
+        "ring0": false
+      },
+      {
+        "id": "DET-31",
+        "name": "Cross-Worktree Git Merge Conflict Sensor",
+        "defaultMode": "advisory",
+        "severity": "HIGH",
+        "ring0": false
+      },
+      {
+        "id": "DET-32",
+        "name": "IOEDR / REMORY Semantic Drift & Contradiction Guard",
+        "defaultMode": "guard",
+        "severity": "HIGH",
+        "ring0": false
+      }
+    ],
+    "semanticHabitSlugs": [
+      "formatter-bypass",
+      "drip-feed",
+      "vague-prompt-rubric",
+      "effort-overkill",
+      "post-commit-handoff",
+      "vision-screenshot-coach",
+      "micro-skills",
+      "relay-breaker"
+    ],
+    "antigravityBlindspotSensors": [
+      "DIRTY_SNAP",
+      "SCHEMA_TAX",
+      "UNSEEN_CALLERS",
+      "LEGACY_POISON",
+      "QUOTA_AND_STREAM_SHIELD",
+      "LOOP_AND_GIT_GUARD"
+    ]
+  },
+  "mcpTools": [
+    {
+      "name": "horizon_status",
+      "description": "Read local Highbeam live telemetry, 30-day saved quota ledger, and @ctxtop/pro license status (zero network calls).",
+      "required": []
+    },
+    {
+      "name": "cache_gravity_check",
+      "description": "Evaluate warm KV-cache break-even gravity before switching models or downshifting tiers.",
+      "required": [
+        "currentModel",
+        "targetModel"
+      ]
+    },
+    {
+      "name": "scope_lock_claim",
+      "description": "Inspect active multi-agent scope locks or acquire a DET-20 file-scope lease for a workspace path set.",
+      "required": []
+    },
+    {
+      "name": "export_receipt_pdf",
+      "description": "Generate a local SHA-256 verified Corporate PDF 1.4 Expense Receipt from 30-day saved-quota ledger telemetry.",
+      "required": []
+    }
+  ],
+  "daemonEndpoints": {
+    "defaultPort": 62935,
+    "portRange": [
+      62935,
+      62945
+    ],
+    "bindHost": "127.0.0.1",
+    "routes": [
+      "GET / (and /index.html, /widget, /widget.html)",
+      "GET /preload.js",
+      "GET /api/health",
+      "GET /api/state",
+      "GET /api/stream (SSE)",
+      "GET /api/cost-radar",
+      "GET & POST /api/settings",
+      "GET /api/memory/resume",
+      "GET /api/receipt/export",
+      "POST /api/prune",
+      "POST /api/host/reap",
+      "POST /api/open-brain",
+      "POST /api/handoff (and /api/handoff/generate)",
+      "POST /api/hooks/dampen",
+      "POST /api/rules/promote",
+      "POST /api/export/sanitized",
+      "POST /api/surgeon",
+      "POST /api/shield/flush",
+      "POST /api/tail/trim",
+      "POST /api/rsi/evolve (and /api/instincts/promote)",
+      "POST /api/rules/u-curve-optimize (and /api/ushape/reorder)",
+      "POST /api/rsi/queue-action",
+      "POST /api/checkpoint/evaporation-check",
+      "POST /api/router/unlock-hysteresis",
+      "POST /api/license/activate",
+      "POST /api/router/mode",
+      "POST /api/router/actuate",
+      "POST /api/savings/receipt",
+      "POST /api/action"
+    ]
+  },
+  "configurationSchemas": {
+    "horizonJson": {
+      "paths": [
+        "~/.attention-horizon/config.json",
+        "<workspace>/.attention-horizon.json"
+      ],
+      "flightModes": [
+        "OFF",
+        "SILENT",
+        "COACH",
+        "AUTO_PILOT"
+      ],
+      "detectorModes": [
+        "default",
+        "off",
+        "warn",
+        "block"
+      ],
+      "thresholds": {
+        "safeLimitTokens": 147000,
+        "reminderAtPct": 75,
+        "subagentOffloadTokens": 12000,
+        "blindSearchLimit": 6,
+        "consecutiveFailureLimit": 3,
+        "enableLocalKeepAlive": false,
+        "microSkillConfirmSessions": 2
+      }
+    },
+    "flightcheckJson": {
+      "paths": [
+        "config/default_flightcheck.json",
+        "~/.gemini/flightcheck/config.json",
+        "<workspace>/.agents/flightcheck.json"
+      ],
+      "keys": [
+        "hook_level",
+        "halt_cooldown_turns",
+        "cold_session_max_turns",
+        "trust_decay_turn_threshold",
+        "warm_cache_lock_tokens",
+        "subagent_min_cache_tokens",
+        "subagent_min_purity_pct",
+        "compact_halt_purity_pct",
+        "amputation_token_threshold",
+        "quota_floor_fraction",
+        "max_single_write_lines",
+        "max_tool_payload_tokens",
+        "uncheckpointed_dirty_file_limit",
+        "consecutive_error_strike_limit",
+        "plan_revision_warn",
+        "split_recommend_minutes",
+        "proof_quality_warn_on",
+        "handoff_audit_enabled",
+        "deprecated_paths",
+        "recommended_models",
+        "model_ceilings",
+        "model_pricing_per_1m_input"
+      ]
+    },
+    "platformQuirksJson": {
+      "path": "config/platformQuirks.json",
+      "keys": [
+        "schema_version",
+        "visionOverageHttp400",
+        "hybridQuotaLockout"
+      ]
+    },
+    "contextSettingsJson": {
+      "path": "<cacheDir>/settings.json",
+      "keys": [
+        "safeLimitTokens",
+        "reminderAtPct",
+        "modelOverrides"
+      ]
+    },
+    "proLicenseJson": {
+      "path": "~/.ctxtop/license.json",
+      "tiers": [
+        "free",
+        "pro",
+        "team"
+      ]
+    }
+  },
+  "environmentVariables": [
+    "AH_COLUMNS",
+    "AH_TIER1_MOD_ACTIVE",
+    "AGY_CONVERSATION_ID",
+    "ANTIGRAVITY_CONVERSATION_ID",
+    "ANTIGRAVITY_SIDECAR_UI_TOKEN",
+    "ANTIGRAVITY_SIDECAR_WEB_PORT",
+    "ATTENTION_HORIZON_HOME_DIR",
+    "CLAUDE_CODE_ENABLE_TELEMETRY",
+    "CLAUDE_HEADLESS",
+    "CLAUDE_PLUGIN_ROOT",
+    "CTXTOP_ED25519_PRIVATE_KEY_PEM",
+    "CTXTOP_ED25519_PUBLIC_KEY_PEM",
+    "CTXTOP_FORCE_NO_SQLITE",
+    "CTXTOP_IPC_PATH",
+    "CTXTOP_NO_BROWSER",
+    "CTXTOP_POLAR_WEBHOOK_SECRET",
+    "CTXTOP_PRO_DEV",
+    "DEBUG",
+    "HORIZON_DEBUG",
+    "HORIZON_DEMO",
+    "HORIZON_DEMO_SCENARIO",
+    "HORIZON_DIAGNOSTICS_DIR",
+    "HORIZON_TEST_NO_SPAWN",
+    "PORT"
+  ],
+  "workspaceAndControl": {
+    "workspaceModes": [
+      "inherit",
+      "branch",
+      "share"
+    ],
+    "scopeLockPath": ".agents/locks/active_scopes.json",
+    "controlStates": [
+      "RUNNING",
+      "PAUSED",
+      "STEP",
+      "ABORTED",
+      "REWIND"
+    ],
+    "controlFilePath": "~/.ctxtop/runtime/<sessionId>.ctl"
+  },
+  "plannedDocumentationPages": [
+    "docs-site/index.html",
+    "docs-site/concepts.html",
+    "docs-site/flight-modes.html",
+    "docs-site/surfaces.html",
+    "docs-site/glossary.html",
+    "docs-site/installation.html",
+    "docs-site/tutorials.html",
+    "docs-site/cli-reference.html",
+    "docs-site/commands-skills.html",
+    "docs-site/detectors.html",
+    "docs-site/hooks-lifecycle.html",
+    "docs-site/configuration.html",
+    "docs-site/mcp-daemon-api.html",
+    "docs-site/architecture.html",
+    "docs-site/pro-troubleshooting.html"
+  ]
+}

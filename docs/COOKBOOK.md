@@ -1,4 +1,4 @@
-# Attention Horizon (`ctxtop`) Cookbook & Recipes
+# Highbeam (`ctxtop`) Cookbook & Recipes
 
 Practical, copy-paste workflows for managing AI coding agent context windows, recovering gigabytes of IDE storage, stopping prompt cache cliffs, and embedding `ctxtop` telemetry into custom scripts.
 
@@ -12,6 +12,8 @@ Practical, copy-paste workflows for managing AI coding agent context windows, re
 4. [Claude Code: Stopping the 12.5x–80x Prompt Cache Tax](#4-claude-code-stopping-the-125x80x-prompt-cache-tax)
 5. [Programmatic Node.js API: Context Profiling in Your Own Tools](#5-programmatic-nodejs-api-context-profiling-in-your-own-tools)
 6. [Continuous Context Health: CI & Git Pre-Push Automation](#6-continuous-context-health-ci--git-pre-push-automation)
+7. [Step-by-Step Zone C Walkthrough: Triggering Live Auto-Interventions](#7-step-by-step-zone-c-walkthrough-triggering-live-auto-interventions)
+8. [Exporting Verified FinOps & GreenOps Receipts (Markdown / PDF 1.4)](#8-exporting-verified-finops--greenops-receipts-markdown--pdf-14)
 
 ---
 
@@ -184,3 +186,50 @@ node scripts/sync_mirrors.mjs
 
 echo "ctxtop: All pre-push checks passed."
 ```
+
+---
+
+## 7. Step-by-Step Zone C Walkthrough: Triggering Live Auto-Interventions
+
+Want to see Highbeam's **Zone C (Automated Activity)** and **Zone D (Verified Savings Receipt)** react in real time? Run this 4-step workflow in any workspace:
+
+### Step 0: Baseline State (`0.0k` Saved, 32 Guards Armed)
+Open the Highbeam Sidepane (`npx ctxtop --serve`). On a cold session start, Zone C displays:
+`now · Auto-guards armed (FTS5 CLI compressor & PrefixCacheShield) · ready`
+
+### Step 1: Trigger `GUARD-4` Duplicate File-Read Folding + Warm KV Cache (`+95.8k` Saved)
+When an agent reads an 800-line file, makes a small edit, and immediately re-reads the entire unmodified file while a `100k` prompt prefix is warm (`5m` TTL active):
+- **What Highbeam Does Automatically**: `PreToolUse` (`GUARD-4`) intercepts the redundant full-file read, serves a compact structural signature/diff stub (`+800` physical tokens saved), and preserves the `95%` warm KV-cache discount (`+95.0k` billing-equivalent tokens saved).
+- **Zone C Output**:
+  - `T1 · Served system & history prefix from warm KV cache · +95.0k`
+  - `T1 · Deduped repeat file read on server.mjs (AST stub) · +800`
+
+### Step 2: Trigger `DET-07` SQLite FTS5 CLI Test Sieve (`+11.2k` Saved)
+When a test runner (`npm test`, `pytest`, or `cargo test`) outputs `120+` lines of passing suite noise plus 1 failing assertion (`~11,400` tokens):
+- **What Highbeam Does Automatically**: `PostToolUse` strips ANSI spinners, indexes raw stdout into an in-memory SQLite FTS5 (`porter unicode61`) table, and returns only the `160`-token failing stack trace to the model.
+- **Zone C Output**:
+  - `T2 · Compressed verbose test runner output (FTS5) · +11.2k`
+
+### Step 3: Trigger `DET-09` `PrefixCacheShield` Warm Rule Deferral (`+57.0k` Saved)
+When you or the agent attempts to edit `AGENTS.md` or `CLAUDE.md` while a `60k` prefix is still warm (`03:42` remaining on the 5-minute TTL clock):
+- **What Highbeam Does Automatically**: `PrefixCacheShield` stages the rule delta in `.agents/cache/pending_rule_deltas.json` until TTL expiry or `/compact`, preventing an immediate cold-prefill rebuild of the entire `60k` prefix.
+- **Zone C & Zone D Output**:
+  - `live · Staged 1 rule edit via PrefixCacheShield until TTL expiry · shielded`
+  - **Zone D Total**: **`+164.0k tokens saved (~$0.33)`**
+
+---
+
+## 8. Exporting Verified FinOps & GreenOps Receipts (Markdown / PDF 1.4)
+
+To generate a cryptographically signed (`SHA-256`) savings receipt for engineering expense reports or Scope 3 sustainability audits:
+
+```bash
+# Print Markdown FinOps + GreenOps receipt to terminal
+npx ctxtop receipt --markdown
+
+# Generate a standalone PDF 1.4 Corporate Expense & GreenOps Receipt
+npx ctxtop receipt --pdf
+```
+
+Each receipt reconciles all 10 savings event categories (`CLI_DAMPENED`, `READ_DEDUPED`, `SUBAGENT_ISOLATED`, `CACHE_HIT_SAVED`, `PREFIX_SHIELD_SAVED`, `AUTO_PRUNED`, `TURN_ZERO_COMPACTED`, `PROMPT_HYGIENE_STEERED`, `PROMPT_HYGIENE_BLOCKED`, and `SIGHTSEEING_TOOL_PREVENTED`), alongside estimated USD saved, datacenter GPU energy avoided (`~650 Wh` per `1M` tokens), and `CO₂e` avoided (`~247g` per `1M` tokens).
+

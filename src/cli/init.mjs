@@ -133,7 +133,7 @@ export function installPlugin(options = {}) {
     ? path.resolve(cwd, '.agents', 'plugins', 'agy-horizon-flightcheck')
     : path.join(home, '.gemini', 'config', 'plugins', 'agy-horizon-flightcheck');
 
-  console.log(`\n\x1b[1m\x1b[38;5;51m⚡ Attention Horizon (attention-horizon-antigravity v${VERSION}) — Zero-Config Installer\x1b[0m`);
+  console.log(`\n\x1b[1m\x1b[38;5;51m⚡ Highbeam (attention-horizon-antigravity v${VERSION}) — Zero-Config Installer\x1b[0m`);
   console.log(`  • Mode   : ${workspace ? 'Workspace (.agents/plugins)' : 'Global (~/.gemini/config/plugins)'}${dryRun ? ' [DRY RUN]' : ''}`);
   console.log(`  • Source : ${PACKAGE_ROOT}`);
   console.log(`  • Target : ${targetPluginDir}`);
@@ -238,7 +238,7 @@ export async function runContextRoast() {
   const worstPurity = `${result.worstPurityPct}%`;
   const sludgeUsd = result.sludgeUsdFormatted;
 
-  console.log(`\n\x1b[1m\x1b[38;5;208m╭── ATTENTION HORIZON FORENSIC AUDIT (ctxtop v${VERSION}) ───────────────────────╮\x1b[0m`);
+  console.log(`\n\x1b[1m\x1b[38;5;208m╭── HIGHBEAM FORENSIC AUDIT (ctxtop v${VERSION}) ───────────────────────╮\x1b[0m`);
   console.log(`\x1b[38;5;208m│\x1b[0m Sessions Audited : \x1b[1m${auditedSessions} sessions\x1b[0m (${estTokensM} cumulative tokens inspected)${isSynthetic ? ' [Demo]' : ''}`);
   console.log(`\x1b[38;5;208m│\x1b[0m Useful Context % : \x1b[38;5;196m\x1b[1m${worstPurity} worst\x1b[0m (${result.avgPurityPct}% avg across sessions)`);
   console.log(`\x1b[38;5;208m│\x1b[0m Redundant Reads  : \x1b[38;5;214m${dupCount} duplicate file reads\x1b[0m + \x1b[38;5;196m${errCount} dead stack traces\x1b[0m kept in memory`);
@@ -265,7 +265,7 @@ export async function runContextRoast() {
 
 function printHelp() {
   console.log(`
-\x1b[1m\x1b[38;5;51m⚡ Attention Horizon (attention-horizon-antigravity / ctxtop v${VERSION})\x1b[0m — htop for AI Coding Agent Context Windows
+\x1b[1m\x1b[38;5;51m⚡ Highbeam (attention-horizon-antigravity / ctxtop v${VERSION})\x1b[0m — htop for AI Coding Agent Context Windows
 
 \x1b[1mUSAGE:\x1b[0m
   npx attention-horizon-antigravity [--harness=claude|cursor] Auto-discover active Antigravity session & print live 40-cell HUD
@@ -308,7 +308,7 @@ export async function runLiveOrDemoCli(options = {}) {
     if (res && res.state) {
       const sTag = res.state.surfaceTag || sessionInfo.surfaceTag || '[App]';
       const title = res.state.sessionTitle ? ` · "${res.state.sessionTitle}"` : '';
-      console.log(`\n\x1b[1m\x1b[38;5;51m⚡ ATTENTION HORIZON (ctxtop v${VERSION})\x1b[0m — Live ${sTag} Session (${res.state.sessionId.slice(0, 8)})${title}`);
+      console.log(`\n\x1b[1m\x1b[38;5;51m⚡ HIGHBEAM (ctxtop v${VERSION})\x1b[0m — Live ${sTag} Session (${res.state.sessionId.slice(0, 8)})${title}`);
       console.log(res.output);
       const aq = formatActionQueueAnsi(res.state);
       if (aq) console.log(aq);
@@ -409,7 +409,7 @@ if (isMain) {
     const shouldOpenBrowser = (cmd === 'ui' || args.includes('ui') || args.includes('--open')) && !args.includes('--no-open');
     startServer().then(({ port }) => {
       const url = `http://127.0.0.1:${port}`;
-      console.log(`\x1b[1m\x1b[38;5;82m✓ Attention Horizon Web UI Live at:\x1b[0m \x1b[38;5;51m${url}\x1b[0m (Press Ctrl+C to stop)`);
+      console.log(`\x1b[1m\x1b[38;5;82m✓ Highbeam Web UI Live at:\x1b[0m \x1b[38;5;51m${url}\x1b[0m (Press Ctrl+C to stop)`);
       if (shouldOpenBrowser) {
         openBrowserUrl(url);
       }

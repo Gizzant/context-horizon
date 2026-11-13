@@ -1,6 +1,6 @@
 /**
  * @file test/challenger_t4_1_adversarial.mjs
- * Attention Horizon v4.0 — Empirical Challenger 1 Verification Suite (Milestone T4)
+ * Highbeam v4.0 — Empirical Challenger 1 Verification Suite (Milestone T4)
  *
  * Mandate:
  * 1. Concurrency & Multi-Run Stress Benchmark:

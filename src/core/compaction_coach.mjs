@@ -805,7 +805,7 @@ export function generateHandoffMarkdown(state = {}, options = {}) {
 
   // Build unified cross-edition 6-section State Baton markdown (ISS-054)
   const md = [];
-  md.push(`# Attention Horizon State Baton Handoff`);
+  md.push(`# Highbeam State Baton Handoff`);
   md.push(`- **Session ID:** \`${sourceSessionId}\``);
   md.push(`- **Target Session:** \`${targetSessionId}\``);
   md.push(`- **Active Model:** \`${activeModel}\``);

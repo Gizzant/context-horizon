@@ -4,7 +4,7 @@
  * and Relay Breaker ('relay-breaker').
  *
  * Strictly zero `node:*` imports (Claude Code Mod Law 4 compliant).
- * Runs in memory in < 1 ms using Attention Horizon's local sidecar/breaker ledger
+ * Runs in memory in < 1 ms using Highbeam's local sidecar/breaker ledger
  * with zero background LLM calls and zero synchronous `git status` spawns.
  */
 

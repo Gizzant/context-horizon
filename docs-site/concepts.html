@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Core Concepts &amp; Mental Model - Highbeam User Guide</title>
+  <meta name="description" content="Understand the U-shaped recall curve, 40-cell context classification, algebraic C* KV-cache gravity, Dual-TTL billing windows, and Flight Modes." />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body data-page="concepts">
+  <header class="site-header" id="site-header"></header>
+
+  <div class="doc-shell">
+    <nav class="sidebar" id="site-sidebar" aria-label="Documentation chapters"></nav>
+
+    <main class="doc-main prose">
+      <p class="doc-eyebrow">Foundations</p>
+      <h1 class="doc-title">Core Concepts &amp; Mental Model</h1>
+      <p class="doc-lead">
+        Highbeam treats an AI coding session as a bounded memory system governed by attention recall geometry and prompt-cache economics. Understanding four foundational mechanisms explains every warning, metric, and guardrail in the product.
+      </p>
+
+      <h2 id="why-attention-horizon-exists">Why Highbeam Exists</h2>
+      <p>
+        Long coding trajectories fail quietly long before they hit a nominal <code>200k</code> or <code>1M</code> context limit. Three compounding failure modes degrade agent reliability and inflate API spend:
+      </p>
+      <ol>
+        <li><strong>Middle-Window Recall Decay:</strong> Transformer attention follows a parabolic curve. System rules at Turn 0 (Primacy) and the most recent tool outputs (Recency) retain strong recall, whereas files and instructions buried in the middle of a session suffer severe recall drop-off.</li>
+        <li><strong>Duplicate-Read &amp; Output Bloat:</strong> Agents routinely re-read unmodified files or ingest multi-megabyte test logs. Those stale payloads push early architectural constraints toward server-side prefix truncation (a <strong>Context Truncation Crisis</strong>).</li>
+        <li><strong>Cold-Cache Prefix Rebuilds:</strong> Switching models mid-session or editing <code>AGENTS.md</code> / <code>CLAUDE.md</code> while a prompt cache is warm invalidates cached prefix tokens, forcing a full <code>1.25x</code> cache-write rebuild on the very next turn.</li>
+      </ol>
+
+      <h2 id="u-shaped-recall-and-40-cell-bar">The 40-Cell Horizon Bar &amp; U-Shaped Recall</h2>
+      <p>
+        Highbeam divides your active context ceiling into <strong>40 discrete chronological cells</strong>. Rather than showing a single opaque token counter, the 40-Cell Horizon Bar reveals both <em>what</em> occupies your context window and <em>where</em> each item sits along the parabolic attention recall curve.
+      </p>
+
+      <figure class="diagram-frame" aria-label="40-cell parabolic U-shaped attention recall diagram">
+        <svg viewBox="0 0 840 250" role="img" aria-labelledby="ucurve-title">
+          <title id="ucurve-title">Parabolic U-Shaped Attention Recall Across 40 Context Cells</title>
+          <!-- Grid lines -->
+          <line x1="60" y1="40" x2="790" y2="40" stroke="var(--border)" stroke-dasharray="4 4" />
+          <line x1="60" y1="105" x2="790" y2="105" stroke="var(--border)" stroke-dasharray="4 4" />
+          <line x1="60" y1="170" x2="790" y2="170" stroke="var(--border-strong)" />
+
+          <!-- Zone Highlight Bands -->
+          <rect x="60" y="30" width="110" height="140" fill="rgba(0,113,227,0.07)" rx="6" />
+          <rect x="174" y="30" width="466" height="140" fill="rgba(201,25,11,0.05)" rx="6" />
+          <rect x="644" y="30" width="146" height="140" fill="rgba(26,127,55,0.08)" rx="6" />
+
+          <!-- Y Axis Labels -->
+          <text x="16" y="44" font-family="var(--font-mono)" font-size="10" fill="var(--ink-secondary)">100%</text>
+          <text x="22" y="109" font-family="var(--font-mono)" font-size="10" fill="var(--ink-secondary)">60%</text>
+          <text x="22" y="174" font-family="var(--font-mono)" font-size="10" fill="var(--ink-secondary)">25%</text>
+
+          <!-- Parabolic Curve -->
+          <path d="M 68 46 C 210 176, 590 176, 782 44" fill="none" stroke="var(--accent)" stroke-width="3.5" stroke-linecap="round" />
+
+          <!-- Zone Titles -->
+          <text x="72" y="26" font-family="var(--font-sans)" font-size="11" font-weight="700" fill="var(--accent)">Primacy (Cells 1-6)</text>
+          <text x="315" y="26" font-family="var(--font-sans)" font-size="11" font-weight="700" fill="var(--status-danger)">Middle Trough / Distractor Zone (Cells 7-32)</text>
+          <text x="652" y="26" font-family="var(--font-sans)" font-size="11" font-weight="700" fill="var(--status-safe)">Recency Tail (Cells 33-40)</text>
+
+          <!-- 40 Cells Strip at Bottom -->
+          <g transform="translate(60, 188)">
+            <rect x="0" y="0" width="16" height="20" rx="2" fill="#1A73E8" />
+            <rect x="18" y="0" width="16" height="20" rx="2" fill="#1A73E8" />
+            <rect x="36" y="0" width="16" height="20" rx="2" fill="#1A73E8" />
+            <rect x="54" y="0" width="16" height="20" rx="2" fill="#34A853" />
+            <rect x="72" y="0" width="16" height="20" rx="2" fill="#34A853" />
+            <rect x="90" y="0" width="16" height="20" rx="2" fill="#34A853" />
+            <rect x="108" y="0" width="16" height="20" rx="2" fill="#E91E63" />
+            <rect x="126" y="0" width="16" height="20" rx="2" fill="#E91E63" />
+            <rect x="144" y="0" width="16" height="20" rx="2" fill="#34A853" />
+            <rect x="162" y="0" width="16" height="20" rx="2" fill="#34A853" />
+            <rect x="180" y="0" width="16" height="20" rx="2" fill="#E91E63" />
+            <rect x="198" y="0" width="16" height="20" rx="2" fill="#34A853" />
+            <rect x="216" y="0" width="16" height="20" rx="2" fill="#34A853" />
+            <rect x="234" y="0" width="16" height="20" rx="2" fill="#E91E63" />
+            <rect x="252" y="0" width="16" height="20" rx="2" fill="#34A853" />
+            <rect x="270" y="0" width="16" height="20" rx="2" fill="#34A853" />
+            <rect x="288" y="0" width="16" height="20" rx="2" fill="#34A853" />
+            <rect x="306" y="0" width="16" height="20" rx="2" fill="#FA903E" />
+            <rect x="324" y="0" width="16" height="20" rx="2" fill="#FA903E" />
+            <rect x="342" y="0" width="386" height="20" rx="3" fill="rgba(128,128,134,0.18)" />
+          </g>
+          <text x="60" y="228" font-family="var(--font-mono)" font-size="10" fill="var(--ink-secondary)">Cell 1 (Turn 0 System + Rules)</text>
+          <text x="340" y="228" font-family="var(--font-mono)" font-size="10" fill="var(--ink-secondary)">Stale Reads &amp; Resolved Errors</text>
+          <text x="645" y="228" font-family="var(--font-mono)" font-size="10" fill="var(--ink-secondary)">Cell 40 (Active Ceiling)</text>
+        </svg>
+        <figcaption class="diagram-caption">
+          Critical rules belong in the Primacy band (<code>AGENTS.md</code> / <code>CLAUDE.md</code>) or the Recency tail (<code>ACTIVE_SET</code>). Items stranded in the Middle Trough lose recall weight while still billing on every turn.
+        </figcaption>
+      </figure>
+
+      <h3 id="dynamic-zoom-tiers">Dynamic 40-Cell Zoom Tiers</h3>
+      <p>
+        In Claude Code and isomorphic views (<code>src/core-isomorphic/ui/horizonGrid.mjs</code>), the 40-cell bar automatically scales across three operational zoom tiers so small and large windows remain readable:
+      </p>
+      <ul>
+        <li><strong><code>100k</code> Haiku Cliff Ceiling (<code>2,500</code> tokens/cell):</strong> Active when running <code>claude-haiku-5-5</code> at or below <code>100,000</code> prompt tokens, giving high-resolution visibility before the <code>100k</code> <code>5x</code> price cliff.</li>
+        <li><strong><code>200k</code> Standard Operational Horizon (<code>5,000</code> tokens/cell):</strong> Default resolution for standard coding sessions up to <code>180,000</code> input tokens.</li>
+        <li><strong><code>1M</code> Extended Context Auto-Zoom (<code>25,000</code> tokens/cell):</strong> Engages automatically when <code>total_input_tokens &gt; 180,000</code> on <code>1M</code>-capable models (such as <code>gemini-4-carbon</code>, <code>gemini-4-argon</code>, <code>claude-opus-5-5</code>, and <code>claude-sonnet-5-5</code>).</li>
+      </ul>
+
+      <h3 id="cell-taxonomies">Cell Taxonomies by Host</h3>
+      <p>
+        Claude Code reports prompt-cache token buckets from Anthropic telemetry, whereas Google Antigravity classifies step-level SQLite and JSONL transcript spans. Both map cleanly onto the 40-cell bar:
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Host Surface</th>
+              <th>Code / Category</th>
+              <th>Glyph</th>
+              <th>Physical Meaning</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Claude Code</td>
+              <td><code>[S]</code> System &amp; MCP</td>
+              <td><code>█</code> (<code>#1A73E8</code>)</td>
+              <td>Static system prompt, <code>CLAUDE.md</code> rules, and eager MCP tool schemas loaded at Turn 0.</td>
+            </tr>
+            <tr>
+              <td>Claude Code</td>
+              <td><code>[C]</code> Warm Cache</td>
+              <td><code>▓</code> (<code>#81C995</code>)</td>
+              <td>Prefix history served from Anthropic's warm KV cache at <code>0.1x</code> read rates.</td>
+            </tr>
+            <tr>
+              <td>Claude Code</td>
+              <td><code>[D]</code> Distractor Debt</td>
+              <td><code>▒</code> (<code>#F538A0</code>)</td>
+              <td>Middle-window duplicate file reads, unpruned CLI dumps, and superseded errors.</td>
+            </tr>
+            <tr>
+              <td>Claude Code</td>
+              <td><code>[W]</code> Cache Write Delta</td>
+              <td><code>█</code> (<code>#FA903E</code>)</td>
+              <td>Fresh uncached delta written to the prefix cache at <code>1.25x</code> (5m) or <code>2.0x</code> (1h) write rates.</td>
+            </tr>
+            <tr>
+              <td>Antigravity</td>
+              <td><code>ANCHOR_CORE</code> / <code>ANCHOR_SCHEMA</code></td>
+              <td><code>█</code> / <code>▒</code></td>
+              <td>System prompt, compaction checkpoints, <code>AGENTS.md</code>, <code>task.md</code>, and Turn-0 tool schemas.</td>
+            </tr>
+            <tr>
+              <td>Antigravity</td>
+              <td><code>MEMORY_KI</code> / <code>MEMORY_BLEED</code></td>
+              <td><code>▓</code></td>
+              <td>Workspace Knowledge Items versus foreign Knowledge Items bleeding in from unrelated projects.</td>
+            </tr>
+            <tr>
+              <td>Antigravity</td>
+              <td><code>ACTIVE_SET</code></td>
+              <td><code>█</code></td>
+              <td>Clean files and commands from the last ~8 conversational turns (16 steps).</td>
+            </tr>
+            <tr>
+              <td>Antigravity</td>
+              <td><code>STALE_DUP</code> / <code>DEAD_ERROR</code></td>
+              <td><code>▒</code> / <code>▓</code></td>
+              <td>Duplicate unmodified file reads and non-zero command failures already superseded by a passing run.</td>
+            </tr>
+            <tr>
+              <td>Antigravity</td>
+              <td><code>DIRTY_SNAP</code> / <code>LEGACY_POISON</code></td>
+              <td><code>▒</code></td>
+              <td>In-context snapshots modified externally on disk, or reads matching <code>**/legacy/**</code>, <code>**/deprecated/**</code>, or <code>**/v1/**</code>.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="cache-gravity">KV-Cache Physics &amp; Algebraic Break-Even (<code>C*</code>)</h2>
+      <p>
+        Intuition suggests switching from a frontier model (such as <code>claude-opus-5-5</code>) to a smaller model (such as <code>claude-sonnet-5-5</code>) saves money on simple follow-up edits. When a large prompt cache is already warm, that intuition is often backwards: switching models invalidates the warm KV prefix and forces the target model to pay full cache-write rates across the entire conversation history.
+      </p>
+      <p>
+        Highbeam's <strong>Cache Gravity Router</strong> (<code>DET-08</code>, implemented in <code>src/core-isomorphic/economics/cacheGravity.mjs</code>) solves the exact closed-form break-even threshold <code>C*</code> before any switch occurs:
+      </p>
+
+      <div class="code-block">
+        <div class="code-header"><span>Algebraic Cross-Model Break-Even Equation (C*)</span></div>
+        <pre><code>C* = [ O * (P_out,curr - P_out,target) + Delta_uncached * (P_write,curr - P_write,target) ]
+     / [ P_write,target - P_read,curr ]</code></pre>
+      </div>
+
+      <ul>
+        <li><code>O</code>: Expected output tokens for the turn (<code>800</code> low, <code>1,500</code> medium default, <code>3,500</code> high, <code>6,000</code> max).</li>
+        <li><code>P_out,curr</code> and <code>P_out,target</code>: Output token prices per million tokens for the current and candidate models.</li>
+        <li><code>P_read,curr</code>: Warm cache-read rate of the current model (for example, <code>$0.20/M</code> on <code>claude-opus-5-5</code>).</li>
+        <li><code>P_write,target</code>: Cold cache-write rate of the target model (for example, <code>$2.50/M</code> 5m write on <code>claude-sonnet-5-5</code>).</li>
+      </ul>
+
+      <div class="callout safe">
+        <p class="callout-title">Worked Engineering Example</p>
+        <p>
+          Suppose you are working on <code>claude-opus-5-5</code> with <code>48,000</code> warm cached tokens and consider downshifting to <code>claude-sonnet-5-5</code> for a standard medium-effort edit (<code>O = 1,500</code>, <code>Delta_uncached = 0</code>). Substituting the catalog rates yields <code>C* = 6,522</code> tokens (and <code>C* = 4,615</code> tokens for <code>claude-opus-4-6</code> to <code>claude-sonnet-4-6</code>). Because <code>48,000 &gt; 6,522</code>, downshifting would waste money by rebuilding the prefix. Highbeam holds the switch until the cache expires naturally. Capability upshifts (moving to a stronger model) always have <code>C* = 0</code> and are never blocked.
+        </p>
+      </div>
+
+      <h3 id="dual-ttl-and-haiku-cliff">Dual-TTL Countdowns &amp; The Haiku 100k Cliff</h3>
+      <p>
+        Two additional economic boundaries run continuously in the background:
+      </p>
+      <ul>
+        <li><strong>Dual-TTL Countdown (<code>dualTtl.mjs</code>):</strong> Tracks both the <strong>5-minute (<code>300s</code>)</strong> ephemeral prompt-cache window and the <strong>1-hour (<code>3,600s</code>)</strong> rolling billing block. The status bar raises an amber warning at <code>&lt;= 45s</code>, offers optional keep-alive guidance at <code>&lt;= 15s</code>, snapshots the <strong>State Baton</strong> at <code>T-10s</code>, and recommends upgrading to 1-hour caching when at least <code>3.1%</code> of your inter-turn pauses fall between 5 and 60 minutes.</li>
+        <li><strong>Haiku 100k 5x Cliff Breaker (<code>DET-12</code>, <code>cliffBreaker.mjs</code>):</strong> Monitors Haiku sessions against the <code>100,000</code>-token <code>5x</code> pricing step. Prompts below <code>90k</code> pass silently; <code>90k-98k</code> emits an advisory compaction prompt; <code>98k-100k</code> trips a hard warning; and <code>&gt;= 100k</code> halts execution before billing spikes. Non-Haiku models are exempt.</li>
+      </ul>
+
+      <h2 id="conductor-vs-executor">Conductor vs. Executor Division of Labor</h2>
+      <p>
+        Highbeam supports two complementary ways of working across Google Antigravity and Claude Code:
+      </p>
+      <ul>
+        <li><strong>Google Antigravity as Stateful Visual Conductor:</strong> Ideal for architectural planning, side-by-side WebView telemetry inspection (<code>127.0.0.1:62935</code>), browser verification via <code>/browser</code>, multi-agent board coordination via <code>/swarm</code>, and delegating fast read-only repository lookups to <strong>Delegation Scout</strong> (<code>@ah-flash-scout</code>, capped at <code>&lt;200</code> tokens so your main frontier prefix stays lean).</li>
+        <li><strong>Claude Code as High-Velocity Terminal Executor:</strong> Ideal for terminal-native TDD loops, Git worktree implementation slices, sub-millisecond in-process V8 Mod gating (<code>hooks/register.js</code>), and live single-line <code>ah-statusline</code> monitoring inside tmux or IDE terminals.</li>
+      </ul>
+      <p>
+        Both hosts share the same workspace governance artifacts: <code>.agents/locks/active_scopes.json</code> prevents concurrent agents from editing the same file simultaneously (<code>DET-20</code>), and USTF v1 (<code>~/.ctxtop/sessions/</code>) normalizes trajectories from both surfaces for unified <code>ctxtop inspect</code> and <code>ctxtop postmortem</code> analysis.
+      </p>
+
+      <h2 id="flight-modes">Flight Modes &amp; Enforcement Levels</h2>
+      <p>
+        Highbeam separates observation from intervention through a <strong>Three-Layer Enforcement Hierarchy</strong>: explicit per-detector overrides (<code>default</code>, <code>off</code>, <code>warn</code>, <code>block</code>) in <code>.attention-horizon.json</code>, top-level <strong>Flight Modes</strong> (<code>OFF</code>, <code>SILENT</code>, <code>COACH</code>, <code>AUTO_PILOT</code>), and Antigravity's router <code>hook_level</code> (<code>guard</code>, <code>advisory</code>, <code>off</code>) in <code>default_flightcheck.json</code>.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Mode / Level</th>
+              <th>Surface</th>
+              <th>Runtime Behavior</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>OFF</code></td>
+              <td>Claude Code &amp; Isomorphic</td>
+              <td>Mutes habit coaching and economic switch holds while Ring-0 security guards (<code>DET-01</code>, <code>DET-02</code>, <code>DET-18</code>, <code>DET-19</code>) and explicit overrides stay active.</td>
+            </tr>
+            <tr>
+              <td><code>SILENT</code></td>
+              <td>Claude Code &amp; Isomorphic</td>
+              <td>Collects live telemetry, updates <code>ah-statusline</code>, and records Saved Quota Ledger metrics without injecting default chat coaching banners.</td>
+            </tr>
+            <tr>
+              <td><code>COACH</code> <span class="badge accent">Default</span></td>
+              <td>Claude Code &amp; Isomorphic</td>
+              <td>Enforces default <code>guard</code> detectors, emits actionable 1-line coaching hints on <code>advisory</code> rules, and stages warm-prefix edits in <code>PostCompactMutationQueue</code>.</td>
+            </tr>
+            <tr>
+              <td><code>AUTO_PILOT</code> <span class="badge safe">Pro</span></td>
+              <td>Isomorphic &amp; V8 Mod</td>
+              <td>Activates <code>HysteresisLock</code>, automated 3rd-read AST signature stubs and delta-reads, active <code>C*</code> switch holds, and forces Antigravity <code>hook_level</code> to <code>guard</code> (falls back gracefully to <code>COACH</code> if unlicensed).</td>
+            </tr>
+            <tr>
+              <td><code>guard</code> / <code>advisory</code> / <code>off</code></td>
+              <td>Antigravity <code>hook_level</code></td>
+              <td>Controls whether Antigravity's <code>PreInvocation</code> router halts with a 4-line scorecard (<code>guard</code>, with a 3-turn halt cooldown) or injects warn-only notices (<code>advisory</code>). Context Truncation Crisis, <code>DET-08</code>, and <code>DET-12</code> bypass cooldowns.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <p class="callout-title">Full Enforcement Specification</p>
+        <p>
+          Read <a href="flight-modes.html">Flight Modes &amp; Enforcement Levels &rarr;</a> for the precedence pipeline diagram, <code>HysteresisLock</code> unlock paths, <code>PostCompactMutationQueue</code> deferral rules, one-turn chat prefixes (<code>!</code>, <code>!lock</code>, <code>#check</code>), and surgical CLI override profiles.
+        </p>
+      </div>
+
+      <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>
+      <footer class="doc-footer" id="doc-footer"></footer>
+    </main>
+
+    <aside class="toc-rail" id="site-toc" aria-label="On this page"></aside>
+  </div>
+
+  <script src="assets/search-index.js"></script>
+  <script src="assets/site.js"></script>
+</body>
+</html>

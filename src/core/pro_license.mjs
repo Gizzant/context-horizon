@@ -1,6 +1,6 @@
 /**
  * @file src/core/pro_license.mjs
- * Attention Horizon Pro (`@ctxtop/pro`) — Zero-Network Offline Ed25519 License Verifier & Cross-Harness Entitlement Store.
+ * Highbeam Pro (`@ctxtop/pro`) — Zero-Network Offline Ed25519 License Verifier & Cross-Harness Entitlement Store.
  *
  * Uses Node.js built-in `node:crypto` Ed25519 signature verification (`CTXP1.<payloadB64Url>.<sigB64Url>`).
  * Stores verified license state at `~/.ctxtop/license.json` shared across Google Antigravity and Claude Code.
@@ -23,10 +23,10 @@ export const DEFAULT_PRO_PUBLIC_KEY_PEM = [
 
 export const PRO_PRICING_TIERS = Object.freeze({
   free: { id: 'free', label: 'Free Core (MIT)', priceUSD: 0, billing: 'forever' },
-  pro_monthly: { id: 'pro', label: 'Attention Horizon Pro (Monthly)', priceUSD: 15, priceRangeUSD: [12, 19], billing: 'month' },
-  pro_annual: { id: 'pro', label: 'Attention Horizon Pro (Annual)', priceUSD: 149, effectiveMonthlyUSD: 12.42, billing: 'year' },
-  pro_ltd: { id: 'ltd', label: 'Attention Horizon Pro (Founder Lifetime)', priceUSD: 199, billing: 'lifetime' },
-  team: { id: 'team', label: 'Attention Horizon Team (Annual 5-Seat Starter + OTel)', priceUSD: 299, seatMonthlyUSD: 39, billing: 'year' }
+  pro_monthly: { id: 'pro', label: 'Highbeam Pro (Monthly)', priceUSD: 15, priceRangeUSD: [12, 19], billing: 'month' },
+  pro_annual: { id: 'pro', label: 'Highbeam Pro (Annual)', priceUSD: 149, effectiveMonthlyUSD: 12.42, billing: 'year' },
+  pro_ltd: { id: 'ltd', label: 'Highbeam Pro (Founder Lifetime)', priceUSD: 199, billing: 'lifetime' },
+  team: { id: 'team', label: 'Highbeam Team (Annual 5-Seat Starter + OTel)', priceUSD: 299, seatMonthlyUSD: 39, billing: 'year' }
 });
 
 /**
@@ -379,7 +379,7 @@ export function requireProFeature(featureId = 'pro_feature', options = {}) {
     source: status.source,
     status,
     upgradeHint: needsTeamTier
-      ? 'Requires Attention Horizon Team ($299/yr for 5 seats) or an active 14-day trial (`npx ctxtop license trial`).'
-      : 'Requires Attention Horizon Pro ($9/mo · $79/yr · $119 LTD) or an active 14-day trial (`npx ctxtop license trial`).'
+      ? 'Requires Highbeam Team ($299/yr for 5 seats) or an active 14-day trial (`npx ctxtop license trial`).'
+      : 'Requires Highbeam Pro ($9/mo · $79/yr · $119 LTD) or an active 14-day trial (`npx ctxtop license trial`).'
   };
 }

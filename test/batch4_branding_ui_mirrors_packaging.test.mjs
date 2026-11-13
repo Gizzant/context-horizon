@@ -103,7 +103,7 @@ describe('Batch 4 Remediation — ISS-013: Symlink-Safe realpathSync isCliMain &
         assert.equal(isCliMain(symlinkA), true, 'Symlink attention-horizon-antigravity must resolve isCliMain === true');
         assert.equal(isCliMain(symlinkB), true, 'Symlink ah-antigravity must resolve isCliMain === true');
         const helpOut = execFileSync(process.execPath, [symlinkA, '--help'], { encoding: 'utf8' });
-        assert.match(helpOut, /Attention Horizon/i);
+        assert.match(helpOut, /Highbeam/i);
       }
     } finally {
       fs.rmSync(tmpBinDir, { recursive: true, force: true });
@@ -111,35 +111,35 @@ describe('Batch 4 Remediation — ISS-013: Symlink-Safe realpathSync isCliMain &
   });
 });
 
-describe('Batch 4 Remediation — ISS-015 & ISS-016: Unified "Attention Horizon" Branding & sidecar://agy-horizon-flightcheck Deep-Link', () => {
+describe('Batch 4 Remediation — ISS-015 & ISS-016: Unified "Highbeam" Branding & sidecar://agy-horizon-flightcheck Deep-Link', () => {
   it('updates skills/horizon/SKILL.md deep-link and eliminates hidden Context Memory span in WebView HTML', () => {
     const skillMd = fs.readFileSync(path.join(ROOT, 'skills', 'horizon', 'SKILL.md'), 'utf8');
-    assert.match(skillMd, /^# Attention Horizon \(`\/horizon`\)/m);
-    assert.ok(skillMd.includes('[Open Attention Horizon](sidecar://agy-horizon-flightcheck/horizon-daemon/)'));
+    assert.match(skillMd, /^# Highbeam \(`\/horizon`\)/m);
+    assert.ok(skillMd.includes('[Open Highbeam](sidecar://agy-horizon-flightcheck/horizon-daemon/)'));
     assert.ok(!skillMd.includes('sidecar://agy-horizon/'));
 
     const sidecarJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'sidecars', 'horizon-daemon', 'sidecar.json'), 'utf8'));
-    assert.equal(sidecarJson.display_name, 'Attention Horizon');
-    assert.equal(sidecarJson.ui_config.views[0].title, 'Attention Horizon');
+    assert.equal(sidecarJson.display_name, 'Highbeam');
+    assert.equal(sidecarJson.ui_config.views[0].title, 'Highbeam');
 
     assert.equal(BUILTIN_PANELS[0].title, '40-Cell Chronological Attention Horizon');
     const batonCard = selectHighestPriorityTier2Card({ turnCount: 46 });
-    assert.match(batonCard.subtitle, /^Attention Horizon approaching high-turn degradation/);
+    assert.match(batonCard.subtitle, /^Highbeam approaching high-turn degradation/);
 
     const html = fs.readFileSync(path.join(ROOT, 'src', 'webview', 'horizon_panel.html'), 'utf8');
-    assert.ok(html.includes('<h1>Attention Horizon</h1>'));
+    assert.ok(html.includes('<h1>Highbeam</h1>'));
     assert.ok(!html.includes('<span style="display:none"> Context Memory</span>'));
 
     const docsHtml = fs.readFileSync(path.join(ROOT, 'docs', 'index.html'), 'utf8');
-    assert.ok(docsHtml.includes('<h1>Attention Horizon</h1>'));
+    assert.ok(docsHtml.includes('<h1>Highbeam</h1>'));
     assert.ok(!docsHtml.includes('<span style="display:none"> Context Memory</span>'));
   });
 
-  it('unifies Attention Horizon across CLI banners, git_ledger, rules, issue templates, SVGs, and PowerShell bundle script', () => {
+  it('unifies Highbeam across CLI banners, git_ledger, rules, issue templates, SVGs, and PowerShell bundle script', () => {
     const ledger = buildGitCommitTokenLedger('', [], {
       headLogContent: '0000 1111 Dev <d@e.com> 1762630000 +0000\tcommit: test\n'
     });
-    assert.ok(ledger.prMarkdownSummary.includes('### ⚡ Attention Horizon PR Token Ledger'));
+    assert.ok(ledger.prMarkdownSummary.includes('### ⚡ Highbeam PR Token Ledger'));
 
     const checkFiles = [
       'src/cli/init.mjs',
@@ -473,7 +473,7 @@ describe('Batch 4 Remediation — ISS-056 & ISS-057: Mirror Sync Parity, 6 Hooks
       assert.equal(lc.PostToolUse[0].matcher, LEAN_POST_TOOL_HOOK_MATCHER);
 
       const legManifest = JSON.parse(fs.readFileSync(path.join(mockLegacy, 'plugin.json'), 'utf8'));
-      assert.equal(legManifest.displayName, 'Attention Horizon');
+      assert.equal(legManifest.displayName, 'Highbeam');
 
       // Simulate 1-byte tamper in synced .mjs module -> verifyOnly must throw
       fs.appendFileSync(path.join(mockFlightcheck, 'src', 'webview', 'registry.mjs'), '\n// tamper\n', 'utf8');

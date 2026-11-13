@@ -1,6 +1,6 @@
 /**
  * @file test/economics_engine.test.mjs
- * Comprehensive unit and integration test suite for Attention Horizon v4.0 Economics Engine.
+ * Comprehensive unit and integration test suite for Highbeam v4.0 Economics Engine.
  *
  * Covers:
  *   - Feature 17: TTFT & Thinking Drift Detection (`driftLatency.mjs`)

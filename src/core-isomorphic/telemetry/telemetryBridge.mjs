@@ -1,6 +1,6 @@
 /**
  * @file src/telemetry/telemetryBridge.mjs
- * Dual-Source Telemetry Engine for Claude Code Attention Horizon.
+ * Dual-Source Telemetry Engine for Claude Code Highbeam.
  * Ingests live token/cache telemetry from:
  *   1. In-process Mod `turn.step` / `turn.complete` (`result.usage` + `e.agentId`)
  *   2. CLI `statusLine` stdin JSON (`context_window`, `prompt_cache`, `rate_limits`)

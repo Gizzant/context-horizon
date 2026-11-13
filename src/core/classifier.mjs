@@ -40,6 +40,7 @@ import {
 } from './prompt_rubric.mjs';
 import { auditMcpPrefixBloat } from './baseline.mjs';
 import { buildActionQueue, formatActionQueueAnsi } from './action_queue.mjs';
+import { buildSessionTimeline } from './session_timeline.mjs';
 import {
   CORTEX_STEP_TYPE_CHECKPOINT,
   MEMORY_MD_TRUNCATION_THRESHOLD_LINES,
@@ -1731,6 +1732,14 @@ export function classifyHorizon(rawSteps, options = {}) {
     activeEffortProfile,
     effortTransitions,
     effortHistory: effortTransitions,
+    sessionTimeline: buildSessionTimeline({
+      steps,
+      classifiedSteps,
+      effortTransitions,
+      safeLimit,
+      totalActiveTokens,
+      isCompactionStep: isCompactionCheckpointStep
+    }),
     diagnostics: {
       whatsHappening,
       theSludgeTax,

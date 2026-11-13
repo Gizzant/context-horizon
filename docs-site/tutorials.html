@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hands-On Tutorials - Highbeam User Guide</title>
+  <meta name="description" content="Four end-to-end engineering tutorials for Highbeam: first setup and prompt precheck, parallel Git worktrees with Scope Locks, debugging and surgical pruning, and State Baton compaction." />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body data-page="tutorials">
+  <header class="site-header" id="site-header"></header>
+
+  <div class="doc-shell">
+    <nav class="sidebar" id="site-sidebar" aria-label="Documentation chapters"></nav>
+
+    <main class="doc-main prose">
+      <p class="doc-eyebrow">Getting Started</p>
+      <h1 class="doc-title">Guided Step-by-Step Tutorials</h1>
+      <p class="doc-lead">
+        Each tutorial below walks through a complete engineering scenario from setup to verification. Every command runs locally without network calls.
+      </p>
+
+      <!-- TUTORIAL 1 -->
+      <h2 id="tutorial-1-first-task">Tutorial 1: First Setup, Live HUD &amp; Prompt Precheck</h2>
+      <p>
+        <strong>Goal:</strong> Install Highbeam in a repository, preview the responsive status bar, score an ambiguous refactor prompt before spending high-effort tokens, and verify your savings receipt.
+      </p>
+
+      <div class="step-list">
+        <div class="step-card">
+          <h3>Initialize the workspace and verify contract health</h3>
+          <p>From your project root, run the unified installer and confirm all eight diagnostic checks pass.</p>
+          <div class="code-block terminal">
+            <div class="code-header"><span>Step 1 &middot; Input &amp; Expected Output</span></div>
+            <pre><code>$ npx ctxtop init --all
+⚡ Highbeam (ctxtop v4.0.0) - Zero-Config Unified Installer
+  [PASS] Claude Code hooks merged into .claude/settings.json
+  [PASS] Antigravity workspace plugin verified
+
+$ npx ctxtop doctor
+[Highbeam Doctor] Status: HEALTHY</code></pre>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <h3>Preview the StatusLine Bridge and HTML HUD</h3>
+          <p>Render a synthetic warm-cache session at 110 columns to confirm ANSI rendering, then write the standalone zero-socket HTML panel.</p>
+          <div class="code-block terminal">
+            <div class="code-header"><span>Step 2 &middot; StatusLine &amp; Panel Generation</span></div>
+            <pre><code>$ npx ah-statusline --demo --columns 110
+AH sonnet-5.5 [██▓▓▓▓▓▓▓▓▒█░░░░░░░░] 64.0k/200k (32%) · Cache 87.5% · 5m TTL 04:12 · Saved +$1.84
+
+$ npx ctxtop panel --out ./horizon-preview.html
+[Highbeam] Claude Code HUD written: /repo/horizon-preview.html
+  Verdict: NOMINAL (Warm Cache Active)
+  Next Action: Continue in current cache window</code></pre>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <h3>Score a draft prompt with <code>#check</code> or <code>/precheck</code></h3>
+          <p>In Google Antigravity chat, prefix an open-ended prompt with <code>#check</code> to force Tier-2 rubric scoring before execution. Notice how Flight Check rewrites the vague request into an anchored prompt with concrete target files:</p>
+          <div class="code-block terminal">
+            <div class="code-header"><span>Step 3 &middot; Flight Check 4-Line Scorecard Output</span></div>
+            <pre><code># Input in chat:
+#check Fix the caching bug in the router
+
+# Expected Scorecard Output:
+╭─ Flight Check v3.1 ──────────────────────────────────────────────────────────╮
+│ 1. PROMPT : [Score 42/100] Scope: UNANCHORED | Target: (none specified)      │
+│ 2. HORIZON: [Purity: 88% | Sludge: +$0.01/t | Tokens: 38k/200k | Quota: 91%] │
+│ 3. ACTION : /model gemini-4-argon  •  /effort medium                         │
+│ 4. REWRITE: "Inspect computeBreakEven in @src/core-isomorphic/economics/cacheGravity.mjs and run node --test test/economics_engine.test.mjs" │
+╰──────────────────────────────────────────────────────────────────────────────╯
+Bypass once: prefix with `!`  •  Lock model/effort: include `!lock`</code></pre>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <h3>Verify success with a Git-ready savings receipt</h3>
+          <p>Print the Markdown receipt you can paste into pull request descriptions:</p>
+          <div class="code-block terminal">
+            <div class="code-header"><span>Step 4 &middot; Verify Receipt</span></div>
+            <pre><code>$ npx ctxtop receipt --markdown</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- TUTORIAL 2 -->
+      <h2 id="tutorial-2-parallel-worktrees">Tutorial 2: Parallel Delegation on Git Worktrees with Scope Locks</h2>
+      <p>
+        <strong>Goal:</strong> Run two coding agents in parallel across Git worktrees without overwriting shared files or introducing silent merge conflicts, verified via <code>DET-20</code>, <code>DET-31</code>, and Cost Radar.
+      </p>
+
+      <div class="step-list">
+        <div class="step-card">
+          <h3>Create an isolated Git worktree for Worker B</h3>
+          <p>When delegating concurrent edits (equivalent to Antigravity's <code>workspace: "share"</code> mode), create a dedicated branch worktree so each agent compiles and tests independently:</p>
+          <div class="code-block terminal">
+            <div class="code-header"><span>Step 1 &middot; Create Feature Worktree</span></div>
+            <pre><code>git worktree add ../repo-auth-slice -b feat/auth-slice
+git worktree list</code></pre>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <h3>Claim an explicit Scope Lock Lease for Worker A</h3>
+          <p>Reserve <code>src/core/pro_license.mjs</code> for Worker A (`session-alpha`) using the <code>scope_lock_claim</code> MCP contract (or automatic <code>PreToolUse</code> lease registration), writing atomically to <code>.agents/locks/active_scopes.json</code>:</p>
+          <div class="code-block terminal">
+            <div class="code-header"><span>Step 2 &middot; Claim Lease via @ctxtop/mcp JSON-RPC</span></div>
+            <pre><code>$ printf '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"scope_lock_claim","arguments":{"sessionId":"session-alpha","agentId":"claude-code","paths":["src/core/pro_license.mjs"],"ttlSeconds":900}}}\n' | npx ctxtop-mcp</code></pre>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <h3>Verify <code>DET-20</code> blocks conflicting edits from Worker B</h3>
+          <p>If Worker B (`session-beta`) attempts to edit <code>src/core/pro_license.mjs</code> while `session-alpha` holds an active lease, <code>DET-20</code> halts the write before disk mutation occurs and prints a `git worktree` isolation hint:</p>
+          <div class="code-block terminal">
+            <div class="code-header"><span>Step 3 &middot; Expected PreToolUse Collision Block</span></div>
+            <pre><code>[DET-20 Multi-Agent Scope Collision] Blocked write to src/core/pro_license.mjs:
+Active lease held by session "session-alpha" (claude-code, expires in 884s).
+Work on disjoint files or isolate via git worktree.</code></pre>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <h3>Audit worktree topology and merge safety with Cost Radar</h3>
+          <p>While both worktrees are active, <code>DET-31</code> runs read-only <code>git merge-tree</code> checks in memory to catch overlapping hunks before merge, and <code>cost-radar</code> visualizes the swarm topology:</p>
+          <div class="code-block terminal">
+            <div class="code-header"><span>Step 4 &middot; Generate Swarm &amp; Worktree Timeline</span></div>
+            <pre><code>$ npx ctxtop cost-radar --out ./swarm-radar.html --json
+{
+  "ok": true,
+  "path": "/repo/swarm-radar.html",
+  "retention": "Cache Hit 91.2% (Warm)",
+  "drift": "Thinking Drift Nominal (loopTriggered=false)",
+  "swarm": "2 worktrees active (main, repo-auth-slice)"
+}</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- TUTORIAL 3 -->
+      <h2 id="tutorial-3-debugging-and-pruning">Tutorial 3: Auditing Failed Runs, Stepping Execution &amp; Surgical Pruning</h2>
+      <p>
+        <strong>Goal:</strong> Pause a runaway loop, single-step the next tool call, diagnose duplicate-read bloat across recent sessions, and surgically prune stale tool payloads with an automatic backup.
+      </p>
+
+      <div class="step-list">
+        <div class="step-card">
+          <h3>Pause and single-step a live agent trajectory</h3>
+          <p>When an agent begins thrashing on failing tests (and approaches the <code>DET-04</code> 3-strike consecutive failure breaker), pause it from a second terminal using the Runtime Control FSM:</p>
+          <div class="code-block terminal">
+            <div class="code-header"><span>Step 1 &middot; Pause, Step Once, and Resume</span></div>
+            <pre><code># Suspend at the next PreToolUse boundary (writes ~/.ctxtop/runtime/default.ctl)
+$ npx ctxtop control pause --session default
+[Highbeam Control] State transitioned to PAUSED
+
+# Allow exactly 1 tool call, then automatically return to PAUSED
+$ npx ctxtop control step --session default
+[Highbeam Control] State transitioned to STEP
+
+# Resume normal execution once verified
+$ npx ctxtop control resume --session default
+[Highbeam Control] State transitioned to RUNNING</code></pre>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <h3>Inspect normalized USTF v1 spans and run a Forensic Postmortem</h3>
+          <p>Export the latest trajectory call tree and scan your last 10 sessions for <code>CONTEXT_ROT_DECAY</code> or <code>VERIFICATION_CHURN</code>:</p>
+          <div class="code-block terminal">
+            <div class="code-header"><span>Step 2 &middot; Trajectory Inspection &amp; Postmortem</span></div>
+            <pre><code>$ npx ctxtop inspect --last
+[Highbeam Inspect] Session "default" (claude-code)
+  Model: claude-sonnet-5-5 | Events: 24 | Spans: 11
+  Tokens: 92,400 (Uncached: 11,200, Cache: 81,200)
+
+$ npx ctxtop postmortem --last 10
+[Highbeam Postmortem] Analyzed 10 sessions (1.42M active tokens)
+  Clean Sessions: 7 | Churn: 2 | Rot: 1
+  Report: session_analysis_report.md</code></pre>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <h3>Preview and execute offline Tool-Output Surgery</h3>
+          <p>Always run <code>--prune-tools --dry-run</code> first to inspect how many uncached stale tool outputs can be trimmed, then run without <code>--dry-run</code> (which writes an atomic <code>.bak</code> transcript backup first):</p>
+          <div class="code-block terminal">
+            <div class="code-header"><span>Step 3 &middot; Dry-Run &amp; Live Surgical Prune</span></div>
+            <pre><code>$ npx ctxtop doctor --prune-tools --dry-run
+  ✔ PASS  Uncached Tail Surgeon          Pruned 6 stale tool output(s), saved ~28400 tokens (dry-run)
+
+$ npx ctxtop doctor --prune-tools
+  ✔ PASS  Uncached Tail Surgeon          Pruned 6 stale tool output(s), saved ~28400 tokens</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- TUTORIAL 4 -->
+      <h2 id="tutorial-4-compaction-and-relay">Tutorial 4: Zero-Loss Compaction &amp; Cross-Model Spec Relay</h2>
+      <p>
+        <strong>Goal:</strong> Compress a deep 135k-token session into a verified <strong>State Baton</strong> without triggering warm-cache penalties, and structure a bounded <strong>Cold Critic Packet</strong> for external review.
+      </p>
+
+      <div class="step-list">
+        <div class="step-card">
+          <h3>Check cache TTL before compacting</h3>
+          <p>Compacting while 50k+ tokens are still warm inside a 5-minute TTL window throws away paid cache reads (<code>HOLD_COMPACT</code>). Check live status first:</p>
+          <div class="code-block terminal">
+            <div class="code-header"><span>Step 1 &middot; Inspect TTL &amp; Saved Quota</span></div>
+            <pre><code>$ npx ctxtop receipt --simple</code></pre>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <h3>Generate and audit the State Baton (<code>/handoff</code>)</h3>
+          <p>Run <code>/handoff</code> in chat or generate the baton from the CLI. Verify all five checklist gates: concrete <code>Next Action</code> verb + file target, in-progress file list, active <code>Blockers</code>, architectural <code>Decisions</code>, and clean <code>git status --porcelain</code>:</p>
+          <div class="code-block terminal">
+            <div class="code-header"><span>Step 2 &middot; Distill Handoff Document</span></div>
+            <pre><code>$ npx ctxtop doctor --handoff
+  ✔ PASS  Handoff Distillation           Generated handoff document at docs/HANDOFF_2026-11-12.md</code></pre>
+          </div>
+        </div>
+
+        <div class="step-card">
+          <h3>Execute parameterized <code>/compact</code> and flush <code>TurnZeroGate</code></h3>
+          <p>Once cache TTL reaches <code>00:00</code> (or when crossing <code>amputation_token_threshold</code>), copy the parameterized compaction prompt from <code>#btnCompactPrimary</code> in the HUD and submit it in chat. Any rule promotions queued in <code>PrefixCacheShield</code> / <code>TurnZeroGate</code> flush automatically during <code>PostCompact</code> without incurring an extra cache rebuild.</p>
+        </div>
+
+        <div class="step-card">
+          <h3>Triage multi-model architecture reviews with <code>/relay</code></h3>
+          <p>When reviewing a specification with a second frontier model, invoke <code>/relay</code> to classify external critique claims into <code>S0</code> (Blocker), <code>S1</code> (Major Flaw), <code>T</code> (Testable Runtime Question, settled with a <code>&lt;30</code>-line local script), and <code>Defer</code>, committing accepted edits directly to disk rather than pasting multi-thousand-token rebuttals in chat.</p>
+        </div>
+      </div>
+
+      <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>
+      <footer class="doc-footer" id="doc-footer"></footer>
+    </main>
+
+    <aside class="toc-rail" id="site-toc" aria-label="On this page"></aside>
+  </div>
+
+  <script src="assets/search-index.js"></script>
+  <script src="assets/site.js"></script>
+</body>
+</html>

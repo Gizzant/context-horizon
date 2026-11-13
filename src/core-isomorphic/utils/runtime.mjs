@@ -1,6 +1,6 @@
 /**
  * @file src/utils/runtime.mjs
- * 100% Pure JavaScript ES module runtime utilities for Attention Horizon.
+ * 100% Pure JavaScript ES module runtime utilities for Highbeam.
  *
  * Architectural Invariants (ISS-032 & ISS-022):
  * - ZERO `node:*` imports, ZERO `require()`, ZERO dynamic `import()`, ZERO `process.getBuiltinModule()`.

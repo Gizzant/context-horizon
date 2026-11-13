@@ -137,7 +137,7 @@ describe('Adversarial Challenge: Remediated Boundary Tests (Milestone T3 Iterati
     it('M2.1: Invalid manifest name violates strict validator (assertion non-triviality)', () => {
       const invalidManifest = {
         name: 'attention-horizon-claude', // Incorrect AG manifest name
-        displayName: 'Attention Horizon',
+        displayName: 'Highbeam',
         version: '4.0.0',
         hooks: null
       };
@@ -150,7 +150,7 @@ describe('Adversarial Challenge: Remediated Boundary Tests (Milestone T3 Iterati
     it('M2.2: Prohibited displayName prefix/suffix violates strict validator', () => {
       const invalidManifest1 = {
         name: 'attention-horizon-antigravity',
-        displayName: 'Antigravity Attention Horizon', // Prohibited "Antigravity" prefix
+        displayName: 'Antigravity Highbeam', // Prohibited "Antigravity" prefix
         version: '4.0.0',
         hooks: null
       };
@@ -159,7 +159,7 @@ describe('Adversarial Challenge: Remediated Boundary Tests (Milestone T3 Iterati
 
       const invalidManifest2 = {
         name: 'attention-horizon-antigravity',
-        displayName: 'Attention Horizon Plugin', // Prohibited "Plugin" suffix
+        displayName: 'Highbeam Plugin', // Prohibited "Plugin" suffix
         version: '4.0.0',
         hooks: null
       };
@@ -573,7 +573,7 @@ describe('Adversarial Challenge: Remediated Boundary Tests (Milestone T3 Iterati
         });
 
         assert.equal(exitCode, 2, `Error case ${err} must trigger exitCode 2`);
-        assert.ok(stderrMsg.includes('[Attention Horizon Fail-Closed]'), 'Must log fail-closed diagnostic');
+        assert.ok(stderrMsg.includes('[Highbeam Fail-Closed]'), 'Must log fail-closed diagnostic');
       }
     });
   });

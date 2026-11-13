@@ -1,6 +1,6 @@
 /**
  * @file src/core-isomorphic/ui/brailleSparkline.mjs
- * Feature 23: ANSI Braille & Block Sparklines for Attention Horizon Terminal HUDs.
+ * Feature 23: ANSI Braille & Block Sparklines for Highbeam Terminal HUDs.
  *
  * Implements:
  *   - 2x-Resolution Unicode Braille Sparklines (`U+2800..U+28FF`)

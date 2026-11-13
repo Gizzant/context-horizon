@@ -1,7 +1,7 @@
 {
   "name": "@ctxtop/pro",
   "version": "4.0.0",
-  "description": "Attention Horizon Pro — Offline Ed25519 License Verifier, Team FinOps Pack & Commercial Entitlements (Polar.sh)",
+  "description": "Highbeam Pro — Offline Ed25519 License Verifier, Team FinOps Pack & Commercial Entitlements (Polar.sh)",
   "license": "SEE LICENSE IN LICENSE-COMMERCIAL.md",
   "type": "module",
   "main": "./src/index.mjs",

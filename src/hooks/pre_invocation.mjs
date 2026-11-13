@@ -333,7 +333,7 @@ export async function handlePreToolUse(inputData = {}) {
               if (delta.wasDiffed) {
                 deltaDiffStub = delta.diffText;
                 astStubSavedTokens = delta.savedTokens;
-                const deltaNotice = `[Attention Horizon Post-Edit Delta Read — ${path.basename(resolvedPath)} (+${delta.savedTokens} tokens saved)]\n${delta.diffText}`;
+                const deltaNotice = `[Highbeam Post-Edit Delta Read — ${path.basename(resolvedPath)} (+${delta.savedTokens} tokens saved)]\n${delta.diffText}`;
                 if (!isSilentMode && !systemMessage) {
                   systemMessage = deltaNotice;
                 }
@@ -357,7 +357,7 @@ export async function handlePreToolUse(inputData = {}) {
               const stubTokens = Math.max(1, Math.ceil(stubText.length / 4));
               astStubSavedTokens = Math.max(0, fullTokens - stubTokens);
               astSignatureStub = stubText;
-              const stubNotice = `[Attention Horizon AST Signature Stub — Read #${nextReads} of ${path.basename(resolvedPath)} (${astStubSavedTokens} tokens saved; pass StartLine/EndLine for full bodies)]\n${stubText}`;
+              const stubNotice = `[Highbeam AST Signature Stub — Read #${nextReads} of ${path.basename(resolvedPath)} (${astStubSavedTokens} tokens saved; pass StartLine/EndLine for full bodies)]\n${stubText}`;
               if (!isSilentMode && !systemMessage) {
                 systemMessage = stubNotice;
               }
@@ -970,7 +970,7 @@ export function toProtoSafePreHookOutput(output, { isPreToolUse = false } = {}) 
       out.userMessage ||
       out.reason ||
       out.systemMessage ||
-      'Halted by Attention Horizon Flightcheck'
+      'Halted by Highbeam Flightcheck'
     );
     return {
       terminationBehavior: 'terminate',

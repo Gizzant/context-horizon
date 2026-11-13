@@ -64,7 +64,7 @@ describe('v4.0 RC Remediation & @ctxtop/mcp Regression Suite', () => {
     const parity = syncAndVerifyMirrors({ verifyOnly: true });
     assert.equal(parity.parityOk, true);
     assert.equal(parity.targets, 8);
-    assert.equal(parity.verifiedFilePairs, 690);
+    assert.equal(parity.verifiedFilePairs, 702);
   });
 
   it('Component 3: package.json URLs point to Gizzant/context-horizon, pricing tiers match, and signing docs exist', () => {
@@ -213,7 +213,7 @@ describe('v4.0 RC Remediation & @ctxtop/mcp Regression Suite', () => {
       sessionSavedUSD: 15
     });
     assert.equal(rcpt.netRoiMultiplier, 3);
-    assert.match(rcpt.markdown, /Attention Horizon Pro \(\$15\.00\/mo\)/);
+    assert.match(rcpt.markdown, /Highbeam Pro \(\$15\.00\/mo\)/);
     assert.match(rcpt.markdown, /\$15\.00 USD/);
     assert.doesNotMatch(rcpt.markdown, /\$9\.00/);
     assert.doesNotMatch(rcpt.html, /\$9\.00/);

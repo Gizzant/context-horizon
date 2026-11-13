@@ -56,13 +56,13 @@ describe('Mirror Boot & ESM Import Resolution Smoke Suite', () => {
         assert.equal(pkg.type, 'module', `package.json in ${mirrorName} must have type: module`);
       });
 
-      test('mirrored plugin.json exists with Attention Horizon branding', () => {
+      test('mirrored plugin.json exists with Highbeam branding', () => {
         const pluginPath = path.join(mirrorRoot, 'plugin.json');
         assert.ok(fs.existsSync(pluginPath), `plugin.json must exist in ${mirrorName}`);
         const manifest = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
         assert.ok(
-          String(manifest.displayName || '').startsWith('Attention Horizon'),
-          `displayName must start with 'Attention Horizon', got "${manifest.displayName}"`
+          String(manifest.displayName || '').startsWith('Highbeam'),
+          `displayName must start with 'Highbeam', got "${manifest.displayName}"`
         );
       });
 

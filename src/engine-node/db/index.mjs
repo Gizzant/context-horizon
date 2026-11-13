@@ -1,6 +1,6 @@
 /**
  * @file src/engine-node/db/index.mjs
- * Unified database client factory for Attention Horizon storage engines.
+ * Unified database client factory for Highbeam storage engines.
  *
  * Dynamically resolves to native read-only node:sqlite on Node >= 22.5,
  * or pure-JS JsonlDatabaseFallbackWrapper on Node 20 LTS without warnings.

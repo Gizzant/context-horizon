@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CLI &amp; Binaries Reference - Highbeam User Guide</title>
+  <meta name="description" content="Complete reference for all 12 Highbeam CLI binaries, 3 command shims, 22 subcommands, flags, defaults, exit codes, and JSON output contracts." />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body data-page="cli-reference">
+  <header class="site-header" id="site-header"></header>
+
+  <div class="doc-shell">
+    <nav class="sidebar" id="site-sidebar" aria-label="Documentation chapters"></nav>
+
+    <main class="doc-main prose">
+      <p class="doc-eyebrow">Reference</p>
+      <h1 class="doc-title">CLI &amp; Binaries Reference</h1>
+      <p class="doc-lead">
+        Highbeam registers 12 CLI binary entrypoints and 3 execution shims across four runtime targets. Every subcommand below is documented directly from <code>bin/ctxtop.mjs</code>, <code>bin/ah-statusline.mjs</code>, and <code>src/cli/*.mjs</code>.
+      </p>
+
+      <h2 id="package-binaries">Package Binaries &amp; Entrypoints</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Binary Name(s)</th>
+              <th>Target Script</th>
+              <th>Primary Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>ctxtop</code>, <code>ah</code>, <code>attention-horizon</code>, <code>ah-claude</code>, <code>attention-horizon-claude</code></td>
+              <td><code>./bin/ctxtop.mjs</code></td>
+              <td>Unified cross-platform CLI dispatcher for installation, receipts, Cost Radar, configuration, runtime control, inspection, and Pro licensing.</td>
+            </tr>
+            <tr>
+              <td><code>ah-statusline</code></td>
+              <td><code>./bin/ah-statusline.mjs</code></td>
+              <td>Standalone Claude Code <code>statusLine</code> stdin JSON bridge rendering <code>80</code>, <code>110</code>, or <code>144</code>-column ANSI telemetry bars.</td>
+            </tr>
+            <tr>
+              <td><code>attention-horizon-antigravity</code>, <code>ah-antigravity</code>, <code>agy-horizon</code>, <code>agy-horizon-flightcheck</code></td>
+              <td><code>./src/cli/init.mjs</code></td>
+              <td>Antigravity-focused CLI launcher for loopback WebView serving (<code>--serve</code>), terminal crisis demos (<code>--demo-animate</code>), FTS5 command execution (<code>exec</code>), and FTS5 log queries (<code>log-search</code>).</td>
+            </tr>
+            <tr>
+              <td><code>ah-mcp</code>, <code>ctxtop-mcp</code></td>
+              <td><code>./packages/mcp/src/server.mjs</code></td>
+              <td>Zero-dependency Model Context Protocol JSON-RPC 2.0 stdio server for Cursor, Windsurf, Claude Code, and Antigravity.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="subcommand-catalog">Complete Subcommand Reference</h2>
+
+      <div class="filter-bar" data-filter-root=".cli-cmd-section">
+        <input type="search" class="filter-input" placeholder="Filter subcommands or flags (e.g. --prune-tools, control, receipt, --dedupe)..." aria-label="Filter CLI subcommands" />
+        <div class="filter-pills" role="group" aria-label="CLI group filter">
+          <button type="button" class="filter-pill" data-tag="all" aria-pressed="true">All</button>
+          <button type="button" class="filter-pill" data-tag="setup" aria-pressed="false">Setup &amp; Doctor</button>
+          <button type="button" class="filter-pill" data-tag="telemetry" aria-pressed="false">HUD &amp; Telemetry</button>
+          <button type="button" class="filter-pill" data-tag="control" aria-pressed="false">Control &amp; Config</button>
+          <button type="button" class="filter-pill" data-tag="pro" aria-pressed="false">Pro &amp; FinOps</button>
+        </div>
+        <span class="filter-count"></span>
+      </div>
+
+      <div class="cli-cmd-section" data-tags="setup">
+        <h3 id="cmd-init"><code>ctxtop init</code></h3>
+        <p>Non-destructively installs Highbeam across one or more host environments.</p>
+        <div class="code-block terminal">
+          <div class="code-header"><span>Synopsis</span></div>
+          <pre><code>ctxtop init [--antigravity] [--claude] [--mcp | --cursor | --windsurf] [--all]
+            [--global | -g | --workspace | --project]
+            [--lean-hooks | --full-hooks] [--dry-run] [--dedupe] [--json]</code></pre>
+        </div>
+        <ul>
+          <li><code>--antigravity</code>: Installs Google Antigravity plugin manifests, rules, skills, and sidecar hooks.</li>
+          <li><code>--claude</code>: Merges Claude Code lifecycle hooks and <code>ah-statusline</code> into <code>settings.json</code>.</li>
+          <li><code>--mcp</code> / <code>--cursor</code> / <code>--windsurf</code>: Writes the <code>attention-horizon</code> stdio server entry into <code>.cursor/mcp.json</code> (or <code>~/.cursor/mcp.json</code> with <code>--global</code>).</li>
+          <li><code>--all</code> / <code>-a</code>: Configures every detected host surface in one pass.</li>
+          <li><code>--lean-hooks</code> (default) vs. <code>--full-hooks</code>: Selects minimal-latency essential hooks versus full lifecycle coverage.</li>
+          <li><code>--dry-run</code>: Prints planned target paths and merge actions without touching disk.</li>
+          <li><code>--dedupe</code>: Removes duplicate Highbeam hook entries from prior installations while keeping unrelated user hooks intact.</li>
+        </ul>
+      </div>
+
+      <div class="cli-cmd-section" data-tags="setup">
+        <h3 id="cmd-install-uninstall"><code>ctxtop install</code> &amp; <code>ctxtop uninstall</code></h3>
+        <p>Targeted installer and uninstaller for Claude Code <code>settings.json</code> files, creating a timestamped backup on merge.</p>
+        <div class="code-block terminal">
+          <div class="code-header"><span>Synopsis</span></div>
+          <pre><code>ctxtop install [--global | -g | --project] [--lean-hooks | --full-hooks] [--json]
+ctxtop uninstall [--global | -g | --project] [--json]</code></pre>
+        </div>
+        <p>Defaults to <code>--project</code> (<code>&lt;cwd&gt;/.claude/settings.json</code>) when <code>--global</code> is omitted.</p>
+      </div>
+
+      <div class="cli-cmd-section" data-tags="setup">
+        <h3 id="cmd-doctor"><code>ctxtop doctor</code> &amp; <code>ctxtop prune</code></h3>
+        <p>Validates host contracts, model catalogs, hook error logs, and performs optional offline maintenance and surgical pruning.</p>
+        <div class="code-block terminal">
+          <div class="code-header"><span>Synopsis</span></div>
+          <pre><code>ctxtop doctor [--diagnostic | --bug-report] [--json]
+              [--prune-tools | --prune | --uncached-tail | --tail]
+              [--transcript &lt;path&gt;] [--reap-orphans] [--handoff | --distill]
+              [--storage-gc | --gc-cursor | --recover-brain] [--vscdb &lt;path&gt;] [--dry-run]</code></pre>
+        </div>
+        <ul>
+          <li><code>--diagnostic</code> / <code>--bug-report</code>: Emits a zero-PII Markdown (or <code>--json</code>) diagnostic bundle with home paths redacted.</li>
+          <li><code>--prune-tools</code> / <code>--uncached-tail</code> (also <code>agy-horizon prune</code>): Invokes the <strong>Tool-Output Surgeon</strong> on the active JSONL transcript (or <code>--transcript &lt;path&gt;</code>), creating a <code>.bak</code> backup before trimming stale uncached tool payloads.</li>
+          <li><code>--reap-orphans</code>: Scans and terminates leaked zombie language-server or test child processes.</li>
+          <li><code>--handoff</code> / <code>--distill</code>: Generates a timestamped Baton Pass handoff Markdown file in <code>docs/</code>.</li>
+          <li><code>--recover-brain</code>: Relinks orphaned Antigravity session brain directories after profile migrations.</li>
+          <li><code>--gc-cursor --vscdb &lt;path&gt;</code>: Streams and compacts bloated Cursor <code>state.vscdb</code> SQLite files by removing orphan rows.</li>
+          <li><code>--dry-run</code>: Simulates pruning or storage garbage collection without modifying files.</li>
+        </ul>
+      </div>
+
+      <div class="cli-cmd-section" data-tags="setup">
+        <h3 id="cmd-verify"><code>ctxtop verify</code> (alias: <code>verify-checksums</code>)</h3>
+        <p>Computes pure-JS SHA-256 hashes (CRLF-normalized) for every release file listed in <code>CHECKSUMS.sha256</code> and exits <code>0</code> when zero mismatches exist.</p>
+        <div class="code-block terminal">
+          <div class="code-header"><span>Synopsis</span></div>
+          <pre><code>ctxtop verify [--json]</code></pre>
+        </div>
+      </div>
+
+      <div class="cli-cmd-section" data-tags="telemetry">
+        <h3 id="cmd-receipt"><code>ctxtop receipt</code></h3>
+        <p>Renders the verified Tokens &amp; USD Saved receipt in terminal text, Git-commit Markdown, standalone HTML, JSON, or Pro SHA-256 PDF 1.4 format.</p>
+        <div class="code-block terminal">
+          <div class="code-header"><span>Synopsis</span></div>
+          <pre><code>ctxtop receipt [--simple | --4-rank | --advanced]
+               [--markdown | --md | --git | --html | --pdf | --json]
+               [--out &lt;path&gt;]</code></pre>
+        </div>
+        <p>Note: Passing <code>--pdf</code> on the Free tier exits with code <code>2</code> and displays your 30-day shadow USD savings alongside local trial instructions (<code>ctxtop pro trial</code>).</p>
+      </div>
+
+      <div class="cli-cmd-section" data-tags="telemetry">
+        <h3 id="cmd-panel"><code>ctxtop panel</code></h3>
+        <p>Writes a self-contained, zero-socket Claude Code HTML HUD snapshot (default output: <code>~/.claude/attention-horizon/horizon_panel.html</code>).</p>
+        <div class="code-block terminal">
+          <div class="code-header"><span>Synopsis</span></div>
+          <pre><code>ctxtop panel [--advanced] [--out &lt;file.html&gt;] [--json]</code></pre>
+        </div>
+      </div>
+
+      <div class="cli-cmd-section" data-tags="telemetry">
+        <h3 id="cmd-cost-radar"><code>ctxtop cost-radar</code> (alias: <code>radar</code>)</h3>
+        <p>Writes a script-free HTML/SVG timeline showing per-turn prefix-cache retention, thinking-token drift, and Git worktree swarm topology (default output: <code>~/.claude/attention-horizon/cost_radar.html</code>).</p>
+        <div class="code-block terminal">
+          <div class="code-header"><span>Synopsis</span></div>
+          <pre><code>ctxtop cost-radar [--out &lt;file.html&gt;] [--demo] [--share] [--json]</code></pre>
+        </div>
+      </div>
+
+      <div class="cli-cmd-section" data-tags="telemetry">
+        <h3 id="cmd-statusline"><code>ctxtop statusline</code> &amp; <code>ah-statusline</code></h3>
+        <p>Reads Claude Code's <code>statusLine</code> JSON payload from <code>stdin</code> (<code>1,500ms</code> bounded timeout), updates <code>.claude/cache/ah_live_state_&lt;sessionId&gt;.json</code>, and prints a responsive single-line ANSI bar.</p>
+        <div class="code-block terminal">
+          <div class="code-header"><span>Synopsis</span></div>
+          <pre><code>ah-statusline [--demo] [--columns &lt;N&gt; | --cols &lt;N&gt;]</code></pre>
+        </div>
+      </div>
+
+      <div class="cli-cmd-section" data-tags="telemetry">
+        <h3 id="cmd-postmortem-roast"><code>ctxtop postmortem</code> &amp; <code>ctxtop roast</code></h3>
+        <p>Scans recent local sessions to classify failure archetypes (<code>CONTEXT_ROT_DECAY</code>, <code>VERIFICATION_CHURN</code>, <code>SPEC_AMBIGUITY</code>, <code>CLEAN</code>), identify top duplicate-read files, audit Turn-0 MCP overhead, and emit shareable ASCII or Markdown forensic summaries.</p>
+        <div class="code-block terminal">
+          <div class="code-header"><span>Synopsis</span></div>
+          <pre><code>ctxtop postmortem [--last &lt;N&gt;] [--roast] [--demo] [--json]
+ctxtop roast [--demo] [--markdown | --md] [--json]</code></pre>
+        </div>
+        <p><code>--last</code> defaults to <code>15</code> sessions. Writes <code>session_analysis_report.md</code> and <code>conversation_diagnostics.jsonl</code> when <code>writeFiles</code> is enabled.</p>
+      </div>
+
+      <div class="cli-cmd-section" data-tags="telemetry">
+        <h3 id="cmd-inspect"><code>ctxtop inspect</code></h3>
+        <p>Normalizes any Claude Code live snapshot, USTF v1 log, or Antigravity brain directory into a USTF v1 trajectory with event counts, span trees, cached vs. uncached tokens, and USD cost.</p>
+        <div class="code-block terminal">
+          <div class="code-header"><span>Synopsis</span></div>
+          <pre><code>ctxtop inspect [&lt;session-id&gt; | --session &lt;id&gt; | --last] [--out &lt;file.json&gt;] [--json]</code></pre>
+        </div>
+      </div>
+
+      <div class="cli-cmd-section" data-tags="telemetry">
+        <h3 id="cmd-ui-demo-exec">Antigravity Server, Demos &amp; FTS5 Execution Wrappers</h3>
+        <p>Invoked via <code>agy-horizon</code> (<code>src/cli/init.mjs</code>) or <code>src/cli/horizon_hud.mjs</code>:</p>
+        <div class="code-block terminal">
+          <div class="code-header"><span>Synopsis</span></div>
+          <pre><code># Start loopback HTTP/SSE daemon on 127.0.0.1:62935..62945
+agy-horizon ui [--open | --no-open] [--demo]
+ctxtop --serve
+
+# Run 5-stage synthetic terminal crisis showcase or emit Studio HTML widget
+agy-horizon demo [--demo-animate] [--scenario &lt;1..5&gt;] [--harness &lt;antigravity|claude-code&gt;]
+node src/cli/horizon_hud.mjs --emit-widget
+
+# Execute a verbose shell command through the lossless FTS5 compressor (&gt;4,096 chars archived)
+agy-horizon exec &lt;command...&gt;
+
+# Query archived FTS5 CLI logs by keyword across turns
+agy-horizon log-search "&lt;fts5-query&gt;"</code></pre>
+        </div>
+      </div>
+
+      <div class="cli-cmd-section" data-tags="control">
+        <h3 id="cmd-config"><code>ctxtop config</code></h3>
+        <p>Lists, sets, or resets per-detector overrides in <code>.attention-horizon.json</code> (project default) or <code>~/.attention-horizon/config.json</code> (<code>--global</code>).</p>
+        <div class="code-block terminal">
+          <div class="code-header"><span>Synopsis</span></div>
+          <pre><code>ctxtop config [list] [--global | -g] [--json]
+ctxtop config set &lt;DET-01..DET-20 | habit-slug&gt; &lt;default | off | warn | block&gt; [--global | -g]
+ctxtop config reset [--global | -g]</code></pre>
+        </div>
+      </div>
+
+      <div class="cli-cmd-section" data-tags="control">
+        <h3 id="cmd-control"><code>ctxtop control</code></h3>
+        <p>Transitions the 5-state Runtime Control FSM at <code>~/.ctxtop/runtime/&lt;sessionId&gt;.ctl</code> and notifies any warm Micro-IPC daemon via <code>control.transition</code>.</p>
+        <div class="code-block terminal">
+          <div class="code-header"><span>Synopsis</span></div>
+          <pre><code>ctxtop control &lt;status | pause | resume | step | abort | rewind&gt;
+               [--session &lt;id&gt;] [--target &lt;turn&gt; | --turn &lt;turn&gt;]</code></pre>
+        </div>
+        <p>Note: <code>abort</code> transitions the session into terminal <code>ABORTED</code> state, which cannot be resumed without starting a new session or clearing the <code>.ctl</code> file.</p>
+      </div>
+
+      <div class="cli-cmd-section" data-tags="pro">
+        <h3 id="cmd-pro-team"><code>ctxtop license</code> (<code>pro</code>), <code>tiers</code> &amp; <code>team-pack</code></h3>
+        <p>Manages offline Ed25519 Pro licenses, 14-day local trials, and BYO-Grafana / Datadog OpenTelemetry bundles.</p>
+        <div class="code-block terminal">
+          <div class="code-header"><span>Synopsis</span></div>
+          <pre><code>ctxtop tiers [--json]
+ctxtop pro [status | tiers | trial | activate &lt;ed25519-token&gt; | deactivate] [--json]
+ctxtop team-pack [--out &lt;dir&gt;] [--org "&lt;Org Name&gt;"] [--preview] [--json]</code></pre>
+        </div>
+      </div>
+
+      <h2 id="shims-and-exit-codes">Execution Shims &amp; Standard Exit Codes</h2>
+      <p>
+        Three standalone shims inside <code>src/shims/</code> support direct shell integration:
+      </p>
+      <ul>
+        <li><code>src/shims/agy_cli_compressor.mjs</code>: Standalone ANSI/carriage-return scrubber and SQLite FTS5 output archiver honoring <code>AGY_CONVERSATION_ID</code>.</li>
+        <li><code>src/shims/agy_git_guard.mjs</code>: Standalone option-argument-aware git and shell command validator backing <code>DET-01</code>.</li>
+        <li><code>src/shims/ah_log_query.mjs</code>: Lightweight FTS5 full-text reader for retrieving offloaded lines from <code>.ctxtop/cache/artifacts_fts5.db</code>.</li>
+      </ul>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Exit Code</th>
+              <th>Meaning Across CLI &amp; Hook Binaries</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>0</code></td>
+              <td>Command succeeded, checksum/doctor checks passed, or structured hook JSON decision (<code>allow</code> / <code>deny</code> / <code>ask</code>) emitted to <code>stdout</code>.</td>
+            </tr>
+            <tr>
+              <td><code>1</code></td>
+              <td>Invalid CLI subcommand/argument, missing target session, checksum mismatch, or failed doctor health check.</td>
+            </tr>
+            <tr>
+              <td><code>2</code></td>
+              <td>Hard veto block in Claude Code Tier-2 CLI hooks (diagnostic written to <code>stderr</code> with empty <code>stdout</code>) OR Pro/Team commercial entitlement gate on <code>ctxtop receipt --pdf</code> and <code>ctxtop team-pack</code> (when <code>--preview</code> is omitted).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>
+      <footer class="doc-footer" id="doc-footer"></footer>
+    </main>
+
+    <aside class="toc-rail" id="site-toc" aria-label="On this page"></aside>
+  </div>
+
+  <script src="assets/search-index.js"></script>
+  <script src="assets/site.js"></script>
+</body>
+</html>

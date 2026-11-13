@@ -130,7 +130,7 @@ function generateErrorTrace(attemptNum) {
 // Main Scenario & Benchmark Runner
 // -----------------------------------------------------------------------------
 console.log('================================================================================');
-console.log('  ATTENTION HORIZON (ctxtop) — AUTOMATED CONTEXT/MEMORY SCENARIO & PERF BENCHMARK');
+console.log('  HIGHBEAM (ctxtop) — AUTOMATED CONTEXT/MEMORY SCENARIO & PERF BENCHMARK');
 console.log('================================================================================\n');
 
 const scenarioStartWallMs = Date.now();
@@ -965,7 +965,7 @@ const scaleRowsMd = scalingResults.map(r =>
   `| **${r.label}** | ${r.turns} | ${r.totalTokens.toLocaleString()} | ${r.fileSizeKb} KB | ${r.coldParseMs.toFixed(3)}ms | **${r.incrementalParseMs.toFixed(3)}ms** | **${r.speedupFactor}x** | ${r.classifyMs.toFixed(3)}ms | ${r.heapUsedMb} MB |`
 ).join('\n');
 
-const markdownReport = `# Attention Horizon (\`ctxtop\`) — Automated Context/Memory & Performance Benchmark Report
+const markdownReport = `# Highbeam (\`ctxtop\`) — Automated Context/Memory & Performance Benchmark Report
 
 > **Generated Automatically by**: [\`tests/benchmark_context_scenario.mjs\`](../tests/benchmark_context_scenario.mjs)  
 > **Run Command**: \`npm run bench:scenario\`  

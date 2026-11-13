@@ -1,6 +1,6 @@
 /**
  * @file src/core-isomorphic/ui/costRadarSvg.mjs
- * Feature 23: Retention Step-Chart SVG & HTML Visualizer for Attention Horizon v4.0.
+ * Feature 23: Retention Step-Chart SVG & HTML Visualizer for Highbeam v4.0.
  *
  * Pure, zero-dependency renderer (no `node:*` imports) complying with Mod Laws 1–5.
  *

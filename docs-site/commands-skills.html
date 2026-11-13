@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Slash Commands, Skills &amp; Subagents - Highbeam User Guide</title>
+  <meta name="description" content="Complete reference for Highbeam slash commands, SKILL.md workflows, in-chat control prefixes, and the @ah-flash-scout read-only subagent." />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body data-page="commands-skills">
+  <header class="site-header" id="site-header"></header>
+
+  <div class="doc-shell">
+    <nav class="sidebar" id="site-sidebar" aria-label="Documentation chapters"></nav>
+
+    <main class="doc-main prose">
+      <p class="doc-eyebrow">Reference</p>
+      <h1 class="doc-title">Slash Commands, Skills &amp; Subagents</h1>
+      <p class="doc-lead">
+        Highbeam exposes interactive slash commands in Claude Code (<code>commands/*.md</code>), structured skills in Google Antigravity (<code>skills/*/SKILL.md</code>), single-character prompt control prefixes, and a dedicated Gemini Flash scout subagent.
+      </p>
+
+      <h2 id="slash-commands-overview">Slash Commands &amp; Skills Catalog</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Command / Skill</th>
+              <th>Claude Code Source</th>
+              <th>Antigravity Source</th>
+              <th>Primary Deliverable</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>/horizon</code></td>
+              <td><code>commands/horizon.md</code> &amp; <code>command.horizon</code></td>
+              <td><code>skills/horizon/SKILL.md</code></td>
+              <td>40-Cell Horizon HUD, Simple 4-Rank Verdict Bar or 5-Section Advanced Workbench, and <code>&lt;agent-embed&gt;</code> card.</td>
+            </tr>
+            <tr>
+              <td><code>/precheck</code></td>
+              <td><code>commands/precheck.md</code></td>
+              <td><code>skills/precheck/SKILL.md</code></td>
+              <td>Prompt anchoring evaluation, active <code>C*</code> cache gravity check, model/effort routing, and 4-Line Scorecard rewrite.</td>
+            </tr>
+            <tr>
+              <td><code>/handoff</code></td>
+              <td><code>commands/handoff.md</code></td>
+              <td><code>skills/handoff/SKILL.md</code></td>
+              <td>Audited <strong>State Baton</strong> checkpoint (<code>task.md</code>, <code>HANDOFF_LATEST.md</code>) using KEEP/DROP compression before <code>/compact</code>.</td>
+            </tr>
+            <tr>
+              <td><code>/cost-radar</code></td>
+              <td><code>commands/cost-radar.md</code></td>
+              <td><code>skills/cost-radar/SKILL.md</code></td>
+              <td>Self-contained HTML/SVG timeline of prefix-cache retention, thinking drift, and Git worktree swarm spans.</td>
+            </tr>
+            <tr>
+              <td><code>/inspect</code></td>
+              <td><code>commands/inspect.md</code></td>
+              <td><code>skills/inspect/SKILL.md</code></td>
+              <td>Normalized USTF v1 call-tree trajectory spans, tool latencies, and token bucket breakdown.</td>
+            </tr>
+            <tr>
+              <td><code>/evolve</code></td>
+              <td><code>commands/evolve.md</code></td>
+              <td><code>skills/evolve/SKILL.md</code></td>
+              <td><code>AGENTS.md</code> / <code>CLAUDE.md</code> prefix bloat audit (<code>&gt;8,000</code> tok), skill fault delta routing, and <code>TurnZeroGate</code> staged promotion.</td>
+            </tr>
+            <tr>
+              <td><code>/relay</code></td>
+              <td>Via <code>relay-breaker</code> coach</td>
+              <td><code>skills/relay/SKILL.md</code></td>
+              <td>Asymmetric Cross-Model Spec Relay triaging external reviews into <code>S0 / S1 / T / Defer</code> buckets and Cold Critic Packets.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="detailed-command-contracts">Detailed Command Specifications</h2>
+
+      <h3 id="slash-horizon">1. <code>/horizon</code></h3>
+      <p>
+        Displays your current context window health without mutating any workspace files.
+      </p>
+      <ul>
+        <li><strong>In Claude Code:</strong> Opens the docked <code>attention-horizon</code> pane when the Tier-1 V8 Mod is active (pass <code>advanced</code> for the 5-section workbench), or executes <code>npx ah-claude receipt</code> / <code>npx ah-claude panel --json</code>.</li>
+        <li><strong>In Google Antigravity:</strong> Executes <code>node --no-warnings ./src/cli/horizon_hud.mjs --emit-widget</code> to write <code>&lt;artifactDirectoryPath&gt;/horizon_widget.html</code>, renders it inline via <code>&lt;agent-embed&gt;</code>, and surfaces the one-click <code>sidecar://agy-horizon-flightcheck/horizon-daemon/</code> side-pane link.</li>
+      </ul>
+
+      <h3 id="slash-precheck">2. <code>/precheck</code> &amp; The 8-State Decision Rubric</h3>
+      <p>
+        Evaluates draft prompts and active session physics before spending high-effort frontier quota. In Antigravity, <code>/precheck</code> reads <code>~/.gemini/flightcheck/sessions/&lt;conversationId&gt;.sidecar.json</code> in under <code>2ms</code> and classifies the turn into one of eight deterministic router states:
+      </p>
+      <ol>
+        <li><code>ALLOW_SILENT</code>: Prompt is well-anchored, healthy, or carries a <code>!</code> / <code>!force</code> one-turn bypass prefix.</li>
+        <li><code>ALLOW_ACTIVE_SET</code>: Explicit file paths were omitted, but referenced targets already reside in the recent green <code>ACTIVE_SET</code>.</li>
+        <li><code>ALLOW_PLAN_OR_SUBAGENT</code>: Session is currently inside <code>/plan</code> mode or delegating to <code>invoke_subagent</code>.</li>
+        <li><code>INJECT_CONTEXT_GUARD</code>: Silently appends background system guardrails when target files changed externally on disk (<code>DIRTY_SNAP</code>), have unseen importers (<code>UNSEEN_CALLERS</code>), or match deprecated globs (<code>LEGACY_POISON</code>).</li>
+        <li><code>STEER_SUBAGENT</code>: Parent context is warm (<code>&gt;25,000</code> cached tokens and <code>&gt;70%</code> Signal Purity) on low/medium effort; advises delegating broad exploration to <code>invoke_subagent</code> (<code>@ah-flash-scout</code>) so the parent KV prefix stays clean.</li>
+        <li><code>HALT_HYGIENE_OR_SAFETY</code>: Halts execution (or warns in <code>advisory</code> mode) on Context Truncation Crisis (<code>&gt;140,000</code> tokens), Signal Purity below <code>45%</code> on high effort, 3-strike identical command error loops, or foreign Knowledge Item bleed.</li>
+        <li><code>HALT_EFFORT_OR_QUOTA</code>: Flags cold-cache frontier overkill on trivial single-line edits, 5-hour quota dropping below <code>10%</code> (<code>quota_floor_fraction: 0.10</code>), or single-shot writes exceeding <code>600</code> lines.</li>
+        <li><code>HALT_REWRITE_SCORECARD</code>: Emits the 4-Line Scorecard with a concrete, copy-pasteable prompt rewrite.</li>
+      </ol>
+
+      <h3 id="slash-handoff">3. <code>/handoff</code> &amp; State Compressor Taxonomy</h3>
+      <p>
+        Audits and writes a lossless <strong>State Baton</strong> before context compaction or cross-session rotation. Enforces a strict <strong>KEEP / DROP</strong> filter and a 5-point verification checklist:
+      </p>
+      <ul>
+        <li><strong>KEEP:</strong> Architectural <code>Decisions</code> (with 1-sentence rationale), active <code>Blockers</code> (with <code>Low | Medium | High</code> severity), explicit modified file <code>Artifacts</code>, verified milestone <code>State Changes</code>, and one concrete unblocked <code>Next Action</code> naming an exact <code>@file</code> or symbol.</li>
+        <li><strong>DROP:</strong> Chronological trial-and-error narratives, resolved temporary debug scaffolding, raw stack traces, and vague directives such as <code>"Continue working"</code> or <code>"WIP"</code>.</li>
+      </ul>
+
+      <h3 id="slash-cost-radar">4. <code>/cost-radar</code></h3>
+      <p>
+        Generates a self-contained HTML/SVG timeline summarizing session spend in at most three lines using JSON fields <code>retention</code>, <code>drift</code>, and <code>swarm</code>. When <code>loopTriggered</code> is <code>true</code>, the summary leads immediately with a scratchpad-loop alert (<code>DET-30</code>, aliased as <code>DET-21</code> in legacy Claude commands) and recommends anchoring a concrete target file + acceptance test or stepping reasoning effort down. Unmeasured metrics always display <code>--</code> and are never fabricated.
+      </p>
+
+      <h3 id="slash-inspect">5. <code>/inspect</code></h3>
+      <p>
+        Runs <code>ctxtop inspect --last</code> to inspect execution spans, tool latencies, and swarm topology. Resolution checks three local stores in order: (1) <code>.claude/cache/ah_live_state_&lt;sessionId&gt;.json</code>, (2) <code>~/.ctxtop/sessions/&lt;sessionId&gt;.jsonl</code>, and (3) Antigravity's local <code>brain/&lt;sessionId&gt;</code> directory.
+      </p>
+
+      <h3 id="slash-evolve">6. <code>/evolve</code> (<code>RSI-01</code> Prefix Diet &amp; Skill Evolution)</h3>
+      <p>
+        Keeps Turn-0 static rule files lean while preserving validated domain lessons:
+      </p>
+      <ul>
+        <li><strong>8,000-Token Static Prefix Budget:</strong> Audits <code>AGENTS.md</code> / <code>CLAUDE.md</code> and <code>.agents/rules/*.md</code>. When static rules exceed <code>8,000</code> tokens, proposes extracting domain sections into lazy-loaded <code>SKILL.md</code> bundles.</li>
+        <li><strong>Skill Fault Delta Routing:</strong> Routes post-skill user corrections directly to the offending skill's <code>SKILL.md</code> rather than inflating global rules.</li>
+        <li><strong>5-Instinct Synthesis Floor:</strong> Drafts a new domain skill only after accumulating <code>&gt;= 5</code> validated instincts with <code>confidence &gt;= 0.55</code> and <code>harmful_count == 0</code>, strictly forbidding recursive LLM self-critique subagents.</li>
+        <li><strong>1-Click Diff + <code>TurnZeroGate</code>:</strong> Requires explicit user diff approval and queues writes until prompt-cache TTL reaches <code>0s</code>.</li>
+      </ul>
+
+      <h3 id="slash-relay">7. <code>/relay</code> (Asymmetric Cross-Model Spec Relay)</h3>
+      <p>
+        Prevents quadratic context bloat when iterating on specifications across multiple frontier models (automatically recommended when <code>relay-breaker</code> detects Round 2+ spec churn). Assigns the local session as the <strong>Stateful Spec Owner</strong> (editing the canonical Markdown spec on disk) and external models as stateless <strong>Cold Critics</strong>, triaging feedback into <code>S0</code> (Blocker), <code>S1</code> (Major Flaw), <code>T</code> (Testable Runtime Question settled via a <code>&lt;30</code>-line local script), and <code>Defer</code>, with a strict 2-round convergence cap.
+      </p>
+
+      <h2 id="in-chat-control-flags">In-Chat Prompt Control Prefixes</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Prefix</th>
+              <th>Example</th>
+              <th>Runtime Effect</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>!</code> or <code>!force</code></td>
+              <td><code>! Run full integration suite</code></td>
+              <td>Bypasses <code>PreInvocation</code> coaching and router halts for the current turn (<code>ALLOW_SILENT</code>). Ring-0 destructive shell/secret guards remain enforced at <code>PreToolUse</code>.</td>
+            </tr>
+            <tr>
+              <td><code>!lock</code></td>
+              <td><code>!lock Implement B-tree cursor split</code></td>
+              <td>Locks your active model and reasoning effort tier for the remainder of the conversation so automatic downshift advisories stay silent.</td>
+            </tr>
+            <tr>
+              <td><code>#check</code></td>
+              <td><code>#check Migrate auth middleware</code></td>
+              <td>Forces Tier-2 semantic prompt rubric evaluation and outputs the 4-Line Scorecard with a concrete scoped rewrite before execution.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="delegation-scout-subagent">Delegation Scout Subagent (<code>@ah-flash-scout</code>)</h2>
+      <p>
+        Defined in <code>agents/ah-flash-scout.md</code>, <code>@ah-flash-scout</code> protects warm frontier sessions (<code>gemini-4-carbon</code>, <code>gemini-4-argon</code>) from ingesting multi-thousand-token search dumps during codebase discovery:
+      </p>
+      <div class="code-block">
+        <div class="code-header"><span>agents/ah-flash-scout.md Manifest Contract</span></div>
+        <pre><code>name: ah-flash-scout
+model: flash
+mainAgent: false
+subagent: true
+excludeDefaultComponents: true
+commandExecutionPolicy: off
+tools: [view_file, grep_search, find_by_name, list_dir]</code></pre>
+      </div>
+      <p>
+        <strong>Hard Output Contract:</strong> <code>@ah-flash-scout</code> never executes shell commands or edits files, and returns strictly under <code>200</code> tokens formatted as <code>path/to/file.mjs:L10-L42 - Symbol / invariant summary</code>.
+      </p>
+
+      <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>
+      <footer class="doc-footer" id="doc-footer"></footer>
+    </main>
+
+    <aside class="toc-rail" id="site-toc" aria-label="On this page"></aside>
+  </div>
+
+  <script src="assets/search-index.js"></script>
+  <script src="assets/site.js"></script>
+</body>
+</html>

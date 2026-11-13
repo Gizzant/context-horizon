@@ -107,7 +107,7 @@ test('AGY-CFG-04: runDoctor({ diagnostic: true, silent: true }) generates zero-P
     setDetectorOverride('DET-06', 'warn', { cwd: tmp });
     const res = await runDoctor({ workspacePath: tmp, diagnostic: true, silent: true });
     assert.ok(res.diagnosticMarkdown);
-    assert.match(res.diagnosticMarkdown, /Attention Horizon \(Antigravity Edition\) — Zero-PII Diagnostic Report/);
+    assert.match(res.diagnosticMarkdown, /Highbeam \(Antigravity Edition\) — Zero-PII Diagnostic Report/);
     assert.match(res.diagnosticMarkdown, /DET-06=warn/);
     assert.equal(
       redactUserPaths('C:\\Users\\PrivateUser\\.gemini', 'C:\\Users\\PrivateUser'),

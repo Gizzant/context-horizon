@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lifecycle Hooks, V8 Mod &amp; Runtime Control - Highbeam User Guide</title>
+  <meta name="description" content="Complete reference for Antigravity hooks, Claude Code Tier-1 V8 Mod events, Claude Code Tier-2 CLI hook contracts, exit codes, and the 5-state Runtime Control FSM." />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body data-page="hooks-lifecycle">
+  <header class="site-header" id="site-header"></header>
+
+  <div class="doc-shell">
+    <nav class="sidebar" id="site-sidebar" aria-label="Documentation chapters"></nav>
+
+    <main class="doc-main prose">
+      <p class="doc-eyebrow">Reference</p>
+      <h1 class="doc-title">Lifecycle Hooks, V8 Mod &amp; Runtime Control</h1>
+      <p class="doc-lead">
+        Highbeam enforces zero-token guardrails and collects turn telemetry through deterministic host lifecycle hooks. This chapter documents every registered hook event, matcher regex, stdin/stdout JSON contract, timeout, and control-latch transition.
+      </p>
+
+      <h2 id="antigravity-hooks">Google Antigravity Lifecycle Hooks (<code>hooks.json</code>)</h2>
+      <p>
+        In Google Antigravity, <code>hooks.json</code> registers six command hooks, each executing with a hard <code>5</code>-second timeout and bounded <code>250ms</code> stdin read window:
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Event</th>
+              <th>Entry Script</th>
+              <th>Tool Matcher Regex</th>
+              <th>Runtime Contract</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>SessionStart</code></td>
+              <td><code>hooks/session_start.mjs</code> &rarr; <code>src/hooks/session_start.mjs</code></td>
+              <td>(Session lifecycle)</td>
+              <td>Hydrates sidecar session metadata, audits Turn-0 MCP schema weight, and prepares Episodic Memory resume packs.</td>
+            </tr>
+            <tr>
+              <td><code>PreInvocation</code></td>
+              <td><code>hooks/pre_invocation.mjs</code> &rarr; <code>src/hooks/pre_invocation.mjs</code></td>
+              <td>(User prompt turn)</td>
+              <td>Runs the 8-State Flight Check Router and 6 Blind-Spot Sensors; injects <code>systemMessage</code> context guards or emits the 4-Line Scorecard.</td>
+            </tr>
+            <tr>
+              <td><code>PreToolUse</code></td>
+              <td><code>hooks/pre_tool_use.mjs</code> &rarr; <code>src/hooks/portfolio_runtime.mjs</code></td>
+              <td><code>run_command|edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content|read_file|view_file|invoke_subagent|define_subagent|send_message|manage_subagents|swarm</code></td>
+              <td>Checks <code>.ctl</code> control latch (Direct or Micro-IPC), evaluates <code>DET-01..DET-32</code> pre-execution guards, and writes <code>{"decision":"allow|ask|deny","reason":"..."}</code> to <code>stdout</code> (exit <code>0</code>).</td>
+            </tr>
+            <tr>
+              <td><code>PostToolUse</code></td>
+              <td><code>hooks/post_tool_use.mjs</code></td>
+              <td><code>run_command|edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content|invoke_subagent|define_subagent|send_message|manage_subagents|swarm</code></td>
+              <td>Strips indirect prompt-injection Unicode tags from subagent outputs (<code>DET-19</code>), tracks consecutive failure strikes (<code>DET-04</code>), and updates scope leases.</td>
+            </tr>
+            <tr>
+              <td><code>PostInvocation</code></td>
+              <td><code>hooks/post_invocation.mjs</code> &rarr; <code>src/hooks/post_invocation.mjs</code></td>
+              <td>(Turn completion)</td>
+              <td>Updates <code>~/.gemini/flightcheck/sessions/&lt;id&gt;.sidecar.json</code>, computes saved quota ledger deltas, and pushes SSE updates to the WebView daemon.</td>
+            </tr>
+            <tr>
+              <td><code>Stop</code></td>
+              <td><code>hooks/stop.mjs</code></td>
+              <td>(Agent stop)</td>
+              <td>Verifies test/proof gates (<code>DET-14</code>), checks placeholder slop (<code>DET-15</code>), and flushes pending cold-cache deltas when safe.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="claude-tier1-mod">Claude Code Tier-1 In-Process V8 Mod (<code>hooks/register.js</code>)</h2>
+      <p>
+        Declared under <code>hooks.modules</code> in <code>hooks/hooks.json</code>, <code>hooks/register.js</code> loads directly into Claude Code's V8 isolate with zero process-spawn overhead (<code>~0.18ms p95</code>). It sets <code>AH_TIER1_MOD_ACTIVE=1</code> and registers 10 literal handlers:
+      </p>
+      <ul>
+        <li><code>on('file.changed')</code>: Tracks external workspace edits on disk to invalidate stale in-context read assumptions.</li>
+        <li><code>on('tool.call')</code>: Intercepts tool invocations synchronously inside V8, running <code>CircuitBreakerEngine.evaluatePreToolUse</code>, 3rd-read AST signature stub folding, and Scope Lock Lease checks.</li>
+        <li><code>on('turn.step')</code> &amp; <code>on('turn.complete')</code>: Updates live token envelopes, Dual-TTL countdowns, thinking-drift monitors, and the 30-day Saved Quota Ledger inside <code>$.store</code>.</li>
+        <li><code>on('classic.SessionStart')</code>: Hydrates the <strong>State Baton</strong> from <code>.claude/cache/HANDOFF_LATEST.md</code> across <code>startup|resume|clear|compact|fork</code> transitions.</li>
+        <li><code>on('classic.PreCompact')</code> &amp; <code>on('classic.PostCompact')</code>: Snapshots active constraints before compaction and flushes queued <code>TurnZeroGate</code> rule updates immediately after compaction while the prefix is cold.</li>
+        <li><code>on('classic.Stop')</code>: Runs stop-phase test verification (<code>DET-14</code>) and batched formatter/placeholder audits (<code>DET-15</code>).</li>
+        <li><code>on('command.horizon')</code> &amp; <code>on('ui.render')</code>: Renders the docked Simple View (4-Rank HUD) or 5-Section Advanced Workbench inside Claude Code.</li>
+      </ul>
+
+      <h2 id="claude-tier2-cli-hooks">Claude Code Tier-2 Spawned CLI Hooks (<code>hooks/hooks.json</code>)</h2>
+      <p>
+        When Claude Code executes external command hooks (or when Tier-1 Mod APIs are unavailable), six CLI scripts in <code>hooks/handlers/</code> enforce identical contracts (plus an optional <code>user-prompt-submit.mjs</code> handler):
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Hook Event</th>
+              <th>Handler Script</th>
+              <th>Matcher</th>
+              <th>Primary Responsibility</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>PreToolUse</code></td>
+              <td><code>handlers/pre-tool-use.mjs</code></td>
+              <td><code>Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Task|Agent|WebFetch|mcp__.*</code></td>
+              <td>Evaluates <code>CircuitBreakerEngine</code>, persists breaker counters across CLI spawns, folds 3rd full-file reads into signature stubs (Pro), and short-circuits <code>Grep|Glob</code> if Tier-1 Mod is active.</td>
+            </tr>
+            <tr>
+              <td><code>PostToolUse</code></td>
+              <td><code>handlers/post-tool-use.mjs</code></td>
+              <td><code>Bash|PowerShell|Task|Agent|WebFetch|mcp__.*</code></td>
+              <td>Compresses oversized command outputs, sanitizes subagent/web payloads (<code>DET-19</code>), and records non-zero exit strikes.</td>
+            </tr>
+            <tr>
+              <td><code>PreModelSwitch</code></td>
+              <td><code>handlers/pre-model-switch.mjs</code></td>
+              <td>(All model switches)</td>
+              <td>Computes algebraic <code>C*</code> break-even gravity (<code>DET-08</code>) and holds costly mid-TTL downshifts when <code>cachedTokens &gt; C*</code>.</td>
+            </tr>
+            <tr>
+              <td><code>PreCompact</code> / <code>PostCompact</code></td>
+              <td><code>handlers/compact-lifecycle.mjs</code></td>
+              <td><code>--phase=pre</code> / <code>--phase=post</code></td>
+              <td>Warns on warm-cache compaction (<code>HOLD_COMPACT</code>), writes <code>HANDOFF_LATEST.md</code>, and flushes <code>TurnZeroGate</code> post-compaction.</td>
+            </tr>
+            <tr>
+              <td><code>SessionStart</code></td>
+              <td><code>handlers/compact-lifecycle.mjs</code></td>
+              <td><code>startup|resume|clear|compact|fork</code> (<code>--phase=start</code>)</td>
+              <td>Re-hydrates active constraints from <code>HANDOFF_LATEST.md</code> and audits eager MCP tool overhead (<code>DET-13</code>).</td>
+            </tr>
+            <tr>
+              <td><code>Stop</code></td>
+              <td><code>handlers/stop-gate.mjs</code></td>
+              <td>(Turn / task stop)</td>
+              <td>Enforces <code>DET-14</code> premature stop prevention when modified source files have unverified failing tests.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="hook-wire-contract">Exit Code &amp; JSON Wire Contract (<code>hookIo.mjs</code>)</h3>
+      <p>
+        Claude Code Tier-2 handlers strictly follow four wire rules in <code>hooks/handlers/hookIo.mjs</code>:
+      </p>
+      <ol>
+        <li><strong>Silent Pass-Through:</strong> Exit <code>0</code> with empty <code>stdout</code>.</li>
+        <li><strong>Structured JSON Decision:</strong> Write valid JSON (such as <code>{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"..."}}</code> or <code>updatedInput</code>) to <code>stdout</code> and exit <code>0</code>.</li>
+        <li><strong>Hard Veto Block:</strong> Write a concise single-block explanation to <code>stderr</code> and exit <code>2</code> with strictly empty <code>stdout</code>. Never registered on <code>WorktreeCreate</code> or <code>PermissionRequest</code>.</li>
+        <li><strong>Malformed Input Fail-Closed vs. Fail-Safe:</strong> Guard hooks reject malformed non-object stdin JSON with <code>SyntaxError</code> and fail closed (exit <code>2</code>), whereas advisory telemetry hooks pass <code>{ allowMalformed: true }</code> and fail safe (exit <code>0</code>).</li>
+      </ol>
+
+      <h2 id="runtime-control-fsm">5-State Runtime Control FSM (<code>.ctl</code>)</h2>
+      <p>
+        Implemented in <code>src/core-isomorphic/control/controlStateMachine.mjs</code>, the Runtime Control plane lets you pause, single-step, rewind, or abort an active coding trajectory from any terminal or IDE button via <code>~/.ctxtop/runtime/&lt;sessionId&gt;.ctl</code>:
+      </p>
+
+      <figure class="diagram-frame" aria-label="5-state runtime execution control state machine">
+        <svg viewBox="0 0 820 195" role="img" aria-labelledby="fsm-title">
+          <title id="fsm-title">5-State Runtime Control Finite State Machine</title>
+
+          <rect x="24" y="68" width="126" height="54" rx="10" fill="var(--status-safe-bg)" stroke="var(--status-safe)" stroke-width="1.6" />
+          <text x="87" y="99" text-anchor="middle" font-family="var(--font-mono)" font-size="12.5" font-weight="700" fill="var(--status-safe)">RUNNING</text>
+
+          <path d="M 150 84 L 228 84" stroke="var(--ink-secondary)" stroke-width="1.6" />
+          <text x="189" y="76" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--ink-secondary)">pause</text>
+          <path d="M 228 108 L 150 108" stroke="var(--ink-secondary)" stroke-width="1.6" />
+          <text x="189" y="124" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--ink-secondary)">resume</text>
+
+          <rect x="228" y="68" width="126" height="54" rx="10" fill="var(--status-warn-bg)" stroke="var(--status-warn)" stroke-width="1.6" />
+          <text x="291" y="99" text-anchor="middle" font-family="var(--font-mono)" font-size="12.5" font-weight="700" fill="var(--status-warn)">PAUSED</text>
+
+          <path d="M 354 84 L 444 84" stroke="var(--ink-secondary)" stroke-width="1.6" />
+          <text x="399" y="76" text-anchor="middle" font-family="var(--font-mono)" font-size="10" fill="var(--ink-secondary)">step (1)</text>
+          <path d="M 444 108 L 354 108" stroke="var(--ink-secondary)" stroke-width="1.6" stroke-dasharray="4 3" />
+          <text x="399" y="124" text-anchor="middle" font-family="var(--font-mono)" font-size="9.5" fill="var(--ink-secondary)">consume_step</text>
+
+          <rect x="444" y="68" width="120" height="54" rx="10" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.6" />
+          <text x="504" y="99" text-anchor="middle" font-family="var(--font-mono)" font-size="12.5" font-weight="700" fill="var(--accent)">STEP</text>
+
+          <rect x="640" y="24" width="150" height="50" rx="10" fill="var(--surface)" stroke="var(--border-strong)" stroke-width="1.5" />
+          <text x="715" y="54" text-anchor="middle" font-family="var(--font-mono)" font-size="12" font-weight="700" fill="var(--ink)">REWIND</text>
+
+          <rect x="640" y="116" width="150" height="50" rx="10" fill="var(--status-danger-bg)" stroke="var(--status-danger)" stroke-width="1.6" />
+          <text x="715" y="143" text-anchor="middle" font-family="var(--font-mono)" font-size="12" font-weight="700" fill="var(--status-danger)">ABORTED</text>
+          <text x="715" y="157" text-anchor="middle" font-family="var(--font-sans)" font-size="9.5" fill="var(--ink-secondary)">Terminal &amp; Irreversible</text>
+
+          <path d="M 564 82 L 640 49" stroke="var(--border-strong)" stroke-width="1.5" />
+          <path d="M 564 108 L 640 141" stroke="var(--status-danger)" stroke-width="1.5" />
+        </svg>
+        <figcaption class="diagram-caption">
+          When <code>PAUSED</code>, <code>PreToolUse</code> enters a non-spinning <code>50ms</code> poll loop (up to <code>600,000ms</code>) until you issue <code>resume</code>, <code>step</code>, or <code>abort</code>. Once <code>ABORTED</code>, no further state transitions are permitted.
+        </figcaption>
+      </figure>
+
+      <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>
+      <footer class="doc-footer" id="doc-footer"></footer>
+    </main>
+
+    <aside class="toc-rail" id="site-toc" aria-label="On this page"></aside>
+  </div>
+
+  <script src="assets/search-index.js"></script>
+  <script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 /**
  * @file test/ux_redesign_claude_surfaces.test.mjs
- * Verification suite for the Claude Code Attention Horizon UX Redesign & "Tokens Saved" Elevation:
+ * Verification suite for the Claude Code Highbeam UX Redesign & "Tokens Saved" Elevation:
  *   1. 5-Category Claude Code Savings Ledger (`SAVINGS_BUCKETS`, `recordInterventionSavings`, session vs 30d totals)
  *   2. Producer wiring across `PreModelSwitch` (`DET-08`), `PreToolUse` (`DET-09`/`DET-11`), and `Task`/`Agent` subagents
  *   3. 4-Rank Simple View (`renderSimpleHudPane` / `pane.ranks`) & 5-Section Advanced View (`renderAdvancedViewPane`) <= 80 cols

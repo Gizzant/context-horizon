@@ -150,7 +150,7 @@ test('HandoffHydrator: generates standardized cross-tool portable handoff markdo
     });
 
     // Check standardized cross-edition 6-section State Baton headers (ISS-054)
-    assert.ok(bundle.markdown.includes('# Attention Horizon State Baton Handoff'));
+    assert.ok(bundle.markdown.includes('# Highbeam State Baton Handoff'));
     assert.ok(bundle.markdown.includes('## 1. Active Goal'));
     assert.ok(bundle.markdown.includes('## 2. Working Set Files'));
     assert.ok(bundle.markdown.includes('## 3. Verified Invariants'));

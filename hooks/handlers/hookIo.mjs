@@ -199,7 +199,7 @@ export function exitDiagnosticZero(reason, hookEventName = 'Hook', ioOverride = 
     ((s) => globalThis.process?.stderr?.write?.(s));
   const exitFn = ioOverride.exitFn || globalThis.process?.exit;
   const msg = String(reason || 'Unexpected hook diagnostic').trim();
-  writeStderr(`[Attention Horizon ${hookEventName} Diagnostic] ${msg}\n`);
+  writeStderr(`[Highbeam ${hookEventName} Diagnostic] ${msg}\n`);
   exitFn?.(0);
 }
 
@@ -222,7 +222,7 @@ export function exitHardBlockStderr(reason, hookEventName = 'PreToolUse', ioOver
     exitPassThrough(exitFn);
     return;
   }
-  const msg = String(reason || 'Blocked by Attention Horizon circuit breaker').trim();
+  const msg = String(reason || 'Blocked by Highbeam circuit breaker').trim();
   writeStderr(`${msg}\n`);
   exitFn?.(2);
 }

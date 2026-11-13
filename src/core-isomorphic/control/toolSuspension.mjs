@@ -190,7 +190,7 @@ export async function wrapSafeToolBoundary(fn) {
     return toProtoSafePreHookOutput(res);
   } catch (err) {
     return toProtoSafePreHookOutput(null, {
-      fallbackReason: `[Attention Horizon Fail-Closed] ${err.message}`
+      fallbackReason: `[Highbeam Fail-Closed] ${err.message}`
     });
   }
 }

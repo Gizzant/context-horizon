@@ -1,7 +1,7 @@
 /**
  * @file src/guards/circuitBreakers.mjs
  * Normalized 20-Detector Circuit Breaker Engine (`DET-01` through `DET-20`)
- * for Claude Code Attention Horizon.
+ * for Claude Code Highbeam.
  *
  * Enforces:
  * - Option-argument skipping in `DET-01` (`git commit -m "-next"` never false-positives as `-n`)

@@ -1,6 +1,6 @@
 /**
  * @file test/e2e_tier3_pairwise.test.mjs
- * Attention Horizon v4.0 (`ctxtop`) — Tier 3 Cross-Feature Pairwise Test Suite
+ * Highbeam v4.0 (`ctxtop`) — Tier 3 Cross-Feature Pairwise Test Suite
  *
  * Verifies all 41 cross-feature pairwise interactions (3.1 through 3.41)
  * mapped in TEST_INFRA.md § 4.3 and the three Spec Miner handoff reports:
@@ -749,7 +749,7 @@ describe('Tier 3: Pairwise Interactions (Features 15 - 28)', () => {
   it('3.16 Pairwise: Lossless PostToolUse offloader preserves >=95% prefix-cache retention by preventing transcript bloat', () => {
     const ws = createTempWorkspace({ prefix: 'ctxtop-offload-p16-' });
     try {
-      const systemPrompt = 'System Prompt: Attention Horizon v4.0 assistant with strict invariants.\n'.repeat(60);
+      const systemPrompt = 'System Prompt: Highbeam v4.0 assistant with strict invariants.\n'.repeat(60);
       const largeOutput = 'PASS test/unit_1.test.mjs\n' + 'Log line chunk data details.\n'.repeat(900);
 
       const resOffload = sanitizePostToolOutput({

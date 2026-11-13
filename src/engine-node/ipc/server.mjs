@@ -1,6 +1,6 @@
 /**
  * @file src/engine-node/ipc/server.mjs
- * Attention Horizon Micro-IPC Server.
+ * Highbeam Micro-IPC Server.
  *
  * Implements high-throughput, low-latency (<0.8ms SLA) local JSON-RPC 2.0 server
  * over Win32 Named Pipes and POSIX Unix Domain Sockets with non-spinning tool-boundary suspension.

@@ -543,7 +543,7 @@ console.log(`  âœ“ 3-Way SHA-256 mirror parity verified (${mirrorCheck.sha25
 // ---------------------------------------------------------------------------
 console.log('[7/7] Validating Pre-Launch Bugfixes 1â€“9 Deterministic Assertions...');
 
-// --- Fix #1: Unify activeEffortProfile.safeLimit with 70% Attention Horizon & Idempotent Scaling ---
+// --- Fix #1: Unify activeEffortProfile.safeLimit with 70% Highbeam & Idempotent Scaling ---
 const standardScaled = scaleEffortProfileForCeiling(EFFORT_PROFILES.STANDARD, 256000);
 assert.equal(standardScaled.safeLimit, 179000, 'Standard 256k effort profile safeLimit must be 179k (70%)');
 const doubleScaled = scaleEffortProfileForCeiling(standardScaled, 256000);

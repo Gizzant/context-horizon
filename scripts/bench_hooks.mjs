@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @file scripts/bench_hooks.mjs
- * Reproducible Two-Tier Hook Latency Benchmark for Attention Horizon (`ISS-030`).
+ * Reproducible Two-Tier Hook Latency Benchmark for Highbeam (`ISS-030`).
  *
  * Separately measures:
  *   1. Tier-1 In-Process V8 Mod evaluation (`hooks/register.js` `tool.call` + `ui.render`, target `< 0.1ms`)
@@ -162,7 +162,7 @@ const isDirectCli =
 
 if (isDirectCli) {
   const report = await runHookLatencyBenchmark();
-  console.log('# Attention Horizon Two-Tier Hook Latency Benchmark');
+  console.log('# Highbeam Two-Tier Hook Latency Benchmark');
   console.log(`Platform: ${report.platform} | Node: ${report.nodeVersion}\n`);
   console.log('| Execution Tier | Path | Samples | p50 (ms) | p95 (ms) | Mean (ms) | Reference Envelope |');
   console.log('| :--- | :--- | ---: | ---: | ---: | ---: | :--- |');

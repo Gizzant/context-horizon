@@ -15,4 +15,4 @@ When this command is invoked, inspect the execution spans, tool calls, and swarm
    <agent-embed src="file:///<artifactDirectoryPath>/inspect_call_tree.json"></agent-embed>
    ```
 3. Offer the live side pane pill:
-   [Open Attention Horizon](sidecar://agy-horizon-flightcheck/horizon-daemon/)
+   [Open Highbeam](sidecar://agy-horizon-flightcheck/horizon-daemon/)

@@ -759,7 +759,7 @@ export class RsiInstinctEngine {
     const yamlFrontmatter = [
       '---',
       `name: ${skillSlug}`,
-      `description: Evolved Atomic Instincts for the ${domain} domain (${instincts.length} verified rules synthesized by Attention Horizon RSI Engine).`,
+      `description: Evolved Atomic Instincts for the ${domain} domain (${instincts.length} verified rules synthesized by Highbeam RSI Engine).`,
       '---'
     ].join('\n');
 
@@ -1138,7 +1138,7 @@ export function auditPrefixDietAndRouteSkillFault(input = {}, options = {}) {
     const deltaBullet = `- ${String(input.userCorrectionText).trim()}`;
     proposedSkillContent = existing
       ? `${existing.trimEnd()}\n${deltaBullet}\n`
-      : `---\nname: ${skillSlug}\ndescription: Domain skill directives maintained by Attention Horizon.\n---\n\n# ${skillSlug}\n\n## Directives\n${deltaBullet}\n`;
+      : `---\nname: ${skillSlug}\ndescription: Domain skill directives maintained by Highbeam.\n---\n\n# ${skillSlug}\n\n## Directives\n${deltaBullet}\n`;
     unifiedDiff = `--- a/${rsi01.routedDeltaTarget}\n+++ b/${rsi01.routedDeltaTarget}\n@@\n+${deltaBullet}`;
   } else if (rsi01.canSynthesizeNewSkillDraft) {
     const cleanSlug = domain.toLowerCase().replace(/[^a-z0-9-]+/g, () => '-');

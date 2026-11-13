@@ -547,7 +547,7 @@ test('6. StateBaton Hydration (PreCompact -> HANDOFF_<ts>.md -> SessionStart[com
   assert.ok(fs.existsSync(preRes.result.batonFilePath));
   assert.ok(fs.existsSync(preRes.result.handoffMarkdownPath));
   const handoffMd = fs.readFileSync(preRes.result.handoffMarkdownPath, 'utf-8');
-  assert.ok(handoffMd.includes('# Attention Horizon State Baton Handoff'));
+  assert.ok(handoffMd.includes('# Highbeam State Baton Handoff'));
   assert.ok(handoffMd.includes('src/guards/circuitBreakers.mjs'));
 
   // Step 2: SessionStart[compact] hydrates ~300-token StateBaton via additionalContext

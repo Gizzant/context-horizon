@@ -2,7 +2,7 @@
 
 ## 1. Objective
 
-Evaluate the empirical cost, cache-hit preservation, and error-recovery fidelity of **Attention Horizon (`attention-horizon-claude`)** compared against:
+Evaluate the empirical cost, cache-hit preservation, and error-recovery fidelity of **Highbeam (`attention-horizon-claude`)** compared against:
 1. **Uninstrumented Baseline**: Native Claude Code CLI without cache-gravity routing or `PostToolUse` sanitization.
 2. **Passive Token Counters**: Status-bar token displays that sum raw JSONL `usage.input_tokens` without modeling Anthropic's 5-minute KV-cache TTL or cross-model cache isolation.
 3. **Lossy Shell Wrapper Rewriters**: External `PreToolUse` command wrappers that rewrite `Bash`/`PowerShell` commands into truncated pipelines (`| head -n 50`, strip flags), risking dropped compiler errors and broken exit codes.

@@ -1,8 +1,8 @@
 ---
-description: Toggle or inspect the Attention Horizon KV-Cache & Context Governor flight computer
+description: Toggle or inspect the Highbeam KV-Cache & Context Governor flight computer
 ---
 
-Display the live Attention Horizon Simple View (4-Rank HUD) or Advanced View (5-Section Workbench) and verified Tokens & USD Saved receipt.
+Display the live Highbeam Simple View (4-Rank HUD) or Advanced View (5-Section Workbench) and verified Tokens & USD Saved receipt.
 
 ## Execution Steps
 

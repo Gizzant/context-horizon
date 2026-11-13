@@ -371,7 +371,7 @@ export async function runPostmortem(options = {}) {
   const outDir = path.join(getFlightcheckDir(), 'postmortems', timestampStr);
 
   const reportMarkdown = [
-    '# Attention Horizon Session Postmortem Report',
+    '# Highbeam Session Postmortem Report',
     '',
     `**Generated**: ${new Date().toISOString()}  `,
     `**Sessions Audited**: ${isSynthetic ? '14 (Demo)' : sessionCount}  `,
@@ -461,7 +461,7 @@ export async function runPostmortem(options = {}) {
 }
 
 export function printPostmortemSummary(res) {
-  console.log(`\n\x1b[1mAttention Horizon Forensic Postmortem (${res.sessionCount} sessions${res.isSynthetic ? ' [Demo]' : ''})\x1b[0m`);
+  console.log(`\n\x1b[1mHighbeam Forensic Postmortem (${res.sessionCount} sessions${res.isSynthetic ? ' [Demo]' : ''})\x1b[0m`);
   console.log('='.repeat(76));
   console.log(`  Tokens Inspected : ${res.estTokensM}   | Avg Purity : ${res.avgPurityPct}% (Worst: ${res.worstPurityPct}%)`);
   console.log(`  Duplicate Reads  : ${res.totalDuplicateReads} reads  | Dead Errors: ${res.totalDeadErrors} traces | Est. Waste: ${res.sludgeUsdFormatted}`);

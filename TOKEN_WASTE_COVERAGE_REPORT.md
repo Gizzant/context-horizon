@@ -1,7 +1,7 @@
 # Cross-Repo Token-Waste Coverage Audit & Ranked Capability Report (Habits #1–#20)
 
 **Evaluated Repositories**:
-- **Google Antigravity Extension (`GA_REPO`)**: `C:/Projects/ga-visualizer-v2` (`ctxtop` / Attention Horizon for Google Antigravity & VS Code)
+- **Google Antigravity Extension (`GA_REPO`)**: `C:/Projects/ga-visualizer-v2` (`ctxtop` / Highbeam for Google Antigravity & VS Code)
 - **Claude Code Extension (`CC_REPO`)**: `C:/Projects/cc-attention-horizon` (`@attention-horizon/claude-code` Mod & CLI Hook/Statusline Suite)
 - **Audit Scope**: Strictly Read-Only, Evidence-Grounded Source Verification across **20 Benchmark Token-Wasting Developer Habits** (**Part I: Habits #1–#10** & **Part II: Habits #11–#20**).
 
@@ -344,8 +344,8 @@ A typical `package-lock.json` or `pnpm-lock.yaml` file is `8,000–25,000` lines
 
 #### How the Extensions Help the Developer
 Because KV caching requires a byte-for-byte identical prefix starting from Token 0, deleting messages from the middle of `messages[]` or running a naive sliding window that drops Turn 1 on every new turn destroys the entire KV cache (`100%` cache miss on every turn) and silently amputates early architectural rules.
-- **Cryptographically Verified Post-Prefix Pruning (`trimUncachedTail`)**: Unlike naive sliding-window pruners that mutate middle history, Attention Horizon's `trimUncachedTail` calculates `safeBoundaryIndex` from `cachedTurnBoundary` and **refuses to modify a single byte at or before `safeBoundaryIndex`**. It prunes redundant tool outputs strictly in the **uncached tail** and verifies `headPrefixShaBefore === headPrefixShaAfter` via SHA-256 (`prefixByteIdentical: true`).
-- **Context Truncation Risk (`amputationCrisis`) Early Warning**: Before the host IDE's server-side sliding window truncates the oldest cells (`Cells 0..7`, where `AGENTS.md`, `task.md`, and Turn 1 specs live), `rankRiskiestCells` (`isAmputationZone`) fires an `[Attention Horizon Alert]` (`amputationCrisis`) so the developer can checkpoint state via `StateBaton` (`~300` tokens) and execute a clean `/compact` or `/handoff` at a cold boundary.
+- **Cryptographically Verified Post-Prefix Pruning (`trimUncachedTail`)**: Unlike naive sliding-window pruners that mutate middle history, Highbeam's `trimUncachedTail` calculates `safeBoundaryIndex` from `cachedTurnBoundary` and **refuses to modify a single byte at or before `safeBoundaryIndex`**. It prunes redundant tool outputs strictly in the **uncached tail** and verifies `headPrefixShaBefore === headPrefixShaAfter` via SHA-256 (`prefixByteIdentical: true`).
+- **Context Truncation Risk (`amputationCrisis`) Early Warning**: Before the host IDE's server-side sliding window truncates the oldest cells (`Cells 0..7`, where `AGENTS.md`, `task.md`, and Turn 1 specs live), `rankRiskiestCells` (`isAmputationZone`) fires an `[Highbeam Alert]` (`amputationCrisis`) so the developer can checkpoint state via `StateBaton` (`~300` tokens) and execute a clean `/compact` or `/handoff` at a cold boundary.
 - **Real-Time `prefix_drift` Bust Attribution (`sprintMetrics.mjs`)**: Tracks `eligible` vs. `retained` cache tokens on every API request; if a harness or custom agent mutates mid-history messages and causes `retained / eligible < 0.5`, `applyPrefixRetentionRequest` flags `bust: true` with `cause: 'prefix_drift'` and calculates exact `leakedPrefixTokens` and `leakedColdPrefillUSD`.
 
 #### Google Antigravity (`GA_REPO`) Implementation
@@ -366,7 +366,7 @@ Because KV caching requires a byte-for-byte identical prefix starting from Token
 A naive sliding window that drops 1 old message per turn on a `100,000`-token context window forces a `100%` KV cache miss on **every single turn**—paying `100,000` cold tokens/turn instead of `10,000` warm-read equivalents/turn (`90,000` wasted token equivalents per turn, or **`1,800,000` wasted tokens over 20 turns**). Keeping the prefix byte-identical until a scheduled cold compaction preserves the `90%` cache discount across the entire epoch.
 
 #### Residual Blind Spots & Upgrade Path
-- **Blind Spot**: While `trimUncachedTail` guarantees Attention Horizon never performs mid-history pruning and `applyPrefixRetentionRequest` detects `prefix_drift` busts immediately, if a developer is using an external MCP memory plugin or custom proxy that deletes middle messages, `sprintMetrics.mjs` reports `cause: 'prefix_drift'` without pinpointing *which* message index mutated.
+- **Blind Spot**: While `trimUncachedTail` guarantees Highbeam never performs mid-history pruning and `applyPrefixRetentionRequest` detects `prefix_drift` busts immediately, if a developer is using an external MCP memory plugin or custom proxy that deletes middle messages, `sprintMetrics.mjs` reports `cause: 'prefix_drift'` without pinpointing *which* message index mutated.
 - **Upgrade Path to 10/10**: Store a rolling array of per-turn message SHA-256 hashes (`turnHashes[0..k]`) in the session sidecar so when `cause === 'prefix_drift'` triggers, the HUD reports the exact turn index where the prefix diverged (e.g., `"Prefix mutated at Turn #4 (tool_result hash changed)"`).
 
 ---
@@ -589,11 +589,11 @@ On an `80,000`-token thread with `high` effort (`~2,200` thinking/output tokens 
 ## Part III — Section 1: Dual-Lens Executive Verdict (AI PM vs. VC Investor)
 
 ### 1. The AI Product Manager Verdict: **9.1 / 10 Product-Execution Score ("Category-Defining Wedge")**
-From a Staff/Principal AI Product Manager perspective, **Attention Horizon (`ctxtop` + `@attention-horizon/claude-code`)** is the first tool in the agentic coding ecosystem that transitions from a **Passive Odometer** (*"You just spent \$14.20 and hit your 5-hour cap"*) to an **Active Autonomous Flight Computer** (*"I just intercepted a 35,000-token `pytest` dump, compressed it to 400 tokens with an FTS5 search pointer, blocked a mid-session `CLAUDE.md` edit that would have busted your 110k warm prefix cache, and staged a 300-token StateBaton 10 seconds before your 5-minute cache expired"*).
+From a Staff/Principal AI Product Manager perspective, **Highbeam (`ctxtop` + `@attention-horizon/claude-code`)** is the first tool in the agentic coding ecosystem that transitions from a **Passive Odometer** (*"You just spent \$14.20 and hit your 5-hour cap"*) to an **Active Autonomous Flight Computer** (*"I just intercepted a 35,000-token `pytest` dump, compressed it to 400 tokens with an FTS5 search pointer, blocked a mid-session `CLAUDE.md` edit that would have busted your 110k warm prefix cache, and staged a 300-token StateBaton 10 seconds before your 5-minute cache expired"*).
 
 - **Why the Product Design Works**:
   1. **Closed-Loop Intervention (Not Just Charts)**: Across the 20 benchmark token-wasting habits ([Part I](#part-i-tier-1-benchmark-evaluation-habits-110) & [Part II](#part-ii-tier-2-benchmark-evaluation--workflow-hygiene-file-reading--context-pollution-habits-1120)), **16 of 20 habits** are handled via automated `PreToolUse`/`PostToolUse` interception, CLI shims, or 1-click guided actions (`86.7 / 100` composite score).
-  2. **Respects the Physics of KV Caching**: Most competing "context optimizers" naively prune messages or switch models mid-thread, accidentally **increasing** user spend by invalidating the `90%`-discounted prompt cache. Attention Horizon's $C^*$ break-even router ([cacheGravityRouter.mjs](file:///C:/Projects/cc-attention-horizon/src/coach/cacheGravityRouter.mjs)), `PrefixCacheShield` ([prefix_cache_shield.mjs](file:///C:/Projects/ga-visualizer-v2/src/core/prefix_cache_shield.mjs)), and post-prefix-only `trimUncachedTail` ([compaction_coach.mjs](file:///C:/Projects/ga-visualizer-v2/src/core/compaction_coach.mjs)) are built around actual provider token economics.
+  2. **Respects the Physics of KV Caching**: Most competing "context optimizers" naively prune messages or switch models mid-thread, accidentally **increasing** user spend by invalidating the `90%`-discounted prompt cache. Highbeam's $C^*$ break-even router ([cacheGravityRouter.mjs](file:///C:/Projects/cc-attention-horizon/src/coach/cacheGravityRouter.mjs)), `PrefixCacheShield` ([prefix_cache_shield.mjs](file:///C:/Projects/ga-visualizer-v2/src/core/prefix_cache_shield.mjs)), and post-prefix-only `trimUncachedTail` ([compaction_coach.mjs](file:///C:/Projects/ga-visualizer-v2/src/core/compaction_coach.mjs)) are built around actual provider token economics.
   3. **Zero-Trust Local Architecture**: Strictly read-only SQLite telemetry (`SQLITE_OPEN_READONLY`) with zero external network calls or API-key proxying. Developers on Claude Pro/Max ($20–$200/mo OAuth) or corporate laptops can install it immediately without InfoSec approval or MITM proxy setup.
 - **Top Product Risk (PM Lens)**: **Surface Complexity / Cognitive Load**. Having 32 detectors (`DET-01`..`DET-32`), 40-cell parabolic flamegraphs, 6 blindspot sensors, and multi-agent scope locks is an extraordinary technical achievement, but for a new user installing via `npx`, the #1 "aha moment" must be dead simple: **"Tokens & Dollars Saved This Session (`SavedQuotaLedger`)"**.
 
@@ -604,7 +604,7 @@ From a Tier-1 VC perspective (evaluating seed/Series A potential), here is the c
 
 - **The Bull Case (Why VCs Care)**:
   - **Massive, Acute Pain**: Engineering orgs rolling out Claude Code, Cursor, and Antigravity are experiencing **3x–8x budget overruns** and constant 5-hour/weekly quota lockouts. "Agentic FinOps & Context Governance" is emerging as a mandatory enterprise budget line item in 2026, analogous to Cloud FinOps (Vantage, Kubecost, Datadog) in 2019–2022.
-  - **Unfair Technical Depth**: Unlike weekend wrapper scripts, Attention Horizon solves hard systems problems: cross-harness file-scope locking (`DET-20`), `<12ms` non-destructive `git merge-tree` conflict probing (`DET-31`), IOEDR/REMORY semantic drift re-anchoring (`DET-32`), and lossless FTS5 SQLite CLI offloading (`DET-07`).
+  - **Unfair Technical Depth**: Unlike weekend wrapper scripts, Highbeam solves hard systems problems: cross-harness file-scope locking (`DET-20`), `<12ms` non-destructive `git merge-tree` conflict probing (`DET-31`), IOEDR/REMORY semantic drift re-anchoring (`DET-32`), and lossless FTS5 SQLite CLI offloading (`DET-07`).
 - **The Bear Case / Venture Risks ("Sherlocking" & Willingness-to-Pay)**:
   - **Platform Risk ("Sherlocking")**: Anthropic (Claude Code), Google (Antigravity), and Anysphere (Cursor) control the underlying harnesses. Over the next 12–18 months, foundation-model harnesses will natively absorb basic features like auto-compaction and simple CLI truncation.
   - **Individual Developer Monetization Ceiling**: Individual developers hate paying \$15/month for a utility whose purpose is to save them \$30/month. B2C indie monetization is a trap.
@@ -616,7 +616,7 @@ From a Tier-1 VC perspective (evaluating seed/Series A potential), here is the c
 
 ## Part III — Section 2: Competitive Landscape Benchmark (Rated & Ranked)
 
-Below is a head-to-head evaluation comparing **Attention Horizon (`GA_REPO` + `CC_REPO`)** against the 6 primary categories of competing tools in the 2025–2026 ecosystem across **6 weighted dimensions**:
+Below is a head-to-head evaluation comparing **Highbeam (`GA_REPO` + `CC_REPO`)** against the 6 primary categories of competing tools in the 2025–2026 ecosystem across **6 weighted dimensions**:
 1. **Passive Telemetry & Cost Attribution** (`0–10`)
 2. **Active Context Compression & CLI/RAG Offloading** (`0–10`)
 3. **KV-Cache Physics & Effort/Model Routing** (`0–10`)
@@ -628,7 +628,7 @@ Below is a head-to-head evaluation comparing **Attention Horizon (`GA_REPO` + `C
 
 | Rank | Product / Tool Category | Overall Score (`/60`) | 1. Telemetry & Cost (`/10`) | 2. CLI/RAG Compression (`/10`) | 3. KV-Cache & Routing (`/10`) | 4. Code & Loop Guards (`/10`) | 5. Swarm & Locks (`/10`) | 6. Local / Cross-Host (`/10`) | Est. Real-World Token / Cost Savings |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1st** | **Attention Horizon (`ctxtop` + `ah-claude`)** | **54.5 / 60** (`9.1/10`) | **9.5** | **9.5** | **9.5** | **9.5** | **8.5** | **8.0** | **`45%–75%` net session cost & quota reduction** |
+| **1st** | **Highbeam (`ctxtop` + `ah-claude`)** | **54.5 / 60** (`9.1/10`) | **9.5** | **9.5** | **9.5** | **9.5** | **8.5** | **8.0** | **`45%–75%` net session cost & quota reduction** |
 | **2nd** | **Point CLI & MCP Reducers (`rtk` + `mcp-compressor` + `ToolHive`)** | **31.0 / 60** (`5.2/10`) | `2.0` | **9.0** | `3.0` | `2.0` | `6.0` | **9.0** | `25%–50%` (CLI/MCP prefill only; no cache or loop guards) |
 | **3rd** | **Cloud AI Gateways (`Helicone` / `Portkey` / `LiteLLM`)** | **29.5 / 60** (`4.9/10`) | **9.5** | `4.0` | `7.5` | `3.0` | `2.5` | `3.0` | `15%–30%` (Requires API proxy; blind to local git/IDE state) |
 | **4th** | **LSP / Graph Context Indexers (`Serena` / `Repowise` / `Repomix`)** | **28.0 / 60** (`4.7/10`) | `1.0` | `7.0` | `2.0` | `4.0` | `5.0` | **9.0** | `20%–40%` on code reads (Adds MCP overhead; no CLI/cache guards) |
@@ -642,19 +642,19 @@ Below is a head-to-head evaluation comparing **Attention Horizon (`GA_REPO` + `C
 
 #### 1. vs. `ccusage` (`ryoppippi/ccusage`) & `Claude-Code-Usage-Monitor`
 - **What `ccusage` Does Better Today**: Instant viral CLI ergonomics (`npx ccusage@latest daily`, `blocks --live`), dead-simple historical rollup tables across Codex/OpenCode/Claude, and zero-config mental model.
-- **Where Attention Horizon Wins Decisively**: `ccusage` is a **post-mortem receipt printer**—it tells you that your last session burned `400,000` tokens, but does nothing to stop it. Attention Horizon **actively prevents the burn** before and during execution (`DET-07` FTS5 CLI compression, `DET-08`/`DET-09` warm cache shield, `DET-04`/`DET-05` loop & diff-thrashing circuit breakers, `DET-10` 5-minute TTL state baton).
+- **Where Highbeam Wins Decisively**: `ccusage` is a **post-mortem receipt printer**—it tells you that your last session burned `400,000` tokens, but does nothing to stop it. Highbeam **actively prevents the burn** before and during execution (`DET-07` FTS5 CLI compression, `DET-08`/`DET-09` warm cache shield, `DET-04`/`DET-05` loop & diff-thrashing circuit breakers, `DET-10` 5-minute TTL state baton).
 - **Strategic Takeaway**: Adopt `ccusage`'s effortless `npx ctxtop daily / blocks / saved` summary table as your top-level CLI entry point so users come for the visibility and stay for the automated circuit breakers.
 
 #### 2. vs. `rtk` (Rust Token Killer) & `mcp-compressor` (Atlassian Labs)
 - **What Point Reducers Do Well**: `rtk` is a fast single-purpose shell wrapper for noisy CLI commands (#3), and `mcp-compressor` is a drop-in proxy that shrinks MCP tool descriptions by `70%–97%` (#2).
-- **Where Attention Horizon Wins Decisively**:
+- **Where Highbeam Wins Decisively**:
   - `rtk` drops middle lines without indexing them into a local BM25 SQLite FTS5 store with automatic critical-error recovery ([`recoverOmittedCriticalErrorLines`](file:///C:/Projects/ga-visualizer-v2/src/shims/agy_cli_compressor.mjs#L229-L246)).
   - Point tools solve **1 out of 20** habits in isolation and cannot coordinate between CLI compression, warm KV-cache TTL countdowns, `PreCompact` state baton hydration, and pre-write code integrity (`DET-05`).
-- **Strategic Takeaway**: Incorporate an optional `mcp-compressor`-style schema minifier into `DET-13` (Priority #1 in Part I), giving Attention Horizon 100% feature superset coverage over both `rtk` and `mcp-compressor`.
+- **Strategic Takeaway**: Incorporate an optional `mcp-compressor`-style schema minifier into `DET-13` (Priority #1 in Part I), giving Highbeam 100% feature superset coverage over both `rtk` and `mcp-compressor`.
 
 #### 3. vs. `Caveman` & Static Prompt Compressors (`context-compress`)
 - **The Hidden Danger of `Caveman`**: `Caveman` instructs the LLM via system prompt to respond in ultra-terse shorthand (`-65%` output tokens). In real-world software engineering, pressuring an LLM to be maximally terse on code edits directly triggers **Anti-Pattern #20 (`// ... rest of code ...` destructive code stripping)** and **Anti-Pattern #10 (deleted assertions / swallowed errors)**.
-- **Where Attention Horizon Wins Decisively**: Attention Horizon achieves output token reduction safely via **Two-Lane `/effort low` routing ([effort_advisor.mjs](file:///C:/Projects/ga-visualizer-v2/src/core/coach/effort_advisor.mjs))** while guarding code completeness with [`evaluateDet05PreWriteIntegrity`](file:///C:/Projects/ga-visualizer-v2/src/core/shared/detectors.mjs#L118-L219) and [`evaluateDet05DiffThrashing`](file:///C:/Projects/cc-attention-horizon/src/guards/circuitBreakers.mjs#L1142-L1261).
+- **Where Highbeam Wins Decisively**: Highbeam achieves output token reduction safely via **Two-Lane `/effort low` routing ([effort_advisor.mjs](file:///C:/Projects/ga-visualizer-v2/src/core/coach/effort_advisor.mjs))** while guarding code completeness with [`evaluateDet05PreWriteIntegrity`](file:///C:/Projects/ga-visualizer-v2/src/core/shared/detectors.mjs#L118-L219) and [`evaluateDet05DiffThrashing`](file:///C:/Projects/cc-attention-horizon/src/guards/circuitBreakers.mjs#L1142-L1261).
 
 ---
 
@@ -674,7 +674,7 @@ If your primary goal is to establish yourself as a **recognized Staff/Principal-
 2. **Ship the "60-Second Viral Wedge" (`npx ctxtop audit`)**:
    - Create a zero-install, read-only post-mortem command (`npx ctxtop audit` / `npx ah-claude audit`) that scans a developer's existing `~/.claude/projects/` and `~/.gemini/antigravity/` logs over the last 30 days and outputs a shareable terminal card:
      ```text
-     ╭─ Attention Horizon 30-Day Forensics ────────────────────────────────────╮
+     ╭─ Highbeam 30-Day Forensics ────────────────────────────────────╮
      │ Total Tokens Analyzed : 48.2M tok ($214.80 est. API value)              │
      │ Preventable Waste     : 19.4M tok ($86.40 / 40.2% wasted!)              │
      │  ├─ #3 Unfiltered CLI Dumps (DET-07) : 8.1M tok ($34.10)                │
@@ -686,7 +686,7 @@ If your primary goal is to establish yourself as a **recognized Staff/Principal-
      ```
    - **Why this works**: Every developer who runs `npx ctxtop audit` will screenshot their waste card and post it on X/Reddit, driving organic GitHub stars with zero marketing spend.
 3. **Unify the Brand Around `@attention-horizon/core`**:
-   - Right now you have `ga-visualizer-v2` (`ctxtop`) and `cc-attention-horizon` (`ah-claude`). Present them publicly as one unified multi-harness project (**Attention Horizon (`ctxtop`): `htop` + Circuit Breakers for AI Coding Agents — Supporting Claude Code, Google Antigravity, and Cursor**) powered by a shared `@attention-horizon/core-isomorphic` engine.
+   - Right now you have `ga-visualizer-v2` (`ctxtop`) and `cc-attention-horizon` (`ah-claude`). Present them publicly as one unified multi-harness project (**Highbeam (`ctxtop`): `htop` + Circuit Breakers for AI Coding Agents — Supporting Claude Code, Google Antigravity, and Cursor**) powered by a shared `@attention-horizon/core-isomorphic` engine.
 
 ---
 
@@ -697,18 +697,18 @@ Do **not** paywall the single-player CLI detectors (`DET-01`..`DET-32`) for indi
 #### Tier 1: Free & Open-Source Forever (Bottom-Up Adoption Engine)
 - Full local `ctxtop` & `ah-claude` CLI, Webview HUD, ANSI statusline, all 32 local detectors (`DET-01`..`DET-32`), FTS5 CLI compressor, `StateBaton` hydrator, and local SQLite ledger.
 
-#### Tier 2: "Attention Horizon Team / Pro" (\$29–\$49 / developer / month — B2B SaaS or Self-Hosted Docker)
+#### Tier 2: "Highbeam Team / Pro" (\$29–\$49 / developer / month — B2B SaaS or Self-Hosted Docker)
 Targeted at startups and engineering teams (10–250 seats) using Claude Code / Cursor / Antigravity:
 1. **Shared Cross-Developer Repo Calibration & Read Digest Registry**:
    - Syncs `.claude/horizon-state/repo_calibration.json`, `.agents/locks/active_scopes.json` (`DET-20`), and verified `SKILL.md` evolutions (`/evolve` `RSI-01`) across the entire engineering team—so when Engineer A's agent discovers a chronic token sink or locks a worktree scope, Engineer B's agent benefits immediately.
 2. **Team-Wide Policy & Security Guardrails (`DET-01`, `DET-02`, `DET-18`, `DET-19`)**:
    - Central `horizon.policy.json` enforced via CI and pre-commit/session hooks: blocks secret leakage (`DET-02`), blocks `--no-verify` git hook bypasses (`DET-01`), blocks untrusted `.claude/settings.json` RCE vectors (`DET-18`), and enforces a mandatory `<8,000`-token `CLAUDE.md` / `<15,000`-token `.mcp.json` budget across PRs.
 3. **Engineering Manager FinOps & ROI Dashboard**:
-   - Aggregates anonymized `SavedQuotaLedger` metrics across all developers: shows the VP of Engineering *"Attention Horizon saved your 40 engineers \$4,820 in API overages and prevented 64 five-hour quota lockouts this month."* (When a tool proves it saves `3x–5x` its seat price on the invoice page, renewal is automatic.)
+   - Aggregates anonymized `SavedQuotaLedger` metrics across all developers: shows the VP of Engineering *"Highbeam saved your 40 engineers \$4,820 in API overages and prevented 64 five-hour quota lockouts this month."* (When a tool proves it saves `3x–5x` its seat price on the invoice page, renewal is automatic.)
 
 #### Tier 3: High-Margin Enterprise AI Transformation Advisory (\$15k–\$50k Sprints)
 - Use the open-source `npx ctxtop audit` diagnostic as a **lead-generation wedge** for enterprise consulting/architecture engagements:
-  - Run a 1-week **"Agentic Token & Velocity Audit"** for mid-market/enterprise engineering teams, using Attention Horizon's forensics (`session_forensics.mjs`, `mcp_auditor.mjs`, `RSI-01`) to restructure their `CLAUDE.md`/`AGENTS.md`, prune their MCP servers, set up `StateBaton` workflows, and deploy custom `DET-XX` guardrails.
+  - Run a 1-week **"Agentic Token & Velocity Audit"** for mid-market/enterprise engineering teams, using Highbeam's forensics (`session_forensics.mjs`, `mcp_auditor.mjs`, `RSI-01`) to restructure their `CLAUDE.md`/`AGENTS.md`, prune their MCP servers, set up `StateBaton` workflows, and deploy custom `DET-XX` guardrails.
 
 ---
 
@@ -729,7 +729,7 @@ To anchor projections in verifiable 2025–2026 data rather than guesswork, look
 - **`Maciek-roboblog/Claude-Code-Usage-Monitor`** (Passive terminal burn-rate monitor): **~8,800+ GitHub stars**.
 
 > [!IMPORTANT]
-> **The Market Gap**: Those three repositories alone have accumulated **>40,000 GitHub stars** simply by showing developers how fast their tokens are burning. **Attention Horizon (`ctxtop` + `ah-claude`) is the first tool that actually stops the burn (`45%–75%` savings)** while also supporting multi-harness workflows (Claude Code + Google Antigravity + Cursor).
+> **The Market Gap**: Those three repositories alone have accumulated **>40,000 GitHub stars** simply by showing developers how fast their tokens are burning. **Highbeam (`ctxtop` + `ah-claude`) is the first tool that actually stops the burn (`45%–75%` savings)** while also supporting multi-harness workflows (Claude Code + Google Antigravity + Cursor).
 
 ---
 
@@ -757,7 +757,7 @@ Below are three calibrated scenarios based on open-source DevTools launch dynami
 
 ---
 
-### 3. Open-Core B2B Revenue Forecast ("Attention Horizon Team / Enterprise" @ \$29–\$49/seat/mo)
+### 3. Open-Core B2B Revenue Forecast ("Highbeam Team / Enterprise" @ \$29–\$49/seat/mo)
 
 #### Pricing & Funnel Assumptions (Industry-Standard Open-Core DevTools Benchmarks)
 - **Blended Seat Price**: **\$39 / seat / month** (\$29/mo for Team Self-Serve 5–25 seats; \$49/mo for Enterprise with SSO, CISO policy gates `DET-01`/`DET-02`/`DET-18`, and VP FinOps ROI dashboard).
@@ -794,9 +794,9 @@ Below are three calibrated scenarios based on open-source DevTools launch dynami
 ### 4. What Must Be True to Hit the Base/Breakout Numbers (The 3 B2B Conversion Triggers)
 An Engineering Manager or VP of Engineering will **only** swipe a corporate credit card for \$39/seat/month if the free CLI triggers a clear "Team Upgrade Moment":
 1. **The Invoice Proof Footer (`SavedQuotaLedger`)**: Every Friday (or on `npx ctxtop report --team`), print:
-   > *"This week, Attention Horizon saved you **\$142.80** in prevented cold-cache busts and CLI output floods (`3.6x` the cost of a Pro Team seat). Export this receipt for your Engineering Manager."*
+   > *"This week, Highbeam saved you **\$142.80** in prevented cold-cache busts and CLI output floods (`3.6x` the cost of a Pro Team seat). Export this receipt for your Engineering Manager."*
 2. **The Multi-Developer Collision Trigger (`DET-20`)**: When two developers on the same git repo run agents that touch overlapping files or bloated `.mcp.json` configs, print:
-   > *"Detected 4 team contributors on this repo. Enable Attention Horizon Team Sync to share `.claude/horizon-state/repo_calibration.json`, cross-developer worktree scope locks, and `/evolve` skills."*
+   > *"Detected 4 team contributors on this repo. Enable Highbeam Team Sync to share `.claude/horizon-state/repo_calibration.json`, cross-developer worktree scope locks, and `/evolve` skills."*
 3. **The PR / CI Governance Check (`ctxtop ci-check`)**: Offer a GitHub Action that checks every PR for `CLAUDE.md`/`AGENTS.md` bloat (`>8,000` tokens), `.mcp.json` schema tax (`>15,000` tokens), and `DET-02`/`DET-18` security violations—which naturally pulls the entire engineering team into the paid dashboard.
 
 
@@ -804,7 +804,7 @@ An Engineering Manager or VP of Engineering will **only** swipe a corporate cred
 
 # PART IV: Complete Mathematical Audit, Validation & Defense Guide for "Tokens Saved"
 
-Because **"Tokens Saved" (`sessionTotalTokens`, `workspace30dTokens`, and `savedUSD`)** is the headline North-Star ROI metric for Attention Horizon—and the primary justification for a \$29–\$49/seat/month B2B tier—it must withstand scrutiny from skeptical staff engineers, FinOps auditors, and enterprise buyers.
+Because **"Tokens Saved" (`sessionTotalTokens`, `workspace30dTokens`, and `savedUSD`)** is the headline North-Star ROI metric for Highbeam—and the primary justification for a \$29–\$49/seat/month B2B tier—it must withstand scrutiny from skeptical staff engineers, FinOps auditors, and enterprise buyers.
 
 All 47 automated unit assertions across both repositories (`node --test test/ux_redesign_tokens_saved.test.mjs test/economics_engine.test.mjs` in `GA_REPO` → **43/43 PASS**; `node --test test/ux_redesign_claude_surfaces.test.mjs` in `CC_REPO` → **4/4 PASS**) were executed and verified at runtime.
 
@@ -850,9 +850,9 @@ If an enterprise CTO, FinOps lead, or critical Hacker News commenter inspects yo
   - In `GA_REPO` ([`saved_quota_ledger.mjs#L406-L411`](file:///c:/Projects/ga-visualizer-v2/src/core/coach/saved_quota_ledger.mjs#L406-L411)), `cachePreserved` includes `Math.round(cacheReadTokens * 0.95)`.
   - In `CC_REPO` ([`savedQuotaLedger.mjs#L269-L338`](file:///c:/Projects/cc-attention-horizon/src/coach/savedQuotaLedger.mjs#L269-L338)), `recordTurnCacheSavings` records every warm turn's `PROMPT_CACHE_READ` savings into `horizon_ledger.jsonl`.
 - **The Skeptic's Question**:
-  - *"Wait—Anthropic and Google give me a 90%–95% discount on `cache_read_input_tokens` automatically at the API layer. Why is Attention Horizon taking credit for `PROMPT_CACHE_READ` tokens on turns where no hook intervened?"*
+  - *"Wait—Anthropic and Google give me a 90%–95% discount on `cache_read_input_tokens` automatically at the API layer. Why is Highbeam taking credit for `PROMPT_CACHE_READ` tokens on turns where no hook intervened?"*
 - **How to Defend It Now**:
-  - Explain that `CC_REPO` already separates `PROMPT_CACHE_READ` (passive provider cache discount monitored by the HUD) from `PREFIX_BUST_AVOIDED` / `DET_08_MODEL_SWITCH_HOLD` / `DET_09_PREFIX_FENCE` (active interventions where Attention Horizon physically stopped a mid-session rule edit or model switch from busting a warm cache) inside [`readUnifiedSavingsSummary().byCategory`](file:///c:/Projects/cc-attention-horizon/src/coach/savedQuotaLedger.mjs#L465-L473).
+  - Explain that `CC_REPO` already separates `PROMPT_CACHE_READ` (passive provider cache discount monitored by the HUD) from `PREFIX_BUST_AVOIDED` / `DET_08_MODEL_SWITCH_HOLD` / `DET_09_PREFIX_FENCE` (active interventions where Highbeam physically stopped a mid-session rule edit or model switch from busting a warm cache) inside [`readUnifiedSavingsSummary().byCategory`](file:///c:/Projects/cc-attention-horizon/src/coach/savedQuotaLedger.mjs#L465-L473).
 - **Recommended Code Tightening (High Priority for B2B Trust)**:
   - In the UI receipt card, split **"Total Quota Saved"** into two explicit lines:
     1. **Direct Active Savings (100% Extension-Caused)**: CLI/FTS5 compression + Subagent isolation + Compaction/Handoff + `COLD_PREFILL_AVOIDED` (`DET-08`/`DET-09` blocks) + Guard blocks.
@@ -901,12 +901,12 @@ If an enterprise CTO, FinOps lead, or critical Hacker News commenter inspects yo
 
 When defending **"Tokens Saved"** to an engineering leader or VC, lead with this mathematical fact:
 
-> **Attention Horizon measures Single-Turn Delta ($\Delta_t$), NOT Multi-Turn Compounding Prefill ($\Delta_t \times (N - t)$).**
+> **Highbeam measures Single-Turn Delta ($\Delta_t$), NOT Multi-Turn Compounding Prefill ($\Delta_t \times (N - t)$).**
 
 Consider what happens when `fts5_output_compressor.mjs` (`GA_REPO`) or `postToolSanitizer.mjs` (`CC_REPO`) compresses a `12,000`-token `pytest` failure dump down to a `500`-token FTS5 summary on **Turn 5** of a **25-turn** debugging session:
-1. **What Attention Horizon claims on the receipt**:
+1. **What Highbeam claims on the receipt**:
    $$\Delta_5 = 12{,}000 - 500 = \mathbf{11{,}500\text{ tokens saved}}$$
 2. **What was *actually* saved across the 25-turn session**:
    Because LLM conversation history is append-only and re-sent on every subsequent turn $t \in [6, 25]$ (20 remaining turns), keeping `11,500` tokens out of the message array on Turn 5 actually prevents **$11{,}500 \times 21\text{ turns} = \mathbf{241{,}500\text{ billed input/cache-read tokens}}$** over the life of the thread!
 
-The exact same compounding math applies to **Subagent Isolation (`Bucket 1`)** and **Bounded File Reads (`DET-06`/`DET-11`)**. Because Attention Horizon only credits the one-time physical reduction $\Delta_t$ when the output is compressed or isolated, **its physical token-reduction receipts under-claim true multi-turn API billing savings by $5\times$ to $15\times$**—giving you an ironclad conservative defense in any enterprise review.
+The exact same compounding math applies to **Subagent Isolation (`Bucket 1`)** and **Bounded File Reads (`DET-06`/`DET-11`)**. Because Highbeam only credits the one-time physical reduction $\Delta_t$ when the output is compressed or isolated, **its physical token-reduction receipts under-claim true multi-turn API billing savings by $5\times$ to $15\times$**—giving you an ironclad conservative defense in any enterprise review.

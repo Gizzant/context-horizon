@@ -955,7 +955,7 @@ test('ISS-065 [Runtime Diagnostics & Doctor Surface]: records fault-injected err
       );
       parsePortableHandoffMarkdown(
         [
-          '# Attention Horizon State Baton Handoff',
+          '# Highbeam State Baton Handoff',
           '## 5. Queued Cache-Prefix Mutations (Released on PostCompact)',
           '- **effort** (`effort`): `{broken-json-value`'
         ].join('\n'),

@@ -1,6 +1,6 @@
 /**
  * @file src/engine-node/ipc/index.mjs
- * Attention Horizon Micro-IPC Bridge Barrel.
+ * Highbeam Micro-IPC Bridge Barrel.
  */
 
 export {

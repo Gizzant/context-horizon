@@ -34,6 +34,19 @@ export const SAVINGS_EVENT_TYPES = Object.freeze({
   SIGHTSEEING_TOOL_PREVENTED: 'SIGHTSEEING_TOOL_PREVENTED'
 });
 
+/** Plain-English labels for the Simple View Auto-fix log. */
+export const AUTO_FIX_LABELS = Object.freeze({
+  EFFORT_DOWNSHIFT: 'Effort downshifted',
+  COLD_PREFILL_AVOIDED: 'Cold prefill avoided',
+  CLI_DUMP_COMPRESSED: 'CLI output compressed',
+  LOOP_TURN_PREVENTED: 'Loop turn prevented',
+  SUBAGENT_ISOLATED: 'Subagent isolated',
+  COMPACTION_RECLAIMED: 'Compaction reclaimed',
+  PROMPT_HYGIENE_STEERED: 'Prompt steered',
+  PROMPT_HYGIENE_BLOCKED: 'Prompt blocked',
+  SIGHTSEEING_TOOL_PREVENTED: 'Sightseeing read prevented'
+});
+
 export function getDefaultSavingsLedgerDbPath(homeDir = getHomeDir()) {
   return path.join(homeDir, '.gemini', 'antigravity', 'agy-horizon', 'saved_quota_ledger.sqlite');
 }
@@ -140,6 +153,47 @@ export class SavedQuotaReceiptLedger {
     }
 
     return this.getSummary(sessionId);
+  }
+
+  /**
+   * Lists the most recent verified auto-fix events for a session (strictly read-only SQLite).
+   * Passive `CACHE_HIT_PRESERVED` rows are excluded: they are tracked in the KPI bar, not the fix log.
+   * @returns {{ total: number, items: Array<object> }}
+   */
+  listRecentEvents(sessionId = null, limit = 20) {
+    if (!this.dbPath || !fs.existsSync(this.dbPath)) return { total: 0, items: [] };
+    const cap = Math.max(1, Math.min(200, Math.round(Number(limit) || 20)));
+    let rows = [];
+    let total = 0;
+    const db = openLocalHorizonDb(this.dbPath, { readOnly: true });
+    try {
+      const where = sessionId ? 'WHERE session_id = ? AND event_type != ?' : 'WHERE event_type != ?';
+      const args = sessionId
+        ? [String(sessionId), SAVINGS_EVENT_TYPES.CACHE_HIT_PRESERVED]
+        : [SAVINGS_EVENT_TYPES.CACHE_HIT_PRESERVED];
+      total = Number(db.prepare(`SELECT COUNT(*) AS n FROM savings_events ${where}`).get(...args)?.n || 0);
+      rows = db.prepare(`
+        SELECT id, event_type AS eventType, argon_equiv_tokens_saved AS tokensSaved, raw_bytes_saved AS rawBytesSaved, dollars_saved AS usd, detail, created_at AS at
+        FROM savings_events ${where}
+        ORDER BY id DESC
+        LIMIT ${cap}
+      `).all(...args);
+    } finally {
+      db.close();
+    }
+    return {
+      total,
+      items: rows.map((r) => ({
+        id: r.id,
+        type: r.eventType,
+        label: AUTO_FIX_LABELS[r.eventType] || String(r.eventType || '').toLowerCase().replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()),
+        tokensSaved: Math.max(0, Number(r.tokensSaved) || 0),
+        usd: Math.max(0, Number(r.usd) || 0),
+        detail: String(r.detail || '').replace(/^\[key:[^\]]*\]\s*/, '').slice(0, 160),
+        at: r.at,
+        turn: null
+      }))
+    };
   }
 
   /**
@@ -338,7 +392,12 @@ export class SavedQuotaReceiptLedger {
         cachePreserved: (ws.session.totalsByType.COLD_PREFILL_AVOIDED || 0) + (ws.session.totalsByType.CACHE_HIT_PRESERVED || 0),
         cliCompressed: ws.session.totalsByType.CLI_DUMP_COMPRESSED || 0,
         compactionReclaimed: ws.session.totalsByType.COMPACTION_RECLAIMED || 0,
-        guardsPrevented: (ws.session.totalsByType.LOOP_TURN_PREVENTED || 0) + (ws.session.totalsByType.EFFORT_DOWNSHIFT || 0)
+        guardsPrevented:
+          (ws.session.totalsByType.LOOP_TURN_PREVENTED || 0) +
+          (ws.session.totalsByType.EFFORT_DOWNSHIFT || 0) +
+          (ws.session.totalsByType.PROMPT_HYGIENE_STEERED || 0) +
+          (ws.session.totalsByType.PROMPT_HYGIENE_BLOCKED || 0) +
+          (ws.session.totalsByType.SIGHTSEEING_TOOL_PREVENTED || 0)
       }
     };
     const w30 = liveSavings?.workspace30d || {
@@ -346,7 +405,7 @@ export class SavedQuotaReceiptLedger {
       estimatedUsd: ws.workspace30d.totalDollarsSaved
     };
     const lines = [
-      `### 🛡️ Attention Horizon — Verified Tokens Saved Receipt`,
+      `### 🛡️ Highbeam — Verified Tokens Saved Receipt`,
       ``,
       `**This Chat:** \`+${formatTokensHuman(s.totalTokens)}\` (\`~$${Number(s.estimatedUsd || 0).toFixed(2)}\` est.) · **30-Day Workspace:** \`+${formatTokensHuman(w30.totalTokens)}\``,
       ``,
@@ -368,7 +427,7 @@ export class SavedQuotaReceiptLedger {
   copySavingsReceipt(sessionId = null) {
     const summary = this.getSummary(sessionId);
     const lines = [
-      `### 🛡️ Attention Horizon — Saved-Quota Receipt`,
+      `### 🛡️ Highbeam — Saved-Quota Receipt`,
       ``,
       `**Total Saved:** \`+${summary.formattedSavedK}\` Argon-equiv tokens`,
       ``,
@@ -428,13 +487,23 @@ export function computeUnifiedSavings(state = {}, {
     Number(sessionLedger?.totalsByType?.SUBAGENT_ISOLATED || 0)
   );
 
-  // 2. Warm KV prompt cache 95% discount (cumulative across session turns) + avoided cold prefills
+  // 2. Warm KV prompt cache discount (defaults to 95% for Argon/Sonnet 5.5, or model-specific ratio) + avoided cold prefills
   const cacheBlock = state?.quota?.cache || state?.cache || {};
   const cacheReadTokens = Math.max(0, Number(cacheBlock.cacheReadTokens || 0));
-  const cacheDiscountSaved = Math.round(cacheReadTokens * 0.95);
+  const pricing = state?.model?.pricing || {};
+  const explicitDiscountRatio = Number(pricing.cacheReadDiscountRatio);
+  const derivedDiscountRatio =
+    Number(pricing.inputPer1M) > 0 && pricing.readPer1M !== undefined
+      ? Math.max(0, Math.min(0.99, 1 - Number(pricing.readPer1M) / Number(pricing.inputPer1M)))
+      : NaN;
+  const discountRatio = Number.isFinite(explicitDiscountRatio) && explicitDiscountRatio > 0 && explicitDiscountRatio < 1
+    ? explicitDiscountRatio
+    : (Number.isFinite(derivedDiscountRatio) ? derivedDiscountRatio : 0.95);
+  const cacheDiscountSaved = Math.round(cacheReadTokens * discountRatio);
   const ledgerCacheHits = Math.max(0, Number(sessionLedger?.totalsByType?.CACHE_HIT_PRESERVED || 0));
   const coldPrefillsSaved = Math.max(0, Number(sessionLedger?.totalsByType?.COLD_PREFILL_AVOIDED || 0));
-  const cachePreserved = Math.max(cacheDiscountSaved, ledgerCacheHits) + coldPrefillsSaved;
+  const billingEquivalentCacheTokens = Math.max(cacheDiscountSaved, ledgerCacheHits);
+  const cachePreserved = billingEquivalentCacheTokens + coldPrefillsSaved;
 
   // 3. CLI & log compression
   const cliCompressed = Math.max(
@@ -452,11 +521,21 @@ export function computeUnifiedSavings(state = {}, {
     Number(sessionLedger?.totalsByType?.COMPACTION_RECLAIMED || 0)
   );
 
-  // 5. Blocked retry loops, unmodified re-reads & effort downshifts
+  // 5. Blocked retry loops, unmodified re-reads, effort downshifts & prompt hygiene interventions
   const guardsPrevented =
     Math.max(0, Number(sessionLedger?.totalsByType?.LOOP_TURN_PREVENTED || 0)) +
-    Math.max(0, Number(sessionLedger?.totalsByType?.EFFORT_DOWNSHIFT || 0));
+    Math.max(0, Number(sessionLedger?.totalsByType?.EFFORT_DOWNSHIFT || 0)) +
+    Math.max(0, Number(sessionLedger?.totalsByType?.PROMPT_HYGIENE_STEERED || 0)) +
+    Math.max(0, Number(sessionLedger?.totalsByType?.PROMPT_HYGIENE_BLOCKED || 0)) +
+    Math.max(0, Number(sessionLedger?.totalsByType?.SIGHTSEEING_TOOL_PREVENTED || 0));
   const avoidedBloat = compactionReclaimed + guardsPrevented;
+
+  const physicalTokensAvoided =
+    subagentIsolated +
+    coldPrefillsSaved +
+    cliCompressed +
+    compactionReclaimed +
+    guardsPrevented;
 
   const sessionTotalTokens =
     subagentIsolated +
@@ -472,15 +551,25 @@ export function computeUnifiedSavings(state = {}, {
     0,
     Number(workspaceLedger?.totalTokens || 0) - Number(sessionLedger?.totalTokensSaved || 0)
   );
+  const nonSessionLedgerDollars = Math.max(
+    0,
+    Number(workspaceLedger?.totalDollarsSaved || 0) - Number(sessionLedger?.totalDollarsSaved || 0)
+  );
   const extraFts5Tokens = Math.max(
     0,
     Number(fts5SavedTokens || 0) - Number(workspaceLedger?.totalsByType?.CLI_DUMP_COMPRESSED || 0)
   );
+  const extraFts5Usd = (extraFts5Tokens / 1_000_000) * inputRatePer1M;
   const workspaceTotalTokens = Math.max(
     sessionTotalTokens,
     sessionTotalTokens + nonSessionLedgerTokens + extraFts5Tokens
   );
-  const workspaceEstimatedUsd = Number(((workspaceTotalTokens / 1_000_000) * inputRatePer1M).toFixed(4));
+  const workspaceEstimatedUsd = Number(
+    Math.max(
+      (workspaceTotalTokens / 1_000_000) * inputRatePer1M,
+      sessionEstimatedUsd + nonSessionLedgerDollars + extraFts5Usd
+    ).toFixed(4)
+  );
   const baseSessionsCount = Number(workspaceLedger?.sessionsCount || 0);
   const hasCurrentInLedger = Number(sessionLedger?.sessionsCount || 0) > 0;
   const sessionsCount = Math.max(
@@ -492,6 +581,9 @@ export function computeUnifiedSavings(state = {}, {
     session: {
       totalTokens: sessionTotalTokens,
       totalPhysicalTokens: sessionTotalTokens,
+      physicalTokensAvoided,
+      billingEquivalentCacheTokens,
+      cacheDiscountRatio: discountRatio,
       formattedTokens: formatTokensHuman(sessionTotalTokens),
       estimatedUsd: sessionEstimatedUsd,
       estimatedInputValueUsd: sessionEstimatedUsd,

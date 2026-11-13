@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Detector Catalog (DET-01 to DET-32) - Highbeam User Guide</title>
+  <meta name="description" content="Complete reference for all 32 canonical Highbeam detectors, Ring-0 security guards, 8 semantic habit slugs, and 6 Antigravity Blind-Spot Sensors." />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body data-page="detectors">
+  <header class="site-header" id="site-header"></header>
+
+  <div class="doc-shell">
+    <nav class="sidebar" id="site-sidebar" aria-label="Documentation chapters"></nav>
+
+    <main class="doc-main prose">
+      <p class="doc-eyebrow">Reference</p>
+      <h1 class="doc-title">Guardrails &amp; Detector Catalog</h1>
+      <p class="doc-lead">
+        Highbeam evaluates 32 canonical detectors (<code>DET-01..DET-32</code>), 8 semantic habit coaches, and 6 local Blind-Spot Sensors using pure deterministic JavaScript. Zero extra LLM judge tokens are ever consumed.
+      </p>
+
+      <h2 id="canonical-detectors">Canonical Detector Catalog (<code>DET-01</code> to <code>DET-32</code>)</h2>
+      <p>
+        Four detectors carry a <strong>Ring-0 Security</strong> designation (<code>DET-01</code>, <code>DET-02</code>, <code>DET-18</code>, <code>DET-19</code>). Ring-0 guards protect credentials, shell integrity, workspace settings, and subagent prompt boundaries, and fail closed on malformed hook payloads.
+      </p>
+
+      <div class="filter-bar" data-filter-root=".det-row">
+        <input type="search" class="filter-input" placeholder="Search by ID, keyword, or symptom (e.g. DET-08, git, secret, Haiku, worktree)..." aria-label="Filter detectors" />
+        <div class="filter-pills" role="group" aria-label="Detector mode filter">
+          <button type="button" class="filter-pill" data-tag="all" aria-pressed="true">All (32)</button>
+          <button type="button" class="filter-pill" data-tag="ring0" aria-pressed="false">Ring-0 Security (4)</button>
+          <button type="button" class="filter-pill" data-tag="guard" aria-pressed="false">Default: Guard</button>
+          <button type="button" class="filter-pill" data-tag="advisory" aria-pressed="false">Default: Advisory</button>
+        </div>
+        <span class="filter-count"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Detector Name</th>
+              <th>Default / Severity</th>
+              <th>What It Detects &amp; How to Remediate</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="det-row" data-tags="guard ring0 critical">
+              <td><code>DET-01</code></td>
+              <td><strong>Option Argument Skipping &amp; Destructive Git/Shell Guard</strong> <span class="badge danger">Ring-0</span></td>
+              <td><code>guard</code> &middot; CRITICAL</td>
+              <td>Parses git/shell option arguments (preventing flag-smuggling bypasses) and blocks destructive commands such as <code>git reset --hard</code>, <code>git push --force</code>, unguarded <code>rm -rf</code>, and branch deletion without explicit user authorization.</td>
+            </tr>
+            <tr class="det-row" data-tags="guard ring0 critical">
+              <td><code>DET-02</code></td>
+              <td><strong>Zero-Token Secret &amp; Sensitive File Guard</strong> <span class="badge danger">Ring-0</span></td>
+              <td><code>guard</code> &middot; CRITICAL</td>
+              <td>Blocks reads or writes targeting <code>.env*</code>, SSH private keys, cloud credentials, <code>~/.gemini/oauth_creds.json</code>, and token stores before secret bytes enter prompt context.</td>
+            </tr>
+            <tr class="det-row" data-tags="guard warn">
+              <td><code>DET-03</code></td>
+              <td><strong>Lockfile &amp; Migration Scope Drift Guard</strong></td>
+              <td><code>guard</code> &middot; WARN</td>
+              <td>Prevents hand-editing generated lockfiles (<code>package-lock.json</code>, <code>pnpm-lock.yaml</code>, <code>Cargo.lock</code>) or historical database migrations unless explicitly requested.</td>
+            </tr>
+            <tr class="det-row" data-tags="guard high">
+              <td><code>DET-04</code></td>
+              <td><strong>3-Strike Consecutive Tool Failure Breaker</strong></td>
+              <td><code>guard</code> &middot; HIGH</td>
+              <td>Trips when <code>3</code> consecutive tool calls fail with identical or unaddressed errors (<code>consecutiveFailureLimit: 3</code>). Inspect root cause before re-running.</td>
+            </tr>
+            <tr class="det-row" data-tags="guard critical">
+              <td><code>DET-05</code></td>
+              <td><strong>Destructive Code-Strip, Test-Weakening &amp; Flip-Flop Guard</strong></td>
+              <td><code>guard</code> &middot; CRITICAL</td>
+              <td>Blocks edits that bulk-delete assertions, add <code>.skip</code> / <code>only</code> to silence failing tests, or oscillate between identical A/B code states.</td>
+            </tr>
+            <tr class="det-row" data-tags="advisory medium">
+              <td><code>DET-06</code></td>
+              <td><strong>Unmodified File Re-Read &amp; Blind-Edit Guard</strong></td>
+              <td><code>advisory</code> &middot; MEDIUM</td>
+              <td>Flags redundant full-file reads of files whose disk hash has not changed since earlier turns, and warns on edits to files never inspected in context.</td>
+            </tr>
+            <tr class="det-row" data-tags="guard high">
+              <td><code>DET-07</code></td>
+              <td><strong>Exit-Safe CLI Compressor &amp; Output Bomb Guard</strong></td>
+              <td><code>guard</code> &middot; HIGH</td>
+              <td>Intercepts verbose shell outputs exceeding <code>4,096</code> characters (or <code>25k</code> tokens), strips ANSI/carriage-return sludge, archives full logs in SQLite FTS5, and preserves exact exit codes plus critical error lines.</td>
+            </tr>
+            <tr class="det-row" data-tags="guard high">
+              <td><code>DET-08</code></td>
+              <td><strong>KV-Cache Gravity Cross-Model Switch Guard</strong></td>
+              <td><code>guard</code> &middot; HIGH</td>
+              <td>Evaluates algebraic break-even <code>C*</code> during <code>PreModelSwitch</code> and holds premature downshifts while <code>cachedTokens &gt; C*</code> inside an active warm TTL window.</td>
+            </tr>
+            <tr class="det-row" data-tags="guard high">
+              <td><code>DET-09</code></td>
+              <td><strong>Warm Prefix-Cache Mutation Fence</strong></td>
+              <td><code>guard</code> &middot; HIGH</td>
+              <td>Fences writes to <code>AGENTS.md</code>, <code>CLAUDE.md</code>, and static Turn-0 rule files while the prompt cache is warm, staging changes in <code>TurnZeroGate</code> until TTL expires.</td>
+            </tr>
+            <tr class="det-row" data-tags="advisory warn">
+              <td><code>DET-10</code></td>
+              <td><strong>Idle 5m Implicit-Cache Watchdog</strong></td>
+              <td><code>advisory</code> &middot; WARN</td>
+              <td>Tracks inter-turn idle gaps approaching the <code>300s</code> ephemeral cache cliff, raising amber alerts at <code>45s</code> and snapshotting the State Baton at <code>10s</code>.</td>
+            </tr>
+            <tr class="det-row" data-tags="advisory medium">
+              <td><code>DET-11</code></td>
+              <td><strong>Shadow File Context Bloat &amp; Confabulation Guard</strong></td>
+              <td><code>advisory</code> &middot; MEDIUM</td>
+              <td>Detects stale shadow copies, scratch duplicates, or hallucinated sibling file paths before edits diverge from the canonical module.</td>
+            </tr>
+            <tr class="det-row" data-tags="guard critical">
+              <td><code>DET-12</code></td>
+              <td><strong>Haiku 100k Cliff Breaker &amp; Zombie Subprocess Leak Guard</strong></td>
+              <td><code>guard</code> &middot; CRITICAL</td>
+              <td>Halts Claude Haiku sessions before crossing the <code>100,000</code>-token <code>5x</code> pricing cliff (<code>98k</code> warn, <code>100k</code> halt) and flags background subprocesses left running without cleanup.</td>
+            </tr>
+            <tr class="det-row" data-tags="advisory medium">
+              <td><code>DET-13</code></td>
+              <td><strong>Eager MCP Override &amp; Startup Bloat Auditor</strong></td>
+              <td><code>advisory</code> &middot; MEDIUM</td>
+              <td>Audits Turn-0 eager MCP tool schemas that inflate every prompt turn and recommends lazy-loading rarely invoked servers.</td>
+            </tr>
+            <tr class="det-row" data-tags="guard high">
+              <td><code>DET-14</code></td>
+              <td><strong>Premature Stop Gate &amp; Test Verification Guard</strong></td>
+              <td><code>guard</code> &middot; HIGH</td>
+              <td>Prevents the agent from concluding a task during <code>Stop</code> when modified source files lack a passing verification run or have unresolved test failures.</td>
+            </tr>
+            <tr class="det-row" data-tags="advisory medium">
+              <td><code>DET-15</code></td>
+              <td><strong>Batched Stop-Phase Formatter &amp; Placeholder Slop Guard</strong></td>
+              <td><code>advisory</code> &middot; MEDIUM</td>
+              <td>Defers repetitive per-edit formatting runs until task completion and flags unfinished <code>TODO</code>, <code>FIXME</code>, or placeholder stubs in committed diffs.</td>
+            </tr>
+            <tr class="det-row" data-tags="advisory high">
+              <td><code>DET-16</code></td>
+              <td><strong>Hybrid Quota Fan-Out Throttle &amp; Subagent Recursion Cap</strong></td>
+              <td><code>advisory</code> &middot; HIGH</td>
+              <td>Throttles parallel subagent fan-out to a single worker at <code>80%</code> quota, gates at <code>90%</code>, and caps subagents at <code>40,000</code> tokens / <code>12</code> turns to prevent <code>168</code>-hour hybrid quota lockouts.</td>
+            </tr>
+            <tr class="det-row" data-tags="advisory medium">
+              <td><code>DET-17</code></td>
+              <td><strong>Blind Edit Mid-Batch &amp; Progressive Checkpoint Deferral</strong></td>
+              <td><code>advisory</code> &middot; MEDIUM</td>
+              <td>Tracks uncheckpointed dirty file accumulation (default limit: <code>4</code> dirty files) and prompts progressive verification before batch drift compounds.</td>
+            </tr>
+            <tr class="det-row" data-tags="guard ring0 critical">
+              <td><code>DET-18</code></td>
+              <td><strong>Untrusted Workspace Settings &amp; Hook Injection Guard</strong> <span class="badge danger">Ring-0</span></td>
+              <td><code>guard</code> &middot; CRITICAL</td>
+              <td>Blocks agent attempts to self-modify <code>.claude/settings.json</code>, <code>hooks.json</code>, or IDE executable settings to escalate permissions or inject shell hooks.</td>
+            </tr>
+            <tr class="det-row" data-tags="guard ring0 high">
+              <td><code>DET-19</code></td>
+              <td><strong>Subagent IPI Boundary &amp; Unicode Tag Sanitizer</strong> <span class="badge danger">Ring-0</span></td>
+              <td><code>guard</code> &middot; HIGH</td>
+              <td>Strips invisible Unicode tag characters (<code>U+E0000..U+E007F</code>), zero-width joiners, and indirect prompt-injection instructions from subagent and web-fetch payloads.</td>
+            </tr>
+            <tr class="det-row" data-tags="guard critical">
+              <td><code>DET-20</code></td>
+              <td><strong>Multi-Agent Scope Collision &amp; Hard Quota Brake</strong></td>
+              <td><code>guard</code> &middot; CRITICAL</td>
+              <td>Enforces atomic file leases in <code>.agents/locks/active_scopes.json</code> across concurrent agents and checks platform Vision Overage HTTP 400 attachment quirks.</td>
+            </tr>
+            <tr class="det-row" data-tags="guard critical">
+              <td><code>DET-21</code></td>
+              <td><strong>Scratchpad Loop Guard (Compatibility Alias &rarr; <code>DET-30</code>)</strong></td>
+              <td><code>guard</code> &middot; CRITICAL</td>
+              <td>Preserved compatibility alias routing directly to canonical <code>DET-30</code> scratchpad-loop and reasoning-drift detection.</td>
+            </tr>
+            <tr class="det-row" data-tags="guard high">
+              <td><code>DET-22</code></td>
+              <td><strong>Diff-Thrashing &amp; Rapid Code Mutation Sensor</strong></td>
+              <td><code>guard</code> &middot; HIGH</td>
+              <td>Detects repeated high-churn rewrites of the same line range within a narrow turn window and prompts stepping back to verify requirements.</td>
+            </tr>
+            <tr class="det-row" data-tags="advisory high">
+              <td><code>DET-23</code></td>
+              <td><strong>Empty Catch-Block &amp; Swallowed Error Sensor</strong></td>
+              <td><code>advisory</code> &middot; HIGH</td>
+              <td>Flags newly introduced empty <code>catch {}</code> blocks that silently discard runtime exceptions without logging or explicit recovery.</td>
+            </tr>
+            <tr class="det-row" data-tags="advisory medium">
+              <td><code>DET-24</code></td>
+              <td><strong>Context Degradation &amp; High-Turn Prompt Bloat Sensor</strong></td>
+              <td><code>advisory</code> &middot; MEDIUM</td>
+              <td>Warns when turn count crosses <code>trust_decay_turn_threshold</code> (<code>10</code> turns) alongside rising middle-window distraction ratios.</td>
+            </tr>
+            <tr class="det-row" data-tags="advisory info">
+              <td><code>DET-25</code></td>
+              <td><strong>Cascade 70k Progressive Checkpoint Sensor</strong></td>
+              <td><code>advisory</code> &middot; INFO</td>
+              <td>Prompts lightweight intermediate milestone notes around <code>70,000</code> tokens so long sessions never reach <code>140k</code> without a recovery anchor.</td>
+            </tr>
+            <tr class="det-row" data-tags="advisory info">
+              <td><code>DET-26</code></td>
+              <td><strong>Monolithic Prompt Decomposer Sensor</strong></td>
+              <td><code>advisory</code> &middot; INFO</td>
+              <td>Identifies multi-objective mega-prompts and suggests splitting unrelated tasks across clean sequential turns or isolated worktrees.</td>
+            </tr>
+            <tr class="det-row" data-tags="advisory warn">
+              <td><code>DET-27</code></td>
+              <td><strong>Rule File Bloat &amp; Prefix Diet Auditor</strong></td>
+              <td><code>advisory</code> &middot; WARN</td>
+              <td>Flags static <code>AGENTS.md</code> / <code>CLAUDE.md</code> rule overhead exceeding <code>8,000</code> tokens and recommends running <code>/evolve</code> to extract domain skills.</td>
+            </tr>
+            <tr class="det-row" data-tags="advisory high">
+              <td><code>DET-28</code></td>
+              <td><strong>Subagent Phantom &amp; Orphan Process Sensor</strong></td>
+              <td><code>advisory</code> &middot; HIGH</td>
+              <td>Verifies claimed subagent file outputs exist on disk and detects orphaned language-server or test processes (reapable via <code>ctxtop doctor --reap-orphans</code>).</td>
+            </tr>
+            <tr class="det-row" data-tags="guard medium">
+              <td><code>DET-29</code></td>
+              <td><strong>Reflector Queue Starvation &amp; Async Feedback Gate</strong></td>
+              <td><code>guard</code> &middot; MEDIUM</td>
+              <td>Prevents staged learning queues from growing unbounded without review and ensures queued instincts are surfaced at cold-cache boundaries.</td>
+            </tr>
+            <tr class="det-row" data-tags="guard critical">
+              <td><code>DET-30</code></td>
+              <td><strong>Scratchpad Loop &amp; Reasoning Hallucination Guard</strong></td>
+              <td><code>guard</code> &middot; CRITICAL</td>
+              <td>Detects runaway cyclic reasoning traces and thinking-token spikes without forward tool progress, surfacing <code>loopTriggered: true</code> in Cost Radar.</td>
+            </tr>
+            <tr class="det-row" data-tags="advisory high">
+              <td><code>DET-31</code></td>
+              <td><strong>Cross-Worktree Git Merge Conflict Sensor</strong></td>
+              <td><code>advisory</code> &middot; HIGH</td>
+              <td>Runs non-destructive in-memory <code>git merge-tree</code> probes across active worktrees to warn before two parallel branches diverge on overlapping hunks.</td>
+            </tr>
+            <tr class="det-row" data-tags="guard high">
+              <td><code>DET-32</code></td>
+              <td><strong>IOEDR / REMORY Semantic Drift &amp; Contradiction Guard</strong></td>
+              <td><code>guard</code> &middot; HIGH</td>
+              <td>Audits new plans and edits against locked user constraints in Primacy rules and the State Baton to catch silent requirement contradictions.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="semantic-habit-slugs">Semantic Habit Detectors (<code>semanticDetectors</code>)</h2>
+      <p>
+        In addition to numbered IDs, <code>.attention-horizon.json</code> supports eight human-readable habit coaching slugs configurable via <code>ctxtop config set &lt;slug&gt; &lt;default|off|warn|block&gt;</code>:
+      </p>
+      <ul>
+        <li><code>formatter-bypass</code>: Advises batching prettier/eslint runs at task end rather than burning turns after every single-file edit.</li>
+        <li><code>drip-feed</code>: Detects fragmented 1-sentence follow-up prompts that repeatedly pay cache-write overhead when instructions could be grouped.</li>
+        <li><code>vague-prompt-rubric</code> (aliases: <code>prompt-decomposer</code>, <code>scope-brake</code>): Scores unanchored prompts lacking target files or verification criteria.</li>
+        <li><code>effort-overkill</code>: Flags max/high effort frontier usage on trivial typo, rename, or formatting tasks.</li>
+        <li><code>post-commit-handoff</code>: Prompts rotating or compacting context cleanly after a milestone <code>git commit</code> completes.</li>
+        <li><code>vision-screenshot-coach</code>: Advises inspecting DOM/CSS text or bounded snippets when repeated full-resolution screenshots inflate token spend (and guards against <code>DET-20</code> overage HTTP 400 bugs).</li>
+        <li><code>micro-skills</code>: Suggests codifying repeated multi-session workflow corrections (after <code>microSkillConfirmSessions: 2</code>) into reusable micro-skills.</li>
+        <li><code>relay-breaker</code> (alias: <code>spec-relay</code>): Flags Round 2+ multi-model prose rebuttal loops and recommends switching to the <code>/relay</code> protocol.</li>
+      </ul>
+
+      <h2 id="antigravity-blindspot-sensors">Antigravity 6 Local Blind-Spot Sensors</h2>
+      <p>
+        During Antigravity's <code>PreInvocation</code> hook, <code>src/core/blindspot_sensors.mjs</code> runs six sub-millisecond filesystem checks:
+      </p>
+      <ol>
+        <li><code>DIRTY_SNAP</code>: Detects when a file previously read into context was modified externally by the user, formatter, or git checkout.</li>
+        <li><code>SCHEMA_TAX</code>: Measures Turn-0 MCP and tool-declaration token weight against session headroom.</li>
+        <li><code>UNSEEN_CALLERS</code>: Scans workspace imports when a public export signature is being refactored so callers outside <code>ACTIVE_SET</code> are not broken.</li>
+        <li><code>LEGACY_POISON</code>: Warns when reads pull patterns from <code>deprecated_paths</code> (<code>**/legacy/**</code>, <code>**/deprecated/**</code>, <code>**/v1/**</code>).</li>
+        <li><code>QUOTA_AND_STREAM_SHIELD</code>: Guards against 5-hour quota exhaustion (<code>&lt;10%</code>) and single-file writes exceeding <code>600</code> lines.</li>
+        <li><code>LOOP_AND_GIT_GUARD</code>: Combines 3-strike command loop detection with uncheckpointed dirty-tree drift warnings.</li>
+      </ol>
+
+      <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>
+      <footer class="doc-footer" id="doc-footer"></footer>
+    </main>
+
+    <aside class="toc-rail" id="site-toc" aria-label="On this page"></aside>
+  </div>
+
+  <script src="assets/search-index.js"></script>
+  <script src="assets/site.js"></script>
+</body>
+</html>

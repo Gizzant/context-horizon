@@ -189,14 +189,14 @@ test('Roadmap Item #6 & #7: ctxtop roast / --roast card, cost-radar --share, and
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ctxtop-rcpt-roast-'));
   try {
     // Verify pure-V8 SHA-256 matches Node native crypto.createHash('sha256')
-    const sample = 'Attention Horizon FinOps Verification Test';
+    const sample = 'Highbeam FinOps Verification Test';
     const expectedSha = crypto.createHash('sha256').update(sample, 'utf8').digest('hex');
     assert.equal(sha256HexPure(sample), expectedSha);
 
     // Item #6: ctxtop roast --demo & cost-radar --share
     const roastRes = runCli(['roast', '--demo']);
     assert.equal(roastRes.exitCode, 0);
-    assert.match(roastRes.output, /ATTENTION HORIZON CONTEXT ROAST/);
+    assert.match(roastRes.output, /HIGHBEAM CONTEXT ROAST/);
     assert.match(roastRes.output, /npx ah-claude --roast/);
 
     const radarPath = path.join(tmpDir, 'radar.html');

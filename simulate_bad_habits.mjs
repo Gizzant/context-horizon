@@ -2,8 +2,8 @@
  * @file simulate_bad_habits.mjs
  * 20-Scenario "Bad-Habit" Simulation Suite & Runtime Validation Harness
  * Targets:
- *   - GA_REPO: C:\Projects\ga-visualizer-v2 (Google Antigravity Attention Horizon)
- *   - CC_REPO: C:\Projects\cc-attention-horizon (Claude Code Attention Horizon)
+ *   - GA_REPO: C:\Projects\ga-visualizer-v2 (Google Antigravity Highbeam)
+ *   - CC_REPO: C:\Projects\cc-attention-horizon (Claude Code Highbeam)
  *
  * Guardrails:
  *   - 100% Non-Destructive: Redirects HOME/USERPROFILE and cwd to __sim_tests__/runtime_env

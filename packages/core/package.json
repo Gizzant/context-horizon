@@ -1,7 +1,7 @@
 {
   "name": "@ctxtop/core",
   "version": "4.0.0",
-  "description": "Attention Horizon isomorphic pure-JS core (DET-01..32 catalog, circuit breakers, economics, coach, UI renderers)",
+  "description": "Highbeam isomorphic pure-JS core (DET-01..32 catalog, circuit breakers, economics, coach, UI renderers)",
   "type": "module",
   "main": "./src/index.mjs",
   "exports": {

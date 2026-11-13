@@ -50,3 +50,10 @@ import './pre_launch_v4_pack.test.mjs';
 import './vc_playbook_90day.test.mjs';
 import './vc_full_teardown_and_claude_parity.test.mjs';
 import './v4_rc_remediation_and_mcp.test.mjs';
+import './ux_simple_view_google_tufte.test.mjs';
+import './ux_simple_view_labels.test.mjs';
+import './ux_single_screen_simple_view.test.mjs';
+import './ux_advanced_view_workbench.test.mjs';
+import './session_timeline.test.mjs';
+import './pre_release_360_capability_proofs.test.mjs';
+

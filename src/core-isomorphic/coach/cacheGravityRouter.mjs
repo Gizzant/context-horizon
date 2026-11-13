@@ -1,7 +1,7 @@
 /**
  * @file src/coach/cacheGravityRouter.mjs
  * Anthropic KV-Cache Flight Computer (`CacheGravityScorer`), `PostCompactMutationQueue`,
- * and `HysteresisLock` for Claude Code Attention Horizon.
+ * and `HysteresisLock` for Claude Code Highbeam.
  *
  * Implements the algebraic cross-model break-even equation:
  *   C* = [ O * (P_out,curr - P_out,target) ] / [ P_write5m,target - P_read,curr ]

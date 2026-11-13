@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MCP, HTTP Daemon &amp; Micro-IPC API - Highbeam User Guide</title>
+  <meta name="description" content="Protocol reference for the @ctxtop/mcp JSON-RPC 2.0 stdio server, the 28 loopback HTTP/SSE daemon endpoints, and the Micro-IPC socket protocol." />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body data-page="mcp-daemon-api">
+  <header class="site-header" id="site-header"></header>
+
+  <div class="doc-shell">
+    <nav class="sidebar" id="site-sidebar" aria-label="Documentation chapters"></nav>
+
+    <main class="doc-main prose">
+      <p class="doc-eyebrow">Reference</p>
+      <h1 class="doc-title">MCP Server, HTTP Daemon &amp; Micro-IPC API</h1>
+      <p class="doc-lead">
+        Highbeam exposes three local-only programmatic transports: a zero-dependency MCP stdio server for external AI editors, a loopback HTTP/SSE server for the WebView HUD, and a sub-15ms Micro-IPC socket for warm hook dispatch.
+      </p>
+
+      <h2 id="mcp-stdio-server">1. MCP Stdio Server (<code>@ctxtop/mcp</code>)</h2>
+      <p>
+        Implemented in <code>packages/mcp/src/server.mjs</code> (binaries <code>ah-mcp</code> and <code>ctxtop-mcp</code>, protocol version <code>2024-11-05</code>), the MCP server accepts both newline-delimited JSON-RPC 2.0 messages and LSP-style <code>Content-Length: &lt;bytes&gt;\r\n\r\n</code> framed payloads over <code>stdin</code>/<code>stdout</code>.
+      </p>
+
+      <div class="code-block">
+        <div class="code-header"><span>.cursor/mcp.json Registration</span></div>
+        <pre><code>{
+  "mcpServers": {
+    "attention-horizon": {
+      "command": "npx",
+      "args": ["-y", "--package=ctxtop", "ctxtop-mcp"]
+    }
+  }
+}</code></pre>
+      </div>
+
+      <h3 id="mcp-tools-catalog">Exposed MCP Tools</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Tool Name</th>
+              <th>Input Parameters</th>
+              <th>Response Payload</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>horizon_status</code></td>
+              <td><code>cwd?: string</code>, <code>sessionId?: string</code> (default <code>"default"</code>)</td>
+              <td>Returns <code>{ ok, cwd, sessionId, entitlement: { entitled, tier, source }, savedQuota, liveState }</code> from local snapshots.</td>
+            </tr>
+            <tr>
+              <td><code>cache_gravity_check</code></td>
+              <td><code>currentModel: string</code> (req), <code>targetModel: string</code> (req), <code>cachedTokens?: number</code>, <code>ttlRemainingSeconds?: number</code> (<code>240</code>), <code>remainingExpectedTurns?: number</code> (<code>1</code>), <code>expectedOutputTokens?: number</code> (<code>1500</code>)</td>
+              <td>Computes algebraic <code>C*</code> break-even tokens and returns whether to hold the active model or proceed with the switch.</td>
+            </tr>
+            <tr>
+              <td><code>scope_lock_claim</code></td>
+              <td><code>workspaceDir?: string</code>, <code>sessionId?: string</code>, <code>agentId?: string</code>, <code>paths?: string[]</code>, <code>ttlSeconds?: number</code> (<code>900</code>)</td>
+              <td>When <code>paths</code> is empty, returns active leases in <code>inspect</code> mode; otherwise atomically acquires or reports collisions on <code>.agents/locks/active_scopes.json</code>.</td>
+            </tr>
+            <tr>
+              <td><code>export_receipt_pdf</code></td>
+              <td><code>cwd?: string</code>, <code>sessionId?: string</code>, <code>email?: string</code>, <code>outPath?: string</code>, <code>allowPreview?: boolean</code> (<code>false</code>)</td>
+              <td>Generates a SHA-256 verified Corporate PDF 1.4 Expense Receipt from the 30-day Saved Quota Ledger.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="http-sse-daemon">2. Loopback HTTP &amp; SSE Daemon API</h2>
+      <p>
+        <code>sidecars/horizon-daemon/server.mjs</code> binds strictly to <code>127.0.0.1</code> on port <code>62935</code> (scanning up to <code>62945</code> if occupied) and rejects POST bodies exceeding <code>4,096</code> bytes with HTTP <code>400</code>/<code>413</code>.
+      </p>
+
+      <h3 id="daemon-read-routes">Telemetry, Streaming &amp; Export Routes (<code>GET</code>)</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Method &amp; Path</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>GET /</code>, <code>/index.html</code>, <code>/widget</code>, <code>/widget.html</code></td>
+              <td>Serves the interactive Edward Tufte Highbeam WebView HTML application.</td>
+            </tr>
+            <tr>
+              <td><code>GET /preload.js</code></td>
+              <td>Serves the local sidecar WebView bridge preload script.</td>
+            </tr>
+            <tr>
+              <td><code>GET /api/health</code></td>
+              <td>Returns daemon readiness, PID, active port, and sidecar schema version.</td>
+            </tr>
+            <tr>
+              <td><code>GET /api/state</code></td>
+              <td>Returns the complete 40-cell horizon classification, U-curve recall array, sensor flags, and quota telemetry.</td>
+            </tr>
+            <tr>
+              <td><code>GET /api/stream</code></td>
+              <td>Server-Sent Events (<code>text/event-stream</code>) live push feed updating open HUD panes on transcript changes.</td>
+            </tr>
+            <tr>
+              <td><code>GET /api/cost-radar</code></td>
+              <td>Returns live Cost Radar SVG markup and retention/drift/swarm summary metrics.</td>
+            </tr>
+            <tr>
+              <td><code>GET /api/settings</code></td>
+              <td>Reads validated user window settings (<code>safeLimitTokens</code>, <code>reminderAtPct</code>, <code>modelOverrides</code>).</td>
+            </tr>
+            <tr>
+              <td><code>GET /api/memory/resume</code></td>
+              <td>Queries SQLite FTS5 Episodic Memory to build a cross-session resume pack.</td>
+            </tr>
+            <tr>
+              <td><code>GET /api/receipt/export</code></td>
+              <td>Exports corporate expense or savings receipts in PDF 1.4 (<code>?format=pdf</code>), HTML, or Markdown.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="daemon-action-routes">Hygiene, Rule Fencing &amp; Router Action Routes (<code>POST</code>)</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Method &amp; Path</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>POST /api/settings</code></td>
+              <td>Validates, clamps, and atomically persists updated context window settings.</td>
+            </tr>
+            <tr>
+              <td><code>POST /api/prune</code> &amp; <code>POST /api/surgeon</code></td>
+              <td>Runs targeted context pruning or the offline <strong>Tool-Output Surgeon</strong> with automatic <code>.bak</code> backup.</td>
+            </tr>
+            <tr>
+              <td><code>POST /api/tail/trim</code></td>
+              <td>Analyzes read-only host transcripts and stages uncached tail compaction output plus ledger savings.</td>
+            </tr>
+            <tr>
+              <td><code>POST /api/handoff</code> &amp; <code>/api/handoff/generate</code></td>
+              <td>Generates an audited Baton Pass Markdown checkpoint in <code>docs/HANDOFF_&lt;timestamp&gt;.md</code>.</td>
+            </tr>
+            <tr>
+              <td><code>POST /api/rules/promote</code></td>
+              <td>Promotes critical constraints into Primacy or Recency bands, fenced automatically when cache is warm.</td>
+            </tr>
+            <tr>
+              <td><code>POST /api/rules/u-curve-optimize</code> &amp; <code>/api/ushape/reorder</code></td>
+              <td>Reorders rule sections along the parabolic U-curve so critical invariants sit at high-recall boundaries.</td>
+            </tr>
+            <tr>
+              <td><code>POST /api/shield/flush</code></td>
+              <td>Flushes staged <code>PrefixCacheShield</code> rule deltas (fenced when cache is warm unless <code>force: true</code>).</td>
+            </tr>
+            <tr>
+              <td><code>POST /api/rsi/evolve</code>, <code>/api/instincts/promote</code>, <code>/api/rsi/queue-action</code></td>
+              <td>Synthesizes domain skills, promotes validated instincts, or approves/dismisses items in <code>ReflectorQueue</code>.</td>
+            </tr>
+            <tr>
+              <td><code>POST /api/router/mode</code>, <code>/api/router/actuate</code>, <code>/api/router/unlock-hysteresis</code></td>
+              <td>Switches Flight Mode (<code>COACH</code> / <code>AUTO_PILOT</code>), actuates model/effort recommendations, or clears Hysteresis Lock.</td>
+            </tr>
+            <tr>
+              <td><code>POST /api/host/reap</code>, <code>/api/open-brain</code>, <code>/api/hooks/dampen</code></td>
+              <td>Reaps orphan processes, opens the local session brain folder (disabled when <code>HORIZON_TEST_NO_SPAWN=1</code>), or installs command-dampening hooks.</td>
+            </tr>
+            <tr>
+              <td><code>POST /api/checkpoint/evaporation-check</code>, <code>/api/export/sanitized</code>, <code>/api/savings/receipt</code>, <code>/api/license/activate</code>, <code>/api/action</code></td>
+              <td>Audits post-compaction constraint survival, exports zero-PII telemetry snapshots, generates plain-English savings receipts, activates offline Ed25519 Pro licenses, or dispatches queued UI actions.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="micro-ipc-protocol">3. Micro-IPC Socket Protocol (<code>@ctxtop/engine-node</code>)</h2>
+      <p>
+        Defined in <code>src/engine-node/ipc/protocol.mjs</code>, <code>client.mjs</code>, and <code>server.mjs</code>, the Micro-IPC Bridge lets short-lived CLI hook processes delegate evaluation to a warm local daemon over a user-scoped Unix domain socket (POSIX) or Named Pipe (Windows, overridable via <code>CTXTOP_IPC_PATH</code>).
+      </p>
+      <ul>
+        <li><strong>Limits:</strong> <code>MAX_BUFFER_SIZE_BYTES = 10,485,760</code> (10 MB), <code>DEFAULT_CONNECT_TIMEOUT_MS = 15</code>, <code>DEFAULT_REQUEST_TIMEOUT_MS = 500</code> (extended to <code>600,000ms</code> when suspended in <code>PAUSED</code> control state).</li>
+        <li><strong>Fail-Safe Fallback:</strong> If no warm IPC server answers within <code>15ms</code>, hook handlers evaluate <code>CircuitBreakerEngine</code> and <code>.ctl</code> files directly in process with zero error noise.</li>
+        <li><strong>Standard JSON-RPC 2.0 Error Codes:</strong> <code>-32700</code> (<code>PARSE_ERROR</code>), <code>-32600</code> (<code>INVALID_REQUEST</code>), <code>-32601</code> (<code>METHOD_NOT_FOUND</code>), <code>-32602</code> (<code>INVALID_PARAMS</code>), and <code>-32603</code> (<code>INTERNAL_ERROR</code>).</li>
+      </ul>
+
+      <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>
+      <footer class="doc-footer" id="doc-footer"></footer>
+    </main>
+
+    <aside class="toc-rail" id="site-toc" aria-label="On this page"></aside>
+  </div>
+
+  <script src="assets/search-index.js"></script>
+  <script src="assets/site.js"></script>
+</body>
+</html>

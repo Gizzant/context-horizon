@@ -345,7 +345,7 @@ export function syncAndVerifyMirrors({
       }
     }
 
-    // 4. Consolidate plugin.json manifests with unified 'Attention Horizon' branding
+    // 4. Consolidate plugin.json manifests with unified 'Highbeam' branding
     const canonicalPluginPath = path.join(CANONICAL_ROOT, 'plugin.json');
     if (fs.existsSync(canonicalPluginPath)) {
       const canonicalManifest = JSON.parse(fs.readFileSync(canonicalPluginPath, 'utf8'));
@@ -356,7 +356,7 @@ export function syncAndVerifyMirrors({
           : {
               ...canonicalManifest,
               name: path.basename(root),
-              displayName: 'Attention Horizon'
+              displayName: 'Highbeam'
             };
         atomicWriteFileSync(path.join(root, 'plugin.json'), JSON.stringify(manifestOut, null, 2) + '\n', { encoding: 'utf8' });
         atomicWriteFileSync(path.join(root, '.antigravity-plugin', 'plugin.json'), JSON.stringify(manifestOut, null, 2) + '\n', { encoding: 'utf8' });
@@ -445,14 +445,14 @@ export function syncAndVerifyMirrors({
     }
   }
 
-  // Verify Flightcheck hooks.json preserves all 6 hooks & plugin.json displayName === 'Attention Horizon'
+  // Verify Flightcheck hooks.json preserves all 6 hooks & plugin.json displayName === 'Highbeam'
   for (const root of activePluginRoots) {
     const isFlightcheck = path.basename(root) === 'agy-horizon-flightcheck' || root === FLIGHTCHECK_ROOT;
     const pJsonPath = path.join(root, 'plugin.json');
     if (fs.existsSync(pJsonPath)) {
       const pJson = JSON.parse(fs.readFileSync(pJsonPath, 'utf8'));
       const dn = String(pJson.displayName || '');
-      if (!dn.startsWith('Attention Horizon') || /Context Horizon/i.test(dn)) {
+      if (!dn.startsWith('Highbeam') || /Context Horizon/i.test(dn)) {
         mismatches.push(`Branding drift in ${pJsonPath}: displayName="${dn}"`);
       }
     }
@@ -500,8 +500,8 @@ export function syncAndVerifyMirrors({
     if (docsHtml.includes('<span style="display:none"> Context Memory</span>')) {
       mismatches.push(`Stale hidden Context Memory span in ${docsIndexPath}`);
     }
-    if (!docsHtml.includes('<h1>Attention Horizon</h1>')) {
-      mismatches.push(`Missing <h1>Attention Horizon</h1> in ${docsIndexPath}`);
+    if (!docsHtml.includes('<h1>Highbeam</h1>')) {
+      mismatches.push(`Missing <h1>Highbeam</h1> in ${docsIndexPath}`);
     }
   }
 

@@ -31,7 +31,7 @@ export const MCP_SERVER_INFO = Object.freeze({
 export const MCP_TOOLS = Object.freeze([
   {
     name: 'horizon_status',
-    description: 'Read local Attention Horizon live telemetry, 30-day saved quota ledger, and @ctxtop/pro license status (zero network calls).',
+    description: 'Read local Highbeam live telemetry, 30-day saved quota ledger, and @ctxtop/pro license status (zero network calls).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -186,7 +186,7 @@ function executeExportReceiptPdfTool(args = {}, options = {}) {
   const summary = getSavedQuotaReceiptSummary({ cwd, ...(homeDir ? { homeDir } : {}) });
   const receipt = generateCorporateExpenseReceipt(summary, {
     email: args.email || entitlement.payload?.email || 'developer@workspace.local',
-    tierLabel: 'Attention Horizon Pro ($15.00/mo)',
+    tierLabel: 'Highbeam Pro ($15.00/mo)',
     subscriptionCostUSD: 15.0
   });
 

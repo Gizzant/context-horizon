@@ -196,7 +196,7 @@ export function sanitizePostToolOutput(params = {}, options = {}) {
   }
 
   if (strippedPassingTests > 0) {
-    filteredLines.push(`[... ${strippedPassingTests} passing test lines compacted by Attention Horizon ...]`);
+    filteredLines.push(`[... ${strippedPassingTests} passing test lines compacted by Highbeam ...]`);
   }
 
   let sanitizedText = filteredLines.join('\n');
@@ -236,7 +236,7 @@ export function sanitizePostToolOutput(params = {}, options = {}) {
       const schemaSummary = inferPayloadSchema(cleaned);
 
       const summaryParts = [
-        `[Attention Horizon Artifact Offload: ${originalTokens.toLocaleString()} tokens (${rawLines.length} lines) -> ${relativeArtifactPath}]`,
+        `[Highbeam Artifact Offload: ${originalTokens.toLocaleString()} tokens (${rawLines.length} lines) -> ${relativeArtifactPath}]`,
         `Schema: ${schemaSummary}`,
         `Full lossless output saved to: ${artifactPath}`,
         `Sample lines (1..${sampleLines.length}):`,

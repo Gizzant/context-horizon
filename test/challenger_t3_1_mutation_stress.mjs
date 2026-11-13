@@ -1,6 +1,6 @@
 /**
  * @file test/challenger_t3_1_mutation_stress.mjs
- * Attention Horizon v4.0 — Empirical Challenger 1 Verification Suite (Milestone T3)
+ * Highbeam v4.0 — Empirical Challenger 1 Verification Suite (Milestone T3)
  *
  * Mandate:
  * 1. Concurrency & Stress Benchmark: Run 5 consecutive iterations of

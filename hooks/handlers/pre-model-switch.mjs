@@ -232,7 +232,7 @@ export async function executePreModelSwitchCli(cliOptions = {}) {
     }
   } catch (err) {
     exitHardBlockStderr(
-      `[Attention Horizon Fail-Closed] ${err?.message || String(err)}`,
+      `[Highbeam Fail-Closed] ${err?.message || String(err)}`,
       'PreModelSwitch',
       ioOverride
     );
@@ -242,7 +242,7 @@ export async function executePreModelSwitchCli(cliOptions = {}) {
 if (isCliEntrypoint(import.meta.url)) {
   executePreModelSwitchCli().catch((err) => {
     exitHardBlockStderr(
-      `[Attention Horizon Fail-Closed] ${err?.message || String(err)}`,
+      `[Highbeam Fail-Closed] ${err?.message || String(err)}`,
       'PreModelSwitch'
     );
   });

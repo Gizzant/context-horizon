@@ -39,7 +39,7 @@ export function parseDoctorArgs(argv = process.argv.slice(2)) {
 }
 
 /**
- * Runs a comprehensive diagnosis of the Attention Horizon (`attention-horizon-antigravity`) environment.
+ * Runs a comprehensive diagnosis of the Highbeam (`attention-horizon-antigravity`) environment.
  */
 export async function runDoctor({ workspacePath = process.cwd(), pruneTools = false, uncachedTail = false, reapOrphans = false, handoff = false, storageGc = false, gcCursor = false, recoverBrain = false, diagnostic = false, dryRun = false, transcriptPath = null, vscdbPath = null, silent = false } = {}) {
   const home = process.env.USERPROFILE || process.env.HOME || os.homedir();
@@ -102,7 +102,7 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
   }
 
   if (!silent && !diagnostic) {
-    console.log(`\n\x1b[1mAttention Horizon (ah-antigravity) System Doctor v${SIDECAR_VERSION}\x1b[0m`);
+    console.log(`\n\x1b[1mHighbeam (ah-antigravity) System Doctor v${SIDECAR_VERSION}\x1b[0m`);
     console.log('='.repeat(70));
   }
 
@@ -321,7 +321,7 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
     if (!silent) console.log(`\x1b[33mStatus: Operational with ${warnCount} advisory warning${warnCount > 1 ? 's' : ''}.\x1b[0m\n`);
     return { ok: true, failCount: 0, warnCount, hookDiagnostics, results };
   } else {
-    if (!silent) console.log('\x1b[32mStatus: All checks PASSED. Attention Horizon system is fully healthy.\x1b[0m\n');
+    if (!silent) console.log('\x1b[32mStatus: All checks PASSED. Highbeam system is fully healthy.\x1b[0m\n');
     return { ok: true, failCount: 0, warnCount: 0, hookDiagnostics, results };
   }
 }

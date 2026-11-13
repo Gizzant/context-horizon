@@ -1,5 +1,5 @@
 ---
-description: Render the Attention Horizon Cost Radar (prefix-cache retention, thinking drift / DET-21 loops, swarm & worktrees) as a local HTML/SVG file
+description: Render the Highbeam Cost Radar (prefix-cache retention, thinking drift / DET-21 loops, swarm & worktrees) as a local HTML/SVG file
 ---
 
 Render a self-contained, script-free HTML/SVG timeline of where this session spends and saves tokens.

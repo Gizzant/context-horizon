@@ -1,6 +1,6 @@
 /**
  * @file src/ui/horizonGrid.mjs
- * 40-Cell Non-Linear Dynamic Horizon Bar for Claude Code Attention Horizon.
+ * 40-Cell Non-Linear Dynamic Horizon Bar for Claude Code Highbeam.
  *
  * Maps active context window tokens onto a 40-cell grid with 3 dynamic zoom tiers:
  *   1. `100k` ceiling (`2,500` tokens/cell) when running `claude-haiku-5-5` at <= 100,000 tokens

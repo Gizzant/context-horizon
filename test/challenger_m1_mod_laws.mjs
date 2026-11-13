@@ -720,7 +720,7 @@ test('Challenger 3.1: hooks/register.js executes cleanly in sandboxed V8 isolate
       async () => ({ decision: 'allow' })
     );
     assert.equal(failClosedVerdict.decision, 'deny');
-    assert.match(failClosedVerdict.reason, /\[Attention Horizon Fail-Closed\]/);
+    assert.match(failClosedVerdict.reason, /\[Highbeam Fail-Closed\]/);
 
     // 5. Test command.horizon
     await handlers['command.horizon']({ cwd: tmpDir }, mockCtx);

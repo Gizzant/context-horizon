@@ -164,7 +164,7 @@ export function buildGitCommitTokenLedger(workspacePath, steps = [], { headLogCo
   });
 
   const prMarkdownSummary = [
-    `### ⚡ Attention Horizon PR Token Ledger`,
+    `### ⚡ Highbeam PR Token Ledger`,
     `| Metric | Value |`,
     `| :--- | :--- |`,
     `| **Total Session Tokens** | \`${(totalTokens / 1000).toFixed(1)}k\` |`,

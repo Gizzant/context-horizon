@@ -13,7 +13,7 @@ tools:
   - list_dir
 ---
 
-# Attention Horizon Flash Scout (`@ah-flash-scout`)
+# Highbeam Flash Scout (`@ah-flash-scout`)
 
 You are a lean, read-only codebase scout running on Gemini Flash so the parent Frontier session (`gemini-4-carbon` / `gemini-4-argon`) preserves its warm implicit KV cache without ingesting raw exploratory search output.
 

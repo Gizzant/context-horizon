@@ -1,6 +1,6 @@
 /**
  * @file hooks/register.js
- * In-process Mod entrypoint for Attention Horizon (attention-horizon-claude).
+ * In-process Mod entrypoint for Highbeam (attention-horizon-claude).
  * Compliant with Claude Code Mod static analyzer rules:
  * - Direct literal on('...') calls
  * - No destructuring or variable assignment of $ or $.namespace
@@ -242,7 +242,7 @@ export default function register(on) {
           $.ui.invalidate('ui.render');
           return {
             decision: 'deny',
-            reason: verdict.reason || 'Blocked by Attention Horizon circuit breaker'
+            reason: verdict.reason || 'Blocked by Highbeam circuit breaker'
           };
         }
 
@@ -251,7 +251,7 @@ export default function register(on) {
           $.ui.invalidate('ui.render');
           return {
             decision: verdict.decision === 'defer' ? 'defer' : 'ask',
-            reason: verdict.reason || 'Confirmation required by Attention Horizon'
+            reason: verdict.reason || 'Confirmation required by Highbeam'
           };
         }
 
@@ -322,7 +322,7 @@ export default function register(on) {
         );
         return {
           decision: 'deny',
-          reason: `[Attention Horizon Fail-Closed] ${err?.message || String(err)}`
+          reason: `[Highbeam Fail-Closed] ${err?.message || String(err)}`
         };
       });
   });
@@ -587,7 +587,7 @@ export default function register(on) {
       }
       $.ui.open({
         id: 'attention-horizon',
-        title: 'Attention Horizon',
+        title: 'Highbeam',
         closeOnEscape: true
       });
     } catch (err) {

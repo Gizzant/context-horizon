@@ -1,4 +1,4 @@
-# Attention Horizon Flight Computer & Active Coach: Architecture & Operating Manual
+# Highbeam Flight Computer & Active Coach: Architecture & Operating Manual
 
 > **Module:** `FlightComputer` / `ActiveCoach` (`src/core/coach/*`, `src/core/telemetry/*`, `src/shims/*`)  
 > **Host Harness:** Google Antigravity IDE, CLI & Telemetry Sidecar  

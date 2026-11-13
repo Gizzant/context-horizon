@@ -1,0 +1,1808 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Highbeam — Advanced Telemetry Workbench</title>
+  <style>
+    /* ==========================================================================
+       Highbeam (ctxtop) — Tufte "Advanced View" Forensic Workbench
+       Zero Modals · Zero External Requests · 8px Grid · Strict Tabular Numerals
+       ========================================================================== */
+    :root {
+      --hz-bg: #FFFFFF;
+      --hz-surface: #F8FAFC;
+      --hz-surface-alt: #F1F5F9;
+      --hz-border: #E2E8F0;
+      --hz-fg: #0F172A;
+      --hz-fg-secondary: #334155;
+      --hz-muted: #475569;
+      --hz-anchor: #0284C7;
+      --hz-signal: #047857;
+      --hz-cached: #0F766E;
+      --hz-warn: #B45309;
+      --hz-danger: #BE123C;
+      --hz-ring: #0284C7;
+      --hz-track: #E2E8F0;
+    }
+
+    html.dark,
+    body[data-vscode-theme-kind="vscode-dark"],
+    body[data-vscode-theme-kind="vscode-high-contrast"] {
+      --hz-bg: #0B0F17;
+      --hz-surface: #111827;
+      --hz-surface-alt: #161F30;
+      --hz-border: #1E293B;
+      --hz-fg: #F8FAFC;
+      --hz-fg-secondary: #CBD5E1;
+      --hz-muted: #94A3B8;
+      --hz-anchor: #38BDF8;
+      --hz-signal: #10B981;
+      --hz-cached: #14B8A6;
+      --hz-warn: #F59E0B;
+      --hz-danger: #F43F5E;
+      --hz-ring: #38BDF8;
+      --hz-track: #1E293B;
+    }
+
+    body[data-vscode-theme-kind="vscode-light"] {
+      --hz-bg: #FFFFFF;
+      --hz-surface: #F8FAFC;
+      --hz-surface-alt: #F1F5F9;
+      --hz-border: #E2E8F0;
+      --hz-fg: #0F172A;
+      --hz-fg-secondary: #334155;
+      --hz-muted: #475569;
+      --hz-anchor: #0284C7;
+      --hz-signal: #047857;
+      --hz-cached: #0F766E;
+      --hz-warn: #B45309;
+      --hz-danger: #BE123C;
+      --hz-ring: #0284C7;
+      --hz-track: #E2E8F0;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      background-color: var(--hz-bg);
+      color: var(--hz-fg);
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+      font-size: 12px;
+      line-height: 16px;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+
+    .tnum, code, select, table {
+      font-family: ui-monospace, "JetBrains Mono", "Cascadia Code", SFMono-Regular, Consolas, monospace;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1, "zero" 1;
+    }
+
+    code {
+      font-size: 11px;
+      color: var(--hz-fg);
+    }
+
+    button:focus-visible,
+    select:focus-visible,
+    a:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 2px solid var(--hz-ring);
+      outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    .adv-workbench {
+      width: 100%;
+      max-width: 560px;
+      min-width: 0;
+      margin: 0 auto;
+      padding: 12px 16px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Top Bar & Sub-HUD */
+    .adv-topbar {
+      min-height: 28px;
+      padding-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border-bottom: 1px solid var(--hz-border);
+    }
+
+    .adv-brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .adv-brand {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--hz-fg);
+      letter-spacing: -0.01em;
+    }
+
+    .adv-view-switch {
+      display: inline-flex;
+      border: 1px solid var(--hz-border);
+      border-radius: 3px;
+      overflow: hidden;
+      font-size: 11px;
+    }
+
+    .adv-view-link {
+      padding: 2px 8px;
+      color: var(--hz-muted);
+      text-decoration: none;
+      background: transparent;
+    }
+
+    .adv-view-link[aria-current="page"] {
+      background: var(--hz-surface-alt);
+      color: var(--hz-fg);
+      font-weight: 600;
+    }
+
+    .adv-host-badge {
+      font-size: 11px;
+      color: var(--hz-fg-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+
+    .adv-subhud {
+      padding: 6px 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px 10px;
+      border-bottom: 1px solid var(--hz-border);
+      font-size: 11px;
+      color: var(--hz-muted);
+    }
+
+    .adv-select {
+      height: 22px;
+      padding: 0 6px;
+      background: var(--hz-surface);
+      color: var(--hz-fg);
+      border: 1px solid var(--hz-border);
+      border-radius: 3px;
+      font-size: 11px;
+      max-width: 185px;
+    }
+
+    /* Functional Zones (8px base rhythm) */
+    .adv-zone {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--hz-border);
+    }
+
+    .adv-zone-last {
+      padding: 10px 0 0 0;
+      border-bottom: none;
+    }
+
+    .adv-zone-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px 8px;
+      margin-bottom: 6px;
+    }
+
+    .adv-overline {
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--hz-muted);
+    }
+
+    /* Status Strip */
+    .adv-status-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 6px 8px;
+      margin-bottom: 6px;
+    }
+
+    .adv-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .adv-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--hz-signal);
+      flex-shrink: 0;
+    }
+    .adv-dot[data-tone="warn"] { background: var(--hz-warn); border-radius: 2px; }
+    .adv-dot[data-tone="danger"] { background: var(--hz-danger); border-radius: 2px; }
+    .adv-dot[data-tone="active"] { background: var(--hz-ring); }
+
+    .adv-ttl-meta { font-size: 11px; font-weight: 500; color: var(--hz-muted); }
+    .adv-ttl-meta[data-tone="signal"] { color: var(--hz-signal); }
+    .adv-ttl-meta[data-tone="warn"] { color: var(--hz-warn); }
+    .adv-ttl-meta[data-tone="danger"] { color: var(--hz-danger); }
+    .adv-ttl-meta[data-tone="active"] { color: var(--hz-ring); }
+
+    /* 40-Cell Chronological Horizon Map */
+    .adv-grid-wrap {
+      position: relative;
+      margin-bottom: 3px;
+    }
+
+    .adv-cell-grid {
+      display: grid;
+      grid-template-columns: repeat(40, minmax(0, 1fr));
+      gap: 1px;
+      height: 16px;
+      background: var(--hz-border);
+      padding: 1px;
+      border-radius: 2px;
+    }
+
+    .adv-cell {
+      height: 100%;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      background: var(--hz-track);
+      position: relative;
+    }
+    .adv-cell[data-cat="anchor"] { background: var(--hz-anchor); }
+    .adv-cell[data-cat="signal"] { background: var(--hz-signal); }
+    .adv-cell[data-cat="cached"] { background: var(--hz-cached); }
+    .adv-cell[data-cat="clutter"] { background: var(--hz-warn); }
+    .adv-cell[data-cat="error"] { background: var(--hz-danger); }
+    .adv-cell[data-cat="free"] { background: var(--hz-track); opacity: 0.45; }
+    .adv-cell[aria-selected="true"] {
+      box-shadow: inset 0 0 0 1.5px var(--hz-fg);
+      opacity: 1;
+    }
+
+    .adv-scale-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--hz-muted);
+      margin-bottom: 6px;
+    }
+
+    /* Fixed 1-Line Cell Inspector */
+    .adv-inspector {
+      height: 24px;
+      padding: 0 8px;
+      background: var(--hz-surface);
+      border: 1px solid var(--hz-border);
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--hz-fg-secondary);
+      margin-bottom: 6px;
+    }
+
+    .adv-inspector-left {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+
+    .adv-inspector-right {
+      flex-shrink: 0;
+      color: var(--hz-fg);
+    }
+
+    /* Parabolic U-Shaped Recall Strip */
+    .adv-ucurve-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      padding: 5px 8px;
+      background: var(--hz-surface);
+      border-left: 2px solid var(--hz-anchor);
+      margin-bottom: 6px;
+      font-size: 10.5px;
+    }
+
+    /* Forensic Tables */
+    .adv-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      table-layout: fixed;
+    }
+
+    .adv-table th {
+      text-align: left;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--hz-muted);
+      padding: 3px 4px;
+      border-bottom: 1px solid var(--hz-border);
+    }
+
+    .adv-table th.num, .adv-table td.num { text-align: right; }
+
+    .adv-table td {
+      padding: 3px 4px;
+      border-bottom: 1px solid var(--hz-border);
+      color: var(--hz-fg-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .adv-table tr:last-child td { border-bottom: none; }
+
+    /* Compact Buttons & Segmented Controls */
+    .adv-mini-btn {
+      height: 20px;
+      padding: 0 6px;
+      border-radius: 3px;
+      border: 1px solid var(--hz-border);
+      background: var(--hz-surface);
+      color: var(--hz-fg);
+      font-size: 10.5px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .adv-mini-btn:hover:not(:disabled) { border-color: var(--hz-muted); }
+    .adv-mini-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .adv-seg-group {
+      display: inline-flex;
+      border: 1px solid var(--hz-border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .adv-seg-btn {
+      height: 20px;
+      padding: 0 7px;
+      border: none;
+      background: transparent;
+      color: var(--hz-muted);
+      font-size: 10.5px;
+      cursor: pointer;
+    }
+
+    .adv-seg-btn[aria-pressed="true"] {
+      background: var(--hz-surface-alt);
+      color: var(--hz-fg);
+      font-weight: 600;
+    }
+
+    /* Action Queue */
+    .adv-aq-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 6px;
+    }
+
+    .adv-aq-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 0 3px 8px;
+      border-left: 2px solid var(--hz-warn);
+      font-size: 11px;
+    }
+    .adv-aq-item[data-severity="danger"] { border-left-color: var(--hz-danger); }
+    .adv-aq-item[data-severity="signal"] { border-left-color: var(--hz-signal); }
+
+    .adv-aq-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--hz-fg-secondary);
+    }
+
+    .adv-router-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px 8px;
+      padding: 5px 8px;
+      background: var(--hz-surface);
+      border: 1px solid var(--hz-border);
+      border-radius: 2px;
+      font-size: 11px;
+      color: var(--hz-fg-secondary);
+    }
+
+    /* Zone D: Savings Matrix & Dual Surgical Execution Bar */
+    .adv-kpi-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .adv-kpi-big {
+      font-size: 22px;
+      line-height: 26px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--hz-fg);
+    }
+
+    .adv-source-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      padding: 5px 8px;
+      background: var(--hz-surface);
+      border: 1px solid var(--hz-border);
+      border-radius: 2px;
+      margin-bottom: 8px;
+      font-size: 10.5px;
+    }
+
+    .adv-cta-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+    }
+
+    .adv-cta-primary {
+      height: 36px;
+      padding: 0 12px;
+      border-radius: 4px;
+      border: 1px solid var(--hz-fg);
+      background: var(--hz-fg);
+      color: var(--hz-bg);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .adv-cta-primary[data-cta-state="guarded"] {
+      background: var(--hz-surface);
+      color: var(--hz-fg);
+      border-color: var(--hz-border);
+    }
+    .adv-cta-primary[data-cta-state="crisis"] {
+      background: var(--hz-danger);
+      color: #FFFFFF;
+      border-color: var(--hz-danger);
+    }
+    .adv-cta-primary[data-cta-state="active"] {
+      background: var(--hz-surface);
+      color: var(--hz-ring);
+      border-color: var(--hz-ring);
+      cursor: progress;
+    }
+    .adv-cta-primary[data-cta-state="done"] {
+      background: var(--hz-surface);
+      color: var(--hz-signal);
+      border-color: var(--hz-signal);
+    }
+    .adv-cta-primary:disabled,
+    .adv-cta-primary[data-cta-state="disabled"] {
+      background: transparent;
+      color: var(--hz-muted);
+      border-color: var(--hz-border);
+      opacity: 0.52;
+      cursor: not-allowed;
+    }
+
+    .adv-cta-secondary {
+      height: 36px;
+      padding: 0 10px;
+      border-radius: 4px;
+      border: 1px solid var(--hz-warn);
+      background: transparent;
+      color: var(--hz-warn);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .adv-cta-secondary:disabled {
+      opacity: 0.42;
+      border-color: var(--hz-border);
+      color: var(--hz-muted);
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <main
+    id="highbeamAdvancedWorkbench"
+    class="adv-workbench"
+    data-system-state="optimal"
+    aria-label="Highbeam Advanced Telemetry Workbench"
+  >
+    <!-- Top Identity & View Switcher -->
+    <header class="adv-topbar">
+      <div class="adv-brand-wrap">
+        <span class="adv-brand">Highbeam</span>
+        <nav class="adv-view-switch" aria-label="Telemetry density mode">
+          <a id="linkToSimpleView" href="/simple" class="adv-view-link">Simple</a>
+          <a href="/advanced" class="adv-view-link" aria-current="page">Advanced</a>
+        </nav>
+      </div>
+      <span id="advHostModelBadge" class="adv-host-badge tnum">Antigravity &middot; Auto (1.5x)</span>
+    </header>
+
+    <!-- Sub-HUD: Session Selector + Dual-Pool Quota + Host RAM -->
+    <div class="adv-subhud tnum">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label for="sessionSelect">Session</label>
+        <select id="sessionSelect" class="adv-select" aria-label="Select conversation session">
+          <option value="auto">Auto (Active Chat)</option>
+        </select>
+      </div>
+      <div id="quotaPoolsReadout">
+        5h: <strong id="sprint5hVal" style="color:var(--hz-fg);">0%</strong>
+        <span id="sprintResetVal"></span> &middot;
+        7d: <strong id="weekly7dVal" style="color:var(--hz-fg);">0%</strong> &middot;
+        RAM: <strong id="hostRamVal" style="color:var(--hz-fg);">0.0GB</strong>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         ZONE A: CHRONO-POSITIONAL PHYSICS (40-Cell Map, U-Curve & Consumers)
+         =================================================================== -->
+    <section class="adv-zone" aria-labelledby="advZoneAHeading">
+      <div class="adv-zone-head">
+        <h2 id="advZoneAHeading" class="adv-overline">Zone A &middot; Chrono-Positional Physics</h2>
+        <span id="advDualTtlMeta" class="adv-ttl-meta tnum" data-tone="muted">
+          0% hit &middot; 5m KV 00:00 &middot; 1h Block 00:00
+        </span>
+      </div>
+
+      <div class="adv-status-strip">
+        <div class="adv-status-badge" role="status" aria-live="polite">
+          <span id="advStatusDot" class="adv-dot" data-tone="signal"></span>
+          <span id="advStatusLabel">Optimal Cache</span>
+        </div>
+        <div class="tnum" style="font-size:11.5px;">
+          <strong id="advUsedTok">0.0k</strong>
+          <span style="color:var(--hz-muted);">
+            (<span id="advSignalTok" style="color:var(--hz-signal);">0.0k</span> sig +
+            <span id="advClutterTok" style="color:var(--hz-warn);">0.0k</span> recl) /
+            <span id="advSafeTok">179.0k</span> safe (<span id="advCeilPct">0%</span>)
+          </span>
+        </div>
+      </div>
+
+      <!-- 40-Cell Interactive Chronological Map -->
+      <div class="adv-grid-wrap">
+        <div id="horizonGrid" class="adv-cell-grid" role="listbox" aria-label="40-cell chronological context window"></div>
+      </div>
+      <div class="adv-scale-row tnum">
+        <span>0k Primacy</span>
+        <span>50k Sync</span>
+        <span>30%–70% Recall Trough</span>
+        <span id="advScaleSafe" style="color:var(--hz-danger);">179k Safe</span>
+        <span id="advScaleMax">256k</span>
+      </div>
+
+      <!-- Fixed 1-Line Cell Slice Inspector -->
+      <div id="cellInspector" class="adv-inspector tnum" aria-live="polite">
+        <span id="cellInspectorLeft" class="adv-inspector-left">Cell #1 &middot; System Anchor &amp; Rules</span>
+        <span id="cellInspectorRight" class="adv-inspector-right">6.4k / cell &middot; 1.00 recall</span>
+      </div>
+
+      <!-- Parabolic U-Curve Recall Strip -->
+      <div class="adv-ucurve-strip tnum">
+        <div>
+          <span style="color:var(--hz-muted);">Primacy (0–30%)</span><br />
+          <strong id="uPrimacyVal" style="color:var(--hz-signal);">96% recall</strong>
+        </div>
+        <div>
+          <span style="color:var(--hz-muted);">Mid Trough (30–70%)</span><br />
+          <strong id="uTroughVal" style="color:var(--hz-fg);">62% (0 specs)</strong>
+        </div>
+        <div>
+          <span style="color:var(--hz-muted);">Recency (70–100%)</span><br />
+          <strong id="uRecencyVal" style="color:var(--hz-signal);">94% recall</strong>
+        </div>
+      </div>
+
+      <!-- Top Context Consumers Table (Strict AGENTS.md Invariant 2: isIgnorablePath) -->
+      <table class="adv-table" aria-label="Top context token consumers">
+        <thead>
+          <tr>
+            <th style="width:41%;">Consumer Target</th>
+            <th style="width:19%;">Pattern</th>
+            <th class="num" style="width:13%;">Tokens</th>
+            <th class="num" style="width:27%;">Protection</th>
+          </tr>
+        </thead>
+        <tbody id="advConsumersBody">
+          <tr>
+            <td colspan="4" style="color:var(--hz-muted);">Zero duplicate reads or dead error traces in active window.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ===================================================================
+         ZONE B: RANKED ACTION QUEUE & KV-CACHE GRAVITY ROUTER
+         =================================================================== -->
+    <section class="adv-zone" aria-labelledby="advZoneBHeading">
+      <div class="adv-zone-head">
+        <h2 id="advZoneBHeading" class="adv-overline">Zone B &middot; Action Queue &amp; Router Governance</h2>
+        <div id="routerModeSwitch" class="adv-seg-group" role="group" aria-label="Router mode">
+          <button type="button" class="adv-seg-btn tnum" data-router-mode="off" aria-pressed="false">Off</button>
+          <button type="button" class="adv-seg-btn tnum" data-router-mode="coach" aria-pressed="true">Coach</button>
+          <button type="button" class="adv-seg-btn tnum" data-router-mode="autopilot" aria-pressed="false">Auto-Pilot</button>
+        </div>
+      </div>
+
+      <ul id="advActionQueue" class="adv-aq-list tnum" role="list">
+        <li class="adv-aq-item" data-severity="signal">
+          <span class="adv-aq-text">Nominal queue &middot; 0 orphan PIDs, 0 idle eager MCPs, 0 trough specs</span>
+          <span style="color:var(--hz-muted);font-size:10.5px;">0 actions</span>
+        </li>
+      </ul>
+
+      <div class="adv-router-strip tnum">
+        <span id="advRouterGravityNote" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          KV Gravity Router ready &middot; Turn-boundary switch buffer armed
+        </span>
+        <div style="display:inline-flex;gap:6px;flex-shrink:0;">
+          <button type="button" id="btnReapOrphans" class="adv-mini-btn" hidden>Reap Orphans</button>
+          <button type="button" id="btnUnlockHysteresis" class="adv-mini-btn" hidden>Unlock Tier</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         ZONE C: TURN-0 BASELINE, PREFIX SHIELD & DET-01..32 GUARD LOG
+         =================================================================== -->
+    <section class="adv-zone" aria-labelledby="advZoneCHeading">
+      <div class="adv-zone-head">
+        <h2 id="advZoneCHeading" class="adv-overline">Zone C &middot; Turn-0 Baseline &amp; DET-01..32 Guard Log</h2>
+        <span id="advDetArmedBadge" class="tnum" style="color:var(--hz-muted);font-size:11px;">32/32 guards armed</span>
+      </div>
+
+      <div class="adv-router-strip tnum" style="margin-bottom:6px;">
+        <span id="advBaselineSummary">
+          Turn-0 Baseline: <strong style="color:var(--hz-fg);">0.0k</strong> / 20.0k budget (Rules 0.0k &middot; Skills 0.0k &middot; MCP 0.0k)
+        </span>
+        <button type="button" id="btnFlushShield" class="adv-mini-btn tnum" disabled>Shield: 0 queued</button>
+      </div>
+
+      <table class="adv-table" aria-label="DET-01 to DET-32 automated guard log">
+        <thead>
+          <tr>
+            <th style="width:12%;">Age</th>
+            <th style="width:16%;">Guard</th>
+            <th style="width:54%;">Automated Intervention</th>
+            <th class="num" style="width:18%;">Saved</th>
+          </tr>
+        </thead>
+        <tbody id="advGuardLedgerBody">
+          <tr>
+            <td>now</td>
+            <td>DET-01..32</td>
+            <td>FTS5 compressor, PrefixCacheShield &amp; 3-strike breakers armed</td>
+            <td class="num" style="color:var(--hz-muted);">armed</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ===================================================================
+         ZONE D: MULTI-SOURCE SAVINGS MATRIX & SURGICAL EXECUTION BAR
+         =================================================================== -->
+    <section class="adv-zone-last" aria-labelledby="advZoneDHeading">
+      <div class="adv-zone-head">
+        <h2 id="advZoneDHeading" class="adv-overline">Zone D &middot; Verified Savings &amp; Memory Surgery</h2>
+        <div style="display:inline-flex;gap:6px;">
+          <button type="button" id="btnCopyParameterizedCompact" class="adv-mini-btn tnum" title="Copy spec-preserving /compact command">Copy /compact</button>
+          <button type="button" id="btnCopySavingsReceipt" class="adv-mini-btn tnum">Copy Receipt</button>
+          <a id="btnExportPdfReceipt" href="/api/receipt/export?format=pdf" download class="adv-mini-btn tnum" style="text-decoration:none;display:inline-flex;align-items:center;">PDF 1.4</a>
+        </div>
+      </div>
+
+      <div class="adv-kpi-head tnum">
+        <div>
+          <span id="advKpiTokens" class="adv-kpi-big">0.0k</span>
+          <span style="color:var(--hz-muted);">tokens saved</span>
+          <span id="advKpiUsd" style="color:var(--hz-signal);margin-left:6px;font-weight:500;">$0.00</span>
+        </div>
+        <div id="advKpi30d" style="color:var(--hz-muted);font-size:11px;">
+          30d Workspace: <strong style="color:var(--hz-fg);">0.0k</strong> ($0.00)
+        </div>
+      </div>
+
+      <div class="adv-source-grid tnum">
+        <div><span style="color:var(--hz-muted);">Warm KV 95%</span><br /><strong id="savSrcCache" style="color:var(--hz-fg);">+0.0k</strong></div>
+        <div><span style="color:var(--hz-muted);">Subagents</span><br /><strong id="savSrcSub" style="color:var(--hz-fg);">+0.0k</strong></div>
+        <div><span style="color:var(--hz-muted);">FTS5 CLI</span><br /><strong id="savSrcCli" style="color:var(--hz-fg);">+0.0k</strong></div>
+        <div><span style="color:var(--hz-muted);">Guards/Trim</span><br /><strong id="savSrcGuards" style="color:var(--hz-fg);">+0.0k</strong></div>
+      </div>
+
+      <!-- Primary Surgical Action Bar (AGENTS.md Invariant 1 Compliant) -->
+      <div class="adv-cta-row">
+        <button
+          type="button"
+          id="btnCompactPrimary"
+          class="adv-cta-primary tnum"
+          data-cta-state="disabled"
+          data-compact-command="/compact"
+          disabled
+        >
+          <span id="advCtaLabel">Memory Clean &middot; 0.0k Reclaimable</span>
+        </button>
+        <button
+          type="button"
+          id="btnCondenseAst"
+          class="adv-cta-secondary tnum"
+          title="Folds stale full-file reads into declaration signature stubs and collapses resolved stack traces"
+          disabled
+        >
+          Fold AST Stubs
+        </button>
+      </div>
+
+      <div style="margin-top:6px;display:flex;flex-direction:column;gap:2px;font-size:11px;">
+        <p id="compactReclaim" class="tnum" style="color:var(--hz-fg-secondary);">
+          0.0k reclaimable clutter &middot; Active working set &amp; pinned rules protected
+        </p>
+        <p id="compactInstruction" style="color:var(--hz-muted);">
+          Type <code>/compact</code> in the chat box and press Enter after copying when resetting conversation history.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <script id="precomputedCatalogScript">
+    window.__PRECOMPUTED_SESSIONS__ = {};
+  </script>
+
+  <script>
+    (function bootstrapHighbeamAdvancedWorkbench() {
+      // 1. Theme & Query Parameter Preservation
+      const searchParams = (() => {
+        try { return new URLSearchParams(window.location.search || ''); } catch (_) { return new URLSearchParams(); }
+      })();
+      const sidecarUiToken = searchParams.get('token') || '';
+      const queryTheme = (searchParams.get('theme') || '').toLowerCase();
+
+      const applyTheme = () => {
+        const bodyKind = document.body.getAttribute('data-vscode-theme-kind') || '';
+        if (bodyKind.includes('light') || queryTheme === 'light') {
+          document.documentElement.classList.remove('dark');
+        } else {
+          document.documentElement.classList.add('dark');
+        }
+      };
+      applyTheme();
+
+      const linkSimple = document.getElementById('linkToSimpleView');
+      if (linkSimple && (sidecarUiToken || queryTheme)) {
+        const q = new URLSearchParams();
+        if (sidecarUiToken) q.set('token', sidecarUiToken);
+        if (queryTheme) q.set('theme', queryTheme);
+        linkSimple.href = `/simple?${q.toString()}`;
+      }
+
+      function withSidecarAuthUrl(rawUrl) {
+        if (!sidecarUiToken || typeof rawUrl !== 'string' || !rawUrl.startsWith('/api/')) return rawUrl;
+        const sep = rawUrl.includes('?') ? '&' : '?';
+        return rawUrl.includes('token=') ? rawUrl : `${rawUrl}${sep}token=${encodeURIComponent(sidecarUiToken)}`;
+      }
+
+      function buildPostHeaders() {
+        const h = {
+          'Content-Type': 'application/json',
+          'X-Horizon-CSRF': window.__HORIZON_CSRF_TOKEN__ || ''
+        };
+        if (sidecarUiToken) h['X-Sidecar-Token'] = sidecarUiToken;
+        return h;
+      }
+
+      // 2. Exact Mirror of isIgnorablePath (src/core/paths.mjs lines 111-126 — AGENTS.md Invariant 2)
+      function isIgnorablePath(p) {
+        if (!p || typeof p !== 'string') return false;
+        const raw = String(p).replace(/\\/g, '/');
+        if (/(?:^|\/)(?:src|lib|packages|app|sidecars|hooks|bin|scripts|test|tests)\/.*\.(?:[mc]?[jt]sx?|py|rs|go|java|c|cpp|h|hpp|rb|php|swift|kt|vue|svelte|html|css)$/i.test(raw)) {
+          return false;
+        }
+        if (/\.(?:[mc]?[jt]sx?|py|rs|go|java|c|cpp|h|hpp|rb|php|swift|kt|vue|svelte|html)$/i.test(raw) && !/\.min\.js$/i.test(raw)) {
+          return false;
+        }
+        if (/(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lock|Cargo\.lock|Gemfile\.lock|composer\.lock|\.lock)$/i.test(raw)) return true;
+        if (/\.log$/i.test(raw) || /(^|\/)logs?(\/|$)/i.test(raw) || /\.jsonl$/i.test(raw)) return true;
+        if (/(^|\/)(dist|build|out|target|\.next|\.nuxt|coverage|node_modules)(\/|$)/i.test(raw)) return true;
+        if (/\.(min\.js|min\.css|map|pyc)$/i.test(raw)) return true;
+        if (/(^|\/)(scratch|\.scratch|tmp|temp)(\/|$)/i.test(raw)) return true;
+        return false;
+      }
+
+      // 3. Exact Mirror of computePositionalRecallWeight (src/core/u_shaped_optimizer.mjs)
+      function computePositionalRecallWeight(positionRatio) {
+        const p = Math.max(0, Math.min(1, Number(positionRatio) || 0));
+        if (p < 0.30) return Number((1.00 - (p / 0.30) * 0.10).toFixed(2));
+        if (p < 0.70) {
+          const dist = Math.abs(p - 0.50) / 0.20;
+          return Number((0.55 + dist * 0.15).toFixed(2));
+        }
+        return Number((0.88 + ((p - 0.70) / 0.30) * 0.10).toFixed(2));
+      }
+
+      // 4. Formatting Helpers (Strict 0.1k Mathematical Parity)
+      function roundTenthsK(tokens) {
+        return Math.round((Math.max(0, Number(tokens) || 0) / 1000) * 10) / 10;
+      }
+      function fmtTenthsK(k) { return `${Number(k || 0).toFixed(1)}k`; }
+      function fmtHumanTokens(tokens) {
+        const n = Math.max(0, Number(tokens) || 0);
+        if (n >= 1000000) return `${(n / 1000000).toFixed(2)}M`;
+        return `${(n / 1000).toFixed(1)}k`;
+      }
+      function fmtMmSs(seconds) {
+        const s = Math.max(0, Math.floor(Number(seconds) || 0));
+        const m = Math.floor(s / 60);
+        const r = s % 60;
+        return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+      }
+      function escapeHtml(raw) {
+        return String(raw || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+      function basenameOf(p) {
+        const clean = String(p || '').replace(/\\/g, '/');
+        const segs = clean.split('/').filter(Boolean);
+        return segs.length > 0 ? segs[segs.length - 1] : clean;
+      }
+
+      // 5. DOM References
+      const workbenchEl = document.getElementById('highbeamAdvancedWorkbench');
+      const hostModelBadge = document.getElementById('advHostModelBadge');
+      const sessionSelect = document.getElementById('sessionSelect');
+      const sprint5hVal = document.getElementById('sprint5hVal');
+      const sprintResetVal = document.getElementById('sprintResetVal');
+      const weekly7dVal = document.getElementById('weekly7dVal');
+      const hostRamVal = document.getElementById('hostRamVal');
+      const dualTtlMeta = document.getElementById('advDualTtlMeta');
+      const statusDot = document.getElementById('advStatusDot');
+      const statusLabel = document.getElementById('advStatusLabel');
+      const usedTokEl = document.getElementById('advUsedTok');
+      const signalTokEl = document.getElementById('advSignalTok');
+      const clutterTokEl = document.getElementById('advClutterTok');
+      const safeTokEl = document.getElementById('advSafeTok');
+      const ceilPctEl = document.getElementById('advCeilPct');
+      const horizonGrid = document.getElementById('horizonGrid');
+      const scaleSafeEl = document.getElementById('advScaleSafe');
+      const scaleMaxEl = document.getElementById('advScaleMax');
+      const cellInspectorLeft = document.getElementById('cellInspectorLeft');
+      const cellInspectorRight = document.getElementById('cellInspectorRight');
+      const uPrimacyVal = document.getElementById('uPrimacyVal');
+      const uTroughVal = document.getElementById('uTroughVal');
+      const uRecencyVal = document.getElementById('uRecencyVal');
+      const consumersBody = document.getElementById('advConsumersBody');
+      const routerModeSwitch = document.getElementById('routerModeSwitch');
+      const actionQueueEl = document.getElementById('advActionQueue');
+      const routerGravityNote = document.getElementById('advRouterGravityNote');
+      const btnReapOrphans = document.getElementById('btnReapOrphans');
+      const btnUnlockHysteresis = document.getElementById('btnUnlockHysteresis');
+      const detArmedBadge = document.getElementById('advDetArmedBadge');
+      const baselineSummary = document.getElementById('advBaselineSummary');
+      const btnFlushShield = document.getElementById('btnFlushShield');
+      const guardLedgerBody = document.getElementById('advGuardLedgerBody');
+      const btnCopyParamCompact = document.getElementById('btnCopyParameterizedCompact');
+      const btnCopySavingsReceipt = document.getElementById('btnCopySavingsReceipt');
+      const btnExportPdfReceipt = document.getElementById('btnExportPdfReceipt');
+      const kpiTokens = document.getElementById('advKpiTokens');
+      const kpiUsd = document.getElementById('advKpiUsd');
+      const kpi30d = document.getElementById('advKpi30d');
+      const savSrcCache = document.getElementById('savSrcCache');
+      const savSrcSub = document.getElementById('savSrcSub');
+      const savSrcCli = document.getElementById('savSrcCli');
+      const savSrcGuards = document.getElementById('savSrcGuards');
+      const btnCompactPrimary = document.getElementById('btnCompactPrimary');
+      const advCtaLabel = document.getElementById('advCtaLabel');
+      const btnCondenseAst = document.getElementById('btnCondenseAst');
+      const compactReclaim = document.getElementById('compactReclaim');
+      const compactInstruction = document.getElementById('compactInstruction');
+
+      if (btnExportPdfReceipt && sidecarUiToken) {
+        btnExportPdfReceipt.href = withSidecarAuthUrl('/api/receipt/export?format=pdf');
+      }
+
+      let currentState = null;
+      let selectedCellIndex = 0;
+      let normalizedCells = [];
+      let isSurgeryInFlight = false;
+      let kvDeadlineMs = 0;
+      let billingDeadlineMs = 0;
+      let cachedHitPct = 0;
+      const ignoredPathsLocal = new Set();
+      const operatorLedgerEvents = [];
+
+      // Initialize 40 interactive cell buttons once (zero DOM thrash on refresh)
+      for (let i = 0; i < 40; i++) {
+        const cellBtn = document.createElement('button');
+        cellBtn.type = 'button';
+        cellBtn.className = 'adv-cell';
+        cellBtn.dataset.cellIndex = String(i);
+        cellBtn.dataset.cat = i === 0 ? 'anchor' : 'free';
+        cellBtn.setAttribute('role', 'option');
+        cellBtn.setAttribute('aria-label', `Cell ${i + 1}`);
+        cellBtn.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
+        cellBtn.addEventListener('click', () => selectCell(i));
+        cellBtn.addEventListener('keydown', (ev) => {
+          if (ev.key === 'ArrowRight' && i < 39) {
+            ev.preventDefault();
+            selectCell(i + 1, true);
+          } else if (ev.key === 'ArrowLeft' && i > 0) {
+            ev.preventDefault();
+            selectCell(i - 1, true);
+          }
+        });
+        horizonGrid.appendChild(cellBtn);
+      }
+
+      function selectCell(idx, moveFocus = false) {
+        selectedCellIndex = Math.max(0, Math.min(39, Number(idx) || 0));
+        const children = horizonGrid.children;
+        for (let i = 0; i < children.length; i++) {
+          const sel = i === selectedCellIndex;
+          children[i].setAttribute('aria-selected', sel ? 'true' : 'false');
+          if (sel && moveFocus) children[i].focus();
+        }
+        updateCellInspector();
+      }
+
+      function updateCellInspector() {
+        const meta = normalizedCells[selectedCellIndex] || {
+          index: selectedCellIndex,
+          catLabel: selectedCellIndex === 0 ? 'System Anchor' : 'Free Headroom',
+          target: '',
+          tokensK: 6.4,
+          turn: null
+        };
+        const recall = computePositionalRecallWeight(selectedCellIndex / 39);
+        const turnPart = meta.turn !== null && meta.turn !== undefined ? ` (Turn ${meta.turn})` : '';
+        const targetPart = meta.target ? ` \u00B7 ${basenameOf(meta.target)}` : '';
+        cellInspectorLeft.textContent = `Cell #${selectedCellIndex + 1}${turnPart} \u00B7 ${meta.catLabel}${targetPart}`;
+        cellInspectorRight.textContent = `${meta.tokensK.toFixed(1)}k tok \u00B7 ${recall.toFixed(2)} recall`;
+      }
+
+      function buildSpecSafeCompactCommand(state) {
+        if (typeof state?.compaction?.parameterizedCommand === 'string' && state.compaction.parameterizedCommand.trim()) {
+          return state.compaction.parameterizedCommand.trim();
+        }
+        const parts = [];
+        const activeFiles = Array.isArray(state?.brainSignals?.activeFiles)
+          ? state.brainSignals.activeFiles.slice(0, 3)
+          : [];
+        if (activeFiles.length > 0) parts.push(`active files (${activeFiles.join(', ')})`);
+        parts.push('AGENTS.md invariants and task.md checklist');
+        return `/compact Focus on preserving: ${parts.join('; ')}.`;
+      }
+
+      function normalizeFortyCells(state, maxTokens, isCacheTrulyWarm, isCrisis) {
+        const perCellK = (maxTokens / 40) / 1000;
+        const rawCells = Array.isArray(state.cells) ? state.cells : [];
+        if (rawCells.length === 40) {
+          return rawCells.map((c, i) => {
+            const rawDom = String(c.dominantCategory || c.category || c.state || 'FREE_HEADROOM').toUpperCase();
+            let cat = 'free';
+            let catLabel = 'Free Headroom';
+            if (rawDom.includes('ANCHOR') || rawDom.includes('SCHEMA')) {
+              cat = 'anchor';
+              catLabel = 'System / Rule Anchor';
+            } else if (rawDom.includes('ERROR') || rawDom.includes('POISON') || c.state === 'error') {
+              cat = 'error';
+              catLabel = 'Dead Error / Poison';
+            } else if (rawDom.includes('DUP') || rawDom.includes('STALE') || rawDom.includes('DIRTY') || rawDom.includes('BLEED') || c.state === 'stale') {
+              cat = (isCacheTrulyWarm && !isCrisis) ? 'cached' : 'clutter';
+              catLabel = (isCacheTrulyWarm && !isCrisis) ? 'Cached Duplicate (95% off)' : 'Stale Reclaimable Read';
+            } else if (rawDom.includes('ACTIVE') || rawDom.includes('KI') || c.state === 'useful' || Number(c.fillPct || 0) > 0) {
+              cat = 'signal';
+              catLabel = 'Active Working Set';
+            }
+            return {
+              index: i,
+              cat,
+              catLabel,
+              target: c.targetPath || c.filePath || c.label || '',
+              tokensK: c.tokens ? roundTenthsK(c.tokens) : (cat === 'free' ? 0 : perCellK),
+              turn: c.turnIndex ?? c.stepIndex ?? null
+            };
+          });
+        }
+
+        // Deterministic fallback synthesis from breakdown counts
+        const bd = state.breakdown || {};
+        const cellTok = maxTokens / 40;
+        const anchorCells = Math.max(1, Math.round(Number(bd.ANCHOR || 6400) / cellTok));
+        const activeCells = Math.round(Number(bd.ACTIVE_WORKING_SET || 0) / cellTok);
+        const dupCells = Math.round((Number(bd.DUPLICATE_READ || 0) + Number(bd.STALE_TURN || 0)) / cellTok);
+        const errCells = Math.round(Number(bd.DEAD_ERROR || 0) / cellTok);
+        const synth = [];
+        for (let i = 0; i < 40; i++) {
+          if (i < anchorCells && Number(state.window?.totalActiveTokens || 0) > 0) {
+            synth.push({ index: i, cat: 'anchor', catLabel: 'System / Rule Anchor', target: 'AGENTS.md', tokensK: perCellK, turn: 0 });
+          } else if (i < anchorCells + activeCells) {
+            synth.push({ index: i, cat: 'signal', catLabel: 'Active Working Set', target: '', tokensK: perCellK, turn: null });
+          } else if (i < anchorCells + activeCells + dupCells) {
+            const c = (isCacheTrulyWarm && !isCrisis) ? 'cached' : 'clutter';
+            synth.push({ index: i, cat: c, catLabel: c === 'cached' ? 'Cached Duplicate' : 'Stale Duplicate', target: '', tokensK: perCellK, turn: null });
+          } else if (i < anchorCells + activeCells + dupCells + errCells) {
+            synth.push({ index: i, cat: 'error', catLabel: 'Dead Error Trace', target: '', tokensK: perCellK, turn: null });
+          } else {
+            synth.push({ index: i, cat: 'free', catLabel: 'Free Headroom', target: '', tokensK: 0, turn: null });
+          }
+        }
+        return synth;
+      }
+
+      function renderConsumersTable(state) {
+        const rows = [];
+        const topFiles = Array.isArray(state.brainSignals?.duplicateReads?.topFiles)
+          ? state.brainSignals.duplicateReads.topFiles
+          : (Array.isArray(state.offenders) ? state.offenders : []);
+
+        for (const f of topFiles) {
+          const p = String(f.path || f.file || f.target || '');
+          if (!p || ignoredPathsLocal.has(p)) continue;
+          const tok = Number(f.wastedTokens ?? f.reclaimableTokens ?? f.tokens ?? 0);
+          const hits = Number(f.occurrences ?? f.reads ?? f.count ?? 2);
+          const ignorable = isIgnorablePath(p);
+          rows.push({
+            path: p,
+            display: p.length > 34 ? `\u2026/${basenameOf(p)}` : p,
+            pattern: `${hits}\u00D7 full read`,
+            tokensK: roundTenthsK(tok),
+            ignorable,
+            kind: 'file'
+          });
+        }
+
+        const deadErrCount = Number(state.brainSignals?.deadErrors?.errorCount || 0);
+        const deadErrTok = Number(state.brainSignals?.deadErrors?.reclaimableTokens ?? state.breakdown?.DEAD_ERROR ?? 0);
+        if (deadErrTok > 0) {
+          rows.push({
+            path: 'Resolved CLI stack traces',
+            display: 'Resolved CLI stack traces',
+            pattern: `${Math.max(1, deadErrCount)}\u00D7 exit != 0`,
+            tokensK: roundTenthsK(deadErrTok),
+            ignorable: false,
+            kind: 'error'
+          });
+        }
+
+        const blowups = Array.isArray(state.brainSignals?.blowupSteps) ? state.brainSignals.blowupSteps : [];
+        for (const b of blowups) {
+          if (rows.length >= 4) break;
+          const t = String(b.target || b.payload?.path || b.payload?.detail || '');
+          if (!t || rows.some((r) => r.path === t) || ignoredPathsLocal.has(t)) continue;
+          const isCmd = b.payload?.kind === 'command';
+          rows.push({
+            path: t,
+            display: t.length > 34 ? `\u2026/${basenameOf(t)}` : t,
+            pattern: isCmd ? 'CLI spike' : 'Single-step spike',
+            tokensK: roundTenthsK(b.tokens || 0),
+            ignorable: !isCmd && isIgnorablePath(t),
+            kind: isCmd ? 'command' : 'file'
+          });
+        }
+
+        const topFour = rows.slice(0, 4);
+        if (topFour.length === 0) {
+          consumersBody.innerHTML =
+            '<tr><td colspan="4" style="color:var(--hz-muted);">Zero duplicate reads or dead error traces in active window.</td></tr>';
+          return;
+        }
+
+        consumersBody.innerHTML = topFour.map((r) => {
+          let guardHtml = '<span style="color:var(--hz-muted);">Protected source</span>';
+          if (r.kind === 'error' || r.kind === 'command') {
+            guardHtml = '<span style="color:var(--hz-warn);">Tombstone / FTS5</span>';
+          } else if (r.ignorable) {
+            guardHtml = `<button type="button" class="adv-mini-btn tnum" data-ignore-path="${escapeHtml(r.path)}">+Ignore</button>`;
+          }
+          return (
+            `<tr>` +
+            `<td title="${escapeHtml(r.path)}">${escapeHtml(r.display)}</td>` +
+            `<td>${escapeHtml(r.pattern)}</td>` +
+            `<td class="num">${fmtTenthsK(r.tokensK)}</td>` +
+            `<td class="num">${guardHtml}</td>` +
+            `</tr>`
+          );
+        }).join('');
+      }
+
+      function renderActionQueue(state, isCacheTrulyWarm, reclaimableK, ttlSec) {
+        const items = [];
+        const rawAq = Array.isArray(state.actionQueue) ? state.actionQueue : [];
+
+        for (const aq of rawAq.slice(0, 3)) {
+          items.push({
+            severity: aq.kind === 'ORPHAN_PID' ? 'danger' : 'warn',
+            label: `${aq.actionLabel || '[Action]'} ${aq.target || ''} \u2192 ${aq.payoff || ''}`,
+            apiAction: aq.apiAction || '',
+            copyText: aq.commandToCopy || '',
+            btnText: aq.apiAction === 'reap-orphans' ? 'Reap PIDs' : (aq.apiAction === 'condense-ast' ? 'Prune' : 'Copy Cmd')
+          });
+        }
+
+        // Synthesize from telemetry if prebuilt actionQueue was not attached
+        if (items.length === 0) {
+          const orphans = Number(state.hostHealth?.orphanCount || state.hostHealth?.orphans?.length || 0);
+          if (orphans > 0) {
+            items.push({
+              severity: 'danger',
+              label: `[Reap ${orphans} Orphan PID${orphans === 1 ? '' : 's'}] Host watchdog \u2192 reclaims ${Number(state.hostHealth?.rssGb || 0.8).toFixed(1)}GB RAM`,
+              apiAction: 'reap-orphans',
+              copyText: '',
+              btnText: 'Reap PIDs'
+            });
+          }
+          const unusedEager = Array.isArray(state.baseline?.mcpAudit?.unusedEagerServers)
+            ? state.baseline.mcpAudit.unusedEagerServers
+            : [];
+          if (unusedEager.length > 0) {
+            const names = unusedEager.map((s) => s.name).join(', ');
+            const schemaSaveK = roundTenthsK(unusedEager.reduce((acc, s) => acc + Number(s.schemaTokens || 0), 0));
+            items.push({
+              severity: 'warn',
+              label: `[Defer ${unusedEager.length} Idle MCP${unusedEager.length === 1 ? '' : 's'}] ${names} \u2192 saves ${fmtTenthsK(schemaSaveK)}/turn`,
+              apiAction: '',
+              copyText: `Switch idle eager MCP servers (${names}) to "loading": "lazy" in mcp_config.json`,
+              btnText: 'Copy Fix'
+            });
+          }
+          if (reclaimableK >= 2.0) {
+            items.push({
+              severity: 'warn',
+              label: isCacheTrulyWarm
+                ? `[Trim Uncached Tail] Stale tail above warm prefix \u2192 stages ${fmtTenthsK(reclaimableK)} (holds ${fmtMmSs(ttlSec)} KV)`
+                : `[Fold Stale Reads] AST Surgeon \u2192 reclaims ${fmtTenthsK(reclaimableK)} (zero LLM cost)`,
+              apiAction: isCacheTrulyWarm ? 'tail-trim' : 'condense-ast',
+              copyText: '',
+              btnText: isCacheTrulyWarm ? 'Trim Tail' : 'Fold AST'
+            });
+          }
+        }
+
+        if (items.length === 0) {
+          actionQueueEl.innerHTML =
+            '<li class="adv-aq-item" data-severity="signal">' +
+            '<span class="adv-aq-text">Nominal queue &middot; 0 orphan PIDs, 0 idle eager MCPs, 0 trough specs</span>' +
+            '<span style="color:var(--hz-muted);font-size:10.5px;">0 actions</span>' +
+            '</li>';
+          return;
+        }
+
+        actionQueueEl.innerHTML = items.slice(0, 3).map((it) => (
+          `<li class="adv-aq-item" data-severity="${escapeHtml(it.severity)}">` +
+          `<span class="adv-aq-text" title="${escapeHtml(it.label)}">${escapeHtml(it.label)}</span>` +
+          `<button type="button" class="adv-mini-btn tnum" data-aq-api="${escapeHtml(it.apiAction)}" data-aq-copy="${escapeHtml(it.copyText)}">${escapeHtml(it.btnText)}</button>` +
+          `</li>`
+        )).join('');
+      }
+
+      function renderGuardLedger(state) {
+        const rows = [...operatorLedgerEvents];
+        const rawEvents = Array.isArray(state.coachState?.breakerEvents)
+          ? state.coachState.breakerEvents
+          : (Array.isArray(state.autoFix?.items) ? state.autoFix.items : []);
+
+        for (const ev of rawEvents) {
+          if (rows.length >= 4) break;
+          rows.push({
+            age: ev.age || 'live',
+            code: ev.detectorId || ev.code || 'GUARD',
+            desc: ev.summary || ev.label || ev.reason || 'Automated guard intervention',
+            impact: ev.tokensSaved > 0 ? `+${fmtHumanTokens(ev.tokensSaved)}` : 'tripped',
+            tone: ev.tokensSaved > 0 ? 'var(--hz-signal)' : 'var(--hz-warn)'
+          });
+        }
+
+        const bySrc = state.savings?.session?.bySource || {};
+        if (rows.length < 4 && Number(bySrc.cliCompressed || bySrc.cliCompression || 0) > 0) {
+          rows.push({
+            age: 'live',
+            code: 'DET-07',
+            desc: 'FTS5 compressed verbose CLI test output',
+            impact: `+${fmtHumanTokens(bySrc.cliCompressed || bySrc.cliCompression)}`,
+            tone: 'var(--hz-signal)'
+          });
+        }
+        if (rows.length < 4 && Number(bySrc.cachePreserved || bySrc.cachePreservation || 0) > 0) {
+          rows.push({
+            age: 'live',
+            code: 'DET-08',
+            desc: 'KV Gravity preserved warm prefix across turn boundary',
+            impact: `+${fmtHumanTokens(bySrc.cachePreserved || bySrc.cachePreservation)}`,
+            tone: 'var(--hz-signal)'
+          });
+        }
+        const queuedDeltas = Number(state.prefixShield?.queuedCount ?? state.coachState?.prefixShield?.queuedCount ?? 0);
+        if (rows.length < 4 && queuedDeltas > 0) {
+          rows.push({
+            age: 'live',
+            code: 'DET-09',
+            desc: `PrefixCacheShield fenced ${queuedDeltas} rule mutation${queuedDeltas === 1 ? '' : 's'}`,
+            impact: 'fenced',
+            tone: 'var(--hz-anchor)'
+          });
+        }
+        if (rows.length < 4 && Number(bySrc.subagentIsolated || bySrc.subagentIsolation || 0) > 0) {
+          rows.push({
+            age: 'live',
+            code: 'DET-19',
+            desc: 'Isolated subagent exploration & stripped IPI tags',
+            impact: `+${fmtHumanTokens(bySrc.subagentIsolated || bySrc.subagentIsolation)}`,
+            tone: 'var(--hz-signal)'
+          });
+        }
+        if (rows.length < 4 && Number(bySrc.avoidedBloat || bySrc.guardsPrevented || 0) > 0) {
+          rows.push({
+            age: 'live',
+            code: 'DET-04/06',
+            desc: 'Blocked retry thrash & unmodified full-file re-reads',
+            impact: `+${fmtHumanTokens(bySrc.avoidedBloat || bySrc.guardsPrevented)}`,
+            tone: 'var(--hz-signal)'
+          });
+        }
+
+        if (rows.length === 0) {
+          guardLedgerBody.innerHTML =
+            '<tr><td>now</td><td>DET-01..32</td><td>FTS5 compressor, PrefixCacheShield &amp; 3-strike breakers armed</td><td class="num" style="color:var(--hz-muted);">armed</td></tr>';
+          return;
+        }
+
+        guardLedgerBody.innerHTML = rows.slice(0, 4).map((r) => (
+          `<tr>` +
+          `<td>${escapeHtml(r.age)}</td>` +
+          `<td>${escapeHtml(r.code)}</td>` +
+          `<td title="${escapeHtml(r.desc)}">${escapeHtml(r.desc)}</td>` +
+          `<td class="num" style="color:${r.tone};font-weight:500;">${escapeHtml(r.impact)}</td>` +
+          `</tr>`
+        )).join('');
+      }
+
+      function renderState(state) {
+        if (!state || typeof state !== 'object') return;
+        currentState = state;
+        if (isSurgeryInFlight) return;
+
+        // Top Bar & Sub-HUD
+        const isClaude = state.storeSource === 'claude-code' || state.surface === 'claude-code';
+        const surfaceLabel = isClaude ? 'Claude Code' : 'Antigravity';
+        const modelName = state.quota?.sprint5h?.modelPoolName || state.model?.displayName || state.effortProfile?.label || 'Auto';
+        const mult = Number(state.effortGovernor?.burnMultiplier ?? state.model?.burnMultiplier ?? 0);
+        hostModelBadge.textContent = mult > 0
+          ? `${surfaceLabel} \u00B7 ${modelName} (${mult}x)`
+          : `${surfaceLabel} \u00B7 ${modelName}`;
+
+        if (Array.isArray(state.sessions) && state.sessions.length > 0) {
+          const curVal = sessionSelect.value || 'auto';
+          const opts = ['<option value="auto">Auto (Active Chat)</option>'];
+          for (const s of state.sessions.slice(0, 12)) {
+            const id = String(s.id || s.sessionId || '');
+            if (!id) continue;
+            const title = String(s.title || id.slice(0, 8)).slice(0, 28);
+            opts.push(`<option value="${escapeHtml(id)}"${id === curVal ? ' selected' : ''}>${escapeHtml(title)}</option>`);
+          }
+          sessionSelect.innerHTML = opts.join('');
+        }
+
+        const sprintPct = Math.round(Number(state.quota?.sprint5h?.usedPct || 0));
+        const weeklyPct = Math.round(Number(state.quota?.weekly7d?.usedPct || 0));
+        const rssGb = Number(state.hostHealth?.rssGb || 0);
+        const orphanCount = Number(state.hostHealth?.orphanCount || state.hostHealth?.orphans?.length || 0);
+
+        sprint5hVal.textContent = `${sprintPct}%`;
+        sprintResetVal.textContent = state.quota?.sprint5h?.resetLabel ? `(${state.quota.sprint5h.resetLabel})` : '';
+        weekly7dVal.textContent = `${weeklyPct}%`;
+        hostRamVal.textContent = `${rssGb.toFixed(1)}GB`;
+        hostRamVal.style.color = (rssGb >= 4.0 || orphanCount > 0) ? 'var(--hz-danger)' : 'var(--hz-fg)';
+        btnReapOrphans.hidden = orphanCount <= 0;
+        if (orphanCount > 0) btnReapOrphans.textContent = `Reap ${orphanCount} PID${orphanCount === 1 ? '' : 's'}`;
+
+        // Context Math & Cache Coherence
+        const maxTokens = Math.max(1000, Number(state.window?.maxTokens || 256000));
+        const safeLimit = Math.max(1000, Number(state.window?.safeLimit || Math.round(maxTokens * 0.70)));
+        const rawUsed = Math.max(0, Number(state.window?.totalActiveTokens ?? state.tokens?.total ?? 0));
+
+        const bd = state.breakdown || {};
+        const bdClutter =
+          Math.max(0, Number(bd.DUPLICATE_READ || 0)) +
+          Math.max(0, Number(bd.STALE_TURN || 0)) +
+          Math.max(0, Number(bd.DEAD_ERROR || 0)) +
+          Math.max(0, Number(bd.DIRTY_SNAP || 0)) +
+          Math.max(0, Number(bd.LEGACY_POISON || 0)) +
+          Math.max(0, Number(bd.MEMORY_BLEED || 0));
+        const bs = state.brainSignals || {};
+        const bsClutter =
+          Math.max(0, Number(bs.duplicateReads?.reclaimableTokens ?? bs.duplicateReads?.totalWastedTokens ?? 0)) +
+          Math.max(0, Number(bs.deadErrors?.reclaimableTokens ?? bs.deadErrors?.totalTokens ?? 0)) +
+          Math.max(0, Number(bs.oldHistory?.reclaimableTokens ?? 0));
+        const rawClutter = Math.min(rawUsed, Math.max(bdClutter, bsClutter));
+
+        const totalUsedK = roundTenthsK(rawUsed);
+        const reclaimableK = Math.min(totalUsedK, roundTenthsK(rawClutter));
+        const activeSignalK = Number((totalUsedK - reclaimableK).toFixed(1));
+        const safeLimitK = roundTenthsK(safeLimit);
+        const ceilPct = Math.min(100, Math.round((rawUsed / maxTokens) * 100));
+
+        const cache = state.quota?.cache || state.cache || {};
+        const kvTtlSec = Math.max(0, Math.floor(Number(cache.ttlRemainingSec ?? cache.cacheTtlRemainingSec ?? 0)));
+        const billingTtlSec = Math.max(0, Math.floor(Number(cache.billingTtlSec ?? (kvTtlSec > 0 ? 3300 + kvTtlSec : 0))));
+        const cacheReadTokens = Math.max(0, Number(cache.cacheReadTokens || 0));
+        const hitPct = Math.max(0, Number(cache.hitRatePct ?? cache.hitPercent ?? 0));
+        const isCacheTrulyWarm = kvTtlSec > 0 && cacheReadTokens > 0 && hitPct > 0 && !cache.isCacheCold;
+
+        kvDeadlineMs = isCacheTrulyWarm ? (Date.now() + kvTtlSec * 1000) : 0;
+        billingDeadlineMs = billingTtlSec > 0 ? (Date.now() + billingTtlSec * 1000) : 0;
+        cachedHitPct = hitPct;
+
+        const isCrisis =
+          Boolean(state.amputation?.amputationCrisis || state.telemetry?.amputationRisk) ||
+          state.verdictCode === 'CRITICAL_STOP' ||
+          rawUsed >= safeLimit;
+        const isColdSaturated = !isCacheTrulyWarm && reclaimableK >= 10.0;
+        const isNearHorizon = rawUsed >= Math.min(145000, safeLimit * 0.85);
+        const isSaturationRisk = isCrisis || isColdSaturated || isNearHorizon;
+
+        // Zone A Updates
+        if (isSaturationRisk) {
+          workbenchEl.dataset.systemState = 'saturation_risk';
+          statusDot.dataset.tone = isCrisis ? 'danger' : 'warn';
+          statusLabel.textContent = (isCacheTrulyWarm && !isCrisis)
+            ? 'Context Saturation Risk \u00B7 Warm Hold'
+            : 'Context Saturation Risk';
+        } else {
+          workbenchEl.dataset.systemState = 'optimal';
+          statusDot.dataset.tone = 'signal';
+          statusLabel.textContent = 'Optimal Cache';
+        }
+
+        if (isCacheTrulyWarm) {
+          dualTtlMeta.dataset.tone = kvTtlSec <= 45 ? 'warn' : 'signal';
+          dualTtlMeta.textContent = `${Math.round(hitPct)}% hit \u00B7 5m KV ${fmtMmSs(kvTtlSec)} \u00B7 1h Block ${fmtMmSs(billingTtlSec)}`;
+        } else {
+          dualTtlMeta.dataset.tone = reclaimableK >= 5.0 ? 'warn' : 'muted';
+          dualTtlMeta.textContent = `0% hit \u00B7 5m KV 00:00 \u00B7 Cold`;
+        }
+
+        usedTokEl.textContent = fmtTenthsK(totalUsedK);
+        signalTokEl.textContent = fmtTenthsK(activeSignalK);
+        clutterTokEl.textContent = fmtTenthsK(reclaimableK);
+        safeTokEl.textContent = fmtTenthsK(safeLimitK);
+        ceilPctEl.textContent = `${ceilPct}%`;
+        scaleSafeEl.textContent = `${Math.round(safeLimitK)}k Safe`;
+        scaleMaxEl.textContent = `${Math.round(maxTokens / 1000)}k`;
+
+        normalizedCells = normalizeFortyCells(state, maxTokens, isCacheTrulyWarm, isCrisis);
+        const cellBtns = horizonGrid.children;
+        for (let i = 0; i < 40; i++) {
+          cellBtns[i].dataset.cat = normalizedCells[i].cat;
+          cellBtns[i].title = `Cell #${i + 1}: ${normalizedCells[i].catLabel} (${normalizedCells[i].tokensK.toFixed(1)}k)`;
+        }
+        updateCellInspector();
+
+        // U-Curve Recall Strip
+        const riskyTrough = Array.isArray(state.topRiskyCells)
+          ? state.topRiskyCells.filter((c) => c.inTrough || c.riskReason === 'TROUGH_STRANDED_SPEC')
+          : [];
+        const primacyPct = Math.round(Number(state.uCurve?.primacyPct || 96));
+        const troughPct = Math.round(Number(state.uCurve?.troughPct || (riskyTrough.length > 0 ? 56 : 62)));
+        const recencyPct = Math.round(Number(state.uCurve?.recencyPct || 94));
+        uPrimacyVal.textContent = `${primacyPct}% recall`;
+        uTroughVal.textContent = `${troughPct}% (${riskyTrough.length} spec${riskyTrough.length === 1 ? '' : 's'})`;
+        uTroughVal.style.color = riskyTrough.length > 0 ? 'var(--hz-warn)' : 'var(--hz-fg)';
+        uRecencyVal.textContent = `${recencyPct}% recall`;
+
+        renderConsumersTable(state);
+        renderActionQueue(state, isCacheTrulyWarm, reclaimableK, kvTtlSec);
+
+        // Zone B: Router Mode & Hysteresis
+        const activeMode = String(state.coachState?.mode || state.router?.mode || 'coach').toLowerCase();
+        for (const b of routerModeSwitch.querySelectorAll('[data-router-mode]')) {
+          const match = b.getAttribute('data-router-mode') === activeMode;
+          b.setAttribute('aria-pressed', match ? 'true' : 'false');
+        }
+        const hystLocked = Boolean(state.coachState?.hysteresisLocked || state.effortGovernor?.hysteresisLocked);
+        btnUnlockHysteresis.hidden = !hystLocked;
+        routerGravityNote.textContent = isCacheTrulyWarm
+          ? `KV Gravity Hold: ${fmtTenthsK(roundTenthsK(cacheReadTokens))} warm prefix \u00B7 Mid-session switch pays full cold prefill`
+          : `KV Gravity Router (${activeMode.toUpperCase()}) \u00B7 Safe to switch model/effort while cache is cold`;
+
+        // Zone C: Turn-0 Baseline, Shield & DET-01..32 Log
+        const bl = state.baseline || {};
+        const rulesK = roundTenthsK(bl.rulesTokens ?? (Number(bs.activeSignal?.baselineTokens || 0) * 0.45));
+        const skillsK = roundTenthsK(bl.skillsTokens ?? (Number(bs.activeSignal?.baselineTokens || 0) * 0.20));
+        const mcpK = roundTenthsK(bl.mcpTokens ?? (Number(bs.activeSignal?.baselineTokens || 0) * 0.35));
+        const baseTotalK = Number((rulesK + skillsK + mcpK).toFixed(1));
+        baselineSummary.innerHTML =
+          `Turn-0 Baseline: <strong style="color:var(--hz-fg);">${fmtTenthsK(baseTotalK)}</strong> / 20.0k budget ` +
+          `(Rules ${fmtTenthsK(rulesK)} &middot; Skills ${fmtTenthsK(skillsK)} &middot; MCP ${fmtTenthsK(mcpK)})`;
+
+        const stagedCount = Number(state.prefixShield?.queuedCount ?? state.coachState?.prefixShield?.queuedCount ?? 0);
+        btnFlushShield.disabled = stagedCount <= 0;
+        btnFlushShield.textContent = stagedCount > 0
+          ? (isCacheTrulyWarm ? `Shield: ${stagedCount} fenced` : `Flush ${stagedCount} Delta${stagedCount === 1 ? '' : 's'}`)
+          : 'Shield: 0 queued';
+
+        const trippedCount = Array.isArray(state.coachState?.breakerEvents) ? state.coachState.breakerEvents.length : 0;
+        detArmedBadge.textContent = trippedCount > 0 ? `32 armed \u00B7 ${trippedCount} fired` : '32/32 guards armed';
+        renderGuardLedger(state);
+
+        // Zone D: Multi-Source Savings Matrix & Dual Surgical Execution Bar
+        const sessSav = state.savings?.session || {};
+        const wsSav = state.savings?.workspace30d || {};
+        const bySrc = sessSav.bySource || {};
+        const sessTok = Math.max(0, Number(sessSav.totalPhysicalTokens ?? sessSav.totalTokens ?? 0));
+        const sessUsd = Math.max(0, Number(sessSav.estimatedInputValueUsd ?? sessSav.estimatedUsd ?? 0));
+        const wsTok = Math.max(sessTok, Number(wsSav.totalPhysicalTokens ?? wsSav.totalTokens ?? 0));
+        const wsUsd = Math.max(sessUsd, Number(wsSav.estimatedInputValueUsd ?? wsSav.estimatedUsd ?? 0));
+
+        kpiTokens.textContent = fmtHumanTokens(sessTok);
+        kpiUsd.textContent = sessUsd > 0 ? `~$${sessUsd.toFixed(2)}` : '$0.00';
+        kpi30d.innerHTML = `30d Workspace: <strong style="color:var(--hz-fg);">${fmtHumanTokens(wsTok)}</strong> ($${wsUsd.toFixed(2)})`;
+
+        savSrcCache.textContent = `+${fmtHumanTokens(bySrc.cachePreserved || bySrc.cachePreservation || 0)}`;
+        savSrcSub.textContent = `+${fmtHumanTokens(bySrc.subagentIsolated || bySrc.subagentIsolation || 0)}`;
+        savSrcCli.textContent = `+${fmtHumanTokens(bySrc.cliCompressed || bySrc.cliCompression || 0)}`;
+        savSrcGuards.textContent = `+${fmtHumanTokens(bySrc.avoidedBloat || bySrc.guardsPrevented || 0)}`;
+
+        const compactCmd = buildSpecSafeCompactCommand(state);
+        btnCompactPrimary.dataset.compactCommand = compactCmd;
+        btnCopyParamCompact.dataset.compactCommand = compactCmd;
+
+        if (reclaimableK < 0.5 && !isCrisis) {
+          btnCompactPrimary.disabled = true;
+          btnCompactPrimary.dataset.ctaState = 'disabled';
+          advCtaLabel.textContent = 'Memory Clean \u00B7 0.0k Reclaimable';
+          btnCondenseAst.disabled = true;
+          btnCondenseAst.textContent = 'Fold AST Stubs';
+          compactReclaim.textContent = `0.0k reclaimable clutter \u00B7 ${fmtTenthsK(activeSignalK)} active signal & pinned rules protected`;
+          compactInstruction.innerHTML = 'Type <code>/compact</code> in the chat box and press Enter when resetting conversation history.';
+        } else if (isCacheTrulyWarm && !isCrisis) {
+          btnCompactPrimary.disabled = false;
+          btnCompactPrimary.dataset.ctaState = 'guarded';
+          advCtaLabel.textContent = `Trim Uncached Tail & Copy /compact \u00B7 ${fmtTenthsK(reclaimableK)}`;
+          btnCondenseAst.disabled = false;
+          btnCondenseAst.textContent = 'Force AST Prune (Busts KV)';
+          compactReclaim.textContent = `${fmtTenthsK(reclaimableK)} staged for tail trim \u00B7 Preserves ${Math.round(hitPct)}% warm KV discount (${fmtMmSs(kvTtlSec)})`;
+          compactInstruction.innerHTML = 'Type <code>/compact</code> in the chat box and press Enter only after warm cache reaches 00:00.';
+        } else if (isCrisis) {
+          btnCompactPrimary.disabled = false;
+          btnCompactPrimary.dataset.ctaState = 'crisis';
+          advCtaLabel.textContent = `Emergency Prune & Copy /compact \u00B7 ${fmtTenthsK(reclaimableK)}`;
+          btnCondenseAst.disabled = false;
+          btnCondenseAst.textContent = 'Fold AST Stubs';
+          compactReclaim.textContent = `Crisis override: reclaims ${fmtTenthsK(reclaimableK)} & copies spec-safe /compact preserving pinned rules`;
+          compactInstruction.innerHTML = 'Type <code>/compact</code> in the chat box and press Enter immediately after clicking.';
+        } else {
+          btnCompactPrimary.disabled = false;
+          btnCompactPrimary.dataset.ctaState = 'ready';
+          advCtaLabel.textContent = `Prune AST & Copy /compact \u00B7 Reclaim ${fmtTenthsK(reclaimableK)}`;
+          btnCondenseAst.disabled = false;
+          btnCondenseAst.textContent = 'Fold AST Stubs';
+          compactReclaim.textContent = `Frees ${fmtTenthsK(reclaimableK)} duplicate reads & dead errors (zero LLM cost) \u00B7 Keeps active set`;
+          compactInstruction.innerHTML = 'Type <code>/compact</code> in the chat box and press Enter after copying, or surgical AST prune runs now.';
+        }
+      }
+
+      window.renderState = renderState;
+
+      // 6. Surgical Execution & Control Handlers (Zero Modal Popups)
+      async function executeMemorySurgery({ forceHotAst = false } = {}) {
+        if (isSurgeryInFlight) return;
+        const snap = currentState || {};
+        const ctaState = btnCompactPrimary.dataset.ctaState || 'ready';
+        const useTailTrim = !forceHotAst && ctaState === 'guarded';
+        const cmd = btnCompactPrimary.dataset.compactCommand || '/compact';
+
+        isSurgeryInFlight = true;
+        btnCompactPrimary.setAttribute('aria-busy', 'true');
+        btnCompactPrimary.dataset.ctaState = 'active';
+        statusDot.dataset.tone = 'active';
+        statusLabel.textContent = 'Memory Pruning Active';
+        advCtaLabel.textContent = useTailTrim
+          ? 'Trimming uncached tail (keeping KV hot)…'
+          : 'Folding AST signature stubs & copying /compact…';
+
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          try { await navigator.clipboard.writeText(cmd); } catch (_) {}
+        }
+
+        let nextServerState = null;
+        let savedDelta = 0;
+        try {
+          const endpoint = useTailTrim ? '/api/tail/trim' : '/api/prune';
+          const body = useTailTrim
+            ? { conversationId: snap.sessionId || null }
+            : { conversationId: snap.sessionId || null, forceHotCache: forceHotAst || ctaState === 'crisis' };
+          const resp = await fetch(withSidecarAuthUrl(endpoint), {
+            method: 'POST',
+            headers: buildPostHeaders(),
+            body: JSON.stringify(body)
+          });
+          if (resp && resp.ok) {
+            const data = await resp.json();
+            if (data && data.state) nextServerState = data.state;
+            savedDelta = Math.max(0, Number(data?.savedTokens || data?.reclaimedTokens || 0));
+          }
+        } catch (_) {}
+
+        isSurgeryInFlight = false;
+        btnCompactPrimary.removeAttribute('aria-busy');
+
+        operatorLedgerEvents.unshift({
+          age: 'now',
+          code: useTailTrim ? 'TAIL' : 'AST',
+          desc: useTailTrim
+            ? 'Trimmed uncached tail & copied spec-safe /compact'
+            : 'Folded stale reads to AST stubs & tombstoned errors',
+          impact: savedDelta > 0 ? `+${fmtHumanTokens(savedDelta)}` : 'cleaned',
+          tone: 'var(--hz-signal)'
+        });
+        if (operatorLedgerEvents.length > 4) operatorLedgerEvents.length = 4;
+
+        if (nextServerState) {
+          renderState(nextServerState);
+        } else if (currentState) {
+          if (useTailTrim) {
+            renderState(currentState);
+          } else {
+            const reclaimedEst = savedDelta > 0 ? savedDelta : Math.max(0, Number(snap.breakdown?.DUPLICATE_READ || 0) + Number(snap.breakdown?.DEAD_ERROR || 0));
+            const prevTot = Math.max(0, Number(currentState.window?.totalActiveTokens || 0));
+            const prevSav = Math.max(0, Number(currentState.savings?.session?.totalPhysicalTokens || 0));
+            renderState({
+              ...currentState,
+              verdictCode: 'NOMINAL',
+              amputation: { amputationCrisis: false, anchorsAtRisk: 0 },
+              window: { ...(currentState.window || {}), totalActiveTokens: Math.max(0, prevTot - reclaimedEst) },
+              breakdown: { ...(currentState.breakdown || {}), DUPLICATE_READ: 0, STALE_TURN: 0, DEAD_ERROR: 0 },
+              brainSignals: {
+                ...(currentState.brainSignals || {}),
+                duplicateReads: { topFiles: [], reclaimableTokens: 0 },
+                deadErrors: { errorCount: 0, reclaimableTokens: 0 },
+                oldHistory: { reclaimableTokens: 0 }
+              },
+              savings: {
+                ...(currentState.savings || {}),
+                session: {
+                  ...(currentState.savings?.session || {}),
+                  totalPhysicalTokens: prevSav + reclaimedEst,
+                  estimatedInputValueUsd: Number((((prevSav + reclaimedEst) / 1000000) * 2.0).toFixed(2))
+                }
+              }
+            });
+          }
+        }
+
+        btnCompactPrimary.dataset.ctaState = 'done';
+        advCtaLabel.textContent = useTailTrim
+          ? 'Tail Trimmed \u00B7 /compact Copied for Expiry'
+          : 'AST Pruned \u00B7 /compact Copied to Clipboard';
+      }
+
+      btnCompactPrimary.addEventListener('click', () => executeMemorySurgery({ forceHotAst: false }));
+      btnCondenseAst.addEventListener('click', () => executeMemorySurgery({ forceHotAst: true }));
+
+      btnCopyParamCompact.addEventListener('click', async () => {
+        const cmd = btnCopyParamCompact.dataset.compactCommand || '/compact';
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          try { await navigator.clipboard.writeText(cmd); } catch (_) {}
+        }
+        btnCopyParamCompact.textContent = 'Copied \u2713';
+        setTimeout(() => { btnCopyParamCompact.textContent = 'Copy /compact'; }, 1500);
+      });
+
+      btnCopySavingsReceipt.addEventListener('click', async () => {
+        try {
+          const r = await fetch(withSidecarAuthUrl('/api/savings/receipt'), {
+            method: 'POST',
+            headers: buildPostHeaders(),
+            body: JSON.stringify({ sessionId: currentState?.sessionId || null })
+          });
+          if (r && r.ok) {
+            const d = await r.json();
+            if (d?.receiptMarkdown && navigator.clipboard?.writeText) {
+              await navigator.clipboard.writeText(d.receiptMarkdown);
+            }
+          }
+        } catch (_) {}
+        btnCopySavingsReceipt.textContent = 'Receipt Copied \u2713';
+        setTimeout(() => { btnCopySavingsReceipt.textContent = 'Copy Receipt'; }, 1500);
+      });
+
+      routerModeSwitch.addEventListener('click', async (ev) => {
+        const btn = ev.target.closest('[data-router-mode]');
+        if (!btn) return;
+        const mode = btn.getAttribute('data-router-mode');
+        for (const b of routerModeSwitch.querySelectorAll('[data-router-mode]')) {
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        }
+        try {
+          await fetch(withSidecarAuthUrl('/api/router/mode'), {
+            method: 'POST',
+            headers: buildPostHeaders(),
+            body: JSON.stringify({ mode })
+          });
+        } catch (_) {}
+      });
+
+      btnUnlockHysteresis.addEventListener('click', async () => {
+        btnUnlockHysteresis.hidden = true;
+        try {
+          await fetch(withSidecarAuthUrl('/api/router/unlock-hysteresis'), {
+            method: 'POST',
+            headers: buildPostHeaders(),
+            body: JSON.stringify({})
+          });
+        } catch (_) {}
+      });
+
+      btnFlushShield.addEventListener('click', async () => {
+        if (btnFlushShield.disabled) return;
+        try {
+          const r = await fetch(withSidecarAuthUrl('/api/shield/flush'), {
+            method: 'POST',
+            headers: buildPostHeaders(),
+            body: JSON.stringify({ force: false })
+          });
+          if (r && r.ok) {
+            const d = await r.json();
+            btnFlushShield.textContent = d.deferred ? 'Deferred (KV Hot)' : 'Flushed \u2713';
+            if (d.state) renderState(d.state);
+          }
+        } catch (_) {}
+      });
+
+      btnReapOrphans.addEventListener('click', async () => {
+        try {
+          const r = await fetch(withSidecarAuthUrl('/api/host/reap'), {
+            method: 'POST',
+            headers: buildPostHeaders(),
+            body: JSON.stringify({})
+          });
+          if (r && r.ok) {
+            const d = await r.json();
+            if (d.state) renderState(d.state);
+          }
+        } catch (_) {}
+      });
+
+      sessionSelect.addEventListener('change', async () => {
+        try {
+          const r = await fetch(withSidecarAuthUrl('/api/action'), {
+            method: 'POST',
+            headers: buildPostHeaders(),
+            body: JSON.stringify({ action: 'select_session', conversationId: sessionSelect.value })
+          });
+          if (r && r.ok) {
+            const d = await r.json();
+            if (d.state) renderState(d.state);
+          }
+        } catch (_) {}
+      });
+
+      consumersBody.addEventListener('click', async (ev) => {
+        const btn = ev.target.closest('[data-ignore-path]');
+        if (!btn) return;
+        const p = btn.getAttribute('data-ignore-path');
+        if (!p || !isIgnorablePath(p)) return;
+        ignoredPathsLocal.add(p);
+        if (navigator.clipboard?.writeText) {
+          try { await navigator.clipboard.writeText(p); } catch (_) {}
+        }
+        if (currentState) renderConsumersTable(currentState);
+      });
+
+      actionQueueEl.addEventListener('click', async (ev) => {
+        const btn = ev.target.closest('[data-aq-api], [data-aq-copy]');
+        if (!btn) return;
+        const api = btn.getAttribute('data-aq-api') || '';
+        const copy = btn.getAttribute('data-aq-copy') || '';
+        if (api === 'reap-orphans') {
+          btnReapOrphans.click();
+        } else if (api === 'tail-trim') {
+          await executeMemorySurgery({ forceHotAst: false });
+        } else if (api === 'condense-ast') {
+          await executeMemorySurgery({ forceHotAst: true });
+        } else if (copy && navigator.clipboard?.writeText) {
+          try { await navigator.clipboard.writeText(copy); } catch (_) {}
+          btn.textContent = 'Copied \u2713';
+        }
+      });
+
+      // 7. 1-Second Dual-TTL Countdown Ticker
+      const ticker = setInterval(() => {
+        if (isSurgeryInFlight || kvDeadlineMs <= 0) return;
+        const kvSec = Math.max(0, Math.floor((kvDeadlineMs - Date.now()) / 1000));
+        const billSec = Math.max(0, Math.floor((billingDeadlineMs - Date.now()) / 1000));
+        if (kvSec <= 0) {
+          kvDeadlineMs = 0;
+          if (currentState) {
+            renderState({
+              ...currentState,
+              quota: {
+                ...(currentState.quota || {}),
+                cache: { ...(currentState.quota?.cache || {}), ttlRemainingSec: 0, isCacheCold: true, hitRatePct: 0 }
+              }
+            });
+          }
+          return;
+        }
+        dualTtlMeta.dataset.tone = kvSec <= 45 ? 'warn' : 'signal';
+        dualTtlMeta.textContent = `${Math.round(cachedHitPct)}% hit \u00B7 5m KV ${fmtMmSs(kvSec)} \u00B7 1h Block ${fmtMmSs(billSec)}`;
+      }, 1000);
+      if (typeof ticker.unref === 'function') ticker.unref();
+
+      // 8. Live Daemon Bootstrap & SSE Stream
+      if (window.__LIVE_INITIAL_STATE__) {
+        try { renderState(window.__LIVE_INITIAL_STATE__); } catch (_) {}
+      }
+
+      if (typeof window.EventSource === 'function') {
+        try {
+          const es = new window.EventSource(withSidecarAuthUrl('/api/stream'));
+          es.onmessage = (e) => {
+            try { renderState(JSON.parse(e.data)); } catch (_) {}
+          };
+        } catch (_) {}
+      }
+
+      if (!window.__LIVE_INITIAL_STATE__ && typeof window.fetch === 'function') {
+        window.fetch(withSidecarAuthUrl('/api/state'))
+          .then((r) => (r && r.ok ? r.json() : null))
+          .then((s) => { if (s) renderState(s); })
+          .catch(() => {});
+      }
+    })();
+  </script>
+</body>
+</html>

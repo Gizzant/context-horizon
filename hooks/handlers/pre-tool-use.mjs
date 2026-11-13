@@ -326,7 +326,7 @@ export async function executePreToolUseCli(cliOptions = {}) {
         if (ipcRes?.decision === 'deny' || ipcRes?.decision === 'block') {
           res = {
             exitCode: 2,
-            stderr: ipcRes.reason || ipcRes.hookSpecificOutput?.permissionDecisionReason || '[Attention Horizon] Tool execution denied'
+            stderr: ipcRes.reason || ipcRes.hookSpecificOutput?.permissionDecisionReason || '[Highbeam] Tool execution denied'
           };
         } else {
           res = runPreToolUseHook(payload, {
@@ -348,7 +348,7 @@ export async function executePreToolUseCli(cliOptions = {}) {
     }
   } catch (err) {
     exitHardBlockStderr(
-      `[Attention Horizon Fail-Closed] ${err?.message || String(err)}`,
+      `[Highbeam Fail-Closed] ${err?.message || String(err)}`,
       'PreToolUse',
       ioOverride
     );
@@ -358,7 +358,7 @@ export async function executePreToolUseCli(cliOptions = {}) {
 if (isCliEntrypoint(import.meta.url)) {
   executePreToolUseCli().catch((err) => {
     exitHardBlockStderr(
-      `[Attention Horizon Fail-Closed] ${err?.message || String(err)}`,
+      `[Highbeam Fail-Closed] ${err?.message || String(err)}`,
       'PreToolUse'
     );
   });

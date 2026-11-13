@@ -74,7 +74,7 @@ const heroSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" w
   <circle cx="42" cy="20" r="6" fill="#f59e0b"/>
   <circle cx="62" cy="20" r="6" fill="#22c55e"/>
   <text x="480" y="25" text-anchor="middle" fill="#94a3b8" font-size="13" font-weight="600" class="mono">
-    Attention Horizon (ctxtop v3.4.0) — 40-Cell Context Telemetry HUD &amp; PreInvocation Flight Check
+    Highbeam (ctxtop v3.4.0) — 40-Cell Context Telemetry HUD &amp; PreInvocation Flight Check
   </text>
 
   <!-- Section 1: Turn 50 Prefix Amputation & Sludge Crisis -->
@@ -169,7 +169,7 @@ const socialPreviewSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1
 
   <!-- Top Pill -->
   <rect x="84" y="82" width="460" height="38" rx="19" fill="#00d7ff" fill-opacity="0.12" stroke="#00d7ff" stroke-width="1.5"/>
-  <text x="314" y="107" text-anchor="middle" fill="#38bdf8" font-size="18" font-weight="700" class="mono">⚡ Attention Horizon (ctxtop v3.3)</text>
+  <text x="314" y="107" text-anchor="middle" fill="#38bdf8" font-size="18" font-weight="700" class="mono">⚡ Highbeam (ctxtop v3.3)</text>
 
   <!-- Main Headline -->
   <text x="84" y="185" fill="#f8fafc" font-size="52" font-weight="800" class="sans">htop for AI Coding Agent</text>

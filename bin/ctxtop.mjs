@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @file bin/ctxtop.mjs
- * Attention Horizon v4.0 Unified Cross-Platform CLI (`ctxtop`).
+ * Highbeam v4.0 Unified Cross-Platform CLI (`ctxtop`).
  *
  * Commands:
  *   - `ctxtop init [--antigravity | --claude | --all | --workspace | --project | --dry-run | --dedupe]`
@@ -118,7 +118,7 @@ const AH_STATUSLINE_REGEX = /ah-statusline\.mjs/i;
 const AH_MOD_REGISTER_REGEX = /(?:^|[\\/])hooks[\\/]register\.js$|^\.\/register\.js$/i;
 
 /**
- * Extracts the Attention Horizon command string from either a nested (`{ hooks: [{ command }] }`)
+ * Extracts the Highbeam command string from either a nested (`{ hooks: [{ command }] }`)
  * or legacy flat (`{ command }`) hook entry.
  *
  * @param {object} entry
@@ -499,7 +499,7 @@ export function generateRoastCard(options = {}) {
   const leakedUsd = Number(live?.prefixRetention?.leakedColdPrefillUSD ?? (options.demo ? 1.85 : 0.12));
 
   const ascii = [
-    '╭── 🔥 ATTENTION HORIZON CONTEXT ROAST (Claude Code + Antigravity) ──────────╮',
+    '╭── 🔥 HIGHBEAM CONTEXT ROAST (Claude Code + Antigravity) ──────────╮',
     `│ KV-Cache Retention : Grade ${retentionGrade} (${retentionPct}% prefix warmth retained)               │`,
     `│ Cold Prefill Leak  : $${leakedUsd.toFixed(2)} burned on avoidable cold-cache switches/edits    │`,
     `│ Verified Savings   : +${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)} USD saved in 30d)            │`,
@@ -509,7 +509,7 @@ export function generateRoastCard(options = {}) {
   ].join('\n');
 
   const markdown = [
-    '### 🔥 Attention Horizon Context Roast (`npx ah-claude --roast`)',
+    '### 🔥 Highbeam Context Roast (`npx ah-claude --roast`)',
     `- **KV-Cache Retention**: Grade **${retentionGrade}** (${retentionPct}% warmth retained)`,
     `- **Cold Prefill Leak**: **$${leakedUsd.toFixed(2)}** burned on avoidable cold switches`,
     `- **30-Day Verified Savings**: **+${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)} USD)**`,
@@ -664,7 +664,7 @@ export function executeInitSubcommand(args = [], options = {}) {
     targetParts.length === 2 && !isMcp ? targetParts.join(' & ') : targetParts.join(', ');
 
   const lines = [
-    `\x1b[1m\x1b[38;5;51m⚡ Attention Horizon (ctxtop v4.0.0) — Zero-Config Unified Installer\x1b[0m`,
+    `\x1b[1m\x1b[38;5;51m⚡ Highbeam (ctxtop v4.0.0) — Zero-Config Unified Installer\x1b[0m`,
     `  • Target Harnesses : ${targetLabel}`,
     `  • Installation Scope: ${isWorkspace ? 'Workspace' : 'Global'}${isDryRun ? ' [DRY RUN]' : ''}`
   ];
@@ -842,7 +842,7 @@ export function runCli(args = [], options = {}) {
     if (!foundData) {
       return {
         exitCode: 1,
-        output: `[Attention Horizon Inspect] Session "${sessionId}" not found.`,
+        output: `[Highbeam Inspect] Session "${sessionId}" not found.`,
         data: { found: false, sessionId }
       };
     }
@@ -885,7 +885,7 @@ export function runCli(args = [], options = {}) {
 
     const totalToks = (trajectory.usage?.uncached || 0) + (trajectory.usage?.cacheRead || 0);
     const lines = [
-      `[Attention Horizon Inspect] Session "${sessionId || trajectory.sessionId}" (${trajectory.harness || 'claude-code'})`,
+      `[Highbeam Inspect] Session "${sessionId || trajectory.sessionId}" (${trajectory.harness || 'claude-code'})`,
       `  Model: ${trajectory.modelId || 'unknown'} | Events: ${trajectory.events?.length || 0} | Spans: ${trajectory.spans?.length || 0}`,
       `  Tokens: ${totalToks.toLocaleString()} (Uncached: ${(trajectory.usage?.uncached || 0).toLocaleString()}, Cache: ${(trajectory.usage?.cacheRead || 0).toLocaleString()})`,
       `  Cost: $${(trajectory.usage?.costUSD || 0).toFixed(4)}`,
@@ -901,7 +901,7 @@ export function runCli(args = [], options = {}) {
     if (!validActions.includes(action)) {
       return {
         exitCode: 1,
-        output: `[Attention Horizon Control] Invalid control action "${args[1] || ''}". Valid actions: pause, resume, step, abort, rewind`,
+        output: `[Highbeam Control] Invalid control action "${args[1] || ''}". Valid actions: pause, resume, step, abort, rewind`,
         data: { ok: false, validActions }
       };
     }
@@ -929,7 +929,7 @@ export function runCli(args = [], options = {}) {
       }
       return {
         exitCode: 0,
-        output: `[Attention Horizon Control] Session "${sessionId}" is ${currentState.state}`,
+        output: `[Highbeam Control] Session "${sessionId}" is ${currentState.state}`,
         data: { ok: true, sessionId, state: currentState }
       };
     }
@@ -970,13 +970,13 @@ export function runCli(args = [], options = {}) {
 
       return {
         exitCode: 0,
-        output: `[Attention Horizon Control] State transitioned to ${nextState.state}`,
+        output: `[Highbeam Control] State transitioned to ${nextState.state}`,
         data: { ok: true, action, sessionId, state: nextState }
       };
     } catch (err) {
       return {
         exitCode: 1,
-        output: `[Attention Horizon Control] Failed to transition control state: ${err.message}`,
+        output: `[Highbeam Control] Failed to transition control state: ${err.message}`,
         data: { ok: false, error: err.message }
       };
     }
@@ -993,7 +993,7 @@ export function runCli(args = [], options = {}) {
       args.includes('--lean-hooks') || options.leanHooks === true || !fullHooks;
     const res = installAttentionHorizon({ ...options, scope, leanHooks });
     const backupNote = res.backupPath ? `\nBackup saved: ${res.backupPath}` : '';
-    const output = `[Attention Horizon] Installed non-destructively into ${res.settingsPath}${backupNote}`;
+    const output = `[Highbeam] Installed non-destructively into ${res.settingsPath}${backupNote}`;
     return { exitCode: res.ok ? 0 : 1, output, data: res };
   }
 
@@ -1009,7 +1009,7 @@ export function runCli(args = [], options = {}) {
     if (!packRes.ok) {
       return {
         exitCode: 2,
-        output: `[Attention Horizon Team] ${packRes.entitlement.upgradeHint}`,
+        output: `[Highbeam Team] ${packRes.entitlement.upgradeHint}`,
         data: packRes
       };
     }
@@ -1018,7 +1018,7 @@ export function runCli(args = [], options = {}) {
     }
     return {
       exitCode: 0,
-      output: `[Attention Horizon Team] Generated BYO-Grafana & Datadog Team FinOps Pack in: ${packRes.outDir}\n  Files written: ${packRes.filesWritten.length}`,
+      output: `[Highbeam Team] Generated BYO-Grafana & Datadog Team FinOps Pack in: ${packRes.outDir}\n  Files written: ${packRes.filesWritten.length}`,
       data: packRes
     };
   }
@@ -1036,7 +1036,7 @@ export function runCli(args = [], options = {}) {
         exitCode: 1,
         output: isJson
           ? JSON.stringify(missingRes, null, 2)
-          : '[Attention Horizon Verify] FAILED: Missing CHECKSUMS.sha256 manifest',
+          : '[Highbeam Verify] FAILED: Missing CHECKSUMS.sha256 manifest',
         data: missingRes
       };
     }
@@ -1075,8 +1075,8 @@ export function runCli(args = [], options = {}) {
     return {
       exitCode: verifyRes.valid ? 0 : 1,
       output: verifyRes.valid
-        ? `[Attention Horizon Verify] PASS — ${verifiedCount} release files verified against CHECKSUMS.sha256 (0 mismatches)`
-        : `[Attention Horizon Verify] FAIL — ${mismatches.length} mismatch(es): ${mismatches.slice(0, 5).join('; ')}`,
+        ? `[Highbeam Verify] PASS — ${verifiedCount} release files verified against CHECKSUMS.sha256 (0 mismatches)`
+        : `[Highbeam Verify] FAIL — ${mismatches.length} mismatch(es): ${mismatches.slice(0, 5).join('; ')}`,
       data: verifyRes
     };
   }
@@ -1086,7 +1086,7 @@ export function runCli(args = [], options = {}) {
       return { exitCode: 0, output: JSON.stringify(PLG_TIER_MATRIX, null, 2), data: PLG_TIER_MATRIX };
     }
     const lines = [
-      'Attention Horizon — 3-Tier Self-Expensing PLG Funnel:',
+      'Highbeam — 3-Tier Self-Expensing PLG Funnel:',
       `  • Free ($0/mo): ${PLG_TIER_MATRIX.free.features.join(', ')}`,
       `  • Pro ($${PLG_TIER_MATRIX.pro.priceMonthlyUSD}/mo [$12-$19/mo]): ${PLG_TIER_MATRIX.pro.features.join(', ')}`,
       `  • Team ($${PLG_TIER_MATRIX.team.pricePerSeatMonthlyUSD}/seat/mo): ${PLG_TIER_MATRIX.team.features.join(', ')}`
@@ -1101,7 +1101,7 @@ export function runCli(args = [], options = {}) {
         return { exitCode: 0, output: JSON.stringify(PLG_TIER_MATRIX, null, 2), data: PLG_TIER_MATRIX };
       }
       const lines = [
-        'Attention Horizon — 3-Tier Self-Expensing PLG Funnel:',
+        'Highbeam — 3-Tier Self-Expensing PLG Funnel:',
         `  • Free ($0/mo): ${PLG_TIER_MATRIX.free.features.join(', ')}`,
         `  • Pro ($${PLG_TIER_MATRIX.pro.priceMonthlyUSD}/mo [$12-$19/mo]): ${PLG_TIER_MATRIX.pro.features.join(', ')}`,
         `  • Team ($${PLG_TIER_MATRIX.team.pricePerSeatMonthlyUSD}/seat/mo): ${PLG_TIER_MATRIX.team.features.join(', ')}`
@@ -1116,8 +1116,8 @@ export function runCli(args = [], options = {}) {
       return {
         exitCode: actRes.ok ? 0 : 1,
         output: actRes.ok
-          ? `[Attention Horizon Pro] Activated ${actRes.tier.toUpperCase()} license (${actRes.payload.email}) -> ${actRes.licensePath}`
-          : `[Attention Horizon Pro] License activation failed: ${actRes.reason}`,
+          ? `[Highbeam Pro] Activated ${actRes.tier.toUpperCase()} license (${actRes.payload.email}) -> ${actRes.licensePath}`
+          : `[Highbeam Pro] License activation failed: ${actRes.reason}`,
         data: actRes
       };
     }
@@ -1125,7 +1125,7 @@ export function runCli(args = [], options = {}) {
       const trRes = activateLocalTrial(options);
       return {
         exitCode: 0,
-        output: `[Attention Horizon Pro] Activated 14-day local trial (expires ${trRes.expiresAt}) -> ${trRes.licensePath}`,
+        output: `[Highbeam Pro] Activated 14-day local trial (expires ${trRes.expiresAt}) -> ${trRes.licensePath}`,
         data: trRes
       };
     }
@@ -1133,7 +1133,7 @@ export function runCli(args = [], options = {}) {
       const deactRes = deactivateProLicense(options);
       return {
         exitCode: 0,
-        output: `[Attention Horizon Pro] Deactivated license (${deactRes.licensePath})`,
+        output: `[Highbeam Pro] Deactivated license (${deactRes.licensePath})`,
         data: deactRes
       };
     }
@@ -1143,7 +1143,7 @@ export function runCli(args = [], options = {}) {
     }
     return {
       exitCode: 0,
-      output: `[Attention Horizon Pro] Tier=${status.tier} | Entitled=${status.entitled} | Source=${status.source}`,
+      output: `[Highbeam Pro] Tier=${status.tier} | Entitled=${status.entitled} | Source=${status.source}`,
       data: status
     };
   }
@@ -1162,7 +1162,7 @@ export function runCli(args = [], options = {}) {
 
   if (subcommand === 'uninstall') {
     const res = uninstallAttentionHorizon({ ...options, scope });
-    const output = `[Attention Horizon] Uninstalled ${res.removedHooksCount} hook entries from ${res.settingsPath}`;
+    const output = `[Highbeam] Uninstalled ${res.removedHooksCount} hook entries from ${res.settingsPath}`;
     return { exitCode: res.ok ? 0 : 1, output, data: res };
   }
 
@@ -1175,13 +1175,13 @@ export function runCli(args = [], options = {}) {
       if (!res.ok) {
         return {
           exitCode: 1,
-          output: `[Attention Horizon Config] Invalid detector ID "${detId}". Expected DET-01..DET-20.`,
+          output: `[Highbeam Config] Invalid detector ID "${detId}". Expected DET-01..DET-20.`,
           data: res
         };
       }
       return {
         exitCode: 0,
-        output: `[Attention Horizon Config] Set ${res.detectorId}=${res.mode} in ${res.configPath}`,
+        output: `[Highbeam Config] Set ${res.detectorId}=${res.mode} in ${res.configPath}`,
         data: res
       };
     }
@@ -1189,7 +1189,7 @@ export function runCli(args = [], options = {}) {
       const res = resetHorizonConfig({ ...options, scope });
       return {
         exitCode: res.ok ? 0 : 1,
-        output: `[Attention Horizon Config] Reset detector overrides at ${res.configPath}`,
+        output: `[Highbeam Config] Reset detector overrides at ${res.configPath}`,
         data: res
       };
     }
@@ -1198,7 +1198,7 @@ export function runCli(args = [], options = {}) {
       return { exitCode: 0, output: JSON.stringify(cfg, null, 2), data: cfg };
     }
     const lines = [
-      `[Attention Horizon Config] FlightMode=${cfg.flightMode} (projectLoaded=${cfg.sources.projectLoaded})`,
+      `[Highbeam Config] FlightMode=${cfg.flightMode} (projectLoaded=${cfg.sources.projectLoaded})`,
       ...Object.entries(cfg.detectors).map(([id, m]) => `  ${id}: ${m}`)
     ];
     return { exitCode: 0, output: lines.join('\n'), data: cfg };
@@ -1223,7 +1223,7 @@ export function runCli(args = [], options = {}) {
     }
     return {
       exitCode: ok ? 0 : 1,
-      output: `[Attention Horizon] Cost Radar written: ${target}\n  ${res.summary.retention}\n  ${res.summary.drift}\n  ${res.summary.swarm}${isShare ? `\n  Share: ${shareSnippet}` : ''}`,
+      output: `[Highbeam] Cost Radar written: ${target}\n  ${res.summary.retention}\n  ${res.summary.drift}\n  ${res.summary.swarm}${isShare ? `\n  Share: ${shareSnippet}` : ''}`,
       data
     };
   }
@@ -1246,7 +1246,7 @@ export function runCli(args = [], options = {}) {
       }
       const estM = typeof res.estTokensM === 'number' ? `${res.estTokensM.toFixed(2)}M` : String(res.estTokensM || '0M');
       const summaryText = [
-        `[Attention Horizon Postmortem] Analyzed ${res.sessionCount} sessions (${estM} active tokens)`,
+        `[Highbeam Postmortem] Analyzed ${res.sessionCount} sessions (${estM} active tokens)`,
         `  Clean Sessions: ${res.cleanSessionCount || 0} | Churn: ${res.churnSessionCount || 0} | Rot: ${res.rotSessionCount || 0}`,
         res.reportPath ? `  Report: ${res.reportPath}` : ''
       ].filter(Boolean).join('\n');
@@ -1271,7 +1271,7 @@ export function runCli(args = [], options = {}) {
     }
     return {
       exitCode: ok ? 0 : 1,
-      output: `[Attention Horizon] Claude Code HUD written: ${target}\n  Verdict: ${res.summary.verdict}\n  Next Action: ${res.summary.action}\n  Saved: +${res.summary.sessionSavedTokens.toLocaleString('en-US')} tokens ($${res.summary.sessionSavedUSD.toFixed(2)}) this session`,
+      output: `[Highbeam] Claude Code HUD written: ${target}\n  Verdict: ${res.summary.verdict}\n  Next Action: ${res.summary.action}\n  Saved: +${res.summary.sessionSavedTokens.toLocaleString('en-US')} tokens ($${res.summary.sessionSavedUSD.toFixed(2)}) this session`,
       data
     };
   }
@@ -1298,7 +1298,7 @@ export function runCli(args = [], options = {}) {
         const savedUsd = res.corporateReceipt.workspace30dSavedUSD.toFixed(2);
         return {
           exitCode: 2,
-          output: `[Attention Horizon Pro] Pro would expense +$${savedUsd} USD saved over 30d. ${proCheck.upgradeHint}`,
+          output: `[Highbeam Pro] Pro would expense +$${savedUsd} USD saved over 30d. ${proCheck.upgradeHint}`,
           data: { ok: false, requiresPro: true, entitlement: proCheck, shadowSavedUSD: Number(savedUsd) }
         };
       }
@@ -1318,7 +1318,7 @@ export function runCli(args = [], options = {}) {
       }
       return {
         exitCode: 0,
-        output: `[Attention Horizon Pro] Corporate Expense Receipt (PDF 1.4) written: ${targetPdf}\n  Receipt ID : ${pdfData.receiptId}\n  30d Saved  : +$${pdfData.workspace30dSavedUSD.toFixed(2)} USD (${pdfData.netRoiMultiplier}x ROI)\n  SHA-256    : ${pdfData.sha256}`,
+        output: `[Highbeam Pro] Corporate Expense Receipt (PDF 1.4) written: ${targetPdf}\n  Receipt ID : ${pdfData.receiptId}\n  30d Saved  : +$${pdfData.workspace30dSavedUSD.toFixed(2)} USD (${pdfData.netRoiMultiplier}x ROI)\n  SHA-256    : ${pdfData.sha256}`,
         data: pdfData
       };
     }
@@ -1364,7 +1364,7 @@ export function runCli(args = [], options = {}) {
     }
     const hookDiag = res.hookDiagnostics || { recentErrorCount: 0, recentErrors: [] };
     const lines = [
-      `[Attention Horizon Doctor] Status: ${res.ok ? 'HEALTHY' : 'ISSUES DETECTED'}`,
+      `[Highbeam Doctor] Status: ${res.ok ? 'HEALTHY' : 'ISSUES DETECTED'}`,
       ...res.checks.map((c) => `  [${c.ok ? 'PASS' : 'FAIL'}] ${c.id}: ${c.detail}`),
       `  [${hookDiag.recentErrorCount > 0 ? 'WARN' : 'PASS'}] hook_diagnostics: ${hookDiag.recentErrorCount} recent non-fatal error(s)`
     ];
@@ -1398,7 +1398,7 @@ export function runCli(args = [], options = {}) {
     'Commands:',
     '  init [--antigravity | --claude | --all | --workspace | --dry-run] Zero-config dual-host installer',
     '  install [--global | --project]                                      Merge Claude Code hooks & statusLine',
-    '  uninstall [--global | --project]                                    Remove Attention Horizon hooks',
+    '  uninstall [--global | --project]                                    Remove Highbeam hooks',
     '  doctor [--diagnostic | --json]                                      Verify contracts or emit zero-PII report',
     '  postmortem [--last N] [--json] [--demo]                             Analyze transcript forensics & rot',
     '  receipt [--advanced | --markdown | --json]                          Print Simple View or Git-Commit Receipt',

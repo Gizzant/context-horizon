@@ -1,7 +1,7 @@
 {
   "name": "@ctxtop/claude-code",
   "version": "4.0.0",
-  "description": "Attention Horizon Claude Code in-process V8 Mod, Tier-2 CLI hooks, and terminal statusLine adapter",
+  "description": "Highbeam Claude Code in-process V8 Mod, Tier-2 CLI hooks, and terminal statusLine adapter",
   "type": "module",
   "main": "./src/index.mjs",
   "exports": {

@@ -1,6 +1,6 @@
 /**
  * @file src/engine-node/ipc/protocol.mjs
- * Attention Horizon Micro-IPC Wire Protocol & Stream Parser.
+ * Highbeam Micro-IPC Wire Protocol & Stream Parser.
  *
  * Implements Win32 Named-Pipe / POSIX Unix Domain Socket address resolution,
  * JSON-RPC 2.0 framing over newline-delimited streams (\n), and buffer overrun protection.

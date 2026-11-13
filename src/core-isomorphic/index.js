@@ -1,6 +1,6 @@
 /**
  * @file src/core-isomorphic/index.js
- * Attention Horizon v4.0 Isomorphic Mod Core (`@ctxtop/core-isomorphic`).
+ * Highbeam v4.0 Isomorphic Mod Core (`@ctxtop/core-isomorphic`).
  *
  * Pure JS / ESM with strictly 0 node:* imports, 0 dynamic imports, 0 CommonJS require.
  * Adheres to Claude Mod Laws 1–5.

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>System Architecture &amp; Internals - Highbeam User Guide</title>
+  <meta name="description" content="Internal architecture of Highbeam: 6-package monorepo, Claude Mod Laws 1-5, SQLite read-only engine, FTS5 CLI compressor, TurnZeroGate fencing, and USTF v1." />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body data-page="architecture">
+  <header class="site-header" id="site-header"></header>
+
+  <div class="doc-shell">
+    <nav class="sidebar" id="site-sidebar" aria-label="Documentation chapters"></nav>
+
+    <main class="doc-main prose">
+      <p class="doc-eyebrow">Architecture &amp; Ops</p>
+      <h1 class="doc-title">System Architecture &amp; Internals</h1>
+      <p class="doc-lead">
+        Highbeam is organized as a zero-dependency six-package monorepo separating pure isomorphic context physics from Node.js storage engines and host-specific adapters.
+      </p>
+
+      <h2 id="monorepo-topology">1. Six-Package Workspace Topology</h2>
+      <p>
+        Root <code>package.json</code> declares six workspaces under <code>packages/*</code> backed by shared source trees in <code>src/core-isomorphic/</code>, <code>src/engine-node/</code>, and <code>src/core/</code>:
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Workspace Package</th>
+              <th>Runtime Constraint</th>
+              <th>Core Modules</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>@ctxtop/core</code></td>
+              <td>Pure ESM, zero <code>node:*</code> imports</td>
+              <td><code>DET-01..DET-32</code> catalog, <code>CircuitBreakerEngine</code>, <code>cacheGravity</code>, <code>dualTtl</code>, <code>cliffBreaker</code>, <code>horizonGrid</code>, <code>costRadarSvg</code>, <code>modViews</code>, USTF v1 normalizer.</td>
+            </tr>
+            <tr>
+              <td><code>@ctxtop/engine-node</code></td>
+              <td>Node.js <code>&gt;= 20.0.0</code> stdlib only</td>
+              <td><code>node:sqlite</code> read-only wrapper + JSONL byte-offset fallback, Micro-IPC server/client, lossless FTS5 offloader, <code>git merge-tree</code> conflict sensor.</td>
+            </tr>
+            <tr>
+              <td><code>@ctxtop/antigravity</code></td>
+              <td>Node.js <code>&gt;= 20.0.0</code></td>
+              <td><code>PreInvocation</code> 8-state router, 6 Blind-Spot Sensors, loopback HTTP/SSE sidecar daemon, Edward Tufte WebView (<code>horizon_panel.html</code>).</td>
+            </tr>
+            <tr>
+              <td><code>@ctxtop/claude-code</code></td>
+              <td>V8 Mod isolate + Node CLI</td>
+              <td>Tier-1 Mod (<code>hooks/register.js</code>), Tier-2 CLI handlers (<code>hooks/handlers/*.mjs</code>), width-adaptive <code>ah-statusline</code> bridge.</td>
+            </tr>
+            <tr>
+              <td><code>@ctxtop/mcp</code></td>
+              <td>Node.js stdio JSON-RPC 2.0</td>
+              <td>Content-Length and newline-framed MCP server exposing <code>horizon_status</code>, <code>cache_gravity_check</code>, <code>scope_lock_claim</code>, and <code>export_receipt_pdf</code>.</td>
+            </tr>
+            <tr>
+              <td><code>@ctxtop/pro</code></td>
+              <td>Offline Ed25519 + Polar worker</td>
+              <td>Offline Ed25519 license verifier, Corporate PDF 1.4 generator, <code>team_finops_pack.mjs</code> (Grafana/Datadog), and external webhook signer.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="isomorphic-laws">2. Claude Mod Laws 1-5 &amp; Pure-JS Cryptography</h2>
+      <p>
+        Because Claude Code's Tier-1 Mod isolate executes inside a sandboxed V8 context without Node.js built-ins, every module inside <code>src/core-isomorphic/</code> obeys five statically tested laws (verified in <code>test/mod_static_compliance.test.mjs</code>):
+      </p>
+      <ol>
+        <li><strong>Zero <code>node:*</code> Imports:</strong> No <code>node:fs</code>, <code>node:path</code>, <code>node:crypto</code>, or <code>node:child_process</code> imports anywhere in the isomorphic graph.</li>
+        <li><strong>Zero Unguarded Node Globals:</strong> Never references bare <code>Buffer</code> or <code>process</code> without safe <code>globalThis</code> feature guards.</li>
+        <li><strong>Zero External npm Dependencies:</strong> Eliminates supply-chain drift and bundler build steps.</li>
+        <li><strong>Pure Deterministic Hashing:</strong> Uses custom pure-JS 64-bit FNV-1a (<code>fnv1a64.mjs</code>) for content fingerprinting and pure-JS SHA-256 (<code>sha256HexPure</code>) for release verification and receipt signing.</li>
+        <li><strong>Sub-Millisecond Hot Path:</strong> Keeps <code>evaluatePreToolUse</code> and <code>computeBreakEven</code> at <code>~0.18ms p95</code>.</li>
+      </ol>
+
+      <h2 id="fts5-compressor">3. Lossless FTS5 CLI Output Compressor</h2>
+      <p>
+        Verbose test suites and package installs routinely emit 50,000+ characters of progress bars and passing test noise. Implemented in <code>src/core/fts5_output_compressor.mjs</code> and <code>src/shims/agy_cli_compressor.mjs</code> (<code>DET-07</code>), the offloader processes shell output in four stages:
+      </p>
+      <ol>
+        <li><strong>ANSI &amp; Carriage-Return Scrubbing:</strong> Strips terminal color sequences and collapses <code>\r</code> spinner overwrites <em>before</em> evaluating the <code>4,096</code>-character compression threshold.</li>
+        <li><strong>Domain Noise Profiles:</strong> Applies specialized filters for <code>cargo test</code>, <code>npm install</code>, and verbose test runners while retaining every failing assertion, stack frame, and compiler diagnostic (Critical Error-Line Recovery).</li>
+        <li><strong>SQLite FTS5 &amp; Content-Addressed Archival:</strong> Writes the full raw transcript to <code>.ctxtop/cache/artifacts/ah_&lt;sha256&gt;.txt</code> and indexes every line in <code>.ctxtop/cache/artifacts_fts5.db</code>.</li>
+        <li><strong>Searchable Digest Injection:</strong> Returns a compact head/tail + error-line summary to the model alongside an exact <code>agy-horizon log-search "&lt;query&gt;"</code> command so zero debugging detail is ever lost.</li>
+      </ol>
+
+      <h2 id="turn-zero-gate">4. <code>PrefixCacheShield</code> &amp; <code>TurnZeroGate</code> Fencing</h2>
+      <p>
+        Editing <code>AGENTS.md</code>, <code>CLAUDE.md</code>, or `.agents/rules/*.md` mid-session mutates Cell 1 of the prompt prefix, invalidating every warm cached token behind it. <code>PrefixCacheShield</code> and <code>TurnZeroGate</code> eliminate mid-session cache rebuilds by staging rule updates until a natural cold-cache boundary arrives:
+      </p>
+
+      <figure class="diagram-frame" aria-label="TurnZeroGate warm-cache rule mutation fencing timeline">
+        <svg viewBox="0 0 840 190" role="img" aria-labelledby="tzg-title">
+          <title id="tzg-title">TurnZeroGate Deferred Rule Promotion Sequence</title>
+
+          <rect x="20" y="34" width="236" height="122" rx="12" fill="var(--canvas)" stroke="var(--status-warn)" stroke-width="1.6" />
+          <text x="36" y="60" font-family="var(--font-sans)" font-size="12.5" font-weight="700" fill="var(--status-warn)">1. Warm Cache Active (TTL 03:40)</text>
+          <text x="36" y="84" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink)">/evolve or rule promotion</text>
+          <text x="36" y="104" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">DET-09 fences direct write;</text>
+          <text x="36" y="122" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">delta staged in queue</text>
+          <text x="36" y="142" font-family="var(--font-mono)" font-size="10.5" fill="var(--status-safe)">0 cached tokens invalidated</text>
+
+          <path d="M 256 95 L 306 95" stroke="var(--border-strong)" stroke-width="2" />
+
+          <rect x="306" y="34" width="236" height="122" rx="12" fill="var(--canvas)" stroke="var(--accent)" stroke-width="1.6" />
+          <text x="322" y="60" font-family="var(--font-sans)" font-size="12.5" font-weight="700" fill="var(--accent)">2. Cold Boundary Reached</text>
+          <text x="322" y="84" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink)">5m TTL == 00:00 OR</text>
+          <text x="322" y="104" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink)">PostCompact / SessionStart</text>
+          <text x="322" y="126" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">TurnZeroGate unlocks fence</text>
+
+          <path d="M 542 95 L 592 95" stroke="var(--accent)" stroke-width="2" />
+
+          <rect x="592" y="34" width="228" height="122" rx="12" fill="var(--canvas)" stroke="var(--status-safe)" stroke-width="1.6" />
+          <text x="608" y="60" font-family="var(--font-sans)" font-size="12.5" font-weight="700" fill="var(--status-safe)">3. Atomic Primacy Flush</text>
+          <text x="608" y="84" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink)">AGENTS.md / CLAUDE.md</text>
+          <text x="608" y="104" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">written via PID temp rename;</text>
+          <text x="608" y="122" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">U-curve Primacy order kept</text>
+        </svg>
+      </figure>
+
+      <h2 id="ustf-and-mirror-parity">5. USTF v1 &amp; 3-Way SHA-256 Mirror Parity</h2>
+      <ul>
+        <li><strong>USTF v1 (<code>src/core-isomorphic/ustf/</code>):</strong> Normalizes heterogeneous Antigravity SQLite/JSONL steps and Claude Code event streams into a single schema (<code>version: "1.0.0"</code>, <code>sessionId</code>, <code>harness</code>, <code>modelId</code>, <code>usage: { uncached, cacheWrite5m, cacheWrite1h, cacheRead, output, thinking, costUSD }</code>, <code>events</code>, <code>spans</code>).</li>
+        <li><strong>Release &amp; Mirror Parity Pipeline:</strong> Whenever core or WebView files change, contributors run <code>node scripts/sync_mirrors.mjs</code>, followed by <code>node scripts/generate_checksums.mjs</code> and <code>node bin/ctxtop.mjs verify --json</code>, ensuring root sources and installed plugin mirrors match byte-for-byte.</li>
+      </ul>
+
+      <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>
+      <footer class="doc-footer" id="doc-footer"></footer>
+    </main>
+
+    <aside class="toc-rail" id="site-toc" aria-label="On this page"></aside>
+  </div>
+
+  <script src="assets/search-index.js"></script>
+  <script src="assets/site.js"></script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 /**
  * @file src/core-isomorphic/catalog/detectorCatalog.mjs
- * Unified DET-01..32 Detector Catalog for Attention Horizon v4.0.
+ * Unified DET-01..32 Detector Catalog for Highbeam v4.0.
  *
  * Standardizes scratchpad loop detection on DET-30 across both hosts
  * while accepting DET-21 as a deprecated config alias.

@@ -1,4 +1,4 @@
-# Attention Horizon Architecture Port Map: Antigravity (`attention-horizon-antigravity`) to Claude Code (`attention-horizon-claude`)
+# Highbeam Architecture Port Map: Antigravity (`attention-horizon-antigravity`) to Claude Code (`attention-horizon-claude`)
 
 This document maps every module in `attention-horizon-antigravity` to its equivalent in `attention-horizon-claude`, detailing architectural shifts, runtime host differences, and explicit bug fixes.
 
