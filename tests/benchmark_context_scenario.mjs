@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { DatabaseSync } from 'node:sqlite';
+import { getDatabaseSyncClass } from '../src/engine-node/db/probe.mjs';
+import { JsonlFallbackDatabaseSync } from '../src/core/sqlite_client.mjs';
+
+const DatabaseSync = getDatabaseSyncClass() || JsonlFallbackDatabaseSync;
 import {
   parseRawJsonl,
   parseTranscriptIncremental,
