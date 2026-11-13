@@ -1335,11 +1335,11 @@ describe('Tier 5 Suite 9: Telemetry Fuzzing & Malformed Event Stress', () => {
 // ============================================================================
 describe('Tier 5 Suite 10: Auxiliary Review Invariant Guards & Anti-Regression', () => {
 
-  it('10.1 Canonical Mirror Parity Check (8 HTML targets, 681 mirrored file pairs)', () => {
+  it('10.1 Canonical Mirror Parity Check (8 HTML targets, 690 mirrored file pairs)', () => {
     const parity = syncAndVerifyMirrors({ verifyOnly: true, silent: true });
     assert.equal(parity.parityOk, true, 'Mirror parity must be 100% verified');
     assert.equal(parity.targets, 8, 'Canonical repository must verify exactly 8 HTML targets');
-    assert.equal(parity.verifiedFilePairs, 681, 'Canonical repository must verify exactly 681 mirrored file pairs');
+    assert.equal(parity.verifiedFilePairs, 690, 'Canonical repository must verify exactly 690 mirrored file pairs');
   });
 
   it('10.2 Bare Catch Blocks Scanner in test/ suites (detects 3 blocks in challenger_m5_1)', () => {

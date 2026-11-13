@@ -592,12 +592,63 @@ export function generateCostRadar(options = {}) {
 
 /**
  * Unified `ctxtop init` installer router.
- * Supports `--antigravity`, `--claude`, `--all`, `--workspace`, `--project`, `--dry-run`, `--dedupe`.
+ * Supports `--antigravity`, `--claude`, `--mcp`, `--cursor`, `--all`, `--workspace`, `--project`, `--dry-run`, `--dedupe`.
  */
+/**
+ * Non-destructively writes or merges the `@ctxtop/mcp` server entry into `.cursor/mcp.json`.
+ *
+ * @param {object} [options]
+ * @returns {{ ok: boolean, mcpPath: string, serverKey: string, serverScript: string, dryRun: boolean }}
+ */
+export function installMcpConfig(options = {}) {
+  const isDryRun = Boolean(options.dryRun);
+  const isGlobal = options.scope === 'global' || Boolean(options.global);
+  const baseDir = isGlobal
+    ? options.homeDir || options.home || getHomeDir()
+    : options.cwd || process.cwd();
+  const mcpPath = options.mcpConfigPath
+    ? path.resolve(options.mcpConfigPath)
+    : path.join(baseDir, '.cursor', 'mcp.json');
+  const existing = readJsonSafe(mcpPath, {});
+  const currentObj =
+    existing && typeof existing === 'object' && !Array.isArray(existing) ? existing : {};
+  const mcpServers =
+    currentObj.mcpServers &&
+    typeof currentObj.mcpServers === 'object' &&
+    !Array.isArray(currentObj.mcpServers)
+      ? { ...currentObj.mcpServers }
+      : {};
+  const serverScript = `${PKG_ROOT}/packages/mcp/src/server.mjs`;
+  mcpServers['attention-horizon'] = {
+    command: 'node',
+    args: [serverScript]
+  };
+  const updated = {
+    ...currentObj,
+    mcpServers
+  };
+  if (!isDryRun) {
+    writeJsonAtomic(mcpPath, updated);
+  }
+  return {
+    ok: true,
+    mcpPath,
+    serverKey: 'attention-horizon',
+    serverScript,
+    dryRun: isDryRun
+  };
+}
+
 export function executeInitSubcommand(args = [], options = {}) {
   const isAntigravity = args.includes('--antigravity') || args.includes('-a');
   const isClaude = args.includes('--claude') || args.includes('-c');
-  const isAll = args.includes('--all') || (!isAntigravity && !isClaude);
+  const isMcp =
+    args.includes('--mcp') ||
+    args.includes('--cursor') ||
+    args.includes('--windsurf') ||
+    Boolean(options.mcp) ||
+    Boolean(options.cursor);
+  const isAll = args.includes('--all') || (!isAntigravity && !isClaude && !isMcp);
   const isDryRun = args.includes('--dry-run') || Boolean(options.dryRun);
   const isWorkspace = args.includes('--workspace') || args.includes('--project') || Boolean(options.workspace);
   const isGlobal = args.includes('--global') || Boolean(options.global);
@@ -605,14 +656,22 @@ export function executeInitSubcommand(args = [], options = {}) {
   const isLeanHooks = args.includes('--lean-hooks') || Boolean(options.leanHooks);
   const isFullHooks = args.includes('--full-hooks') || Boolean(options.fullHooks);
 
+  const targetParts = [];
+  if (isAll || isAntigravity) targetParts.push('Google Antigravity');
+  if (isAll || isClaude) targetParts.push('Claude Code');
+  if (isMcp) targetParts.push('MCP (.cursor/mcp.json)');
+  const targetLabel =
+    targetParts.length === 2 && !isMcp ? targetParts.join(' & ') : targetParts.join(', ');
+
   const lines = [
     `\x1b[1m\x1b[38;5;51m⚡ Attention Horizon (ctxtop v4.0.0) — Zero-Config Unified Installer\x1b[0m`,
-    `  • Target Harnesses : ${isAll ? 'Google Antigravity & Claude Code' : isAntigravity ? 'Google Antigravity' : 'Claude Code'}`,
+    `  • Target Harnesses : ${targetLabel}`,
     `  • Installation Scope: ${isWorkspace ? 'Workspace' : 'Global'}${isDryRun ? ' [DRY RUN]' : ''}`
   ];
 
   let claudeResult = null;
   let antigravityResult = null;
+  let mcpResult = null;
 
   if (isClaude || isAll) {
     const scope = isGlobal ? 'global' : 'project';
@@ -654,12 +713,27 @@ export function executeInitSubcommand(args = [], options = {}) {
     }
   }
 
-  const ok = (claudeResult ? claudeResult.ok : true) && (antigravityResult ? antigravityResult.ok : true);
+  if (isMcp) {
+    mcpResult = installMcpConfig({
+      ...options,
+      global: isGlobal,
+      dryRun: isDryRun,
+      cwd: options.cwd || process.cwd()
+    });
+    lines.push(
+      `  \x1b[38;5;82m✓\x1b[0m MCP Server    : ${isDryRun ? '[DRY RUN] Would configure' : 'Configured'} ${mcpResult.mcpPath} (attention-horizon)`
+    );
+  }
+
+  const ok =
+    (claudeResult ? claudeResult.ok : true) &&
+    (antigravityResult ? antigravityResult.ok : true) &&
+    (mcpResult ? mcpResult.ok : true);
   return {
     ok,
     exitCode: ok ? 0 : 1,
     output: lines.join('\n'),
-    data: { claude: claudeResult, antigravity: antigravityResult, dryRun: isDryRun }
+    data: { claude: claudeResult, antigravity: antigravityResult, mcp: mcpResult, dryRun: isDryRun }
   };
 }
 

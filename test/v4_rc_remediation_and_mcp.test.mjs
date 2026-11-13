@@ -14,6 +14,8 @@ import {
   ReflectorQueue
 } from '../src/core/coach/reflector_queue.mjs';
 import { handleMcpJsonRpcRequest, MCP_TOOLS } from '../packages/mcp/src/server.mjs';
+import { generateCorporateExpenseReceipt } from '../src/core-isomorphic/ui/pdfReceiptGenerator.mjs';
+import { executeInitSubcommand } from '../bin/ctxtop.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 
@@ -62,7 +64,7 @@ describe('v4.0 RC Remediation & @ctxtop/mcp Regression Suite', () => {
     const parity = syncAndVerifyMirrors({ verifyOnly: true });
     assert.equal(parity.parityOk, true);
     assert.equal(parity.targets, 8);
-    assert.equal(parity.verifiedFilePairs, 681);
+    assert.equal(parity.verifiedFilePairs, 690);
   });
 
   it('Component 3: package.json URLs point to Gizzant/context-horizon, pricing tiers match, and signing docs exist', () => {
@@ -202,6 +204,79 @@ describe('v4.0 RC Remediation & @ctxtop/mcp Regression Suite', () => {
       assert.equal(fs.existsSync(pdfOut), true);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('Follow-up #1 & #2: pdfReceiptGenerator defaults to $15.00/mo, root bin exposes ah-mcp/ctxtop-mcp, and init --mcp merges .cursor/mcp.json', () => {
+    const rcpt = generateCorporateExpenseReceipt({
+      workspace30dSavedUSD: 45,
+      sessionSavedUSD: 15
+    });
+    assert.equal(rcpt.netRoiMultiplier, 3);
+    assert.match(rcpt.markdown, /Attention Horizon Pro \(\$15\.00\/mo\)/);
+    assert.match(rcpt.markdown, /\$15\.00 USD/);
+    assert.doesNotMatch(rcpt.markdown, /\$9\.00/);
+    assert.doesNotMatch(rcpt.html, /\$9\.00/);
+    const pdfText = Buffer.from(rcpt.pdfBytes).toString('utf8');
+    assert.ok(pdfText.includes('$15.00/mo License'));
+    assert.equal(pdfText.includes('$9.00'), false);
+
+    const rootPkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+    assert.equal(rootPkg.bin['ah-mcp'], './packages/mcp/src/server.mjs');
+    assert.equal(rootPkg.bin['ctxtop-mcp'], './packages/mcp/src/server.mjs');
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ctxtop-init-mcp-'));
+    try {
+      const mcpJsonPath = path.join(tmpDir, '.cursor', 'mcp.json');
+      fs.mkdirSync(path.dirname(mcpJsonPath), { recursive: true });
+      fs.writeFileSync(
+        mcpJsonPath,
+        JSON.stringify({ mcpServers: { 'other-tool': { command: 'npx', args: ['-y', 'other'] } } }, null, 2),
+        'utf8'
+      );
+
+      const res = executeInitSubcommand(['--mcp'], { cwd: tmpDir });
+      assert.equal(res.exitCode, 0);
+      assert.equal(res.data.mcp?.ok, true);
+      assert.equal(res.data.claude, null);
+      assert.equal(res.data.antigravity, null);
+
+      const written = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf8'));
+      assert.deepEqual(written.mcpServers['other-tool'], { command: 'npx', args: ['-y', 'other'] });
+      assert.equal(written.mcpServers['attention-horizon'].command, 'node');
+      assert.match(written.mcpServers['attention-horizon'].args[0], /packages\/mcp\/src\/server\.mjs$/);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('Follow-up #3: circuitBreakers.mjs modular split into 4 <1,250L guard modules preserves 100% export parity and Mod Law 4', async () => {
+    const guardsDir = path.join(ROOT, 'src', 'core-isomorphic', 'guards');
+    const files = [
+      'det01_03_shell_secret.mjs',
+      'det04_12_thrash_rot.mjs',
+      'det13_20_mcp_scope.mjs',
+      'circuitBreakers.mjs'
+    ];
+    for (const file of files) {
+      const fullPath = path.join(guardsDir, file);
+      assert.equal(fs.existsSync(fullPath), true, `${file} must exist`);
+      const content = fs.readFileSync(fullPath, 'utf8');
+      const lineCount = content.split('\n').length;
+      assert.ok(lineCount < 1250, `${file} must be < 1,250 lines (got ${lineCount})`);
+      assert.equal(/['"]node:[^'"]+['"]/.test(content), false, `${file} must contain zero node:* imports`);
+    }
+
+    const cbMod = await import('../src/core-isomorphic/guards/circuitBreakers.mjs');
+    const namedExports = Object.keys(cbMod).filter((k) => k !== 'default');
+    assert.equal(namedExports.length, 29, 'circuitBreakers.mjs must preserve all 29 named exports');
+    for (const key of namedExports) {
+      assert.equal(typeof cbMod[key], 'function', `Named export ${key} must be a function/class`);
+    }
+    const defaultKeys = Object.keys(cbMod.default || {});
+    assert.equal(defaultKeys.length, 27, 'circuitBreakers.mjs default export must preserve all 27 keys');
+    for (const key of defaultKeys) {
+      assert.equal(typeof cbMod.default[key], 'function', `Default export ${key} must be a function/class`);
     }
   });
 });

@@ -178,8 +178,8 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
   const issuedAt = options.issuedAt || new Date().toISOString();
   const periodLabel = options.periodLabel || issuedAt.slice(0, 7);
   const employeeEmail = options.email || summary.email || 'developer@workspace.local';
-  const tierLabel = options.tierLabel || 'Attention Horizon Pro ($9.00/mo)';
-  const subscriptionCostUSD = Number(options.subscriptionCostUSD ?? 9.0);
+  const tierLabel = options.tierLabel || 'Attention Horizon Pro ($15.00/mo)';
+  const subscriptionCostUSD = Number(options.subscriptionCostUSD ?? 15.0);
 
   const sessionSavedTokens = Number(summary.sessionSavedTokens || 0);
   const sessionSavedUSD = Number(summary.sessionSavedUSD || 0);
@@ -227,7 +227,7 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
     '-'.repeat(86),
     `Current Session Verified Savings      : +${sessionSavedTokens.toLocaleString('en-US')} tokens ($${sessionSavedUSD.toFixed(2)} USD)`,
     `30-Day Cumulative Workspace Savings   : +${workspace30dSavedTokens.toLocaleString('en-US')} tokens ($${workspace30dSavedUSD.toFixed(2)} USD)`,
-    `Net FinOps ROI vs. $9.00/mo License   : ${netRoiMultiplier}x Return on Investment`,
+    `Net FinOps ROI vs. $${subscriptionCostUSD.toFixed(2)}/mo License  : ${netRoiMultiplier}x Return on Investment`,
     '-'.repeat(86),
     'Zero-Trust Privacy Attestation: Computed 100% locally from token counters.',
     'Zero prompt text, source code, or PII transmitted off-device.',

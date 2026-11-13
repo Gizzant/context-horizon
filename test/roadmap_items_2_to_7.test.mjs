@@ -219,7 +219,7 @@ test('Roadmap Item #6 & #7: ctxtop roast / --roast card, cost-radar --share, and
       sessionSavedTokens: 85000,
       sessionSavedUSD: 1.42,
       workspace30dSavedTokens: 1240000,
-      workspace30dSavedUSD: 24.80
+      workspace30dSavedUSD: 42.80
     });
     assert.ok(directRcpt.netRoiMultiplier >= 2.5);
     assert.match(directRcpt.markdown, /Corporate FinOps Expense Receipt/);

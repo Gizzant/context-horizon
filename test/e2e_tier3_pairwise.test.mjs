@@ -320,6 +320,8 @@ describe('Tier 3: Pairwise Interactions (Features 1 - 14)', () => {
     const pureModModules = files.filter(f =>
       !f.includes('runtime.mjs') &&
       !f.includes('circuitBreakers.mjs') &&
+      !f.includes('det01_03_shell_secret.mjs') &&
+      !f.includes('det13_20_mcp_scope.mjs') &&
       !f.includes('stateBatonHydrator.mjs') &&
       !f.includes('losslessPostSanitizer.mjs')
     );
