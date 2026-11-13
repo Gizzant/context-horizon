@@ -215,7 +215,7 @@ export function buildDemoPage(options = {}) {
       const bar = document.createElement('div');
       bar.id = 'chDemoBar';
       bar.innerHTML = \`
-        <div class="ch-brand">⚡ Attention Horizon (ah-antigravity v3.3) — Live Interactive Demo</div>
+        <div class="ch-brand">⚡ Attention Horizon (ah v4.0) — Live Interactive Demo</div>
         <div style="display:flex;align-items:center;gap:8px;">
           <label for="chScenarioSelect" style="font-size:11.5px;color:#94a3b8;">Inspect Crisis Scenario:</label>
           <select id="chScenarioSelect">

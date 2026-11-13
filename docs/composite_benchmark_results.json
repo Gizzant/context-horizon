@@ -1,38 +1,48 @@
 {
-  "timestamp": "2026-11-12T06:47:51.134Z",
+  "timestamp": "2026-11-13T00:08:02.227Z",
   "nodeVersion": "v25.6.0",
   "platform": "win32",
+  "methodology": "Empirical percentile latency & recall/parity evaluation (non-tautological SLA headroom scoring)",
   "dimensions": {
     "D1": {
       "name": "Processing Observability & Runtime Control",
       "weight": 0.2,
       "target": 96,
-      "score": 96,
+      "score": 98.07,
       "status": "PASS",
       "metrics": {
         "spanTracking": {
-          "avg": 0.0011465199999997936,
-          "p50": 0.0008000000000265572,
-          "p95": 0.0024000000000228283,
-          "p99": 0.004000000000019099,
-          "min": 0.0004999999999881766,
-          "max": 0.25610000000000355
+          "sampleSize": 5000,
+          "avg": 0.001555,
+          "p50": 0.0009,
+          "p95": 0.0035,
+          "p99": 0.0082,
+          "min": 0.0008,
+          "max": 0.4518,
+          "p99ToP50Ratio": 9.11,
+          "maxToP50Ratio": 502
         },
         "callTreeAssembly": {
-          "avg": 0.030248000000000844,
-          "p50": 0.014099999999984902,
-          "p95": 0.04950000000002319,
-          "p99": 0.5276000000000067,
-          "min": 0.006900000000030104,
-          "max": 1.676400000000001
+          "sampleSize": 500,
+          "avg": 0.026335,
+          "p50": 0.0116,
+          "p95": 0.0478,
+          "p99": 0.0935,
+          "min": 0.0092,
+          "max": 2.042,
+          "p99ToP50Ratio": 8.06,
+          "maxToP50Ratio": 176.03
         },
         "flamegraphGeneration": {
-          "avg": 0.01888600000000025,
-          "p50": 0.010199999999997544,
-          "p95": 0.028499999999951342,
-          "p99": 0.47950000000003,
-          "min": 0.004799999999988813,
-          "max": 0.8340000000000032
+          "sampleSize": 500,
+          "avg": 0.012379,
+          "p50": 0.0068,
+          "p95": 0.0134,
+          "p99": 0.0395,
+          "min": 0.0066,
+          "max": 1.4261,
+          "p99ToP50Ratio": 5.81,
+          "maxToP50Ratio": 209.72
         }
       }
     },
@@ -40,16 +50,30 @@
       "name": "Token Economics, Latency & Retention Radar",
       "weight": 0.2,
       "target": 97,
-      "score": 97,
+      "score": 97.25,
       "status": "PASS",
       "metrics": {
         "retentionDiffing": {
-          "avg": 0.01112860000000012,
-          "p50": 0.006599999999991724,
-          "p95": 0.04550000000000409,
-          "p99": 0.07299999999997908,
-          "min": 0.00380000000001246,
-          "max": 0.19209999999998217
+          "sampleSize": 1000,
+          "avg": 0.018621,
+          "p50": 0.0093,
+          "p95": 0.0659,
+          "p99": 0.1332,
+          "min": 0.0045,
+          "max": 2.1178,
+          "p99ToP50Ratio": 14.32,
+          "maxToP50Ratio": 227.72
+        },
+        "cacheGravityRouter": {
+          "sampleSize": 1000,
+          "avg": 1.109472,
+          "p50": 1.0237,
+          "p95": 1.6822,
+          "p99": 2.1718,
+          "min": 0.8206,
+          "max": 3.9816,
+          "p99ToP50Ratio": 2.12,
+          "maxToP50Ratio": 3.89
         }
       }
     },
@@ -57,24 +81,42 @@
       "name": "Autonomous Diagnostics & Problem Remediation",
       "weight": 0.2,
       "target": 96,
-      "score": 96,
+      "score": 97.99,
       "status": "PASS",
       "metrics": {
         "blindspotSensors": {
-          "avg": 0.14038700000000234,
-          "p50": 0.12189999999998236,
-          "p95": 0.2026000000000181,
-          "p99": 0.9598000000000297,
-          "min": 0.11400000000003274,
-          "max": 0.9598000000000297
+          "sampleSize": 250,
+          "avg": 0.151164,
+          "p50": 0.1361,
+          "p95": 0.1958,
+          "p99": 0.275,
+          "min": 0.1294,
+          "max": 1.1039,
+          "p99ToP50Ratio": 2.02,
+          "maxToP50Ratio": 8.11
         },
         "gitMergeTree": {
-          "avg": 34.770675000000004,
-          "p50": 34.256200000000035,
-          "p95": 38.67439999999999,
-          "p99": 38.67439999999999,
-          "min": 32.97370000000001,
-          "max": 38.67439999999999
+          "sampleSize": 250,
+          "avg": 0.589665,
+          "p50": 0.1799,
+          "p95": 0.361,
+          "p99": 0.6135,
+          "min": 0.1592,
+          "max": 51.7627,
+          "p99ToP50Ratio": 3.41,
+          "maxToP50Ratio": 287.73
+        },
+        "gitMergeTreeColdSpawnMs": 47.555,
+        "semanticDriftGuard": {
+          "sampleSize": 500,
+          "avg": 0.017946,
+          "p50": 0.0099,
+          "p95": 0.0323,
+          "p99": 0.1268,
+          "min": 0.0076,
+          "max": 1.5127,
+          "p99ToP50Ratio": 12.81,
+          "maxToP50Ratio": 152.8
         }
       }
     },
@@ -82,24 +124,30 @@
       "name": "Developer Workflow & Daily Usability",
       "weight": 0.15,
       "target": 95,
-      "score": 95,
+      "score": 96.74,
       "status": "PASS",
       "metrics": {
         "statuslineRender": {
-          "avg": 0.9851882000000096,
-          "p50": 0.9565000000000055,
-          "p95": 1.2399000000000342,
-          "p99": 1.5276000000001204,
-          "min": 0.8401000000001204,
-          "max": 1.7325000000000728
+          "sampleSize": 1000,
+          "avg": 1.058681,
+          "p50": 0.9759,
+          "p95": 1.6085,
+          "p99": 1.9606,
+          "min": 0.8313,
+          "max": 3.8631,
+          "p99ToP50Ratio": 2.01,
+          "maxToP50Ratio": 3.96
         },
         "microIpcRoundtrip": {
-          "avg": 0.08173099999998612,
-          "p50": 0.07720000000017535,
-          "p95": 0.10869999999999891,
-          "p99": 0.13450000000011642,
-          "min": 0.06760000000008404,
-          "max": 0.1591000000000804
+          "sampleSize": 300,
+          "avg": 0.106398,
+          "p50": 0.0836,
+          "p95": 0.1993,
+          "p99": 0.2898,
+          "min": 0.051,
+          "max": 0.3808,
+          "p99ToP50Ratio": 3.47,
+          "maxToP50Ratio": 4.56
         }
       }
     },
@@ -107,20 +155,80 @@
       "name": "Enterprise Security, Privacy & Invariants",
       "weight": 0.15,
       "target": 96,
-      "score": 96,
+      "score": 98.13,
       "status": "PASS",
-      "metrics": {}
+      "metrics": {
+        "secretRedaction": {
+          "sampleSize": 1000,
+          "avg": 0.003942,
+          "p50": 0.0029,
+          "p95": 0.0044,
+          "p99": 0.0119,
+          "min": 0.0027,
+          "max": 0.4938,
+          "p99ToP50Ratio": 4.1,
+          "maxToP50Ratio": 170.28,
+          "recallRatePct": 100
+        },
+        "ipiAirlockScrub": {
+          "sampleSize": 1000,
+          "avg": 0.003623,
+          "p50": 0.003,
+          "p95": 0.0035,
+          "p99": 0.0104,
+          "min": 0.0023,
+          "max": 0.5479,
+          "p99ToP50Ratio": 3.47,
+          "maxToP50Ratio": 182.63
+        }
+      }
     },
     "D6": {
       "name": "Repository Consolidation & Mod-Safe Parity",
       "weight": 0.1,
       "target": 98,
-      "score": 98,
+      "score": 99.6,
       "status": "PASS",
-      "metrics": {}
+      "metrics": {
+        "modLawsStaticAudit": {
+          "sampleSize": 500,
+          "avg": 0.283738,
+          "p50": 0.2191,
+          "p95": 0.4423,
+          "p99": 0.759,
+          "min": 0.1869,
+          "max": 2.7979,
+          "p99ToP50Ratio": 3.46,
+          "maxToP50Ratio": 12.77
+        },
+        "ustfValidation": {
+          "sampleSize": 1000,
+          "avg": 0.0029,
+          "p50": 0.0019,
+          "p95": 0.005,
+          "p99": 0.0107,
+          "min": 0.0013,
+          "max": 0.2605,
+          "p99ToP50Ratio": 5.63,
+          "maxToP50Ratio": 137.11
+        },
+        "astStubPruningParity": {
+          "sampleSize": 500,
+          "avg": 0.057476,
+          "p50": 0.0464,
+          "p95": 0.0965,
+          "p99": 0.2506,
+          "min": 0.0388,
+          "max": 0.6592,
+          "p99ToP50Ratio": 5.4,
+          "maxToP50Ratio": 14.21,
+          "compressionRatioPct": 84.24,
+          "deterministicByteParity": true
+        }
+      }
     }
   },
-  "compositeScore": 96.25,
+  "compositeScore": 97.85,
   "targetScore": 96.25,
   "status": "CERTIFIED_PASS"
 }

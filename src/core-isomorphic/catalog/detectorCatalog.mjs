@@ -491,8 +491,64 @@ export function migrateLegacyHorizonConfig(rawConfig = {}, options = {}) {
   };
 }
 
+export const CORE_AUDITABLE_GUARDS = Object.freeze([
+  Object.freeze({
+    id: 'GUARD-1',
+    name: 'Warm Cache Lock & TTL Cliff Guard',
+    detectorIds: Object.freeze(['DET-08', 'DET-09', 'DET-10', 'DET-12', 'DET-25']),
+    description: 'Holds prefix-mutating compaction/rule edits while 95% cache is warm and prevents Haiku 100k / 5m TTL cliff re-buys.'
+  }),
+  Object.freeze({
+    id: 'GUARD-2',
+    name: 'Safe Horizon & Prefix Amputation Guard',
+    detectorIds: Object.freeze(['DET-11', 'DET-17', 'DET-24', 'DET-27', 'DET-29']),
+    description: 'Protects Turn-0 AGENTS.md/CLAUDE.md anchors from sliding-window truncation and enforces progressive 70k checkpoints.'
+  }),
+  Object.freeze({
+    id: 'GUARD-3',
+    name: 'Middle-Trough Specification Stranding Guard',
+    detectorIds: Object.freeze(['DET-16', 'DET-26', 'DET-32']),
+    description: 'Detects stranded middle-trough specs, vague unanchored prompts, and IOEDR/REMORY invariant contradictions.'
+  }),
+  Object.freeze({
+    id: 'GUARD-4',
+    name: 'Duplicate Read & Dead Error Loop Surgeon',
+    detectorIds: Object.freeze(['DET-04', 'DET-05', 'DET-06', 'DET-07', 'DET-14', 'DET-21', 'DET-22', 'DET-23', 'DET-30']),
+    description: 'Intercepts repeat full-file reads, compresses >4k CLI floods, and halts 3-strike tool/scratchpad loops.'
+  }),
+  Object.freeze({
+    id: 'GUARD-5',
+    name: 'Idle Eager MCP Schema Auditor',
+    detectorIds: Object.freeze(['DET-13', 'DET-15', 'DET-28']),
+    description: 'Audits unused Turn-0 eager MCP server schemas (>15k tokens) and orphaned stdio worker processes.'
+  }),
+  Object.freeze({
+    id: 'GUARD-6',
+    name: 'Multi-Agent Worktree & Ring-0 Safety Guard',
+    detectorIds: Object.freeze(['DET-01', 'DET-02', 'DET-03', 'DET-18', 'DET-19', 'DET-20', 'DET-31']),
+    description: 'Enforces Ring-0 git/shell/secret boundaries and detects cross-worktree git merge-tree collisions.'
+  })
+]);
+
+export function summarizeCoreAuditableGuards(trippedDetectorId = null) {
+  const canonicalTripped = trippedDetectorId ? resolveDetectorId(trippedDetectorId) : null;
+  const activeGuard = canonicalTripped
+    ? CORE_AUDITABLE_GUARDS.find(g => g.detectorIds.includes(canonicalTripped)) || null
+    : null;
+  return {
+    coreGuardCount: CORE_AUDITABLE_GUARDS.length,
+    totalRuleCount: Object.keys(DETECTOR_CATALOG).length,
+    trippedGuard: activeGuard,
+    label: activeGuard
+      ? `1 Core Guard tripped (${activeGuard.id}: ${canonicalTripped})`
+      : `${CORE_AUDITABLE_GUARDS.length} Core Guards quiet (${Object.keys(DETECTOR_CATALOG).length} rules)`
+  };
+}
+
 export default {
   DETECTOR_CATALOG,
+  CORE_AUDITABLE_GUARDS,
+  summarizeCoreAuditableGuards,
   LEGACY_GA_V3_ID_MAP,
   migrateLegacyHorizonConfig,
   resolveDetectorId,

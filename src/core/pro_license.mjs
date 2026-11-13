@@ -23,10 +23,53 @@ export const DEFAULT_PRO_PUBLIC_KEY_PEM = [
 
 export const PRO_PRICING_TIERS = Object.freeze({
   free: { id: 'free', label: 'Free Core (MIT)', priceUSD: 0, billing: 'forever' },
-  pro_monthly: { id: 'pro', label: 'Attention Horizon Pro (Monthly)', priceUSD: 9, billing: 'month' },
+  pro_monthly: { id: 'pro', label: 'Attention Horizon Pro (Monthly)', priceUSD: 9, priceRangeUSD: [12, 19], billing: 'month' },
   pro_annual: { id: 'pro', label: 'Attention Horizon Pro (Annual)', priceUSD: 79, billing: 'year' },
   pro_ltd: { id: 'ltd', label: 'Attention Horizon Pro (Founder Lifetime)', priceUSD: 119, billing: 'lifetime' },
-  team: { id: 'team', label: 'Attention Horizon Team (5 Seats + OTel)', priceUSD: 299, billing: 'year' }
+  team: { id: 'team', label: 'Attention Horizon Team (5 Seats + OTel)', priceUSD: 299, seatMonthlyUSD: 39, billing: 'year' }
+});
+
+/**
+ * Three-Tier "Self-Expensing" PLG Funnel Matrix (VC Playbook Step 5).
+ */
+export const PLG_TIER_MATRIX = Object.freeze({
+  free: Object.freeze({
+    id: 'free',
+    name: 'Free Tier (Community Core)',
+    priceMonthlyUSD: 0,
+    installCommand: 'npx attention-horizon',
+    features: Object.freeze([
+      'Simple View HUD & 4-Rank Tufte Verdict Bar',
+      '40-Cell Parabolic U-Curve Context Map',
+      '5m/1h Live Prompt Cache TTL Countdown',
+      'HOLD_COMPACT Warm Cache Warning',
+      '6 Core Auditable Guards (32 rules)'
+    ])
+  }),
+  pro: Object.freeze({
+    id: 'pro',
+    name: 'Pro Tier (Self-Expensing Solo Developer)',
+    priceMonthlyUSD: 15,
+    priceRangeMonthlyUSD: Object.freeze([12, 19]),
+    features: Object.freeze([
+      'Automated PreToolUse Delta-Read & AST Signature Stub Interception',
+      'Cross-Session Chronic Offender Memory',
+      '30-Day Workspace Savings Ledger (#tufteBaselineStrip)',
+      'Signed Corporate PDF 1.4 Expense Receipt (/api/receipt/export?format=pdf)',
+      'AUTO_PILOT Hysteresis Lock & Algebraic C* Model Switch Hold'
+    ])
+  }),
+  team: Object.freeze({
+    id: 'team',
+    name: 'Team / Enterprise Tier (Zero-Cloud FinOps)',
+    pricePerSeatMonthlyUSD: 39,
+    features: Object.freeze([
+      'Shared .agents/rules/ Primacy-Band Governance',
+      'Sanitized Cross-Developer Bloat Analytics (/api/export/sanitized)',
+      'Repo-Wide MCP Lazy-Loading Enforcement',
+      'BYO-Grafana OpenTelemetry & Prometheus Alerting Pack (ctxtop team-pack)'
+    ])
+  })
 });
 
 export function resolveLicenseFilePath(options = {}) {

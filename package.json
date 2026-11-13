@@ -12,6 +12,8 @@
     "packages/pro"
   ],
   "bin": {
+    "ah": "./bin/ctxtop.mjs",
+    "attention-horizon": "./bin/ctxtop.mjs",
     "ctxtop": "./bin/ctxtop.mjs",
     "ah-statusline": "./bin/ah-statusline.mjs",
     "attention-horizon-antigravity": "./src/cli/init.mjs",

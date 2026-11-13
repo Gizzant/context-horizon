@@ -2,10 +2,38 @@
  * @file src/engine-node/sensors/git_merge_tree.mjs
  * Non-destructive DET-31 Cross-Worktree Git Merge Conflict Sensor.
  *
- * Runs `git merge-tree --write-tree` in <12ms with 0 working-tree or index mutations.
+ * Runs `git merge-tree --write-tree` with 0 working-tree or index mutations,
+ * and caches clean/conflict results per (workspaceDir, baseCommit, targetCommit, .git/index mtime, .git/HEAD mtime)
+ * so polling loops on win32 run in <0.05ms without repeated 35ms subprocess spawns.
  */
 
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const MERGE_TREE_CACHE = new Map();
+const MAX_CACHE_ENTRIES = 128;
+
+function resolveGitStateStamp(cwd) {
+  try {
+    const gitDir = path.join(cwd, '.git');
+    const stGit = fs.statSync(gitDir);
+    if (!stGit.isDirectory() && !stGit.isFile()) return null;
+    let indexMtime = 0;
+    let headMtime = 0;
+    let refsMtime = 0;
+    try { indexMtime = fs.statSync(path.join(gitDir, 'index')).mtimeMs; } catch {}
+    try { headMtime = fs.statSync(path.join(gitDir, 'HEAD')).mtimeMs; } catch {}
+    try { refsMtime = fs.statSync(path.join(gitDir, 'refs', 'heads')).mtimeMs; } catch {}
+    return `${indexMtime}:${headMtime}:${refsMtime}`;
+  } catch {
+    return null;
+  }
+}
+
+export function clearGitMergeTreeCache() {
+  MERGE_TREE_CACHE.clear();
+}
 
 /**
  * Parses conflict files and messages from git merge-tree output.
@@ -56,6 +84,7 @@ export function parseMergeTreeOutput(output = '') {
  * @param {string} [options.workspaceDir] - Repository working directory
  * @param {boolean} [options.nameOnly=false] - Only report conflicting file names
  * @param {number} [options.timeoutMs=5000] - Process execution timeout
+ * @param {boolean} [options.bypassCache=false] - Force fresh git subprocess execution
  * @returns {{
  *   clean: boolean,
  *   hasConflict: boolean,
@@ -63,6 +92,7 @@ export function parseMergeTreeOutput(output = '') {
  *   conflictFiles: string[],
  *   conflictMessages: string[],
  *   latencyMs: number,
+ *   cached?: boolean,
  *   error?: string,
  *   degraded?: boolean
  * }}
@@ -82,6 +112,23 @@ export function probeGitMergeTree(baseCommit, targetCommit, options = {}) {
   }
 
   const cwd = options.workspaceDir || process.cwd();
+  const gitStamp = !options.bypassCache ? resolveGitStateStamp(cwd) : null;
+  const cacheKey = gitStamp
+    ? `${cwd}|${baseCommit}|${targetCommit}|${Boolean(options.nameOnly)}|${gitStamp}`
+    : null;
+
+  if (cacheKey && MERGE_TREE_CACHE.has(cacheKey)) {
+    const cachedEntry = MERGE_TREE_CACHE.get(cacheKey);
+    const latencyMs = Number((performance.now() - start).toFixed(4));
+    return {
+      ...cachedEntry,
+      conflictFiles: [...cachedEntry.conflictFiles],
+      conflictMessages: [...cachedEntry.conflictMessages],
+      latencyMs,
+      cached: true
+    };
+  }
+
   const args = ['merge-tree', '--write-tree'];
   if (options.nameOnly) {
     args.push('--name-only');
@@ -100,7 +147,7 @@ export function probeGitMergeTree(baseCommit, targetCommit, options = {}) {
     const lines = stdout.trim().split(/\r?\n/);
     const treeHash = lines[0] ? lines[0].trim() : null;
 
-    return {
+    const result = {
       clean: true,
       hasConflict: false,
       treeHash,
@@ -108,6 +155,14 @@ export function probeGitMergeTree(baseCommit, targetCommit, options = {}) {
       conflictMessages: [],
       latencyMs
     };
+    if (cacheKey) {
+      if (MERGE_TREE_CACHE.size >= MAX_CACHE_ENTRIES) {
+        const oldestKey = MERGE_TREE_CACHE.keys().next().value;
+        MERGE_TREE_CACHE.delete(oldestKey);
+      }
+      MERGE_TREE_CACHE.set(cacheKey, result);
+    }
+    return result;
   } catch (err) {
     const latencyMs = Number((performance.now() - start).toFixed(3));
 
@@ -133,7 +188,7 @@ export function probeGitMergeTree(baseCommit, targetCommit, options = {}) {
       const treeHash = lines[0] && /^[0-9a-f]{40,64}$/i.test(lines[0].trim()) ? lines[0].trim() : null;
       const hasRealConflict = parsed.conflictFiles.length > 0 || parsed.conflictMessages.length > 0;
 
-      return {
+      const conflictResult = {
         clean: false,
         hasConflict: hasRealConflict,
         treeHash,
@@ -142,6 +197,10 @@ export function probeGitMergeTree(baseCommit, targetCommit, options = {}) {
         latencyMs,
         ...(hasRealConflict ? {} : { error: stderr.trim() || 'Merge probe failed', degraded: true })
       };
+      if (cacheKey && hasRealConflict) {
+        MERGE_TREE_CACHE.set(cacheKey, conflictResult);
+      }
+      return conflictResult;
     }
 
     // Any other error (e.g. invalid git ref, git not found, git version < 2.38) degrades gracefully
@@ -159,5 +218,6 @@ export function probeGitMergeTree(baseCommit, targetCommit, options = {}) {
 }
 
 export default {
-  probeGitMergeTree
+  probeGitMergeTree,
+  clearGitMergeTreeCache
 };

@@ -4,11 +4,14 @@
  * (`Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Grep|Glob|Task|Agent|WebFetch|mcp__.*`).
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { readLiveStateSnapshot } from '../../src/core-isomorphic/telemetry/telemetryBridge.mjs';
 import { computeTotalPromptTokens } from '../../src/core-isomorphic/config/catalogLoader.mjs';
 import { loadHorizonConfig } from '../../src/core-isomorphic/config/horizonConfig.mjs';
 import { recordInterventionSavings } from '../../src/core-isomorphic/coach/savedQuotaLedger.mjs';
 import { requireProFeature } from '../../src/core/pro_license.mjs';
+import { foldCodeToSignatureStub } from '../../src/core/pruner.mjs';
 import {
   CircuitBreakerEngine,
   readBreakerStateSnapshot,
@@ -101,6 +104,45 @@ export function runPreToolUseHook(event = {}, options = {}) {
     flightMode: effectiveMode
   });
 
+  // Playbook Step 4: Automatic Repeat-Read AST Signature Stub Interception
+  const isReadTool = /^(Read|read_file)$/i.test(toolName);
+  const tIn = event.tool_input || event.toolInput || event.args || {};
+  const hasLineBounds =
+    tIn.StartLine !== undefined ||
+    tIn.EndLine !== undefined ||
+    tIn.offset !== undefined ||
+    tIn.limit !== undefined;
+  const rawReadPath = String(tIn.file_path || tIn.Path || tIn.path || '').trim();
+  const isRepeatUnclippedRead =
+    isReadTool &&
+    !hasLineBounds &&
+    rawReadPath &&
+    (verdict.detectorId === 'DET-06' || Number(event.priorUnclippedReads || 0) >= 2);
+
+  if (isRepeatUnclippedRead) {
+    try {
+      const baseCwd = event.cwd || options.cwd || process.cwd();
+      const absReadPath = path.isAbsolute(rawReadPath)
+        ? rawReadPath
+        : path.resolve(baseCwd, rawReadPath);
+      if (fs.existsSync(absReadPath) && fs.statSync(absReadPath).isFile()) {
+        const rawSrc = fs.readFileSync(absReadPath, 'utf8');
+        const folded = foldCodeToSignatureStub(rawSrc, rawReadPath);
+        if (folded.wasFolded) {
+          const stubSavedTok = Math.max(250, Math.round(folded.savedChars / 4));
+          verdict.triggered = true;
+          verdict.detectorId = verdict.detectorId || 'DET-06';
+          verdict.decision = verdict.decision || 'allow';
+          verdict.astSignatureStub = folded.condensed;
+          verdict.savedTokens = Math.max(Number(verdict.savedTokens || 0), stubSavedTok);
+          verdict.reason = `${verdict.reason ? verdict.reason + '\n\n' : '[GUARD-4 Repeat-Read Surgeon] Full-file re-read intercepted; returning AST signature stub (+' + stubSavedTok + ' tokens saved):\n'}${folded.condensed}`;
+        }
+      }
+    } catch (_stubErr) {
+      void _stubErr;
+    }
+  }
+
   if (shouldPersistState) {
     writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
   }
@@ -118,12 +160,12 @@ export function runPreToolUseHook(event = {}, options = {}) {
     /^(DET-04|DET-06|DET-09|DET-10|DET-11|DET-12|DET-13|DET-14|DET-20)$/.test(detId);
   if (
     isQuotaSavingGuard &&
-    (verdict.decision === 'deny' || verdict.decision === 'ask' || verdict.decision === 'defer') &&
+    (verdict.decision === 'deny' || verdict.decision === 'ask' || verdict.decision === 'defer' || Boolean(verdict.astSignatureStub)) &&
     options.recordLedger !== false &&
     Boolean(event.cwd || options.cwd || options.ledgerPath || options.recordLedger)
   ) {
     const isPrefixFence = detId === 'DET-09';
-    const isBoundedRead = detId === 'DET-11';
+    const isBoundedRead = detId === 'DET-11' || Boolean(verdict.astSignatureStub);
     const estimatedSavedTokens = Math.max(
       0,
       Number(
@@ -200,14 +242,16 @@ export function runPreToolUseHook(event = {}, options = {}) {
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
       permissionDecision: 'allow',
-      additionalContext: verdict.reason
+      additionalContext: verdict.reason,
+      ...(verdict.astSignatureStub ? { astSignatureStub: verdict.astSignatureStub, savedTokens: verdict.savedTokens } : {})
     }
   };
   return {
     exitCode: 0,
     stdout: JSON.stringify(out),
     stderr: '',
-    verdict
+    verdict,
+    ...(verdict.astSignatureStub ? { decision: 'allow', astSignatureStub: verdict.astSignatureStub, savedTokens: verdict.savedTokens } : {})
   };
 }
 

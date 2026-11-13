@@ -1,4 +1,5 @@
 # Attention Horizon (`ctxtop`) — Architectural & UI Invariants
+- **User Constraint**: my account was just re-enabled from getting disabled (see error message below) review tips to avoid
 - **User Constraint**: To keep context memory lean, please use `StartLine`/`EndLine` when reading `src/webview/horizon_panel.html`, `src/core/classifier.mjs`, and `sidecars/horizon-daemon/server.mjs` instead of reading full files repeatedly.
 
 ## UI & Architecture Invariants

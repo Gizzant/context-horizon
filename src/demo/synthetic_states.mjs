@@ -1,5 +1,9 @@
 /**
  * Synthetic demo and test fixtures covering all 8 canonical session and router scenarios.
+ * Mathematically self-consistent:
+ *   - sum(cells[i].totalTokens) === totalActiveTokens
+ *   - ANCHOR + INJECTED_MEMORY + ACTIVE_WORKING_SET + DUPLICATE_READ + STALE_TURN + DEAD_ERROR === totalActiveTokens
+ *   - topRiskyCells, chronicReads, and subagents strictly scoped to active session depth
  */
 import { resolvePricePerM, resolveModelCeiling } from '../core/constants.mjs';
 
@@ -222,7 +226,8 @@ export const DEMO_SCENARIOS = [
 ];
 
 /**
- * Builds a complete 40-cell Horizon + Webview + HUD payload for any of the 8 demo scenarios.
+ * Builds a complete, mathematically self-consistent 40-cell Horizon + Webview + HUD payload
+ * for any of the 8 demo scenarios.
  */
 export function buildDemoHorizonState(scenarioNumber = 5) {
   const meta = DEMO_SCENARIOS.find(s => s.id === Number(scenarioNumber)) || DEMO_SCENARIOS[4];
@@ -230,50 +235,87 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
   const totalActiveTokens = sc.telemetry.totalInputTokens || 145000;
   const maxTokens = 200000;
   const cellSize = 5000;
-  const activeCells = Math.min(40, Math.max(1, Math.round(totalActiveTokens / cellSize)));
+  const activeCells = Math.min(40, Math.max(1, Math.ceil(totalActiveTokens / cellSize)));
   const isCrisis = Boolean(sc.telemetry.amputationRisk || totalActiveTokens >= 140000);
   const purity = sc.telemetry.signalPurityPct ?? 35.0;
 
+  const sludgeTokens = meta.reclaimTokens > 0
+    ? meta.reclaimTokens
+    : (purity >= 100 ? 0 : Math.round(totalActiveTokens * ((100 - purity) / 100)));
+
+  // Compute exact non-overlapping breakdown components summing to totalActiveTokens
+  const dupReadTokens = Math.round(sludgeTokens * 0.65);
+  const staleTurnTokens = Math.round(sludgeTokens * 0.15);
+  const deadErrorTokens = Math.max(0, sludgeTokens - dupReadTokens - staleTurnTokens);
+  const usefulTotalTokens = Math.max(0, totalActiveTokens - sludgeTokens);
+
+  const anchorTokens = totalActiveTokens <= 5000
+    ? Math.min(2000, usefulTotalTokens)
+    : Math.min(15000, Math.round(usefulTotalTokens * 0.30));
+  const injectedMemoryTokens = totalActiveTokens <= 5000
+    ? Math.min(500, Math.max(0, usefulTotalTokens - anchorTokens))
+    : Math.min(5000, Math.max(0, usefulTotalTokens - anchorTokens));
+  const activeWorkingSetTokens = Math.max(0, usefulTotalTokens - anchorTokens - injectedMemoryTokens);
+
+  const sludgeCellCount = sludgeTokens > 0 ? Math.max(1, Math.round(sludgeTokens / cellSize)) : 0;
+  const anchorCellCount = Math.max(1, Math.min(activeCells, Math.round((anchorTokens + injectedMemoryTokens) / cellSize) || 1));
+
+  const primaryActiveFile = (sc.fileState?.activeSetPaths && sc.fileState.activeSetPaths[0])
+    ? sc.fileState.activeSetPaths[0].replace(/^c:\/projects\/attention-horizon-antigravity\//i, '')
+    : (meta.id === 6 ? 'src/routes.mjs' : (meta.id === 8 ? 'src/parser.mjs' : 'src/core/router.mjs'));
+
   const cells = [];
+  let remainingTokensToAssign = totalActiveTokens;
+  let assignedSludgeCells = 0;
+
   for (let i = 0; i < 40; i++) {
     let dominantCategory = 'FREE_HEADROOM';
     let isCrisisCell = false;
-    if (i < activeCells) {
-      if (i < 3) {
+    const filled = i < activeCells ? Math.min(cellSize, Math.max(0, remainingTokensToAssign)) : 0;
+    remainingTokensToAssign = Math.max(0, remainingTokensToAssign - filled);
+
+    if (filled > 0) {
+      if (i < anchorCellCount - (injectedMemoryTokens >= 2500 ? 1 : 0)) {
         dominantCategory = 'ANCHOR';
         isCrisisCell = isCrisis;
-      } else if (i === 3) {
-        dominantCategory = meta.id === 5 || meta.id === 4 ? 'INJECTED_MEMORY' : 'ANCHOR';
+      } else if (i === anchorCellCount - 1 && injectedMemoryTokens >= 2500) {
+        dominantCategory = 'INJECTED_MEMORY';
         isCrisisCell = isCrisis;
-      } else if (i >= activeCells - 5) {
-        dominantCategory = 'ACTIVE_WORKING_SET';
-      } else if (meta.id === 6 && i === activeCells - 6) {
-        dominantCategory = 'STALE_TURN';
-      } else if (i % 4 === 0 && (meta.id === 4 || meta.id === 5)) {
-        dominantCategory = 'DEAD_ERROR';
+      } else if (sludgeCellCount > 0 && assignedSludgeCells < sludgeCellCount && i >= anchorCellCount && i < activeCells - 1) {
+        assignedSludgeCells++;
+        if (meta.id === 6 && assignedSludgeCells === 1) {
+          dominantCategory = 'STALE_TURN';
+        } else if (deadErrorTokens >= 2000 && assignedSludgeCells % 3 === 0) {
+          dominantCategory = 'DEAD_ERROR';
+        } else {
+          dominantCategory = 'DUPLICATE_READ';
+        }
         isCrisisCell = isCrisis && i < 8;
       } else {
-        dominantCategory = purity < 60 ? 'DUPLICATE_READ' : 'ACTIVE_WORKING_SET';
+        dominantCategory = 'ACTIVE_WORKING_SET';
         isCrisisCell = isCrisis && i < 8;
       }
     }
-    const filled = i < activeCells ? cellSize : 0;
+
     const targetPath =
+      filled === 0 ? 'Free Token Headroom' :
       i === 0 ? 'SYSTEM_PROMPT + AGENTS.md' :
       i === 1 ? 'implementation_plan.md + task.md' :
-      i === 2 ? 'MCP Tool Schemas (Turn 0)' :
-      i === 8 ? 'task.md' :
+      i === 2 && dominantCategory === 'ANCHOR' ? 'MCP Tool Schemas (Turn 0)' :
+      i === 8 && dominantCategory !== 'DUPLICATE_READ' ? 'task.md' :
       dominantCategory === 'DEAD_ERROR' ? 'src/cli/doctor.mjs (failed run_command trace)' :
-      dominantCategory === 'DUPLICATE_READ' ? 'src/core/router.mjs' :
-      'src/core/classifier.mjs';
+      dominantCategory === 'DUPLICATE_READ' ? primaryActiveFile :
+      dominantCategory === 'STALE_TURN' ? 'src/routes.mjs (stale snapshot before external edit)' :
+      primaryActiveFile;
+
     const inTrough = activeCells >= 7 && i >= 6 && i <= 15 && i < activeCells;
     cells.push({
       index: i,
       startToken: i * cellSize,
-      endToken: (i + 1) * cellSize,
+      endToken: i * cellSize + filled,
       totalTokens: filled,
       dominantCategory,
-      topTarget: filled > 0 ? targetPath : 'Free Token Headroom',
+      topTarget: targetPath,
       inAttentionTrough: inTrough,
       attentionWeight: inTrough ? 0.42 : 0.92,
       hudCategory:
@@ -296,16 +338,27 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
     });
   }
 
-  const sludgeTokens = meta.reclaimTokens > 0
-    ? meta.reclaimTokens
-    : Math.round(totalActiveTokens * ((100 - purity) / 100));
   const quotaRem = Math.round((sc.telemetry.quota?.remaining_fraction ?? 0.5) * 100);
   const workloadMode =
     meta.id === 3 ? { modeId: 'SUBAGENT_SWARM', tag: '[Mode: Subagent Swarm]' } :
     (meta.id === 4 || meta.id === 8) ? { modeId: 'MULTI_FILE_REFACTOR', tag: '[Mode: Multi-File Refactor]' } :
     { modeId: 'READ_HEAVY_AUDIT', tag: '[Mode: Read-Heavy Audit]' };
 
-  const topRiskyCells = [
+  // Strictly scope topRiskyCells to filled cells in the attention trough (indices 6..15, i < activeCells)
+  const candidateRiskyCells = [
+    {
+      cellIndex: 6,
+      cellNumber: 7,
+      filePath: primaryActiveFile,
+      tokenWeight: 5000,
+      wasteTokens: sludgeTokens > 0 ? Math.min(5000, dupReadTokens) : 0,
+      attentionRecallPct: 44,
+      inTrough: true,
+      riskReason: sludgeTokens > 0 ? 'HIGH_SLUDGE_DENSITY' : 'TROUGH_STRANDED_SPEC',
+      actionType: sludgeTokens > 0 ? 'PRUNE' : 'REANCHOR',
+      actionLabel: '[Re-Anchor / Prune]',
+      specificActionLabel: sludgeTokens > 0 ? '[Prune Stale Tool Outputs]' : '[Re-Anchor Cell to Handoff]'
+    },
     {
       cellIndex: 8,
       cellNumber: 9,
@@ -331,27 +384,59 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
       actionType: 'PRUNE',
       actionLabel: '[Re-Anchor / Prune]',
       specificActionLabel: '[Prune Stale Tool Outputs]'
-    },
-    {
-      cellIndex: 12,
-      cellNumber: 13,
-      filePath: 'src/cli/doctor.mjs',
-      tokenWeight: 5000,
-      wasteTokens: 5000,
-      attentionRecallPct: 41,
-      inTrough: true,
-      riskReason: 'HIGH_SLUDGE_DENSITY',
-      actionType: 'PRUNE',
-      actionLabel: '[Re-Anchor / Prune]',
-      specificActionLabel: '[Prune Stale Tool Outputs]'
     }
   ];
+  const topRiskyCells = candidateRiskyCells.filter(c => c.cellIndex < activeCells && cells[c.cellIndex]?.totalTokens > 0);
+
+  // Scope chronicReads and subagents to session maturity
+  const chronicReads = (meta.id === 1 || sludgeTokens === 0) ? [] : [
+    {
+      path: primaryActiveFile,
+      sessions: meta.id >= 4 && meta.id <= 5 ? 4 : 3,
+      windowSessions: 5,
+      wastedTokens: Math.min(35000, Math.max(6000, dupReadTokens)),
+      bannerText: `Across last 5 sessions, ${primaryActiveFile} caused ${Math.round(Math.min(35000, Math.max(6000, dupReadTokens)) / 1000)}k repeated re-reads`
+    }
+  ];
+
+  const hasSubagents = meta.id === 3 || meta.id === 5;
+  const subagents = hasSubagents ? {
+    count: 2,
+    totalChildTokens: 64000,
+    totalParentSummaryTokens: 1800,
+    overallCompressionRatio: 35.6,
+    tokensSaved: 62200,
+    invocations: [
+      {
+        stepIndex: 8,
+        role: 'Codebase Researcher',
+        typeName: 'research',
+        workspace: 'inherit',
+        workspaceMode: 'inherit',
+        childTokens: 38000,
+        summaryTokens: 950,
+        tokensSaved: 37050,
+        compressionRatio: 40.0,
+        badgeLabel: '[Subagent: research | 38.0k isolated -> 1.0k handoff (40x)]'
+      }
+    ]
+  } : {
+    count: 0,
+    totalChildTokens: 0,
+    totalParentSummaryTokens: 0,
+    overallCompressionRatio: 1.0,
+    tokensSaved: 0,
+    invocations: []
+  };
 
   return {
     schemaVersion: '1.1.0',
     sessionId: meta.fixture.conversationId,
     sessionTitle: meta.title,
     demoMeta: meta,
+    routerState: meta.routerState,
+    recommendedAction: meta.recommendedAction,
+    rewrite: meta.rewrite,
     storeSource: 'demo-synthetic',
     logTierUsed: 1,
     logFilePath: 'src/demo/synthetic_states.mjs',
@@ -376,13 +461,13 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
       reminderAt: 119000
     },
     breakdown: {
-      ANCHOR: 15000,
-      INJECTED_MEMORY: 5000,
-      STALE_DUPLICATE: Math.round(sludgeTokens * 0.80),
-      DUPLICATE_READ: Math.round(sludgeTokens * 0.65),
-      STALE_TURN: Math.round(sludgeTokens * 0.15),
-      DEAD_ERROR: Math.round(sludgeTokens * 0.20),
-      ACTIVE_WORKING_SET: Math.max(5000, totalActiveTokens - sludgeTokens - 20000),
+      ANCHOR: anchorTokens,
+      INJECTED_MEMORY: injectedMemoryTokens,
+      STALE_DUPLICATE: dupReadTokens + staleTurnTokens,
+      DUPLICATE_READ: dupReadTokens,
+      STALE_TURN: staleTurnTokens,
+      DEAD_ERROR: deadErrorTokens,
+      ACTIVE_WORKING_SET: activeWorkingSetTokens,
       FREE_HEADROOM: Math.max(0, maxTokens - totalActiveTokens)
     },
     metrics: {
@@ -403,15 +488,7 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
     cells,
     workloadMode,
     topRiskyCells,
-    chronicReads: [
-      {
-        path: 'src/core/router.mjs',
-        sessions: 4,
-        windowSessions: 5,
-        wastedTokens: 35000,
-        bannerText: 'Across last 5 sessions, src/core/router.mjs caused 35k repeated re-reads'
-      }
-    ],
+    chronicReads,
     offenders: sludgeTokens === 0 ? [
       {
         category: 'ANCHOR',
@@ -419,37 +496,37 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
         wastedTokens: 0,
         occurrences: 1,
         stepIndices: [0],
-        remediation: 'Baseline clean (3.5k tokens); specify @src/cache.mjs in prompt before execution'
+        remediation: `Baseline clean (${(totalActiveTokens / 1000).toFixed(1)}k tokens); ${meta.rewrite}`
       }
     ] : [
       {
         category: 'DUPLICATE_READ',
-        target: 'src/core/router.mjs',
-        wastedTokens: Math.max(2400, Math.round(sludgeTokens * 0.42)),
-        occurrences: Math.max(2, Math.min(6, Math.floor((sc.sessionMeta.turnCount || 18) / 4))),
+        target: primaryActiveFile,
+        wastedTokens: dupReadTokens,
+        occurrences: Math.max(2, Math.min(6, Math.floor((sc.sessionMeta.turnCount || 18) / 3))),
         stepIndices: [3, 7, 14, 19, 26, 31].filter(s => s <= (sc.sessionMeta.turnCount || 32)),
-        remediation: 'Fold superseded reads of src/core/router.mjs via Surgical Pruner or use read_file { Path: "src/core/router.mjs", StartLine: 1, EndLine: 200 }'
+        remediation: `Fold superseded reads of ${primaryActiveFile} via Surgical Pruner or use read_file { Path: "${primaryActiveFile}", StartLine: 1, EndLine: 200 }`
       },
       {
         category: 'DEAD_ERROR',
         target: 'npm test (Resolved TypeError stack trace)',
-        wastedTokens: Math.max(1200, Math.round(sludgeTokens * 0.28)),
+        wastedTokens: deadErrorTokens,
         occurrences: Math.max(1, Math.min(3, Math.floor((sc.sessionMeta.turnCount || 18) / 6))),
         stepIndices: [11, 12, 13].filter(s => s <= (sc.sessionMeta.turnCount || 32)),
-        remediation: 'Collapse resolved error traces at steps [11, 12, 13] into 1-line tombstones via Surgical Pruner or /compact'
+        remediation: 'Collapse resolved error traces into 1-line tombstones via Surgical Pruner or /compact'
       },
       {
-        category: 'ANCHOR',
-        target: 'Unused MCP Server Schemas (Turn 0)',
-        wastedTokens: 6800,
-        occurrences: 1,
-        stepIndices: [0],
-        remediation: 'Set unused MCP servers to "loading": "lazy" in ~/.gemini/config/mcp_config.json (saving ~6.8k Turn-0 tokens)'
+        category: 'STALE_TURN',
+        target: 'Older chat history (>25 turns ago)',
+        wastedTokens: staleTurnTokens,
+        occurrences: Math.max(1, Math.floor((sc.sessionMeta.turnCount || 18) / 6)),
+        stepIndices: [1, 2],
+        remediation: 'Summarize older turns when cache is cold via /compact'
       }
     ],
     brainSignals: {
       activeSignal: {
-        liveSessionTokens: totalActiveTokens - sludgeTokens,
+        liveSessionTokens: usefulTotalTokens,
         taskMdSaved: !isCrisis,
         taskMdTurnsBehind: isCrisis ? 9 : (sludgeTokens === 0 ? 0 : 1),
         semanticallyPinnedTurns: sludgeTokens === 0 ? 0 : 3
@@ -460,15 +537,15 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
         topFiles: []
       } : {
         fileCount: 2,
-        reclaimableTokens: Math.round(sludgeTokens * 0.65),
+        reclaimableTokens: dupReadTokens,
         topFiles: [
-          { path: 'src/core/router.mjs', occurrences: Math.max(2, Math.min(6, Math.floor((sc.sessionMeta.turnCount || 18) / 4))), wastedTokens: Math.round(sludgeTokens * 0.42) },
-          { path: 'src/webview/horizon_panel.html', occurrences: Math.max(2, Math.min(4, Math.floor((sc.sessionMeta.turnCount || 18) / 5))), wastedTokens: Math.round(sludgeTokens * 0.23) }
+          { path: primaryActiveFile, occurrences: Math.max(2, Math.min(6, Math.floor((sc.sessionMeta.turnCount || 18) / 3))), wastedTokens: Math.round(dupReadTokens * 0.65) },
+          { path: 'src/webview/horizon_panel.html', occurrences: Math.max(2, Math.min(4, Math.floor((sc.sessionMeta.turnCount || 18) / 4))), wastedTokens: Math.max(0, dupReadTokens - Math.round(dupReadTokens * 0.65)) }
         ]
       },
       oldHistory: {
-        turnCount: Math.max(0, (sc.sessionMeta.turnCount || 20) - 12),
-        reclaimableTokens: Math.round(sludgeTokens * 0.15)
+        turnCount: sludgeTokens === 0 ? 0 : Math.max(1, (sc.sessionMeta.turnCount || 20) - 5),
+        reclaimableTokens: staleTurnTokens
       },
       deadErrors: sludgeTokens === 0 ? {
         errorCount: 0,
@@ -477,24 +554,24 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
         topErrors: []
       } : {
         errorCount: 3,
-        reclaimableTokens: Math.round(sludgeTokens * 0.20),
+        reclaimableTokens: deadErrorTokens,
         isErrorLoop: meta.id === 5,
         topErrors: [
-          { target: 'node --test (exit 1)', occurrences: 3, wastedTokens: Math.round(sludgeTokens * 0.20) }
+          { target: 'node --test (exit 1)', occurrences: 3, wastedTokens: deadErrorTokens }
         ]
       },
       blowupSteps: sludgeTokens === 0 ? [] : [
         {
           stepIndex: Math.min(14, Math.max(1, (sc.sessionMeta.turnCount || 18) - 2)),
-          tokens: Math.min(18400, Math.round(totalActiveTokens * 0.35)),
+          tokens: Math.min(18400, Math.round(totalActiveTokens * 0.25)),
           category: 'DUPLICATE_READ',
-          target: 'src/webview/horizon_panel.html',
-          payload: { kind: 'file', tool: 'read_file', detail: 'src/webview/horizon_panel.html (unclipped read)', path: 'src/webview/horizon_panel.html' }
+          target: primaryActiveFile,
+          payload: { kind: 'file', tool: 'read_file', detail: `${primaryActiveFile} (unclipped read)`, path: primaryActiveFile }
         }
       ],
       userCorrections: isCrisis ? 4 : 0,
       mcpAudit: {
-        unusedEagerServers: [
+        unusedEagerServers: meta.id === 1 ? [] : [
           { name: 'postgres-analytics', schemaTokens: 6800, configSource: '.agents/mcp_config.json' }
         ]
       },
@@ -540,32 +617,25 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
         turnsUntilExhaustion: Math.max(1, Math.floor(quotaRem / 6.4))
       }
     },
-    subagents: {
-      count: 2,
-      totalChildTokens: 64000,
-      totalParentSummaryTokens: 1800,
-      overallCompressionRatio: 35.6,
-      invocations: [
-        {
-          stepIndex: 8,
-          role: 'Codebase Researcher',
-          typeName: 'research',
-          workspace: 'inherit',
-          workspaceMode: 'inherit',
-          childTokens: 38000,
-          summaryTokens: 950,
-          tokensSaved: 37050,
-          compressionRatio: 40.0,
-          badgeLabel: '[Subagent: research | 38.0k isolated -> 1.0k handoff (40x)]'
-        }
-      ]
+    subagents,
+    coachState: {
+      routerState: meta.routerState,
+      recommendedAction: meta.recommendedAction,
+      rewrite: meta.rewrite,
+      taskQuotaRouter: {
+        activeModel: meta.fixture.modelName,
+        activeEffort: meta.fixture.effort,
+        recommendDownshift: meta.id === 7,
+        recommendedModelLabel: 'Gemini 3.8 Flash (Low)',
+        coachPillText: meta.routerState !== 'ALLOW_ACTIVE_SET' ? meta.recommendedAction : ''
+      }
     },
     diagnostics: {
-      status: isCrisis ? 'AMPUTATION_CRISIS' : (purity < 60 ? 'SLUDGE_HEAVY' : 'HEALTHY'),
+      status: isCrisis ? 'AMPUTATION_CRISIS' : (purity < 60 ? 'SLUDGE_HEAVY' : (meta.routerState !== 'ALLOW_ACTIVE_SET' ? meta.routerState : 'HEALTHY')),
       headline: meta.title,
       summary: `Complaint: "${meta.complaint}" — ${meta.recommendedAction}`,
-      recommendedCommand: isCrisis || purity < 55 ? '/compact' : 'Ready',
-      reclaimableTokens: meta.reclaimTokens,
+      recommendedCommand: isCrisis || purity < 55 ? '/compact' : meta.recommendedAction,
+      reclaimableTokens: sludgeTokens,
       foreignBleedDetected: meta.id === 5,
       dirtySnapshotPaths: sc.fileState?.dirtySnapshotPaths || (meta.id === 6 ? ['src/routes.mjs'] : []),
       unseenCallers: sc.fileState?.unseenCallers || (meta.id === 6 ? ['src/app.mjs'] : [])
@@ -577,18 +647,15 @@ export function buildDemoHorizonState(scenarioNumber = 5) {
         safeLimit: 140000,
         thinkingReserve: meta.fixture.effort === 'high' ? 25000 : 10000
       },
-      recommendedEffort: isCrisis ? 'low' : 'medium',
+      recommendedEffort: isCrisis || meta.id === 7 ? 'low' : 'medium',
       reason: meta.recommendedAction
     },
     hostHealth: {
-      rssGb: meta.id === 5 ? 2.14 : 0.84,
-      status: meta.id === 5 ? 'ZOMBIE_LEAK' : 'HEALTHY',
-      orphanCount: meta.id === 5 ? 2 : 0,
-      orphanRamMb: meta.id === 5 ? 570 : 0,
-      orphans: meta.id === 5 ? [
-        { pid: 41820, name: 'language_server_windows_x64.exe', rssMb: 450, reason: 'Detached parent PID' },
-        { pid: 44912, name: 'node.exe (mcp-server)', rssMb: 120, reason: 'Zombie MCP stdio pipe' }
-      ] : []
+      rssGb: 0.84,
+      status: 'HEALTHY',
+      orphanCount: 0,
+      orphanRamMb: 0,
+      orphans: []
     }
   };
 }

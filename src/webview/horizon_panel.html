@@ -3526,7 +3526,7 @@
         <span id="tufteWorkspaceSavedLabel">+0.0k</span>
         <span class="savings-scope-sub">30d</span>
       </span>
-      <span id="tufteGuardsQuietLabel" hidden>30 guards quiet</span>
+      <span id="tufteGuardsQuietLabel" hidden>32 guards quiet</span>
       <button type="button" class="savings-why-btn mono" id="btnToggleSavingsWhy" aria-expanded="false" aria-controls="simpleSavingsWhyDrawer">[&#x25BE; Why]</button>
     </div>
     <div class="savings-why-drawer mono" id="simpleSavingsWhyDrawer" hidden>
@@ -4856,7 +4856,9 @@
       modelPillEl.textContent = liveRoute && liveRoute !== 'Auto' ? `${shortModel ? `${shortModel} · ` : ''}${liveRoute}` : (shortModel || 'Auto');
     }
 
-    const breakdownClutter = (breakdown.STALE_DUPLICATE || 0) + (breakdown.DUPLICATE_READ || 0) + (breakdown.STALE_TURN || 0) + (breakdown.DEAD_ERROR || 0) + (breakdown.FOREIGN_BLEED || 0);
+    const dupAndStaleSum = (breakdown.DUPLICATE_READ || 0) + (breakdown.STALE_TURN || 0);
+    const staleDupEffective = dupAndStaleSum > 0 ? dupAndStaleSum : (breakdown.STALE_DUPLICATE || 0);
+    const breakdownClutter = staleDupEffective + (breakdown.DEAD_ERROR || 0) + (breakdown.FOREIGN_BLEED || 0);
     const clutterTokens = isV3
       ? (telemetry.sludgeTokens || 0)
       : (breakdownClutter > 0 ? breakdownClutter : (metrics.sludgeTokens || 0));
@@ -5550,6 +5552,12 @@
       } else if (!isCacheWarmNow && (clutterTokens >= 25000 || (reclaimSumK * 1000) >= 25000) && totalTokens >= compactReadyFloor && (turnCnt === 0 || turnCnt >= 2)) {
         verdictBarEl.dataset.verdictState = 'COMPACT_READY';
         verdictTextEl.textContent = `COMPACT READY \u00B7 Cache cold \u00B7 ${reclaimSumStr} reclaimable (${fmtK(leftTok)} under ${effShortLabel})`;
+        if (routerHoldNoteEl) routerHoldNoteEl.hidden = true;
+      } else if ((raw.routerState || raw.demoMeta?.routerState || raw.coachState?.routerState) && (raw.routerState || raw.demoMeta?.routerState || raw.coachState?.routerState) !== 'ALLOW_ACTIVE_SET' && (raw.routerState || raw.demoMeta?.routerState || raw.coachState?.routerState) !== 'NOMINAL') {
+        const activeRouterState = raw.routerState || raw.demoMeta?.routerState || raw.coachState?.routerState;
+        const activeRouterAction = raw.recommendedAction || raw.demoMeta?.recommendedAction || raw.coachState?.recommendedAction || 'Action recommended';
+        verdictBarEl.dataset.verdictState = activeRouterState;
+        verdictTextEl.textContent = `${activeRouterState} \u00B7 ${activeRouterAction}`;
         if (routerHoldNoteEl) routerHoldNoteEl.hidden = true;
       } else {
         verdictBarEl.dataset.verdictState = 'NOMINAL';
@@ -6813,14 +6821,15 @@
     const trippedBreakerState = raw.coachState?.detectors?.tripped || raw.circuitBreakerTripped;
     const rawDetCount = Number(raw.coachState?.detectors?.totalCount || 0);
     const compatGuardCount = rawDetCount >= 30 ? rawDetCount : 20;
-    const visGuardTotal = Math.max(30, rawDetCount || 30);
+    const visGuardTotal = Math.max(32, rawDetCount || 32);
+    const coreGuardCount = 6;
     const savedK = ((fts5Data?.savedTokens || 0) / 1000).toFixed(1);
     if (txtGuardrails) {
       if (trippedBreakerState) {
         const bId = trippedBreakerState.detectorId || trippedBreakerState.id || 'Breaker';
         txtGuardrails.textContent = `\u26A0\uFE0F 1 guard tripped (${bId}) \u00B7 ${compatGuardCount - 1} nominal \u00B7 FTS5 Log Compression: ${savedK}k tokens saved`;
       } else {
-        txtGuardrails.textContent = `\uD83D\uDEE1\uFE0F ${compatGuardCount} guards quiet (DET-01..${compatGuardCount} Active) \u00B7 FTS5 Log Compression: ${savedK}k tokens saved`;
+        txtGuardrails.textContent = `\uD83D\uDEE1\uFE0F ${coreGuardCount} Core Guards quiet (DET-01..${compatGuardCount} Active \u00B7 ${visGuardTotal} rules) \u00B7 FTS5 Log Compression: ${savedK}k tokens saved`;
       }
     }
     if (detBreakerAlert && detBreakerMsg) {
@@ -7065,6 +7074,34 @@
             `<div class="m3-action-body">` +
               `<div class="m3-action-inst">Compaction truncated critical session invariants or active in-progress tasks. Copy this prompt to re-anchor them in context:</div>` +
               `<div class="m3-action-data-preview mono">${escAttr(evapRecoveryPrompt)}</div>` +
+            `</div>` +
+          `</details>`
+        );
+      }
+
+      // A0.5. Active Scenario / Router Rewrite Intervention (Playbook Step 1)
+      const scenarioRouterState = raw.routerState || raw.demoMeta?.routerState || raw.coachState?.routerState || '';
+      const scenarioRewrite = raw.rewrite || raw.demoMeta?.rewrite || raw.coachState?.rewrite || '';
+      const scenarioRecAction = raw.recommendedAction || raw.demoMeta?.recommendedAction || raw.coachState?.recommendedAction || '';
+      if (scenarioRouterState && scenarioRouterState !== 'ALLOW_ACTIVE_SET' && scenarioRouterState !== 'NOMINAL' && (scenarioRewrite || scenarioRecAction) && !dismissedKeys.has('router-rewrite')) {
+        const rewriteCopyText = scenarioRewrite || scenarioRecAction;
+        cleanupPrefixSafeRows.push(
+          `<details class="m3-action-row m3-action-collapsible" data-action-id="router-rewrite" data-dismiss-key="router-rewrite">` +
+            `<summary class="m3-action-summary">` +
+              `<span class="m3-action-caret">&#x25B6;</span>` +
+              `<span class="m3-action-icon amber">&#x26A1;</span>` +
+              `<div class="m3-action-text">` +
+                `<span class="m3-action-title">${escAttr(scenarioRecAction || scenarioRouterState)}</span>` +
+                `<span class="m3-action-sub mono">${escAttr(scenarioRouterState)}</span>` +
+              `</div>` +
+              `<span class="m3-impact-badge amber mono">Router</span>` +
+              `<div class="m3-action-btn-row">` +
+                `<button type="button" class="mini-btn m3-action-btn" data-simple-copy="${escAttr(rewriteCopyText)}" data-dismiss-key="router-rewrite" title="Copy recommended rewrite or router command">&#x1F4CB; Copy Rewrite</button>` +
+              `</div>` +
+            `</summary>` +
+            `<div class="m3-action-body">` +
+              `<div class="m3-action-inst">Router intervention (<code>${escAttr(scenarioRouterState)}</code>):</div>` +
+              `<div class="m3-action-data-preview mono">${escAttr(rewriteCopyText)}</div>` +
             `</div>` +
           `</details>`
         );

@@ -64,7 +64,8 @@ import {
   deactivateProLicense,
   getProEntitlementStatus,
   requireProFeature,
-  verifyProLicenseKey
+  verifyProLicenseKey,
+  PLG_TIER_MATRIX
 } from '../src/core/pro_license.mjs';
 import { generateTeamFinopsPack } from '../packages/pro/src/team_finops_pack.mjs';
 import {
@@ -938,8 +939,33 @@ export function runCli(args = [], options = {}) {
     };
   }
 
+  if (subcommand === 'tiers') {
+    if (isJson) {
+      return { exitCode: 0, output: JSON.stringify(PLG_TIER_MATRIX, null, 2), data: PLG_TIER_MATRIX };
+    }
+    const lines = [
+      'Attention Horizon — 3-Tier Self-Expensing PLG Funnel:',
+      `  • Free ($0/mo): ${PLG_TIER_MATRIX.free.features.join(', ')}`,
+      `  • Pro ($${PLG_TIER_MATRIX.pro.priceMonthlyUSD}/mo [$12-$19/mo]): ${PLG_TIER_MATRIX.pro.features.join(', ')}`,
+      `  • Team ($${PLG_TIER_MATRIX.team.pricePerSeatMonthlyUSD}/seat/mo): ${PLG_TIER_MATRIX.team.features.join(', ')}`
+    ];
+    return { exitCode: 0, output: lines.join('\n'), data: PLG_TIER_MATRIX };
+  }
+
   if (subcommand === 'license' || subcommand === 'pro') {
     const action = String(args[1] || 'status').toLowerCase();
+    if (action === 'tiers') {
+      if (isJson) {
+        return { exitCode: 0, output: JSON.stringify(PLG_TIER_MATRIX, null, 2), data: PLG_TIER_MATRIX };
+      }
+      const lines = [
+        'Attention Horizon — 3-Tier Self-Expensing PLG Funnel:',
+        `  • Free ($0/mo): ${PLG_TIER_MATRIX.free.features.join(', ')}`,
+        `  • Pro ($${PLG_TIER_MATRIX.pro.priceMonthlyUSD}/mo [$12-$19/mo]): ${PLG_TIER_MATRIX.pro.features.join(', ')}`,
+        `  • Team ($${PLG_TIER_MATRIX.team.pricePerSeatMonthlyUSD}/seat/mo): ${PLG_TIER_MATRIX.team.features.join(', ')}`
+      ];
+      return { exitCode: 0, output: lines.join('\n'), data: PLG_TIER_MATRIX };
+    }
     if (action === 'activate' && args[2]) {
       const actRes = activateProLicense(args[2], options);
       if (isJson) {

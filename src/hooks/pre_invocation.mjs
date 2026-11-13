@@ -39,6 +39,8 @@ import {
   evaluateRelayBreaker,
   evaluateTwoStageSightseeingIntercept
 } from '../core/shared/prompt_hygiene_governor.mjs';
+import { foldCodeToSignatureStub } from '../core/pruner.mjs';
+import { recordInterventionSavings } from '../core-isomorphic/coach/savedQuotaLedger.mjs';
 
 export {
   classifyTaskComplexity,
@@ -135,7 +137,7 @@ export async function handlePreToolUse(inputData = {}) {
   }
 
   const toolName = String(inputData.tool_name || inputData.tool || inputData.toolName || '').trim();
-  const toolInput = inputData.tool_input || inputData.args || inputData.parameters || inputData.Arguments || inputData;
+  const toolInput = inputData.tool_input || inputData.toolInput || inputData.args || inputData.parameters || inputData.Arguments || inputData;
   const workspacePath = inputData.cwd || inputData.workspacePath || sidecar.workspacePath || process.cwd();
   const horizonConfig = inputData.horizonConfig || loadHorizonConfig({
     cwd: workspacePath,
@@ -270,6 +272,65 @@ export async function handlePreToolUse(inputData = {}) {
 
   let coldCacheWakeup = null;
   let systemMessage = gateSystemMessage;
+  let astSignatureStub = null;
+  let astStubSavedTokens = 0;
+
+  if (!isOffMode && (toolName === 'read_file' || toolName === 'Read' || toolName === 'view_file')) {
+    const rawTarget = String(
+      toolInput?.Path || toolInput?.path || toolInput?.file_path || toolInput?.TargetFile || toolInput?.AbsolutePath || ''
+    ).trim();
+    const hasLineBounds = Number.isFinite(Number(toolInput?.StartLine ?? toolInput?.start_line ?? toolInput?.offset)) ||
+      Number.isFinite(Number(toolInput?.EndLine ?? toolInput?.end_line ?? toolInput?.limit));
+    if (rawTarget && !hasLineBounds) {
+      const resolvedPath = path.isAbsolute(rawTarget) ? rawTarget : path.resolve(workspacePath, rawTarget);
+      const normKey = resolvedPath.replace(/\\/g, '/').toLowerCase();
+      if (!sidecar.fileState || typeof sidecar.fileState !== 'object') sidecar.fileState = {};
+      if (!sidecar.fileState.unclippedReadCounts || typeof sidecar.fileState.unclippedReadCounts !== 'object') {
+        sidecar.fileState.unclippedReadCounts = {};
+      }
+      const priorReads = Number(inputData.priorUnclippedReads ?? sidecar.fileState.unclippedReadCounts[normKey] ?? 0);
+      const nextReads = priorReads + 1;
+      sidecar.fileState.unclippedReadCounts[normKey] = nextReads;
+
+      if (nextReads >= 3 && fs.existsSync(resolvedPath)) {
+        try {
+          const stat = fs.statSync(resolvedPath);
+          if (stat.isFile() && stat.size > 512 && stat.size <= 512 * 1024) {
+            const rawContent = fs.readFileSync(resolvedPath, 'utf8');
+            const fullTokens = Math.max(1, Math.ceil(rawContent.length / 4));
+            const folded = foldCodeToSignatureStub(rawContent, resolvedPath);
+            const stubText = typeof folded?.condensed === 'string' && folded.condensed.length > 0
+              ? folded.condensed
+              : rawContent.slice(0, 1200);
+            const stubTokens = Math.max(1, Math.ceil(stubText.length / 4));
+            astStubSavedTokens = Math.max(0, fullTokens - stubTokens);
+            astSignatureStub = stubText;
+            const stubNotice = `[Attention Horizon AST Signature Stub — Read #${nextReads} of ${path.basename(resolvedPath)} (${astStubSavedTokens} tokens saved; pass StartLine/EndLine for full bodies)]\n${stubText}`;
+            if (!isSilentMode && !systemMessage) {
+              systemMessage = stubNotice;
+            }
+            if (astStubSavedTokens > 0) {
+              try {
+                recordInterventionSavings(
+                  {
+                    sessionId: conversationId,
+                    category: 'BOUNDED_READ_ENFORCED',
+                    savedTokens: astStubSavedTokens,
+                    detail: `AST signature stub read #${nextReads} for ${path.basename(resolvedPath)}`
+                  },
+                  { cwd: workspacePath }
+                );
+              } catch (err) {
+                recordHookDiagnostic('pre_invocation', 'handlePreToolUse.recordAstStubSavings', err);
+              }
+            }
+          }
+        } catch (err) {
+          recordHookDiagnostic('pre_invocation', 'handlePreToolUse.astSignatureStub', err);
+        }
+      }
+    }
+  }
 
   if (toolName === 'send_message' || toolInput?.Recipient || toolInput?.recipient || /@[a-z0-9_-]+/i.test(String(toolInput?.Message || toolInput?.message || toolInput?.brief || ''))) {
     coldCacheWakeup = tracker.handlePreToolSendMessage(toolInput, {
@@ -339,6 +400,10 @@ export async function handlePreToolUse(inputData = {}) {
     swarmTtlBadges: sidecar.swarmTtlBadges
   };
   if (coldCacheWakeup) response.coldCacheWakeup = coldCacheWakeup;
+  if (astSignatureStub) {
+    response.astSignatureStub = astSignatureStub;
+    response.savedTokens = astStubSavedTokens;
+  }
   if (systemMessage && !isSilentMode && !isOffMode) response.systemMessage = systemMessage;
   return response;
 }
