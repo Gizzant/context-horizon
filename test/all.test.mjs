@@ -48,3 +48,4 @@ import './node20_antigravity_compat.test.mjs';
 import './roadmap_items_2_to_7.test.mjs';
 import './pre_launch_v4_pack.test.mjs';
 import './vc_playbook_90day.test.mjs';
+import './vc_full_teardown_and_claude_parity.test.mjs';

@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-11-13T00:08:02.227Z",
+  "timestamp": "2026-11-13T01:11:44.429Z",
   "nodeVersion": "v25.6.0",
   "platform": "win32",
   "methodology": "Empirical percentile latency & recall/parity evaluation (non-tautological SLA headroom scoring)",
@@ -12,37 +12,37 @@
       "status": "PASS",
       "metrics": {
         "spanTracking": {
-          "sampleSize": 5000,
-          "avg": 0.001555,
+          "sampleSize": 10000,
+          "avg": 0.001737,
           "p50": 0.0009,
-          "p95": 0.0035,
-          "p99": 0.0082,
-          "min": 0.0008,
-          "max": 0.4518,
-          "p99ToP50Ratio": 9.11,
-          "maxToP50Ratio": 502
+          "p95": 0.0036,
+          "p99": 0.0056,
+          "min": 0.0007,
+          "max": 3.0164,
+          "p99ToP50Ratio": 6.22,
+          "maxToP50Ratio": 3351.56
         },
         "callTreeAssembly": {
-          "sampleSize": 500,
-          "avg": 0.026335,
-          "p50": 0.0116,
-          "p95": 0.0478,
-          "p99": 0.0935,
-          "min": 0.0092,
-          "max": 2.042,
-          "p99ToP50Ratio": 8.06,
-          "maxToP50Ratio": 176.03
+          "sampleSize": 1000,
+          "avg": 0.022518,
+          "p50": 0.0128,
+          "p95": 0.0371,
+          "p99": 0.0794,
+          "min": 0.0091,
+          "max": 3.177,
+          "p99ToP50Ratio": 6.2,
+          "maxToP50Ratio": 248.2
         },
         "flamegraphGeneration": {
-          "sampleSize": 500,
-          "avg": 0.012379,
-          "p50": 0.0068,
-          "p95": 0.0134,
-          "p99": 0.0395,
+          "sampleSize": 1000,
+          "avg": 0.015798,
+          "p50": 0.0114,
+          "p95": 0.025,
+          "p99": 0.0513,
           "min": 0.0066,
-          "max": 1.4261,
-          "p99ToP50Ratio": 5.81,
-          "maxToP50Ratio": 209.72
+          "max": 1.7132,
+          "p99ToP50Ratio": 4.5,
+          "maxToP50Ratio": 150.28
         }
       }
     },
@@ -54,26 +54,26 @@
       "status": "PASS",
       "metrics": {
         "retentionDiffing": {
-          "sampleSize": 1000,
-          "avg": 0.018621,
-          "p50": 0.0093,
-          "p95": 0.0659,
-          "p99": 0.1332,
-          "min": 0.0045,
-          "max": 2.1178,
-          "p99ToP50Ratio": 14.32,
-          "maxToP50Ratio": 227.72
+          "sampleSize": 10000,
+          "avg": 0.013066,
+          "p50": 0.0076,
+          "p95": 0.0366,
+          "p99": 0.1042,
+          "min": 0.0042,
+          "max": 3.6394,
+          "p99ToP50Ratio": 13.71,
+          "maxToP50Ratio": 478.87
         },
         "cacheGravityRouter": {
           "sampleSize": 1000,
-          "avg": 1.109472,
-          "p50": 1.0237,
-          "p95": 1.6822,
-          "p99": 2.1718,
-          "min": 0.8206,
-          "max": 3.9816,
-          "p99ToP50Ratio": 2.12,
-          "maxToP50Ratio": 3.89
+          "avg": 1.168759,
+          "p50": 1.0715,
+          "p95": 1.7135,
+          "p99": 2.0499,
+          "min": 0.8802,
+          "max": 4.3287,
+          "p99ToP50Ratio": 1.91,
+          "maxToP50Ratio": 4.04
         }
       }
     },
@@ -81,42 +81,42 @@
       "name": "Autonomous Diagnostics & Problem Remediation",
       "weight": 0.2,
       "target": 96,
-      "score": 97.99,
+      "score": 98,
       "status": "PASS",
       "metrics": {
         "blindspotSensors": {
           "sampleSize": 250,
-          "avg": 0.151164,
-          "p50": 0.1361,
-          "p95": 0.1958,
-          "p99": 0.275,
-          "min": 0.1294,
-          "max": 1.1039,
-          "p99ToP50Ratio": 2.02,
-          "maxToP50Ratio": 8.11
+          "avg": 0.213696,
+          "p50": 0.1858,
+          "p95": 0.3178,
+          "p99": 0.8133,
+          "min": 0.1354,
+          "max": 1.088,
+          "p99ToP50Ratio": 4.38,
+          "maxToP50Ratio": 5.86
         },
         "gitMergeTree": {
           "sampleSize": 250,
-          "avg": 0.589665,
-          "p50": 0.1799,
-          "p95": 0.361,
-          "p99": 0.6135,
-          "min": 0.1592,
-          "max": 51.7627,
-          "p99ToP50Ratio": 3.41,
-          "maxToP50Ratio": 287.73
+          "avg": 0.588427,
+          "p50": 0.1817,
+          "p95": 0.3249,
+          "p99": 0.6333,
+          "min": 0.1665,
+          "max": 50.7389,
+          "p99ToP50Ratio": 3.49,
+          "maxToP50Ratio": 279.25
         },
-        "gitMergeTreeColdSpawnMs": 47.555,
+        "gitMergeTreeColdSpawnMs": 52.46,
         "semanticDriftGuard": {
           "sampleSize": 500,
-          "avg": 0.017946,
-          "p50": 0.0099,
-          "p95": 0.0323,
-          "p99": 0.1268,
-          "min": 0.0076,
-          "max": 1.5127,
-          "p99ToP50Ratio": 12.81,
-          "maxToP50Ratio": 152.8
+          "avg": 0.015118,
+          "p50": 0.0094,
+          "p95": 0.0243,
+          "p99": 0.0431,
+          "min": 0.008,
+          "max": 1.3571,
+          "p99ToP50Ratio": 4.59,
+          "maxToP50Ratio": 144.37
         }
       }
     },
@@ -124,30 +124,30 @@
       "name": "Developer Workflow & Daily Usability",
       "weight": 0.15,
       "target": 95,
-      "score": 96.74,
+      "score": 96.82,
       "status": "PASS",
       "metrics": {
         "statuslineRender": {
           "sampleSize": 1000,
-          "avg": 1.058681,
-          "p50": 0.9759,
-          "p95": 1.6085,
-          "p99": 1.9606,
-          "min": 0.8313,
-          "max": 3.8631,
-          "p99ToP50Ratio": 2.01,
-          "maxToP50Ratio": 3.96
+          "avg": 1.048483,
+          "p50": 1.0051,
+          "p95": 1.3734,
+          "p99": 1.8025,
+          "min": 0.8438,
+          "max": 3.7796,
+          "p99ToP50Ratio": 1.79,
+          "maxToP50Ratio": 3.76
         },
         "microIpcRoundtrip": {
-          "sampleSize": 300,
-          "avg": 0.106398,
-          "p50": 0.0836,
-          "p95": 0.1993,
-          "p99": 0.2898,
-          "min": 0.051,
-          "max": 0.3808,
-          "p99ToP50Ratio": 3.47,
-          "maxToP50Ratio": 4.56
+          "sampleSize": 1000,
+          "avg": 0.079823,
+          "p50": 0.0691,
+          "p95": 0.1574,
+          "p99": 0.2301,
+          "min": 0.039,
+          "max": 0.4559,
+          "p99ToP50Ratio": 3.33,
+          "maxToP50Ratio": 6.6
         }
       }
     },
@@ -155,31 +155,58 @@
       "name": "Enterprise Security, Privacy & Invariants",
       "weight": 0.15,
       "target": 96,
-      "score": 98.13,
+      "score": 98.12,
       "status": "PASS",
       "metrics": {
         "secretRedaction": {
           "sampleSize": 1000,
-          "avg": 0.003942,
-          "p50": 0.0029,
-          "p95": 0.0044,
-          "p99": 0.0119,
+          "avg": 0.004012,
+          "p50": 0.003,
+          "p95": 0.0054,
+          "p99": 0.0159,
           "min": 0.0027,
-          "max": 0.4938,
-          "p99ToP50Ratio": 4.1,
-          "maxToP50Ratio": 170.28,
+          "max": 0.3389,
+          "p99ToP50Ratio": 5.3,
+          "maxToP50Ratio": 112.97,
           "recallRatePct": 100
         },
         "ipiAirlockScrub": {
           "sampleSize": 1000,
-          "avg": 0.003623,
-          "p50": 0.003,
-          "p95": 0.0035,
-          "p99": 0.0104,
+          "avg": 0.003689,
+          "p50": 0.0029,
+          "p95": 0.0047,
+          "p99": 0.012,
           "min": 0.0023,
-          "max": 0.5479,
-          "p99ToP50Ratio": 3.47,
-          "maxToP50Ratio": 182.63
+          "max": 0.5412,
+          "p99ToP50Ratio": 4.14,
+          "maxToP50Ratio": 186.62
+        },
+        "csrfRejection": {
+          "sampleSize": 1000,
+          "avg": 0.000682,
+          "p50": 0.0006,
+          "p95": 0.0014,
+          "p99": 0.006,
+          "min": 0.0001,
+          "max": 0.0139,
+          "p99ToP50Ratio": 10,
+          "maxToP50Ratio": 23.17,
+          "rejectionRatePct": 100,
+          "falseAllowRate": 0
+        },
+        "sanitizedExportPiiScrub": {
+          "sampleSize": 500,
+          "avg": 0.004571,
+          "p50": 0.0041,
+          "p95": 0.0046,
+          "p99": 0.014,
+          "min": 0.0038,
+          "max": 0.1339,
+          "p99ToP50Ratio": 3.41,
+          "maxToP50Ratio": 32.66,
+          "recallPct": 100,
+          "precisionPct": 100,
+          "leakedPiiCount": 0
         }
       }
     },
@@ -192,43 +219,144 @@
       "metrics": {
         "modLawsStaticAudit": {
           "sampleSize": 500,
-          "avg": 0.283738,
-          "p50": 0.2191,
-          "p95": 0.4423,
-          "p99": 0.759,
-          "min": 0.1869,
-          "max": 2.7979,
-          "p99ToP50Ratio": 3.46,
-          "maxToP50Ratio": 12.77
+          "avg": 0.196915,
+          "p50": 0.1672,
+          "p95": 0.3561,
+          "p99": 0.6044,
+          "min": 0.1656,
+          "max": 1.4128,
+          "p99ToP50Ratio": 3.61,
+          "maxToP50Ratio": 8.45
         },
         "ustfValidation": {
           "sampleSize": 1000,
-          "avg": 0.0029,
-          "p50": 0.0019,
-          "p95": 0.005,
-          "p99": 0.0107,
+          "avg": 0.002532,
+          "p50": 0.0014,
+          "p95": 0.004,
+          "p99": 0.0054,
           "min": 0.0013,
-          "max": 0.2605,
-          "p99ToP50Ratio": 5.63,
-          "maxToP50Ratio": 137.11
+          "max": 0.2384,
+          "p99ToP50Ratio": 3.86,
+          "maxToP50Ratio": 170.29
         },
         "astStubPruningParity": {
           "sampleSize": 500,
-          "avg": 0.057476,
-          "p50": 0.0464,
-          "p95": 0.0965,
-          "p99": 0.2506,
-          "min": 0.0388,
-          "max": 0.6592,
-          "p99ToP50Ratio": 5.4,
-          "maxToP50Ratio": 14.21,
-          "compressionRatioPct": 84.24,
+          "avg": 0.055484,
+          "p50": 0.0458,
+          "p95": 0.0903,
+          "p99": 0.1788,
+          "min": 0.0426,
+          "max": 0.6338,
+          "p99ToP50Ratio": 3.9,
+          "maxToP50Ratio": 13.84,
+          "compressionRatioPct": 85.36,
           "deterministicByteParity": true
         }
       }
     }
   },
-  "compositeScore": 97.85,
+  "compositeScore": 97.87,
   "targetScore": 96.25,
-  "status": "CERTIFIED_PASS"
+  "status": "CERTIFIED_PASS",
+  "slaCertification": {
+    "allPassed": true,
+    "totalGates": 8,
+    "passedGates": 8,
+    "gates": [
+      {
+        "id": "SLA-1",
+        "metric": "D1.spanTracking.p99",
+        "measuredMs": 0.0056,
+        "ceilingMs": 1,
+        "passed": true
+      },
+      {
+        "id": "SLA-2",
+        "metric": "D1.callTreeAssembly.p99",
+        "measuredMs": 0.0794,
+        "ceilingMs": 2,
+        "passed": true
+      },
+      {
+        "id": "SLA-3",
+        "metric": "D2.retentionDiffing.p99",
+        "measuredMs": 0.1042,
+        "ceilingMs": 1.5,
+        "passed": true
+      },
+      {
+        "id": "SLA-4",
+        "metric": "D3.gitMergeTreeCached.p95",
+        "measuredMs": 0.3249,
+        "ceilingMs": 2,
+        "passed": true
+      },
+      {
+        "id": "SLA-5",
+        "metric": "D4.statuslineRender.p99",
+        "measuredMs": 1.8025,
+        "ceilingMs": 3.5,
+        "passed": true
+      },
+      {
+        "id": "SLA-6",
+        "metric": "D4.microIpcRoundtrip.p99",
+        "measuredMs": 0.2301,
+        "ceilingMs": 1.5,
+        "passed": true
+      },
+      {
+        "id": "SLA-7",
+        "metric": "D5.secretRedaction.recallRatePct",
+        "measuredPct": 100,
+        "floorPct": 100,
+        "passed": true
+      },
+      {
+        "id": "SLA-8",
+        "metric": "D5.csrfRejection.rejectionRatePct",
+        "measuredPct": 100,
+        "floorPct": 100,
+        "passed": true
+      }
+    ]
+  },
+  "abCompressionSummary": [
+    {
+      "id": "AB-1",
+      "workload": "500-Line pytest Failure Dump (PostToolUse Lossless Sanitizer)",
+      "beforeTokens": 8244,
+      "afterTokens": 179,
+      "savedTokens": 8065,
+      "reductionPct": 97.8,
+      "criticalSignalPreserved": true
+    },
+    {
+      "id": "AB-2",
+      "workload": "Unchanged 3rd Full-File Re-Read (PreToolUse AST Signature Stub)",
+      "beforeTokens": 3168,
+      "afterTokens": 464,
+      "savedTokens": 2704,
+      "reductionPct": 85.4,
+      "criticalSignalPreserved": true
+    },
+    {
+      "id": "AB-3",
+      "workload": "Modified File Full Re-Read (PreToolUse Unified Delta Diff)",
+      "beforeTokens": 3176,
+      "afterTokens": 596,
+      "savedTokens": 2580,
+      "reductionPct": 81.2,
+      "criticalSignalPreserved": true
+    },
+    {
+      "id": "AB-4",
+      "workload": "Large >4k Token MCP JSON Response (Programmatic Offload Pointer)",
+      "beforeTokens": 14552,
+      "afterTokens": 108,
+      "savedTokens": 14444,
+      "reductionPct": 99.3,
+      "criticalSignalPreserved": true
+    }
+  ]
 }

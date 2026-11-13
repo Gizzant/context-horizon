@@ -3,6 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DEMO_SCENARIOS, buildDemoHorizonState } from '../src/demo/synthetic_states.mjs';
 import { atomicWriteFileSync } from '../src/core/atomic_io.mjs';
+import { renderHorizonPanelHtml } from '../src/core-isomorphic/ui/horizonPanelHtml.mjs';
+import { renderStatusLine, renderAbovePromptBand } from '../src/core-isomorphic/ui/modViews.mjs';
 
 export function serializeScriptJson(value) {
   return JSON.stringify(value)
@@ -15,6 +17,70 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
 const webviewPath = path.join(rootDir, 'src', 'webview', 'horizon_panel.html');
 const docsDir = path.join(rootDir, 'docs');
+
+function mapDemoStateToClaudeState(agState = {}, meta = {}) {
+  const totalTok = Number(agState.window?.totalActiveTokens || 62000);
+  const bd = agState.breakdown || {};
+  const qCache = agState.quota?.cache || {};
+  const isWarm = !qCache.isCacheCold && Number(qCache.ttlRemainingSec || 0) > 0;
+  const cachedRead = isWarm ? Math.max(0, Number(qCache.cacheReadTokens || Math.round(totalTok * 0.62))) : 0;
+  const systemTok = Number(bd.ANCHOR || 0) + Number(bd.INJECTED_MEMORY || 0);
+  const debtTok = Number(bd.DUPLICATE_READ || 0) + Number(bd.STALE_TURN || 0) + Number(bd.DEAD_ERROR || 0);
+  const freshWriteTok = Math.max(0, totalTok - cachedRead - systemTok);
+  const modelMap = {
+    1: 'claude-haiku-5-5',
+    2: 'claude-sonnet-5-5',
+    3: 'claude-sonnet-5-5',
+    4: 'claude-sonnet-5-5',
+    5: 'claude-opus-5-5',
+    6: 'claude-sonnet-5-5',
+    7: 'claude-opus-5-5',
+    8: 'claude-sonnet-5-5'
+  };
+  const claudeModel = modelMap[meta.id] || 'claude-sonnet-5-5';
+  const savedTok = meta.id === 1 ? 0 : Math.round((totalTok * 0.45) + 12400);
+  const savedUsd = Number((savedTok * 0.0000045).toFixed(2));
+  const subWorkers = (agState.subagents?.invocations || []).map((inv, idx) => ({
+    agentId: `${inv.typeName || 'worker'}-${idx + 1}`,
+    state: 'working',
+    totalTokens: Number(inv.childTokens || 38000),
+    turns: 4
+  }));
+
+  return {
+    state: {
+      sessionId: agState.sessionId || `claude-demo-${meta.id}`,
+      model: claudeModel,
+      modelId: claudeModel,
+      flightMode: meta.id === 5 || meta.id === 7 ? 'AUTO_PILOT' : 'COACH',
+      totalInputTokens: totalTok,
+      systemSchemaTokens: systemTok,
+      cacheReadTokens: cachedRead,
+      staleDebtTokens: debtTok,
+      cacheCreationTokens: freshWriteTok,
+      ttlRemainingSec: Number(qCache.ttlRemainingSec || 0),
+      cacheTtlTier: qCache.dualTtl?.mainWindowLabel === '1h' ? '1h' : '5m',
+      sessionSavedTokens: savedTok,
+      sessionSavedUSD: savedUsd,
+      workspace30dSavedTokens: savedTok * 14 + 185000,
+      workspace30dSavedUSD: Number((savedUsd * 14 + 1.42).toFixed(2)),
+      readsPerWriteRatio: isWarm ? 3.4 : 0.0,
+      cliffTriggered: meta.id === 5,
+      preCliffWarningTriggered: meta.id === 4,
+      swarmTopology: subWorkers.length > 0 ? { active: true, workers: subWorkers } : { active: false, workers: [] }
+    },
+    options: {
+      offenders: (agState.offenders || []).map((o) => ({
+        name: o.target || 'src/core/router.mjs',
+        tokens: Number(o.wastedTokens || 0),
+        category: o.category === 'DEAD_ERROR' ? '[D]' : '[D]'
+      })),
+      breakerVerdict: (meta.id === 4 || meta.id === 5)
+        ? { triggered: true, detectorId: meta.id === 5 ? 'DET-11' : 'DET-06', reason: meta.recommendedAction }
+        : { triggered: false }
+    }
+  };
+}
 
 export function buildDemoPage(options = {}) {
   const customStates = options.precomputedStates || null;
@@ -32,6 +98,21 @@ export function buildDemoPage(options = {}) {
     for (const s of customMeta) {
       precomputedStates[s.id] = buildDemoHorizonState(s.id);
     }
+  }
+
+  const claudeDemos = {};
+  for (const m of customMeta) {
+    const agSt = precomputedStates[m.id] || buildDemoHorizonState(m.id);
+    const { state: ccSt, options: ccOpts } = mapDemoStateToClaudeState(agSt, m);
+    const panelRes = renderHorizonPanelHtml(ccSt, ccOpts);
+    const statusRes = renderStatusLine(ccSt, { ...ccOpts, columns: 144, ansi: false });
+    const aboveRes = renderAbovePromptBand(ccSt, { ...ccOpts, ansi: false });
+    claudeDemos[m.id] = {
+      studioHtml: panelRes.html,
+      statusLine: statusRes.plainLine,
+      abovePrompt: aboveRes.plainBand || statusRes.plainLine,
+      modelId: ccSt.modelId
+    };
   }
 
   const demoInjector = `
@@ -61,6 +142,27 @@ export function buildDemoPage(options = {}) {
     align-items: center;
     gap: 8px;
   }
+  #chSurfaceToggle {
+    display: inline-flex;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  #chSurfaceToggle button {
+    background: transparent;
+    color: #94a3b8;
+    border: none;
+    padding: 4px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  #chSurfaceToggle button.active {
+    background: #0284c7;
+    color: #f8fafc;
+  }
   #chDemoBar select {
     background: #1e293b;
     color: #f8fafc;
@@ -86,13 +188,57 @@ export function buildDemoPage(options = {}) {
     padding: 5px 10px;
     border-radius: 5px;
   }
+  #ccDemoMount {
+    display: none;
+    max-width: 980px;
+    margin: 14px auto;
+    padding: 0 12px 24px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  #ccDemoMount .cc-term-box {
+    background: #090d16;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    color: #e2e8f0;
+    font-size: 12px;
+    line-height: 1.55;
+    overflow-x: auto;
+  }
+  #ccDemoMount .cc-term-hdr {
+    color: #38bdf8;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+  }
+  #ccStudioFrame {
+    width: 440px;
+    max-width: 100%;
+    height: 700px;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    background: #0b0f19;
+    display: block;
+    margin: 0 auto;
+  }
+  body[data-demo-surface="claude"] > *:not(#chDemoBar):not(#ccDemoMount):not(script):not(style) {
+    display: none !important;
+  }
+  body[data-demo-surface="claude"] #ccDemoMount {
+    display: block !important;
+  }
 </style>
 <script>
   (function() {
     const SCENARIOS = ${serializeScriptJson(precomputedStates)};
+    const CC_DEMOS = ${serializeScriptJson(claudeDemos)};
     const META = ${serializeScriptJson(customMeta)};
     const urlParams = (typeof window !== 'undefined' && window.location) ? new URLSearchParams(window.location.search) : new URLSearchParams();
     let activeScenarioId = urlParams.has('scenario') ? Number(urlParams.get('scenario')) : 5;
+    let activeSurface = urlParams.get('surface') === 'claude' ? 'claude' : 'antigravity';
 
     const origFetch = window.fetch ? window.fetch.bind(window) : null;
     window.fetch = async function(url, opts) {
@@ -119,6 +265,7 @@ export function buildDemoPage(options = {}) {
         const sel = document.getElementById('chScenarioSelect');
         if (sel) sel.value = '2';
         updateComplaintBanner();
+        renderClaudeDemoSurface();
         setTimeout(() => { if (typeof window.renderState === 'function') window.renderState(SCENARIOS[2]); }, 50);
         return {
           ok: true,
@@ -211,13 +358,41 @@ export function buildDemoPage(options = {}) {
       }
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
+    function renderClaudeDemoSurface() {
+      const cc = CC_DEMOS[activeScenarioId] || CC_DEMOS[5];
+      const statusEl = document.getElementById('ccDemoStatusLine');
+      const aboveEl = document.getElementById('ccDemoAbovePrompt');
+      const frameEl = document.getElementById('ccStudioFrame');
+      if (statusEl && cc) statusEl.textContent = cc.statusLine;
+      if (aboveEl && cc) aboveEl.textContent = cc.abovePrompt;
+      if (frameEl && cc) frameEl.srcdoc = cc.studioHtml;
+    }
+
+    function setDemoSurface(nextSurface) {
+      activeSurface = nextSurface === 'claude' ? 'claude' : 'antigravity';
+      document.body.dataset.demoSurface = activeSurface;
+      const ccEl = document.getElementById('ccDemoMount');
+      if (ccEl) ccEl.classList.toggle('active', activeSurface === 'claude');
+      const btnAg = document.getElementById('btnSurfaceAntigravity');
+      const btnCc = document.getElementById('btnSurfaceClaude');
+      if (btnAg) btnAg.classList.toggle('active', activeSurface === 'antigravity');
+      if (btnCc) btnCc.classList.toggle('active', activeSurface === 'claude');
+      renderClaudeDemoSurface();
+    }
+    window.__setDemoSurface = setDemoSurface;
+
+    function initDemoHarness() {
+      if (document.getElementById('chDemoBar')) return;
       const bar = document.createElement('div');
       bar.id = 'chDemoBar';
       bar.innerHTML = \`
         <div class="ch-brand">⚡ Attention Horizon (ah v4.0) — Live Interactive Demo</div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <label for="chScenarioSelect" style="font-size:11.5px;color:#94a3b8;">Inspect Crisis Scenario:</label>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div id="chSurfaceToggle" role="group" aria-label="Host IDE Surface">
+            <button type="button" id="btnSurfaceAntigravity" class="active" data-surface="antigravity">Antigravity IDE</button>
+            <button type="button" id="btnSurfaceClaude" data-surface="claude">Claude Code Studio + CLI</button>
+          </div>
+          <label for="chScenarioSelect" style="font-size:11.5px;color:#94a3b8;">Scenario:</label>
           <select id="chScenarioSelect">
             \${META.map(m => \`<option value="\${m.id}" \${m.id === 5 ? 'selected' : ''}>\${m.title}</option>\`).join('')}
           </select>
@@ -226,7 +401,25 @@ export function buildDemoPage(options = {}) {
         <div id="chComplaintText" class="ch-complaint"></div>
       \`;
       document.body.prepend(bar);
+
+      const ccMount = document.createElement('section');
+      ccMount.id = 'ccDemoMount';
+      ccMount.innerHTML = \`
+        <div class="cc-term-box">
+          <div class="cc-term-hdr">Claude Code Terminal StatusLine (bin/ah-statusline.mjs · 144 cols)</div>
+          <div id="ccDemoStatusLine" style="white-space:pre;"></div>
+          <div class="cc-term-hdr" style="margin-top:10px;">Tier-1 Pure-V8 Studio Mod — AbovePrompt Band (hooks/register.js)</div>
+          <div id="ccDemoAbovePrompt" style="white-space:pre-wrap;color:#cbd5e1;"></div>
+        </div>
+        <iframe id="ccStudioFrame" title="Claude Code Attention Horizon Studio HUD"></iframe>
+      \`;
+      bar.insertAdjacentElement('afterend', ccMount);
+
       updateComplaintBanner();
+      setDemoSurface(activeSurface);
+
+      document.getElementById('btnSurfaceAntigravity')?.addEventListener('click', () => setDemoSurface('antigravity'));
+      document.getElementById('btnSurfaceClaude')?.addEventListener('click', () => setDemoSurface('claude'));
 
       const sel = document.getElementById('chScenarioSelect');
       if (sel && urlParams.has('scenario')) {
@@ -240,6 +433,7 @@ export function buildDemoPage(options = {}) {
       sel.addEventListener('change', (e) => {
         activeScenarioId = Number(e.target.value) || 5;
         updateComplaintBanner();
+        renderClaudeDemoSurface();
         const st = SCENARIOS[activeScenarioId];
         if (typeof window.renderState === 'function') {
           window.renderState(st);
@@ -247,28 +441,23 @@ export function buildDemoPage(options = {}) {
           window.refreshTelemetry();
         }
       });
-    });
+    }
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', initDemoHarness);
+    } else {
+      initDemoHarness();
+    }
   })();
 </script>
 `;
 
-const bundledHtml = rawHtml.replace('<head>', () => `<head>\n${demoInjector}`);
+  const bundledHtml = rawHtml.replace('<head>', () => `<head>\n${demoInjector}`);
   atomicWriteFileSync(outPath, bundledHtml);
-  if (!options.silent) {
-    console.log(`[Demo Page] Built standalone interactive GitHub Pages demo at ${outPath} (${Buffer.byteLength(bundledHtml)} bytes)`);
-  }
-  return { outPath, bytes: Buffer.byteLength(bundledHtml), html: bundledHtml };
+  return { outPath, html: bundledHtml, bytes: Buffer.byteLength(bundledHtml, 'utf8') };
 }
 
-function isDemoBuilderMain(argv1 = process.argv[1], metaUrl = import.meta.url) {
-  if (!argv1) return false;
-  try {
-    return fs.realpathSync(argv1) === fs.realpathSync(fileURLToPath(metaUrl));
-  } catch {
-    return path.resolve(argv1) === path.resolve(fileURLToPath(metaUrl));
-  }
-}
-
-if (isDemoBuilderMain()) {
-  buildDemoPage();
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  const res = buildDemoPage();
+  console.log(`[Demo Page] Built standalone interactive GitHub Pages demo at ${res.outPath} (${res.bytes} bytes)`);
 }

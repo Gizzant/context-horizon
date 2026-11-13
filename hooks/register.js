@@ -40,6 +40,7 @@ const breakerEngine = new CircuitBreakerEngine({
 });
 
 let stopWatchdogClock = null;
+let modUnclippedReadCounts = Object.create(null);
 
 /**
  * Disposes any active `$.clock.every(1000)` interval handle so headless / completed
@@ -177,6 +178,7 @@ function shouldClearRecentEditsOnToolEvent(event) {
 export default function register(on) {
   clearWatchdogClock();
   ttlWatchdog.clearRecentEdits();
+  modUnclippedReadCounts = Object.create(null);
   breakerEngine.hydrateStateSnapshot({
     consecutiveFailures: 0,
     lastFailedToolKey: '',
@@ -263,11 +265,46 @@ export default function register(on) {
           $.store.set('ah_turn_mutations', (Number($.store.get('ah_turn_mutations')) || 0) + 1);
         }
 
+        let repeatReadAdvisory = '';
+        const tName = String(event?.tool_name || event?.toolName || '');
+        const tArgs = event?.tool_input || event?.toolInput || {};
+        if (
+          activeMode !== 'OFF' &&
+          /^(Read|read_file)$/i.test(tName) &&
+          tArgs.offset === undefined &&
+          tArgs.limit === undefined &&
+          tArgs.StartLine === undefined &&
+          tArgs.EndLine === undefined
+        ) {
+          const readTarget = extractModEventFilePath(event);
+          if (readTarget) {
+            const normReadKey = readTarget.replace(/\\/g, '/').toLowerCase();
+            const nextReadCount = (modUnclippedReadCounts[normReadKey] || 0) + 1;
+            modUnclippedReadCounts[normReadKey] = nextReadCount;
+            if (nextReadCount >= 3) {
+              repeatReadAdvisory = `[GUARD-4 Repeat-Read Surgeon] Unclipped Read #${nextReadCount} of ${readTarget} — pass offset/limit (or StartLine/EndLine) to prevent duplicate context bloat.`;
+            }
+          }
+        }
+
         if (verdict.triggered) {
           $.store.set('ah_last_breaker_verdict', verdict);
           $.ui.invalidate('ui.render');
           const downstream = typeof next === 'function' ? await next(event) : undefined;
           return downstream ?? { additionalContext: verdict.reason };
+        }
+
+        if (repeatReadAdvisory) {
+          const downstream = typeof next === 'function' ? await next(event) : undefined;
+          if (downstream && typeof downstream === 'object') {
+            return {
+              ...downstream,
+              additionalContext: downstream.additionalContext
+                ? `${downstream.additionalContext}\n${repeatReadAdvisory}`
+                : repeatReadAdvisory
+            };
+          }
+          return downstream ?? { additionalContext: repeatReadAdvisory };
         }
 
         if (typeof next === 'function') {

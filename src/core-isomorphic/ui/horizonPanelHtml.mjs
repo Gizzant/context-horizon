@@ -1,23 +1,24 @@
 /**
  * @file src/ui/horizonPanelHtml.mjs
- * Zero-Socket, Self-Contained 420px Side-Panel HTML HUD for Claude Code Attention Horizon (`ah-claude panel`).
+ * Zero-Socket, Self-Contained 420px Side-Panel HTML HUD for Attention Horizon (`ah` v4.0 — Claude Code Studio).
  *
  * Enforces:
  *   1. Simple View (4-Rank Glanceable Hierarchy, <= 440px height at 420px width):
  *      - Rank 1: Plain-English Status Verdict + Claude Model & Flight Mode (`COACH` / `AUTO_PILOT`)
  *      - Rank 2: 40-Cell `[S]/[C]/[D]/[W]` Horizon Bar + 3-Stat Row + Anthropic 5m/1h Cache TTL Shield
- *      - Rank 3: Single Priority Next Action (plain-text `/compact` instruction in `#compactInstruction`, zero copy buttons)
+ *      - Rank 3: Single Priority Next Action (1-click Copy `/compact` button `#btnCompactPrimary` alongside `#compactInstruction`)
  *      - Rank 4: Elevated "Tokens & USD Saved" Card (`+X.Xk ($Y.YY) this session · +X.XM ($Z.ZZ) 30d`)
  *   2. Advanced View (5 `<details>` Accordions):
- *      - Accordion 1: Verified 5-Category Savings & Anthropic Cache ROI (`C*` & `0.263` R/W)
+ *      - Accordion 1: Verified 5-Category Savings, Anthropic Cache ROI (`C*` & `0.263` R/W) & Signed PDF Expense Receipt
  *      - Accordion 2: 40-Cell `[S]/[C]/[D]/[W]` Context Anatomy & Top Context Offenders (`.claudeignore` only on ignorable paths)
- *      - Accordion 3: Circuit Breakers (`DET-01..21`), Thinking Drift & Prefix Retention
+ *      - Accordion 3: 6 Core Auditable Guards (`DET-01..32`), Thinking Drift & Prefix Retention
  *      - Accordion 4: Subagent Swarm (`Task`/`Agent`), Worktrees & `DET-20` Scope Locks
  *      - Accordion 5: `PreCompact` State Baton (`HANDOFF_LATEST.md`) & Session Forensics
  *   3. Pure relative imports and zero `node:*` dependencies (Mod Law 4 compliant).
  */
 
 import { computeHorizonGrid, CELL_CATEGORIES } from './horizonGrid.mjs';
+import { summarizeCoreAuditableGuards } from '../catalog/detectorCatalog.mjs';
 import {
   formatTokensCompact,
   formatUsd,
@@ -605,6 +606,7 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
           .join('')}
         <div class="adv-row"><span>Break-Even Gravity C* (${escapeHtml(grid.modelId)} &rarr; ${escapeHtml(peerModel)})</span><strong>${escapeHtml(breakEven.breakEvenTokens.toLocaleString('en-US'))} tok</strong></div>
         <div class="adv-row"><span>Reads / Write Ratio (Break-Even &ge; ${escapeHtml(metrics.breakEvenReadsPerWrite)})</span><strong>${escapeHtml(metrics.readsPerWriteRatio.toFixed(2))}</strong></div>
+        <div class="adv-row"><span>Corporate Expense Receipt (PDF 1.4)</span><strong>npx ah receipt --pdf</strong></div>
       </div>
     </details>
 
@@ -628,16 +630,16 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
       </div>
     </details>
 
-    <!-- Accordion 3: Circuit Breakers (DET-01..21), Thinking Drift & Retention -->
+    <!-- Accordion 3: 6 Core Auditable Guards (DET-01..32), Thinking Drift & Retention -->
     <details class="adv-accordion" id="advBreakersAccordion">
       <summary>
-        <span>3. Circuit Breakers (DET-01..21) &amp; Thinking Drift</span>
-        <span>${escapeHtml(options.breakerVerdict?.triggered ? options.breakerVerdict.detectorId || 'ACTIVE' : '21 nominal')}</span>
+        <span>3. 6 Core Auditable Guards (32 rules) &amp; Thinking Drift</span>
+        <span>${escapeHtml(summarizeCoreAuditableGuards(options.breakerVerdict?.triggered ? options.breakerVerdict.detectorId : null).label)}</span>
       </summary>
       <div class="adv-body">
         <div class="adv-row"><span>Flight Mode</span><strong>${escapeHtml(metrics.flightMode)}</strong></div>
         <div class="adv-row"><span>Prefix Retention</span><strong>${escapeHtml(formatRetentionLabel(state.prefixRetention))}</strong></div>
-        <div class="adv-row"><span>Thinking Drift (DET-21)</span><strong>${escapeHtml(formatDriftLabel(state.thinkingDrift))}</strong></div>
+        <div class="adv-row"><span>Thinking Drift (DET-30)</span><strong>${escapeHtml(formatDriftLabel(state.thinkingDrift))}</strong></div>
         <div class="adv-row"><span>Haiku 5.5 100k 5x Cliff (DET-12)</span><strong>${escapeHtml(state.cliffTriggered ? 'EXCEEDED (5x)' : state.preCliffWarningTriggered ? 'PRE-CLIFF (>=90k)' : 'Nominal')}</strong></div>
       </div>
     </details>

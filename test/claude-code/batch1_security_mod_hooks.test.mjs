@@ -126,21 +126,26 @@ test('ISS-018: hooks/hooks.json uses top-level "hooks" wrapper, nested command a
     );
   }
 
-  // Verify expanded tool matchers (ISS-034)
-  assert.equal(parsed.hooks.PreToolUse[0].matcher, PRE_TOOL_USE_MATCHER);
-  assert.equal(parsed.hooks.PostToolUse[0].matcher, POST_TOOL_USE_MATCHER);
-  for (const tool of ['MultiEdit', 'NotebookEdit', 'Glob', 'Task', 'Agent']) {
+  // Verify asymmetric lean tool matchers (v4.0: strips Grep|Glob subprocess spawns by default)
+  assert.equal(parsed.hooks.PreToolUse[0].matcher, 'Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Task|Agent|WebFetch|mcp__.*');
+  assert.equal(parsed.hooks.PostToolUse[0].matcher, 'Bash|PowerShell|Task|Agent|WebFetch|mcp__.*');
+  for (const tool of ['MultiEdit', 'NotebookEdit', 'Read', 'Task', 'Agent']) {
     assert.ok(
       new RegExp(`^(?:${parsed.hooks.PreToolUse[0].matcher})$`).test(tool),
       `PreToolUse matcher must match ${tool}`
     );
   }
-  for (const tool of ['Grep', 'Glob', 'Task', 'Agent', 'mcp__github__search']) {
+  for (const tool of ['Bash', 'Task', 'Agent', 'mcp__github__search']) {
     assert.ok(
       new RegExp(`^(?:${parsed.hooks.PostToolUse[0].matcher})$`).test(tool),
       `PostToolUse matcher must match ${tool}`
     );
   }
+  assert.equal(
+    new RegExp(`^(?:${parsed.hooks.PreToolUse[0].matcher})$`).test('Grep'),
+    false,
+    'Lean PreToolUse matcher skips Grep subprocess spawns by default'
+  );
   assert.equal(
     new RegExp(`^(?:${parsed.hooks.PostToolUse[0].matcher})$`).test('Read'),
     false,
@@ -592,7 +597,14 @@ test('ISS-034: plugin.json references ./commands/horizon.md and Stop, PreCompact
   );
   assert.equal('entrypoint' in pluginManifest, false, 'plugin.json must not contain undocumented "entrypoint"');
   assert.ok(Array.isArray(pluginManifest.commands));
-  assert.deepEqual(pluginManifest.commands, ['./commands/horizon.md', './commands/cost-radar.md']);
+  assert.deepEqual(pluginManifest.commands, [
+    './commands/horizon.md',
+    './commands/cost-radar.md',
+    './commands/inspect.md',
+    './commands/handoff.md',
+    './commands/precheck.md',
+    './commands/evolve.md'
+  ]);
   for (const cmdRel of pluginManifest.commands) {
     assert.equal(typeof cmdRel, 'string');
     const absCmd = path.resolve(PROJECT_ROOT, cmdRel);

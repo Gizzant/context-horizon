@@ -39,7 +39,7 @@ import {
   evaluateRelayBreaker,
   evaluateTwoStageSightseeingIntercept
 } from '../core/shared/prompt_hygiene_governor.mjs';
-import { foldCodeToSignatureStub } from '../core/pruner.mjs';
+import { foldCodeToSignatureStub, computeCompactLineDiff } from '../core/pruner.mjs';
 import { recordInterventionSavings } from '../core-isomorphic/coach/savedQuotaLedger.mjs';
 
 export {
@@ -273,6 +273,7 @@ export async function handlePreToolUse(inputData = {}) {
   let coldCacheWakeup = null;
   let systemMessage = gateSystemMessage;
   let astSignatureStub = null;
+  let deltaDiffStub = null;
   let astStubSavedTokens = 0;
 
   if (!isOffMode && (toolName === 'read_file' || toolName === 'Read' || toolName === 'view_file')) {
@@ -288,41 +289,81 @@ export async function handlePreToolUse(inputData = {}) {
       if (!sidecar.fileState.unclippedReadCounts || typeof sidecar.fileState.unclippedReadCounts !== 'object') {
         sidecar.fileState.unclippedReadCounts = {};
       }
+      if (!sidecar.fileState.readSnapshots || typeof sidecar.fileState.readSnapshots !== 'object') {
+        sidecar.fileState.readSnapshots = {};
+      }
       const priorReads = Number(inputData.priorUnclippedReads ?? sidecar.fileState.unclippedReadCounts[normKey] ?? 0);
       const nextReads = priorReads + 1;
       sidecar.fileState.unclippedReadCounts[normKey] = nextReads;
 
-      if (nextReads >= 3 && fs.existsSync(resolvedPath)) {
+      if (fs.existsSync(resolvedPath)) {
         try {
           const stat = fs.statSync(resolvedPath);
-          if (stat.isFile() && stat.size > 512 && stat.size <= 512 * 1024) {
+          if (stat.isFile() && stat.size > 256 && stat.size <= 512 * 1024) {
             const rawContent = fs.readFileSync(resolvedPath, 'utf8');
-            const fullTokens = Math.max(1, Math.ceil(rawContent.length / 4));
-            const folded = foldCodeToSignatureStub(rawContent, resolvedPath);
-            const stubText = typeof folded?.condensed === 'string' && folded.condensed.length > 0
-              ? folded.condensed
-              : rawContent.slice(0, 1200);
-            const stubTokens = Math.max(1, Math.ceil(stubText.length / 4));
-            astStubSavedTokens = Math.max(0, fullTokens - stubTokens);
-            astSignatureStub = stubText;
-            const stubNotice = `[Attention Horizon AST Signature Stub — Read #${nextReads} of ${path.basename(resolvedPath)} (${astStubSavedTokens} tokens saved; pass StartLine/EndLine for full bodies)]\n${stubText}`;
-            if (!isSilentMode && !systemMessage) {
-              systemMessage = stubNotice;
-            }
-            if (astStubSavedTokens > 0) {
-              try {
-                recordInterventionSavings(
-                  {
-                    sessionId: conversationId,
-                    category: 'BOUNDED_READ_ENFORCED',
-                    savedTokens: astStubSavedTokens,
-                    detail: `AST signature stub read #${nextReads} for ${path.basename(resolvedPath)}`
-                  },
-                  { cwd: workspacePath }
-                );
-              } catch (err) {
-                recordHookDiagnostic('pre_invocation', 'handlePreToolUse.recordAstStubSavings', err);
+            const prevSnap = typeof inputData.priorContentSnapshot === 'string'
+              ? inputData.priorContentSnapshot
+              : (typeof sidecar.fileState.readSnapshots[normKey] === 'string' ? sidecar.fileState.readSnapshots[normKey] : null);
+
+            if (prevSnap !== null && prevSnap !== rawContent) {
+              const delta = computeCompactLineDiff(prevSnap, rawContent, path.basename(resolvedPath));
+              if (delta.wasDiffed) {
+                deltaDiffStub = delta.diffText;
+                astStubSavedTokens = delta.savedTokens;
+                const deltaNotice = `[Attention Horizon Post-Edit Delta Read — ${path.basename(resolvedPath)} (+${delta.savedTokens} tokens saved)]\n${delta.diffText}`;
+                if (!isSilentMode && !systemMessage) {
+                  systemMessage = deltaNotice;
+                }
+                try {
+                  recordInterventionSavings(
+                    {
+                      sessionId: conversationId,
+                      category: 'BOUNDED_READ_ENFORCED',
+                      savedTokens: delta.savedTokens,
+                      detail: `Post-edit delta read for ${path.basename(resolvedPath)}`
+                    },
+                    { cwd: workspacePath }
+                  );
+                } catch (err) {
+                  recordHookDiagnostic('pre_invocation', 'handlePreToolUse.recordDeltaSavings', err);
+                }
               }
+            } else if (nextReads >= 3 && stat.size > 512) {
+              const fullTokens = Math.max(1, Math.ceil(rawContent.length / 4));
+              const folded = foldCodeToSignatureStub(rawContent, resolvedPath);
+              const stubText = typeof folded?.condensed === 'string' && folded.condensed.length > 0
+                ? folded.condensed
+                : rawContent.slice(0, 1200);
+              const stubTokens = Math.max(1, Math.ceil(stubText.length / 4));
+              astStubSavedTokens = Math.max(0, fullTokens - stubTokens);
+              astSignatureStub = stubText;
+              const stubNotice = `[Attention Horizon AST Signature Stub — Read #${nextReads} of ${path.basename(resolvedPath)} (${astStubSavedTokens} tokens saved; pass StartLine/EndLine for full bodies)]\n${stubText}`;
+              if (!isSilentMode && !systemMessage) {
+                systemMessage = stubNotice;
+              }
+              if (astStubSavedTokens > 0) {
+                try {
+                  recordInterventionSavings(
+                    {
+                      sessionId: conversationId,
+                      category: 'BOUNDED_READ_ENFORCED',
+                      savedTokens: astStubSavedTokens,
+                      detail: `AST signature stub read #${nextReads} for ${path.basename(resolvedPath)}`
+                    },
+                    { cwd: workspacePath }
+                  );
+                } catch (err) {
+                  recordHookDiagnostic('pre_invocation', 'handlePreToolUse.recordAstStubSavings', err);
+                }
+              }
+            }
+
+            if (rawContent.length <= 128 * 1024) {
+              const snapKeys = Object.keys(sidecar.fileState.readSnapshots);
+              if (!sidecar.fileState.readSnapshots[normKey] && snapKeys.length >= 12) {
+                delete sidecar.fileState.readSnapshots[snapKeys[0]];
+              }
+              sidecar.fileState.readSnapshots[normKey] = rawContent;
             }
           }
         } catch (err) {
@@ -402,6 +443,10 @@ export async function handlePreToolUse(inputData = {}) {
   if (coldCacheWakeup) response.coldCacheWakeup = coldCacheWakeup;
   if (astSignatureStub) {
     response.astSignatureStub = astSignatureStub;
+    response.savedTokens = astStubSavedTokens;
+  }
+  if (deltaDiffStub) {
+    response.deltaDiffStub = deltaDiffStub;
     response.savedTokens = astStubSavedTokens;
   }
   if (systemMessage && !isSilentMode && !isOffMode) response.systemMessage = systemMessage;

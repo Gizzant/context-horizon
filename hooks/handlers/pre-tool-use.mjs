@@ -11,7 +11,7 @@ import { computeTotalPromptTokens } from '../../src/core-isomorphic/config/catal
 import { loadHorizonConfig } from '../../src/core-isomorphic/config/horizonConfig.mjs';
 import { recordInterventionSavings } from '../../src/core-isomorphic/coach/savedQuotaLedger.mjs';
 import { requireProFeature } from '../../src/core/pro_license.mjs';
-import { foldCodeToSignatureStub } from '../../src/core/pruner.mjs';
+import { foldCodeToSignatureStub, computeCompactLineDiff } from '../../src/core/pruner.mjs';
 import {
   CircuitBreakerEngine,
   readBreakerStateSnapshot,
@@ -104,7 +104,7 @@ export function runPreToolUseHook(event = {}, options = {}) {
     flightMode: effectiveMode
   });
 
-  // Playbook Step 4: Automatic Repeat-Read AST Signature Stub Interception
+  // Playbook Step 4 & VC Gap 4: Post-Edit Unified Delta Diff + 3rd-Read AST Signature Stub Interception
   const isReadTool = /^(Read|read_file)$/i.test(toolName);
   const tIn = event.tool_input || event.toolInput || event.args || {};
   const hasLineBounds =
@@ -113,29 +113,74 @@ export function runPreToolUseHook(event = {}, options = {}) {
     tIn.offset !== undefined ||
     tIn.limit !== undefined;
   const rawReadPath = String(tIn.file_path || tIn.Path || tIn.path || '').trim();
-  const isRepeatUnclippedRead =
-    isReadTool &&
-    !hasLineBounds &&
-    rawReadPath &&
-    (verdict.detectorId === 'DET-06' || Number(event.priorUnclippedReads || 0) >= 2);
 
-  if (isRepeatUnclippedRead) {
+  if (isReadTool && !hasLineBounds && rawReadPath) {
     try {
-      const baseCwd = event.cwd || options.cwd || process.cwd();
+      const baseCwd = event.cwd || options.cwd || '';
       const absReadPath = path.isAbsolute(rawReadPath)
         ? rawReadPath
-        : path.resolve(baseCwd, rawReadPath);
+        : path.resolve(baseCwd || process.cwd(), rawReadPath);
       if (fs.existsSync(absReadPath) && fs.statSync(absReadPath).isFile()) {
-        const rawSrc = fs.readFileSync(absReadPath, 'utf8');
-        const folded = foldCodeToSignatureStub(rawSrc, rawReadPath);
-        if (folded.wasFolded) {
-          const stubSavedTok = Math.max(250, Math.round(folded.savedChars / 4));
-          verdict.triggered = true;
-          verdict.detectorId = verdict.detectorId || 'DET-06';
-          verdict.decision = verdict.decision || 'allow';
-          verdict.astSignatureStub = folded.condensed;
-          verdict.savedTokens = Math.max(Number(verdict.savedTokens || 0), stubSavedTok);
-          verdict.reason = `${verdict.reason ? verdict.reason + '\n\n' : '[GUARD-4 Repeat-Read Surgeon] Full-file re-read intercepted; returning AST signature stub (+' + stubSavedTok + ' tokens saved):\n'}${folded.condensed}`;
+        const st = fs.statSync(absReadPath);
+        if (st.size > 256 && st.size <= 256 * 1024) {
+          const rawSrc = fs.readFileSync(absReadPath, 'utf8');
+          const normKey = absReadPath.replace(/\\/g, '/').toLowerCase();
+          let prevSrc = typeof event.priorContentSnapshot === 'string' ? event.priorContentSnapshot : null;
+          let snapFilePath = '';
+          let snapMap = {};
+
+          if (baseCwd && shouldPersistState) {
+            const safeSid = String(sessionId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
+            const cacheDir = path.join(baseCwd, '.claude', 'cache');
+            snapFilePath = path.join(cacheDir, `read_snapshots_${safeSid}.json`);
+            if (fs.existsSync(snapFilePath)) {
+              try {
+                snapMap = JSON.parse(fs.readFileSync(snapFilePath, 'utf8')) || {};
+                if (prevSrc === null && typeof snapMap[normKey] === 'string') {
+                  prevSrc = snapMap[normKey];
+                }
+              } catch (_e) {
+                snapMap = {};
+              }
+            }
+          }
+
+          if (prevSrc !== null && prevSrc !== rawSrc) {
+            const delta = computeCompactLineDiff(prevSrc, rawSrc, path.basename(absReadPath));
+            if (delta.wasDiffed) {
+              verdict.triggered = true;
+              verdict.detectorId = verdict.detectorId || 'DET-06';
+              verdict.decision = verdict.decision || 'allow';
+              verdict.deltaDiffStub = delta.diffText;
+              verdict.savedTokens = Math.max(Number(verdict.savedTokens || 0), delta.savedTokens);
+              verdict.reason = `[GUARD-4 Post-Edit Delta Read] File modified since last read; returning unified delta diff (+${delta.savedTokens} tokens saved):\n${delta.diffText}`;
+            }
+          } else if (verdict.detectorId === 'DET-06' || Number(event.priorUnclippedReads || 0) >= 2) {
+            const folded = foldCodeToSignatureStub(rawSrc, rawReadPath);
+            if (folded.wasFolded) {
+              const stubSavedTok = Math.max(250, Math.round(folded.savedChars / 4));
+              verdict.triggered = true;
+              verdict.detectorId = verdict.detectorId || 'DET-06';
+              verdict.decision = verdict.decision || 'allow';
+              verdict.astSignatureStub = folded.condensed;
+              verdict.savedTokens = Math.max(Number(verdict.savedTokens || 0), stubSavedTok);
+              verdict.reason = `${verdict.reason ? verdict.reason + '\n\n' : '[GUARD-4 Repeat-Read Surgeon] Full-file re-read intercepted; returning AST signature stub (+' + stubSavedTok + ' tokens saved):\n'}${folded.condensed}`;
+            }
+          }
+
+          if (snapFilePath && rawSrc.length <= 128 * 1024) {
+            try {
+              fs.mkdirSync(path.dirname(snapFilePath), { recursive: true });
+              const keys = Object.keys(snapMap);
+              if (!snapMap[normKey] && keys.length >= 12) {
+                delete snapMap[keys[0]];
+              }
+              snapMap[normKey] = rawSrc;
+              fs.writeFileSync(snapFilePath, JSON.stringify(snapMap), 'utf8');
+            } catch (_writeErr) {
+              void _writeErr;
+            }
+          }
         }
       }
     } catch (_stubErr) {
@@ -160,7 +205,7 @@ export function runPreToolUseHook(event = {}, options = {}) {
     /^(DET-04|DET-06|DET-09|DET-10|DET-11|DET-12|DET-13|DET-14|DET-20)$/.test(detId);
   if (
     isQuotaSavingGuard &&
-    (verdict.decision === 'deny' || verdict.decision === 'ask' || verdict.decision === 'defer' || Boolean(verdict.astSignatureStub)) &&
+    (verdict.decision === 'deny' || verdict.decision === 'ask' || verdict.decision === 'defer' || Boolean(verdict.astSignatureStub) || Boolean(verdict.deltaDiffStub)) &&
     options.recordLedger !== false &&
     Boolean(event.cwd || options.cwd || options.ledgerPath || options.recordLedger)
   ) {
@@ -243,7 +288,8 @@ export function runPreToolUseHook(event = {}, options = {}) {
       hookEventName: 'PreToolUse',
       permissionDecision: 'allow',
       additionalContext: verdict.reason,
-      ...(verdict.astSignatureStub ? { astSignatureStub: verdict.astSignatureStub, savedTokens: verdict.savedTokens } : {})
+      ...(verdict.astSignatureStub ? { astSignatureStub: verdict.astSignatureStub, savedTokens: verdict.savedTokens } : {}),
+      ...(verdict.deltaDiffStub ? { deltaDiffStub: verdict.deltaDiffStub, savedTokens: verdict.savedTokens } : {})
     }
   };
   return {
@@ -251,7 +297,8 @@ export function runPreToolUseHook(event = {}, options = {}) {
     stdout: JSON.stringify(out),
     stderr: '',
     verdict,
-    ...(verdict.astSignatureStub ? { decision: 'allow', astSignatureStub: verdict.astSignatureStub, savedTokens: verdict.savedTokens } : {})
+    ...(verdict.astSignatureStub ? { decision: 'allow', astSignatureStub: verdict.astSignatureStub, savedTokens: verdict.savedTokens } : {}),
+    ...(verdict.deltaDiffStub ? { decision: 'allow', deltaDiffStub: verdict.deltaDiffStub, savedTokens: verdict.savedTokens } : {})
   };
 }
 

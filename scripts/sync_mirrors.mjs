@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import os from 'node:os';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { atomicWriteFileSync } from '../src/core/atomic_io.mjs';
 import {
@@ -168,6 +169,25 @@ export function syncAndVerifyMirrors({
   const syncedSubdirs = getSyncedPluginSubdirs(CANONICAL_ROOT);
 
   if (!verifyOnly) {
+    // 0. Pre-flight ESM syntax gate on live hook entrypoints & core modules so a syntax typo never propagates into active plugin hooks
+    const criticalSyntaxTargets = [
+      'src/hooks/pre_invocation.mjs',
+      'src/hooks/post_invocation.mjs',
+      'src/hooks/session_start.mjs',
+      'src/core/parser.mjs',
+      'src/core/paths.mjs',
+      'src/core/pruner.mjs',
+      'hooks/register.js',
+      'hooks/handlers/pre-tool-use.mjs',
+      'bin/ctxtop.mjs'
+    ];
+    for (const relTarget of criticalSyntaxTargets) {
+      const absTarget = path.join(CANONICAL_ROOT, relTarget);
+      if (fs.existsSync(absTarget)) {
+        execFileSync(process.execPath, ['--check', absTarget], { stdio: 'pipe' });
+      }
+    }
+
     // 1. Rebuild standalone docs/index.html & evaluation_bundles/ first so in-repo mirrors are current
     buildDemoPage({ silent: false });
     if (fs.existsSync(path.join(CANONICAL_ROOT, 'evaluation_bundles', 'tier_1_essential')) ||

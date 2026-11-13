@@ -351,3 +351,83 @@ export function pruneSessionTranscript(sessionDir, {
     details: prunedDetails
   };
 }
+
+
+/**
+ * Computes a compact unified delta diff + exported signature index when an agent re-reads
+ * a file that was modified since its previous unclipped read in the same session.
+ *
+ * @param {string} prevContent
+ * @param {string} nextContent
+ * @param {string} [targetPath='file']
+ * @param {number} [contextLines=3]
+ */
+export function computeCompactLineDiff(prevContent = '', nextContent = '', targetPath = 'file', contextLines = 3) {
+  const prev = String(prevContent ?? '');
+  const next = String(nextContent ?? '');
+  if (!prev || !next || prev === next || next.length > 256 * 1024) {
+    return { diffText: next, savedChars: 0, savedTokens: 0, changedLines: 0, wasDiffed: false };
+  }
+
+  const oldLines = prev.split(/\r?\n/);
+  const newLines = next.split(/\r?\n/);
+
+  let prefixLen = 0;
+  const minLen = Math.min(oldLines.length, newLines.length);
+  while (prefixLen < minLen && oldLines[prefixLen] === newLines[prefixLen]) {
+    prefixLen++;
+  }
+
+  let suffixLen = 0;
+  while (
+    suffixLen < minLen - prefixLen &&
+    oldLines[oldLines.length - 1 - suffixLen] === newLines[newLines.length - 1 - suffixLen]
+  ) {
+    suffixLen++;
+  }
+
+  const oldChangedEnd = oldLines.length - suffixLen;
+  const newChangedEnd = newLines.length - suffixLen;
+
+  const ctxBeforeStart = Math.max(0, prefixLen - contextLines);
+  const oldCtxAfterEnd = Math.min(oldLines.length, oldChangedEnd + contextLines);
+  const newCtxAfterEnd = Math.min(newLines.length, newChangedEnd + contextLines);
+
+  const hunkLines = [];
+  hunkLines.push(`--- a/${targetPath}`);
+  hunkLines.push(`+++ b/${targetPath}`);
+  hunkLines.push(
+    `@@ -${ctxBeforeStart + 1},${Math.max(1, oldCtxAfterEnd - ctxBeforeStart)} +${ctxBeforeStart + 1},${Math.max(1, newCtxAfterEnd - ctxBeforeStart)} @@`
+  );
+
+  for (let i = ctxBeforeStart; i < prefixLen; i++) {
+    hunkLines.push(` ${oldLines[i]}`);
+  }
+  for (let i = prefixLen; i < oldChangedEnd; i++) {
+    hunkLines.push(`-${oldLines[i]}`);
+  }
+  for (let i = prefixLen; i < newChangedEnd; i++) {
+    hunkLines.push(`+${newLines[i]}`);
+  }
+  for (let i = newChangedEnd; i < newCtxAfterEnd; i++) {
+    hunkLines.push(` ${newLines[i]}`);
+  }
+
+  const folded = foldCodeToSignatureStub(next, targetPath);
+  const sigAppendix = folded.wasFolded ? `\n\n[Updated File Signature Index]\n${folded.condensed}` : '';
+  const diffText = `[Delta Read since prior snapshot of ${targetPath} (${oldLines.length} -> ${newLines.length} lines)]\n${hunkLines.join('\n')}${sigAppendix}`;
+  const savedChars = next.length - diffText.length;
+
+  if (savedChars <= 160 || diffText.length > next.length * 0.75) {
+    return { diffText: next, savedChars: 0, savedTokens: 0, changedLines: 0, wasDiffed: false };
+  }
+
+  const changedLines = (oldChangedEnd - prefixLen) + (newChangedEnd - prefixLen);
+  return {
+    diffText,
+    savedChars,
+    savedTokens: Math.max(1, Math.round(savedChars / 4)),
+    changedLines,
+    wasDiffed: true
+  };
+}

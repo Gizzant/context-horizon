@@ -9,6 +9,10 @@
   "hooks": "./hooks/hooks.json",
   "commands": [
     "./commands/horizon.md",
-    "./commands/cost-radar.md"
+    "./commands/cost-radar.md",
+    "./commands/inspect.md",
+    "./commands/handoff.md",
+    "./commands/precheck.md",
+    "./commands/evolve.md"
   ]
 }

@@ -9,6 +9,8 @@ import {
   getAntigravitySurfaces,
   getClaudeCodeProjectsDir,
   getCursorWorkspaceStorageDirs,
+  getCodexSessionsDir,
+  getGeminiCliChatsDirs,
   isCrossHostHarnessEnabled
 } from './paths.mjs';
 import { EFFORT_PROFILES, resolveEffortProfile, resolveSurfaceTag, normalizeModelId } from './constants.mjs';
@@ -1656,6 +1658,67 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
           } catch {}
         }
       }
+
+      if (isCrossHostHarnessEnabled('codex', opts)) {
+        for (const codexSess of discoverCodexSessions(homeDir, opts).slice(0, 8)) {
+          try {
+            const parsedCodex = parseCodexRolloutJsonl(codexSess.filePath);
+            if (sessionId && parsedCodex.sessionId === sessionId) {
+              if (!sessionTitle && parsedCodex.sessionTitle) sessionTitle = parsedCodex.sessionTitle;
+              if (!sessionGenMetadata && parsedCodex.genMetadata) sessionGenMetadata = parsedCodex.genMetadata;
+              if (parsedCodex.workspacePath && workspaceUris.length === 0) {
+                workspaceUris.push(parsedCodex.workspacePath);
+              }
+              sessionSurface = 'codex';
+              sessionSurfaceTag = '[Codex]';
+            }
+            const mtimeIso = codexSess.mtimeMs > 0 ? new Date(codexSess.mtimeMs).toISOString() : '';
+            upsertDiscoveredSession(parsedCodex.sessionId, {
+              sessionId: parsedCodex.sessionId,
+              title: parsedCodex.sessionTitle || parsedCodex.sessionId.slice(0, 8),
+              stepCount: parsedCodex.steps.length,
+              workspace: parsedCodex.workspacePath ? path.basename(parsedCodex.workspacePath) : '',
+              lastModified: mtimeIso,
+              surface: 'codex',
+              surfaceTag: '[Codex]',
+              brainDir: codexSess.filePath,
+              ...(parsedCodex.genMetadata?.totalContextTokens > 0 ? {
+                liveTokens: parsedCodex.genMetadata.totalContextTokens,
+                cacheReadTokens: parsedCodex.genMetadata.cacheReadTokens
+              } : {})
+            });
+          } catch {}
+        }
+      }
+
+      if (isCrossHostHarnessEnabled('gemini-cli', opts)) {
+        for (const gemSess of discoverGeminiCliSessions(homeDir, opts).slice(0, 8)) {
+          try {
+            const parsedGem = parseGeminiCliChatJson(gemSess.filePath);
+            if (sessionId && parsedGem.sessionId === sessionId) {
+              if (!sessionTitle && parsedGem.sessionTitle) sessionTitle = parsedGem.sessionTitle;
+              if (!sessionGenMetadata && parsedGem.genMetadata) sessionGenMetadata = parsedGem.genMetadata;
+              sessionSurface = 'gemini-cli';
+              sessionSurfaceTag = '[Gemini CLI]';
+            }
+            const mtimeIso = gemSess.mtimeMs > 0 ? new Date(gemSess.mtimeMs).toISOString() : '';
+            upsertDiscoveredSession(parsedGem.sessionId, {
+              sessionId: parsedGem.sessionId,
+              title: parsedGem.sessionTitle || parsedGem.sessionId.slice(0, 8),
+              stepCount: parsedGem.steps.length,
+              workspace: '',
+              lastModified: mtimeIso,
+              surface: 'gemini-cli',
+              surfaceTag: '[Gemini CLI]',
+              brainDir: gemSess.filePath,
+              ...(parsedGem.genMetadata?.totalContextTokens > 0 ? {
+                liveTokens: parsedGem.genMetadata.totalContextTokens,
+                cacheReadTokens: parsedGem.genMetadata.cacheReadTokens
+              } : {})
+            });
+          } catch {}
+        }
+      }
     }
 
     recentSessions = Array.from(discoveredMap.values())
@@ -1739,5 +1802,195 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
     kiBleedMap,
     // Read-only gen_metadata for the requested session (model, last-turn cache counters, bust cause).
     sessionGenMetadata
+  };
+}
+
+
+/**
+ * Recursively discovers OpenAI Codex CLI rollout `.jsonl` files under `~/.codex/sessions`
+ * ONLY when explicitly enabled via `--harness=codex` or `--harness=all`.
+ */
+export function discoverCodexSessions(homeDir = getHomeDir(), options = {}) {
+  const sessionsRoot = getCodexSessionsDir(homeDir, options);
+  if (!sessionsRoot || !fs.existsSync(sessionsRoot)) return [];
+  const found = [];
+  const walk = (dir, depth = 0) => {
+    if (depth > 4) return;
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const ent of entries) {
+      const fullPath = path.join(dir, ent.name);
+      if (ent.isDirectory()) {
+        walk(fullPath, depth + 1);
+      } else if (ent.isFile() && ent.name.endsWith('.jsonl')) {
+        try {
+          const st = fs.statSync(fullPath);
+          found.push({ filePath: fullPath, mtimeMs: st.mtimeMs });
+        } catch {}
+      }
+    }
+  };
+  walk(sessionsRoot, 0);
+  return found.sort((a, b) => b.mtimeMs - a.mtimeMs);
+}
+
+/**
+ * Read-only parser for OpenAI Codex CLI session rollout `.jsonl` transcripts (`flag: 'r'`).
+ */
+export function parseCodexRolloutJsonl(filePath) {
+  const fd = fs.openSync(filePath, 'r');
+  let raw = '';
+  try {
+    raw = fs.readFileSync(fd, 'utf8');
+  } finally {
+    fs.closeSync(fd);
+  }
+  const lines = raw.split(/\r?\n/).filter(Boolean);
+  let sessionId = path.basename(filePath, '.jsonl');
+  let sessionTitle = '';
+  let workspacePath = '';
+  let modelId = 'gpt-5-codex';
+  let totalContextTokens = 0;
+  let cacheReadTokens = 0;
+  const steps = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    let entry;
+    try {
+      entry = JSON.parse(lines[i]);
+    } catch {
+      continue;
+    }
+    const payload = entry.payload || entry;
+    if (entry.type === 'session_meta' || payload?.id) {
+      if (payload.id) sessionId = String(payload.id);
+      if (payload.cwd) workspacePath = String(payload.cwd);
+      if (payload.model) modelId = String(payload.model);
+    }
+    if (entry.type === 'event_msg' && payload?.type === 'token_count') {
+      const usage = payload.info?.last_token_usage || payload.info?.total_token_usage || {};
+      const inputTok = Number(usage.input_tokens || 0);
+      const cachedTok = Number(usage.cached_input_tokens || 0);
+      if (inputTok > 0) totalContextTokens = inputTok;
+      if (cachedTok >= 0) cacheReadTokens = cachedTok;
+    }
+    const role = String(payload?.role || entry.role || '').toLowerCase();
+    if (role === 'user' || role === 'assistant') {
+      const contentArr = Array.isArray(payload?.content) ? payload.content : [];
+      const text = typeof payload?.content === 'string'
+        ? payload.content
+        : contentArr.map(c => c?.text || c?.input_text || c?.output_text || '').filter(Boolean).join('\n');
+      if (role === 'user' && !sessionTitle && text) {
+        sessionTitle = text.trim().slice(0, 80);
+      }
+      steps.push({
+        stepIndex: steps.length,
+        type: role === 'user' ? 'USER_INPUT' : 'PLANNER_RESPONSE',
+        source: role === 'user' ? 'USER_EXPLICIT' : 'MODEL',
+        content: text
+      });
+    }
+  }
+
+  return {
+    sessionId,
+    sessionTitle: sessionTitle || `Codex Session (${sessionId.slice(0, 8)})`,
+    workspacePath,
+    surface: 'codex',
+    surfaceTag: '[Codex]',
+    steps,
+    genMetadata: {
+      model: modelId,
+      totalContextTokens,
+      cacheReadTokens
+    }
+  };
+}
+
+/**
+ * Discovers Google Gemini CLI chat session `.json` files under `~/.gemini/tmp/<hash>/chats`
+ * ONLY when explicitly enabled via `--harness=gemini-cli` or `--harness=all`.
+ */
+export function discoverGeminiCliSessions(homeDir = getHomeDir(), options = {}) {
+  const chatDirs = getGeminiCliChatsDirs(homeDir, options);
+  const found = [];
+  for (const dir of chatDirs) {
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const ent of entries) {
+      if (ent.isFile() && ent.name.endsWith('.json')) {
+        const fullPath = path.join(dir, ent.name);
+        try {
+          const st = fs.statSync(fullPath);
+          found.push({ filePath: fullPath, mtimeMs: st.mtimeMs });
+        } catch {}
+      }
+    }
+  }
+  return found.sort((a, b) => b.mtimeMs - a.mtimeMs);
+}
+
+/**
+ * Read-only parser for Google Gemini CLI chat transcript `.json` files (`flag: 'r'`).
+ */
+export function parseGeminiCliChatJson(filePath) {
+  const fd = fs.openSync(filePath, 'r');
+  let raw = '';
+  try {
+    raw = fs.readFileSync(fd, 'utf8');
+  } finally {
+    fs.closeSync(fd);
+  }
+  const parsed = JSON.parse(raw);
+  const sessionId = String(parsed.sessionId || path.basename(filePath, '.json'));
+  const messages = Array.isArray(parsed.messages) ? parsed.messages : [];
+  let sessionTitle = '';
+  let modelId = 'gemini-2.5-pro';
+  let totalContextTokens = 0;
+  let cacheReadTokens = 0;
+  const steps = [];
+
+  for (const msg of messages) {
+    const type = String(msg?.type || msg?.role || '').toLowerCase();
+    const content = typeof msg?.content === 'string'
+      ? msg.content
+      : (Array.isArray(msg?.content) ? msg.content.map(p => p?.text || '').join('\n') : '');
+    if (msg?.model) modelId = String(msg.model);
+    if (msg?.tokens && typeof msg.tokens === 'object') {
+      const inTok = Number(msg.tokens.input || msg.tokens.total || 0);
+      const cachedTok = Number(msg.tokens.cached || 0);
+      if (inTok > 0) totalContextTokens = inTok;
+      if (cachedTok >= 0) cacheReadTokens = cachedTok;
+    }
+    if (type === 'user' && !sessionTitle && content) {
+      sessionTitle = content.trim().slice(0, 80);
+    }
+    steps.push({
+      stepIndex: steps.length,
+      type: type === 'user' ? 'USER_INPUT' : 'PLANNER_RESPONSE',
+      source: type === 'user' ? 'USER_EXPLICIT' : 'MODEL',
+      content
+    });
+  }
+
+  return {
+    sessionId,
+    sessionTitle: sessionTitle || `Gemini CLI Session (${sessionId.slice(0, 8)})`,
+    surface: 'gemini-cli',
+    surfaceTag: '[Gemini CLI]',
+    steps,
+    genMetadata: {
+      model: modelId,
+      totalContextTokens,
+      cacheReadTokens
+    }
   };
 }

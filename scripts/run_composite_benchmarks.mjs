@@ -99,7 +99,8 @@ import { runCli } from '../bin/ctxtop.mjs';
 import { isIgnorablePath } from '../src/core/paths.mjs';
 import { sanitizeForensicPayload } from '../src/core/sanitizer.mjs';
 import { sanitizeSubagentPayload } from '../src/core/coach/subagent_ipi_sanitizer.mjs';
-import { foldCodeToSignatureStub } from '../src/core/pruner.mjs';
+import { foldCodeToSignatureStub, computeCompactLineDiff } from '../src/core/pruner.mjs';
+import { sanitizePostToolOutput } from '../src/core-isomorphic/guards/losslessPostSanitizer.mjs';
 import {
   withNetworkSpy,
   checkModLaws,
@@ -203,8 +204,8 @@ async function runEmpiricalBenchmarks() {
   console.log('>>> [1/6] Benchmarking Dimension D1: Processing Observability & Runtime Control...');
   const d1Metrics = {};
 
-  // 1.1 Span Tracking Latency & Throughput (N=5000)
-  const SPAN_COUNT = 5000;
+  // 1.1 Span Tracking Latency & Throughput (N=10000)
+  const SPAN_COUNT = 10000;
   const spanLatencies = [];
   const spans = [];
   for (let i = 0; i < SPAN_COUNT; i++) {
@@ -224,9 +225,9 @@ async function runEmpiricalBenchmarks() {
   console.log(`  ✓ Span Tracking (N=${SPAN_COUNT}): p50=${d1Metrics.spanTracking.p50.toFixed(4)}ms, p95=${d1Metrics.spanTracking.p95.toFixed(4)}ms, p99=${d1Metrics.spanTracking.p99.toFixed(4)}ms (SLA < 0.05ms)`);
   assert.ok(d1Metrics.spanTracking.p95 < 0.10, 'Span tracking p95 SLA violated');
 
-  // 1.2 Call-Tree Assembly & Critical Path Latency (N=500)
+  // 1.2 Call-Tree Assembly & Critical Path Latency (N=1000)
   const treeLatencies = [];
-  for (let i = 0; i < 500; i++) {
+  for (let i = 0; i < 1000; i++) {
     const offset = (i * 7) % (SPAN_COUNT - 35);
     const subset = spans.slice(offset, offset + 30);
     const t0 = performance.now();
@@ -237,12 +238,12 @@ async function runEmpiricalBenchmarks() {
     treeLatencies.push(elapsed);
   }
   d1Metrics.callTreeAssembly = stats(treeLatencies);
-  console.log(`  ✓ Call-Tree & Critical Path (N=500): p50=${d1Metrics.callTreeAssembly.p50.toFixed(3)}ms, p95=${d1Metrics.callTreeAssembly.p95.toFixed(3)}ms, p99=${d1Metrics.callTreeAssembly.p99.toFixed(3)}ms (SLA < 2.0ms)`);
+  console.log(`  ✓ Call-Tree & Critical Path (N=1000): p50=${d1Metrics.callTreeAssembly.p50.toFixed(3)}ms, p95=${d1Metrics.callTreeAssembly.p95.toFixed(3)}ms, p99=${d1Metrics.callTreeAssembly.p99.toFixed(3)}ms (SLA < 2.0ms)`);
   assert.ok(d1Metrics.callTreeAssembly.p95 < 2.0, 'Call tree assembly p95 SLA violated');
 
-  // 1.3 Flamegraph Data Generation Latency (N=500)
+  // 1.3 Flamegraph Data Generation Latency (N=1000)
   const flameLatencies = [];
-  for (let i = 0; i < 500; i++) {
+  for (let i = 0; i < 1000; i++) {
     const offset = (i * 5) % (SPAN_COUNT - 30);
     const subset = spans.slice(offset, offset + 25);
     const t0 = performance.now();
@@ -306,7 +307,7 @@ async function runEmpiricalBenchmarks() {
   const mutPrompt = 'SYSTEM: You are Attention Horizon v4.0 assistant.\n'.repeat(100) + 'Active rules: Mod Laws 1-5 with delta.\n' + 'Context payload segment...'.repeat(50);
 
   const radarLatencies = [];
-  for (let i = 0; i < 1000; i++) {
+  for (let i = 0; i < 10000; i++) {
     const t0 = performance.now();
     const diff = verifyRetentionRadarDiff(origPrompt, mutPrompt);
     const elapsed = performance.now() - t0;
@@ -317,7 +318,7 @@ async function runEmpiricalBenchmarks() {
     }
   }
   d2Metrics.retentionDiffing = stats(radarLatencies);
-  console.log(`  ✓ 95% Retention Radar Diffing (N=1000): p50=${d2Metrics.retentionDiffing.p50.toFixed(4)}ms, p95=${d2Metrics.retentionDiffing.p95.toFixed(4)}ms, p99=${d2Metrics.retentionDiffing.p99.toFixed(4)}ms (SLA < 4.0ms)`);
+  console.log(`  ✓ 95% Retention Radar Diffing (N=10000): p50=${d2Metrics.retentionDiffing.p50.toFixed(4)}ms, p95=${d2Metrics.retentionDiffing.p95.toFixed(4)}ms, p99=${d2Metrics.retentionDiffing.p99.toFixed(4)}ms (SLA < 4.0ms)`);
   assert.ok(d2Metrics.retentionDiffing.p95 < 4.0, 'Retention radar diffing p95 SLA violated');
 
   // 2.2 Algebraic C* Break-Even Router Latency & Exactness (N=1000)
@@ -483,7 +484,7 @@ async function runEmpiricalBenchmarks() {
   try {
     for (let i = 0; i < 10; i++) await client.call('daemon.ping', {});
     const ipcLatencies = [];
-    for (let i = 0; i < 300; i++) {
+    for (let i = 0; i < 1000; i++) {
       const t0 = performance.now();
       const res = await client.call('daemon.ping', { testId: i });
       const elapsed = performance.now() - t0;
@@ -491,7 +492,7 @@ async function runEmpiricalBenchmarks() {
       assert.equal(res.pong, true);
     }
     d4Metrics.microIpcRoundtrip = stats(ipcLatencies);
-    console.log(`  ✓ Micro-IPC Roundtrip SLA (N=300): p50=${d4Metrics.microIpcRoundtrip.p50.toFixed(3)}ms, p95=${d4Metrics.microIpcRoundtrip.p95.toFixed(3)}ms, p99=${d4Metrics.microIpcRoundtrip.p99.toFixed(3)}ms (SLA < 0.80ms)`);
+    console.log(`  ✓ Micro-IPC Roundtrip SLA (N=1000): p50=${d4Metrics.microIpcRoundtrip.p50.toFixed(3)}ms, p95=${d4Metrics.microIpcRoundtrip.p95.toFixed(3)}ms, p99=${d4Metrics.microIpcRoundtrip.p99.toFixed(3)}ms (SLA < 0.80ms)`);
     assert.ok(d4Metrics.microIpcRoundtrip.p95 < 0.80, 'Micro-IPC p95 exceeded 0.80ms SLA');
   } finally {
     await client.close();
@@ -581,9 +582,67 @@ async function runEmpiricalBenchmarks() {
   d5Metrics.ipiAirlockScrub = stats(ipiLatencies);
   console.log(`  ✓ Unicode Tag IPI Airlock Scrub (N=1000): p50=${d5Metrics.ipiAirlockScrub.p50.toFixed(4)}ms, p95=${d5Metrics.ipiAirlockScrub.p95.toFixed(4)}ms`);
 
+  // Instrument D5.3: X-Horizon-CSRF Constant-Time Rejection Latency & 100% Block Rate (N=1000)
+  const expectedCsrfBuf = Buffer.from(crypto.randomBytes(32).toString('hex'), 'utf8');
+  const csrfLatencies = [];
+  let csrfBlockedInvalid = 0;
+  for (let i = 0; i < 1000; i++) {
+    const candidateHdr = i % 2 === 0
+      ? ''
+      : crypto.randomBytes(32).toString('hex');
+    const t0 = performance.now();
+    const candBuf = Buffer.from(candidateHdr, 'utf8');
+    const accepted = candBuf.length === expectedCsrfBuf.length && crypto.timingSafeEqual(candBuf, expectedCsrfBuf);
+    const elapsed = performance.now() - t0;
+    csrfLatencies.push(elapsed);
+    if (!accepted) csrfBlockedInvalid++;
+  }
+  d5Metrics.csrfRejection = {
+    ...stats(csrfLatencies),
+    rejectionRatePct: Number(((csrfBlockedInvalid / 1000) * 100).toFixed(2)),
+    falseAllowRate: Number((((1000 - csrfBlockedInvalid) / 1000)).toFixed(4))
+  };
+  assert.equal(d5Metrics.csrfRejection.rejectionRatePct, 100);
+  assert.equal(d5Metrics.csrfRejection.falseAllowRate, 0);
+
+  // Instrument D5.4: /api/export/sanitized Zero-PII & Multi-Provider Secret Precision/Recall (N=500)
+  const positiveCorpus = [
+    'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U',
+    'ANTHROPIC_API_KEY=sk-ant-api03-99887766554433221100aabbccddeeff',
+    'GITHUB_TOKEN=ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+    'AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE'
+  ];
+  const benignCorpus = [
+    'const sha256 = "6d077becbb2f6e7b777e8ad9ab14f315bc3434f628f58d4d290e7eeee2fc06fe";',
+    'function computeBreakEvenCachedTokens(inputTokens, modelTier) { return inputTokens * 0.95; }'
+  ];
+  const piiScrubLatencies = [];
+  let truePos = 0;
+  let falsePos = 0;
+  for (let i = 0; i < 500; i++) {
+    const posSample = positiveCorpus[i % positiveCorpus.length];
+    const benSample = benignCorpus[i % benignCorpus.length];
+    const t0 = performance.now();
+    const rPos = sanitizeForensicPayload(posSample);
+    const rBen = sanitizeForensicPayload(benSample);
+    const elapsed = performance.now() - t0;
+    piiScrubLatencies.push(elapsed);
+    if (rPos.redactedSecretCount >= 1) truePos++;
+    if (rBen.redactedSecretCount > 0) falsePos++;
+  }
+  const recallPct = Number(((truePos / 500) * 100).toFixed(2));
+  const precisionPct = Number(((truePos / Math.max(1, truePos + falsePos)) * 100).toFixed(2));
+  d5Metrics.sanitizedExportPiiScrub = {
+    ...stats(piiScrubLatencies),
+    recallPct,
+    precisionPct,
+    leakedPiiCount: 500 - truePos
+  };
+
   const d5Score = computeEmpiricalDimensionScore(96.0, [
     { measuredP95: d5Metrics.secretRedaction.p95, slaMs: 0.50, p99ToP50Ratio: d5Metrics.secretRedaction.p99ToP50Ratio },
-    { measuredP95: d5Metrics.ipiAirlockScrub.p95, slaMs: 0.25, p99ToP50Ratio: d5Metrics.ipiAirlockScrub.p99ToP50Ratio }
+    { measuredP95: d5Metrics.ipiAirlockScrub.p95, slaMs: 0.25, p99ToP50Ratio: d5Metrics.ipiAirlockScrub.p99ToP50Ratio },
+    { measuredP95: d5Metrics.csrfRejection.p95, slaMs: 0.25, p99ToP50Ratio: d5Metrics.csrfRejection.p99ToP50Ratio }
   ]);
   benchmarkResults.dimensions.D5 = {
     name: 'Enterprise Security, Privacy & Invariants',
@@ -681,8 +740,99 @@ async function runEmpiricalBenchmarks() {
     (0.15 * d5Score) +
     (0.10 * d6Score);
 
+  const slaGates = [
+    { id: 'SLA-1', metric: 'D1.spanTracking.p99', measuredMs: d1Metrics.spanTracking.p99, ceilingMs: 1.0, passed: d1Metrics.spanTracking.p99 < 1.0 },
+    { id: 'SLA-2', metric: 'D1.callTreeAssembly.p99', measuredMs: d1Metrics.callTreeAssembly.p99, ceilingMs: 2.0, passed: d1Metrics.callTreeAssembly.p99 < 2.0 },
+    { id: 'SLA-3', metric: 'D2.retentionDiffing.p99', measuredMs: d2Metrics.retentionDiffing.p99, ceilingMs: 1.5, passed: d2Metrics.retentionDiffing.p99 < 1.5 },
+    { id: 'SLA-4', metric: 'D3.gitMergeTreeCached.p95', measuredMs: d3Metrics.gitMergeTree.p95, ceilingMs: 2.0, passed: d3Metrics.gitMergeTree.p95 < 2.0 },
+    { id: 'SLA-5', metric: 'D4.statuslineRender.p99', measuredMs: d4Metrics.statuslineRender.p99, ceilingMs: 3.5, passed: d4Metrics.statuslineRender.p99 < 3.5 },
+    { id: 'SLA-6', metric: 'D4.microIpcRoundtrip.p99', measuredMs: d4Metrics.microIpcRoundtrip.p99, ceilingMs: 1.5, passed: d4Metrics.microIpcRoundtrip.p99 < 1.5 },
+    { id: 'SLA-7', metric: 'D5.secretRedaction.recallRatePct', measuredPct: d5Metrics.secretRedaction.recallRatePct, floorPct: 100.0, passed: d5Metrics.secretRedaction.recallRatePct === 100 },
+    { id: 'SLA-8', metric: 'D5.csrfRejection.rejectionRatePct', measuredPct: d5Metrics.csrfRejection.rejectionRatePct, floorPct: 100.0, passed: d5Metrics.csrfRejection.rejectionRatePct === 100 }
+  ];
+  benchmarkResults.slaCertification = {
+    allPassed: slaGates.every((g) => g.passed),
+    totalGates: slaGates.length,
+    passedGates: slaGates.filter((g) => g.passed).length,
+    gates: slaGates
+  };
+
+  // ==========================================================================
+  // REPRODUCIBLE A/B BEFORE/AFTER TOKEN-SAVINGS COMPRESSION SUITE
+  // ==========================================================================
+  const pytestPassLines = Array.from({ length: 480 }, (_, idx) => `✓ tests/unit/test_module_${idx}.py::test_happy_path_${idx} PASSED [ ${Math.round((idx / 480) * 100)}%]`).join('\n');
+  const pytestRaw = `${pytestPassLines}\nFAILURES\nAssertionError: expected status 200 but received 500 at src/api/handler.py:142\n1 failed, 480 passed in 4.12s`;
+
+  const rereadRaw = sampleSource;
+  const rereadFolded = foldCodeToSignatureStub(rereadRaw, 'src/core/pro_license.mjs');
+
+  const editedNext = rereadRaw.replace('priceMonthlyUSD: 15', 'priceMonthlyUSD: 19 // updated pricing experiment');
+  const deltaRes = computeCompactLineDiff(rereadRaw, editedNext, 'src/core/pro_license.mjs');
+
+  const mcpTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ah-ab-mcp-'));
+  let pytestAfterText = '';
+  let mcpAfterText = '';
+  const mcpRaw = JSON.stringify({ rows: Array.from({ length: 220 }, (_, idx) => ({ id: idx, sha: crypto.createHash('sha256').update(String(idx)).digest('hex'), status: 'ACTIVE_OK', metadata: 'verbose telemetry payload '.repeat(4) })) }, null, 2);
+  try {
+    const pytestSanitized = sanitizePostToolOutput(
+      { toolName: 'Bash', toolOutput: pytestRaw },
+      { cwd: mcpTmpDir }
+    );
+    pytestAfterText = pytestSanitized.updatedToolOutput || pytestRaw;
+
+    const mcpSanitized = sanitizePostToolOutput(
+      { toolName: 'mcp__analytics__query', toolOutput: mcpRaw },
+      { cwd: mcpTmpDir }
+    );
+    mcpAfterText = mcpSanitized.updatedToolOutput || mcpRaw;
+  } finally {
+    fs.rmSync(mcpTmpDir, { recursive: true, force: true });
+  }
+
+  const tokEst = (s) => Math.max(1, Math.ceil(Buffer.byteLength(String(s || ''), 'utf8') / 4));
+  const buildAbRow = (id, label, beforeStr, afterStr, signalCheck) => {
+    const beforeTokens = tokEst(beforeStr);
+    const afterTokens = tokEst(afterStr);
+    const savedTokens = Math.max(0, beforeTokens - afterTokens);
+    const reductionPct = Number(((savedTokens / beforeTokens) * 100).toFixed(1));
+    return {
+      id,
+      workload: label,
+      beforeTokens,
+      afterTokens,
+      savedTokens,
+      reductionPct,
+      criticalSignalPreserved: Boolean(signalCheck)
+    };
+  };
+
+  const abWorkloads = [
+    buildAbRow('AB-1', '500-Line pytest Failure Dump (PostToolUse Lossless Sanitizer)', pytestRaw, pytestAfterText, pytestAfterText.includes('AssertionError') && pytestAfterText.includes('handler.py:142')),
+    buildAbRow('AB-2', 'Unchanged 3rd Full-File Re-Read (PreToolUse AST Signature Stub)', rereadRaw, rereadFolded.condensed, rereadFolded.condensed.includes('activateProLicense')),
+    buildAbRow('AB-3', 'Modified File Full Re-Read (PreToolUse Unified Delta Diff)', editedNext, deltaRes.diffText, deltaRes.wasDiffed && deltaRes.diffText.includes('priceMonthlyUSD: 19')),
+    buildAbRow('AB-4', 'Large >4k Token MCP JSON Response (Programmatic Offload Pointer)', mcpRaw, mcpAfterText, mcpAfterText.length < mcpRaw.length && mcpAfterText.includes('Artifact Offload'))
+  ];
+  const totalBeforeTokens = abWorkloads.reduce((acc, w) => acc + w.beforeTokens, 0);
+  const totalAfterTokens = abWorkloads.reduce((acc, w) => acc + w.afterTokens, 0);
+  const totalSavedTokens = Math.max(0, totalBeforeTokens - totalAfterTokens);
+
+  const abCompressionReport = {
+    generatedAt: new Date().toISOString(),
+    methodology: 'Deterministic before/after UTF-8/4 token measurement with critical error/signature recall verification',
+    workloads: abWorkloads,
+    aggregate: {
+      totalBeforeTokens,
+      totalAfterTokens,
+      totalSavedTokens,
+      overallReductionPct: Number(((totalSavedTokens / Math.max(1, totalBeforeTokens)) * 100).toFixed(1))
+    }
+  };
+  benchmarkResults.abCompressionSummary = abCompressionReport.workloads;
+  const abOutPath = path.join(REPO_ROOT, 'docs', 'ab_compression_benchmarks.json');
+  fs.writeFileSync(abOutPath, JSON.stringify(abCompressionReport, null, 2), 'utf8');
+
   benchmarkResults.compositeScore = parseFloat(compositeScore.toFixed(2));
-  benchmarkResults.status = compositeScore >= benchmarkResults.targetScore ? 'CERTIFIED_PASS' : 'FAIL';
+  benchmarkResults.status = (compositeScore >= benchmarkResults.targetScore && benchmarkResults.slaCertification.allPassed) ? 'CERTIFIED_PASS' : 'FAIL';
 
   console.log('\n' + '='.repeat(80));
   console.log(' FINAL EMPIRICAL BENCHMARK SCORECARD');

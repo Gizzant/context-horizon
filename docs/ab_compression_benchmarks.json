@@ -1,0 +1,48 @@
+{
+  "generatedAt": "2026-11-13T01:11:47.424Z",
+  "methodology": "Deterministic before/after UTF-8/4 token measurement with critical error/signature recall verification",
+  "workloads": [
+    {
+      "id": "AB-1",
+      "workload": "500-Line pytest Failure Dump (PostToolUse Lossless Sanitizer)",
+      "beforeTokens": 8244,
+      "afterTokens": 179,
+      "savedTokens": 8065,
+      "reductionPct": 97.8,
+      "criticalSignalPreserved": true
+    },
+    {
+      "id": "AB-2",
+      "workload": "Unchanged 3rd Full-File Re-Read (PreToolUse AST Signature Stub)",
+      "beforeTokens": 3168,
+      "afterTokens": 464,
+      "savedTokens": 2704,
+      "reductionPct": 85.4,
+      "criticalSignalPreserved": true
+    },
+    {
+      "id": "AB-3",
+      "workload": "Modified File Full Re-Read (PreToolUse Unified Delta Diff)",
+      "beforeTokens": 3176,
+      "afterTokens": 596,
+      "savedTokens": 2580,
+      "reductionPct": 81.2,
+      "criticalSignalPreserved": true
+    },
+    {
+      "id": "AB-4",
+      "workload": "Large >4k Token MCP JSON Response (Programmatic Offload Pointer)",
+      "beforeTokens": 14552,
+      "afterTokens": 108,
+      "savedTokens": 14444,
+      "reductionPct": 99.3,
+      "criticalSignalPreserved": true
+    }
+  ],
+  "aggregate": {
+    "totalBeforeTokens": 29140,
+    "totalAfterTokens": 1347,
+    "totalSavedTokens": 27793,
+    "overallReductionPct": 95.4
+  }
+}

@@ -236,7 +236,44 @@ export function isCrossHostHarnessEnabled(targetHarness, options = {}) {
   if (h === 'all' || h === 'cross-host') return true;
   if (targetHarness === 'claude') return h === 'claude' || h === 'claude-code';
   if (targetHarness === 'cursor') return h === 'cursor';
+  if (targetHarness === 'codex') return h === 'codex' || h === 'codex-cli';
+  if (targetHarness === 'gemini-cli') return h === 'gemini-cli';
   return false;
+}
+
+/**
+ * Returns OpenAI Codex CLI `~/.codex/sessions` directory ONLY when explicitly gated
+ * via `--harness=codex` or `--harness=all`. Strictly scopes to session rollout transcripts.
+ */
+export function getCodexSessionsDir(homeDir = getHomeDir(), options = {}) {
+  if (!isCrossHostHarnessEnabled('codex', options)) {
+    return '';
+  }
+  return path.join(homeDir, '.codex', 'sessions');
+}
+
+/**
+ * Returns Google Gemini CLI `~/.gemini/tmp/<hash>/chats` directories ONLY when explicitly gated
+ * via `--harness=gemini-cli` or `--harness=all`. Strictly scopes to `chats` subdirectories
+ * (never touches root credential files).
+ */
+export function getGeminiCliChatsDirs(homeDir = getHomeDir(), options = {}) {
+  if (!isCrossHostHarnessEnabled('gemini-cli', options)) {
+    return [];
+  }
+  const tmpRoot = path.join(homeDir, '.gemini', 'tmp');
+  if (!fs.existsSync(tmpRoot)) return [];
+  const chatDirs = [];
+  try {
+    for (const entry of fs.readdirSync(tmpRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const chatsSubdir = path.join(tmpRoot, entry.name, 'chats');
+      if (fs.existsSync(chatsSubdir)) {
+        chatDirs.push(chatsSubdir);
+      }
+    }
+  } catch {}
+  return chatDirs;
 }
 
 /**

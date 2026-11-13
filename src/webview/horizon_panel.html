@@ -4320,19 +4320,56 @@
     }
   }
 
-  // Dual-Watermark + Hard Ceiling markers on the context bar
+  // Dual-Watermark + Hard Ceiling markers on the context bar (Harness-Aware: Antigravity vs Claude Code vs Cursor/Codex/Gemini CLI)
   function renderLimitLine(safeLimit, maxTokens, effortProfile = null) {
     const denom = Math.max(1, maxTokens || 256000);
+    const rawHost = String(
+      currentRenderedState?.harness ||
+      currentRenderedState?.surface ||
+      currentRenderedState?.workspace?.harness ||
+      currentRenderedState?.surfaceTag ||
+      'antigravity'
+    ).toLowerCase();
+    const activeModLower = String(
+      typeof currentRenderedState?.activeModel === 'string'
+        ? currentRenderedState.activeModel
+        : (typeof currentRenderedState?.model === 'string' ? currentRenderedState.model : (currentRenderedState?.model?.id || ''))
+    ).toLowerCase();
+    const isClaudeHost = rawHost.includes('claude') || activeModLower.includes('claude-');
+    const isOtherExternalHost = !isClaudeHost && (rawHost.includes('cursor') || rawHost.includes('codex') || rawHost.includes('gemini-cli'));
 
-    // Tick Mark 1 (50k tokens): Cascade Sync Armed
+    // Tick Mark 1: Harness-specific physical cliff or 50k Antigravity Cascade Sync
     const cascadeLine = document.getElementById('cascadeWatermarkLine');
     const cascadeTag = document.getElementById('cascadeWatermarkTag');
     if (cascadeLine && cascadeTag) {
-      const cascadePct = Math.round(Math.min(100, Math.max(0, (50000 / denom) * 100)) * 10) / 10;
-      cascadeLine.style.left = cascadePct + '%';
-      cascadeLine.dataset.tokens = '50000';
-      cascadeTag.textContent = '50k Sync';
-      cascadeLine.title = '50k Cascade Sync Armed: Crossing 50k arms the automatic checkpointer. Completing a task.md item or switching subagents will trigger synchronous auto-compaction.';
+      if (isClaudeHost) {
+        if (activeModLower.includes('haiku') && denom >= 100000) {
+          cascadeLine.hidden = false;
+          const cliffPct = Math.round(Math.min(100, Math.max(0, (100000 / denom) * 100)) * 10) / 10;
+          cascadeLine.style.left = cliffPct + '%';
+          cascadeLine.dataset.tokens = '100000';
+          cascadeTag.textContent = '100k 5x Cliff';
+          cascadeLine.title = '100k Haiku 5.5 Pricing Cliff (DET-12): Input & cache rates jump 5x past 100k tokens.';
+        } else if (denom > 200000) {
+          cascadeLine.hidden = false;
+          const cliffPct = Math.round(Math.min(100, Math.max(0, (200000 / denom) * 100)) * 10) / 10;
+          cascadeLine.style.left = cliffPct + '%';
+          cascadeLine.dataset.tokens = '200000';
+          cascadeTag.textContent = '200k Pricing Cliff';
+          cascadeLine.title = '200k Anthropic Extended-Context Pricing Cliff: Input/output rates step up above 200k tokens.';
+        } else {
+          cascadeLine.hidden = true;
+        }
+      } else if (isOtherExternalHost) {
+        cascadeLine.hidden = true;
+      } else {
+        cascadeLine.hidden = false;
+        const cascadePct = Math.round(Math.min(100, Math.max(0, (50000 / denom) * 100)) * 10) / 10;
+        cascadeLine.style.left = cascadePct + '%';
+        cascadeLine.dataset.tokens = '50000';
+        cascadeTag.textContent = '50k Sync';
+        cascadeLine.title = '50k Cascade Sync Armed: Crossing 50k arms the automatic checkpointer. Completing a task.md item or switching subagents will trigger synchronous auto-compaction.';
+      }
     }
 
     // Tick Mark 2 (70% of ceiling / configured safeLimit, 179k on 256k): Attention Horizon (Safe Limit)
@@ -4352,14 +4389,24 @@
       line.title = `${fmtK(safeLimit)} Attention Horizon (Safe Limit)${labelSuffix}${reasonSuffix}: Above this mark, earliest instructions start being forgotten`;
     }
 
-    // Tick Mark 3 (Ceiling / 256k): Hard assembly limit (cortex/utils.GetCheckpointConfig)
+    // Tick Mark 3 (Ceiling): Hard assembly / host context limit
     const ceilingLine = document.getElementById('hardCeilingLine');
     const ceilingTag = document.getElementById('hardCeilingTag');
     if (ceilingLine && ceilingTag) {
       ceilingLine.dataset.tokens = String(denom);
-      ceilingLine.dataset.source = 'cortex/utils.GetCheckpointConfig';
-      ceilingTag.textContent = fmtK(denom);
-      ceilingLine.title = `${fmtK(denom)} Hard assembly limit (cortex/utils.GetCheckpointConfig)`;
+      if (isClaudeHost) {
+        ceilingLine.dataset.source = 'anthropic-pricing-tier';
+        ceilingTag.textContent = fmtK(denom);
+        ceilingLine.title = `${fmtK(denom)} Anthropic Context Ceiling`;
+      } else if (isOtherExternalHost) {
+        ceilingLine.dataset.source = 'host-context-window';
+        ceilingTag.textContent = fmtK(denom);
+        ceilingLine.title = `${fmtK(denom)} Host Context Ceiling`;
+      } else {
+        ceilingLine.dataset.source = 'cortex/utils.GetCheckpointConfig';
+        ceilingTag.textContent = fmtK(denom);
+        ceilingLine.title = `${fmtK(denom)} Hard assembly limit (cortex/utils.GetCheckpointConfig)`;
+      }
     }
   }
 
@@ -7974,14 +8021,17 @@
 
   // Simple / Advanced View Mode Tabs (shadcn/ui Tabs pattern)
   const savedViewMode = (function() {
-    try { return localStorage.getItem('ctxtop.viewMode') || 'simple'; } catch { return 'simple'; }
+    try { return localStorage.getItem('ah.viewMode') || localStorage.getItem('ctxtop.viewMode') || 'simple'; } catch { return 'simple'; }
   })();
   function applyViewMode(mode) {
     document.body.setAttribute('data-view-mode', mode);
     document.querySelectorAll('[data-view-tab]').forEach(b => {
       b.setAttribute('aria-selected', String(b.dataset.viewTab === mode));
     });
-    try { localStorage.setItem('ctxtop.viewMode', mode); } catch {}
+    try {
+      localStorage.setItem('ah.viewMode', mode);
+      localStorage.setItem('ctxtop.viewMode', mode);
+    } catch {}
     // Simple mode collapses the parameterized /compact template into a disclosure; Advanced shows it expanded.
     const paramDetails = document.getElementById('parameterizedCompactDetails');
     if (paramDetails) paramDetails.open = mode === 'advanced';
