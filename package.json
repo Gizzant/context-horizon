@@ -13,18 +13,18 @@
     "packages/mcp"
   ],
   "bin": {
-    "ah": "./bin/ctxtop.mjs",
-    "attention-horizon": "./bin/ctxtop.mjs",
-    "ctxtop": "./bin/ctxtop.mjs",
-    "ah-statusline": "./bin/ah-statusline.mjs",
-    "attention-horizon-antigravity": "./src/cli/init.mjs",
-    "ah-antigravity": "./src/cli/init.mjs",
-    "attention-horizon-claude": "./bin/ctxtop.mjs",
-    "ah-claude": "./bin/ctxtop.mjs",
-    "agy-horizon": "./src/cli/init.mjs",
-    "agy-horizon-flightcheck": "./src/cli/init.mjs",
-    "ah-mcp": "./packages/mcp/src/server.mjs",
-    "ctxtop-mcp": "./packages/mcp/src/server.mjs"
+    "ah": "bin/ctxtop.mjs",
+    "attention-horizon": "bin/ctxtop.mjs",
+    "ctxtop": "bin/ctxtop.mjs",
+    "ah-statusline": "bin/ah-statusline.mjs",
+    "attention-horizon-antigravity": "src/cli/init.mjs",
+    "ah-antigravity": "src/cli/init.mjs",
+    "attention-horizon-claude": "bin/ctxtop.mjs",
+    "ah-claude": "bin/ctxtop.mjs",
+    "agy-horizon": "src/cli/init.mjs",
+    "agy-horizon-flightcheck": "src/cli/init.mjs",
+    "ah-mcp": "packages/mcp/src/server.mjs",
+    "ctxtop-mcp": "packages/mcp/src/server.mjs"
   },
   "main": "./src/cli/horizon_hud.mjs",
   "files": [
