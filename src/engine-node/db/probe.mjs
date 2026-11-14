@@ -106,7 +106,20 @@ function evaluateFtsSnippet(haystack = '', rawQuery = '', openTag = '[', closeTa
   const words = out.split(/\s+/);
   const limit = Math.max(4, Number(maxTokens) || 16);
   if (words.length > limit) {
-    return `${words.slice(0, limit).join(' ')}${ellipsis}`;
+    let matchWordIdx = 0;
+    const lowerInclude = include.map(t => t.toLowerCase());
+    for (let i = 0; i < words.length; i++) {
+      const wLower = words[i].toLowerCase();
+      if (lowerInclude.some(tok => wLower.includes(tok))) {
+        matchWordIdx = i;
+        break;
+      }
+    }
+    const startIdx = Math.max(0, Math.min(words.length - limit, matchWordIdx - Math.floor(limit / 3)));
+    const endIdx = startIdx + limit;
+    const prefix = startIdx > 0 ? ellipsis : '';
+    const suffix = endIdx < words.length ? ellipsis : '';
+    return `${prefix}${words.slice(startIdx, endIdx).join(' ')}${suffix}`;
   }
   return out;
 }
@@ -126,9 +139,9 @@ function createFts5PolyfillClass(RawDatabaseSync) {
           this.function('__hz_fts_bm25', (haystack) => {
             return evaluateFtsBm25(haystack, this._activeFtsQuery);
           });
-          this.function('__hz_fts_snippet', (haystack, openTag, closeTag, ellipsis, maxTok) => {
-            return evaluateFtsSnippet(haystack, this._activeFtsQuery, openTag, closeTag, ellipsis, maxTok);
-          });
+      this.function('__hz_fts_snippet', (haystack, openTag, closeTag, ellipsis, maxTok) => {
+        return evaluateFtsSnippet(haystack, this._activeFtsQuery, openTag, closeTag, ellipsis, maxTok);
+      });
         }
       } catch {
         // Ignore if custom functions cannot be registered
