@@ -17,6 +17,7 @@ import {
 } from '../utils/nodeIo.mjs';
 import { loadModelCatalog } from '../core-isomorphic/config/catalogLoader.mjs';
 import { loadHorizonConfig } from '../core-isomorphic/config/horizonConfig.mjs';
+import { inspectClaudeBinaryCapabilities } from './claudeHookCapabilities.mjs';
 
 /**
  * Redacts the user's OS home directory from any diagnostic string.
@@ -186,12 +187,20 @@ export function runDoctorDiagnostics(options = {}) {
   });
 
   const hookDiagnostics = inspectHookDiagnostics({ ...options, cwd });
-  const ok = checks.every((c) => c.ok);
+  const claudeCapabilities = inspectClaudeBinaryCapabilities({
+    ...options,
+    cwd,
+    recordDiagnostic: false
+  });
+  const ok =
+    checks.every((c) => c.ok) &&
+    (!options.strictClaudeCheck || Boolean(claudeCapabilities.found && claudeCapabilities.contractValid));
 
   return {
     ok,
     nodeVersion,
     checks,
+    claudeCapabilities,
     hookDiagnostics
   };
 }

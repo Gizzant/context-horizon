@@ -11,10 +11,96 @@
 
 import {
   BUILTIN_CATALOG,
+  isKnownCatalogModel,
   normalizeModelId,
   computeTotalPromptTokens,
   resolveEffectiveRates
 } from '../config/catalogLoader.mjs';
+
+export const EMPIRICAL_SESSION_API_CALL_PRIOR = Object.freeze({
+  sampleCount: 496,
+  interactiveSampleCount: 120,
+  unconditionalMedian: 62,
+  unconditionalP25: 35,
+  unconditionalP75: 96,
+  survivalBuckets: Object.freeze([
+    { maxTurn: 3, remainingMedian: 59 },
+    { maxTurn: 6, remainingMedian: 57 },
+    { maxTurn: 12, remainingMedian: 54 },
+    { maxTurn: 24, remainingMedian: 47 },
+    { maxTurn: Infinity, remainingMedian: 34 }
+  ])
+});
+
+/**
+ * Estimates expected remaining API calls before the session ends or hits `/compact`,
+ * using conditional survival residuals from 496 real local sessions (`median = 62` API calls,
+ * `interactive median = 97` API calls) capped by remaining headroom to auto-compaction.
+ *
+ * @param {object} [context={}]
+ * @param {object} [options={}]
+ * @returns {{
+ *   expectedRemainingTurns: number,
+ *   empiricalResidual: number,
+ *   callsUntilCompact: number,
+ *   source: string
+ * }}
+ */
+export function estimateEmpiricalRemainingTurns(context = {}, options = {}) {
+  const turnsCompleted = Math.max(0, Number(context.turnsCompleted ?? context.currentTurn ?? 0));
+  const cachedTokens = Math.max(0, Number(context.cachedTokens ?? 0));
+  const contextCeiling = Math.max(10_000, Number(context.contextCeiling || 200_000));
+  const autoCompactLimitTokens = Math.max(
+    10_000,
+    Number(context.autoCompactLimitTokens || Math.round(contextCeiling * 0.8))
+  );
+
+  let empiricalResidual;
+  let source = 'empirical_496_session_prior';
+  const hist = options.historicalSessionApiCalls;
+  if (Array.isArray(hist) && hist.length >= 5) {
+    source = 'local_transcripts';
+    const survivors = hist
+      .map((n) => Number(n))
+      .filter((n) => Number.isFinite(n) && n > turnsCompleted)
+      .map((n) => n - turnsCompleted)
+      .sort((a, b) => a - b);
+    if (survivors.length > 0) {
+      empiricalResidual = survivors[Math.floor((survivors.length - 1) / 2)];
+    } else {
+      const sorted = hist
+        .map((n) => Number(n))
+        .filter((n) => Number.isFinite(n) && n > 0)
+        .sort((a, b) => a - b);
+      empiricalResidual = sorted.length > 0
+        ? Math.max(1, sorted[Math.floor((sorted.length - 1) * 0.25)])
+        : 10;
+    }
+  } else {
+    const bucket = EMPIRICAL_SESSION_API_CALL_PRIOR.survivalBuckets.find(
+      (b) => turnsCompleted <= b.maxTurn
+    );
+    empiricalResidual = bucket ? bucket.remainingMedian : 34;
+  }
+
+  const baselinePrefix = 8850;
+  const observedGrowth =
+    turnsCompleted > 0 && cachedTokens > baselinePrefix
+      ? (cachedTokens - baselinePrefix) / turnsCompleted
+      : 600;
+  const avgDeltaTokensPerCall = Math.min(12_000, Math.max(300, observedGrowth));
+  const callsUntilCompact =
+    cachedTokens >= autoCompactLimitTokens
+      ? 1
+      : Math.max(1, Math.floor((autoCompactLimitTokens - cachedTokens) / avgDeltaTokensPerCall));
+
+  return {
+    expectedRemainingTurns: Math.min(empiricalResidual, callsUntilCompact),
+    empiricalResidual,
+    callsUntilCompact,
+    source
+  };
+}
 
 export const FLIGHT_MODES = Object.freeze({
   OFF: 'OFF',
@@ -127,10 +213,8 @@ export function isSilentOrOffMode(mode = 'COACH') {
  * @param {object} [options={}]
  */
 export function computeBreakEvenCachedTokens(params = {}, options = {}) {
-  const rawCurrentModel = params.currentModel || 'claude-opus-5-5';
-  const rawTargetModel = params.targetModel || 'claude-sonnet-5-5';
-  const currentModel = normalizeModelId(rawCurrentModel);
-  const targetModel = normalizeModelId(rawTargetModel);
+  const rawCurrentModel = params.currentModel ?? 'claude-opus-5-5';
+  const rawTargetModel = params.targetModel ?? 'claude-sonnet-5-5';
   const expectedOutputTokens = Math.max(
     0,
     Number(params.expectedOutputTokens ?? DEFAULT_EXPECTED_OUTPUT_TOKENS)
@@ -144,6 +228,57 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
     cachedTokens + uncachedDeltaTokens,
     computeTotalPromptTokens(params)
   );
+
+  const currentKnown =
+    params.currentModel !== undefined ? isKnownCatalogModel(rawCurrentModel, options) : true;
+  const targetKnown =
+    params.targetModel !== undefined ? isKnownCatalogModel(rawTargetModel, options) : true;
+
+  if (!currentKnown || !targetKnown) {
+    const unknownModelIds = [];
+    if (!currentKnown) unknownModelIds.push(String(rawCurrentModel));
+    if (!targetKnown && String(rawTargetModel) !== String(rawCurrentModel)) {
+      unknownModelIds.push(String(rawTargetModel));
+    }
+    const rawRemaining = params.expectedRemainingTurns ?? options.expectedRemainingTurns;
+    const hasExplicitRemaining =
+      rawRemaining !== undefined &&
+      rawRemaining !== null &&
+      Number.isFinite(Number(rawRemaining));
+    const useEmpirical = Boolean(
+      params.useEmpiricalHorizonPrior ?? options.useEmpiricalHorizonPrior
+    );
+    return {
+      unknownModel: true,
+      unknownModelIds,
+      currentModel: String(rawCurrentModel || ''),
+      targetModel: String(rawTargetModel || ''),
+      expectedOutputTokens,
+      cachedTokens,
+      uncachedDeltaTokens,
+      totalPromptTokens,
+      cacheWarm,
+      cacheTtlTier: ttlTier,
+      writeMultiplierLabel: ttlTier === '1h' ? '2.0x' : '1.25x',
+      isCapabilityUpshift: false,
+      breakEvenTokens: 0,
+      rates: null,
+      stayOnCurrentModelUSD: 0,
+      switchToTargetModelUSD: 0,
+      coldWritePenaltyUSD: 0,
+      perTurnPostSwitchSavingUSD: 0,
+      paybackTurns: 0,
+      expectedRemainingTurns: hasExplicitRemaining ? Math.max(0, Number(rawRemaining)) : null,
+      horizonNetSavingsUSD: null,
+      horizonPriorSource: null,
+      ruleVersion: hasExplicitRemaining || useEmpirical ? 'rule_v2' : 'rule_v1',
+      shouldHold: false,
+      shouldHoldModel: false
+    };
+  }
+
+  const currentModel = normalizeModelId(rawCurrentModel);
+  const targetModel = normalizeModelId(rawTargetModel);
   const currRates = resolveEffectiveRates(rawCurrentModel, totalPromptTokens, options);
   const targetRates = resolveEffectiveRates(rawTargetModel, totalPromptTokens, options);
 
@@ -218,11 +353,32 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
         : Infinity;
 
   const rawRemainingTurns = params.expectedRemainingTurns ?? options.expectedRemainingTurns;
-  const hasHorizonTurns =
+  const hasExplicitRemaining =
     rawRemainingTurns !== undefined &&
     rawRemainingTurns !== null &&
     Number.isFinite(Number(rawRemainingTurns));
-  const expectedRemainingTurns = hasHorizonTurns ? Math.max(0, Number(rawRemainingTurns)) : null;
+  const useEmpiricalHorizonPrior = Boolean(
+    params.useEmpiricalHorizonPrior ?? options.useEmpiricalHorizonPrior
+  );
+  let expectedRemainingTurns = null;
+  let horizonPriorSource = null;
+  if (hasExplicitRemaining) {
+    expectedRemainingTurns = Math.max(0, Number(rawRemainingTurns));
+    horizonPriorSource = 'explicit';
+  } else if (useEmpiricalHorizonPrior) {
+    const prior = estimateEmpiricalRemainingTurns(
+      {
+        turnsCompleted: params.turnsCompleted ?? params.currentTurn ?? 0,
+        cachedTokens,
+        contextCeiling: currRates.contextCeiling,
+        autoCompactLimitTokens: params.autoCompactLimitTokens
+      },
+      options
+    );
+    expectedRemainingTurns = prior.expectedRemainingTurns;
+    horizonPriorSource = prior.source;
+  }
+  const hasHorizonTurns = expectedRemainingTurns !== null;
   const horizonNetSavingsUSD = hasHorizonTurns
     ? Number((expectedRemainingTurns * perTurnPostSwitchSavingUSD - coldWritePenaltyUSD).toFixed(6))
     : null;
@@ -241,6 +397,8 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
     : singleTurnShouldHold;
 
   return {
+    unknownModel: false,
+    unknownModelIds: [],
     currentModel,
     targetModel,
     expectedOutputTokens,
@@ -267,6 +425,7 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
     paybackTurns,
     expectedRemainingTurns,
     horizonNetSavingsUSD,
+    horizonPriorSource,
     ruleVersion: hasHorizonTurns ? 'rule_v2' : 'rule_v1',
     shouldHold: shouldHoldModel,
     shouldHoldModel
@@ -552,6 +711,25 @@ export class CacheGravityRouter {
       };
     }
 
+    if (breakEven.unknownModel) {
+      const unknownList = breakEven.unknownModelIds.join(', ');
+      const warning = `[Highbeam DET-08 Warning] Unrecognized non-Anthropic model (${unknownList}) is not in the Anthropic pricing catalog; passing model switch through without hold.`;
+      return {
+        detectorId: 'DET-08',
+        mode: this.mode,
+        decision: 'allow',
+        blocked: false,
+        advisory: true,
+        unknownModel: true,
+        warning,
+        hysteresisLocked: false,
+        breakEven,
+        recommendedModel: breakEven.targetModel,
+        subagentDelegation: null,
+        reason: warning
+      };
+    }
+
     if (breakEven.shouldHoldModel) {
       // Unconditional prefix-loss protection: exempt from 3-turn advisory cooldown
       const writeMultLabel = breakEven.cacheTtlTier === '1h' ? '2.0x' : '1.25x';
@@ -564,12 +742,21 @@ export class CacheGravityRouter {
         reason: `Delegate routine file search/exploration to an isolated Explore/Task subagent on claude-haiku-5-5 (<2k context) while keeping main-thread ${breakEven.currentModel} cache warm.`
       };
 
+      const paybackDetail =
+        Number.isFinite(breakEven.paybackTurns) && breakEven.paybackTurns > 0
+          ? `; payback ~${breakEven.paybackTurns.toFixed(1)} turns at +$${breakEven.perTurnPostSwitchSavingUSD.toFixed(4)}/turn post-switch saving`
+          : '';
+      const horizonDetail =
+        breakEven.expectedRemainingTurns !== null
+          ? `; estimated remaining horizon ~${breakEven.expectedRemainingTurns} turns`
+          : '';
       const reasonText =
         `[DET-08 Warm KV-Cache Hold] Switching from ${breakEven.currentModel} to ${breakEven.targetModel} ` +
         `with ${breakEven.cachedTokens.toLocaleString()} warm cached tokens exceeds break-even ` +
         `C* = ${breakEven.breakEvenTokens.toLocaleString()} tokens and incurs a ` +
-        `+$${breakEven.coldWritePenaltyUSD.toFixed(4)} cold ${writeMultLabel} prefix rewrite penalty. ` +
-        `Keep main thread on ${breakEven.currentModel} or spawn an Explore subagent on claude-haiku-5-5.`;
+        `+$${breakEven.coldWritePenaltyUSD.toFixed(4)} cold ${writeMultLabel} prefix rewrite penalty` +
+        `${paybackDetail}${horizonDetail}. ` +
+        `Keep main thread on ${breakEven.currentModel} or confirm if this session will run past payback.`;
 
       // In COACH mode (default), remain 100% advisory and non-blocking unless strictBlock is explicitly set
       if (this.mode === FLIGHT_MODES.COACH && !request.strictBlock && !this.options.strictBlock) {
@@ -637,8 +824,9 @@ export class CacheGravityRouter {
 
   /**
    * Evaluates a mid-session top-level `effort`, `thinking`, `system_prompt`, or `mcp_tools`
-   * mutation (`DET-09`). When the cache is warm, queues the mutation in `PostCompactMutationQueue`
-   * so it takes effect immediately after compaction without invalidating the warm cache prefix.
+   * mutation (`DET-09`). Because Claude Code does not expose a native `/effort` pre-hook,
+   * this acts as an advisory/post-hoc warning or host-mediated `PostCompactMutationQueue` entry
+   * rather than an interactive `/effort` TUI blocker.
    *
    * @param {object} [mutationRequest={}]
    * @param {'effort'|'thinking'|'speed'|'system_prompt'|'mcp_tools'} [mutationRequest.type='effort']
@@ -650,7 +838,36 @@ export class CacheGravityRouter {
    * @param {'5m'|'1h'} [mutationRequest.cacheTtlTier='5m']
    */
   interceptTopLevelMutation(mutationRequest = {}) {
-    const rawModel = mutationRequest.currentModel || mutationRequest.modelId || 'claude-opus-5-5';
+    const explicitModel = mutationRequest.currentModel ?? mutationRequest.modelId;
+    if (explicitModel !== undefined && !isKnownCatalogModel(explicitModel, this.options)) {
+      if (isSilentOrOffMode(this.mode)) {
+        return {
+          detectorId: 'DET-09',
+          triggered: false,
+          queued: false,
+          decision: 'allow',
+          unknownModel: true,
+          avoidedRewritePenaltyUSD: 0,
+          queueSize: this.mutationQueue.size(),
+          reason: null
+        };
+      }
+      const warning = `[Highbeam DET-09 Warning] Unrecognized non-Anthropic model (${String(explicitModel)}) is not in the Anthropic pricing catalog; passing mutation through.`;
+      return {
+        detectorId: 'DET-09',
+        triggered: false,
+        queued: false,
+        decision: 'allow',
+        advisory: true,
+        unknownModel: true,
+        warning,
+        avoidedRewritePenaltyUSD: 0,
+        queueSize: this.mutationQueue.size(),
+        reason: warning
+      };
+    }
+
+    const rawModel = explicitModel || 'claude-opus-5-5';
     const modelId = normalizeModelId(rawModel);
     const cachedTokens = Math.max(0, Number(mutationRequest.cachedTokens ?? 0));
     const hasTtlField =
@@ -854,6 +1071,8 @@ export default {
   DEFAULT_EXPECTED_OUTPUT_TOKENS,
   DEFAULT_DET09_OUTPUT_DELTA_TOKENS,
   DEFAULT_ADVISORY_COOLDOWN_TURNS,
+  EMPIRICAL_SESSION_API_CALL_PRIOR,
+  estimateEmpiricalRemainingTurns,
   normalizeFlightMode,
   isSilentOrOffMode,
   isPrefixInstructionFile,

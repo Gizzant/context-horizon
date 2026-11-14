@@ -1363,9 +1363,15 @@ export function runCli(args = [], options = {}) {
       return { exitCode: res.ok ? 0 : 1, output: JSON.stringify(res, null, 2), data: res };
     }
     const hookDiag = res.hookDiagnostics || { recentErrorCount: 0, recentErrors: [] };
+    const ccCap = res.claudeCapabilities;
     const lines = [
       `[Highbeam Doctor] Status: ${res.ok ? 'HEALTHY' : 'ISSUES DETECTED'}`,
       ...res.checks.map((c) => `  [${c.ok ? 'PASS' : 'FAIL'}] ${c.id}: ${c.detail}`),
+      ...(ccCap?.found
+        ? [
+            `  [${ccCap.contractValid ? 'PASS' : 'WARN'}] claude_pre_model_switch: Claude Code ${ccCap.claudeVersion || 'unknown'} | PreModelSwitch=${ccCap.preModelSwitchSupported} | ask=${ccCap.supportsAskDecision} | PreEffortChange=${ccCap.preEffortChangeSupported}`
+          ]
+        : []),
       `  [${hookDiag.recentErrorCount > 0 ? 'WARN' : 'PASS'}] hook_diagnostics: ${hookDiag.recentErrorCount} recent non-fatal error(s)`
     ];
     for (const errEntry of hookDiag.recentErrors) {

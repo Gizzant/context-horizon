@@ -13,6 +13,7 @@ import { evaluateDet17AutoCompactionDeferral } from '../../src/core-isomorphic/g
 import { loadHorizonConfig, resolveDetectorOverride } from '../../src/core-isomorphic/config/horizonConfig.mjs';
 import { loadMicroSkillsRegistry, formatMicroSkillsBatonSnippet } from '../../src/core-isomorphic/coach/microSkills.mjs';
 import { readTextSafe, resolvePath, getCwd } from '../../src/core-isomorphic/utils/runtime.mjs';
+import { inspectClaudeBinaryCapabilities } from '../../src/diagnostics/claudeHookCapabilities.mjs';
 import {
   isCliEntrypoint,
   readStdinJsonAsync,
@@ -168,9 +169,16 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
     }
 
     let hookSpecificOutput = hydration.hookSpecificOutput || null;
+    const claudeCapabilities =
+      options.checkCapabilities === false
+        ? null
+        : inspectClaudeBinaryCapabilities({ ...cwdOptions, cwd, probeVersion: false });
     const extraBlocks = [];
     if (microSkillsBaton) extraBlocks.push(microSkillsBaton);
     if (ruleAudit.triggered) extraBlocks.push(ruleAudit.advisory);
+    if (claudeCapabilities?.found && !claudeCapabilities.contractValid && claudeCapabilities.warning) {
+      extraBlocks.push(claudeCapabilities.warning);
+    }
 
     if (extraBlocks.length > 0) {
       const joinedExtra = extraBlocks.join('\n\n');
@@ -196,7 +204,8 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
         result: {
           ...hydration,
           ruleAudit,
-          microSkillsBaton
+          microSkillsBaton,
+          claudeCapabilities
         }
       };
     }
@@ -204,7 +213,10 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
       exitCode: 0,
       stdout: '',
       stderr: '',
-      result: hydration
+      result: {
+        ...hydration,
+        claudeCapabilities
+      }
     };
   }
 

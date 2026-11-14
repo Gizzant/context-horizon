@@ -547,6 +547,9 @@ export function loadHorizonConfig(options = {}) {
   const warnings = [];
   let flightMode = DEFAULT_HORIZON_CONFIG.flightMode;
   let resolvedNamespace = DEFAULT_HORIZON_CONFIG.detectorNamespace;
+  let autoPilotDecision = null;
+  let expectedRemainingTurns = null;
+  let useEmpiricalHorizonPrior = false;
 
   const mergeHabitSlugsFromMap = (mapObj) => {
     if (!mapObj || typeof mapObj !== 'object' || Array.isArray(mapObj)) return;
@@ -657,6 +660,20 @@ export function loadHorizonConfig(options = {}) {
         }
       }
     }
+
+    if (layer.autoPilotDecision === 'ask' || layer.autoPilotDecision === 'deny') {
+      autoPilotDecision = layer.autoPilotDecision;
+    }
+    if (
+      layer.expectedRemainingTurns !== undefined &&
+      layer.expectedRemainingTurns !== null &&
+      Number.isFinite(Number(layer.expectedRemainingTurns))
+    ) {
+      expectedRemainingTurns = Math.max(0, Number(layer.expectedRemainingTurns));
+    }
+    if (typeof layer.useEmpiricalHorizonPrior === 'boolean') {
+      useEmpiricalHorizonPrior = layer.useEmpiricalHorizonPrior;
+    }
   };
 
   mergeLayer(globalRaw, { isDiskLayer: true, sourceLabel: globalConfigPath });
@@ -680,6 +697,9 @@ export function loadHorizonConfig(options = {}) {
     semanticDetectors,
     thresholds,
     warnings,
+    ...(autoPilotDecision ? { autoPilotDecision } : {}),
+    ...(expectedRemainingTurns !== null ? { expectedRemainingTurns } : {}),
+    ...(useEmpiricalHorizonPrior ? { useEmpiricalHorizonPrior: true } : {}),
     sources: {
       globalLoaded: Boolean(globalRaw),
       projectLoaded: Boolean(projectRaw),

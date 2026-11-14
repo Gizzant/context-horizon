@@ -3,6 +3,7 @@
  * Tier 2 Command Hook handler for `PreModelSwitch` (`DET-08` Warm KV-Cache Cross-Model Switch Guard).
  */
 
+import { fs, path, os, readJsonSafe, writeJsonAtomic } from '../../src/utils/nodeIo.mjs';
 import { readLiveStateSnapshot } from '../../src/core-isomorphic/telemetry/telemetryBridge.mjs';
 import { computeTotalPromptTokens } from '../../src/core-isomorphic/config/catalogLoader.mjs';
 import { loadHorizonConfig, resolveDetectorOverride } from '../../src/core-isomorphic/config/horizonConfig.mjs';
@@ -16,6 +17,88 @@ import {
   exitHardBlockStderr,
   exitWithStdoutJson
 } from './hookIo.mjs';
+
+const PRIOR_CACHE_TTL_MS = 3_600_000;
+
+/**
+ * Samples recent local Claude Code session assistant-turn counts (read-only, bounded to 50 files,
+ * 1h disk cache under `<cwd>/.claude/cache/ah_session_prior.json`) when `useEmpiricalHorizonPrior`
+ * is active and explicit `historicalSessionApiCalls` were not passed.
+ *
+ * @param {object} [options={}]
+ * @returns {number[] | null}
+ */
+function loadLocalClaudeSessionApiCalls(options = {}) {
+  if (Array.isArray(options.historicalSessionApiCalls)) {
+    return options.historicalSessionApiCalls;
+  }
+  const cwd = options.cwd || globalThis.process?.cwd?.() || '.';
+  const cachePath = path.join(cwd, '.claude', 'cache', 'ah_session_prior.json');
+  const nowMs = Number.isFinite(Number(options.nowMs)) ? Number(options.nowMs) : Date.now();
+  const cached = readJsonSafe(cachePath, null, options);
+  if (
+    cached &&
+    Array.isArray(cached.apiCounts) &&
+    Number.isFinite(cached.sampledAtMs) &&
+    nowMs - cached.sampledAtMs < PRIOR_CACHE_TTL_MS
+  ) {
+    return cached.apiCounts;
+  }
+
+  try {
+    const home = options.homeDir || os.homedir();
+    const ccProjects = path.join(home, '.claude', 'projects');
+    if (!fs.existsSync(ccProjects)) return null;
+
+    const jsonlFiles = [];
+    const queue = [ccProjects];
+    while (queue.length > 0 && jsonlFiles.length < 150) {
+      const dir = queue.shift();
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name !== 'subagents') queue.push(full);
+        } else if (entry.name.endsWith('.jsonl')) {
+          const st = fs.statSync(full);
+          if (st.size >= 512 && st.size <= 5_000_000) {
+            jsonlFiles.push({ path: full, mtimeMs: st.mtimeMs });
+          }
+        }
+      }
+    }
+    jsonlFiles.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    const apiCounts = [];
+    for (const item of jsonlFiles.slice(0, 50)) {
+      let fd = null;
+      try {
+        fd = fs.openSync(item.path, 'r');
+        const txt = fs.readFileSync(fd, 'utf8');
+        let assistantTurns = 0;
+        for (const line of txt.split(/\r?\n/)) {
+          if (line.includes('"type":"assistant"')) assistantTurns += 1;
+        }
+        if (assistantTurns >= 2) apiCounts.push(assistantTurns);
+      } catch {
+        // Ignore unreadable session file
+      } finally {
+        if (fd !== null) {
+          try {
+            fs.closeSync(fd);
+          } catch {
+            // Ignore close failure
+          }
+        }
+      }
+    }
+    if (apiCounts.length >= 5) {
+      writeJsonAtomic(cachePath, { sampledAtMs: nowMs, apiCounts }, options);
+      return apiCounts;
+    }
+  } catch {
+    // Fallback to built-in 496-session prior
+  }
+  return null;
+}
 
 /**
  * Evaluates a `PreModelSwitch` event against `CacheGravityRouter` break-even threshold `C*`.
@@ -61,10 +144,30 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
   const effectiveMode =
     rawEffectiveMode === 'AUTO_PILOT' && !proAutoPilot.allowed ? 'COACH' : rawEffectiveMode;
 
+  const rawRemainingTurns =
+    event.expected_remaining_turns ??
+    event.expectedRemainingTurns ??
+    options.expectedRemainingTurns ??
+    horizonConfig?.expectedRemainingTurns;
+  const useEmpiricalHorizonPrior = Boolean(
+    event.use_empirical_horizon_prior ??
+      event.useEmpiricalHorizonPrior ??
+      options.useEmpiricalHorizonPrior ??
+      horizonConfig?.useEmpiricalHorizonPrior
+  );
+  const turnsCompleted = Number(
+    event.current_turn ?? event.currentTurn ?? liveState?.turnsCompleted ?? 0
+  );
+  const historicalSessionApiCalls =
+    useEmpiricalHorizonPrior && (rawRemainingTurns === undefined || rawRemainingTurns === null)
+      ? loadLocalClaudeSessionApiCalls(cwdOptions)
+      : options.historicalSessionApiCalls;
+
   const router =
     options.router ||
     new CacheGravityRouter({
       ...cwdOptions,
+      ...(historicalSessionApiCalls ? { historicalSessionApiCalls } : {}),
       mode: effectiveMode,
       strictBlock:
         det08Override === 'block' ? true : (event.strictBlock ?? options.strictBlock)
@@ -135,11 +238,21 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
     computeTotalPromptTokens(usageSource)
   );
 
-  const rawRemainingTurns =
-    event.expected_remaining_turns ??
-    event.expectedRemainingTurns ??
-    options.expectedRemainingTurns ??
-    horizonConfig?.expectedRemainingTurns;
+  const isNativePreModelSwitch = Boolean(
+    event.hook_event_name === 'PreModelSwitch' ||
+      event.from_model !== undefined ||
+      event.to_model !== undefined ||
+      event.fromModel !== undefined ||
+      event.toModel !== undefined ||
+      options.nativeHook === true
+  );
+  const resolvedAutoPilotDecision =
+    det08Override === 'block'
+      ? 'deny'
+      : (event.autoPilotDecision ??
+          options.autoPilotDecision ??
+          horizonConfig?.autoPilotDecision ??
+          (isNativePreModelSwitch ? 'ask' : 'deny'));
 
   let resolvedExpectedOutputTokens = event.expectedOutputTokens ?? options.expectedOutputTokens;
   if (
@@ -168,13 +281,16 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
     totalPromptTokens,
     cacheWarm,
     cacheTtlTier,
+    turnsCompleted,
     expectedOutputTokens: resolvedExpectedOutputTokens ?? 1500,
     ...(rawRemainingTurns !== undefined && rawRemainingTurns !== null
       ? { expectedRemainingTurns: Number(rawRemainingTurns) }
-      : {}),
+      : useEmpiricalHorizonPrior
+        ? { useEmpiricalHorizonPrior: true }
+        : {}),
     strictBlock:
       det08Override === 'block' ? true : (event.strictBlock ?? options.strictBlock),
-    autoPilotDecision: event.autoPilotDecision ?? options.autoPilotDecision
+    autoPilotDecision: resolvedAutoPilotDecision
   });
 
   if (det08Override === 'warn' && verdict.blocked) {

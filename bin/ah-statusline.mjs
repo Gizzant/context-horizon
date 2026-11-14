@@ -18,6 +18,7 @@ import {
   writeLiveStateSnapshot
 } from '../src/core-isomorphic/telemetry/telemetryBridge.mjs';
 import { renderStatusLine } from '../src/core-isomorphic/ui/modViews.mjs';
+import { inspectClaudeBinaryCapabilities } from '../src/diagnostics/claudeHookCapabilities.mjs';
 
 /**
  * Programmatic entrypoint for the `statusLine` bridge.
@@ -42,6 +43,24 @@ export function executeStatusLineBridge(payload = {}, options = {}) {
   const sessionId = payload.session_id || payload.sessionId || 'default';
   const currentState = readLiveStateSnapshot(sessionId, options);
   const nextState = ingestStatusLinePayload(currentState, payload, options);
+  if (!currentState.hostCapabilities && options.checkCapabilities !== false) {
+    const cap = inspectClaudeBinaryCapabilities({
+      cwd: payload.cwd || options.cwd,
+      claudeBinPath: options.claudeBinPath,
+      probeVersion: false
+    });
+    nextState.hostCapabilities = cap.found
+      ? {
+          found: true,
+          claudeVersion: cap.claudeVersion,
+          preModelSwitchSupported: cap.preModelSwitchSupported,
+          supportsAskDecision: cap.supportsAskDecision,
+          preEffortChangeSupported: cap.preEffortChangeSupported,
+          contractValid: cap.contractValid,
+          warning: cap.warning
+        }
+      : { found: false };
+  }
   const persisted = writeLiveStateSnapshot(nextState.sessionId, nextState, options);
 
   const envCols = Number(globalThis.process?.env?.AH_COLUMNS || 0);

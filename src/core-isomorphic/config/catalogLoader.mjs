@@ -166,6 +166,60 @@ export function hasExtended1MHint(rawModelId = '', options = {}) {
   return /\[1m\]|(?:^|[-_:\s])1m(?:$|[-_:\s\]])/.test(raw);
 }
 
+const KNOWN_ANTHROPIC_FAMILY_RE =
+  /(?:^|[\/\-_:])(?:claude|fable|opus|sonnet|haiku)(?:$|[\/\-_0-9])/;
+
+/**
+ * Checks whether a raw model identifier resolves to a known Anthropic catalog model
+ * (or an explicit custom rate card in `customCeilings.json`), returning `false` for
+ * unrecognized third-party slugs such as `google/gemini-2.5-pro` or `openai/gpt-5`.
+ *
+ * @param {string} [rawModelId='']
+ * @param {object} [options={}]
+ * @returns {boolean}
+ */
+export function isKnownCatalogModel(rawModelId = '', options = {}) {
+  const raw = String(rawModelId || '').trim();
+  if (!raw) return false;
+
+  const cleaned = raw
+    .toLowerCase()
+    .replace(/\[1m\]/g, '')
+    .replace(/[-_:\s]+1m$/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/\./g, '-');
+
+  if (!cleaned) return false;
+
+  const catalog = options.catalog || loadModelCatalog(options);
+  if (catalog?.models && Object.prototype.hasOwnProperty.call(catalog.models, cleaned)) {
+    return true;
+  }
+
+  const customCeilings = loadCustomCeilings(options);
+  if (customCeilings && typeof customCeilings === 'object') {
+    const sourceMap =
+      customCeilings.models && typeof customCeilings.models === 'object'
+        ? customCeilings.models
+        : customCeilings.ceilings && typeof customCeilings.ceilings === 'object'
+          ? customCeilings.ceilings
+          : customCeilings;
+    for (const [key, val] of Object.entries(sourceMap)) {
+      if (
+        (key === raw || key === cleaned) &&
+        val &&
+        typeof val === 'object' &&
+        val.ratesPer1M &&
+        typeof val.ratesPer1M === 'object'
+      ) {
+        return true;
+      }
+    }
+  }
+
+  return KNOWN_ANTHROPIC_FAMILY_RE.test(cleaned);
+}
+
 /**
  * Normalizes any raw Anthropic model string or shorthand alias to its canonical catalog ID.
  * @param {string} [rawModelId='']
@@ -756,6 +810,7 @@ export function calculateTurnCostUSD(usage = {}, options = {}) {
 export default {
   BUILTIN_CATALOG,
   hasExtended1MHint,
+  isKnownCatalogModel,
   normalizeModelId,
   loadCustomCeilings,
   resolveCustomCeilingForModel,
