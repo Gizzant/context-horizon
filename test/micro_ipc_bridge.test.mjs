@@ -85,7 +85,7 @@ describe('Milestone 4: Micro-IPC Bridge & Standalone Fallback Suite', () => {
     const server = new MicroIpcServer({ ipcPath: pipePath });
     await server.listen();
 
-    const client = new MicroIpcClient({ ipcPath: pipePath });
+    const client = new MicroIpcClient({ ipcPath: pipePath, connectTimeoutMs: 500 });
 
     try {
       // Warm up
@@ -151,7 +151,7 @@ describe('Milestone 4: Micro-IPC Bridge & Standalone Fallback Suite', () => {
     const server = new MicroIpcServer({ ipcPath: pipePath });
     await server.listen();
 
-    const client = new MicroIpcClient({ ipcPath: pipePath, requestTimeoutMs: 2000 });
+    const client = new MicroIpcClient({ ipcPath: pipePath, connectTimeoutMs: 500, requestTimeoutMs: 2000 });
     const sessionId = 'suspension-test-session';
 
     try {
