@@ -345,6 +345,19 @@ console.log(`  âœ“ Surgical Pruner condensed ${execPrune.prunedSteps} steps 
 // 4. Live HTTP Sidecar Daemon End-to-End Integration Test
 // ---------------------------------------------------------------------------
 console.log('[4/7] Starting Live Sidecar Daemon & Testing All HTTP / SSE Endpoints...');
+let seededDaemonSessionDir = null;
+let seededCliConvDir = null;
+if (!findSessionDirectory()) {
+  seededDaemonSessionDir = path.join(os.homedir(), '.gemini', 'antigravity', 'brain', 'e2e-ci-synthetic-session');
+  const seededLogsDir = path.join(seededDaemonSessionDir, '.system_generated', 'logs');
+  fs.mkdirSync(seededLogsDir, { recursive: true });
+  fs.writeFileSync(path.join(seededLogsDir, 'transcript_full.jsonl'), syntheticJsonlLines.join('\n') + '\n', 'utf8');
+}
+const cliConvCandidate = path.join(os.homedir(), '.gemini', 'antigravity-cli', 'conversations');
+if (!fs.existsSync(cliConvCandidate)) {
+  seededCliConvDir = path.join(os.homedir(), '.gemini', 'antigravity-cli');
+  fs.mkdirSync(cliConvCandidate, { recursive: true });
+}
 const { server, port } = await startServer(0);
 const baseUrl = `http://127.0.0.1:${port}`;
 let openBrainFallbackVerified = false;
@@ -450,6 +463,16 @@ try {
 } finally {
   if (server.closeAllConnections) server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));
+  if (seededDaemonSessionDir) {
+    try {
+      fs.rmSync(seededDaemonSessionDir, { recursive: true, force: true });
+    } catch {}
+  }
+  if (seededCliConvDir) {
+    try {
+      fs.rmSync(seededCliConvDir, { recursive: true, force: true });
+    } catch {}
+  }
 }
 console.log(`  âœ“ Live Sidecar Daemon on port ${port} passed all 9 HTTP & SSE endpoint checks.\n`);
 
@@ -470,8 +493,8 @@ if (discoveredActive && fs.existsSync(discoveredActive.sessionDir)) {
   const tsIso = new Date().toISOString();
   const synthLines = [
     JSON.stringify({ step_index: 0, type: 'USER_INPUT', content: 'Model Selection: gemini-3.8-pro\nEffort: auto\nAudit router', input_tokens: 12000, output_tokens: 400, turn_metadata: { effort: 'auto' }, created_at: tsIso }),
-    JSON.stringify({ step_index: 1, type: 'USER_INPUT', content: 'Effort: high\nDeep dive on cache TTL', input_tokens: 28000, output_tokens: 900, turn_metadata: { effort: 'high', fromSpec: 'auto' }, created_at: tsIso }),
-    JSON.stringify({ step_index: 2, type: 'USER_INPUT', content: 'Effort: max\nVerify edge cases', input_tokens: 46000, output_tokens: 1200, turn_metadata: { effort: 'max', fromSpec: 'high' }, created_at: tsIso })
+    JSON.stringify({ step_index: 1, type: 'USER_INPUT', content: 'Effort: low\nQuick scan of cache TTL', input_tokens: 28000, output_tokens: 900, turn_metadata: { effort: 'low', fromSpec: 'auto' }, created_at: tsIso }),
+    JSON.stringify({ step_index: 2, type: 'USER_INPUT', content: 'Effort: high\nDeep dive on edge cases', input_tokens: 46000, output_tokens: 1200, turn_metadata: { effort: 'high', fromSpec: 'low' }, created_at: tsIso })
   ];
   fs.writeFileSync(path.join(synthLogsDir, 'transcript_full.jsonl'), synthLines.join('\n') + '\n', 'utf8');
   cliOpts = {

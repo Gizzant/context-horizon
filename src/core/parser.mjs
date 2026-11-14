@@ -131,7 +131,8 @@ export function extractTurnEffortMetadata(entry) {
     }
   }
 
-  const explicitMeta = entry.turnMetadata && typeof entry.turnMetadata === 'object' ? entry.turnMetadata : null;
+  const rawExplicit = entry.turnMetadata || entry.turn_metadata;
+  const explicitMeta = rawExplicit && typeof rawExplicit === 'object' ? rawExplicit : null;
   const effort = explicitMeta?.effort || explicitMeta?.reasoningEffort || explicitMeta?.reasoning_effort ||
     entry.effort || entry.reasoning_effort || entry.reasoningEffort || null;
   const tier = explicitMeta?.tier || explicitMeta?.effortTier || entry.effortTier || entry.tier || null;

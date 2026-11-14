@@ -113,8 +113,9 @@ export function isIgnorablePath(p) {
   const raw = String(p).replace(/\\/g, '/');
   const s = raw
     .replace(/^[a-z]:\/users\/[^/]+\/appdata\/local\/temp\/[^/]+\//i, '')
-    .replace(/^\/(?:private\/)?tmp\/[^/]+\//i, '');
-  if (/(?:^|\/)(?:src|lib|packages|app)\/.*\.(?:[mc]?[jt]sx?|py|rs|go|java|c|cpp|h|hpp|rb|php|swift|kt|vue|svelte)$/i.test(s)) {
+    .replace(/^\/(?:private\/)?var\/folders\/[^/]+\/[^/]+\/[^/]+\/[^/]+\//i, '')
+    .replace(/^\/(?:private\/)?tmp\/(?:[^/]+\/)?/i, '');
+  if (/(?:^|\/)(?:src|lib|packages|app|bin|test|tests|scripts)\/.*\.(?:[mc]?[jt]sx?|py|rs|go|java|c|cpp|h|hpp|rb|php|swift|kt|vue|svelte|html|css)$/i.test(s)) {
     return false;
   }
   if (/(^|\/)(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lock|Cargo\.lock|Gemfile\.lock|composer\.lock|\.lock)$/i.test(s)) return true;
