@@ -83,19 +83,7 @@ function didToolExecutionFail(event = {}) {
  * @param {object} event
  * @param {object} [options={}]
  */
-import { runAirlockPostToolBridge } from '../../src/core/airlock/hookBridge.mjs';
-
 export function runPostToolUseHook(event = {}, options = {}) {
-  if (!event?.__airlockWrapped) {
-    const cwdOptions = event.cwd && !options.cwd ? { ...options, cwd: event.cwd } : options;
-    const horizonConfig = options.horizonConfig || loadHorizonConfig(cwdOptions);
-    return runAirlockPostToolBridge(
-      event,
-      cwdOptions,
-      { ...options, horizonConfig },
-      (wrappedEv, wrappedOpts) => runPostToolUseHook(wrappedEv, wrappedOpts)
-    );
-  }
   const toolName = String(event.tool_name || event.toolName || 'Bash');
   const rawOutput = extractPostToolText(event);
   const tier1Active = Boolean(

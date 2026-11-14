@@ -473,6 +473,256 @@ if (isMain) {
 }
 
 /**
+ * Adapts an Antigravity `classifyHorizon` state object into the Claude Code
+ * static HUD contract consumed by `renderHorizonPanelHtml`. Passes native
+ * Claude Code states through unchanged.
+ */
+export function adaptClassifierStateForStaticHud(state = {}, options = {}) {
+  const isAntigravityState = Boolean(
+    state &&
+    typeof state === 'object' &&
+    state.window &&
+    typeof state.window.totalActiveTokens === 'number' &&
+    !state.contextWindow &&
+    typeof state.totalInputTokens !== 'number'
+  );
+  if (!isAntigravityState) {
+    return { state, options };
+  }
+
+  const totalInputTokens = Math.max(0, Number(state.window.totalActiveTokens || 0));
+  const contextCeiling = Math.max(0, Number(state.window.maxTokens || 0));
+  const breakdown = state.breakdown || {};
+  const systemTokens = Math.max(0, Number(breakdown.ANCHOR ?? state.baseline?.totalEst ?? 0));
+  const dupTok = Math.max(0, Number(breakdown.STALE_DUPLICATE ?? breakdown.DUPLICATE_READ ?? 0));
+  const oldHistTok = Math.max(0, Number(breakdown.STALE_TURN ?? 0));
+  const deadErrTok = Math.max(0, Number(breakdown.DEAD_ERROR ?? 0));
+  const bleedTok = Math.max(0, Number(breakdown.FOREIGN_BLEED ?? 0));
+  const distractorTokens = dupTok + oldHistTok + deadErrTok + bleedTok;
+
+  const cacheObj = state.quota?.cache || {};
+  const ttlSec = Math.max(0, Math.round(Number(cacheObj.ttlRemainingSec || 0) || 0));
+  const hitPct = Math.max(0, Math.min(100, Math.round(Number(cacheObj.hitRatePct || 0) || 0)));
+  const cacheReadTokens = Math.max(0, Number(cacheObj.cacheReadTokens || 0));
+  const isWarm = Boolean(
+    !cacheObj.isCacheCold &&
+    !cacheObj.prefixBustDetected &&
+    ttlSec > 0 &&
+    (cacheReadTokens > 0 || hitPct > 0)
+  );
+  const nonAnchorOrDistractor = Math.max(0, totalInputTokens - systemTokens - distractorTokens);
+
+  const adaptedState = {
+    sessionId: state.sessionId || 'horizon-hud',
+    model: state.model?.id || 'claude-sonnet-5-5',
+    modelLabel: state.model?.displayName || state.model?.rawLabel || state.model?.id || 'claude-sonnet-5-5',
+    totalInputTokens,
+    contextCeiling: contextCeiling > 0 ? contextCeiling : undefined,
+    systemTokens,
+    distractorTokens,
+    cachedTokens: isWarm ? nonAnchorOrDistractor : 0,
+    cacheReadTokens,
+    uncachedInputTokens: isWarm ? 0 : nonAnchorOrDistractor,
+    promptCache: {
+      warm: isWarm,
+      ttlRemainingSec: isWarm ? ttlSec : 0,
+      ttlTier: '5m'
+    },
+    cacheRoi: {
+      cacheHitRatio: hitPct / 100
+    },
+    amnesiaRisk: Boolean(
+      state.amputation?.amputationCrisis ||
+      state.amputation?.inAmputationZone ||
+      state.telemetry?.amputationRisk
+    ),
+    sessionTimeline: state.sessionTimeline || null,
+    autoFixLog: state.autoFixLog || null,
+    compactCommand: typeof state.compaction?.parameterizedCommand === 'string' &&
+      state.compaction.parameterizedCommand.startsWith('/compact ')
+      ? state.compaction.parameterizedCommand
+      : '/compact'
+  };
+
+  const mergedOptions = { ...options };
+  if (!Array.isArray(mergedOptions.offenders)) {
+    const derivedOffenders = [];
+    const seen = new Set();
+    const bs = state.brainSignals || {};
+    const topFiles = Array.isArray(bs.duplicateReads?.topFiles) ? bs.duplicateReads.topFiles : [];
+    for (const f of topFiles) {
+      const target = f?.path || f?.file;
+      const wastedTokens = Number(f?.wastedTokens ?? f?.tokens ?? 0);
+      if (!target || wastedTokens <= 0) continue;
+      seen.add(String(target).toLowerCase());
+      derivedOffenders.push({
+        target,
+        occurrences: Number(f.occurrences || f.reads || 1),
+        wastedTokens,
+        category: '[D]'
+      });
+    }
+    for (const o of (Array.isArray(state.offenders) ? state.offenders : [])) {
+      const rawTarget = String(o?.target || '');
+      const wastedTokens = Number(o?.wastedTokens || 0);
+      if (!rawTarget || wastedTokens <= 0) continue;
+      if (rawTarget === 'Foreign Bleed Knowledge') continue;
+      const key = rawTarget.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      derivedOffenders.push({
+        target: rawTarget,
+        occurrences: Number(o.occurrences || 1),
+        wastedTokens,
+        category: '[D]'
+      });
+    }
+    if (bleedTok > 0) {
+      derivedOffenders.push({
+        target: 'Cross-project memory bleed (foreign KIs)',
+        occurrences: 1,
+        wastedTokens: bleedTok,
+        category: '[D]'
+      });
+    }
+    for (const b of (Array.isArray(bs.blowupSteps) ? bs.blowupSteps : [])) {
+      const wastedTokens = Number(b?.tokens || 0);
+      if (wastedTokens <= 0) continue;
+      const isFile = b.payload?.kind === 'file' && Boolean(b.payload?.path);
+      const target = isFile ? b.payload.path : (b.payload?.detail || b.target || 'Output spike');
+      const key = String(target).toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      derivedOffenders.push({
+        target,
+        occurrences: 1,
+        wastedTokens,
+        category: isFile ? '[D]' : '[W]'
+      });
+    }
+    for (const srv of (Array.isArray(bs.mcpAudit?.unusedEagerServers) ? bs.mcpAudit.unusedEagerServers : [])) {
+      const schemaTokens = Number(srv?.schemaTokens || 0);
+      if (!srv?.name || schemaTokens <= 0) continue;
+      derivedOffenders.push({
+        target: srv.name,
+        occurrences: 1,
+        wastedTokens: schemaTokens,
+        category: '[S]'
+      });
+    }
+    derivedOffenders.sort((a, b) => (b.wastedTokens || 0) - (a.wastedTokens || 0));
+    mergedOptions.offenders = derivedOffenders;
+  }
+
+  if (!mergedOptions.breakerVerdict) {
+    const tripped = state.coachState?.detectors?.tripped;
+    const isErrLoop = Boolean(state.brainSignals?.deadErrors?.isErrorLoop);
+    const errCount = Number(state.brainSignals?.deadErrors?.errorCount || 0);
+    if (state.amputation?.amputationCrisis) {
+      mergedOptions.breakerVerdict = {
+        triggered: true,
+        detectorId: tripped?.detectorId || 'CRISIS',
+        reason: tripped?.reason || `Context truncation crisis (${Math.round(totalInputTokens / 1000)}k used — oldest rules at risk).`
+      };
+    } else if (tripped && tripped.detectorId) {
+      mergedOptions.breakerVerdict = {
+        triggered: true,
+        detectorId: tripped.detectorId,
+        reason: tripped.reason || `${tripped.detectorId} guard triggered.`
+      };
+    } else if (isErrLoop) {
+      mergedOptions.breakerVerdict = {
+        triggered: true,
+        detectorId: 'ERR-LOOP',
+        reason: `Stuck error loop (${errCount}x failing attempts). Pause retries and isolate a minimal repro.`
+      };
+    }
+  }
+
+  if (state.savings && mergedOptions.sessionSavedTokens === undefined) {
+    const sessTok = Math.max(0, Number(state.savings?.session?.totalPhysicalTokens ?? state.savings?.session?.totalTokens ?? 0));
+    const sessUsd = Math.max(0, Number(state.savings?.session?.estimatedInputValueUsd ?? state.savings?.session?.estimatedUsd ?? Number(((sessTok / 1_000_000) * 2).toFixed(2))));
+    const wsTok = Math.max(sessTok, Number(state.savings?.workspace30d?.totalPhysicalTokens ?? state.savings?.workspace30d?.totalTokens ?? 0));
+    const wsUsd = Math.max(sessUsd, Number(state.savings?.workspace30d?.estimatedInputValueUsd ?? state.savings?.workspace30d?.estimatedUsd ?? Number(((wsTok / 1_000_000) * 2).toFixed(2))));
+    mergedOptions.sessionSavedTokens = sessTok;
+    mergedOptions.sessionSavedUSD = sessUsd;
+    mergedOptions.workspace30dSavedTokens = wsTok;
+    mergedOptions.workspace30dSavedUSD = wsUsd;
+    if (mergedOptions.includeDiskLedger === undefined) {
+      mergedOptions.includeDiskLedger = false;
+    }
+  }
+
+  return { state: adaptedState, options: mergedOptions };
+}
+
+/**
+ * Renders the static HTML HUD from either an Antigravity `classifyHorizon`
+ * state or a native Claude Code state.
+ */
+export function renderClassifierHudHtml(state = {}, options = {}) {
+  const { state: adaptedState, options: mergedOptions } = adaptClassifierStateForStaticHud(state, options);
+  return renderHorizonPanelHtml(adaptedState, mergedOptions);
+}
+
+/**
+ * Formats the single-line ANSI CLI status bar for a `classifyHorizon` state
+ * clamped cleanly to `columns` when <= 80.
+ */
+export function formatCliStatusLine(state = {}, { columns = 120 } = {}) {
+  let cellCount = 40;
+  if (columns < 80) cellCount = 10;
+  else if (columns < 120) cellCount = 20;
+
+  const downsampleRatio = 40 / cellCount;
+  const isAmputation = Boolean(state.amputation?.inAmputationZone);
+  const isCrisis = Boolean(state.amputation?.amputationCrisis);
+
+  let bar = isCrisis ? '\x1b[48;5;196m\x1b[38;5;255m![ 🚨 \x1b[0m ' : (isAmputation ? '\x1b[38;5;196m![\x1b[0m' : '[');
+  for (let i = 0; i < cellCount; i++) {
+    const origStart = Math.floor(i * downsampleRatio);
+    const origEnd = Math.floor((i + 1) * downsampleRatio);
+    const slice = (state.cells || []).slice(origStart, origEnd);
+    const dominant = slice[0]?.dominantCategory || H_CATEGORIES.FREE_HEADROOM;
+    const meta = CATEGORY_METADATA[dominant] || CATEGORY_METADATA.FREE_HEADROOM;
+    if (slice.some(c => c.isCrisisCell)) {
+      bar += `\x1b[48;5;196m\x1b[38;5;255m${meta.symbol}\x1b[0m`;
+    } else {
+      bar += `${meta.ansiCode}${meta.symbol}\x1b[0m`;
+    }
+  }
+  bar += isCrisis ? ' \x1b[48;5;196m\x1b[38;5;255m]!\x1b[0m' : (isAmputation ? '\x1b[38;5;196m]!\x1b[0m' : ']');
+
+  const activeK = Math.round((state.window?.totalActiveTokens || 0) / 1000);
+  const maxK = Math.round((state.window?.maxTokens || 0) / 1000);
+  const usedPct = maxK > 0 ? Math.round((activeK / maxK) * 100) : 0;
+  const purity = state.metrics?.signalPurityPct ?? 100;
+  const noiseK = Math.round((state.metrics?.sludgeTokens || 0) / 1000);
+  const rawRecCmd = state.diagnostics?.recommendedCommand || 'Ready';
+  const recCmd = rawRecCmd === '/fast' ? 'Ready' : rawRecCmd;
+  const isCacheCold = state.quota?.cache ? Boolean(state.quota.cache.isCacheCold) : false;
+  const ttlSec = Math.max(0, Math.round(Number(state.quota?.cache?.ttlRemainingSec || 0) || 0));
+  const cacheHitPct = Math.max(0, Number(state.quota?.cache?.hitRatePct || 0) || 0);
+  const cacheLabel = (!isCacheCold && ttlSec > 0 && cacheHitPct > 0) ? `Warm(${ttlSec}s)` : 'Cold';
+  const modeTag = state.workloadMode?.tag || '[Mode: Read-Heavy Audit]';
+  const strandedCnt = Number(state.attentionHeatmap?.strandedSignalCount || 0);
+  const strandedSuffix = strandedCnt > 0 ? ` | \u26A0 ${strandedCnt}/40 mid-window blocks` : '';
+
+  let line1 = '';
+  if (cellCount === 40) {
+    line1 = `${bar}  [ ${activeK}k / ${maxK}k · ${usedPct}% ]  \x1b[1mPurity:\x1b[0m ${purity}% | \x1b[1mCache Hit:\x1b[0m ${cacheHitPct}% | \x1b[1mWaste:\x1b[0m ${noiseK}k tok | \x1b[1mCache:\x1b[0m ${cacheLabel} | ${modeTag}${strandedSuffix}  \x1b[38;5;51m-> ${recCmd}\x1b[0m`;
+  } else if (cellCount === 20) {
+    line1 = `${bar} [${activeK}k/${maxK}k·${usedPct}%] P:${purity}% Waste:${noiseK}k -> ${recCmd}`;
+  } else {
+    line1 = `${bar} ${activeK}k P:${purity}% ${recCmd}`;
+  }
+  if (columns <= 80) {
+    line1 = clampAnsiText(line1, Math.min(columns, 80));
+  }
+  return line1;
+}
+
+/**
  * Renders the ANSI statusLine bar and full 256K-aware HorizonStatePayload for Antigravity CLI / Sidecar Daemon
  */
 export async function runCLI(options = {}) {
@@ -492,7 +742,7 @@ export async function runCLI(options = {}) {
     );
     if (options.emitWidget || (Array.isArray(process.argv) && process.argv.includes('--emit-widget'))) {
       const target = path.resolve(options.out || 'horizon_widget.html');
-      const { html } = renderHorizonPanelHtml(state, { viewMode: 'simple' });
+      const { html } = renderClassifierHudHtml(state, { viewMode: 'simple' });
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.writeFileSync(target, html, 'utf8');
       const fileUri = `file:///${target.replace(/\\/g, '/').replace(/^\/+/, '')}`;
@@ -602,59 +852,11 @@ export async function runCLI(options = {}) {
     writeJsonAtomicSync(path.join(cacheDir, 'latest.state.json'), state);
   } catch {}
 
-  let cellCount = 40;
-  if (columns < 80) cellCount = 10;
-  else if (columns < 120) cellCount = 20;
-
-  const downsampleRatio = 40 / cellCount;
-  const isAmputation = state.amputation.inAmputationZone;
-  const isCrisis = state.amputation.amputationCrisis;
-
-  let bar = isCrisis ? '\x1b[48;5;196m\x1b[38;5;255m![ 🚨 \x1b[0m ' : (isAmputation ? '\x1b[38;5;196m![\x1b[0m' : '[');
-  for (let i = 0; i < cellCount; i++) {
-    const origStart = Math.floor(i * downsampleRatio);
-    const origEnd = Math.floor((i + 1) * downsampleRatio);
-    const slice = state.cells.slice(origStart, origEnd);
-    const dominant = slice[0]?.dominantCategory || H_CATEGORIES.FREE_HEADROOM;
-    const meta = CATEGORY_METADATA[dominant] || CATEGORY_METADATA.FREE_HEADROOM;
-    if (slice.some(c => c.isCrisisCell)) {
-      bar += `\x1b[48;5;196m\x1b[38;5;255m${meta.symbol}\x1b[0m`;
-    } else {
-      bar += `${meta.ansiCode}${meta.symbol}\x1b[0m`;
-    }
-  }
-  bar += isCrisis ? ' \x1b[48;5;196m\x1b[38;5;255m]!\x1b[0m' : (isAmputation ? '\x1b[38;5;196m]!\x1b[0m' : ']');
-
-  const activeK = Math.round(state.window.totalActiveTokens / 1000);
-  const maxK = Math.round(state.window.maxTokens / 1000);
-  const usedPct = maxK > 0 ? Math.round((activeK / maxK) * 100) : 0;
-  const purity = state.metrics.signalPurityPct;
-  const noiseK = Math.round((state.metrics.sludgeTokens || 0) / 1000);
-  const rawRecCmd = state.diagnostics.recommendedCommand || 'Ready';
-  const recCmd = rawRecCmd === '/fast' ? 'Ready' : rawRecCmd;
-  const isCacheCold = state.quota?.cache ? Boolean(state.quota.cache.isCacheCold) : false;
-  const ttlSec = Math.max(0, Math.round(Number(state.quota?.cache?.ttlRemainingSec || 0) || 0));
-  const cacheHitPct = Math.max(0, Number(state.quota?.cache?.hitRatePct || 0) || 0);
-  const cacheLabel = (!isCacheCold && ttlSec > 0 && cacheHitPct > 0) ? `Warm(${ttlSec}s)` : 'Cold';
-  const modeTag = state.workloadMode?.tag || '[Mode: Read-Heavy Audit]';
-  const strandedCnt = Number(state.attentionHeatmap?.strandedSignalCount || 0);
-  const strandedSuffix = strandedCnt > 0 ? ` | \u26A0 ${strandedCnt}/40 mid-window blocks` : '';
-
-  let line1 = '';
-  if (cellCount === 40) {
-    line1 = `${bar}  [ ${activeK}k / ${maxK}k · ${usedPct}% ]  \x1b[1mPurity:\x1b[0m ${purity}% | \x1b[1mCache Hit:\x1b[0m ${cacheHitPct}% | \x1b[1mWaste:\x1b[0m ${noiseK}k tok | \x1b[1mCache:\x1b[0m ${cacheLabel} | ${modeTag}${strandedSuffix}  \x1b[38;5;51m-> ${recCmd}\x1b[0m`;
-  } else if (cellCount === 20) {
-    line1 = `${bar} [${activeK}k/${maxK}k·${usedPct}%] P:${purity}% Waste:${noiseK}k -> ${recCmd}`;
-  } else {
-    line1 = `${bar} ${activeK}k P:${purity}% ${recCmd}`;
-  }
-  if (columns <= 80) {
-    line1 = clampAnsiText(line1, Math.min(columns, 80));
-  }
+  const line1 = formatCliStatusLine(state, { columns });
 
   if (options.emitWidget || (Array.isArray(process.argv) && process.argv.includes('--emit-widget'))) {
     const target = path.resolve(options.out || 'horizon_widget.html');
-    const { html } = renderHorizonPanelHtml(state, { viewMode: 'simple' });
+    const { html } = renderClassifierHudHtml(state, { viewMode: 'simple' });
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, html, 'utf8');
     const fileUri = `file:///${target.replace(/\\/g, '/').replace(/^\/+/, '')}`;
@@ -674,7 +876,7 @@ export async function emitHorizonWidget(options = {}) {
   const targetPath = path.resolve(options.out || 'horizon_widget.html');
   const cliRes = await runCLI({ ...options, silent: true, useNativeCeiling: true });
   const state = cliRes?.state || {};
-  const { html } = renderHorizonPanelHtml(state, { viewMode: 'simple' });
+  const { html } = renderClassifierHudHtml(state, { viewMode: 'simple' });
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   fs.writeFileSync(targetPath, html, 'utf8');
   const fileUri = `file:///${targetPath.replace(/\\/g, '/').replace(/^\/+/, '')}`;

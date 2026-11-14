@@ -4273,9 +4273,9 @@
       clip: auto !important;
       overflow: visible !important;
       display: inline-block !important;
-      font-size: 13px !important;
+      font-size: 15px !important;
       font-weight: 600 !important;
-      letter-spacing: -0.01em !important;
+      letter-spacing: -0.015em !important;
       color: var(--hz-fg) !important;
       margin: 0 !important;
     }
@@ -4289,6 +4289,10 @@
       padding: 2px 7px;
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
+      min-width: 0;
+      flex: 0 1 auto;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .header-controls {
       display: flex !important;
@@ -4310,11 +4314,41 @@
     }
     .header-controls .header-right {
       width: 100% !important;
+      min-width: 0 !important;
       display: flex !important;
+      flex-wrap: nowrap !important;
       align-items: center !important;
       justify-content: space-between !important;
       gap: 8px !important;
     }
+    .header-controls .shadcn-tabs-list {
+      flex: 0 0 auto !important;
+      border-radius: 999px !important;
+      padding: 2px !important;
+      background: rgba(255, 255, 255, 0.05) !important;
+      border: 1px solid var(--hz-border) !important;
+    }
+    .header-controls .shadcn-tab-trigger {
+      flex: 1 1 0;
+      text-align: center;
+      border-radius: 999px !important;
+      padding: 2px 9px !important;
+      font-size: 10.5px !important;
+      font-weight: 500 !important;
+    }
+    .header-controls .icon-btn {
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      width: 24px !important;
+      height: 24px !important;
+      padding: 0 !important;
+      border-radius: 999px !important;
+    }
+
+    html, body { max-width: 100%; overflow-x: hidden; }
+    .wrap { width: 100%; min-width: 0; }
 
     #argonSimpleSurface {
       display: none;
@@ -4350,9 +4384,11 @@
     }
     .ts-head {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 3px 8px;
+      min-width: 0;
     }
     .ts-overline {
       font-size: 10.5px;
@@ -4407,18 +4443,55 @@
       overflow: hidden;
       display: flex;
     }
+    :root {
+      --ts-sig: #C4B5FD;      /* light purple — active signal */
+      --ts-sig-ink: #2E1065;
+      --ts-sig-text: #C4B5FD;
+      --ts-clu: #FDBA74;      /* light orange — reclaimable */
+      --ts-clu-ink: #431407;
+      --ts-clu-text: #FDBA74;
+    }
+    :root[data-theme="light"],
+    [data-theme="light"] body,
+    body[data-theme="light"] {
+      --ts-sig: #A78BFA;
+      --ts-clu: #FB923C;
+      --ts-sig-text: #6D28D9;
+      --ts-clu-text: #C2410C;
+    }
+    [data-theme="light"] .ts-meta[data-tone="signal"],
+    [data-theme="light"] .ts-switch-card[data-tone="do"] .ts-switch-verdict,
+    [data-theme="light"] .ts-guidance-row[data-tone="do"] .ts-tag { color: var(--hz-useful); }
+    [data-theme="light"] .ts-meta[data-tone="warn"],
+    [data-theme="light"] .ts-switch-card[data-tone="avoid"] .ts-switch-verdict,
+    [data-theme="light"] .ts-guidance-row[data-tone="avoid"] .ts-tag,
+    [data-theme="light"] .ts-why-total,
+    [data-theme="light"] .ts-why-tok { color: var(--hz-clutter); }
+    [data-theme="light"] .ts-switch-card[data-tone="danger"] .ts-switch-verdict,
+    [data-theme="light"] .ts-guidance-row[data-tone="danger"] .ts-tag,
+    [data-theme="light"] .ts-safe-label { color: var(--hz-danger); }
+    [data-theme="light"] .ts-bar-track,
+    [data-theme="light"] .ta-cell:not([data-cat]) { background: var(--hz-free); }
+    [data-theme="light"] .ts-guidance-row,
+    [data-theme="light"] .ta-inspector,
+    [data-theme="light"] .ta-ucurve,
+    [data-theme="light"] .ta-source-grid,
+    [data-theme="light"] .tufte-top-host-badge { background: var(--hz-card); }
+    [data-theme="light"] .header-controls .shadcn-tabs-list,
+    [data-theme="light"] .ts-cta-btn[data-cta-state="guarded"],
+    [data-theme="light"] .ta-mini-btn { background: var(--hz-card-alt) !important; }
+    [data-theme="light"] .header-controls .shadcn-tab-trigger[aria-selected="true"] { background: var(--hz-card); }
+    [data-theme="light"] .ts-ledger-row,
+    [data-theme="light"] .ta-table td { border-bottom-color: var(--hz-border-subtle); }
     .ts-seg-signal {
       height: 100%;
-      background: #10B981;
+      background: var(--ts-sig);
       transition: width 160ms ease-out;
     }
     .ts-seg-clutter {
       height: 100%;
-      background: #F59E0B;
+      background: var(--ts-clu);
       transition: width 160ms ease-out;
-    }
-    .ts-seg-clutter[data-clutter-tone="cached"] {
-      background: #38BDF8;
     }
     .ts-safe-tick {
       position: absolute;
@@ -4427,6 +4500,131 @@
       width: 2px;
       background: #EF4444;
       pointer-events: none;
+    }
+    /* Labeled context bar (top of Zone A) */
+    .ts-bar-lg { padding: 2px 0 15px; }
+    .ts-bar-lg .ts-bar-track { height: 20px; border-radius: 4px; }
+    .ts-bar-lg .ts-seg-signal,
+    .ts-bar-lg .ts-seg-clutter { position: relative; overflow: hidden; }
+    .ts-seg-label {
+      position: absolute;
+      top: 0; bottom: 0; left: 6px; right: 4px;
+      display: flex;
+      align-items: center;
+      font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      color: var(--ts-sig-ink);
+    }
+    .ts-seg-clutter .ts-seg-label { color: var(--ts-clu-ink); }
+    .ts-bar-lg .ts-safe-tick { top: 0; bottom: 13px; }
+    .ts-bar-outer-label {
+      position: absolute;
+      top: 2px;
+      height: 20px;
+      max-width: calc(100% - 4px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-left: 6px;
+      white-space: nowrap;
+      pointer-events: none;
+      font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+      font-size: 11px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .ts-bar-outer-label .ts-ol-signal { color: var(--ts-sig-text); }
+    .ts-bar-outer-label .ts-ol-clutter { color: var(--ts-clu-text); }
+    /* Zone B: Model & Effort switch containers */
+    .ts-switch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 6px;
+    }
+    .ts-guidance-row.ts-switch-card {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 2px;
+      min-width: 0;
+      grid-template-columns: none;
+    }
+    .ts-switch-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .ts-switch-verdict {
+      font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+      font-size: 10.5px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
+    }
+    .ts-switch-card[data-tone="do"] .ts-switch-verdict { color: #10B981; }
+    .ts-switch-card[data-tone="avoid"] .ts-switch-verdict { color: #F59E0B; }
+    .ts-switch-card[data-tone="danger"] .ts-switch-verdict { color: #EF4444; }
+    .ts-switch-name { font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .ts-switch-lines {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      font-size: 11px;
+      color: var(--hz-muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .ts-switch-lines li + li { margin-top: 1px; }
+    .ts-switch-card .ts-sub { font-size: 11px; color: var(--hz-muted); }
+    .ts-safe-label {
+      position: absolute;
+      bottom: 0;
+      transform: translateX(-100%);
+      padding-right: 3px;
+      white-space: nowrap;
+      font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+      font-size: 10px;
+      line-height: 12px;
+      color: #F87171;
+      font-variant-numeric: tabular-nums;
+    }
+    /* "What /compact clears" disclosure (Zone D) */
+    .ts-why { border-top: 1px solid var(--hz-border); padding-top: 6px; }
+    .ts-why > summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11.5px;
+      color: var(--hz-fg-secondary);
+    }
+    .ts-why > summary::-webkit-details-marker { display: none; }
+    .ts-why > summary:focus-visible { outline: 2px solid #3B82F6; outline-offset: 2px; border-radius: 2px; }
+    .ts-why-caret { display: inline-block; width: 10px; color: var(--hz-muted); transition: transform 120ms ease-out; }
+    .ts-why[open] .ts-why-caret { transform: rotate(90deg); }
+    .ts-why-total, .ts-why-tok {
+      font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+      font-variant-numeric: tabular-nums;
+      color: #F59E0B;
+      font-weight: 600;
+    }
+    .ts-why-list { list-style: none; margin: 4px 0 0; padding: 0; }
+    .ts-why-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 4px 0 4px 14px;
+      border-top: 1px solid var(--hz-border);
+      font-size: 11.5px;
+      color: var(--hz-fg);
+    }
+    .ts-why-row:first-child { border-top: none; }
+    .ts-why-sub { color: var(--hz-muted); }
+    .ts-why-keep { padding: 4px 0 0 14px; font-size: 11px; color: var(--hz-muted); }
+    @media (prefers-reduced-motion: reduce) {
+      .ts-why-caret, .ts-seg-signal, .ts-seg-clutter { transition: none; }
     }
     .ts-legend {
       display: flex;
@@ -4501,10 +4699,13 @@
       border-radius: 4px;
       border: 1px solid var(--hz-fg);
       background: var(--hz-fg);
-      color: #0B0E14;
+      color: var(--hz-bg);
       font-family: inherit;
       font-size: 12px;
       font-weight: 600;
+      white-space: normal;
+      text-align: center;
+      line-height: 1.25;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
@@ -4567,15 +4768,17 @@
     .ta-cell[data-cat="clutter"] { background: #F59E0B; }
     .ta-cell[data-cat="error"] { background: #EF4444; }
     .ta-cell[aria-selected="true"] {
-      outline: 1.5px solid #FFFFFF;
+      outline: 1.5px solid var(--hz-fg);
       outline-offset: -1.5px;
       z-index: 2;
     }
     .ta-inspector {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 4px 8px;
+      min-width: 0;
       padding: 4px 7px;
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid var(--hz-border);
@@ -4585,7 +4788,7 @@
     }
     .ta-ucurve {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 6px;
       padding: 5px 7px;
       background: rgba(255, 255, 255, 0.025);
@@ -4631,7 +4834,7 @@
     }
     .ta-source-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 4px;
       padding: 5px 7px;
       background: rgba(255, 255, 255, 0.025);
@@ -4639,6 +4842,16 @@
       border-radius: 3px;
       font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
       font-size: 10px;
+    }
+    @media (max-width: 400px) {
+      body { padding: 10px 12px !important; }
+      .header-controls .shadcn-tab-trigger { padding: 2px 7px !important; font-size: 10px !important; }
+      .tufte-top-host-badge { font-size: 10px; padding: 2px 5px; }
+      .ts-switch-grid { grid-template-columns: 1fr; }
+      .ta-ucurve { gap: 4px; padding: 5px; font-size: 10px; }
+      .ta-source-grid { gap: 3px; padding: 5px; font-size: 9.5px; }
+      .ta-table th, .ta-table td { padding: 3px 2px; font-size: 9.5px; }
+      .ta-mini-btn { padding: 2px 5px; font-size: 9.5px; }
     }
 </style>
 </head>
@@ -4678,7 +4891,15 @@
         <h2 class="ts-overline">Zone A &middot; System State &amp; Context</h2>
         <span id="tsCacheMeta" class="ts-meta" data-tone="muted">0% hit &middot; Cold</span>
       </div>
-      <div id="tsAirlockBanner" class="ts-sub" style="display:none;margin-bottom:4px;font-variant-numeric:tabular-nums;"></div>
+      <div class="ts-bar-wrap ts-bar-lg" role="img" aria-label="Context usage bar">
+        <div class="ts-bar-track">
+          <div id="tsBarSignal" class="ts-seg-signal" style="width:0%"><span id="tsBarSignalLabel" class="ts-seg-label"></span></div>
+          <div id="tsBarClutter" class="ts-seg-clutter" data-clutter-tone="stale" style="width:0%"><span id="tsBarClutterLabel" class="ts-seg-label"></span></div>
+        </div>
+        <div id="tsSafeTick" class="ts-safe-tick" style="left:70%" title="Safe Attention Horizon"></div>
+        <div id="tsSafeTickLabel" class="ts-safe-label" style="left:70%">safe limit</div>
+        <div id="tsBarOuterLabel" class="ts-bar-outer-label" hidden></div>
+      </div>
       <div class="ts-status-row">
         <div class="ts-status-badge" role="status" aria-live="polite">
           <span id="tsStatusDot" class="ts-dot" data-tone="signal"></span>
@@ -4689,16 +4910,9 @@
           <span style="color:var(--hz-muted);">/ <span id="tsSafeLabel">179.0k</span> safe (<span id="tsUsedPct">0%</span>)</span>
         </div>
       </div>
-      <div class="ts-bar-wrap">
-        <div class="ts-bar-track">
-          <div id="tsBarSignal" class="ts-seg-signal" style="width:0%"></div>
-          <div id="tsBarClutter" class="ts-seg-clutter" data-clutter-tone="stale" style="width:0%"></div>
-        </div>
-        <div id="tsSafeTick" class="ts-safe-tick" style="left:70%" title="Safe Attention Horizon"></div>
-      </div>
       <div class="ts-legend">
-        <span><span style="color:#10B981;">&#9679;</span> Active Signal <strong id="tsValSignal" style="color:var(--hz-fg);">0.0k</strong></span>
-        <span><span id="tsClutterDot" style="color:#F59E0B;">&#9679;</span> <span id="tsClutterKind">Reclaimable</span> <strong id="tsValClutter" style="color:var(--hz-fg);">0.0k</strong></span>
+        <span><span style="color:var(--ts-sig);">&#9679;</span> Active Signal <strong id="tsValSignal" style="color:var(--hz-fg);">0.0k</strong></span>
+        <span><span id="tsClutterDot" style="color:var(--ts-clu);">&#9679;</span> <span id="tsClutterKind">Reclaimable</span> <strong id="tsValClutter" style="color:var(--hz-fg);">0.0k</strong></span>
         <span id="tsAnchorHealth" style="color:var(--hz-muted);">Pinned rules safe</span>
       </div>
     </section>
@@ -4718,9 +4932,22 @@
           <span class="ts-tag">AVOID</span>
           <span id="tsAvoidText">Avoid reading large files without line bounds (`StartLine`/`EndLine`) to keep context lean.</span>
         </div>
-        <div id="tsModelEffortRow" class="ts-guidance-row" data-tone="do">
-          <span id="tsModelEffortTag" class="ts-tag">MODEL</span>
-          <span id="tsModelEffortText"><strong>Model: OK to switch</strong> &middot; <strong>Effort: OK to change</strong> &mdash; Cache is cold (0 rewrite penalty); use Low/Med for edits or High for specs.</span>
+      </div>
+      <div class="ts-switch-grid" style="margin-top:6px;">
+        <div id="tsModelCard" class="ts-guidance-row ts-switch-card" data-tone="do">
+          <div class="ts-switch-head"><span class="ts-tag">MODEL</span><span id="tsModelVerdict" class="ts-switch-verdict">OK</span></div>
+          <div id="tsModelName" class="ts-switch-name">Auto</div>
+          <ul class="ts-switch-lines">
+            <li id="tsModelSameFam">Cache is cold &mdash; no rewrite penalty.</li>
+            <li id="tsModelCrossFam"></li>
+          </ul>
+          <div id="tsModelLast" class="ts-sub" hidden></div>
+        </div>
+        <div id="tsEffortCard" class="ts-guidance-row ts-switch-card" data-tone="do">
+          <div class="ts-switch-head"><span class="ts-tag">EFFORT</span><span id="tsEffortVerdict" class="ts-switch-verdict">OK</span></div>
+          <div id="tsEffortName" class="ts-switch-name">Auto</div>
+          <div id="tsEffortText" class="ts-sub">Match tier to task: Low/Med for edits, High for specs.</div>
+          <div id="tsEffortHist" class="ts-sub" hidden></div>
         </div>
       </div>
     </section>
@@ -4751,7 +4978,7 @@
           <span id="tsKpiSaved" class="ts-kpi-num">0.0k</span>
           <span style="font-size:11.5px;color:var(--hz-muted);margin-left:4px;">tokens saved</span>
         </div>
-        <span id="tsKpiUsd" style="font-size:12px;color:#10B981;font-weight:600;">$0.00</span>
+        <span id="tsKpiUsd" style="font-size:12px;color:var(--hz-useful);font-weight:600;">$0.00</span>
       </div>
       <button type="button" id="tsBtnCleanPrimary" class="ts-cta-btn" data-cta-state="disabled" disabled>
         <span id="tsBtnCleanLabel">Memory Clean &middot; 0.0k Reclaimable</span>
@@ -4759,8 +4986,12 @@
       <div style="font-size:11px;color:var(--hz-fg-secondary);line-height:1.35;">
         <div id="tsCompactReclaim">0.0k reclaimable clutter &middot; Active working set protected</div>
         <div id="tsCompactInstruction" style="color:var(--hz-muted);">Type <code>/compact</code> in the chat box and press Enter when resetting conversation history.</div>
-        <div id="tsAirlockReceiptRow" style="display:none;color:var(--hz-muted);margin-top:4px;font-variant-numeric:tabular-nums;"><span id="tsAirlockReceiptText"></span> · <a href="/api/airlock/receipt?format=html" target="_blank" rel="noopener">Airlock Receipt</a></div>
       </div>
+      <details id="tsWhyClears" class="ts-why" hidden>
+        <summary><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>What <code>/compact</code> clears</span><span id="tsWhyTotal" class="ts-why-total">0.0k</span></summary>
+        <ul id="tsWhyList" class="ts-why-list" role="list"></ul>
+        <div class="ts-why-keep">Keeps rules, <code>task.md</code>, plan &amp; active code.</div>
+      </details>
     </section>
   </div>
 
@@ -4790,7 +5021,7 @@
         </div>
         <div style="font-size:11px;">
           <strong id="taUsedTok">0.0k</strong>
-          <span style="color:var(--hz-muted);">(<span id="taSigTok" style="color:#10B981;">0.0k</span> sig + <span id="taClutterTok" style="color:#F59E0B;">0.0k</span> recl) / <span id="taSafeTok">179.0k</span></span>
+          <span style="color:var(--hz-muted);">(<span id="taSigTok" style="color:var(--hz-useful);">0.0k</span> sig + <span id="taClutterTok" style="color:var(--hz-clutter);">0.0k</span> recl) / <span id="taSafeTok">179.0k</span></span>
         </div>
       </div>
       <div id="taHorizonGrid" class="ta-cell-grid" role="listbox" aria-label="40-cell chronological context window"></div>
@@ -4799,9 +5030,9 @@
         <span id="taCellRight">6.4k / cell &middot; 1.00 recall</span>
       </div>
       <div class="ta-ucurve">
-        <div><span style="color:var(--hz-muted);">Primacy (0–30%)</span><br><strong id="taUPrimacy" style="color:#10B981;">96% recall</strong></div>
+        <div><span style="color:var(--hz-muted);">Primacy (0–30%)</span><br><strong id="taUPrimacy" style="color:var(--hz-useful);">96% recall</strong></div>
         <div><span style="color:var(--hz-muted);">Mid Trough (30–70%)</span><br><strong id="taUTrough" style="color:var(--hz-fg);">62% (0 specs)</strong></div>
-        <div><span style="color:var(--hz-muted);">Recency (70–100%)</span><br><strong id="taURecency" style="color:#10B981;">94% recall</strong></div>
+        <div><span style="color:var(--hz-muted);">Recency (70–100%)</span><br><strong id="taURecency" style="color:var(--hz-useful);">94% recall</strong></div>
       </div>
       <table class="ta-table" aria-label="Top context token consumers">
         <thead>
@@ -4824,7 +5055,7 @@
         <h2 class="ts-overline">Zone B &middot; Action Queue &amp; Router Governance</h2>
         <div id="taRouterSwitch" style="display:inline-flex;gap:3px;">
           <button type="button" class="ta-mini-btn" data-ta-mode="off">Off</button>
-          <button type="button" class="ta-mini-btn" data-ta-mode="coach" style="border-color:#10B981;color:#10B981;">Coach</button>
+          <button type="button" class="ta-mini-btn" data-ta-mode="coach" style="border-color:var(--hz-useful);color:var(--hz-useful);">Coach</button>
           <button type="button" class="ta-mini-btn" data-ta-mode="autopilot">Auto-Pilot</button>
         </div>
       </div>
@@ -4877,7 +5108,7 @@
         <div>
           <span id="taKpiTokens" class="ts-kpi-num">0.0k</span>
           <span style="font-size:11px;color:var(--hz-muted);margin-left:4px;">saved</span>
-          <span id="taKpiUsd" style="font-size:11.5px;color:#10B981;margin-left:5px;font-weight:600;">$0.00</span>
+          <span id="taKpiUsd" style="font-size:11.5px;color:var(--hz-useful);margin-left:5px;font-weight:600;">$0.00</span>
         </div>
         <span id="taKpi30d" class="ts-meta">30d: 0.0k ($0.00)</span>
       </div>
@@ -4891,7 +5122,7 @@
         <button type="button" id="taBtnSurgeryPrimary" class="ts-cta-btn" data-cta-state="disabled" disabled>
           <span id="taBtnSurgeryLabel">Memory Clean &middot; 0.0k Reclaimable</span>
         </button>
-        <button type="button" id="taBtnForceAst" class="ta-mini-btn" style="padding:0 10px;border-color:#F59E0B;color:#F59E0B;" disabled>Fold AST</button>
+        <button type="button" id="taBtnForceAst" class="ta-mini-btn" style="padding:0 10px;border-color:var(--hz-clutter);color:var(--hz-clutter);" disabled>Fold AST</button>
       </div>
     </section>
   </div>
@@ -4945,7 +5176,7 @@
         <h2 class="section-box-title">Context Memory Capacity</h2>
       </div>
       <div class="section-box-meta-group">
-        <span class="prefix-lock-badge mono" id="prefixLockBadge" hidden title="Active warm cache (&gt;50k tokens). Changing reasoning effort or switching models rewrites the system prefix and triggers a 100% uncached KV cache rebuild.">&#x1F512; Warm</span>
+        <span class="prefix-lock-badge mono" id="prefixLockBadge" hidden title="Active warm cache (&gt;50k tokens). Switching models (within or across families) triggers a full uncached cache rebuild; on Claude, changing reasoning effort also re-bills cached chat history (Gemini thinking-level changes keep the cache).">&#x1F512; Warm</span>
         <span class="summary-status-pill mono" id="sessionModelPill" style="font-size:10px;">Auto</span>
         <span class="summary-status-pill mono" id="storageHorizonBadge">Safe Limit: 140k</span>
       </div>
@@ -6071,7 +6302,7 @@
   }
 
   const PREFIX_LOCK_WARNING_TEXT =
-    'Active warm cache (>50k tokens). Changing reasoning effort or switching models rewrites the system prefix and triggers a 100% uncached KV cache rebuild.';
+    'Active warm cache (>50k tokens). Switching models (within or across families) triggers a full uncached cache rebuild; on Claude, changing reasoning effort also re-bills cached chat history (Gemini thinking-level changes keep the cache).';
 
   function resolveSurfaceTag(surfaceOrPath) {
     const s = String(surfaceOrPath || '').toLowerCase().trim();
@@ -6815,7 +7046,10 @@
       }
     }
     if (!fromCatalog) {
-      if (!latestAutoState || (selectedSessionMode === 'auto' && !raw.pinnedConversationId)) {
+      // Keep the cached auto state fresh: the daemon pins the active conversation, so a pinned
+      // stream state for the same session (or any state while following 'auto') must replace it.
+      // Otherwise cached re-renders (workspace change / Follow active) resurrect pre-/compact totals.
+      if (!latestAutoState || selectedSessionMode === 'auto' || raw.sessionId === latestAutoState.sessionId) {
         latestAutoState = raw;
         if (!initialHostSurface && raw.storeSource) initialHostSurface = raw.storeSource;
       }
@@ -11099,8 +11333,9 @@
       clutter: 'Reclaimable Tool Logs',
       error: 'Stale Error Trace'
     };
-    const recall = num <= 12 ? '0.96' : (num >= 28 ? '0.94' : '0.68');
-    if (leftEl) leftEl.textContent = `Cell #${num} \u00B7 ${catLabels[cell.cat] || cell.source || cell.cat}`;
+    const recall = cell.recall || (num <= 12 ? '0.96' : (num >= 28 ? '0.94' : '0.68'));
+    const label = cell.source || catLabels[cell.cat] || cell.cat;
+    if (leftEl) leftEl.textContent = `Cell #${num} \u00B7 ${label}`;
     if (rightEl) rightEl.textContent = `${formatTokens(cell.tokens || 0)} / cell \u00B7 ${recall} recall`;
   }
 
@@ -11109,30 +11344,42 @@
     const win = raw.window || {};
     const bd = win.breakdown || raw.categories || {};
     const bs = raw.brainSignals || {};
+    // Live daemon schema: top-level `breakdown` (ANCHOR / ACTIVE_WORKING_SET / STALE_DUPLICATE ...)
+    // and `metrics.displayParity` (same totals the legacy panel displays).
+    const bdLive = (raw.breakdown && typeof raw.breakdown === 'object') ? raw.breakdown : {};
+    const dp = raw.metrics?.displayParity || null;
+    const dpTotalT = dp ? Math.round(Number(dp.displayTotalTenths ?? (Number(dp.totalK) * 10)) * 100) || 0 : 0;
+    const dpReclaimT = dp ? Math.round(Number(dp.displayReclaimableTenths ?? (Number(dp.reclaimableK) * 10)) * 100) || 0 : 0;
+    const bdLiveUsedT = (Number(bdLive.ANCHOR) || 0) + (Number(bdLive.MEMORY_KI) || 0) + (Number(bdLive.FOREIGN_BLEED) || 0)
+      + (Number(bdLive.STALE_DUPLICATE) || 0) + (Number(bdLive.DEAD_ERROR) || 0) + (Number(bdLive.ACTIVE_WORKING_SET) || 0);
+    const bdLiveReclaimT = (Number(bdLive.STALE_DUPLICATE) || 0) + (Number(bdLive.DEAD_ERROR) || 0) + (Number(bdLive.FOREIGN_BLEED) || 0);
 
-    const total = Math.max(0, Number(win.totalTokens ?? raw.totalTokens) || 0);
+    const total = Math.max(0, Number(win.totalTokens ?? raw.totalTokens) || dpTotalT || bdLiveUsedT || Number(win.totalActiveTokens) || 0);
     const maxCap = Math.max(1000, Number(win.maxTokens ?? raw.maxTokens) || 1000000);
     const safeCap = Math.max(1000, Number(win.safeLimit ?? raw.safeHorizonTokens) || Math.round(maxCap * 0.6));
     const rotThresh = Number(raw.contextRotThreshold) || Math.round(maxCap * 0.8);
 
-    const rulesT = Number(bd.systemAndTools ?? bd.systemRules ?? bs.activeSignal?.baselineTokens) || 0;
+    const rulesT = Number(bd.systemAndTools ?? bd.systemRules ?? bs.activeSignal?.baselineTokens ?? bdLive.ANCHOR) || 0;
     const toolsT = Number(bd.toolDefinitions) || 0;
-    const activeT = Number(bd.activeCodeAndRules ?? bd.activeSource ?? bs.activeSignal?.tokens) || 0;
+    const activeT = Number(bd.activeCodeAndRules ?? bd.activeSource ?? bs.activeSignal?.tokens ?? bdLive.ACTIVE_WORKING_SET) || 0;
     const filesT = Number(bd.toolOutputs) || 0;
     const depsT = Number(bd.dependencyBloat) || 0;
 
     const dupWaste = Array.isArray(bs.duplicateReads)
       ? bs.duplicateReads.reduce((acc, d) => acc + Math.max(0, Number(d?.wastedTokens || 0)), 0)
-      : 0;
+      : Math.max(0, Number(bs.duplicateReads?.reclaimableTokens || 0));
     const errWaste = Math.max(0, Number(bs.deadErrors?.reclaimableTokens || 0));
     const histWaste = Math.max(0, Number(bs.oldHistory?.reclaimableTokens || 0));
+    const bleedWaste = Math.max(0, Number(bs.foreignBleed?.reclaimableTokens ?? bdLive.FOREIGN_BLEED) || 0);
     const staleT = Math.min(
       total,
       Math.max(
         Number(raw.reclaimableTokens) || 0,
+        dpReclaimT,
+        bdLiveReclaimT,
         (Number(bd.reclaimableClutter) || 0) + (Number(bd.cachedHistory) || 0),
         (Number(bd.staleLogs) || 0) + depsT,
-        dupWaste + errWaste + histWaste
+        dupWaste + errWaste + histWaste + bleedWaste
       )
     );
     const usefulT = Math.max(0, total - staleT);
@@ -11144,8 +11391,19 @@
 
     const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
 
-    const activeModel = raw.quota?.sprint5h?.modelPoolName || win.activeModelLabel || raw.modelName || 'Auto';
-    const activeEffort = raw.activeEffortProfile?.shortLabel || raw.effortProfile?.shortLabel || raw.thinkingEffort || 'Auto';
+    // Authoritative active model (raw.model) — quota pool name is only a legacy fallback.
+    const mdl = raw.model || {};
+    const activeModel = mdl.displayName || win.activeModelLabel || raw.modelName || raw.quota?.sprint5h?.modelPoolName || 'Auto';
+    const modelId = String(mdl.id || raw.quota?.cache?.turnBoundarySwitchState?.active_model_id || win.unifiedPool?.modelId || activeModel).toLowerCase();
+    const modelHay = `${modelId} ${String(mdl.rawLabel || activeModel).toLowerCase()}`;
+    // Provider from id/label, including registry sub-families (constants.mjs `family`).
+    const modelProvider = /claude|opus|sonnet|haiku|fable/.test(modelHay) ? 'Claude'
+      : /gemini|carbon|argon|hydrogen|flash/.test(modelHay) ? 'Gemini'
+        : /gpt/.test(modelHay) ? 'GPT-OSS' : 'Other';
+    // Selected effort comes from the host label "Model (Medium)" only when the parenthetical is an effort word.
+    const labelParen = (String(mdl.rawLabel || '').match(/\(([^)]+)\)\s*$/) || [])[1] || '';
+    const effortFromLabel = /^(low|medium|med|high|max|minimal|auto|fast|thinking)\b/i.test(labelParen.trim()) ? labelParen.trim() : '';
+    const activeEffort = effortFromLabel || raw.activeEffortProfile?.label || raw.effortProfile?.label || raw.thinkingEffort || 'Auto';
 
     const hostBadge = document.getElementById('tufteTopHostBadge');
     if (hostBadge) {
@@ -11160,25 +11418,39 @@
     const ttlMm = String(Math.floor(ttlRem / 60)).padStart(2, '0');
     const ttlSs = String(ttlRem % 60).padStart(2, '0');
     const rawHit = Number(cache.hitRatePct ?? (Number(cache.hitRatio) ? Number(cache.hitRatio) * 100 : 0));
-    const isWarm = (ttlRem > 0 && !cache.isCacheCold) || cacheState === 'HOT' || (cacheState === 'WARM' && ttlRem > 0);
-    const isCold = !isWarm && ttlRem === 0;
-    const hitPct = Math.round(rawHit || (isWarm ? 92 : 0));
+    // Warm only when real cache reads are measured and no prefix bust occurred (no fabricated hit rates).
+    const isWarm = isCacheTrulyWarmInline(cache) || (cacheState === 'HOT' && ttlRem > 0 && Number(rawHit) > 0);
+    const isRebuilding = !isWarm && ttlRem > 0 && !cache.isCacheCold && isNextTurnLikelyWarmInline(cache);
+    const isCold = !isWarm && !isRebuilding;
+    const hitPct = Math.max(0, Math.round(rawHit || 0));
 
     // --- Health state ---
     const isCrisis = Boolean(raw.amputationCrisis || raw.amputation?.amputationCrisis || raw.telemetry?.amputationRisk) || total >= safeCap;
     const isWarn = !isCrisis && (total >= safeCap * 0.82 || staleT >= 35000);
     const errLoopCount = Number(bs.deadErrors?.errorCount || 0);
     const isStuckErrorLoop = Boolean(bs.deadErrors?.isErrorLoop || errLoopCount >= 3);
+    const topBlowup = Array.isArray(bs.blowupSteps) && bs.blowupSteps.length > 0 ? bs.blowupSteps[0] : null;
+    const idleEagerMcps = Array.isArray(bs.mcpAudit?.unusedEagerServers) ? bs.mcpAudit.unusedEagerServers : [];
+    const idleEagerTokens = Math.max(0, Number(bs.mcpAudit?.reclaimableEagerSchemaTokens) || 0);
+    const baselineEst = Math.max(0, Number(raw.baseline?.totalEst ?? (rulesT + toolsT)) || 0);
+    const baselineOverBudget = Boolean(raw.baseline?.eagerInjectionWarning) || baselineEst > 20000;
+    const isHighEffort = /high|max|deep|thinking/i.test(String(activeEffort));
 
     // =======================================================================
     // 1. SIMPLE VIEW UPDATES (#argonSimpleSurface)
     // =======================================================================
     const tsCacheMeta = document.getElementById('tsCacheMeta');
     if (tsCacheMeta) {
-      tsCacheMeta.dataset.tone = isWarm ? 'signal' : (!isCold ? 'warn' : 'muted');
+      const cacheUnmeasured = !isWarm && cache.prefixRetention?.unmeasuredReason === 'no_cache_telemetry';
+      tsCacheMeta.dataset.tone = isWarm ? 'signal' : (isRebuilding && !cacheUnmeasured ? 'warn' : 'muted');
       tsCacheMeta.textContent = isWarm
         ? `${hitPct}% hit \u00B7 Warm (${ttlMm}:${ttlSs})`
-        : (!isCold ? `${hitPct}% hit \u00B7 Cooling (${ttlMm}:${ttlSs})` : '0% hit \u00B7 Cold');
+        : (cacheUnmeasured && ttlRem > 0
+          ? `Cache not reported \u00B7 TTL ${ttlMm}:${ttlSs}`
+          : (isRebuilding ? `${hitPct}% hit \u00B7 Rebuilding (${ttlMm}:${ttlSs})` : `${hitPct}% hit \u00B7 Cold`));
+      tsCacheMeta.title = cacheUnmeasured
+        ? 'The host reports no cache-read tokens for this model, so the hit rate is unknown.'
+        : (cache.prefixBustLabel || '');
     }
 
     const tsStatusDot = document.getElementById('tsStatusDot');
@@ -11187,48 +11459,21 @@
       if (isCrisis) {
         tsStatusDot.dataset.tone = 'danger';
         tsStatusLabel.textContent = 'Memory Pruning Active';
+      } else if (isStuckErrorLoop) {
+        tsStatusDot.dataset.tone = 'warn';
+        tsStatusLabel.textContent = 'Error Loop Detected';
       } else if (isWarn) {
         tsStatusDot.dataset.tone = 'warn';
-        tsStatusLabel.textContent = 'Context Saturation Risk';
+        tsStatusLabel.textContent = total >= safeCap * 0.82 ? 'Context Saturation Risk' : 'Reclaimable Clutter High';
+      } else if (topBlowup && Number(topBlowup.tokens) >= 15000) {
+        tsStatusDot.dataset.tone = 'warn';
+        tsStatusLabel.textContent = 'Single-Turn Output Spike';
+      } else if ((idleEagerMcps.length > 0 && idleEagerTokens >= 10000) || baselineOverBudget) {
+        tsStatusDot.dataset.tone = 'warn';
+        tsStatusLabel.textContent = 'Turn-0 Prefix Bloat';
       } else {
         tsStatusDot.dataset.tone = 'signal';
         tsStatusLabel.textContent = isWarm ? 'Optimal Cache' : 'Nominal Memory';
-      }
-    }
-
-    const tsAirlockBanner = document.getElementById('tsAirlockBanner');
-    const tsAirlockReceiptRow = document.getElementById('tsAirlockReceiptRow');
-    const tsAirlockReceiptText = document.getElementById('tsAirlockReceiptText');
-    const al = raw.airlock;
-    if (tsAirlockBanner) {
-      if (al && al.enabled) {
-        tsAirlockBanner.style.display = 'block';
-        const hooksInactive = !al.lastHeartbeatAt && Number(al.totalEvents || 0) === 0;
-        const lapsed = Number(al.coverageLapses || 0);
-        const drift = !al.schemaTested || Boolean(al.schemaDriftActive);
-        const statusFlag = hooksInactive
-          ? 'INACTIVE · Hooks Did Not Fire'
-          : al.tampered
-            ? 'POLICY TAMPERED (FAIL-CLOSED)'
-            : drift
-              ? `UNTESTED HOST (${al.lastHostVersion || 'unknown'})`
-              : lapsed > 0
-                ? `COVERAGE LAPSE: ${lapsed}`
-                : `${String(al.mode || 'enforce').toUpperCase()} · hb ${al.heartbeatFresh ? 'ok' : 'stale'}`;
-        tsAirlockBanner.textContent = `Airlock: ${statusFlag} · ${Number(al.blockedCount || 0)} blocked · ${Number(al.scrubbedCount || 0)} scrubbed`;
-        tsAirlockBanner.style.color = hooksInactive
-          ? '#ef4444'
-          : (al.tampered || drift || lapsed > 0) ? '#f59e0b' : 'var(--hz-muted)';
-      } else {
-        tsAirlockBanner.style.display = 'none';
-      }
-    }
-    if (tsAirlockReceiptRow && tsAirlockReceiptText) {
-      if (al && al.enabled) {
-        tsAirlockReceiptRow.style.display = 'block';
-        tsAirlockReceiptText.textContent = `Airlock chain ${al.chainValid === false ? 'BROKEN' : 'intact'} · lapses: ${Number(al.coverageLapses || 0)}`;
-      } else {
-        tsAirlockReceiptRow.style.display = 'none';
       }
     }
 
@@ -11249,6 +11494,70 @@
     }
     if (tsSafeTick) tsSafeTick.style.left = `${safeMarkPct.toFixed(1)}%`;
 
+    // In-bar labels: share of tokens in use (hidden when the segment is too narrow to fit)
+    const usedSumT = Math.max(1, usefulT + staleT);
+    const sigShare = Math.round((usefulT / usedSumT) * 100);
+    const cluShare = staleT > 0 ? 100 - sigShare : 0;
+    const trackW = tsBarSignal?.parentElement?.clientWidth || 300;
+    const fitLabel = (pct, txt) => ((pct / 100) * trackW >= txt.length * 6.7 + 12 ? txt : '');
+    const sigTxtFull = `${formatTokens(usefulT)} (${sigShare}%)`;
+    const cluTxtFull = `${formatTokens(staleT)} (${cluShare}%)`;
+    const sigInside = usefulT > 0 ? fitLabel(usefulPct, sigTxtFull) : '';
+    const cluInside = staleT > 0 ? fitLabel(wastePct, cluTxtFull) : '';
+    setTxt('tsBarSignalLabel', sigInside);
+    setTxt('tsBarClutterLabel', cluInside);
+    // Fallback: labels that don't fit inside their segment are printed in the empty track after the fill
+    const tsBarOuterLabel = document.getElementById('tsBarOuterLabel');
+    if (tsBarOuterLabel) {
+      const outerParts = [];
+      if (usefulT > 0 && !sigInside) outerParts.push(`<span class="ts-ol-signal">${escAttr(sigTxtFull)}</span>`);
+      if (staleT > 0 && !cluInside) outerParts.push(`<span class="ts-ol-clutter" data-clutter-tone="${isWarm ? 'cached' : 'stale'}">${escAttr(cluTxtFull)}</span>`);
+      const fillPct = usefulPct + wastePct;
+      if (outerParts.length && fillPct < 75) {
+        tsBarOuterLabel.innerHTML = outerParts.join('');
+        tsBarOuterLabel.style.left = `${fillPct.toFixed(1)}%`;
+        tsBarOuterLabel.hidden = false;
+      } else {
+        tsBarOuterLabel.hidden = true;
+        tsBarOuterLabel.innerHTML = '';
+      }
+    }
+    const tsSafeTickLabel = document.getElementById('tsSafeTickLabel');
+    if (tsSafeTickLabel) {
+      tsSafeTickLabel.style.left = `${safeMarkPct.toFixed(1)}%`;
+      tsSafeTickLabel.textContent = `${formatTokens(safeCap)} safe limit`;
+    }
+
+    // Zone D: "What /compact clears" breakdown (rows only for non-zero sources)
+    const tsWhyClears = document.getElementById('tsWhyClears');
+    const tsWhyList = document.getElementById('tsWhyList');
+    if (tsWhyClears && tsWhyList) {
+      const dupFilesN = Number(bs.duplicateReads?.fileCount ?? (Array.isArray(bs.duplicateReads) ? bs.duplicateReads.length : 0)) || 0;
+      const histTurnsN = Number(bs.oldHistory?.turnCount || 0);
+      const errN = Number(bs.deadErrors?.errorCount || 0);
+      const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+      const knownWaste = dupWaste + histWaste + errWaste + bleedWaste;
+      const otherWaste = staleT > knownWaste + 99 ? (staleT - knownWaste) : 0;
+      const whyRows = [
+        { label: 'Repeated file reads', sub: dupFilesN ? plural(dupFilesN, 'file', 'files') : '', tok: dupWaste },
+        { label: 'Earlier chat history', sub: histTurnsN ? plural(histTurnsN, 'old turn', 'old turns') : '', tok: histWaste },
+        { label: isStuckErrorLoop ? 'Error logs & loop traces' : 'Fixed error logs', sub: errN ? plural(errN, isStuckErrorLoop ? 'error' : 'old error', isStuckErrorLoop ? 'errors' : 'old errors') : '', tok: errWaste },
+        { label: 'Cross-project memory bleed', sub: 'foreign KIs', tok: bleedWaste },
+        { label: 'Other stale tool outputs', sub: '', tok: otherWaste }
+      ].filter(r => r.tok >= 100).sort((a, b) => b.tok - a.tok);
+      if (whyRows.length === 0) {
+        tsWhyClears.hidden = true;
+        tsWhyClears.open = false;
+      } else {
+        tsWhyClears.hidden = false;
+        tsWhyList.innerHTML = whyRows.map(r =>
+          `<li class="ts-why-row"><span>${escAttr(r.label)}${r.sub ? ` <span class="ts-why-sub">(${escAttr(r.sub)})</span>` : ''}</span>` +
+          `<span class="ts-why-tok">${escAttr(formatTokens(r.tok))}</span></li>`
+        ).join('');
+        setTxt('tsWhyTotal', formatTokens(staleT));
+      }
+    }
+
     setTxt('tsValSignal', formatTokens(usefulT));
     setTxt('tsValClutter', formatTokens(staleT));
     setTxt('tsClutterKind', isWarm && staleT > 0 ? 'Warm Reclaimable' : 'Reclaimable');
@@ -11257,65 +11566,146 @@
     // Zone B: Direct Guidance (DO / AVOID / MODEL & EFFORT)
     const tsGuidanceBadge = document.getElementById('tsGuidanceBadge');
     const tsDoRow = document.getElementById('tsDoRow');
-    const tsModelEffortRow = document.getElementById('tsModelEffortRow');
-    const tsModelEffortTag = document.getElementById('tsModelEffortTag');
-    const tsModelEffortText = document.getElementById('tsModelEffortText');
 
     if (isCrisis) {
       if (tsDoRow) tsDoRow.dataset.tone = 'danger';
       setTxt('tsDoText', `Run /compact now or checkpoint to task.md \u2014 context is ${formatTokens(Math.max(0, total - safeCap))} past safe limit.`);
       setTxt('tsAvoidText', `Avoid full-file reads or verbose test loops until ${formatTokens(staleT)} clutter is purged.`);
+    } else if (isStuckErrorLoop) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
+      setTxt('tsDoText', `Pause blind retries (${errLoopCount}\u00D7 error loop) \u2014 inspect root cause${staleT >= 5000 ? ` or /compact ${formatTokens(staleT)} of error noise` : ''}.`);
+      setTxt('tsAvoidText', 'Avoid repeating the same failing command; upshift model/effort or isolate a minimal repro.');
     } else if (isWarm && staleT > 10000) {
       if (tsDoRow) tsDoRow.dataset.tone = 'do';
       setTxt('tsDoText', `Keep prompting while ${hitPct}% cache discount is warm (${formatTokens(remainingSafe)} safe headroom left).`);
       setTxt('tsAvoidText', `Avoid /compact for ${ttlMm}:${ttlSs} so you do not invalidate the warm prefix cache.`);
+    } else if (total >= safeCap * 0.82) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
+      setTxt('tsDoText', `Checkpoint to task.md or run /compact soon \u2014 only ${formatTokens(remainingSafe)} left below ${formatTokens(safeCap)} safe limit.`);
+      setTxt('tsAvoidText', 'Avoid multi-file reads or verbose test loops until context is compacted.');
+    } else if (isHighEffort && staleT >= 30000) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
+      setTxt('tsDoText', `Run /compact to clear ${formatTokens(staleT)} clutter \u2014 ${activeEffort} effort re-processes stale noise every turn.`);
+      setTxt('tsAvoidText', 'Avoid stacking full-file reads or verbose logs while High effort is active.');
+    } else if (staleT >= 35000) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
+      const dominantCause = dupWaste >= histWaste && dupWaste >= bleedWaste && dupWaste >= errWaste && dupWaste > 0
+        ? 'repeated file reads'
+        : histWaste >= bleedWaste && histWaste >= errWaste && histWaste > 0
+          ? 'older chat history'
+          : bleedWaste >= errWaste && bleedWaste > 0
+            ? 'cross-project bleed'
+            : errWaste > 0 ? 'error logs' : 'stale outputs';
+      setTxt('tsDoText', `Run /compact when ready to reclaim ${formatTokens(staleT)} clutter (${dominantCause}).`);
+      setTxt('tsAvoidText', dominantCause === 'repeated file reads'
+        ? 'Avoid re-reading full files; use StartLine/EndLine bounds or delegate exploration to a subagent.'
+        : dominantCause === 'cross-project bleed'
+          ? 'Avoid relying on unverified cross-project Knowledge Items; pin only current-workspace facts.'
+          : 'Avoid letting stale turns accumulate past ~35k without compacting.');
+    } else if (topBlowup && Number(topBlowup.tokens) >= 12000) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
+      const rawBlowupDetail = String(topBlowup.payload?.detail || topBlowup.target || 'tool output');
+      const blowupShort = topBlowup.payload?.kind === 'file'
+        ? rawBlowupDetail.replace(/\\/g, '/').split('/').pop()
+        : (rawBlowupDetail.length > 36 ? rawBlowupDetail.slice(0, 33) + '...' : rawBlowupDetail);
+      setTxt('tsDoText', `Single-turn spike: ${formatTokens(topBlowup.tokens)} from ${blowupShort} (Turn #${topBlowup.userTurnNumber || topBlowup.stepIndex}) \u2014 filter future output.`);
+      setTxt('tsAvoidText', 'Avoid unfiltered verbose test/build dumps; pipe output or delegate to a scout subagent.');
+    } else if ((idleEagerMcps.length > 0 && idleEagerTokens >= 5000) || baselineOverBudget) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
+      setTxt('tsDoText', idleEagerMcps.length > 0
+        ? `Switch ${idleEagerMcps.length} idle eager MCP${idleEagerMcps.length === 1 ? '' : 's'} to lazy loading to save ~${formatTokens(idleEagerTokens)} at Turn 0.`
+        : `Trim Turn-0 customizations (${formatTokens(baselineEst)} vs 20.0k budget) to free permanent headroom.`);
+      setTxt('tsAvoidText', 'Avoid eager-loading unused MCP schemas or >200-line global rule files.');
     } else {
       if (tsDoRow) tsDoRow.dataset.tone = 'do';
       setTxt('tsDoText', `Safe to run multi-file edits or implementation tasks (${formatTokens(remainingSafe)} left below ${formatTokens(safeCap)} safe limit).`);
       setTxt('tsAvoidText', 'Avoid reading large files without line bounds (StartLine/EndLine) to keep context lean.');
     }
 
-    // Explicit Model & Effort Switch Guidance inside Zone B
-    if (tsModelEffortRow && tsModelEffortTag && tsModelEffortText) {
+    // Zone B: separate MODEL and EFFORT containers (model-family aware)
+    {
+      const ttlTxt = `${ttlMm}:${ttlSs}`;
+      const otherFamily = modelProvider === 'Claude' ? 'Gemini' : (modelProvider === 'Gemini' ? 'Claude' : 'another family');
+      const familyHint = modelProvider === 'Claude' ? 'Opus/Sonnet/Haiku' : (modelProvider === 'Gemini' ? 'Carbon/Argon/Flash' : 'same provider');
+      const cg = cache.costGate || {};
+      const rewriteUsd = Number(cg.coldRewriteCostUsd) || 0;
+      const quotaUnits = Number(cg.quotaPenaltyUnits) || 0;
+      const usdTxt = rewriteUsd >= 0.01 ? `$${rewriteUsd.toFixed(2)}` : '<$0.01';
+      const costTxt = rewriteUsd > 0 ? ` \u2248 ${usdTxt}${quotaUnits > 0 ? ` \u00B7 ${formatTokens(quotaUnits)} quota units` : ''}` : '';
+      const windowTxt = `now ${formatTokens(maxCap)} window / ${formatTokens(safeCap)} safe`;
+      const crossFamTxt = `To ${otherFamily}: cache rebuilds, tokens are re-counted, window & safe limit change (${windowTxt}).`;
+      // Claude (and unknown providers, conservatively): effort/thinking changes invalidate cached chat history.
+      // Gemini: thinking level is not part of the cached prompt prefix.
+      const effortBustsCache = modelProvider !== 'Gemini';
+
+      let m = { tone: 'do', verdict: 'OK', badge: 'OK', same: '', cross: crossFamTxt };
+      let e = { tone: 'do', verdict: 'OK', badge: 'OK', text: '' };
+
       if (isCrisis) {
-        tsModelEffortRow.dataset.tone = 'danger';
-        tsModelEffortTag.textContent = 'LOCK';
-        tsModelEffortText.innerHTML =
-          `<strong>Model: Hold until /compact</strong> &middot; <strong>Effort: Not OK for High</strong> &mdash; Lower effort to <code>Low/Med</code> (${escAttr(activeModel)} &middot; ${escAttr(activeEffort)}) to stop thinking-token overflow.`;
-        if (tsGuidanceBadge) {
-          tsGuidanceBadge.dataset.tone = 'warn';
-          tsGuidanceBadge.textContent = 'Model: Hold \u00B7 Effort: Lower';
-        }
+        m = { tone: 'danger', verdict: 'LOCK', badge: 'Hold',
+          same: `Run /compact first \u2014 any switch re-sends ${formatTokens(total)} uncached.`,
+          cross: `To ${otherFamily}: same rebuild, plus tokens re-counted against a new window.` };
+        e = { tone: 'danger', verdict: 'LOWER', badge: 'Lower', text: 'Drop to Low/Med to stop thinking-token overflow.' };
       } else if (isStuckErrorLoop) {
-        tsModelEffortRow.dataset.tone = 'avoid';
-        tsModelEffortTag.textContent = 'SWITCH';
-        tsModelEffortText.innerHTML =
-          `<strong>Model: OK to upshift</strong> &middot; <strong>Effort: OK to raise to High</strong> &mdash; ${errLoopCount}\u00D7 error loop detected; switch model or raise effort to break thrash.`;
-        if (tsGuidanceBadge) {
-          tsGuidanceBadge.dataset.tone = 'warn';
-          tsGuidanceBadge.textContent = 'Model: Upshift OK \u00B7 Effort: High OK';
-        }
-      } else if (isWarm && total >= 6500) {
-        tsModelEffortRow.dataset.tone = 'avoid';
-        tsModelEffortTag.textContent = 'HOLD';
-        tsModelEffortText.innerHTML =
-          `<strong>Model: Hold (${ttlMm}:${ttlSs})</strong> &mdash; switching busts warm cache &middot; <strong>Effort: OK to change</strong> (drop to <code>Low/Med</code> on ${escAttr(activeModel)} for routine edits).`;
-        if (tsGuidanceBadge) {
-          tsGuidanceBadge.dataset.tone = 'warn';
-          tsGuidanceBadge.textContent = `Model: Hold ${ttlMm}:${ttlSs} \u00B7 Effort: OK`;
-        }
+        m = { tone: 'avoid', verdict: 'UPSHIFT OK', badge: 'Upshift OK',
+          same: `${errLoopCount}\u00D7 error loop \u2014 a stronger ${modelProvider} model can break it${costTxt}.`,
+          cross: `To ${otherFamily}: fresh perspective; cache rebuilds and tokens are re-counted.` };
+        e = { tone: 'avoid', verdict: 'RAISE OK', badge: 'High OK', text: 'Raise to High to break the error loop.' };
+      } else if (isWarm) {
+        m = { tone: 'avoid', verdict: `HOLD ${ttlTxt}`, badge: `Hold ${ttlTxt}`,
+          same: `Within ${modelProvider} (${familyHint}): full cache rebuild${costTxt}.`, cross: crossFamTxt };
+        e = effortBustsCache
+          ? { tone: 'avoid', verdict: `HOLD ${ttlTxt}`, badge: `Hold ${ttlTxt}`, text: 'Changing re-bills cached chat history; tools & system prompt stay cached.' }
+          : { tone: 'do', verdict: 'OK', badge: 'OK', text: 'Thinking level is not part of the cached prompt \u2014 cache is kept.' };
+      } else if (isRebuilding) {
+        m = { tone: 'avoid', verdict: 'STAY', badge: 'Stay',
+          same: `Cache is likely rebuilding on ${activeModel} \u2014 staying reuses it next turn.`, cross: crossFamTxt };
+        e = effortBustsCache
+          ? { tone: 'avoid', verdict: 'STAY', badge: 'Stay', text: 'Changing now discards the history cache being rebuilt.' }
+          : { tone: 'do', verdict: 'OK', badge: 'OK', text: 'Thinking level is not part of the cached prompt \u2014 cache is kept.' };
       } else {
-        tsModelEffortRow.dataset.tone = 'do';
-        tsModelEffortTag.textContent = 'MODEL';
-        const effortAdvice = String(activeEffort).toLowerCase().includes('high') && usedPct >= 45
-          ? `consider <code>Low/Med</code> for routine edits (${escAttr(activeModel)} &middot; ${escAttr(activeEffort)} active)`
-          : `match tier to task (${escAttr(activeModel)} &middot; ${escAttr(activeEffort)} active)`;
-        tsModelEffortText.innerHTML =
-          `<strong>Model: OK to switch</strong> &middot; <strong>Effort: OK to change</strong> &mdash; Cache is cold (0 rewrite penalty); ${effortAdvice}.`;
-        if (tsGuidanceBadge) {
-          tsGuidanceBadge.dataset.tone = 'signal';
-          tsGuidanceBadge.textContent = 'Model: OK \u00B7 Effort: OK';
+        m = { tone: 'do', verdict: 'OK', badge: 'OK',
+          same: `Cache is cold \u2014 no rewrite penalty within ${modelProvider} (${familyHint}).`,
+          cross: `To ${otherFamily}: tokens are re-counted, window & safe limit change (${windowTxt}).` };
+        e = { tone: 'do', verdict: 'OK', badge: 'OK',
+          text: isHighEffort && usedPct >= 45 ? 'Consider Low/Med for routine edits.' : 'Match tier to task: Low/Med for edits, High for specs.' };
+      }
+
+      const tsModelCard = document.getElementById('tsModelCard');
+      const tsEffortCard = document.getElementById('tsEffortCard');
+      if (tsModelCard) { tsModelCard.dataset.tone = m.tone; tsModelCard.title = `${activeModel} \u00B7 ${modelProvider} family`; }
+      if (tsEffortCard) { tsEffortCard.dataset.tone = e.tone; tsEffortCard.title = `${activeEffort} effort on ${activeModel}`; }
+      setTxt('tsModelVerdict', m.verdict);
+      setTxt('tsModelName', activeModel);
+      setTxt('tsModelSameFam', m.same);
+      setTxt('tsModelCrossFam', m.cross);
+      setTxt('tsEffortVerdict', e.verdict);
+      setTxt('tsEffortName', activeEffort);
+      setTxt('tsEffortText', e.text);
+
+      const tsModelLast = document.getElementById('tsModelLast');
+      if (tsModelLast) {
+        const bc = cache.prefixBustCause;
+        if (bc && bc.cause === 'model_switch' && bc.from && bc.to) {
+          const stripEff = (s) => String(s).replace(/\s*\([^)]*\)\s*$/, '');
+          const prov = (s) => (/claude|opus|sonnet|haiku|fable/i.test(s) ? 'Claude' : /gemini|carbon|argon|hydrogen|flash/i.test(s) ? 'Gemini' : /gpt/i.test(s) ? 'GPT-OSS' : 'Other');
+          const crossTag = prov(bc.from) !== prov(bc.to) ? ' \u00B7 cross-family' : '';
+          tsModelLast.textContent = `Last switch: ${stripEff(bc.from)} \u2192 ${stripEff(bc.to)} (cache miss${crossTag})`;
+          tsModelLast.hidden = false;
+        } else {
+          tsModelLast.hidden = true;
+          tsModelLast.textContent = '';
         }
+      }
+      const tsEffortHist = document.getElementById('tsEffortHist');
+      if (tsEffortHist) {
+        const effSwitches = (raw.effortTransitions || raw.effortHistory || []).length;
+        tsEffortHist.hidden = effSwitches < 2;
+        tsEffortHist.textContent = effSwitches >= 2 ? `${effSwitches} effort switches this chat` : '';
+      }
+      if (tsGuidanceBadge) {
+        tsGuidanceBadge.dataset.tone = (m.tone === 'do' && e.tone === 'do') ? 'signal' : 'warn';
+        tsGuidanceBadge.textContent = `Model: ${m.badge} \u00B7 Effort: ${e.badge}`;
       }
     }
 
@@ -11333,7 +11723,14 @@
     const savSubagent = Number(srvBySource.subagentIsolated ?? srvBySource.subagentIsolation ?? raw.savingsLedger?.subagentTokens ?? 0);
     const savCache = Number(srvBySource.cachePreserved ?? srvBySource.cachePreservation ?? raw.savingsLedger?.prefixCacheTokens ?? 0);
     const savCli = Number(srvBySource.cliCompressed ?? srvBySource.cliCompression ?? raw.savingsLedger?.cliTokens ?? 0);
-    const savGuards = Number(srvBySource.avoidedBloat ?? ((srvBySource.guardsPrevented || 0) + (srvBySource.compactionReclaimed || 0)) ?? raw.savingsLedger?.dedupTokens ?? 0);
+    const savGuards = Number(
+      srvBySource.avoidedBloat ??
+      ((srvBySource.guardsPrevented != null || srvBySource.compactionReclaimed != null)
+        ? ((Number(srvBySource.guardsPrevented) || 0) + (Number(srvBySource.compactionReclaimed) || 0))
+        : raw.savingsLedger?.dedupTokens) ??
+      0
+    );
+    const queuedShield = Number(raw.prefixShield?.queuedCount ?? raw.coachState?.prefixCacheShield?.queuedCount ?? raw.coachState?.prefixShield?.queuedCount ?? 0);
 
     if (tsLedgerList) {
       const rows = [];
@@ -11377,7 +11774,6 @@
           });
         }
       }
-      const queuedShield = Number(raw.prefixShield?.queuedCount ?? raw.coachState?.prefixShield?.queuedCount ?? 0);
       if (rows.length < 4 && queuedShield > 0) {
         rows.push({
           age: 'live',
@@ -11407,7 +11803,7 @@
         <li class="ts-ledger-row">
           <span style="color:var(--hz-muted);">${escAttr(r.age)}</span>
           <span>${escAttr(r.action)}</span>
-          <span style="color:#10B981;">${escAttr(r.saved)}</span>
+          <span style="color:var(--hz-useful);">${escAttr(r.saved)}</span>
         </li>
       `).join('');
     }
@@ -11477,9 +11873,13 @@
     // 2. ADVANCED VIEW UPDATES (#argonAdvancedSurface)
     // =======================================================================
     setTxt('taSessionLabel', raw.sessionTitle || raw.workspaceName || 'Active Session');
-    setTxt('taSprint5h', `${Math.min(100, Math.round(Number(raw.quota?.fiveHourPct ?? (total / safeCap) * 18)))}%`);
-    setTxt('taWeekly7d', `${Math.min(100, Math.round(Number(raw.quota?.sevenDayPct ?? 12)))}%`);
-    setTxt('taHostRam', `${Number(raw.hostRamGb || 0.4).toFixed(1)}GB`);
+    const q5h = raw.quota?.sprint5h?.usedPct ?? raw.quota?.fiveHourPct ?? ((total / safeCap) * 18);
+    const q7d = raw.quota?.weekly7d?.usedPct ?? raw.quota?.sevenDayPct ?? 12;
+    const est5hPrefix = raw.quota?.sprint5h?.source === 'estimate' ? '~' : '';
+    const est7dPrefix = raw.quota?.weekly7d?.source === 'estimate' ? '~' : '';
+    setTxt('taSprint5h', `${est5hPrefix}${Math.min(100, Math.round(Number(q5h) || 0))}%`);
+    setTxt('taWeekly7d', `${est7dPrefix}${Math.min(100, Math.round(Number(q7d) || 0))}%`);
+    setTxt('taHostRam', `${Number(raw.hostHealth?.rssGb ?? raw.hostRamGb ?? 0).toFixed(1)}GB`);
 
     const taDualTtl = document.getElementById('taDualTtl');
     if (taDualTtl) {
@@ -11487,8 +11887,8 @@
       taDualTtl.textContent = `${hitPct}% hit \u00B7 5m KV ${ttlMm}:${ttlSs}`;
     }
     const taStatusDot = document.getElementById('taStatusDot');
-    if (taStatusDot) taStatusDot.dataset.tone = isCrisis ? 'danger' : (isWarn ? 'warn' : 'signal');
-    setTxt('taStatusLabel', isCrisis ? 'Pruning Required' : (isWarn ? 'Saturation Risk' : 'Optimal Cache'));
+    if (taStatusDot) taStatusDot.dataset.tone = isCrisis ? 'danger' : ((isStuckErrorLoop || isWarn) ? 'warn' : 'signal');
+    setTxt('taStatusLabel', isCrisis ? 'Pruning Required' : (isStuckErrorLoop ? 'Error Loop' : (isWarn ? 'Saturation Risk' : (isWarm ? 'Optimal Cache' : 'Nominal Memory'))));
     setTxt('taUsedTok', formatTokens(total));
     setTxt('taSigTok', formatTokens(usefulT));
     setTxt('taClutterTok', formatTokens(staleT));
@@ -11497,28 +11897,67 @@
     // Build 40 cells using data-cat="anchor|signal|cached|clutter|error"
     const totalCells = 40;
     const tokPerCell = Math.max(1, Math.round(safeCap / totalCells));
-    const anchorCells = Math.max(1, Math.min(8, Math.round((rulesT + toolsT) / tokPerCell)));
-    const signalCells = Math.max(0, Math.min(32 - anchorCells, Math.round((activeT + filesT) / tokPerCell)));
-    const clutterCells = Math.max(0, Math.min(40 - anchorCells - signalCells, Math.round(staleT / tokPerCell)));
-    const cells = [];
-    for (let i = 0; i < totalCells; i++) {
-      let cat = 'empty';
-      let tok = 0;
-      let src = 'Available capacity';
-      if (i < anchorCells) {
-        cat = 'anchor'; tok = Math.round((rulesT + toolsT) / anchorCells); src = 'System Anchor & Rules';
-      } else if (i < anchorCells + signalCells) {
-        cat = isWarm && i < anchorCells + Math.ceil(signalCells * 0.6) ? 'cached' : 'signal';
-        tok = Math.round((activeT + filesT) / Math.max(1, signalCells));
-        src = cat === 'cached' ? 'Warm Prefix History' : 'Active Dialogue & Edits';
-      } else if (i < anchorCells + signalCells + clutterCells) {
-        cat = isCrisis ? 'error' : 'clutter';
-        tok = Math.round(staleT / Math.max(1, clutterCells));
-        src = 'Reclaimable Tool Logs';
+    const catLabelsAdv = {
+      anchor: 'System Anchor & Rules',
+      signal: 'Active Dialogue & Edits',
+      cached: 'Warm Prefix History',
+      clutter: 'Reclaimable Tool Logs',
+      error: 'Stale Error Trace'
+    };
+    let cells = [];
+    if (Array.isArray(raw.cells) && raw.cells.length === 40 && raw.cells[0]?.dominantCategory) {
+      cells = raw.cells.map((c, i) => {
+        const dc = String(c.dominantCategory || '').toUpperCase();
+        const st = String(c.state || '').toLowerCase();
+        let cat = 'empty';
+        if (dc === 'FREE_HEADROOM' || c.fillPct === 0 || st === 'free') {
+          cat = 'empty';
+        } else if (c.isCrisisCell || dc === 'DEAD_ERROR' || st === 'error') {
+          cat = 'error';
+        } else if (dc === 'ANCHOR') {
+          cat = 'anchor';
+        } else if (dc === 'STALE_DUPLICATE' || dc === 'DUPLICATE_READ' || dc === 'STALE_TURN' || dc === 'FOREIGN_BLEED' || st === 'stale') {
+          cat = 'clutter';
+        } else if (dc === 'ACTIVE_WORKING_SET' || dc === 'MEMORY_KI' || st === 'useful') {
+          cat = isWarm && i < 24 ? 'cached' : 'signal';
+        }
+        const tbc = c.tokensByCategory && typeof c.tokensByCategory === 'object' ? c.tokensByCategory : null;
+        const tok = tbc
+          ? Object.entries(tbc).reduce((acc, [k, v]) => (k === 'FREE_HEADROOM' ? acc : acc + Math.max(0, Number(v) || 0)), 0)
+          : (cat === 'empty' ? 0 : Math.round(((c.fillPct ?? 100) / 100) * tokPerCell));
+        return {
+          cat,
+          tokens: tok,
+          source: cat === 'empty' ? 'Available capacity' : (c.topTarget || catLabelsAdv[cat] || cat),
+          recall: typeof c.attentionWeight === 'number' ? c.attentionWeight.toFixed(2) : undefined
+        };
+      });
+    } else {
+      const anchorCells = Math.max(1, Math.min(8, Math.round((rulesT + toolsT) / tokPerCell)));
+      const signalCells = Math.max(0, Math.min(32 - anchorCells, Math.round((activeT + filesT) / tokPerCell)));
+      const clutterCells = Math.max(0, Math.min(40 - anchorCells - signalCells, Math.round(staleT / tokPerCell)));
+      for (let i = 0; i < totalCells; i++) {
+        let cat = 'empty';
+        let tok = 0;
+        let src = 'Available capacity';
+        if (i < anchorCells) {
+          cat = 'anchor'; tok = Math.round((rulesT + toolsT) / anchorCells); src = 'System Anchor & Rules';
+        } else if (i < anchorCells + signalCells) {
+          cat = isWarm && i < anchorCells + Math.ceil(signalCells * 0.6) ? 'cached' : 'signal';
+          tok = Math.round((activeT + filesT) / Math.max(1, signalCells));
+          src = cat === 'cached' ? 'Warm Prefix History' : 'Active Dialogue & Edits';
+        } else if (i < anchorCells + signalCells + clutterCells) {
+          cat = isCrisis ? 'error' : 'clutter';
+          tok = Math.round(staleT / Math.max(1, clutterCells));
+          src = 'Reclaimable Tool Logs';
+        }
+        cells.push({ cat, tokens: tok, source: src });
       }
-      cells.push({ cat, tokens: tok, source: src });
     }
     __taLastCells = cells;
+
+    const strandedN = Number(raw.attentionHeatmap?.strandedSignalCount) || 0;
+    setTxt('taUTrough', `62% (${strandedN} spec${strandedN === 1 ? '' : 's'})`);
 
     const gridEl = document.getElementById('taHorizonGrid');
     if (gridEl) {
@@ -11534,9 +11973,57 @@
 
     // Top Context Consumers Table (respecting Active Source File Protection invariant)
     const taConsumersBody = document.getElementById('taConsumersBody');
-    const hogs = Array.isArray(raw.topConsumers) && raw.topConsumers.length > 0
-      ? raw.topConsumers
-      : (Array.isArray(raw.duplicateReads) ? raw.duplicateReads : []);
+    let hogs = [];
+    if (Array.isArray(raw.topConsumers) && raw.topConsumers.length > 0) {
+      hogs = raw.topConsumers;
+    } else {
+      const seenTargets = new Set();
+      const topFiles = Array.isArray(bs.duplicateReads?.topFiles)
+        ? bs.duplicateReads.topFiles
+        : (Array.isArray(raw.duplicateReads) ? raw.duplicateReads : []);
+      topFiles.forEach(f => {
+        const p = f?.path || f?.file;
+        const tok = Number(f?.wastedTokens ?? f?.tokens ?? f?.reclaimableTokens ?? 0);
+        if (!p || tok <= 0) return;
+        seenTargets.add(String(p).toLowerCase());
+        hogs.push({ kind: 'file', path: p, pattern: `${Number(f.occurrences || f.reads || f.count || 1)}x read`, tokens: tok });
+      });
+      (Array.isArray(raw.offenders) ? raw.offenders : []).forEach(o => {
+        const tgt = String(o?.target || '');
+        const tok = Number(o?.wastedTokens || 0);
+        if (!tgt || tok <= 0) return;
+        if (o.category === 'DEAD_ERROR') {
+          if (!seenTargets.has(tgt.toLowerCase())) {
+            seenTargets.add(tgt.toLowerCase());
+            hogs.push({ kind: 'error', label: tgt, pattern: `${Number(o.occurrences || 1)}x error`, tokens: tok });
+          }
+        } else if (tgt === 'Older chat history (>25 turns ago)') {
+          hogs.push({ kind: 'history', label: 'Older chat history (>25 turns)', pattern: `${Number(o.occurrences || 1)} turns`, tokens: tok });
+        } else if (tgt !== 'Foreign Bleed Knowledge' && !seenTargets.has(tgt.toLowerCase())) {
+          seenTargets.add(tgt.toLowerCase());
+          hogs.push({ kind: 'file', path: tgt, pattern: `${Number(o.occurrences || 1)}x read`, tokens: tok });
+        }
+      });
+      if (bleedWaste > 0) {
+        hogs.push({ kind: 'bleed', label: 'Cross-project memory bleed', pattern: 'foreign KI', tokens: bleedWaste });
+      }
+      (Array.isArray(bs.blowupSteps) ? bs.blowupSteps : []).forEach(b => {
+        const tok = Number(b?.tokens || 0);
+        if (tok <= 0) return;
+        const isFile = b.payload?.kind === 'file' && Boolean(b.payload?.path);
+        const key = String(isFile ? b.payload.path : (b.payload?.detail || b.target || '')).toLowerCase();
+        if (isFile && seenTargets.has(key)) return;
+        seenTargets.add(key);
+        hogs.push({
+          kind: isFile ? 'file' : 'spike',
+          path: isFile ? b.payload.path : undefined,
+          label: b.payload?.detail || b.target || 'Output spike',
+          pattern: `T${b.userTurnNumber || b.stepIndex} spike`,
+          tokens: tok
+        });
+      });
+      hogs.sort((a, b) => (b.tokens || 0) - (a.tokens || 0));
+    }
     if (taConsumersBody) {
       const list = hogs.slice(0, 4);
       if (list.length === 0) {
@@ -11545,30 +12032,43 @@
             <td>AGENTS.md + rules</td>
             <td>pinned</td>
             <td class="num">${formatTokens(rulesT || 12400)}</td>
-            <td class="num"><span style="color:#10B981;">Protected</span></td>
+            <td class="num"><span style="color:var(--hz-useful);">Protected</span></td>
           </tr>
           <tr>
             <td>Active working files</td>
             <td>1x read</td>
             <td class="num">${formatTokens(Math.max(4200, usefulT - rulesT))}</td>
-            <td class="num"><span style="color:#38BDF8;">Active Source</span></td>
+            <td class="num"><span style="color:var(--hz-anchor);">Active Source</span></td>
           </tr>
         `;
       } else {
         taConsumersBody.innerHTML = list.map(item => {
+          const kind = item.kind || (item.path || item.file ? 'file' : 'spike');
           const p = String(item.path || item.file || item.label || 'context-item');
-          const reads = Number(item.reads || item.count || 1);
+          const patternTxt = item.pattern || `${Number(item.reads || item.count || 1)}x read`;
           const tok = Number(item.tokens || item.reclaimableTokens || 2400);
-          const ignorable = typeof isIgnorablePath === 'function'
-            ? isIgnorablePath(p)
-            : /\.(log|lock|tmp|bak|min\.js|map)$|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|node_modules|\.antigravity/i.test(p);
-          const actionHtml = ignorable
-            ? `<button type="button" class="ta-mini-btn" data-ignore-path="${escAttr(p)}">+Ignore</button>`
-            : `<span style="color:#38BDF8;">Active Source</span>`;
+          let actionHtml = '';
+          if (kind === 'file') {
+            const ignorable = typeof isIgnorablePath === 'function'
+              ? isIgnorablePath(p)
+              : /\.(log|lock|tmp|bak|min\.js|map)$|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|node_modules|\.antigravity/i.test(p);
+            actionHtml = ignorable
+              ? `<button type="button" class="ta-mini-btn" data-ignore-path="${escAttr(p)}">+Ignore</button>`
+              : `<span style="color:var(--hz-anchor);">Active Source</span>`;
+          } else if (kind === 'history') {
+            actionHtml = `<span style="color:var(--hz-muted);">Cleared by /compact</span>`;
+          } else if (kind === 'error') {
+            actionHtml = `<span style="color:var(--hz-danger);">Error trace</span>`;
+          } else if (kind === 'bleed') {
+            actionHtml = `<span style="color:var(--hz-clutter);">Foreign KI</span>`;
+          } else {
+            actionHtml = `<span style="color:var(--hz-clutter);">Output spike</span>`;
+          }
+          const displayTarget = kind === 'file' && typeof formatShortPath === 'function' ? formatShortPath(p) : p;
           return `
             <tr>
-              <td title="${escAttr(p)}">${escAttr(formatShortPath ? formatShortPath(p) : p)}</td>
-              <td>${reads}x read</td>
+              <td title="${escAttr(p)}">${escAttr(displayTarget)}</td>
+              <td>${escAttr(patternTxt)}</td>
               <td class="num">${formatTokens(tok)}</td>
               <td class="num">${actionHtml}</td>
             </tr>
@@ -11581,15 +12081,65 @@
     const routerMode = String(raw.routerMode || 'coach').toLowerCase();
     document.querySelectorAll('#taRouterSwitch button').forEach(btn => {
       const active = (btn.dataset.taMode || btn.dataset.mode) === routerMode;
-      btn.style.borderColor = active ? '#10B981' : '';
-      btn.style.color = active ? '#10B981' : '';
+      btn.style.borderColor = active ? 'var(--hz-useful)' : '';
+      btn.style.color = active ? 'var(--hz-useful)' : '';
     });
+    const taActionQueue = document.getElementById('taActionQueue');
+    if (taActionQueue) {
+      const qRows = [];
+      if (isCrisis) {
+        qRows.push({ tone: 'danger', tag: 'CRISIS', text: `Run /compact or checkpoint task.md \u2014 ${formatTokens(Math.max(0, total - safeCap))} past safe limit` });
+      } else if (isStuckErrorLoop) {
+        qRows.push({ tone: 'avoid', tag: 'LOOP', text: `${errLoopCount}\u00D7 error loop \u2014 inspect root cause or upshift model/effort` });
+      } else if (staleT >= 35000) {
+        qRows.push({ tone: 'avoid', tag: 'COMPACT', text: `${formatTokens(staleT)} reclaimable clutter queued for /compact` });
+      } else if (topBlowup && Number(topBlowup.tokens) >= 12000) {
+        qRows.push({ tone: 'avoid', tag: 'SPIKE', text: `Turn #${topBlowup.userTurnNumber || topBlowup.stepIndex} spike (${formatTokens(topBlowup.tokens)}) \u2014 filter verbose output` });
+      }
+      if (idleEagerMcps.length > 0) {
+        qRows.push({ tone: 'avoid', tag: 'MCP', text: `${idleEagerMcps.length} idle eager MCP${idleEagerMcps.length === 1 ? '' : 's'} \u00B7 ~${formatTokens(idleEagerTokens)} schema bloat` });
+      }
+      if (Number(raw.hostHealth?.orphanCount) > 0) {
+        const oc = Number(raw.hostHealth.orphanCount);
+        qRows.push({ tone: 'avoid', tag: 'PID', text: `${oc} orphan language_server PID${oc === 1 ? '' : 's'} detected` });
+      }
+      if (strandedN > 0) {
+        qRows.push({ tone: 'avoid', tag: 'TROUGH', text: `${strandedN} stranded mid-trough spec${strandedN === 1 ? '' : 's'} (low recall)` });
+      }
+      if (raw.coachState?.det17ShadowBloat?.triggered) {
+        const sb = raw.coachState.det17ShadowBloat;
+        qRows.push({ tone: 'avoid', tag: 'SHADOW', text: `${sb.shadowedFileCount || 1} shadowed file(s) \u00B7 ~${formatTokens(sb.totalShadowWastedTokens || 0)} wasted` });
+      }
+      if (qRows.length === 0) {
+        qRows.push({ tone: 'do', tag: 'QUEUE', text: 'Nominal queue \u00B7 0 orphan PIDs, 0 idle eager MCPs, 0 trough specs' });
+      }
+      taActionQueue.innerHTML = qRows.slice(0, 3).map(r =>
+        `<div class="ts-guidance-row" data-tone="${escAttr(r.tone)}"><span class="ts-tag">${escAttr(r.tag)}</span><span>${escAttr(r.text)}</span></div>`
+      ).join('');
+    }
+    const taRouterNote = document.getElementById('taRouterNote');
+    if (taRouterNote) {
+      taRouterNote.textContent = raw.coachState?.taskQuotaRouter?.coachPillText || 'KV Gravity Router ready \u00B7 Turn-boundary switch buffer armed';
+    }
 
     // Zone C: Turn-0 Baseline & Guard Log
-    const baselineTok = rulesT + toolsT;
     const taBaselineText = document.getElementById('taBaselineText');
     if (taBaselineText) {
-      taBaselineText.innerHTML = `Turn-0 Baseline: <strong>${formatTokens(baselineTok)}</strong> / 20.0k budget`;
+      taBaselineText.innerHTML = `Turn-0 Baseline: <strong${baselineOverBudget ? ' style="color:var(--hz-clutter);"' : ''}>${formatTokens(baselineEst)}</strong> / 20.0k budget`;
+    }
+    setTxt('taBtnShield', `Shield: ${queuedShield} queued`);
+    const taDetBadge = document.getElementById('taDetBadge');
+    const trippedDet = raw.coachState?.detectors?.tripped;
+    if (taDetBadge) {
+      if (trippedDet && trippedDet.detectorId) {
+        taDetBadge.dataset.tone = 'warn';
+        taDetBadge.textContent = `${trippedDet.detectorId} tripped`;
+        taDetBadge.title = trippedDet.reason || '';
+      } else {
+        taDetBadge.dataset.tone = '';
+        taDetBadge.textContent = '32/32 guards armed';
+        taDetBadge.title = '';
+      }
     }
     const taGuardBody = document.getElementById('taGuardBody');
     if (taGuardBody && rawAutoFixItems.length > 0) {
@@ -11598,7 +12148,7 @@
           <td>${escAttr(ev.turn ? 'T' + ev.turn : (ev.ageLabel || 'auto'))}</td>
           <td>${escAttr(ev.guardId || `DET-0${idx + 1}`)}</td>
           <td>${escAttr(ev.label || ev.title || ev.summary || 'Guard intervention')}</td>
-          <td class="num" style="color:#10B981;">${ev.tokensSaved ? `+${formatTokens(ev.tokensSaved)}` : 'fixed'}</td>
+          <td class="num" style="color:var(--hz-useful);">${ev.tokensSaved ? `+${formatTokens(ev.tokensSaved)}` : 'fixed'}</td>
         </tr>
       `).join('');
     }
@@ -11608,10 +12158,11 @@
     setTxt('taKpiUsd', `~$${usdSaved.toFixed(2)}`);
     setTxt('taKpi30d', `30d: +${formatTokens(lifetimeSaved)} (~$${usd30d.toFixed(2)})`);
 
-    const savedCache = Number(raw.savingsLedger?.prefixCacheTokens) || Math.round(sessionSaved * 0.75);
-    const savedSub = Number(raw.savingsLedger?.subagentTokens) || Math.round(sessionSaved * 0.10);
-    const savedCli = Number(raw.savingsLedger?.cliTokens) || Math.round(sessionSaved * 0.08);
-    const savedGuards = Math.max(0, sessionSaved - savedCache - savedSub - savedCli);
+    const hasDetailedSavings = (savCache + savSubagent + savCli + savGuards) > 0 || !raw.savingsLedger;
+    const savedCache = hasDetailedSavings ? savCache : (Number(raw.savingsLedger?.prefixCacheTokens) || Math.round(sessionSaved * 0.75));
+    const savedSub = hasDetailedSavings ? savSubagent : (Number(raw.savingsLedger?.subagentTokens) || Math.round(sessionSaved * 0.10));
+    const savedCli = hasDetailedSavings ? savCli : (Number(raw.savingsLedger?.cliTokens) || Math.round(sessionSaved * 0.08));
+    const savedGuards = hasDetailedSavings ? savGuards : Math.max(0, sessionSaved - savedCache - savedSub - savedCli);
     setTxt('taSrcCache', `+${formatTokens(savedCache)}`);
     setTxt('taSrcSub', `+${formatTokens(savedSub)}`);
     setTxt('taSrcCli', `+${formatTokens(savedCli)}`);
@@ -11658,7 +12209,7 @@
   const taBtnSurgeryPrimary = document.getElementById('taBtnSurgeryPrimary');
   if (taBtnSurgeryPrimary) {
     taBtnSurgeryPrimary.addEventListener('click', async () => {
-      const cmd = document.getElementById('taCompactCmdText')?.textContent?.trim() || '/compact';
+      const cmd = document.getElementById('taCompactCmdText')?.textContent?.trim() || currentRenderedState?.compaction?.parameterizedCommand || '/compact';
       try {
         if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
           await navigator.clipboard.writeText(cmd);
@@ -11678,7 +12229,7 @@
   const taBtnCopyCompact = document.getElementById('taBtnCopyCompact');
   if (taBtnCopyCompact) {
     taBtnCopyCompact.addEventListener('click', async () => {
-      const cmd = document.getElementById('taCompactCmdText')?.textContent?.trim() || '/compact';
+      const cmd = document.getElementById('taCompactCmdText')?.textContent?.trim() || currentRenderedState?.compaction?.parameterizedCommand || '/compact';
       try {
         if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
           await navigator.clipboard.writeText(cmd);

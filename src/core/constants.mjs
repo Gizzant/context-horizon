@@ -41,7 +41,7 @@ export const SURFACE_TAGS = Object.freeze({
 });
 
 export const PREFIX_LOCK_WARNING_TEXT =
-  'Active warm cache (>50k tokens). Changing reasoning effort or switching models rewrites the system prefix and triggers a 100% uncached KV cache rebuild.';
+  'Active warm cache (>50k tokens). Switching models (within or across families) triggers a full uncached cache rebuild; on Claude, changing reasoning effort also re-bills cached chat history (Gemini thinking-level changes keep the cache).';
 
 export const CORTEX_CLAMPED_CEILING_LABEL =
   '256k Host Cap (1M model)';

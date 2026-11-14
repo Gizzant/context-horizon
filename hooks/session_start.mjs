@@ -1,12 +1,11 @@
 #!/usr/bin/env node
-import { handleSessionStart, toProtoSafeSessionStartOutput } from '../src/hooks/session_start.mjs';
+import { handleSessionStart } from '../src/hooks/session_start.mjs';
 import { readStdinSafe } from '../src/hooks/post_invocation.mjs';
 
 readStdinSafe()
   .then((input) => handleSessionStart(input))
   .then((out) => {
-    const safeOut = toProtoSafeSessionStartOutput(out);
-    process.stdout.write(JSON.stringify(safeOut) + '\n');
+    process.stdout.write(JSON.stringify(out && typeof out === 'object' ? out : {}) + '\n');
     process.exit(0);
   })
   .catch(() => {

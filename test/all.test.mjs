@@ -56,5 +56,5 @@ import './ux_single_screen_simple_view.test.mjs';
 import './ux_advanced_view_workbench.test.mjs';
 import './session_timeline.test.mjs';
 import './pre_release_360_capability_proofs.test.mjs';
-import './airlock_stateless_v1_proofs.test.mjs';
+import './top10_token_wasters_ui.test.mjs';
 

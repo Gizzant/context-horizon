@@ -113,7 +113,7 @@ export function signProLicensePayload(payload = {}, privateKeyPem = '') {
     source: payload.source || 'polar.sh',
     features: Array.isArray(payload.features)
       ? payload.features
-      : ['auto_pilot_locks', 'cross_harness_scope_locks', 'corporate_expense_receipts', 'otel_team_bundle', 'airlock_context_module']
+      : ['auto_pilot_locks', 'cross_harness_scope_locks', 'corporate_expense_receipts', 'otel_team_bundle']
   };
   const payloadB64 = Buffer.from(JSON.stringify(normalizedPayload), 'utf8').toString('base64url');
   const sigBuf = crypto.sign(null, Buffer.from(payloadB64, 'utf8'), privateKeyPem);

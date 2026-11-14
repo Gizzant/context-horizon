@@ -12,7 +12,6 @@ import { recordHookDiagnostic } from '../core/hook_diagnostics.mjs';
 import { auditWorkspaceAndGlobalMcpConfigs } from '../core/mcp_auditor.mjs';
 import { loadHorizonConfig, resolveDetectorOverride } from '../core/horizon_config.mjs';
 import { loadMicroSkillsRegistry, formatMicroSkillsBatonSnippet } from '../core/micro_skills_store.mjs';
-import { runAirlockSessionStartBridge } from '../core/airlock/hookBridge.mjs';
 
 async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {}) {
   if (process.stdin.isTTY || process.stdin.readableEnded) return {};
@@ -69,7 +68,7 @@ async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {}) {
 
 export async function handleSessionStart(inputData = {}) {
   const conversationId = inputData.conversationId || inputData.session_id || inputData.conversation_id || 'default_session';
-  const workspacePath = canonicalizePath(inputData.workspacePath || (Array.isArray(inputData.workspacePaths) && inputData.workspacePaths[0]) || inputData.cwd || process.cwd());
+  const workspacePath = canonicalizePath(inputData.workspacePath || process.cwd());
   const activeModel = inputData.modelName || inputData.model?.id || 'gemini-3.8-flash';
   const activeEffort = inputData.effort || 'high';
 
@@ -142,56 +141,8 @@ export async function handleSessionStart(inputData = {}) {
     }
   }
 
-  const airlockStart = runAirlockSessionStartBridge(
-    workspacePath,
-    { ...inputData, session_id: conversationId, cwd: workspacePath },
-    { cwd: workspacePath, ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {}) },
-    { ...inputData, host: 'antigravity', horizonConfig }
-  );
-  const airlockBanner = airlockStart?.extraBlocks?.length ? airlockStart.extraBlocks.join('\n') : '';
-  if (airlockBanner) {
-    sidecar.sessionMeta.airlockBaton = airlockBanner;
-  }
-  const combinedMessage = [microSkillsSnippet, airlockBanner].filter(Boolean).join('\n');
-
-  const injectSteps = Array.isArray(airlockStart?.extraBlocks) && airlockStart.extraBlocks.length
-    ? airlockStart.extraBlocks.map((block) => ({
-        systemMessage: { systemMessage: String(block) }
-      }))
-    : [];
-
   writeSidecarAtomicSync(conversationId, sidecar);
-  return {
-    ...(combinedMessage ? { systemMessage: combinedMessage } : {}),
-    ...(microSkillsSnippet ? { microSkillsBaton: microSkillsSnippet } : {}),
-    ...(injectSteps.length ? { injectSteps, airlock: airlockStart } : {})
-  };
-}
-
-export function toProtoSafeSessionStartOutput(output = {}) {
-  const out = output && typeof output === 'object' ? output : {};
-  if (Array.isArray(out.injectSteps) && out.injectSteps.length > 0) {
-    const injectSteps = out.injectSteps
-      .map((step) => {
-        if (step && typeof step === 'object' && typeof step.systemMessage?.systemMessage === 'string') {
-          return { systemMessage: { systemMessage: step.systemMessage.systemMessage } };
-        }
-        if (typeof step === 'string' && step.trim()) {
-          return { systemMessage: { systemMessage: step } };
-        }
-        return null;
-      })
-      .filter(Boolean);
-    if (injectSteps.length > 0) {
-      return { injectSteps };
-    }
-  }
-  if (typeof out.systemMessage === 'string' && out.systemMessage.trim()) {
-    return {
-      injectSteps: [{ systemMessage: { systemMessage: out.systemMessage } }]
-    };
-  }
-  return {};
+  return microSkillsSnippet ? { systemMessage: microSkillsSnippet, microSkillsBaton: microSkillsSnippet } : {};
 }
 
 // Auto-run when executed directly
@@ -200,7 +151,7 @@ if (isMain) {
   readStdinSafe().then(input => {
     return handleSessionStart(input);
   }).then(output => {
-    console.log(JSON.stringify(toProtoSafeSessionStartOutput(output)));
+    console.log(JSON.stringify(output || {}));
     process.exit(0);
   }).catch((err) => {
     recordHookDiagnostic('session_start', 'main', err);

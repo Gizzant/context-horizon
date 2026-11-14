@@ -285,7 +285,7 @@ export function armFailClosedWatchdog(options = {}) {
     }
     const msg = String(
       options.reason ||
-        `[Highbeam Airlock Watchdog] ${hookEventName} exceeded ${timeoutMs}ms internal deadline; failing closed (exit 2).`
+        `[Hook Watchdog] ${hookEventName} exceeded ${timeoutMs}ms internal deadline; failing closed (exit 2).`
     ).trim();
     if (hookEventName === 'WorktreeCreate' || hookEventName === 'PermissionRequest') {
       exitFn?.(0);

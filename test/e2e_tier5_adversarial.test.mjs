@@ -1339,7 +1339,7 @@ describe('Tier 5 Suite 10: Auxiliary Review Invariant Guards & Anti-Regression',
     const parity = syncAndVerifyMirrors({ verifyOnly: true, silent: true });
     assert.equal(parity.parityOk, true, 'Mirror parity must be 100% verified');
     assert.equal(parity.targets, 8, 'Canonical repository must verify exactly 8 HTML targets');
-    assert.ok(parity.verifiedFilePairs >= 702, 'Canonical repository must verify >= 702 mirrored file pairs');
+    assert.equal(parity.verifiedFilePairs, 702, 'Canonical repository must verify exactly 702 mirrored file pairs');
   });
 
   it('10.2 Bare Catch Blocks Scanner in test/ suites (detects 3 blocks in challenger_m5_1)', () => {

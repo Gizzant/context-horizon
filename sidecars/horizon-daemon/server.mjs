@@ -57,9 +57,6 @@ import {
   activateLocalTrial
 } from '../../src/core/pro_license.mjs';
 import { generateCorporateExpenseReceipt } from '../../src/core-isomorphic/ui/pdfReceiptGenerator.mjs';
-import { AirlockAuditLedger } from '../../src/core/airlock/auditLedger.mjs';
-import { generateAirlockEnforcementReceipt } from '../../src/core/airlock/enforcementReceipt.mjs';
-import { loadAirlockPolicy, resolveAirlockStateDir } from '../../src/core/airlock/policyLoader.mjs';
 import { ProgressiveCheckpointer } from '../../src/core/coach/progressive_checkpointer.mjs';
 import { atomicWriteFileSync } from '../../src/core/atomic_io.mjs';
 import { MicroIpcServer } from '../../src/engine-node/ipc/server.mjs';
@@ -755,24 +752,6 @@ async function refreshLiveState(force = false, explicitConvId = null) {
       cachedLiveState.coachState = buildCoachState(cachedLiveState, targetConvId);
     } catch (err) {
       recordDaemonDiagnostic('refreshLiveState:finalCoachState', err);
-    }
-    try {
-      const airlockPolicy = loadAirlockPolicy({ cwd: cachedLiveState.workspacePath || process.cwd() });
-      const airlockLedger = new AirlockAuditLedger({ stateDir: resolveAirlockStateDir() });
-      try {
-        cachedLiveState.airlock = {
-          enabled: Boolean(airlockPolicy.config?.enabled),
-          mode: String(airlockPolicy.config?.mode || 'off'),
-          policySigned: Boolean(airlockPolicy.signed),
-          policySignatureValid: Boolean(airlockPolicy.signatureValid),
-          tampered: Boolean(airlockPolicy.tampered),
-          ...airlockLedger.getAirlockSummary({ sessionId: targetConvId || cachedLiveState.sessionId || null })
-        };
-      } finally {
-        airlockLedger.close();
-      }
-    } catch (err) {
-      recordDaemonDiagnostic('refreshLiveState:airlockSummary', err);
     }
   }
   return cachedLiveState;
@@ -1786,48 +1765,6 @@ const server = http.createServer(async (req, res) => {
     broadcastState(nextState);
     res.writeHead(actRes.ok ? 200 : 400, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: Boolean(actRes.ok), ...actRes, state: nextState }));
-    return;
-  }
-
-  // Route: GET /api/airlock/receipt (Zero-Plaintext Airlock Enforcement Receipt in JSON, MD, HTML, or PDF 1.4)
-  if (url.pathname === '/api/airlock/receipt' && req.method === 'GET') {
-    try {
-      const fmt = String(url.searchParams.get('format') || 'json').toLowerCase();
-      const sessionKey = url.searchParams.get('sessionId') || pinnedConversationId || cachedLiveState?.sessionId || null;
-      const airlockLedger = new AirlockAuditLedger({ stateDir: resolveAirlockStateDir() });
-      let summary;
-      try {
-        summary = airlockLedger.getAirlockSummary({ sessionId: sessionKey });
-      } finally {
-        airlockLedger.close();
-      }
-      const rcpt = generateAirlockEnforcementReceipt(summary, {
-        workspaceName: cachedLiveState?.workspaceName || 'workspace.local'
-      });
-      if (fmt === 'pdf') {
-        res.writeHead(200, {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="airlock-receipt-${rcpt.receiptId}.pdf"`,
-          'Cache-Control': 'no-store'
-        });
-        res.end(Buffer.from(rcpt.pdfBytes));
-      } else if (fmt === 'html') {
-        res.writeHead(200, {
-          'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': 'no-store',
-          'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'"
-        });
-        res.end(rcpt.html);
-      } else if (fmt === 'md' || fmt === 'markdown') {
-        res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8', 'Cache-Control': 'no-store' });
-        res.end(rcpt.markdown);
-      } else {
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-        res.end(JSON.stringify(rcpt.json, null, 2));
-      }
-    } catch (err) {
-      sendRouteError500(res, 'GET /api/airlock/receipt', err);
-    }
     return;
   }
 

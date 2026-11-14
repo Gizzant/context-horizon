@@ -1376,10 +1376,6 @@ export function runCli(args = [], options = {}) {
     return { exitCode: res.ok ? 0 : 1, output: lines.join('\n'), data: res };
   }
 
-  if (subcommand === 'airlock') {
-    return runAirlockSubcommand(args.slice(1), options);
-  }
-
   if (subcommand === 'statusline') {
     return runStatusLineCli(args.slice(1));
   }
@@ -1391,7 +1387,7 @@ export function runCli(args = [], options = {}) {
   const knownSubcommands = new Set([
     'init', 'install', 'uninstall', 'config', 'cost-radar', 'radar', 'panel',
     'receipt', 'doctor', 'statusline', 'inspect', 'control', 'postmortem',
-    'license', 'pro', 'roast', 'airlock',
+    'license', 'pro', 'roast',
     '--help', '-h', 'help', '--version', '-v', 'version'
   ]);
   const hasHelp = args.length === 0 || args.includes('--help') || args.includes('-h') || subcommand === 'help';
@@ -1412,221 +1408,9 @@ export function runCli(args = [], options = {}) {
     '  statusline [--demo] [--columns N]                                   Responsive single-line statusline bridge',
     '  config [list | set <DET-ID> <mode> | reset]                        Configure per-detector overrides',
     '  inspect [<session-id> | --last] [--out <file.json>]                 Inspect session trajectory',
-    '  control <pause|resume|step|abort|rewind|status>                     Execution control plane command',
-    '  airlock <init|status|receipt|verify-ledger> [--json]                Stateless v1 AI Context Airlock (Pro)'
+    '  control <pause|resume|step|abort|rewind|status>                     Execution control plane command'
   ].join('\n');
   return { exitCode: isUnknown ? 1 : 0, output: helpText, data: { help: true, isUnknown } };
-}
-
-import {
-  loadAirlockPolicy,
-  signAirlockPolicy,
-  resolveAirlockStateDir
-} from '../src/core/airlock/policyLoader.mjs';
-import { AirlockAuditLedger } from '../src/core/airlock/auditLedger.mjs';
-import { generateAirlockEnforcementReceipt } from '../src/core/airlock/enforcementReceipt.mjs';
-
-function readCliFlagValue(args, flag) {
-  const idx = args.indexOf(flag);
-  return idx !== -1 && args[idx + 1] && !args[idx + 1].startsWith('--') ? args[idx + 1] : null;
-}
-
-export function runAirlockSubcommand(args = [], options = {}) {
-  const action = String(args[0] || 'status').toLowerCase();
-  const isJson = Boolean(options.json) || args.includes('--json');
-  const cwd = path.resolve(readCliFlagValue(args, '--cwd') || options.cwd || process.cwd());
-  const stateDir = readCliFlagValue(args, '--state-dir') || options.stateDir || undefined;
-
-  if (action === 'init') {
-    const modeFlag = readCliFlagValue(args, '--mode') || 'enforce';
-    const mode = modeFlag === 'audit' ? 'audit' : 'enforce';
-    const force = args.includes('--force');
-    const shouldSign = args.includes('--sign');
-
-    const airlockDir = path.join(cwd, '.airlock');
-    const policyPath = path.join(airlockDir, 'policy.json');
-    fs.mkdirSync(airlockDir, { recursive: true });
-
-    let policyObj = {
-      v: 1,
-      enabled: true,
-      mode,
-      failClosed: true,
-      watchdogTimeoutMs: 3500,
-      classASecretGlobs: [],
-      allowPathGlobs: [],
-      internalDomains: [],
-      terms: [],
-      allowlistHmacs: [],
-      allowlistGlobs: ['test/**', 'tests/**', '__tests__/**', '**/*.test.*']
-    };
-    if (fs.existsSync(policyPath) && !force) {
-      try {
-        policyObj = { ...policyObj, ...JSON.parse(fs.readFileSync(policyPath, 'utf8')), mode };
-      } catch {
-        // overwrite malformed policy
-      }
-    }
-    fs.writeFileSync(policyPath, JSON.stringify(policyObj, null, 2) + '\n', 'utf8');
-
-    let signedInfo = null;
-    if (shouldSign) {
-      const sigRes = signAirlockPolicy(policyObj);
-      const sigPath = path.join(airlockDir, 'policy.sig');
-      const pubPath = path.join(airlockDir, 'policy.pub');
-      fs.writeFileSync(sigPath, JSON.stringify(sigRes.signatureEnvelope, null, 2) + '\n', 'utf8');
-      if (sigRes.publicKeyPem) {
-        fs.writeFileSync(pubPath, sigRes.publicKeyPem, 'utf8');
-      }
-      signedInfo = { sigPath, pubPath, alg: sigRes.signatureEnvelope.alg };
-    }
-
-    // Opt-in project Claude Code settings (never mutates plugin hooks/hooks.json)
-    const claudeDir = path.join(cwd, '.claude');
-    const localSettingsPath = path.join(claudeDir, 'settings.local.json');
-    fs.mkdirSync(claudeDir, { recursive: true });
-    let settingsLocal = {};
-    if (fs.existsSync(localSettingsPath)) {
-      try {
-        settingsLocal = JSON.parse(fs.readFileSync(localSettingsPath, 'utf8')) || {};
-      } catch {
-        settingsLocal = {};
-      }
-    }
-    const handlerCmd = (fileName) => `node "${path.join(PKG_ROOT, 'hooks', 'handlers', fileName).replace(/\\/g, '/')}"`;
-    settingsLocal.env = {
-      ...(settingsLocal.env || {}),
-      AH_AIRLOCK_ENABLED: '1',
-      AH_AIRLOCK_MODE: mode
-    };
-    settingsLocal.hooks = {
-      ...(settingsLocal.hooks || {}),
-      PreToolUse: [
-        {
-          matcher: 'Read|Edit|MultiEdit|Write|NotebookEdit|Bash|PowerShell|WebFetch|WebSearch|Grep|Glob|Agent|Task|mcp__.*',
-          hooks: [{ type: 'command', command: handlerCmd('pre-tool-use.mjs'), timeout: 5 }]
-        }
-      ],
-      PostToolUse: [
-        {
-          matcher: 'Read|Edit|MultiEdit|Write|NotebookEdit|Bash|PowerShell|WebFetch|WebSearch|Grep|Glob|Agent|Task|mcp__.*',
-          hooks: [{ type: 'command', command: handlerCmd('post-tool-use.mjs'), timeout: 5 }]
-        }
-      ],
-      UserPromptSubmit: [
-        {
-          hooks: [{ type: 'command', command: handlerCmd('user-prompt-submit.mjs'), timeout: 5 }]
-        }
-      ],
-      SessionStart: [
-        {
-          hooks: [{ type: 'command', command: handlerCmd('compact-lifecycle.mjs'), timeout: 5 }]
-        }
-      ]
-    };
-    fs.writeFileSync(localSettingsPath, JSON.stringify(settingsLocal, null, 2) + '\n', 'utf8');
-
-    const data = {
-      ok: true,
-      action: 'init',
-      mode,
-      policyPath,
-      localSettingsPath,
-      signed: Boolean(signedInfo),
-      signedInfo
-    };
-    return {
-      exitCode: 0,
-      output: isJson
-        ? JSON.stringify(data, null, 2)
-        : `[Highbeam Airlock] Initialized stateless v1 policy (${mode}) at ${policyPath}\n  Opt-in Claude hooks written to ${localSettingsPath}${signedInfo ? `\n  Signed (${signedInfo.alg}): ${signedInfo.sigPath}` : ''}`,
-      data
-    };
-  }
-
-  if (action === 'status') {
-    const loaded = loadAirlockPolicy({ cwd, stateDir });
-    const resolvedStateDir = resolveAirlockStateDir({ stateDir });
-    const ledger = new AirlockAuditLedger({ stateDir: resolvedStateDir });
-    let summary;
-    try {
-      summary = ledger.getAirlockSummary();
-    } finally {
-      ledger.close();
-    }
-    const data = {
-      ok: true,
-      policyPath: loaded.policyPath,
-      policyExists: loaded.policyExists,
-      config: loaded.config,
-      summary
-    };
-    const lines = [
-      `[Highbeam Airlock Status] mode=${loaded.config.mode} | enabled=${loaded.config.enabled} | chain=${summary.chainValid ? 'INTACT' : 'BROKEN'}`,
-      `  Policy: ${loaded.policyPath} (${loaded.signed ? (loaded.signatureValid ? 'signed/valid' : 'TAMPERED') : 'unsigned'})`,
-      `  Events: ${summary.totalEvents} | Blocks: ${summary.blockedCount} | Scrubs: ${summary.scrubbedCount} | FM-1: ${summary.fm1BlockCount} | Coverage Lapses: ${summary.coverageLapses}`
-    ];
-    return {
-      exitCode: 0,
-      output: isJson ? JSON.stringify(data, null, 2) : lines.join('\n'),
-      data
-    };
-  }
-
-  if (action === 'receipt') {
-    const fmt = String(readCliFlagValue(args, '--format') || (isJson ? 'json' : 'md')).toLowerCase();
-    const outPath = readCliFlagValue(args, '--out') || options.out || null;
-    const resolvedStateDir = resolveAirlockStateDir({ stateDir });
-    const ledger = new AirlockAuditLedger({ stateDir: resolvedStateDir });
-    let summary;
-    try {
-      summary = ledger.getAirlockSummary();
-    } finally {
-      ledger.close();
-    }
-    const receipt = generateAirlockEnforcementReceipt(summary, { workspaceName: path.basename(cwd) });
-    if (outPath) {
-      fs.mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true });
-      if (fmt === 'pdf') {
-        fs.writeFileSync(outPath, receipt.pdfBytes);
-      } else if (fmt === 'html') {
-        fs.writeFileSync(outPath, receipt.html, 'utf8');
-      } else if (fmt === 'json') {
-        fs.writeFileSync(outPath, JSON.stringify(receipt.json, null, 2) + '\n', 'utf8');
-      } else {
-        fs.writeFileSync(outPath, receipt.markdown + '\n', 'utf8');
-      }
-    }
-    const output = fmt === 'json' || isJson
-      ? JSON.stringify(receipt.json, null, 2)
-      : (fmt === 'html' ? receipt.html : (fmt === 'pdf' ? `[Highbeam Airlock] PDF receipt generated (${receipt.pdfBytes.length} bytes, id=${receipt.receiptId})` : receipt.markdown));
-    return { exitCode: 0, output, data: receipt };
-  }
-
-  if (action === 'verify-ledger') {
-    const resolvedStateDir = resolveAirlockStateDir({ stateDir });
-    const ledger = new AirlockAuditLedger({ stateDir: resolvedStateDir });
-    let verification;
-    try {
-      verification = ledger.verifyLedgerChain();
-    } finally {
-      ledger.close();
-    }
-    const data = { ok: verification.valid, ...verification, stateDir: resolvedStateDir };
-    return {
-      exitCode: verification.valid ? 0 : 1,
-      output: isJson
-        ? JSON.stringify(data, null, 2)
-        : `[Highbeam Airlock Ledger] chain=${verification.valid ? 'INTACT' : 'BROKEN'} (${verification.count} events) — ${verification.reason}`,
-      data
-    };
-  }
-
-  return {
-    exitCode: 1,
-    output: `Usage: ctxtop airlock <init|status|receipt|verify-ledger> [--cwd <dir>] [--state-dir <dir>] [--json]`,
-    data: { ok: false, action }
-  };
 }
 
 export function isCliMain(
