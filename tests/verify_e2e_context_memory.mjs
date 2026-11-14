@@ -466,12 +466,16 @@ try {
   if (seededDaemonSessionDir) {
     try {
       fs.rmSync(seededDaemonSessionDir, { recursive: true, force: true });
-    } catch {}
+    } catch (err) {
+      void err;
+    }
   }
   if (seededCliConvDir) {
     try {
       fs.rmSync(seededCliConvDir, { recursive: true, force: true });
-    } catch {}
+    } catch (err) {
+      void err;
+    }
   }
 }
 console.log(`  âœ“ Live Sidecar Daemon on port ${port} passed all 9 HTTP & SSE endpoint checks.\n`);
