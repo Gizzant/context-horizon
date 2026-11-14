@@ -39,7 +39,8 @@ jobs:
         run: npm run test:unit
 
       - name: Run Active Coach, Ring-1 Security & Regression Suites
-        run: node -e "const { spawnSync } = require('node:child_process'); const r = spawnSync(process.execPath, ['--test', 'test/all.test.mjs'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }); process.stdout.write(r.stdout || ''); process.stderr.write(r.stderr || ''); if (r.status !== 0) { const lines = ((r.stdout || '') + '\n' + (r.stderr || '')).split(/\r?\n/); const fails = lines.filter((l, i) => /^not ok\b|AssertionError|ERR_|Error:/i.test(l.trim())).slice(0, 15).join(' | '); console.log('::error title=Coach Suite Failure::' + (fails || 'Exited with ' + r.status)); process.exit(r.status || 1); }"
+        run: |
+          node -e "const { spawnSync } = require('node:child_process'); const r = spawnSync(process.execPath, ['--test', 'test/all.test.mjs'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }); process.stdout.write(r.stdout || ''); process.stderr.write(r.stderr || ''); if (r.status !== 0) { const lines = ((r.stdout || '') + '\n' + (r.stderr || '')).split(/\r?\n/); const fails = lines.filter((l) => /^not ok\b|AssertionError|ERR_|Error:/i.test(l.trim())).slice(0, 15).join(' | '); console.log('::error title=Coach Suite Failure::' + (fails || 'Exited with ' + r.status)); process.exit(r.status || 1); }"
 
       - name: Run Gate 0-6 Architectural Verification Suites
         run: npm run test:gates
