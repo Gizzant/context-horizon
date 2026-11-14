@@ -151,7 +151,7 @@ export async function runStrictPreInvocation(inputData = {}) {
 
   const conversationId = inputData.conversationId || inputData.session_id || inputData.conversation_id || 'default_session';
   const sidecar = readSidecarSync(conversationId);
-  const workspacePath = inputData.cwd || inputData.workspacePath || sidecar.workspacePath || process.cwd();
+  const workspacePath = inputData.cwd || inputData.workspacePath || (Array.isArray(inputData.workspacePaths) && inputData.workspacePaths[0]) || sidecar.workspacePath || process.cwd();
   const horizonConfig = inputData.horizonConfig || loadHorizonConfig({
     cwd: workspacePath,
     ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {})
@@ -166,11 +166,14 @@ export async function runStrictPreInvocation(inputData = {}) {
     { ...inputData, host: 'antigravity', horizonConfig }
   );
   if (airlockPrompt?.blocked) {
+    const reason = airlockPrompt.verdict?.reason || 'Blocked by Highbeam Airlock PreInvocation guard';
     return {
       decision: 'deny',
       terminationBehavior: 'terminate',
-      reason: airlockPrompt.verdict?.reason || 'Blocked by Highbeam Airlock PreInvocation guard',
-      systemMessage: airlockPrompt.verdict?.reason,
+      reason,
+      userMessage: reason,
+      errorMessage: { userMessage: reason },
+      systemMessage: reason,
       airlock: airlockPrompt.airlock
     };
   }
@@ -389,7 +392,7 @@ import { runAirlockPromptBridge, runAirlockPreToolBridge } from '../core/airlock
 export async function runStrictPreToolUse(inputData = {}) {
   const conversationId = inputData.conversationId || inputData.session_id || inputData.conversation_id || 'default_session';
   const sidecar = readSidecarSync(conversationId);
-  const workspacePath = inputData.cwd || inputData.workspacePath || sidecar.workspacePath || process.cwd();
+  const workspacePath = inputData.cwd || inputData.workspacePath || (Array.isArray(inputData.workspacePaths) && inputData.workspacePaths[0]) || sidecar.workspacePath || process.cwd();
   const homeDir = inputData.homeDir || getHomeDir();
   const horizonConfig = inputData.horizonConfig || loadHorizonConfig({ cwd: workspacePath, homeDir });
   const flightMode = String(inputData.flightMode || horizonConfig.flightMode || 'COACH').toUpperCase();
@@ -803,7 +806,7 @@ export async function runStrictPostToolUse(inputData = {}) {
 
   // Rank 3 (DET-07) & RSI-04 ('micro-skills'): CLI hook integration & shell recovery learning
   if (/^(run_command|execute_bash|bash|powershell|exec)$/i.test(toolName)) {
-    const workspacePath = inputData.cwd || inputData.workspacePath || sidecar.workspacePath || process.cwd();
+    const workspacePath = inputData.cwd || inputData.workspacePath || (Array.isArray(inputData.workspacePaths) && inputData.workspacePaths[0]) || sidecar.workspacePath || process.cwd();
     const cmdStr = String(toolArgs.CommandLine || toolArgs.command || toolArgs.cmd || '');
     const horizonConfig = inputData.horizonConfig || loadHorizonConfig({
       cwd: workspacePath,

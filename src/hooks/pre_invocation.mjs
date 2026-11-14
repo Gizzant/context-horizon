@@ -40,6 +40,7 @@ import {
   evaluateTwoStageSightseeingIntercept
 } from '../core/shared/prompt_hygiene_governor.mjs';
 import { foldCodeToSignatureStub, computeCompactLineDiff } from '../core/pruner.mjs';
+import { runAirlockPreToolBridge, runAirlockPromptBridge } from '../core/airlock/hookBridge.mjs';
 
 export {
   classifyTaskComplexity,
@@ -159,9 +160,9 @@ export async function handlePreToolUse(inputData = {}) {
     }
   }
 
-  const toolName = String(inputData.tool_name || inputData.tool || inputData.toolName || '').trim();
-  const toolInput = inputData.tool_input || inputData.toolInput || inputData.args || inputData.parameters || inputData.Arguments || inputData;
-  const workspacePath = inputData.cwd || inputData.workspacePath || sidecar.workspacePath || process.cwd();
+  const toolName = String(inputData.tool_name || inputData.tool || inputData.toolName || inputData.toolCall?.name || '').trim();
+  const toolInput = inputData.tool_input || inputData.toolInput || inputData.toolCall?.args || inputData.args || inputData.parameters || inputData.Arguments || inputData;
+  const workspacePath = inputData.cwd || inputData.workspacePath || (Array.isArray(inputData.workspacePaths) && inputData.workspacePaths[0]) || sidecar.workspacePath || process.cwd();
   const horizonConfig = inputData.horizonConfig || loadHorizonConfig({
     cwd: workspacePath,
     ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {})
@@ -189,6 +190,29 @@ export async function handlePreToolUse(inputData = {}) {
     userMessage: detResult.message,
     systemMessage: detResult.message
   });
+
+  // Ring-0 Airlock PreToolUse Security Gate (active whenever .airlock/policy.json or Airlock config is enabled)
+  const airlockPre = runAirlockPreToolBridge(
+    {
+      ...inputData,
+      session_id: conversationId,
+      cwd: workspacePath,
+      tool_name: toolName,
+      tool_input: toolInput && typeof toolInput === 'object' ? toolInput : {}
+    },
+    { cwd: workspacePath, ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {}) },
+    { ...inputData, host: 'antigravity', horizonConfig }
+  );
+  if (airlockPre?.blocked) {
+    const reason = airlockPre.stderr || airlockPre.verdict?.reason || 'Blocked by Highbeam Airlock';
+    return {
+      ...makeBlockPayload({
+        id: airlockPre.verdict?.fmCode || 'AIRLOCK',
+        message: reason
+      }),
+      airlock: airlockPre.airlock
+    };
+  }
 
   // Ring-0 Security Gates (active even in SILENT / OFF unless explicitly disabled in Antigravity namespace)
   if (/^(run_command|execute_bash|bash|powershell|exec)$/i.test(toolName)) {
@@ -473,7 +497,9 @@ export async function handlePreToolUse(inputData = {}) {
 export async function handlePreInvocation(inputData = {}) {
   if (
     inputData.hook_event_name === 'PreToolUse' ||
+    inputData.hookEventName === 'PreToolUse' ||
     inputData.event === 'PreToolUse' ||
+    (inputData.toolCall && typeof inputData.toolCall === 'object') ||
     inputData.tool_name ||
     inputData.toolName ||
     inputData.tool_input ||
@@ -481,16 +507,16 @@ export async function handlePreInvocation(inputData = {}) {
     inputData.parameters ||
     inputData.Arguments ||
     (typeof inputData.tool === 'string' && inputData.tool.length > 0) ||
-    (typeof inputData.name === 'string' && !inputData.prompt && !inputData.user_input)
+    (typeof inputData.name === 'string' && !inputData.prompt && !inputData.user_input && !inputData.lastUserInput)
   ) {
     return handlePreToolUse(inputData);
   }
 
   const config = inputData.configOverride || loadFlightcheckConfig();
-  const rawPrompt = String(inputData.prompt || inputData.user_input || inputData.message || '').trim();
+  const rawPrompt = String(inputData.prompt || inputData.user_input || inputData.lastUserInput || inputData.message || '').trim();
   const conversationId = inputData.conversationId || inputData.session_id || inputData.conversation_id || 'default_session';
   const sidecar = readSidecarSync(conversationId);
-  const workspacePath = inputData.cwd || inputData.workspacePath || sidecar.workspacePath || process.cwd();
+  const workspacePath = inputData.cwd || inputData.workspacePath || (Array.isArray(inputData.workspacePaths) && inputData.workspacePaths[0]) || sidecar.workspacePath || process.cwd();
   const horizonConfig = inputData.horizonConfig || loadHorizonConfig({
     cwd: workspacePath,
     ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {})
@@ -501,6 +527,31 @@ export async function handlePreInvocation(inputData = {}) {
   if (config.hook_level === 'off' || flightMode === 'OFF') {
     return {};
   }
+
+  const airlockPrompt = runAirlockPromptBridge(
+    {
+      ...inputData,
+      session_id: conversationId,
+      cwd: workspacePath,
+      prompt: rawPrompt
+    },
+    { cwd: workspacePath, ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {}) },
+    { ...inputData, host: 'antigravity', horizonConfig }
+  );
+  if (airlockPrompt?.blocked) {
+    const reason = airlockPrompt.stderr || airlockPrompt.verdict?.reason || 'Blocked by Highbeam Airlock';
+    return {
+      terminationBehavior: 'terminate',
+      decision: 'block',
+      detectorId: airlockPrompt.verdict?.fmCode || 'AIRLOCK',
+      reason,
+      userMessage: reason,
+      errorMessage: { userMessage: reason },
+      systemMessage: reason,
+      airlock: airlockPrompt.airlock
+    };
+  }
+
   if (flightMode === 'SILENT') {
     // SILENT suppresses all non-Ring-0 advisory context/stderr chatter on PreInvocation
     // (Ring-0 security blocks remain active in PreToolUse and workspace settings checks).
@@ -996,7 +1047,9 @@ if (isMain) {
     }
     if (
       safeInput.hook_event_name === 'PreToolUse' ||
+      safeInput.hookEventName === 'PreToolUse' ||
       safeInput.event === 'PreToolUse' ||
+      (safeInput.toolCall && typeof safeInput.toolCall === 'object') ||
       safeInput.tool_name ||
       safeInput.toolName
     ) {

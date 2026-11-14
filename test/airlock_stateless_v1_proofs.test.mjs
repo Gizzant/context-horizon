@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 import {
   deriveWriteOnlyPlaceholder,
@@ -485,6 +486,7 @@ test('Suite 5.1: Track B Antigravity handlers handle lastUserInput, toolCall sha
       airlockStateDir: tmpState
     });
     assert.ok(Array.isArray(sessRes.injectSteps) && sessRes.injectSteps.length >= 1);
+    assert.ok(sessRes.injectSteps[0]?.systemMessage?.systemMessage?.includes('AGENTS.md:1'));
     assert.ok(sessRes.systemMessage.includes('AGENTS.md:1'));
 
     const invRes = await runStrictPreInvocation({
@@ -495,6 +497,7 @@ test('Suite 5.1: Track B Antigravity handlers handle lastUserInput, toolCall sha
     });
     assert.equal(invRes.decision, 'deny');
     assert.equal(invRes.terminationBehavior, 'terminate');
+    assert.ok(typeof invRes.errorMessage?.userMessage === 'string' && invRes.errorMessage.userMessage.length > 0);
 
     const toolRes = await runStrictPreToolUse({
       conversationId: 'agy-1',
@@ -504,9 +507,151 @@ test('Suite 5.1: Track B Antigravity handlers handle lastUserInput, toolCall sha
     });
     assert.equal(toolRes.decision, 'deny');
     assert.equal(toolRes.overwrite, false);
+
+    // Antigravity 2.0 native tool names & capitalized argument keys
+    const readEnvRes = await runStrictPreToolUse({
+      conversationId: 'agy-1',
+      workspacePath: tmpWs,
+      airlockStateDir: tmpState,
+      toolCall: { id: 'tc-rf-1', name: 'read_file', args: { Path: '.env' } }
+    });
+    assert.equal(readEnvRes.decision, 'deny');
+
+    const writeFileRes = await runStrictPreToolUse({
+      conversationId: 'agy-1',
+      workspacePath: tmpWs,
+      airlockStateDir: tmpState,
+      toolCall: { id: 'tc-wf-1', name: 'write_file', args: { Path: 'src/key.mjs', Content: `export const K = "${FAKE_AWS}";` } }
+    });
+    assert.equal(writeFileRes.decision, 'deny');
+
+    // edit_file remediation escape hatch: replacing leaked Target secret with process.env succeeds
+    const editRemediateRes = await runStrictPreToolUse({
+      conversationId: 'agy-1',
+      workspacePath: tmpWs,
+      airlockStateDir: tmpState,
+      toolCall: {
+        id: 'tc-ef-ok',
+        name: 'edit_file',
+        args: {
+          Path: 'src/key.mjs',
+          Target: `const k = "${FAKE_STRIPE('51OldLeakedSecretToken9901')}";`,
+          Replacement: 'const k = process.env.STRIPE_KEY;'
+        }
+      }
+    });
+    assert.equal(editRemediateRes.decision, 'allow');
+
+    // edit_file introducing a secret in Replacement must be denied
+    const editBadRes = await runStrictPreToolUse({
+      conversationId: 'agy-1',
+      workspacePath: tmpWs,
+      airlockStateDir: tmpState,
+      toolCall: {
+        id: 'tc-ef-bad',
+        name: 'edit_file',
+        args: {
+          Path: 'src/key.mjs',
+          Target: 'const k = "";',
+          Replacement: `const k = "${FAKE_STRIPE('51NewLeakedSecretToken9902')}";`
+        }
+      }
+    });
+    assert.equal(editBadRes.decision, 'deny');
+
+    const shellReadRes = await runStrictPreToolUse({
+      conversationId: 'agy-1',
+      workspacePath: tmpWs,
+      airlockStateDir: tmpState,
+      toolCall: { id: 'tc-rc-1', name: 'run_command', args: { CommandLine: 'cat .env' } }
+    });
+    assert.equal(shellReadRes.decision, 'deny');
   } finally {
     rmDirSafe(tmpWs);
     rmDirSafe(tmpState);
+  }
+});
+
+test('Suite 5.1b: Gate G6 Antigravity 2.0 CLI subprocesses emit strict protojson across plugin & repo entrypoints', () => {
+  const tmpWs = makeTempDir('ah-agy-cli-ws-');
+  const tmpState = makeTempDir('ah-agy-cli-st-');
+  const tmpHome = makeTempDir('ah-agy-cli-hm-');
+  try {
+    fs.mkdirSync(path.join(tmpWs, '.airlock'), { recursive: true });
+    fs.writeFileSync(path.join(tmpWs, '.airlock', 'policy.json'), JSON.stringify({ enabled: true, mode: 'enforce' }));
+    fs.writeFileSync(path.join(tmpWs, 'AGENTS.md'), `Rule secret: ${FAKE_STRIPE('51SubprocessAgent99')}\n`);
+
+    const env = {
+      ...process.env,
+      AH_AIRLOCK_STATE_DIR: tmpState,
+      AH_HOME: tmpHome,
+      HORIZON_HOME: tmpHome
+    };
+
+    const spawnHook = (relScript, args, payload) => {
+      const res = spawnSync(process.execPath, [path.resolve(relScript), ...args], {
+        input: JSON.stringify(payload),
+        encoding: 'utf8',
+        env,
+        timeout: 15000
+      });
+      assert.equal(res.status, 0, `${relScript} exited ${res.status}: stderr=${res.stderr}`);
+      const parsed = JSON.parse(String(res.stdout || '').trim());
+      return parsed;
+    };
+
+    // 1. PreToolUse CLI subprocesses (installed plugin entrypoint & repo wrapper)
+    const preToolPayload = {
+      conversationId: 'agy-cli-1',
+      turnIndex: 0,
+      workspacePaths: [tmpWs],
+      hookEventName: 'PreToolUse',
+      toolCall: { id: 'tc-cli-1', name: 'read_file', args: { Path: '.env' } }
+    };
+    for (const [script, args] of [
+      ['src/hooks/pre_invocation.mjs', ['--event=PreToolUse']],
+      ['hooks/pre_tool_use.mjs', []]
+    ]) {
+      const parsed = spawnHook(script, args, preToolPayload);
+      assert.equal(parsed.decision, 'deny', `${script} must deny .env read_file`);
+      assert.ok(typeof parsed.reason === 'string' && parsed.reason.length > 0);
+      assert.equal('overwrite' in parsed, false, `${script} stdout must omit overwrite per protojson`);
+      assert.deepEqual(Object.keys(parsed).sort(), ['decision', 'reason']);
+    }
+
+    // 2. PreInvocation CLI subprocesses
+    const preInvPayload = {
+      conversationId: 'agy-cli-1',
+      turnIndex: 0,
+      workspacePaths: [tmpWs],
+      hookEventName: 'PreInvocation',
+      lastUserInput: `Push token ${FAKE_GHP}`
+    };
+    for (const script of ['src/hooks/pre_invocation.mjs', 'hooks/pre_invocation.mjs']) {
+      const parsed = spawnHook(script, [], preInvPayload);
+      assert.equal(parsed.terminationBehavior, 'terminate', `${script} must terminate on leaked prompt secret`);
+      assert.ok(typeof parsed.errorMessage?.userMessage === 'string' && parsed.errorMessage.userMessage.length > 0);
+      assert.deepEqual(Object.keys(parsed).sort(), ['errorMessage', 'terminationBehavior']);
+    }
+
+    // 3. SessionStart CLI subprocesses
+    const sessPayload = {
+      conversationId: 'agy-cli-1',
+      workspacePaths: [tmpWs],
+      hookEventName: 'SessionStart'
+    };
+    for (const script of ['src/hooks/session_start.mjs', 'hooks/session_start.mjs']) {
+      const parsed = spawnHook(script, [], sessPayload);
+      assert.deepEqual(Object.keys(parsed), ['injectSteps'], `${script} stdout must strictly be { injectSteps }`);
+      assert.ok(Array.isArray(parsed.injectSteps) && parsed.injectSteps.length >= 1);
+      const stepMsg = parsed.injectSteps[0]?.systemMessage?.systemMessage || '';
+      assert.ok(stepMsg.includes('AGENTS.md:1'));
+      assert.equal(stepMsg.includes('outside tested range'), false, 'Antigravity host must not emit Claude version warning');
+    }
+  } finally {
+    rmDirSafe(tmpWs);
+    rmDirSafe(tmpState);
+    rmDirSafe(tmpHome);
   }
 });
 

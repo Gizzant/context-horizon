@@ -31,7 +31,7 @@ Four empirical findings from the Claude Code `v2.1.325` spike and Antigravity pr
 | **G3** | `FM-8` `3.5s` internal `exit 2` watchdog + `SessionStart` self-check + `PostToolUse` timeout lapse detector | **PASSED (v1.0)** | [`hookIo.mjs`](../hooks/handlers/hookIo.mjs), [`auditLedger.mjs`](../src/core/airlock/auditLedger.mjs), & [`airlock_stateless_v1_proofs.test.mjs`](../test/airlock_stateless_v1_proofs.test.mjs) (`Suite 3.3`, `Suite 5.2`) |
 | **G4** | Write-only placeholder UX (`FM-1` guidance + 2-strike retry cap) with `< 5%` task stall rate | **PASSED (v1.0)** | [`preToolGuard.mjs`](../src/core-isomorphic/airlock/preToolGuard.mjs) & [`airlock_stateless_v1_proofs.test.mjs`](../test/airlock_stateless_v1_proofs.test.mjs) (`Suite 2.2`, `Suite 5.3`: `30` sessions, `< 5%` stall rate, `0` >2-strike loops) |
 | **G5** | Detector accuracy (`< 0.1%` per-line FP rate on 500k-line polyglot OSS corpus; Stage 3 held `AUDIT_ONLY` until met) | **PASSED (Win11 v1.0)** | [`benchmark_airlock.mjs`](../scripts/benchmark_airlock.mjs) (`500,000` lines, `1` Stage 1–2 FP = `0.0002% < 0.1%`, `5/5` recall; Stage 3 held `AUDIT_ONLY`) |
-| **G6** | Google Antigravity Track B guard check (`PreToolUse` `deny`, `PreInvocation` `terminate`, `overwrite` notice check) | **PENDING (Track B Live IDE)** | Unit handler proofs pass (`Suite 5.1`); live Antigravity `transcript.jsonl` IDE check pending |
+| **G6** | Google Antigravity Track B guard check (`PreToolUse` `deny`, `PreInvocation` `terminate`, `overwrite` notice check) | **PASSED (Antigravity 2.0 CLI & Protojson)** | Inspected `agy-customizations/docs/hooks.md` + 940-step live `transcript.jsonl` (`read_file`/`write_file`/`edit_file`/`run_command`); subprocess CLI proofs pass across `src/hooks/*` & `hooks/*` ([`airlock_stateless_v1_proofs.test.mjs`](../test/airlock_stateless_v1_proofs.test.mjs) `Suite 5.1`–`5.1b`); `overwrite` unused in Stateless v1 |
 | **G7** | Commercial pull & conversion lift (`>= 5/15` buyer interviews validate compliance wedge + 30-day Pro trial cohort test) | **PENDING (Discovery)** | Structured interview notes + Pro trial cohort telemetry (`UNVERIFIED ASSUMPTION`) |
 
 ---
@@ -39,7 +39,7 @@ Four empirical findings from the Claude Code `v2.1.325` spike and Antigravity pr
 ## 2. Host Hook Capabilities, Context Airlock Architecture & Failure Modes
 *Reviewed by: Principal AI Systems & Extension Architect*
 
-### 2.0 Empirical Host Capability Baseline (`Claude Code v2.1.325` Verified / `Antigravity` Track B Pending)
+### 2.0 Empirical Host Capability Baseline (`Claude Code v2.1.325` Verified / `Antigravity 2.0` Guard Mode Verified)
 
 #### A. Primary-Source Findings on Claude Code (`v2.1.325`) & Google Antigravity
 1. **`PostToolUse` Output Replacement & Exact `sdk-tools.d.ts` Output Shapes**:
@@ -303,6 +303,6 @@ Integrating Airlock v1 into `ctxtop Pro` **does not cost `$0`**. Rather, it avoi
 
 ## 8. Execution Roadmap & Pre-Build Priorities
 1. **Immediate (`Gate 0`)**: Tag/maintain clean `ctxtop v4.0` release integrity (`158` verified files), commit spike fixtures + evaluation docs cleanly, and begin **15 Buyer Discovery Interviews**.
-2. **Track B (`0.5 Day`)**: Verify Antigravity `PreToolUse` `deny`, `PreInvocation` `terminate`, and `overwrite` notice content in `transcript.jsonl` (`Assumption A-2`; unit handlers verified via `Suite 5.1`, live IDE check pending).
+2. **Track B (`0.5 Day` — Completed on `main` (`v1.0`))**: Verified Antigravity 2.0 `read_file`/`write_file`/`edit_file`/`run_command` tool/arg shapes against `agy-customizations/docs/hooks.md` and live `transcript.jsonl` (`940` steps), wired strict protojson subprocess outputs (`deny` / `terminate` / `injectSteps`) across `src/hooks/*` and `hooks/*` (`Suite 5.1`–`5.1b`), and confirmed `overwrite` is unused in Stateless v1 (`Assumption A-2` closed).
 3. **Phase 2A (`9.0 Days` — Gate 2 & 3 Priority — Completed on `main` (`v1.0`))**: Built pure-JS Mod Law 4 core + `cloneAndScrubToolResponse` + `FM-8` `3.5s` watchdog + `SessionStart` self-check + `FM-11` semver guard + `@anthropic-ai/claude-code@latest` 3-OS CI canary ([`airlock-schema-canary.yml`](../.github/workflows/airlock-schema-canary.yml)).
 4. **Phase 2B (`9.5 Days` — Gate 4 & 5 Priority — Completed on `main` (`v1.0`))**: Built signed policy/ledger/PDF receipt, Zone A–D UI, Win11 `N = 250` latency + 500k-line `0.0002% < 0.1%` FP corpus, and 30-session block-loop/stall-rate suite (`Suite 5.3`), with 3-OS CI canary active for macOS/Linux benchmark capture.

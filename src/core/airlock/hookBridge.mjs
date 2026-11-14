@@ -26,7 +26,7 @@ import { AirlockAuditLedger } from './auditLedger.mjs';
 import { requireProFeature } from '../pro_license.mjs';
 
 function extractToolUseId(event = {}) {
-  return String(event.tool_use_id || event.toolUseId || event.call_id || event.id || '').trim();
+  return String(event.tool_use_id || event.toolUseId || event.toolCall?.id || event.call_id || event.id || '').trim();
 }
 
 function extractHostVersion(event = {}, options = {}) {
@@ -47,7 +47,7 @@ function collectSafeMatchMeta(matches = []) {
 }
 
 export function resolveAirlockRuntime(event = {}, cwdOptions = {}, options = {}) {
-  const cwd = event.cwd || cwdOptions.cwd || '';
+  const cwd = event.cwd || event.workspacePath || (Array.isArray(event.workspacePaths) && event.workspacePaths[0]) || cwdOptions.cwd || '';
   const stateDir = options.airlockStateDir || options.stateDir || cwdOptions.airlockStateDir;
   const horizonConfig = options.horizonConfig || cwdOptions.horizonConfig || {};
   const loaded = loadAirlockPolicy({
@@ -95,11 +95,14 @@ export function resolveAirlockRuntime(event = {}, cwdOptions = {}, options = {})
   }
 
   const resolvedStateDir = resolveAirlockStateDir({ stateDir });
-  const sessionId = String(event.session_id || event.sessionId || 'default');
+  const sessionId = String(event.session_id || event.sessionId || event.conversationId || event.conversation_id || 'default');
   const sessionKey = getOrCreateSessionHmacKey(sessionId, { stateDir: resolvedStateDir });
   const orgSalts = getOrCreateOrgSalts({ stateDir: resolvedStateDir });
   const hostVersion = extractHostVersion(event, options);
-  const versionCheck = isTestedClaudeCodeVersion(hostVersion);
+  const isAntigravityHost = String(options.host || event.host || '').toLowerCase() === 'antigravity';
+  const versionCheck = isAntigravityHost
+    ? { known: false, tested: true, normalized: hostVersion || '' }
+    : isTestedClaudeCodeVersion(hostVersion);
 
   return {
     active: true,

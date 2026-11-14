@@ -32,9 +32,9 @@ export const SENSITIVE_DOCUMENT_NAME_RE = /(?:^|[/\\])[^/\\]*(?:secret|credentia
 const SELF_TAMPER_PROTECTED_RE = /(?:^|[/\\])(?:\.airlock(?:[/\\]|$)|hooks[/\\](?:hooks\.json|pre[-_]tool[-_]use\.mjs|post[-_]tool[-_]use\.mjs|pre[-_]invocation\.mjs|register\.js|handlers[/\\])|src[/\\](?:core-isomorphic|core)[/\\]airlock[/\\]|\.claude[/\\]settings(?:\.local)?\.json|\.gemini[/\\](?:oauth_creds\.json|antigravity[/\\]hooks\.json|config[/\\]plugins[/\\])|airlock[-_.]?policy\.(?:json|sig)|airlock[-_.]?ledger)/i;
 const KEY_DISCLOSURE_READ_RE = /(?:^|[/\\])(?:\.airlock[/\\](?:session\.key|org[-_]?salts\.json|policy\.sig|ledger[^/\\]*)|\.gemini[/\\]oauth_creds\.json)$/i;
 
-const MUTATING_OR_SHELL_TOOL_RE = /^(?:Edit|MultiEdit|Write|NotebookEdit|Bash|PowerShell|run_command|write_to_file|replace_file_content|multi_replace_file_content)$/i;
-const PATH_INSPECTION_TOOL_RE = /^(?:Read|Grep|Glob|Edit|MultiEdit|Write|NotebookEdit|view_file|grep_search|find_by_name|list_dir|write_to_file|replace_file_content|multi_replace_file_content)$/i;
-const SHELL_TOOL_RE = /^(?:Bash|PowerShell|run_command)$/i;
+const MUTATING_OR_SHELL_TOOL_RE = /^(?:Edit|MultiEdit|Write|NotebookEdit|Bash|PowerShell|pwsh|cmd|sh|run_command|execute_bash|write_file|edit_file|write_to_file|replace_file_content|multi_replace_file_content)$/i;
+const PATH_INSPECTION_TOOL_RE = /^(?:Read|Grep|Glob|Edit|MultiEdit|Write|NotebookEdit|read_file|write_file|edit_file|view_file|grep_search|find_by_name|list_dir|write_to_file|replace_file_content|multi_replace_file_content)$/i;
+const SHELL_TOOL_RE = /^(?:Bash|PowerShell|pwsh|cmd|sh|run_command|execute_bash)$/i;
 
 function normalizeSlashes(p) {
   return String(p || '').replace(/\\/g, '/').trim();
@@ -52,8 +52,10 @@ function collectCandidatePaths(toolInput) {
     'file_path',
     'filePath',
     'path',
+    'Path',
     'TargetFile',
     'AbsolutePath',
+    'DirectoryPath',
     'NotebookPath',
     'notebook_path',
     'SearchPath',
@@ -92,11 +94,14 @@ function serializeToolInputForScan(toolName, toolInput) {
   if (!toolInput || typeof toolInput !== 'object') return '';
 
   const name = String(toolName || '');
-  // For Edit / replace_file_content, scan new content (new_string / ReplacementContent)
-  // rather than old_string so developers can remediate/remove an existing leaked secret cleanly.
-  if (/^(?:Edit|MultiEdit|replace_file_content|multi_replace_file_content)$/i.test(name)) {
+  // For Edit / edit_file / replace_file_content, scan new content (new_string / Replacement / ReplacementContent)
+  // rather than old_string/Target so developers can remediate/remove an existing leaked secret cleanly.
+  if (/^(?:Edit|MultiEdit|edit_file|replace_file_content|multi_replace_file_content)$/i.test(name)) {
     const parts = [];
+    const pathPart = toolInput.Path || toolInput.file_path || toolInput.TargetFile || '';
+    if (typeof pathPart === 'string' && pathPart) parts.push(pathPart);
     if (typeof toolInput.new_string === 'string') parts.push(toolInput.new_string);
+    if (typeof toolInput.Replacement === 'string') parts.push(toolInput.Replacement);
     if (typeof toolInput.ReplacementContent === 'string') parts.push(toolInput.ReplacementContent);
     if (Array.isArray(toolInput.edits)) {
       for (let i = 0; i < toolInput.edits.length; i++) {
@@ -157,7 +162,7 @@ export function isAirlockSelfTamperTarget(toolName = '', toolInput = {}) {
   const candidates = collectCandidatePaths(toolInput);
   const cmdText = SHELL_TOOL_RE.test(name) ? extractShellCommandText(toolInput) : '';
 
-  const isReadTool = /^(?:Read|Grep|Glob|view_file|grep_search|find_by_name|list_dir)$/i.test(name);
+  const isReadTool = /^(?:Read|Grep|Glob|read_file|view_file|grep_search|find_by_name|list_dir)$/i.test(name);
   if (isReadTool) {
     for (let i = 0; i < candidates.length; i++) {
       if (KEY_DISCLOSURE_READ_RE.test(normalizeSlashes(candidates[i]))) {
@@ -358,7 +363,7 @@ export function evaluateAirlockPreToolGuard(event = {}, options = {}) {
         return buildDenyResult('FM-CLASS-A-PATH', reason);
       }
 
-      if (/^(?:Read|view_file)$/i.test(toolName) && isSensitiveBinaryReadPath(targetPath)) {
+      if (/^(?:Read|read_file|view_file)$/i.test(toolName) && isSensitiveBinaryReadPath(targetPath)) {
         const reason = `[AIRLOCK BINARY-PATH] Blocked binary/sensitive container read on '${targetPath}' because Airlock cannot inspect opaque container bytes.`;
         if (mode === 'audit') {
           return buildAllowResult({ auditOnly: true, fmCode: 'FM-SENSITIVE-BINARY', reason });
