@@ -76,7 +76,8 @@ test('DET-19: resolveRealGitBinary filters out .agents/shims to prevent recursio
       path.join('C:', 'workspace', '.agents', 'shims'),
       path.join('C:', 'workspace', '.agents', 'shims') + path.sep,
       path.join('C:', 'custom', 'shims'),
-      process.platform === 'win32' ? 'C:\\Program Files\\Git\\cmd' : '/usr/bin'
+      process.platform === 'win32' ? 'C:\\Program Files\\Git\\cmd' : '/usr/bin',
+      process.env.PATH || process.env.Path || ''
     ].join(path.delimiter)
   };
 

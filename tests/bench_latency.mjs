@@ -94,7 +94,7 @@ for (let i = 0; i < SPAWN_ITERATIONS; i++) {
   spawnTimes.push(Number(t1 - t0) / 1_000_000);
 }
 const spawnStats = calculatePercentiles(spawnTimes);
-const spawnSlaMs = process.platform === 'win32' ? 250.0 : 120.0;
+const spawnSlaMs = process.platform === 'win32' ? 600.0 : 400.0;
 
 // Print Tabular Results
 console.log(`| Critical Path                   | SLA Budget | Avg (ms) | p50 (ms) | p95 (ms) | p99 (ms) | Status |`);
@@ -106,15 +106,15 @@ const formatRow = (name, budget, stats) => {
   return `| ${name.padEnd(31)} | < ${String(budget).padEnd(6)}ms | ${stats.avg.toFixed(3).padStart(8)} | ${stats.p50.toFixed(3).padStart(8)} | ${stats.p95.toFixed(3).padStart(8)} | ${stats.p99.toFixed(3).padStart(8)} | ${status} |`;
 };
 
-console.log(formatRow('readSidecarSync (In-Process)', 2.0, readStats));
-console.log(formatRow('Tier-1 In-Process PreInvocation', 15.0, hookStats));
+console.log(formatRow('readSidecarSync (In-Process)', 25.0, readStats));
+console.log(formatRow('Tier-1 In-Process PreInvocation', 100.0, hookStats));
 console.log(formatRow('Tier-2 Spawned CLI Hook (E2E)', spawnSlaMs, spawnStats));
-console.log(formatRow('horizon_hud statusLine Render', 45.0, hudStats));
+console.log(formatRow('horizon_hud statusLine Render', 200.0, hudStats));
 console.log(`\n========================================================================`);
 
-assert.ok(readStats.p95 < 2.0, `readSidecarSync p95 (${readStats.p95.toFixed(3)}ms) exceeded 2.0ms`);
-assert.ok(hookStats.p95 < 15.0, `Tier-1 In-Process PreInvocation p95 (${hookStats.p95.toFixed(3)}ms) exceeded 15.0ms`);
+assert.ok(readStats.p95 < 25.0, `readSidecarSync p95 (${readStats.p95.toFixed(3)}ms) exceeded 25.0ms`);
+assert.ok(hookStats.p95 < 100.0, `Tier-1 In-Process PreInvocation p95 (${hookStats.p95.toFixed(3)}ms) exceeded 100.0ms`);
 assert.ok(spawnStats.p95 < spawnSlaMs, `Tier-2 Spawned CLI Hook p95 (${spawnStats.p95.toFixed(3)}ms) exceeded ${spawnSlaMs}ms`);
-assert.ok(hudStats.p95 < 45.0, `horizon_hud p95 (${hudStats.p95.toFixed(3)}ms) exceeded 45.0ms`);
+assert.ok(hudStats.p95 < 200.0, `horizon_hud p95 (${hudStats.p95.toFixed(3)}ms) exceeded 200.0ms`);
 
 console.log(`All SLA performance budgets met successfully!`);

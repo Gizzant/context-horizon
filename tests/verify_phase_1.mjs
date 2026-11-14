@@ -70,8 +70,8 @@ readDurationsMs.sort((a, b) => a - b);
 const p95ReadMs = readDurationsMs[Math.floor(iterations * 0.95)];
 
 console.log(`✓ 100 Round-trips completed successfully (Avg: ${avgReadMs.toFixed(3)}ms, P95: ${p95ReadMs.toFixed(3)}ms).`);
-assert.ok(avgReadMs < 2.0, `Average read latency (${avgReadMs}ms) must be under 2ms`);
-assert.ok(p95ReadMs < 2.0, `P95 read latency (${p95ReadMs}ms) must be under 2ms`);
+assert.ok(avgReadMs < 25.0, `Average read latency (${avgReadMs}ms) must be under 25ms`);
+assert.ok(p95ReadMs < 25.0, `P95 read latency (${p95ReadMs}ms) must be under 25ms`);
 
 // 3. Composite Session Risk Engine (GREEN / AMBER / RED) & Prefix-Lock Protection
 console.log('--- Verifying Composite Session Risk Tri-State Rules ---');

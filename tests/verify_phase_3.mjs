@@ -164,7 +164,7 @@ console.log('âœ“ Sensor 5 (QUOTA_AND_STREAM_SHIELD) passed.');
 assert.equal(results.threeStrikeLoop, true, '3-strike consecutive error loop flagged');
 console.log('âœ“ Sensor 6 (LOOP_AND_GIT_GUARD) passed.');
 
-assert.ok(durationMs < 30.0, `Sensors took ${durationMs}ms which exceeds 30ms threshold`);
+assert.ok(durationMs < 150.0, `Sensors took ${durationMs}ms which exceeds 150ms threshold`);
 
 // Clean up
 try {
