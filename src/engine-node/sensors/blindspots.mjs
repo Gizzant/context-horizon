@@ -48,19 +48,26 @@ export function detectDirtySnapshots(stepEvents = [], workspacePath = '') {
       const ts = Number(ev.timestampMs || (ev.createdAt ? Date.parse(ev.createdAt) : 0) || ev.timestamp || 0);
       if (!Number.isFinite(ts) || ts <= 0) continue;
       const canonical = canonicalizePath(target);
-      const prev = lastTouchMap.get(canonical) || 0;
-      lastTouchMap.set(canonical, Math.max(prev, ts));
+      const prev = lastTouchMap.get(canonical);
+      const nextTs = prev ? Math.max(prev.ts, ts) : ts;
+      lastTouchMap.set(canonical, { ts: nextTs, rawPath: String(target).trim(), canonical });
     }
   }
 
   const dirtySnapshotPaths = [];
-  for (const [filePath, lastTouchMs] of lastTouchMap.entries()) {
+  for (const [canonical, entry] of lastTouchMap.entries()) {
+    const lastTouchMs = entry.ts;
     if (!Number.isFinite(lastTouchMs) || lastTouchMs <= 0) continue;
     try {
-      if (fs.existsSync(filePath)) {
-        const stat = fs.statSync(filePath);
+      const candidatePath = fs.existsSync(entry.rawPath)
+        ? entry.rawPath
+        : (workspacePath && fs.existsSync(path.resolve(workspacePath, entry.rawPath))
+          ? path.resolve(workspacePath, entry.rawPath)
+          : canonical);
+      if (fs.existsSync(candidatePath)) {
+        const stat = fs.statSync(candidatePath);
         if (stat.mtimeMs > lastTouchMs + 500) {
-          dirtySnapshotPaths.push(filePath);
+          dirtySnapshotPaths.push(canonical);
         }
       }
     } catch {

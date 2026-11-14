@@ -347,11 +347,16 @@ console.log(`  âœ“ Surgical Pruner condensed ${execPrune.prunedSteps} steps 
 console.log('[4/7] Starting Live Sidecar Daemon & Testing All HTTP / SSE Endpoints...');
 let seededDaemonSessionDir = null;
 let seededCliConvDir = null;
-if (!findSessionDirectory()) {
+const initialDiscovered = findSessionDirectory('33c7de94-4a9c-4407-b328-c7f836201e8c');
+if (!initialDiscovered || initialDiscovered.sessionId !== '33c7de94-4a9c-4407-b328-c7f836201e8c') {
   seededDaemonSessionDir = path.join(os.homedir(), '.gemini', 'antigravity', 'brain', 'e2e-ci-synthetic-session');
   const seededLogsDir = path.join(seededDaemonSessionDir, '.system_generated', 'logs');
   fs.mkdirSync(seededLogsDir, { recursive: true });
-  fs.writeFileSync(path.join(seededLogsDir, 'transcript_full.jsonl'), syntheticJsonlLines.join('\n') + '\n', 'utf8');
+  const seededTranscriptPath = path.join(seededLogsDir, 'transcript_full.jsonl');
+  fs.writeFileSync(seededTranscriptPath, syntheticJsonlLines.join('\n') + '\n', 'utf8');
+  const futureMtime = new Date(Date.now() + 60000);
+  fs.utimesSync(seededTranscriptPath, futureMtime, futureMtime);
+  fs.utimesSync(seededDaemonSessionDir, futureMtime, futureMtime);
 }
 const cliConvCandidate = path.join(os.homedir(), '.gemini', 'antigravity-cli', 'conversations');
 if (!fs.existsSync(cliConvCandidate)) {
@@ -488,7 +493,7 @@ const activeConvId = '33c7de94-4a9c-4407-b328-c7f836201e8c';
 const discoveredActive = findSessionDirectory(activeConvId);
 let tmpActiveSessionDir = null;
 let cliOpts;
-if (discoveredActive && fs.existsSync(discoveredActive.sessionDir)) {
+if (discoveredActive && discoveredActive.sessionId === activeConvId && fs.existsSync(discoveredActive.sessionDir)) {
   cliOpts = { silent: true, stdinData: { conversation_id: activeConvId } };
 } else {
   tmpActiveSessionDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hz-active-conv-e2e-'));
