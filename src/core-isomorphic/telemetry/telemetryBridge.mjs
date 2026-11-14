@@ -556,8 +556,17 @@ export function ingestModTurnEvent(currentState, event = {}, options = {}) {
     return state;
   }
 
-  const ttlTier = state.promptCache?.ttlTier === '1h' ? '1h' : '5m';
-  const breakdown = extractNormalizedTokenBreakdown({ ...usage, cacheTtlTier: ttlTier });
+  const priorTtlTier = state.promptCache?.ttlTier === '1h' ? '1h' : '5m';
+  const initialBreakdown = extractNormalizedTokenBreakdown({ ...usage, cacheTtlTier: priorTtlTier });
+  const ttlTier =
+    !isSubagent && initialBreakdown.write1hTokens > 0 ? '1h' : priorTtlTier;
+  if (!isSubagent && ttlTier === '1h' && state.promptCache) {
+    state.promptCache.ttlTier = '1h';
+  }
+  const breakdown =
+    ttlTier === priorTtlTier
+      ? initialBreakdown
+      : extractNormalizedTokenBreakdown({ ...usage, cacheTtlTier: ttlTier });
   const uncachedInput = breakdown.uncachedInputTokens;
   const write5mTokens = breakdown.effectiveWrite5mTokens;
   const write1hTokens = breakdown.effectiveWrite1hTokens;
@@ -861,7 +870,7 @@ export function ingestStatusLinePayload(currentState, statusPayload = {}, option
   const pc = statusPayload.prompt_cache || {};
   const rl = statusPayload.rate_limits || {};
 
-  const ttlInfo = parseTtlInfo(pc.ttl ?? state.promptCache.ttlTier);
+  let ttlInfo = parseTtlInfo(pc.ttl ?? state.promptCache.ttlTier);
   state.promptCache.ttlTier = ttlInfo.ttlTier;
 
   const hasCurrentUsage =
@@ -879,10 +888,18 @@ export function ingestStatusLinePayload(currentState, statusPayload = {}, option
       currentUsage.cacheWrite1hTokens !== undefined ||
       currentUsage.cache_creation !== undefined);
 
-  const breakdown = extractNormalizedTokenBreakdown({
+  let breakdown = extractNormalizedTokenBreakdown({
     ...currentUsage,
     cacheTtlTier: state.promptCache.ttlTier
   });
+  if (pc.ttl === undefined && breakdown.write1hTokens > 0 && state.promptCache.ttlTier !== '1h') {
+    state.promptCache.ttlTier = '1h';
+    ttlInfo = { ttlTier: '1h', ttlSeconds: 3600 };
+    breakdown = extractNormalizedTokenBreakdown({
+      ...currentUsage,
+      cacheTtlTier: '1h'
+    });
+  }
   const uncachedInput = breakdown.uncachedInputTokens;
   const write5mTokens = breakdown.effectiveWrite5mTokens;
   const write1hTokens = breakdown.effectiveWrite1hTokens;

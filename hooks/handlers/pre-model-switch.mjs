@@ -71,20 +71,47 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
     });
 
   const currentModel =
-    event.current_model || event.currentModel || liveState.modelId || 'claude-opus-5-5';
+    event.current_model ||
+    event.currentModel ||
+    event.from_model ||
+    event.fromModel ||
+    liveState.modelId ||
+    'claude-opus-5-5';
   const targetModel =
-    event.target_model || event.targetModel || event.model || 'claude-sonnet-5-5';
+    event.target_model ||
+    event.targetModel ||
+    event.to_model ||
+    event.toModel ||
+    event.requested_model ||
+    event.requestedModel ||
+    event.model ||
+    'claude-sonnet-5-5';
   const cachedTokens = Number(
     event.cached_tokens ??
       event.cachedTokens ??
+      event.context_tokens ??
+      event.contextTokens ??
       liveState.contextWindow?.cachedTokens ??
       0
   );
+  const nowMs = Number.isFinite(Number(options.nowMs)) ? Number(options.nowMs) : Date.now();
+  const rawExpiresAt = liveState?.promptCache?.expiresAt;
+  const liveCacheExpired =
+    rawExpiresAt !== null &&
+    rawExpiresAt !== undefined &&
+    Number.isFinite(Number(rawExpiresAt)) &&
+    Number(rawExpiresAt) > 0 &&
+    nowMs >= Number(rawExpiresAt);
+  const explicitCacheWarm =
+    event.cache_warm ??
+    event.cacheWarm ??
+    event.prompt_cache_warm ??
+    event.promptCacheWarm;
   const cacheWarm =
-    event.cache_warm !== undefined
-      ? Boolean(event.cache_warm)
-      : event.cacheWarm !== undefined
-        ? Boolean(event.cacheWarm)
+    explicitCacheWarm !== undefined
+      ? Boolean(explicitCacheWarm)
+      : liveCacheExpired
+        ? false
         : Boolean(liveState.promptCache?.warm);
 
   const uncachedDeltaTokens = Number(
@@ -93,6 +120,8 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
   const rawTier =
     event.cache_ttl_tier ??
     event.cacheTtlTier ??
+    event.cache_ttl ??
+    event.cacheTtl ??
     event.prompt_cache?.ttl ??
     liveState.promptCache?.ttlTier ??
     '5m';
@@ -106,6 +135,31 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
     computeTotalPromptTokens(usageSource)
   );
 
+  const rawRemainingTurns =
+    event.expected_remaining_turns ??
+    event.expectedRemainingTurns ??
+    options.expectedRemainingTurns ??
+    horizonConfig?.expectedRemainingTurns;
+
+  let resolvedExpectedOutputTokens = event.expectedOutputTokens ?? options.expectedOutputTokens;
+  if (
+    resolvedExpectedOutputTokens === undefined &&
+    Boolean(event.useObservedOutputTokens ?? options.useObservedOutputTokens)
+  ) {
+    const turnsDone = Number(liveState?.turnsCompleted || 0);
+    const cumOut =
+      Number(liveState?.cumulative?.outputTokens || 0) +
+      Number(liveState?.cumulative?.thinkingTokens || 0);
+    const lastOut =
+      Number(liveState?.contextWindow?.lastOutputTokens || 0) +
+      Number(liveState?.contextWindow?.lastThinkingTokens || 0);
+    if (turnsDone > 0 && cumOut > 0) {
+      resolvedExpectedOutputTokens = Math.round(cumOut / turnsDone);
+    } else if (lastOut > 0) {
+      resolvedExpectedOutputTokens = lastOut;
+    }
+  }
+
   let verdict = router.evaluateModelSwitch({
     currentModel,
     targetModel,
@@ -114,7 +168,10 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
     totalPromptTokens,
     cacheWarm,
     cacheTtlTier,
-    expectedOutputTokens: event.expectedOutputTokens ?? 1500,
+    expectedOutputTokens: resolvedExpectedOutputTokens ?? 1500,
+    ...(rawRemainingTurns !== undefined && rawRemainingTurns !== null
+      ? { expectedRemainingTurns: Number(rawRemainingTurns) }
+      : {}),
     strictBlock:
       det08Override === 'block' ? true : (event.strictBlock ?? options.strictBlock),
     autoPilotDecision: event.autoPilotDecision ?? options.autoPilotDecision
@@ -138,20 +195,18 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
     };
   }
 
+  const avoidedPenaltyUSD = Math.max(
+    0,
+    Number(verdict.breakEven?.coldWritePenaltyUSD ?? 0)
+  );
+
   if (
     (verdict.blocked || verdict.decision === 'ask') &&
     cachedTokens > 0 &&
+    avoidedPenaltyUSD > 0 &&
     options.recordLedger !== false &&
     Boolean(event.cwd || options.cwd || options.ledgerPath || options.recordLedger)
   ) {
-    const avoidedPenaltyUSD = Math.max(
-      0,
-      Number(
-        verdict.breakEven?.netSwitchSavingsUSD < 0
-          ? Math.abs(verdict.breakEven.netSwitchSavingsUSD)
-          : verdict.breakEven?.coldTargetTurnUSD || 0
-      )
-    );
     recordInterventionSavings(
       {
         sessionId,

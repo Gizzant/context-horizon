@@ -10,6 +10,7 @@
  */
 
 import {
+  BUILTIN_CATALOG,
   normalizeModelId,
   computeTotalPromptTokens,
   resolveEffectiveRates
@@ -23,6 +24,7 @@ export const FLIGHT_MODES = Object.freeze({
 });
 
 export const DEFAULT_EXPECTED_OUTPUT_TOKENS = 1500;
+export const DEFAULT_DET09_OUTPUT_DELTA_TOKENS = 800;
 
 const PREFIX_INSTRUCTION_FILE_REGEX =
   /(?:^|\/)(?:CLAUDE(?:\.local)?\.md|AGENTS\.md|\.mcp\.json)$|(?:^|\/)\.claude\/(?:CLAUDE\.md|rules\/.+\.md)$/i;
@@ -189,14 +191,54 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
     (switchToTargetModelUSD - stayOnCurrentModelUSD).toFixed(6)
   );
 
-  // Never hold/deny on capability upshifts (pOutCurr <= pOutTarget) or when coldWritePenaltyUSD <= 0 (`ISS-006`)
-  const shouldHoldModel = Boolean(
+  // Horizon-aware payback (`C1e` / `rule_v2`, opt-in via `expectedRemainingTurns`):
+  //   perTurnPostSwitchSavingUSD = ((C + Delta)/1M)*(P_read,curr - P_read,target)
+  //                              + (Delta_post/1M)*(P_write,curr - P_write,target)
+  //                              + (O/1M)*(P_out,curr - P_out,target)
+  //   paybackTurns = coldWritePenaltyUSD / perTurnPostSwitchSavingUSD
+  // When `expectedRemainingTurns` is unset (`undefined`/`null`), `shouldHoldModel` preserves `rule_v1`.
+  const postSwitchDeltaTokens = Math.max(
+    0,
+    Number(params.postSwitchDeltaTokens ?? uncachedDeltaTokens)
+  );
+  const rawPerTurnPostSwitchSavingUSD =
+    currentModel === targetModel || isCapabilityUpshift
+      ? 0
+      : ((cachedTokens + uncachedDeltaTokens) / 1_000_000) * (pReadCurr - targetRates.readPer1M) +
+        (postSwitchDeltaTokens / 1_000_000) * (pWriteCurr - pWriteTarget) +
+        (expectedOutputTokens / 1_000_000) * (pOutCurr - pOutTarget);
+  const perTurnPostSwitchSavingUSD = Number(
+    Math.max(0, rawPerTurnPostSwitchSavingUSD).toFixed(6)
+  );
+  const paybackTurns =
+    coldWritePenaltyUSD <= 0
+      ? 0
+      : perTurnPostSwitchSavingUSD > 0
+        ? Number((coldWritePenaltyUSD / perTurnPostSwitchSavingUSD).toFixed(4))
+        : Infinity;
+
+  const rawRemainingTurns = params.expectedRemainingTurns ?? options.expectedRemainingTurns;
+  const hasHorizonTurns =
+    rawRemainingTurns !== undefined &&
+    rawRemainingTurns !== null &&
+    Number.isFinite(Number(rawRemainingTurns));
+  const expectedRemainingTurns = hasHorizonTurns ? Math.max(0, Number(rawRemainingTurns)) : null;
+  const horizonNetSavingsUSD = hasHorizonTurns
+    ? Number((expectedRemainingTurns * perTurnPostSwitchSavingUSD - coldWritePenaltyUSD).toFixed(6))
+    : null;
+
+  const singleTurnShouldHold = Boolean(
     currentModel !== targetModel &&
       !isCapabilityUpshift &&
       cacheWarm &&
       coldWritePenaltyUSD > 0 &&
       cachedTokens > breakEvenTokens
   );
+
+  // Never hold/deny on capability upshifts (pOutCurr <= pOutTarget) or when coldWritePenaltyUSD <= 0 (`ISS-006`)
+  const shouldHoldModel = hasHorizonTurns
+    ? Boolean(singleTurnShouldHold && expectedRemainingTurns < paybackTurns)
+    : singleTurnShouldHold;
 
   return {
     currentModel,
@@ -214,12 +256,18 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
       currentOutputPer1M: pOutCurr,
       targetOutputPer1M: pOutTarget,
       currentReadPer1M: pReadCurr,
+      targetReadPer1M: targetRates.readPer1M,
       currentWritePer1M: pWriteCurr,
       targetWritePer1M: pWriteTarget
     },
     stayOnCurrentModelUSD: Number(stayOnCurrentModelUSD.toFixed(6)),
     switchToTargetModelUSD: Number(switchToTargetModelUSD.toFixed(6)),
     coldWritePenaltyUSD,
+    perTurnPostSwitchSavingUSD,
+    paybackTurns,
+    expectedRemainingTurns,
+    horizonNetSavingsUSD,
+    ruleVersion: hasHorizonTurns ? 'rule_v2' : 'rule_v1',
     shouldHold: shouldHoldModel,
     shouldHoldModel
   };
@@ -566,7 +614,11 @@ export class CacheGravityRouter {
     const allowReason =
       breakEven.isCapabilityUpshift && breakEven.currentModel !== breakEven.targetModel
         ? `Capability upshift from ${breakEven.currentModel} to ${breakEven.targetModel} permitted without warm-cache hold.`
-        : `Model switch to ${breakEven.targetModel} is within break-even threshold (cached ${breakEven.cachedTokens.toLocaleString()} <= C* ${breakEven.breakEvenTokens.toLocaleString()}).`;
+        : breakEven.expectedRemainingTurns !== null &&
+            breakEven.cachedTokens > breakEven.breakEvenTokens &&
+            breakEven.expectedRemainingTurns >= breakEven.paybackTurns
+          ? `Model switch to ${breakEven.targetModel} permitted under horizon payback (${breakEven.expectedRemainingTurns} remaining turns >= ${breakEven.paybackTurns} payback turns; projected net saving +$${breakEven.horizonNetSavingsUSD.toFixed(4)}).`
+          : `Model switch to ${breakEven.targetModel} is within break-even threshold (cached ${breakEven.cachedTokens.toLocaleString()} <= C* ${breakEven.breakEvenTokens.toLocaleString()}).`;
 
     return {
       detectorId: 'DET-08',
@@ -654,6 +706,36 @@ export class CacheGravityRouter {
       ((cachedTokens / 1_000_000) * (writeRate - rates.readPer1M)).toFixed(6)
     );
 
+    const enableDet09Threshold = Boolean(
+      mutationRequest.enableDet09Threshold ?? this.options.enableDet09Threshold ?? false
+    );
+    const det09BreakEven = computeDet09BreakEvenTokens(
+      {
+        ...mutationRequest,
+        currentModel: rawModel,
+        cachedTokens,
+        cacheTtlTier: ttlTier,
+        totalPromptTokens
+      },
+      this.options
+    );
+
+    if (enableDet09Threshold && cachedTokens <= det09BreakEven.breakEvenTokens) {
+      return {
+        detectorId: 'DET-09',
+        triggered: false,
+        queued: false,
+        decision: 'allow',
+        belowBreakEvenThreshold: true,
+        breakEvenTokens: det09BreakEven.breakEvenTokens,
+        avoidedRewritePenaltyUSD,
+        queueSize: this.mutationQueue.size(),
+        reason:
+          `Top-level mutation within DET-09 break-even threshold ` +
+          `(cached ${cachedTokens.toLocaleString()} <= C*_mut ${det09BreakEven.breakEvenTokens.toLocaleString()} tokens).`
+      };
+    }
+
     const mutationType =
       mutationRequest.type || (targetFilePath ? 'system_prompt' : 'effort');
     const entry = this.mutationQueue.enqueue({
@@ -675,11 +757,75 @@ export class CacheGravityRouter {
       queued: true,
       decision: 'defer',
       entry,
+      breakEvenTokens: enableDet09Threshold ? det09BreakEven.breakEvenTokens : 0,
       avoidedRewritePenaltyUSD,
       queueSize: this.mutationQueue.size(),
       reason: entry.reason
     };
   }
+}
+
+/**
+ * Computes the `DET-09` warm-prefix mutation break-even threshold `C*_mut` (`C1d`):
+ *   C*_mut = (Delta_O * P_out) / (P_write - P_read)
+ * Below `C*_mut`, the one-time cold prefix rewrite penalty `(C / 1M) * (P_write - P_read)`
+ * is smaller than the per-turn output-equivalent cost of deferring the mutation.
+ *
+ * @param {object} [params={}]
+ * @param {object} [options={}]
+ */
+export function computeDet09BreakEvenTokens(params = {}, options = {}) {
+  const explicitMin = params.det09MinCachedTokens ?? options.det09MinCachedTokens;
+  const rawModel = params.currentModel || params.modelId || 'claude-opus-5-5';
+  const ttlTier = params.cacheTtlTier === '1h' ? '1h' : '5m';
+  const totalPromptTokens = Math.max(
+    Number(params.cachedTokens ?? 0),
+    computeTotalPromptTokens(params)
+  );
+  const rates = resolveEffectiveRates(rawModel, totalPromptTokens, options);
+  const writeRate = ttlTier === '1h' ? rates.write1hPer1M : rates.write5mPer1M;
+  const denominator = writeRate - rates.readPer1M;
+
+  if (explicitMin !== undefined && explicitMin !== null && Number.isFinite(Number(explicitMin))) {
+    return {
+      breakEvenTokens: Math.max(0, Math.round(Number(explicitMin))),
+      outputDeltaTokens: null,
+      writeRatePer1M: writeRate,
+      readRatePer1M: rates.readPer1M,
+      outputRatePer1M: rates.outputPer1M
+    };
+  }
+
+  const effortTable = BUILTIN_CATALOG.effortExpectedOutputTokens || {};
+  const currEff = String(params.currentEffort || '').toLowerCase().trim();
+  const nextEff = String(params.value || '').toLowerCase().trim();
+  let outputDeltaTokens = Number(
+    params.det09OutputDeltaTokens ?? options.det09OutputDeltaTokens ?? NaN
+  );
+  if (!Number.isFinite(outputDeltaTokens) || outputDeltaTokens < 0) {
+    if (
+      effortTable[currEff] !== undefined &&
+      effortTable[nextEff] !== undefined &&
+      effortTable[currEff] !== effortTable[nextEff]
+    ) {
+      outputDeltaTokens = Math.abs(effortTable[nextEff] - effortTable[currEff]);
+    } else {
+      outputDeltaTokens = DEFAULT_DET09_OUTPUT_DELTA_TOKENS;
+    }
+  }
+
+  const breakEvenTokens =
+    denominator <= 0
+      ? Infinity
+      : Math.max(0, Math.round((outputDeltaTokens * rates.outputPer1M) / denominator));
+
+  return {
+    breakEvenTokens,
+    outputDeltaTokens,
+    writeRatePer1M: writeRate,
+    readRatePer1M: rates.readPer1M,
+    outputRatePer1M: rates.outputPer1M
+  };
 }
 
 /**
@@ -706,12 +852,14 @@ export function evaluatePreModelSwitch(request = {}, options = {}) {
 export default {
   FLIGHT_MODES,
   DEFAULT_EXPECTED_OUTPUT_TOKENS,
+  DEFAULT_DET09_OUTPUT_DELTA_TOKENS,
   DEFAULT_ADVISORY_COOLDOWN_TURNS,
   normalizeFlightMode,
   isSilentOrOffMode,
   isPrefixInstructionFile,
   resolveNaturalDownshiftPeer,
   computeBreakEvenCachedTokens,
+  computeDet09BreakEvenTokens,
   evaluatePreModelSwitch,
   evaluateDet09PrefixMutationFence,
   PostCompactMutationQueue,
