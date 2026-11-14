@@ -159,7 +159,21 @@ export async function runStrictPreInvocation(inputData = {}) {
   const flightMode = String(inputData.flightMode || horizonConfig.flightMode || 'COACH').toUpperCase();
   if (flightMode === 'OFF') return {};
 
-  const prompt = String(inputData.prompt ?? inputData.user_input ?? inputData.message ?? '');
+  const prompt = String(inputData.lastUserInput ?? inputData.prompt ?? inputData.user_input ?? inputData.message ?? '');
+  const airlockPrompt = runAirlockPromptBridge(
+    { ...inputData, prompt },
+    { cwd: workspacePath, ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {}) },
+    { ...inputData, host: 'antigravity', horizonConfig }
+  );
+  if (airlockPrompt?.blocked) {
+    return {
+      decision: 'deny',
+      terminationBehavior: 'terminate',
+      reason: airlockPrompt.verdict?.reason || 'Blocked by Highbeam Airlock PreInvocation guard',
+      systemMessage: airlockPrompt.verdict?.reason,
+      airlock: airlockPrompt.airlock
+    };
+  }
   const portfolio = ensurePortfolioState(sidecar);
   portfolio.lastUserPrompt = prompt;
   // Reset per-turn unedited read/search counter on a new user turn
@@ -370,6 +384,8 @@ export async function runStrictPreInvocation(inputData = {}) {
  *
  * Output contract: `{"decision": "allow" | "ask" | "deny", "reason"?: "..."}`
  */
+import { runAirlockPromptBridge, runAirlockPreToolBridge } from '../core/airlock/hookBridge.mjs';
+
 export async function runStrictPreToolUse(inputData = {}) {
   const conversationId = inputData.conversationId || inputData.session_id || inputData.conversation_id || 'default_session';
   const sidecar = readSidecarSync(conversationId);
@@ -380,12 +396,32 @@ export async function runStrictPreToolUse(inputData = {}) {
   const portfolio = ensurePortfolioState(sidecar);
   const currentTurn = Math.max(1, Number(inputData.turn ?? sidecar.sessionMeta?.turnCount ?? 1));
 
-  const toolName = String(inputData.tool_name || inputData.tool || inputData.toolName || '').trim();
-  const toolArgs = inputData.tool_input || inputData.args || inputData.parameters || inputData.Arguments || {};
-  const userPrompt = String(inputData.userPrompt ?? inputData.prompt ?? portfolio.lastUserPrompt ?? '');
+  const toolName = String(inputData.tool_name || inputData.tool || inputData.toolName || inputData.toolCall?.name || '').trim();
+  const toolArgs = inputData.tool_input || inputData.args || inputData.parameters || inputData.Arguments || inputData.toolCall?.args || {};
+  const userPrompt = String(inputData.lastUserInput ?? inputData.userPrompt ?? inputData.prompt ?? portfolio.lastUserPrompt ?? '');
   const { raw: rawTarget, absPath, realPath } = resolveTargetFileFromArgs(toolArgs, workspacePath);
 
   const syntheticStep = [{ toolCalls: [{ name: toolName, args: toolArgs }] }];
+
+  const airlockPre = runAirlockPreToolBridge(
+    {
+      ...inputData,
+      session_id: conversationId,
+      cwd: workspacePath,
+      tool_name: toolName,
+      tool_input: toolArgs
+    },
+    { cwd: workspacePath, homeDir },
+    { ...inputData, host: 'antigravity', horizonConfig }
+  );
+  if (airlockPre?.blocked) {
+    return {
+      decision: 'deny',
+      overwrite: false,
+      reason: airlockPre.stderr || airlockPre.verdict?.reason || 'Blocked by Highbeam Airlock PreToolUse guard',
+      airlock: airlockPre.airlock
+    };
+  }
 
   // Ring-0 Security Gates (active in all modes unless explicitly disabled)
   // 1. Symlink-resolved .env* / *.pem / ~/.ssh/* denial (Rank 11 / DET-02)

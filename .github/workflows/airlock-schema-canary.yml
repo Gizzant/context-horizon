@@ -1,0 +1,89 @@
+name: Airlock Claude Code Schema & Wire Canary
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/core-isomorphic/airlock/**'
+      - 'src/core/airlock/**'
+      - 'hooks/**'
+      - 'scripts/benchmark_airlock.mjs'
+      - 'test/airlock_stateless_v1_proofs.test.mjs'
+      - 'docs/HIGHBEAM_AIRLOCK_*'
+      - '.github/workflows/airlock-schema-canary.yml'
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  airlock-matrix:
+    name: Airlock Suite & Benchmark on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node.js 22.14.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.14.0'
+
+      - name: Run Airlock Stateless v1 Proof Suites
+        run: node --test test/airlock_stateless_v1_proofs.test.mjs
+
+      - name: Run Airlock Corpus & Trie Latency Benchmark
+        run: node scripts/benchmark_airlock.mjs --json
+
+      - name: Verify upstream @anthropic-ai/claude-code@latest schema contract
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          CANARY_DIR="$RUNNER_TEMP/cc-canary"
+          mkdir -p "$CANARY_DIR"
+          npm install --prefix "$CANARY_DIR" --no-save --ignore-scripts --no-audit --no-fund @anthropic-ai/claude-code@latest
+          CANARY_DIR="$CANARY_DIR" node --input-type=module -e '
+            import fs from "node:fs";
+            import path from "node:path";
+            import { isTestedClaudeCodeVersion, TESTED_CLAUDE_CODE_RANGE } from "./src/core-isomorphic/airlock/index.mjs";
+
+            const pkgRoot = path.join(process.env.CANARY_DIR, "node_modules", "@anthropic-ai", "claude-code");
+            const pkg = JSON.parse(fs.readFileSync(path.join(pkgRoot, "package.json"), "utf8"));
+            const version = pkg.version;
+            const tested = isTestedClaudeCodeVersion(version);
+            console.log(`Latest @anthropic-ai/claude-code version: ${version} (TESTED_CLAUDE_CODE_RANGE=${TESTED_CLAUDE_CODE_RANGE}, inRange=${tested})`);
+            if (!tested) {
+              console.log(`::warning::Upstream @anthropic-ai/claude-code@${version} is outside TESTED_CLAUDE_CODE_RANGE (${TESTED_CLAUDE_CODE_RANGE}); review sdk-tools.d.ts shapes and bump tested range.`);
+            }
+
+            const stack = [pkgRoot];
+            const dtsFiles = [];
+            while (stack.length > 0) {
+              const dir = stack.pop();
+              for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+                const full = path.join(dir, ent.name);
+                if (ent.isDirectory()) stack.push(full);
+                else if (ent.name === "sdk-tools.d.ts") dtsFiles.push(full);
+              }
+            }
+
+            if (dtsFiles.length === 0) {
+              console.log("::notice::sdk-tools.d.ts not bundled in unpacked npm tarball; checked package version range.");
+            } else {
+              const src = fs.readFileSync(dtsFiles[0], "utf8");
+              const required = ["FileReadOutput", "BashOutput", "GrepOutput", "GlobOutput", "FileEditOutput", "FileWriteOutput"];
+              const missing = required.filter((sym) => !new RegExp(`\\b${sym}\\b`).test(src));
+              if (missing.length > 0) {
+                console.error(`::error::Missing expected sdk-tools.d.ts output interfaces in @anthropic-ai/claude-code@${version}: ${missing.join(", ")}`);
+                process.exit(1);
+              }
+              console.log(`Verified ${required.length} sdk-tools.d.ts Output interfaces in ${path.relative(pkgRoot, dtsFiles[0])}`);
+            }
+          '

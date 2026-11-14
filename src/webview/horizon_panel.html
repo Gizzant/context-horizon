@@ -4343,6 +4343,7 @@
         <h2 class="ts-overline">Zone A &middot; System State &amp; Context</h2>
         <span id="tsCacheMeta" class="ts-meta" data-tone="muted">0% hit &middot; Cold</span>
       </div>
+      <div id="tsAirlockBanner" class="ts-sub" style="display:none;margin-bottom:4px;font-variant-numeric:tabular-nums;"></div>
       <div class="ts-status-row">
         <div class="ts-status-badge" role="status" aria-live="polite">
           <span id="tsStatusDot" class="ts-dot" data-tone="signal"></span>
@@ -4423,6 +4424,7 @@
       <div style="font-size:11px;color:var(--hz-fg-secondary);line-height:1.35;">
         <div id="tsCompactReclaim">0.0k reclaimable clutter &middot; Active working set protected</div>
         <div id="tsCompactInstruction" style="color:var(--hz-muted);">Type <code>/compact</code> in the chat box and press Enter when resetting conversation history.</div>
+        <div id="tsAirlockReceiptRow" style="display:none;color:var(--hz-muted);margin-top:4px;font-variant-numeric:tabular-nums;"><span id="tsAirlockReceiptText"></span> · <a href="/api/airlock/receipt?format=html" target="_blank" rel="noopener">Airlock Receipt</a></div>
       </div>
     </section>
   </div>
@@ -10856,6 +10858,42 @@
       } else {
         tsStatusDot.dataset.tone = 'signal';
         tsStatusLabel.textContent = isWarm ? 'Optimal Cache' : 'Nominal Memory';
+      }
+    }
+
+    const tsAirlockBanner = document.getElementById('tsAirlockBanner');
+    const tsAirlockReceiptRow = document.getElementById('tsAirlockReceiptRow');
+    const tsAirlockReceiptText = document.getElementById('tsAirlockReceiptText');
+    const al = raw.airlock;
+    if (tsAirlockBanner) {
+      if (al && al.enabled) {
+        tsAirlockBanner.style.display = 'block';
+        const hooksInactive = !al.lastHeartbeatAt && Number(al.totalEvents || 0) === 0;
+        const lapsed = Number(al.coverageLapses || 0);
+        const drift = !al.schemaTested || Boolean(al.schemaDriftActive);
+        const statusFlag = hooksInactive
+          ? 'INACTIVE · Hooks Did Not Fire'
+          : al.tampered
+            ? 'POLICY TAMPERED (FAIL-CLOSED)'
+            : drift
+              ? `UNTESTED HOST (${al.lastHostVersion || 'unknown'})`
+              : lapsed > 0
+                ? `COVERAGE LAPSE: ${lapsed}`
+                : `${String(al.mode || 'enforce').toUpperCase()} · hb ${al.heartbeatFresh ? 'ok' : 'stale'}`;
+        tsAirlockBanner.textContent = `Airlock: ${statusFlag} · ${Number(al.blockedCount || 0)} blocked · ${Number(al.scrubbedCount || 0)} scrubbed`;
+        tsAirlockBanner.style.color = hooksInactive
+          ? '#ef4444'
+          : (al.tampered || drift || lapsed > 0) ? '#f59e0b' : 'var(--hz-muted)';
+      } else {
+        tsAirlockBanner.style.display = 'none';
+      }
+    }
+    if (tsAirlockReceiptRow && tsAirlockReceiptText) {
+      if (al && al.enabled) {
+        tsAirlockReceiptRow.style.display = 'block';
+        tsAirlockReceiptText.textContent = `Airlock chain ${al.chainValid === false ? 'BROKEN' : 'intact'} · lapses: ${Number(al.coverageLapses || 0)}`;
+      } else {
+        tsAirlockReceiptRow.style.display = 'none';
       }
     }
 

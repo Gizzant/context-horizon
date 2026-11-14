@@ -970,7 +970,24 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
     <div class="ah-pills" id="activeChatPills">
       <span class="ah-pill${amnesiaAtRisk ? ' ah-pill-risk' : ''}" id="simpleAmnesiaPill" title="Memory check: whether your rules and pinned instructions are still inside the AI's working memory.">${amnesiaAtRisk ? 'Memory: anchors at risk' : 'Memory: anchors pinned'}</span>
       <span class="ah-pill" id="flightModeBadge">${escapeHtml(metrics.flightMode)}</span>
-      <span class="ah-pill" id="modelBadge" title="Active model. Switching model or effort mid-session rewrites the prompt cache, so the next turn costs full price.">Model: ${escapeHtml(state.modelLabel || grid.modelId)}</span>
+      <span class="ah-pill" id="modelBadge" title="Active model. Switching model or effort mid-session rewrites the prompt cache, so the next turn costs full price.">Model: ${escapeHtml(state.modelLabel || grid.modelId)}</span>${
+        state.airlock && state.airlock.enabled
+          ? (() => {
+              const hooksInactive = !state.airlock.lastHeartbeatAt && Number(state.airlock.totalEvents || 0) === 0;
+              const isRisk = hooksInactive || !state.airlock.schemaTested || state.airlock.coverageLapses > 0 || state.airlock.tampered;
+              const labelText = hooksInactive
+                ? 'INACTIVE · hooks did not fire'
+                : state.airlock.tampered
+                  ? 'tampered (enforce)'
+                  : !state.airlock.schemaTested
+                    ? 'untested host'
+                    : state.airlock.coverageLapses > 0
+                      ? `${state.airlock.coverageLapses} lapse`
+                      : `${state.airlock.mode || 'enforce'} · ${Number(state.airlock.blockedCount || 0) + Number(state.airlock.scrubbedCount || 0)} guarded`;
+              return `\n      <span class="ah-pill${isRisk ? ' ah-pill-risk' : ''}" id="airlockStatusBadge" title="Pre-Ingestion AI Context Airlock (stateless v1 · Antigravity remains PreToolUse-only)">Airlock: ${escapeHtml(labelText)}</span>`;
+            })()
+          : ''
+      }
     </div>
     <!-- Zone 1+2: Apple Bento Hero Card (Verdict Pill, Runway Hero, Watch Cache Ring, Horizon Bar & Surgical Hogs) -->
     <section class="ah-card" id="capacityAndCacheCard" data-severity="${escapeHtml(verdict.severity)}" data-hold="${holdWarmActive ? 'true' : 'false'}" data-rank="1">

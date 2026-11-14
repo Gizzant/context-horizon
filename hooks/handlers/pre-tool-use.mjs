@@ -33,8 +33,28 @@ import { dispatchPreToolUseWithFallback } from './hookIpcClient.mjs';
  * @param {object} event
  * @param {object} [options={}]
  */
+import {
+  runAirlockPreToolBridge,
+  recordAirlockWatchdogTimeout
+} from '../../src/core/airlock/hookBridge.mjs';
+import { armFailClosedWatchdog } from './hookIo.mjs';
+
 export function runPreToolUseHook(event = {}, options = {}) {
   const toolName = String(event.tool_name || event.toolName || '');
+  const cwdOptions = event.cwd && !options.cwd ? { ...options, cwd: event.cwd } : options;
+  const horizonConfig = options.horizonConfig || loadHorizonConfig(cwdOptions);
+
+  const airlockRes = runAirlockPreToolBridge(event, cwdOptions, { ...options, horizonConfig });
+  if (airlockRes?.blocked) {
+    return {
+      exitCode: airlockRes.exitCode,
+      stdout: airlockRes.stdout,
+      stderr: airlockRes.stderr,
+      verdict: airlockRes.verdict,
+      airlock: airlockRes.airlock
+    };
+  }
+
   const tier1Active = Boolean(
     options.tier1ModActive ||
     event.tier1ModActive ||
@@ -46,12 +66,11 @@ export function runPreToolUseHook(event = {}, options = {}) {
       stdout: '',
       stderr: '',
       fastPath: 'tier1_mod_active',
-      verdict: { triggered: false, decision: 'allow', reason: 'Handled in-process by Tier 1 Mod' }
+      verdict: { triggered: false, decision: 'allow', reason: 'Handled in-process by Tier 1 Mod' },
+      ...(airlockRes?.airlock ? { airlock: airlockRes.airlock } : {})
     };
   }
   const sessionId = event.session_id || event.sessionId || 'default';
-  const cwdOptions = event.cwd && !options.cwd ? { ...options, cwd: event.cwd } : options;
-  const horizonConfig = options.horizonConfig || loadHorizonConfig(cwdOptions);
   const liveState = options.telemetryState || readLiveStateSnapshot(sessionId, cwdOptions);
   const configHasDiskSource = Boolean(
     horizonConfig?.sources?.projectLoaded || horizonConfig?.sources?.globalLoaded
@@ -308,7 +327,39 @@ export function runPreToolUseHook(event = {}, options = {}) {
  *
  * @param {object} [cliOptions={}]
  */
+async function runPreToolUseWithWatchdog(cliOptions = {}) {
+  const watchdogMs = Number(cliOptions.watchdogTimeoutMs) || Number(process.env.AH_AIRLOCK_WATCHDOG_MS) || 3500;
+  let capturedPayload = null;
+  const hookOpts = cliOptions.hookOptions || {};
+  const watchdog = armFailClosedWatchdog({
+    timeoutMs: watchdogMs,
+    hookEventName: 'PreToolUse',
+    ioOverride: cliOptions.ioOverride || {},
+    onTimeout: () => {
+      const ev = capturedPayload || {};
+      const cwdOpts = ev.cwd && !hookOpts.cwd ? { ...hookOpts, cwd: ev.cwd } : hookOpts;
+      recordAirlockWatchdogTimeout('PreToolUse', ev, cwdOpts, hookOpts);
+    }
+  });
+  try {
+    return await executePreToolUseCli({
+      ...cliOptions,
+      __airlockWatchdogArmed: true,
+      readPayload: async (timeoutMs) => {
+        const readFn = cliOptions.readPayload || readStdinJsonAsync;
+        capturedPayload = await readFn(timeoutMs);
+        return capturedPayload;
+      }
+    });
+  } finally {
+    watchdog.disarm();
+  }
+}
+
 export async function executePreToolUseCli(cliOptions = {}) {
+  if (!cliOptions.__airlockWatchdogArmed) {
+    return await runPreToolUseWithWatchdog(cliOptions);
+  }
   const readPayload = cliOptions.readPayload || readStdinJsonAsync;
   const ioOverride = cliOptions.ioOverride || {};
   try {

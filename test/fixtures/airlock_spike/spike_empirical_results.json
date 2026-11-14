@@ -1,0 +1,1198 @@
+{
+  "claudeVersion": "2.1.325",
+  "platform": "win32",
+  "arch": "x64",
+  "nodeVersion": "v25.6.0",
+  "trackATimestamp": "2026-11-14T00:12:53.941Z",
+  "round3Timestamp": "2026-11-14T00:48:05.442Z",
+  "trackAScenarios": [
+    {
+      "id": "S1a_read_edit_post_edit_unscrubbed",
+      "title": "Scenario 1a: Read -> Vault -> Edit -> Unvault (Edit excluded from PostToolUse to test FM-9)",
+      "exitCode": 0,
+      "mainRequestCount": 3,
+      "prodJsonChanged": false,
+      "hookActions": [
+        {
+          "hookEvent": "UserPromptSubmit",
+          "toolName": "",
+          "action": "PASS_THROUGH",
+          "algMs": 0.064
+        },
+        {
+          "hookEvent": "PreToolUse",
+          "toolName": "Read",
+          "action": "PASS_THROUGH",
+          "algMs": 0.274
+        },
+        {
+          "hookEvent": "PostToolUse",
+          "toolName": "Read",
+          "action": "POST_VAULTED",
+          "algMs": 0.208
+        }
+      ],
+      "wireTurns": [
+        {
+          "turnIdx": 0,
+          "allMessagesCanaries": [],
+          "allMessagesTwins": [],
+          "toolResults": []
+        },
+        {
+          "turnIdx": 1,
+          "allMessagesCanaries": [],
+          "allMessagesTwins": [
+            "persona_4f2a8c10@synthetic.test",
+            "host-4f2a8c10.synthetic.internal",
+            "SynthPass00",
+            "CODENAME_4f2a8c10"
+          ],
+          "toolResults": [
+            {
+              "is_error": false,
+              "rawCanariesFound": [],
+              "twinsFound": [
+                "persona_4f2a8c10@synthetic.test",
+                "host-4f2a8c10.synthetic.internal",
+                "SynthPass00",
+                "CODENAME_4f2a8c10"
+              ],
+              "preview": "1\t{\n2\t  \"adminEmail\": \"persona_4f2a8c10@synthetic.test\",\n3\t  \"dbUri\": \"postgres://synth:SynthPass00@host-4f2a8c10.synthetic.internal:5432/core\",\n4\t  \"codename\": \"CODENAME_4f2a8c10\",\n5\t  \"pool\": 5\n6\t}\n"
+            }
+          ]
+        },
+        {
+          "turnIdx": 2,
+          "allMessagesCanaries": [],
+          "allMessagesTwins": [
+            "persona_4f2a8c10@synthetic.test",
+            "host-4f2a8c10.synthetic.internal",
+            "SynthPass00",
+            "CODENAME_4f2a8c10"
+          ],
+          "toolResults": [
+            {
+              "is_error": false,
+              "rawCanariesFound": [],
+              "twinsFound": [
+                "persona_4f2a8c10@synthetic.test",
+                "host-4f2a8c10.synthetic.internal",
+                "SynthPass00",
+                "CODENAME_4f2a8c10"
+              ],
+              "preview": "1\t{\n2\t  \"adminEmail\": \"persona_4f2a8c10@synthetic.test\",\n3\t  \"dbUri\": \"postgres://synth:SynthPass00@host-4f2a8c10.synthetic.internal:5432/core\",\n4\t  \"codename\": \"CODENAME_4f2a8c10\",\n5\t  \"pool\": 5\n6\t}\n"
+            },
+            {
+              "is_error": true,
+              "rawCanariesFound": [],
+              "twinsFound": [
+                "host-4f2a8c10.synthetic.internal",
+                "SynthPass00",
+                "CODENAME_4f2a8c10"
+              ],
+              "preview": "<tool_use_error>String to replace not found in file.\nString:   \"dbUri\": \"postgres://synth:SynthPass00@host-4f2a8c10.synthetic.internal:5432/core\",\n  \"codename\": \"CODENAME_4f2a8c10\",\n  \"pool\": 5</tool_"
+            }
+          ]
+        }
+      ],
+      "jsonlFiles": [
+        {
+          "file": "5abdb7e1-7f74-46b7-b6d5-e7345de9806b.jsonl",
+          "bytes": 274394,
+          "rawCanariesFound": [],
+          "twinsFound": [
+            "persona_4f2a8c10@synthetic.test",
+            "host-4f2a8c10.synthetic.internal",
+            "SynthPass00",
+            "CODENAME_4f2a8c10"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S1b_read_edit_full_symmetric",
+      "title": "Scenario 1b: Read -> Vault -> Edit -> Unvault (Edit INCLUDED in PostToolUse)",
+      "exitCode": 0,
+      "mainRequestCount": 3,
+      "prodJsonChanged": false,
+      "hookActions": [
+        {
+          "hookEvent": "UserPromptSubmit",
+          "toolName": "",
+          "action": "PASS_THROUGH",
+          "algMs": 0.065
+        },
+        {
+          "hookEvent": "PreToolUse",
+          "toolName": "Read",
+          "action": "PASS_THROUGH",
+          "algMs": 0.276
+        },
+        {
+          "hookEvent": "PostToolUse",
+          "toolName": "Read",
+          "action": "POST_VAULTED",
+          "algMs": 0.219
+        }
+      ],
+      "wireTurns": [
+        {
+          "turnIdx": 0,
+          "allMessagesCanaries": [],
+          "allMessagesTwins": [],
+          "toolResults": []
+        },
+        {
+          "turnIdx": 1,
+          "allMessagesCanaries": [],
+          "allMessagesTwins": [
+            "persona_4f2a8c10@synthetic.test",
+            "host-4f2a8c10.synthetic.internal",
+            "SynthPass00",
+            "CODENAME_4f2a8c10"
+          ],
+          "toolResults": [
+            {
+              "is_error": false,
+              "rawCanariesFound": [],
+              "twinsFound": [
+                "persona_4f2a8c10@synthetic.test",
+                "host-4f2a8c10.synthetic.internal",
+                "SynthPass00",
+                "CODENAME_4f2a8c10"
+              ],
+              "preview": "1\t{\n2\t  \"adminEmail\": \"persona_4f2a8c10@synthetic.test\",\n3\t  \"dbUri\": \"postgres://synth:SynthPass00@host-4f2a8c10.synthetic.internal:5432/core\",\n4\t  \"codename\": \"CODENAME_4f2a8c10\",\n5\t  \"pool\": 5\n6\t}\n"
+            }
+          ]
+        },
+        {
+          "turnIdx": 2,
+          "allMessagesCanaries": [],
+          "allMessagesTwins": [
+            "persona_4f2a8c10@synthetic.test",
+            "host-4f2a8c10.synthetic.internal",
+            "SynthPass00",
+            "CODENAME_4f2a8c10"
+          ],
+          "toolResults": [
+            {
+              "is_error": false,
+              "rawCanariesFound": [],
+              "twinsFound": [
+                "persona_4f2a8c10@synthetic.test",
+                "host-4f2a8c10.synthetic.internal",
+                "SynthPass00",
+                "CODENAME_4f2a8c10"
+              ],
+              "preview": "1\t{\n2\t  \"adminEmail\": \"persona_4f2a8c10@synthetic.test\",\n3\t  \"dbUri\": \"postgres://synth:SynthPass00@host-4f2a8c10.synthetic.internal:5432/core\",\n4\t  \"codename\": \"CODENAME_4f2a8c10\",\n5\t  \"pool\": 5\n6\t}\n"
+            },
+            {
+              "is_error": true,
+              "rawCanariesFound": [],
+              "twinsFound": [
+                "host-4f2a8c10.synthetic.internal",
+                "SynthPass00",
+                "CODENAME_4f2a8c10"
+              ],
+              "preview": "<tool_use_error>String to replace not found in file.\nString:   \"dbUri\": \"postgres://synth:SynthPass00@host-4f2a8c10.synthetic.internal:5432/core\",\n  \"codename\": \"CODENAME_4f2a8c10\",\n  \"pool\": 5</tool_"
+            }
+          ]
+        }
+      ],
+      "jsonlFiles": [
+        {
+          "file": "1a5201e8-41cf-4a7a-b38c-6ffa2e85a9ea.jsonl",
+          "bytes": 274197,
+          "rawCanariesFound": [],
+          "twinsFound": [
+            "persona_4f2a8c10@synthetic.test",
+            "host-4f2a8c10.synthetic.internal",
+            "SynthPass00",
+            "CODENAME_4f2a8c10"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S2_bash_updated_tool_output_and_input",
+      "title": "Scenario 2: Built-in Bash PostToolUse updatedToolOutput + PreToolUse updatedInput",
+      "exitCode": 0,
+      "mainRequestCount": 3,
+      "prodJsonChanged": false,
+      "hookActions": [
+        {
+          "hookEvent": "UserPromptSubmit",
+          "toolName": "",
+          "action": "PASS_THROUGH",
+          "algMs": 0.061
+        },
+        {
+          "hookEvent": "PreToolUse",
+          "toolName": "Bash",
+          "action": "PASS_THROUGH",
+          "algMs": 0.286
+        },
+        {
+          "hookEvent": "PostToolUse",
+          "toolName": "Bash",
+          "action": "POST_VAULTED",
+          "algMs": 0.187
+        },
+        {
+          "hookEvent": "PreToolUse",
+          "toolName": "Bash",
+          "action": "PRE_UNVAULTED",
+          "algMs": 0.317
+        },
+        {
+          "hookEvent": "PostToolUse",
+          "toolName": "Bash",
+          "action": "POST_VAULTED",
+          "algMs": 0.17
+        }
+      ],
+      "wireTurns": [
+        {
+          "turnIdx": 0,
+          "allMessagesCanaries": [],
+          "allMessagesTwins": [],
+          "toolResults": []
+        },
+        {
+          "turnIdx": 1,
+          "allMessagesCanaries": [
+            "postgres://admin:LivePass99!@db-prod.acme-corp.internal:5432/core",
+            "LivePass99!",
+            "db-prod.acme-corp.internal"
+          ],
+          "allMessagesTwins": [
+            "host-4f2a8c10.synthetic.internal",
+            "SynthPass00"
+          ],
+          "toolResults": [
+            {
+              "is_error": false,
+              "rawCanariesFound": [],
+              "twinsFound": [
+                "host-4f2a8c10.synthetic.internal",
+                "SynthPass00"
+              ],
+              "preview": "URI=postgres://synth:SynthPass00@host-4f2a8c10.synthetic.internal:5432/core\n\n<system-reminder>\n<total_tokens>14999855 tokens left</total_tokens>\n</system-reminder>"
+            }
+          ]
+        },
+        {
+          "turnIdx": 2,
+          "allMessagesCanaries": [
+            "postgres://admin:LivePass99!@db-prod.acme-corp.internal:5432/core",
+            "LivePass99!",
+            "db-prod.acme-corp.internal"
+          ],
+          "allMessagesTwins": [
+            "persona_4f2a8c10@synthetic.test",
+            "host-4f2a8c10.synthetic.internal",
+            "SynthPass00"
+          ],
+          "toolResults": [
+            {
+              "is_error": false,
+              "rawCanariesFound": [],
+              "twinsFound": [
+                "host-4f2a8c10.synthetic.internal",
+                "SynthPass00"
+              ],
+              "preview": "URI=postgres://synth:SynthPass00@host-4f2a8c10.synthetic.internal:5432/core\n\n<system-reminder>\n<total_tokens>14999855 tokens left</total_tokens>\n</system-reminder>"
+            },
+            {
+              "is_error": false,
+              "rawCanariesFound": [],
+              "twinsFound": [
+                "persona_4f2a8c10@synthetic.test"
+              ],
+              "preview": "ECHO_EMAIL=persona_4f2a8c10@synthetic.test\n\n<system-reminder>\n<total_tokens>14999855 tokens left</total_tokens>\n</system-reminder>"
+            }
+          ]
+        }
+      ],
+      "jsonlFiles": [
+        {
+          "file": "d2aa0bdf-fa12-461f-beaa-28ff264aafc4.jsonl",
+          "bytes": 274777,
+          "rawCanariesFound": [
+            "ceo.secret@acme-corp.internal",
+            "postgres://admin:LivePass99!@db-prod.acme-corp.internal:5432/core",
+            "LivePass99!",
+            "db-prod.acme-corp.internal"
+          ],
+          "twinsFound": [
+            "persona_4f2a8c10@synthetic.test",
+            "host-4f2a8c10.synthetic.internal",
+            "SynthPass00"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S3_grep_glob_updated_tool_output",
+      "title": "Scenario 3: Built-in Grep & Glob PostToolUse updatedToolOutput",
+      "exitCode": 0,
+      "mainRequestCount": 3,
+      "prodJsonChanged": false,
+      "hookActions": [
+        {
+          "hookEvent": "UserPromptSubmit",
+          "toolName": "",
+          "action": "PASS_THROUGH",
+          "algMs": 0.062
+        },
+        {
+          "hookEvent": "PreToolUse",
+          "toolName": "Grep",
+          "action": "PASS_THROUGH",
+          "algMs": 0.265
+        },
+        {
+          "hookEvent": "PostToolUse",
+          "toolName": "Grep",
+          "action": "POST_VAULTED",
+          "algMs": 0.265
+        },
+        {
+          "hookEvent": "PreToolUse",
+          "toolName": "Glob",
+          "action": "PASS_THROUGH",
+          "algMs": 0.311
+        },
+        {
+          "hookEvent": "PostToolUse",
+          "toolName": "Glob",
+          "action": "POST_VAULTED",
+          "algMs": 0.243
+        }
+      ],
+      "wireTurns": [
+        {
+          "turnIdx": 0,
+          "allMessagesCanaries": [],
+          "allMessagesTwins": [],
+          "toolResults": []
+        },
+        {
+          "turnIdx": 1,
+          "allMessagesCanaries": [
+            "LivePass99!"
+          ],
+          "allMessagesTwins": [
+            "host-4f2a8c10.synthetic.internal",
+            "SynthPass00",
+            "CODENAME_4f2a8c10"
+          ],
+          "toolResults": [
+            {
+              "is_error": false,
+              "rawCanariesFound": [],
+              "twinsFound": [
+                "host-4f2a8c10.synthetic.internal",
+                "SynthPass00",
+                "CODENAME_4f2a8c10"
+              ],
+              "preview": "config\\prod.json:3:  \"dbUri\": \"postgres://synth:SynthPass00@host-4f2a8c10.synthetic.internal:5432/core\",\nconfig\\CODENAME_4f2a8c10_secrets.txt:2:DB=postgres://synth:SynthPass00@host-4f2a8c10.synthetic."
+            }
+          ]
+        },
+        {
+          "turnIdx": 2,
+          "allMessagesCanaries": [
+            "LivePass99!",
+            "ProjectTitan"
+          ],
+          "allMessagesTwins": [
+            "host-4f2a8c10.synthetic.internal",
+            "SynthPass00",
+            "CODENAME_4f2a8c10"
+          ],
+          "toolResults": [
+            {
+              "is_error": false,
+              "rawCanariesFound": [],
+              "twinsFound": [
+                "host-4f2a8c10.synthetic.internal",
+                "SynthPass00",
+                "CODENAME_4f2a8c10"
+              ],
+              "preview": "config\\prod.json:3:  \"dbUri\": \"postgres://synth:SynthPass00@host-4f2a8c10.synthetic.internal:5432/core\",\nconfig\\CODENAME_4f2a8c10_secrets.txt:2:DB=postgres://synth:SynthPass00@host-4f2a8c10.synthetic."
+            },
+            {
+              "is_error": false,
+              "rawCanariesFound": [],
+              "twinsFound": [
+                "CODENAME_4f2a8c10"
+              ],
+              "preview": "config\\CODENAME_4f2a8c10_secrets.txt\n\n<system-reminder>\n<total_tokens>14999855 tokens left</total_tokens>\n</system-reminder>"
+            }
+          ]
+        }
+      ],
+      "jsonlFiles": [
+        {
+          "file": "9a4003a2-b77e-4168-b60e-1998916e5d05.jsonl",
+          "bytes": 274467,
+          "rawCanariesFound": [
+            "LivePass99!",
+            "ProjectTitan"
+          ],
+          "twinsFound": [
+            "host-4f2a8c10.synthetic.internal",
+            "SynthPass00",
+            "CODENAME_4f2a8c10"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S4_mcp_vault_and_unvault",
+      "title": "Scenario 4: MCP mcp__spike__get_secret_config PreToolUse updatedInput + PostToolUse",
+      "exitCode": 0,
+      "mainRequestCount": 2,
+      "prodJsonChanged": false,
+      "hookActions": [
+        {
+          "hookEvent": "UserPromptSubmit",
+          "toolName": "",
+          "action": "PASS_THROUGH",
+          "algMs": 0.063
+        },
+        {
+          "hookEvent": "PreToolUse",
+          "toolName": "mcp__spike__get_secret_config",
+          "action": "PRE_UNVAULTED",
+          "algMs": 0.288
+        },
+        {
+          "hookEvent": "PostToolUse",
+          "toolName": "mcp__spike__get_secret_config",
+          "action": "POST_VAULTED",
+          "algMs": 0.171
+        }
+      ],
+      "wireTurns": [
+        {
+          "turnIdx": 0,
+          "allMessagesCanaries": [],
+          "allMessagesTwins": [],
+          "toolResults": []
+        },
+        {
+          "turnIdx": 1,
+          "allMessagesCanaries": [],
+          "allMessagesTwins": [
+            "persona_4f2a8c10@synthetic.test",
+            "host-4f2a8c10.synthetic.internal",
+            "SynthPass00"
+          ],
+          "toolResults": [
+            {
+              "is_error": false,
+              "rawCanariesFound": [],
+              "twinsFound": [
+                "persona_4f2a8c10@synthetic.test",
+                "host-4f2a8c10.synthetic.internal",
+                "SynthPass00"
+              ],
+              "preview": "[{\"type\":\"text\",\"text\":\"MCP_CONFIG=postgres://synth:SynthPass00@host-4f2a8c10.synthetic.internal:5432/core INPUT_ECHO={\\\"target\\\":\\\"persona_4f2a8c10@synthetic.test\\\"}\\n\"},{\"type\":\"text\",\"text\":\"<syste"
+            }
+          ]
+        }
+      ],
+      "jsonlFiles": [
+        {
+          "file": "b0b4dc3b-45a8-4c01-90b5-f43f7702a5d3.jsonl",
+          "bytes": 268798,
+          "rawCanariesFound": [
+            "ceo.secret@acme-corp.internal"
+          ],
+          "twinsFound": [
+            "persona_4f2a8c10@synthetic.test",
+            "host-4f2a8c10.synthetic.internal",
+            "SynthPass00"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S5a_user_prompt_rewrite_attempt",
+      "title": "Scenario 5a: UserPromptSubmit rewrite attempt (updatedPrompt / additionalContext)",
+      "exitCode": 0,
+      "mainRequestCount": 1,
+      "prodJsonChanged": false,
+      "hookActions": [
+        {
+          "hookEvent": "UserPromptSubmit",
+          "toolName": "",
+          "action": "PROMPT_REWRITE_ATTEMPT",
+          "algMs": 0.166
+        }
+      ],
+      "wireTurns": [
+        {
+          "turnIdx": 0,
+          "allMessagesCanaries": [
+            "sk_test_99887766554433221100aabbcc"
+          ],
+          "allMessagesTwins": [
+            "SYNTH_STRIPE_4f2a8c10_9e"
+          ],
+          "toolResults": []
+        }
+      ],
+      "jsonlFiles": [
+        {
+          "file": "1a895605-ce4d-45e5-b9c8-b68c0f1930da.jsonl",
+          "bytes": 262526,
+          "rawCanariesFound": [
+            "sk_test_99887766554433221100aabbcc"
+          ],
+          "twinsFound": [
+            "SYNTH_STRIPE_4f2a8c10_9e"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S5b_user_prompt_block_exit2",
+      "title": "Scenario 5b: UserPromptSubmit exit 2 block",
+      "exitCode": 0,
+      "mainRequestCount": 0,
+      "prodJsonChanged": false,
+      "hookActions": [
+        {
+          "hookEvent": "UserPromptSubmit",
+          "toolName": "",
+          "action": "BLOCKED_EXIT_2",
+          "algMs": 0.166
+        }
+      ],
+      "wireTurns": [],
+      "jsonlFiles": [
+        {
+          "file": "429e429f-c8de-406e-853d-f606d4bdcca1.jsonl",
+          "bytes": 1779,
+          "rawCanariesFound": [
+            "sk_test_99887766554433221100aabbcc"
+          ],
+          "twinsFound": []
+        }
+      ]
+    },
+    {
+      "id": "S5c_user_prompt_suppress_original",
+      "title": "Scenario 5c: UserPromptSubmit suppressOriginalPrompt: true + additionalContext",
+      "exitCode": 0,
+      "mainRequestCount": 1,
+      "prodJsonChanged": false,
+      "hookActions": [
+        {
+          "hookEvent": "UserPromptSubmit",
+          "toolName": "",
+          "action": "PROMPT_SUPPRESS_TEST",
+          "algMs": 0.157
+        }
+      ],
+      "wireTurns": [
+        {
+          "turnIdx": 0,
+          "allMessagesCanaries": [
+            "sk_test_99887766554433221100aabbcc"
+          ],
+          "allMessagesTwins": [
+            "SYNTH_STRIPE_4f2a8c10_9e"
+          ],
+          "toolResults": []
+        }
+      ],
+      "jsonlFiles": [
+        {
+          "file": "3b0996fe-5100-4295-b68a-cdc8098fb2c0.jsonl",
+          "bytes": 262533,
+          "rawCanariesFound": [
+            "sk_test_99887766554433221100aabbcc"
+          ],
+          "twinsFound": [
+            "SYNTH_STRIPE_4f2a8c10_9e"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S6a_fm1_mutated_twin_block",
+      "title": "Scenario 6a: FM-1 Mutated synthetic twin (persona_4f2b8c10) fail-closed block",
+      "exitCode": 0,
+      "mainRequestCount": 2,
+      "prodJsonChanged": false,
+      "hookActions": [
+        {
+          "hookEvent": "UserPromptSubmit",
+          "toolName": "",
+          "action": "PASS_THROUGH",
+          "algMs": 0.102
+        }
+      ],
+      "wireTurns": [
+        {
+          "turnIdx": 0,
+          "allMessagesCanaries": [],
+          "allMessagesTwins": [],
+          "toolResults": []
+        },
+        {
+          "turnIdx": 1,
+          "allMessagesCanaries": [],
+          "allMessagesTwins": [],
+          "toolResults": [
+            {
+              "is_error": true,
+              "rawCanariesFound": [],
+              "twinsFound": [],
+              "preview": "<tool_use_error>No changes to make: old_string and new_string are exactly the same.</tool_use_error>\n\n<system-reminder>\n<total_tokens>14999855 tokens left</total_tokens>\n</system-reminder>"
+            }
+          ]
+        }
+      ],
+      "jsonlFiles": [
+        {
+          "file": "0614ab1f-731f-444a-a6df-a30a4e9bbf46.jsonl",
+          "bytes": 266194,
+          "rawCanariesFound": [],
+          "twinsFound": []
+        }
+      ]
+    },
+    {
+      "id": "S6b_fm10_unsafe_dest_git_commit",
+      "title": "Scenario 6b: FM-10 Unsafe unvault destination (git commit -m) blocked",
+      "exitCode": 0,
+      "mainRequestCount": 2,
+      "prodJsonChanged": false,
+      "hookActions": [
+        {
+          "hookEvent": "UserPromptSubmit",
+          "toolName": "",
+          "action": "PASS_THROUGH",
+          "algMs": 0.08
+        },
+        {
+          "hookEvent": "PreToolUse",
+          "toolName": "Bash",
+          "action": "FM10_BLOCKED_GIT_COMMIT",
+          "algMs": 0.202
+        }
+      ],
+      "wireTurns": [
+        {
+          "turnIdx": 0,
+          "allMessagesCanaries": [],
+          "allMessagesTwins": [],
+          "toolResults": []
+        },
+        {
+          "turnIdx": 1,
+          "allMessagesCanaries": [],
+          "allMessagesTwins": [
+            "persona_4f2a8c10@synthetic.test"
+          ],
+          "toolResults": [
+            {
+              "is_error": true,
+              "rawCanariesFound": [],
+              "twinsFound": [],
+              "preview": "PreToolUse:Bash hook error: [node \"<HOME>/.gemini/antigravity/brain/424594d8-6006-4d2d-bb5b-1937af54f97a/scratch/airlock_cc_spike/vault_hook.mjs\"]: [Airlock FM-10] Blocked unvault into git com"
+            }
+          ]
+        }
+      ],
+      "jsonlFiles": [
+        {
+          "file": "8059592c-dfe4-4d4a-a239-3d2cbd9fbb4f.jsonl",
+          "bytes": 266795,
+          "rawCanariesFound": [],
+          "twinsFound": [
+            "persona_4f2a8c10@synthetic.test"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S6c_fm8_crash_exit1_fail_open",
+      "title": "Scenario 6c: FM-8 Unhandled hook crash (exit 1) fail-open check",
+      "exitCode": 0,
+      "mainRequestCount": 2,
+      "prodJsonChanged": false,
+      "hookActions": [
+        {
+          "hookEvent": "UserPromptSubmit",
+          "toolName": "",
+          "action": "EXIT_1_CRASH",
+          "algMs": 0.0721
+        },
+        {
+          "hookEvent": "PreToolUse",
+          "toolName": "Read",
+          "action": "EXIT_1_CRASH",
+          "algMs": 0.0656
+        },
+        {
+          "hookEvent": "PostToolUse",
+          "toolName": "Read",
+          "action": "EXIT_1_CRASH",
+          "algMs": 0.0884
+        }
+      ],
+      "wireTurns": [
+        {
+          "turnIdx": 0,
+          "allMessagesCanaries": [],
+          "allMessagesTwins": [],
+          "toolResults": []
+        },
+        {
+          "turnIdx": 1,
+          "allMessagesCanaries": [
+            "ceo.secret@acme-corp.internal",
+            "postgres://admin:LivePass99!@db-prod.acme-corp.internal:5432/core",
+            "LivePass99!",
+            "db-prod.acme-corp.internal",
+            "ProjectTitan"
+          ],
+          "allMessagesTwins": [],
+          "toolResults": [
+            {
+              "is_error": false,
+              "rawCanariesFound": [
+                "ceo.secret@acme-corp.internal",
+                "postgres://admin:LivePass99!@db-prod.acme-corp.internal:5432/core",
+                "LivePass99!",
+                "db-prod.acme-corp.internal",
+                "ProjectTitan"
+              ],
+              "twinsFound": [],
+              "preview": "1\t{\n2\t  \"adminEmail\": \"ceo.secret@acme-corp.internal\",\n3\t  \"dbUri\": \"postgres://admin:LivePass99!@db-prod.acme-corp.internal:5432/core\",\n4\t  \"codename\": \"ProjectTitan\",\n5\t  \"pool\": 5\n6\t}\n7\n\n<system-re"
+            }
+          ]
+        }
+      ],
+      "jsonlFiles": [
+        {
+          "file": "55628609-7396-458f-ad7d-25cdaca6fb43.jsonl",
+          "bytes": 269726,
+          "rawCanariesFound": [
+            "ceo.secret@acme-corp.internal",
+            "postgres://admin:LivePass99!@db-prod.acme-corp.internal:5432/core",
+            "LivePass99!",
+            "db-prod.acme-corp.internal",
+            "ProjectTitan"
+          ],
+          "twinsFound": []
+        }
+      ]
+    },
+    {
+      "id": "S6d_fm8_timeout_fail_open",
+      "title": "Scenario 6d: FM-8 Hook timeout (3.5s sleep vs 1s timeout) fail-open check",
+      "exitCode": 0,
+      "mainRequestCount": 2,
+      "prodJsonChanged": false,
+      "hookActions": [
+        {
+          "hookEvent": "UserPromptSubmit",
+          "toolName": "",
+          "action": "SLEEP_3500MS",
+          "algMs": 0.0843
+        },
+        {
+          "hookEvent": "PreToolUse",
+          "toolName": "Read",
+          "action": "SLEEP_3500MS",
+          "algMs": 0.1242
+        },
+        {
+          "hookEvent": "PostToolUse",
+          "toolName": "Read",
+          "action": "SLEEP_3500MS",
+          "algMs": 0.1314
+        }
+      ],
+      "wireTurns": [
+        {
+          "turnIdx": 0,
+          "allMessagesCanaries": [],
+          "allMessagesTwins": [],
+          "toolResults": []
+        },
+        {
+          "turnIdx": 1,
+          "allMessagesCanaries": [
+            "ceo.secret@acme-corp.internal",
+            "postgres://admin:LivePass99!@db-prod.acme-corp.internal:5432/core",
+            "LivePass99!",
+            "db-prod.acme-corp.internal",
+            "ProjectTitan"
+          ],
+          "allMessagesTwins": [],
+          "toolResults": [
+            {
+              "is_error": false,
+              "rawCanariesFound": [
+                "ceo.secret@acme-corp.internal",
+                "postgres://admin:LivePass99!@db-prod.acme-corp.internal:5432/core",
+                "LivePass99!",
+                "db-prod.acme-corp.internal",
+                "ProjectTitan"
+              ],
+              "twinsFound": [],
+              "preview": "1\t{\n2\t  \"adminEmail\": \"ceo.secret@acme-corp.internal\",\n3\t  \"dbUri\": \"postgres://admin:LivePass99!@db-prod.acme-corp.internal:5432/core\",\n4\t  \"codename\": \"ProjectTitan\",\n5\t  \"pool\": 5\n6\t}\n7\n\n<system-re"
+            }
+          ]
+        }
+      ],
+      "jsonlFiles": [
+        {
+          "file": "fb44abb1-7b52-4ff2-8922-99fd456e9315.jsonl",
+          "bytes": 269186,
+          "rawCanariesFound": [
+            "ceo.secret@acme-corp.internal",
+            "postgres://admin:LivePass99!@db-prod.acme-corp.internal:5432/core",
+            "LivePass99!",
+            "db-prod.acme-corp.internal",
+            "ProjectTitan"
+          ],
+          "twinsFound": []
+        }
+      ]
+    }
+  ],
+  "trackAFollowups": [
+    {
+      "id": "F1_write_unvault_roundtrip_unscrubbed",
+      "wireCanaries": [],
+      "jsonlLinesWithCanaries": [
+        {
+          "line": 32,
+          "type": "attachment",
+          "hasToolUseResult": false,
+          "hits": [
+            "ceo.secret@acme-corp.internal",
+            "postgres://admin:LivePass99!@db-prod.acme-corp.internal:5432/core",
+            "LivePass99!",
+            "db-prod.acme-corp.internal",
+            "ProjectTitan"
+          ]
+        },
+        {
+          "line": 33,
+          "type": "user",
+          "hasToolUseResult": true,
+          "hits": [
+            "ceo.secret@acme-corp.internal",
+            "postgres://admin:LivePass99!@db-prod.acme-corp.internal:5432/core",
+            "LivePass99!",
+            "db-prod.acme-corp.internal",
+            "ProjectTitan"
+          ]
+        }
+      ],
+      "hooks": [
+        "PreToolUse:Read:PASS_THROUGH",
+        "PostToolUse:Read:POST_VAULTED",
+        "PreToolUse:Write:PRE_UNVAULTED"
+      ],
+      "prodChanged": true
+    },
+    {
+      "id": "F2_edit_nonsecret_old_string_twin_new_string_unscrubbed",
+      "wireCanaries": [],
+      "jsonlLinesWithCanaries": [
+        {
+          "line": 32,
+          "type": "attachment",
+          "hasToolUseResult": false,
+          "hits": [
+            "ceo.secret@acme-corp.internal"
+          ]
+        },
+        {
+          "line": 33,
+          "type": "user",
+          "hasToolUseResult": true,
+          "hits": [
+            "ceo.secret@acme-corp.internal",
+            "postgres://admin:LivePass99!@db-prod.acme-corp.internal:5432/core",
+            "LivePass99!",
+            "db-prod.acme-corp.internal",
+            "ProjectTitan"
+          ]
+        }
+      ],
+      "hooks": [
+        "PreToolUse:Read:PASS_THROUGH",
+        "PostToolUse:Read:POST_VAULTED",
+        "PreToolUse:Edit:PRE_UNVAULTED"
+      ],
+      "prodChanged": true
+    },
+    {
+      "id": "F2b_edit_nonsecret_old_string_twin_new_string_scrubbed",
+      "wireCanaries": [],
+      "jsonlLinesWithCanaries": [
+        {
+          "line": 32,
+          "type": "attachment",
+          "hasToolUseResult": false,
+          "hits": [
+            "ceo.secret@acme-corp.internal"
+          ]
+        }
+      ],
+      "hooks": [
+        "PreToolUse:Read:PASS_THROUGH",
+        "PostToolUse:Read:POST_VAULTED",
+        "PreToolUse:Edit:PRE_UNVAULTED",
+        "PostToolUse:Edit:POST_VAULTED"
+      ],
+      "prodChanged": true
+    },
+    {
+      "id": "F3_bash_grep_glob_clean_inputs",
+      "wireCanaries": [],
+      "jsonlLinesWithCanaries": [],
+      "hooks": [
+        "PreToolUse:Bash:PASS_THROUGH",
+        "PostToolUse:Bash:POST_VAULTED",
+        "PreToolUse:Grep:PASS_THROUGH",
+        "PostToolUse:Grep:POST_VAULTED",
+        "PreToolUse:Glob:PASS_THROUGH",
+        "PostToolUse:Glob:POST_VAULTED"
+      ],
+      "prodChanged": false
+    },
+    {
+      "id": "F4_fm1_mutated_twin_in_edit_new_string",
+      "wireCanaries": [],
+      "jsonlLinesWithCanaries": [],
+      "hooks": [
+        "PreToolUse:Read:PASS_THROUGH",
+        "PostToolUse:Read:POST_VAULTED",
+        "PreToolUse:Edit:FM1_BLOCKED_UNKNOWN_TWIN"
+      ],
+      "prodChanged": false
+    }
+  ],
+  "f5SuppressOutputCheck": {
+    "id": "F5_pretooluse_suppress_output",
+    "wireCanaries": [],
+    "jsonlHits": [
+      {
+        "line": 32,
+        "type": "attachment",
+        "attachmentType": "hook_success",
+        "hookName": "PreToolUse:Edit",
+        "hits": [
+          "ceo.secret@acme-corp.internal"
+        ],
+        "note": "suppressOutput: true was preserved inside hook_success.stdout on disk"
+      }
+    ],
+    "prodChanged": true
+  },
+  "trackALatencySmallSample": {
+    "coldSpawnCount": 20,
+    "coldNodeWallMs": {
+      "p50": 47.05,
+      "p95": 49.18,
+      "p99": 52.58,
+      "samples": [
+        52.58,
+        47.43,
+        46.57,
+        49.05,
+        47.21,
+        48.8,
+        49.18,
+        46.61,
+        46.32,
+        47.05,
+        45.69,
+        46.5,
+        47.92,
+        44.62,
+        46.21,
+        47.42,
+        46.56,
+        47.54,
+        45.86,
+        48.08
+      ]
+    },
+    "hookAlgMs": {
+      "p50": 0.34,
+      "p95": 0.51,
+      "p99": 0.61
+    },
+    "claudeSession20Reads": {
+      "totalHookLogs": 41,
+      "inSessionAlgP50": 0.29,
+      "inSessionAlgP95": 0.46,
+      "turnToTurnDeltaP50Ms": 295,
+      "turnToTurnDeltaP95Ms": 407,
+      "turnToTurnDeltaP99Ms": 466
+    }
+  },
+  "round3Checks": {
+    "r3_1_scrubReadPlusStatelessFm1": [
+      {
+        "id": "R3_1a_scrub_read_clean_anchor_edit",
+        "exitCode": 0,
+        "mainRequestCount": 3,
+        "wireCanaries": [],
+        "wireTwins": [
+          "persona_4f2a8c10@synthetic.test",
+          "host-4f2a8c10.synthetic.internal",
+          "SynthPass00",
+          "SYNTH_STRIPE_4f2a8c10_9e",
+          "CODENAME_4f2a8c10"
+        ],
+        "lastToolResults": [
+          {
+            "is_error": false,
+            "preview": "\"1\\t{\\n2\\t  \\\"adminEmail\\\": \\\"persona_4f2a8c10@synthetic.test\\\",\\n3\\t  \\\"dbUri\\\": \\\"postgres://synth:SynthPass00@host-4f2a8c10.synthetic.internal:5432/core\\\",\\n4\\t  \\\"apiKey\\\": \\\"SYNTH_STRIPE_4f2a8c10"
+          },
+          {
+            "is_error": false,
+            "preview": "\"The file <HOME>\\\\.gemini\\\\antigravity\\\\brain\\\\424594d8-6006-4d2d-bb5b-1937af54f97a\\\\scratch\\\\airlock_cc_spike\\\\runs_round3\\\\R3_1a_scrub_read_clean_anchor_edit\\\\workspace\\\\config\\\\prod.json "
+          }
+        ],
+        "jsonlTotalHitLines": 0,
+        "prodChanged": true,
+        "finalProdPoolLine": "\"pool\": 20",
+        "finalProdCanaryCount": 6,
+        "hooks": [
+          "PreToolUse:Read:PASS_THROUGH",
+          "PostToolUse:Read:POST_VAULTED",
+          "PreToolUse:Edit:PASS_THROUGH",
+          "PostToolUse:Edit:POST_VAULTED"
+        ]
+      },
+      {
+        "id": "R3_1b_scrub_read_placeholder_new_string_blocked",
+        "exitCode": 0,
+        "mainRequestCount": 3,
+        "wireCanaries": [],
+        "wireTwins": [
+          "persona_4f2a8c10@synthetic.test",
+          "host-4f2a8c10.synthetic.internal",
+          "SynthPass00",
+          "SYNTH_STRIPE_4f2a8c10_9e",
+          "CODENAME_4f2a8c10"
+        ],
+        "lastToolResults": [
+          {
+            "is_error": false,
+            "preview": "\"1\\t{\\n2\\t  \\\"adminEmail\\\": \\\"persona_4f2a8c10@synthetic.test\\\",\\n3\\t  \\\"dbUri\\\": \\\"postgres://synth:SynthPass00@host-4f2a8c10.synthetic.internal:5432/core\\\",\\n4\\t  \\\"apiKey\\\": \\\"SYNTH_STRIPE_4f2a8c10"
+          },
+          {
+            "is_error": true,
+            "preview": "\"PreToolUse:Edit hook error: [node \\\"<HOME>/.gemini/antigravity/brain/424594d8-6006-4d2d-bb5b-1937af54f97a/scratch/airlock_cc_spike/vault_hook.mjs\\\"]: [Airlock FM-1] Blocked one-way synthetic "
+          }
+        ],
+        "jsonlTotalHitLines": 0,
+        "prodChanged": false,
+        "finalProdPoolLine": "\"pool\": 5",
+        "finalProdCanaryCount": 6,
+        "hooks": [
+          "PreToolUse:Read:PASS_THROUGH",
+          "PostToolUse:Read:POST_VAULTED",
+          "PreToolUse:Edit:FM1_BLOCKED_STATELESS_PLACEHOLDER"
+        ]
+      }
+    ],
+    "r3_2_resumeHookSuccessWireReplay": {
+      "id": "R3_2_resume_hook_success_wire_check",
+      "part1SessionId": "54e786f9-d207-4839-8a0e-e8a52c968ffe",
+      "part1WireCanaries": [],
+      "part1JsonlHits": [
+        {
+          "file": "isolated_claude_config/projects/<SPIKE_PROJ_KEY>-runs-round3-R3-2-resume-hook-success-wire-check-workspace/54e786f9-d207-4839-8a0e-e8a52c968ffe.jsonl",
+          "lineCount": 40,
+          "hitLines": [
+            {
+              "line": 32,
+              "type": "attachment",
+              "attachmentType": "hook_success",
+              "hookName": "PreToolUse:Edit",
+              "hasToolUseResult": false,
+              "hits": [
+                "ceo.secret@acme-corp.internal"
+              ]
+            }
+          ]
+        }
+      ],
+      "part2ContinueMainReqs": 1,
+      "part2ContinueWireCanaries": [],
+      "part2ContinueWireTwins": [
+        "persona_4f2a8c10@synthetic.test",
+        "host-4f2a8c10.synthetic.internal",
+        "SynthPass00",
+        "SYNTH_STRIPE_4f2a8c10_9e",
+        "CODENAME_4f2a8c10"
+      ],
+      "part2ContinueMessageCount": 7,
+      "part2ContinueExitCode": 0,
+      "part2ResumeMainReqs": 1,
+      "part2ResumeWireCanaries": [],
+      "part2ResumeWireTwins": [
+        "persona_4f2a8c10@synthetic.test",
+        "host-4f2a8c10.synthetic.internal",
+        "SynthPass00",
+        "SYNTH_STRIPE_4f2a8c10_9e",
+        "CODENAME_4f2a8c10"
+      ],
+      "part2ResumeMessageCount": 9,
+      "part2ResumeExitCode": 0
+    },
+    "r3_3_n250ColdAnd30ReadAB": {
+      "nCold": 250,
+      "coldNodeWallMs": {
+        "p50": 58.02,
+        "p95": 67.54,
+        "p99": 73.76,
+        "max": 82.58
+      },
+      "coldAlgMs": {
+        "p50": 0.47,
+        "p95": 0.71,
+        "p99": 0.85,
+        "max": 0.97
+      },
+      "ab30Reads": {
+        "hooksOff": {
+          "turnDeltaCount": 30,
+          "p50Ms": 136.36,
+          "maxMs": 197.99,
+          "totalElapsedMs": 5120,
+          "wireCanaryCount": 6
+        },
+        "hooksOn": {
+          "turnDeltaCount": 30,
+          "p50Ms": 420.41,
+          "maxMs": 481.49,
+          "totalElapsedMs": 13430,
+          "hookLogCount": 60,
+          "wireCanaryCount": 0
+        },
+        "netAddedP50MsPerTurn": 284.05,
+        "netAddedSessionElapsedMs": 8310
+      }
+    }
+  }
+}

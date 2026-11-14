@@ -21,6 +21,7 @@ import {
   readStdinJsonAsync,
   exitPassThrough,
   exitDiagnosticZero,
+  exitHardBlockStderr,
   exitWithStdoutJson
 } from './hookIo.mjs';
 
@@ -75,6 +76,17 @@ export function runUserPromptSubmitHook(event = {}, options = {}) {
     writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
   }
 
+  const airlockPrompt = runAirlockPromptBridge(event, cwdOptions, options);
+  if (airlockPrompt?.blocked) {
+    return {
+      exitCode: airlockPrompt.exitCode,
+      stdout: airlockPrompt.stdout,
+      stderr: airlockPrompt.stderr,
+      verdict: airlockPrompt.verdict,
+      airlock: airlockPrompt.airlock
+    };
+  }
+
   if (!verdict.triggered) {
     return {
       exitCode: 0,
@@ -119,13 +131,55 @@ export function runUserPromptSubmitHook(event = {}, options = {}) {
  *
  * @param {object} [cliOptions={}]
  */
+import {
+  runAirlockPromptBridge,
+  recordAirlockWatchdogTimeout
+} from '../../src/core/airlock/hookBridge.mjs';
+import { armFailClosedWatchdog } from './hookIo.mjs';
+
+async function runUserPromptWithWatchdog(cliOptions = {}) {
+  const watchdogMs = Number(cliOptions.watchdogTimeoutMs) || Number(process.env.AH_AIRLOCK_WATCHDOG_MS) || 3500;
+  let capturedPayload = null;
+  const hookOpts = cliOptions.hookOptions || {};
+  const watchdog = armFailClosedWatchdog({
+    timeoutMs: watchdogMs,
+    hookEventName: 'UserPromptSubmit',
+    ioOverride: cliOptions.ioOverride || {},
+    onTimeout: () => {
+      const ev = capturedPayload || {};
+      const cwdOpts = ev.cwd && !hookOpts.cwd ? { ...hookOpts, cwd: ev.cwd } : hookOpts;
+      recordAirlockWatchdogTimeout('UserPromptSubmit', ev, cwdOpts, hookOpts);
+    }
+  });
+  try {
+    return await executeUserPromptSubmitCli({
+      ...cliOptions,
+      __airlockWatchdogArmed: true,
+      readPayload: async (timeoutMs) => {
+        const readFn = cliOptions.readPayload || readStdinJsonAsync;
+        capturedPayload = await readFn(timeoutMs);
+        return capturedPayload;
+      }
+    });
+  } finally {
+    watchdog.disarm();
+  }
+}
+
 export async function executeUserPromptSubmitCli(cliOptions = {}) {
+  if (!cliOptions.__airlockWatchdogArmed) {
+    return await runUserPromptWithWatchdog(cliOptions);
+  }
   const readPayload = cliOptions.readPayload || readStdinJsonAsync;
   const runHook = cliOptions.runHook || runUserPromptSubmitHook;
   const ioOverride = cliOptions.ioOverride || {};
   try {
     const payload = await readPayload(cliOptions.timeoutMs);
     const res = runHook(payload, { persistState: true, ...(cliOptions.hookOptions || {}) });
+    if (res.exitCode === 2) {
+      exitHardBlockStderr(res.stderr || res.verdict?.reason, 'UserPromptSubmit', ioOverride);
+      return;
+    }
     if (res.stdout) {
       exitWithStdoutJson(res.stdout, ioOverride);
     } else {

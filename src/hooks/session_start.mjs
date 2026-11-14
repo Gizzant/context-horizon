@@ -141,9 +141,27 @@ export async function handleSessionStart(inputData = {}) {
     }
   }
 
+  const airlockStart = runAirlockSessionStartBridge(
+    workspacePath,
+    { ...inputData, session_id: conversationId, cwd: workspacePath },
+    { cwd: workspacePath, ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {}) },
+    { ...inputData, host: 'antigravity', horizonConfig }
+  );
+  const airlockBanner = airlockStart?.extraBlocks?.length ? airlockStart.extraBlocks.join('\n') : '';
+  if (airlockBanner) {
+    sidecar.sessionMeta.airlockBaton = airlockBanner;
+  }
+  const combinedMessage = [microSkillsSnippet, airlockBanner].filter(Boolean).join('\n');
+
   writeSidecarAtomicSync(conversationId, sidecar);
-  return microSkillsSnippet ? { systemMessage: microSkillsSnippet, microSkillsBaton: microSkillsSnippet } : {};
+  return {
+    ...(combinedMessage ? { systemMessage: combinedMessage } : {}),
+    ...(microSkillsSnippet ? { microSkillsBaton: microSkillsSnippet } : {}),
+    ...(airlockStart?.extraBlocks?.length ? { injectSteps: airlockStart.extraBlocks, airlock: airlockStart } : {})
+  };
 }
+
+import { runAirlockSessionStartBridge } from '../core/airlock/hookBridge.mjs';
 
 // Auto-run when executed directly
 const isMain = process.argv[1] && (process.argv[1].endsWith('session_start.mjs') || process.argv[1].endsWith('session_start.js'));

@@ -253,3 +253,59 @@ export function exitWithStdoutJson(payload, ioOverride = {}) {
 export function exitWithHookSpecificOutput(hookSpecificOutput, ioOverride = {}) {
   exitWithStdoutJson({ hookSpecificOutput }, ioOverride);
 }
+
+/**
+ * Arms a self-timeout fail-closed watchdog below host hook kill deadline (`FM-8`).
+ * When triggered before `disarm()`, invokes `onTimeout()` and exits `2` via stderr.
+ *
+ * @param {object} [options={}]
+ */
+export function armFailClosedWatchdog(options = {}) {
+  const timeoutMs = Math.max(50, Math.min(4500, Number(options.timeoutMs) || 3500));
+  const hookEventName = options.hookEventName || 'PreToolUse';
+  const ioOverride = options.ioOverride || {};
+  const exitFn = ioOverride.exitFn || globalThis.process?.exit;
+  const stderrWrite =
+    ioOverride.stderrWrite ||
+    ioOverride.writeStderr ||
+    ((s) => globalThis.process?.stderr?.write?.(s));
+  let settled = false;
+  let timedOut = false;
+
+  const timer = setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    timedOut = true;
+    try {
+      if (typeof options.onTimeout === 'function') {
+        options.onTimeout({ timeoutMs, hookEventName });
+      }
+    } catch {
+      // ignore timeout callback failure and still fail closed
+    }
+    const msg = String(
+      options.reason ||
+        `[Highbeam Airlock Watchdog] ${hookEventName} exceeded ${timeoutMs}ms internal deadline; failing closed (exit 2).`
+    ).trim();
+    if (hookEventName === 'WorktreeCreate' || hookEventName === 'PermissionRequest') {
+      exitFn?.(0);
+      return;
+    }
+    stderrWrite?.(`${msg}\n`);
+    exitFn?.(2);
+  }, timeoutMs);
+
+  if (typeof timer.unref === 'function') {
+    timer.unref();
+  }
+
+  return {
+    timeoutMs,
+    isTimedOut: () => timedOut,
+    disarm: () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+    }
+  };
+}

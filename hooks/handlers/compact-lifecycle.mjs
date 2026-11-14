@@ -98,6 +98,8 @@ export function auditWorkspaceClaudeMd(cwd = '', options = {}) {
  * @param {object} event
  * @param {object} [options={}]
  */
+import { runAirlockSessionStartBridge } from '../../src/core/airlock/hookBridge.mjs';
+
 export function runCompactLifecycleHook(event = {}, options = {}) {
   const inferredPhase =
     event.hook_event_name === 'SessionStart'
@@ -186,6 +188,28 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
       }
     }
 
+    const airlockStart = runAirlockSessionStartBridge(cwd, event, cwdOptions, options);
+    if (airlockStart?.extraBlocks?.length > 0) {
+      const joinedAirlock = airlockStart.extraBlocks.join('\n');
+      if (hookSpecificOutput && typeof hookSpecificOutput === 'object') {
+        hookSpecificOutput.additionalContext = hookSpecificOutput.additionalContext
+          ? `${hookSpecificOutput.additionalContext}\n${joinedAirlock}`
+          : joinedAirlock;
+      } else {
+        const stdoutJson = {
+          hookSpecificOutput: {
+            hookEventName: 'SessionStart',
+            additionalContext: joinedAirlock
+          }
+        };
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify(stdoutJson),
+          stderr: '',
+          airlock: airlockStart
+        };
+      }
+    }
     if (hookSpecificOutput) {
       const stdoutJson = { hookSpecificOutput };
       return {

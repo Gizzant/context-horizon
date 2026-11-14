@@ -31,6 +31,7 @@ import {
 } from '../src/core-isomorphic/ui/modViews.mjs';
 import { recordRuntimeDiagnostic } from '../src/core-isomorphic/utils/runtime.mjs';
 import { evaluateToolBoundaryLatch, CONTROL_STATES } from '../src/core-isomorphic/control/index.mjs';
+import { evaluateAirlockPreToolGuard, resolveAirlockConfig } from '../src/core-isomorphic/airlock/index.mjs';
 
 const bootHorizonConfig = loadHorizonConfig();
 const ttlWatchdog = new TtlWatchdog({ mode: bootHorizonConfig.flightMode || 'COACH' });
@@ -307,6 +308,32 @@ export default function register(on) {
           return downstream ?? { additionalContext: repeatReadAdvisory };
         }
 
+        const storedAirlock = $.store.get('ah_airlock_config');
+        const activeAirlockCfg = storedAirlock && typeof storedAirlock === 'object'
+          ? storedAirlock
+          : resolveAirlockConfig(bootHorizonConfig);
+        if (activeAirlockCfg?.enabled && activeAirlockCfg.mode !== 'off') {
+          const rawStrikes = $.store.get('ah_airlock_fm1_strikes');
+          const strikeCount = Number(rawStrikes || 0);
+          const airlockVerdict = evaluateAirlockPreToolGuard(event, {
+            policy: activeAirlockCfg,
+            mode: activeAirlockCfg.mode,
+            strikeCount,
+            strikeCap: activeAirlockCfg.fm1StrikeCap
+          });
+          if (airlockVerdict.blocked) {
+            if (airlockVerdict.fmCode === 'FM-1') {
+              $.store.set('ah_airlock_fm1_strikes', airlockVerdict.strikeCount);
+            }
+            return {
+              blocked: true,
+              decision: 'deny',
+              isError: true,
+              fmCode: airlockVerdict.fmCode,
+              reason: airlockVerdict.reason
+            };
+          }
+        }
         if (typeof next === 'function') {
           return await next(event);
         }
@@ -532,6 +559,7 @@ export default function register(on) {
       );
       if (hydrated.hydrated && hydrated.baton) {
         $.store.set('ah_state_baton', hydrated.baton);
+        $.store.set('ah_airlock_config', resolveAirlockConfig(bootHorizonConfig));
       }
     } catch (err) {
       recordRuntimeDiagnostic(

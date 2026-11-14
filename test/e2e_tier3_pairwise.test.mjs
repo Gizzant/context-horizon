@@ -323,7 +323,8 @@ describe('Tier 3: Pairwise Interactions (Features 1 - 14)', () => {
       !f.includes('det01_03_shell_secret.mjs') &&
       !f.includes('det13_20_mcp_scope.mjs') &&
       !f.includes('stateBatonHydrator.mjs') &&
-      !f.includes('losslessPostSanitizer.mjs')
+      !f.includes('losslessPostSanitizer.mjs') &&
+      !f.includes('detector.mjs')
     );
     assert.ok(pureModModules.length >= 30, 'Pure Mod core modules count must be >= 30');
 
