@@ -275,7 +275,7 @@ test('B03: PreModelSwitch Hook in AUTO_PILOT mode with autoPilotDecision="ask" e
   assert.match(parsed.hookSpecificOutput.permissionDecisionReason, /DET-08/);
 });
 
-test('B04: PreModelSwitch Hook in AUTO_PILOT mode defaults to hard block (exitCode 2) when above C*', () => {
+test('B04: PreModelSwitch Hook in AUTO_PILOT mode defaults to hard block (exitCode 2) when warm rewrite is unrecouped', () => {
   const res = runPreModelSwitchHook({
     currentModel: 'claude-opus-5-5',
     targetModel: 'claude-sonnet-5-5',
@@ -286,7 +286,8 @@ test('B04: PreModelSwitch Hook in AUTO_PILOT mode defaults to hard block (exitCo
   assert.equal(res.exitCode, 2);
   assert.equal(res.verdict.blocked, true);
   assert.equal(res.verdict.decision, 'deny');
-  assert.match(res.stderr, /C\* = 6,522/);
+  assert.match(res.stderr, /\+\$0\.1230 cold 1\.25x prefix rewrite penalty/);
+  assert.ok(!res.stderr.includes('C*'));
 });
 
 test('B05: PreModelSwitch Hook in OFF mode passes through silently even with 100k warm cache', () => {
@@ -850,6 +851,7 @@ test('D03: hooks/hooks.json wraps events in top-level "hooks", uses nested comma
     'PreToolUse',
     'PostToolUse',
     'PreModelSwitch',
+    'PostModelSwitch',
     'PreCompact',
     'PostCompact',
     'SessionStart',

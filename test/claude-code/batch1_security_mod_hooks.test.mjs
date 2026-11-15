@@ -107,6 +107,7 @@ test('ISS-018: hooks/hooks.json uses top-level "hooks" wrapper, nested command a
     'PreToolUse',
     'PostToolUse',
     'PreModelSwitch',
+    'PostModelSwitch',
     'PreCompact',
     'PostCompact',
     'SessionStart',

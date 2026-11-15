@@ -15,9 +15,9 @@
 
     <main class="doc-main prose">
       <p class="doc-eyebrow">Highbeam &middot; ctxtop v4.0</p>
-      <h1 class="doc-title">Context physics and zero-token guardrails for AI coding sessions.</h1>
+      <h1 class="doc-title">Context visibility and zero-token guards for AI coding chats.</h1>
       <p class="doc-lead">
-        Highbeam (<code>ctxtop</code>) maps your live context window across a 40-cell recall bar, protects warm KV prefixes from costly model switches, and blocks destructive shell or file mutations before tokens leave your machine.
+        Highbeam (<code>ctxtop</code>) maps your live context window across a 40-cell bar, keeps warm KV caches safe from mistimed model switches, and blocks unsafe shell or file edits before tokens leave your machine.
       </p>
 
       <!-- Hero Architectural Diagram -->
@@ -88,13 +88,13 @@
           <text x="660" y="274" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">SHA-256 PDF 1.4 Receipts</text>
         </svg>
         <figcaption class="diagram-caption">
-          Every telemetry calculation runs locally in memory using Node.js built-in modules. No transcript bytes, file paths, or API keys ever leave <code>127.0.0.1</code>.
+          Every check runs locally in memory using built-in Node.js modules. No chat text, file paths, or API keys ever leave <code>127.0.0.1</code>.
         </figcaption>
       </figure>
 
       <h2 id="quick-launch">60-Second Quick Launch</h2>
       <p>
-        Run the unified installer from your workspace root to wire hooks, status bars, and sidecar configuration non-destructively. Existing settings are backed up automatically before merge.
+        Run the installer from your project root to wire hooks, status bars, and sidecar files safely. It backs up your current settings before saving any changes.
       </p>
 
       <div class="tabs" data-sync-surface>
@@ -111,7 +111,7 @@
             <pre><code>npx ctxtop init --all
 npx ctxtop doctor</code></pre>
           </div>
-          <p>Detects both Google Antigravity and Claude Code on your workstation, merges lean lifecycle hooks, configures the responsive <code>ah-statusline</code> bridge, and verifies runtime contracts.</p>
+          <p>Finds both Google Antigravity and Claude Code on your machine. It merges lean hooks, sets up the <code>ah-statusline</code> bar, and checks every file contract.</p>
         </div>
 
         <div class="tab-panel" data-panel="antigravity" hidden>
@@ -120,7 +120,7 @@ npx ctxtop doctor</code></pre>
             <pre><code>npx attention-horizon-antigravity init --workspace
 npx ctxtop --serve</code></pre>
           </div>
-          <p>Installs the workspace plugin manifest, registers the 8-state <code>PreInvocation</code> router, enables <code>@ah-flash-scout</code>, and starts the loopback WebView HUD on <code>127.0.0.1:62935</code>.</p>
+          <p>Adds the workspace plugin manifest, wires the 8-state <code>PreInvocation</code> router, enables <code>@ah-flash-scout</code>, and starts the local WebView HUD on <code>127.0.0.1:62935</code>.</p>
         </div>
 
         <div class="tab-panel" data-panel="claude" hidden>
@@ -130,7 +130,7 @@ npx ctxtop --serve</code></pre>
 npx ah-claude statusline --demo
 npx ah-claude receipt</code></pre>
           </div>
-          <p>Merges Highbeam hooks and <code>statusLine</code> into <code>~/.claude/settings.json</code>, enables Tier-1 V8 Mod execution where supported, and prints your live 4-rank context receipt.</p>
+          <p>Adds Highbeam hooks and <code>statusLine</code> to <code>~/.claude/settings.json</code>. It turns on the fast Tier-1 V8 Mod when supported and prints your live context receipt.</p>
         </div>
 
         <div class="tab-panel" data-panel="mcp" hidden>
@@ -139,13 +139,13 @@ npx ah-claude receipt</code></pre>
             <pre><code>npx ctxtop init --mcp
 npx ctxtop doctor --json</code></pre>
           </div>
-          <p>Registers the zero-dependency <code>@ctxtop/mcp</code> stdio server inside <code>.cursor/mcp.json</code>, exposing <code>horizon_status</code>, <code>cache_gravity_check</code>, <code>scope_lock_claim</code>, and <code>export_receipt_pdf</code>.</p>
+          <p>Adds the zero-dependency <code>@ctxtop/mcp</code> stdio server to <code>.cursor/mcp.json</code>. That gives you <code>horizon_status</code>, <code>cache_gravity_check</code>, <code>scope_lock_claim</code>, and <code>export_receipt_pdf</code>.</p>
         </div>
       </div>
 
       <h2 id="capabilities">Core Capabilities</h2>
       <p>
-        Highbeam replaces guesswork about context consumption with physical measurements: exact token counts, cache hit percentages, cache TTL countdowns, and deterministic pre-execution circuit breakers.
+        Highbeam swaps guesswork for clear facts: exact token counts, cache hit rates, live cache timers, and fast pre-run safety checks.
       </p>
 
       <div class="bento-grid">
@@ -154,7 +154,7 @@ npx ctxtop doctor --json</code></pre>
             <p class="bento-kicker">40-Cell Context Telemetry</p>
             <h3>See where recall drops before rules are forgotten</h3>
             <p>
-              Maps your active prompt envelope onto 40 chronological cells with automatic zoom across <code>100k</code>, <code>200k</code>, and <code>1M</code> token ceilings. Identifies middle-window distractors, duplicate file reads, and foreign knowledge bleed before server-side truncation occurs.
+              Plots your active prompt across 40 time-ordered cells with auto-zoom at <code>100k</code>, <code>200k</code>, and <code>1M</code> limits. Spots middle-of-prompt clutter, repeat file reads, and cross-project memory bleed before old rules get cut off.
             </p>
           </div>
           <div class="ui-reconstruction" style="margin: 8px 0 0;">
@@ -188,13 +188,13 @@ npx ctxtop doctor --json</code></pre>
         <div class="bento-card bento-span-4">
           <div>
             <p class="bento-kicker">KV-Cache Gravity</p>
-            <h3>Algebraic C* Switch Protection</h3>
+            <h3>C* &amp; Horizon C_max Switch Protection</h3>
             <div class="bento-metric">~0.18ms p95</div>
             <p>
-              Computes exact cross-model break-even token thresholds in real time. Holds premature downshifts from Opus to Sonnet when rebuilding a warm prefix would cost more than staying on the active model.
+              Checks single-turn <code>C*</code> and multi-turn <code>C_max</code> using live Stop-hook session stats. Asks before a model switch (<code>"ask"</code>) whenever rebuilding a warm cache would cost more than it saves.
             </p>
           </div>
-          <a href="concepts.html#cache-gravity">Explore C* physics &rarr;</a>
+          <a href="concepts.html#cache-gravity">Explore C* &amp; C_max physics &rarr;</a>
         </div>
 
         <div class="bento-card bento-span-4">
@@ -203,7 +203,7 @@ npx ctxtop doctor --json</code></pre>
             <h3>32 Deterministic Detectors</h3>
             <div class="bento-metric">DET-01..32</div>
             <p>
-              Intercepts destructive git commands, secret reads, 3-strike tool loops, Haiku 100k 5x price cliffs, and multi-agent file scope collisions with zero LLM judge calls.
+              Blocks unsafe git commands, secret reads, 3-strike error loops, Haiku 100k 5x price jumps, and parallel file clashes with zero extra LLM calls.
             </p>
           </div>
           <a href="detectors.html">Browse full catalog &rarr;</a>
@@ -215,7 +215,7 @@ npx ctxtop doctor --json</code></pre>
             <h3>SQLite FTS5 Offloader</h3>
             <div class="bento-metric">&gt;4,096 chars</div>
             <p>
-              Strips ANSI control codes, archives verbose test logs into local FTS5 storage, and injects compact head/tail digests with critical error-line recovery.
+              Strips ANSI color codes, saves big test logs into local FTS5 search, and sends the model a short summary with every error line intact.
             </p>
           </div>
           <a href="architecture.html#fts5-compressor">How compression works &rarr;</a>
@@ -227,7 +227,7 @@ npx ctxtop doctor --json</code></pre>
             <h3>100% Read-Only Local I/O</h3>
             <div class="bento-metric">0 Dependencies</div>
             <p>
-              Opens session SQLite databases strictly with <code>SQLITE_OPEN_READONLY</code>, binds WebViews exclusively to <code>127.0.0.1</code>, and makes zero outbound network requests.
+              Opens SQLite session files with <code>SQLITE_OPEN_READONLY</code>, binds WebViews only to <code>127.0.0.1</code>, and makes zero outside network calls.
             </p>
           </div>
           <a href="configuration.html#security-sandbox">Review security model &rarr;</a>
@@ -238,31 +238,31 @@ npx ctxtop doctor --json</code></pre>
       <div class="goal-grid">
         <a class="goal-card" href="flight-modes.html">
           <div class="goal-card-title"><span>Set Flight Modes &amp; Levels</span><span>&rarr;</span></div>
-          <p class="goal-card-desc">Compare <code>OFF</code>, <code>SILENT</code>, <code>COACH</code>, and <code>AUTO_PILOT</code> postures, Antigravity <code>hook_level</code> cooldowns, and surgical detector overrides.</p>
+          <p class="goal-card-desc">Compare <code>OFF</code>, <code>SILENT</code>, <code>COACH</code>, and <code>AUTO_PILOT</code> modes, Antigravity <code>hook_level</code> cooldowns, and rule overrides.</p>
         </a>
         <a class="goal-card" href="installation.html">
           <div class="goal-card-title"><span>Install &amp; Verify</span><span>&rarr;</span></div>
-          <p class="goal-card-desc">Set up Highbeam across Antigravity, Claude Code, or Cursor MCP and verify SHA-256 checksums.</p>
+          <p class="goal-card-desc">Set up Highbeam across Antigravity, Claude Code, or Cursor MCP and check SHA-256 hashes.</p>
         </a>
         <a class="goal-card" href="tutorials.html">
           <div class="goal-card-title"><span>Follow Hands-On Tutorials</span><span>&rarr;</span></div>
-          <p class="goal-card-desc">Walk through prompt prechecks, parallel Git worktree scope locks, surgical pruning, and lossless compaction.</p>
+          <p class="goal-card-desc">Walk through prompt checks, Git worktree file locks, log trimming, and clean <code>/compact</code> runs.</p>
         </a>
         <a class="goal-card" href="surfaces.html">
           <div class="goal-card-title"><span>Compare Host Surfaces</span><span>&rarr;</span></div>
-          <p class="goal-card-desc">Understand how Antigravity sidecar daemons and Claude Code V8 Mods coordinate as conductor and executor.</p>
+          <p class="goal-card-desc">See how Antigravity sidecar panels and Claude Code V8 Mods work together on the same repo.</p>
         </a>
         <a class="goal-card" href="cli-reference.html">
           <div class="goal-card-title"><span>Look Up CLI Flags</span><span>&rarr;</span></div>
-          <p class="goal-card-desc">Inspect every binary, subcommand, flag, exit code, and JSON output contract in <code>ctxtop</code> v4.0.</p>
+          <p class="goal-card-desc">Check every command, flag, exit code, and JSON output in <code>ctxtop</code> v4.0.</p>
         </a>
         <a class="goal-card" href="detectors.html">
           <div class="goal-card-title"><span>Tune Guardrails</span><span>&rarr;</span></div>
-          <p class="goal-card-desc">Filter all 32 canonical detectors and 8 semantic habit slugs, and configure per-rule overrides.</p>
+          <p class="goal-card-desc">Filter all 32 detectors and 8 habit rules, and set custom per-rule modes.</p>
         </a>
         <a class="goal-card" href="mcp-daemon-api.html">
           <div class="goal-card-title"><span>Integrate Local APIs</span><span>&rarr;</span></div>
-          <p class="goal-card-desc">Query the 4 MCP stdio tools, 28 loopback HTTP/SSE routes, and Micro-IPC control sockets.</p>
+          <p class="goal-card-desc">Call the 4 MCP stdio tools, 28 local HTTP/SSE routes, and Micro-IPC sockets.</p>
         </a>
       </div>
 

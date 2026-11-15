@@ -238,7 +238,11 @@ export const DEFAULT_HORIZON_CONFIG = Object.freeze({
     blindSearchLimit: 6,
     consecutiveFailureLimit: 3,
     enableLocalKeepAlive: false,
-    microSkillConfirmSessions: 2
+    microSkillConfirmSessions: 2,
+    minSwitchPenaltyUSD: 0.02,
+    notableAllowPenaltyUSD: 0.02,
+    outputShrinkageMinTurns: 5,
+    outputShrinkagePriorTokens: 500
   }
 });
 
@@ -673,6 +677,16 @@ export function loadHorizonConfig(options = {}) {
     }
     if (typeof layer.useEmpiricalHorizonPrior === 'boolean') {
       useEmpiricalHorizonPrior = layer.useEmpiricalHorizonPrior;
+    }
+    for (const tk of [
+      'minSwitchPenaltyUSD',
+      'notableAllowPenaltyUSD',
+      'outputShrinkageMinTurns',
+      'outputShrinkagePriorTokens'
+    ]) {
+      if (layer[tk] !== undefined && layer[tk] !== null && Number.isFinite(Number(layer[tk]))) {
+        thresholds[tk] = Math.max(0, Number(layer[tk]));
+      }
     }
   };
 

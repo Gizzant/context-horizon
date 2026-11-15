@@ -4,12 +4,21 @@
  */
 
 import { fs, path, os, readJsonSafe, writeJsonAtomic } from '../../src/utils/nodeIo.mjs';
+import {
+  DEFAULT_RPT_SHRINKAGE_PRIOR,
+  isRealHumanUserTranscriptEntry,
+  readSessionCalibration,
+  shrinkRollingOutputEstimate,
+  shrinkRollingRequestsPerTurn,
+  computeRollingMedianFloat
+} from '../../src/utils/sessionCalibration.mjs';
 import { readLiveStateSnapshot } from '../../src/core-isomorphic/telemetry/telemetryBridge.mjs';
 import { computeTotalPromptTokens } from '../../src/core-isomorphic/config/catalogLoader.mjs';
 import { loadHorizonConfig, resolveDetectorOverride } from '../../src/core-isomorphic/config/horizonConfig.mjs';
 import { CacheGravityRouter } from '../../src/core-isomorphic/coach/cacheGravityRouter.mjs';
 import { recordInterventionSavings } from '../../src/core-isomorphic/coach/savedQuotaLedger.mjs';
 import { requireProFeature } from '../../src/core/pro_license.mjs';
+import { recordPreModelSwitchEvent } from '../../src/utils/modelSwitchTelemetry.mjs';
 import {
   isCliEntrypoint,
   readStdinJsonAsync,
@@ -20,33 +29,91 @@ import {
 
 const PRIOR_CACHE_TTL_MS = 3_600_000;
 
+export const MIN_LOCAL_RPT_PRIOR_SESSIONS = 3;
+
+function isExcludedBenchmarkTranscript(filePath = '', content = '') {
+  const normPath = String(filePath || '').replace(/\\/g, '/').toLowerCase();
+  if (
+    normPath.includes('model-switch-benchmark') ||
+    normPath.includes('smart-compact') ||
+    normPath.includes('e2e_harness') ||
+    normPath.includes('ctxtop-model-switch')
+  ) {
+    return true;
+  }
+  if (typeof content === 'string' && content.includes('Benchmark-Run-Salt:')) {
+    return true;
+  }
+  return false;
+}
+
 /**
- * Samples recent local Claude Code session assistant-turn counts (read-only, bounded to 50 files,
- * 1h disk cache under `<cwd>/.claude/cache/ah_session_prior.json`) when `useEmpiricalHorizonPrior`
- * is active and explicit `historicalSessionApiCalls` were not passed.
+ * Samples recent local Claude Code session assistant-turn counts and requests/turn (read-only,
+ * bounded to 50 files, deduplicated by `message.id`, 1h disk cache under
+ * `~/.attention-horizon/cache/ah_session_prior.json`).
+ * Excludes the current session (`excludeSessionId` / `excludeTranscriptPath`) and benchmark/harness
+ * transcripts (`excludeBenchmarkSessions !== false`), requiring `>= 3` qualifying sessions for
+ * `medianRequestsPerTurn`.
  *
  * @param {object} [options={}]
- * @returns {number[] | null}
+ * @returns {{ apiCounts: number[], medianRequestsPerTurn: number | null, sessionCount: number } | null}
  */
-function loadLocalClaudeSessionApiCalls(options = {}) {
+export function loadLocalClaudeSessionPriors(options = {}) {
   if (Array.isArray(options.historicalSessionApiCalls)) {
-    return options.historicalSessionApiCalls;
+    return {
+      apiCounts: options.historicalSessionApiCalls,
+      medianRequestsPerTurn:
+        Number.isFinite(Number(options.historicalSessionRequestsPerTurn))
+          ? Number(options.historicalSessionRequestsPerTurn)
+          : null,
+      sessionCount: options.historicalSessionApiCalls.length
+    };
   }
-  const cwd = options.cwd || globalThis.process?.cwd?.() || '.';
-  const cachePath = path.join(cwd, '.claude', 'cache', 'ah_session_prior.json');
+  const home =
+    options.homeDir ||
+    globalThis.process?.env?.HOME ||
+    globalThis.process?.env?.USERPROFILE ||
+    os.homedir();
+  const cachePath = path.join(home, '.attention-horizon', 'cache', 'ah_session_prior.json');
   const nowMs = Number.isFinite(Number(options.nowMs)) ? Number(options.nowMs) : Date.now();
+  const excludeSessionId =
+    options.excludeSessionId && options.excludeSessionId !== 'default'
+      ? String(options.excludeSessionId).trim()
+      : null;
+  const excludeTranscriptPathNorm = options.excludeTranscriptPath
+    ? path.resolve(String(options.excludeTranscriptPath)).replace(/\\/g, '/').toLowerCase()
+    : null;
+  const excludeBenchmarks = options.excludeBenchmarkSessions !== false;
+
   const cached = readJsonSafe(cachePath, null, options);
   if (
     cached &&
-    Array.isArray(cached.apiCounts) &&
+    Array.isArray(cached.sessions) &&
     Number.isFinite(cached.sampledAtMs) &&
     nowMs - cached.sampledAtMs < PRIOR_CACHE_TTL_MS
   ) {
-    return cached.apiCounts;
+    const filtered = cached.sessions.filter((s) => {
+      if (excludeSessionId && s.sessionId === excludeSessionId) return false;
+      if (excludeTranscriptPathNorm && s.normPath === excludeTranscriptPathNorm) return false;
+      if (excludeBenchmarks && s.isBenchmark) return false;
+      return true;
+    });
+    if (filtered.length >= 1) {
+      const apiCounts = filtered.map((s) => s.assistantTurns);
+      const rpts = filtered.map((s) => s.rpt).filter((r) => Number.isFinite(r) && r >= 1);
+      return {
+        apiCounts,
+        medianRequestsPerTurn:
+          rpts.length >= MIN_LOCAL_RPT_PRIOR_SESSIONS
+            ? computeRollingMedianFloat(rpts, rpts.length)
+            : null,
+        sessionCount: apiCounts.length
+      };
+    }
+    return null;
   }
 
   try {
-    const home = options.homeDir || os.homedir();
     const ccProjects = path.join(home, '.claude', 'projects');
     if (!fs.existsSync(ccProjects)) return null;
 
@@ -67,17 +134,46 @@ function loadLocalClaudeSessionApiCalls(options = {}) {
       }
     }
     jsonlFiles.sort((a, b) => b.mtimeMs - a.mtimeMs);
-    const apiCounts = [];
+    const allSessions = [];
     for (const item of jsonlFiles.slice(0, 50)) {
       let fd = null;
       try {
+        const normPath = path.resolve(item.path).replace(/\\/g, '/').toLowerCase();
+        const fileSessionId = path.basename(item.path, '.jsonl');
         fd = fs.openSync(item.path, 'r');
         const txt = fs.readFileSync(fd, 'utf8');
-        let assistantTurns = 0;
+        const isBenchmark = isExcludedBenchmarkTranscript(item.path, txt);
+        const assistantMsgIds = new Set();
+        let humanTurnCount = 0;
+        let idx = 0;
         for (const line of txt.split(/\r?\n/)) {
-          if (line.includes('"type":"assistant"')) assistantTurns += 1;
+          idx += 1;
+          if (!line.includes('"assistant"') && !line.includes('"user"')) continue;
+          try {
+            const obj = JSON.parse(line);
+            if (isRealHumanUserTranscriptEntry(obj)) {
+              humanTurnCount += 1;
+            } else if (obj?.type === 'assistant') {
+              assistantMsgIds.add(obj?.message?.id || `line_${idx}`);
+            }
+          } catch {
+            if (line.includes('"type":"assistant"')) assistantMsgIds.add(`raw_${idx}`);
+          }
         }
-        if (assistantTurns >= 2) apiCounts.push(assistantTurns);
+        const assistantTurns = assistantMsgIds.size;
+        if (assistantTurns >= 2) {
+          const rpt =
+            humanTurnCount >= 1
+              ? Math.max(1, Number((assistantTurns / humanTurnCount).toFixed(4)))
+              : null;
+          allSessions.push({
+            sessionId: fileSessionId,
+            normPath,
+            isBenchmark,
+            assistantTurns,
+            rpt
+          });
+        }
       } catch {
         // Ignore unreadable session file
       } finally {
@@ -90,14 +186,52 @@ function loadLocalClaudeSessionApiCalls(options = {}) {
         }
       }
     }
-    if (apiCounts.length >= 5) {
-      writeJsonAtomic(cachePath, { sampledAtMs: nowMs, apiCounts }, options);
-      return apiCounts;
+    const filtered = allSessions.filter((s) => {
+      if (excludeSessionId && s.sessionId === excludeSessionId) return false;
+      if (excludeTranscriptPathNorm && s.normPath === excludeTranscriptPathNorm) return false;
+      if (excludeBenchmarks && s.isBenchmark) return false;
+      return true;
+    });
+    const apiCounts = filtered.map((s) => s.assistantTurns);
+    const sessionRpts = filtered.map((s) => s.rpt).filter((r) => Number.isFinite(r) && r >= 1);
+    const medianRequestsPerTurn =
+      sessionRpts.length >= MIN_LOCAL_RPT_PRIOR_SESSIONS
+        ? computeRollingMedianFloat(sessionRpts, sessionRpts.length)
+        : null;
+    if (allSessions.length >= 1) {
+      writeJsonAtomic(
+        cachePath,
+        {
+          sampledAtMs: nowMs,
+          sessions: allSessions,
+          apiCounts,
+          medianRequestsPerTurn,
+          sessionCount: apiCounts.length
+        },
+        options
+      );
+    }
+    if (apiCounts.length >= 1) {
+      return { apiCounts, medianRequestsPerTurn, sessionCount: apiCounts.length };
     }
   } catch {
     // Fallback to built-in 496-session prior
   }
   return null;
+}
+
+/**
+ * Backward-compatible accessor returning `apiCounts` once >= 5 local sessions exist
+ * (or any explicit `options.historicalSessionApiCalls` override).
+ * @param {object} [options={}]
+ * @returns {number[] | null}
+ */
+export function loadLocalClaudeSessionApiCalls(options = {}) {
+  if (Array.isArray(options.historicalSessionApiCalls)) {
+    return options.historicalSessionApiCalls;
+  }
+  const priors = loadLocalClaudeSessionPriors(options);
+  return Array.isArray(priors?.apiCounts) && priors.apiCounts.length >= 5 ? priors.apiCounts : null;
 }
 
 /**
@@ -155,12 +289,39 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
       options.useEmpiricalHorizonPrior ??
       horizonConfig?.useEmpiricalHorizonPrior
   );
+  const sessionCal =
+    options.useSessionCalibration === false
+      ? null
+      : readSessionCalibration(sessionId, event, cwdOptions);
   const turnsCompleted = Number(
-    event.current_turn ?? event.currentTurn ?? liveState?.turnsCompleted ?? 0
+    event.current_turn ??
+      event.currentTurn ??
+      (sessionCal?.turnsCompleted > 0 ? sessionCal.turnsCompleted : undefined) ??
+      liveState?.turnsCompleted ??
+      0
   );
+  const localPriorsOptions = {
+    ...cwdOptions,
+    excludeSessionId: sessionId,
+    excludeTranscriptPath:
+      event.transcript_path || event.transcriptPath || sessionCal?.transcriptPath || null
+  };
+  const localPriors =
+    options.useLocalRptPrior !== false &&
+    (options.homeDir ||
+      options.cliInvocation ||
+      options.useLocalRptPrior === true ||
+      useEmpiricalHorizonPrior ||
+      Boolean(sessionCal))
+      ? loadLocalClaudeSessionPriors(localPriorsOptions)
+      : null;
+  const localSurvivalApiCalls =
+    localPriors && Array.isArray(localPriors.apiCounts) && localPriors.apiCounts.length >= 5
+      ? localPriors.apiCounts
+      : null;
   const historicalSessionApiCalls =
     useEmpiricalHorizonPrior && (rawRemainingTurns === undefined || rawRemainingTurns === null)
-      ? loadLocalClaudeSessionApiCalls(cwdOptions)
+      ? (localSurvivalApiCalls ?? loadLocalClaudeSessionApiCalls(localPriorsOptions))
       : options.historicalSessionApiCalls;
 
   const router =
@@ -254,11 +415,170 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
           horizonConfig?.autoPilotDecision ??
           (isNativePreModelSwitch ? 'ask' : 'deny'));
 
-  let resolvedExpectedOutputTokens = event.expectedOutputTokens ?? options.expectedOutputTokens;
+  const apiCallsCompletedRaw =
+    event.api_calls_completed ??
+    event.apiCallsCompleted ??
+    sessionCal?.apiCallsCompleted;
+  const apiCallsCompleted =
+    apiCallsCompletedRaw !== undefined &&
+    apiCallsCompletedRaw !== null &&
+    Number.isFinite(Number(apiCallsCompletedRaw))
+      ? Math.max(0, Number(apiCallsCompletedRaw))
+      : undefined;
+  const explicitRptRaw =
+    event.requests_per_turn ?? event.requestsPerTurn ?? options.requestsPerTurn;
+  const rptShrinkageMinTurns = Number(
+    options.rptShrinkageMinTurns ?? horizonConfig?.thresholds?.rptShrinkageMinTurns ?? 5
+  );
+  const rptShrinkagePriorDefault = Number(
+    options.rptShrinkagePrior ??
+      horizonConfig?.thresholds?.rptShrinkagePrior ??
+      DEFAULT_RPT_SHRINKAGE_PRIOR
+  );
+  let requestsPerTurn;
+  let rptEstimateSource = `placeholder_rpt_prior_${rptShrinkagePriorDefault}`;
+  let rptSampleSize = 0;
+  let rawRollingMedianRequestsPerTurn = sessionCal?.rollingMedianRequestsPerTurn ?? null;
+  let rawCumulativeRequestsPerTurn = sessionCal?.requestsPerTurn ?? null;
+  let rptShrinkageWeight = 0;
+  let rptPriorUsed = rptShrinkagePriorDefault;
+  let isPlaceholderRptPrior = true;
+  let rptTurnsAgree = false;
+  let rptEffectiveMinTrustedTurns = rptShrinkageMinTurns;
+
   if (
-    resolvedExpectedOutputTokens === undefined &&
-    Boolean(event.useObservedOutputTokens ?? options.useObservedOutputTokens)
+    explicitRptRaw !== undefined &&
+    explicitRptRaw !== null &&
+    Number.isFinite(Number(explicitRptRaw)) &&
+    Number(explicitRptRaw) > 0
   ) {
+    requestsPerTurn = Number(explicitRptRaw);
+    rptEstimateSource = 'explicit';
+    rptSampleSize = Number(sessionCal?.rptSampleSize ?? sessionCal?.turnsCompleted ?? 0);
+    rptShrinkageWeight = 1;
+    rptPriorUsed = null;
+    isPlaceholderRptPrior = false;
+    rptTurnsAgree = false;
+    rptEffectiveMinTrustedTurns = rptShrinkageMinTurns;
+  } else if (sessionCal) {
+    const localMedianRpt =
+      options.historicalSessionRequestsPerTurn ?? localPriors?.medianRequestsPerTurn ?? null;
+    const hasLocalRptPrior =
+      options.useLocalRptPrior !== false &&
+      Number.isFinite(Number(localMedianRpt)) &&
+      Number(localMedianRpt) >= 1;
+    const rawRollingRpt =
+      sessionCal.rollingMedianRequestsPerTurn ?? sessionCal.requestsPerTurn ?? null;
+    const sampleTurns = Number(
+      sessionCal.rptSampleSize ??
+        (Array.isArray(sessionCal.recentTurnRequestCounts)
+          ? sessionCal.recentTurnRequestCounts.length
+          : sessionCal.turnsCompleted || 0)
+    );
+    const shrunkRpt = shrinkRollingRequestsPerTurn(rawRollingRpt, sampleTurns, {
+      minTrustedTurns: rptShrinkageMinTurns,
+      priorRequestsPerTurn: hasLocalRptPrior ? localMedianRpt : rptShrinkagePriorDefault,
+      priorSource: hasLocalRptPrior ? 'local_transcripts' : 'placeholder',
+      recentTurnRequestCounts: sessionCal.recentTurnRequestCounts
+    });
+    requestsPerTurn = shrunkRpt.expectedRequestsPerTurn;
+    rptEstimateSource = shrunkRpt.source;
+    rptSampleSize = shrunkRpt.sampleSize;
+    rawRollingMedianRequestsPerTurn = shrunkRpt.rawRollingMedianRequestsPerTurn;
+    rptShrinkageWeight = shrunkRpt.shrinkageWeight;
+    rptPriorUsed = shrunkRpt.priorRequestsPerTurn;
+    isPlaceholderRptPrior = shrunkRpt.isPlaceholderShrinkagePrior;
+    rptTurnsAgree = shrunkRpt.turnsAgree;
+    rptEffectiveMinTrustedTurns = shrunkRpt.effectiveMinTrustedTurns;
+  } else if (
+    options.useLocalRptPrior !== false &&
+    Number.isFinite(Number(options.historicalSessionRequestsPerTurn ?? localPriors?.medianRequestsPerTurn)) &&
+    Number(options.historicalSessionRequestsPerTurn ?? localPriors?.medianRequestsPerTurn) >= 1
+  ) {
+    requestsPerTurn = Number(
+      Number(options.historicalSessionRequestsPerTurn ?? localPriors?.medianRequestsPerTurn).toFixed(4)
+    );
+    rptEstimateSource = 'local_transcript_rpt_prior';
+    rptPriorUsed = requestsPerTurn;
+    isPlaceholderRptPrior = false;
+  }
+
+  const explicitGrowthRaw =
+    event.context_growth_per_turn ?? event.contextGrowthPerTurn ?? options.contextGrowthPerTurn;
+  const allowObservedGrowth =
+    (event.useObservedPromptGrowth ?? options.useObservedPromptGrowth) !== false;
+  let contextGrowthPerTurn = 0;
+  let promptGrowthEstimateSource = 'default_0';
+  let promptGrowthSampleSize = Number(sessionCal?.promptGrowthSampleSize ?? 0);
+  const hasRecentRptHistory =
+    Array.isArray(sessionCal?.recentTurnRequestCounts) &&
+    sessionCal.recentTurnRequestCounts.length >= 2;
+  const growthRegimeTrusted =
+    turnsCompleted >= 5 &&
+    promptGrowthSampleSize >= 4 &&
+    (!hasRecentRptHistory || Boolean(rptTurnsAgree));
+  if (
+    explicitGrowthRaw !== undefined &&
+    explicitGrowthRaw !== null &&
+    Number.isFinite(Number(explicitGrowthRaw)) &&
+    Number(explicitGrowthRaw) >= 0
+  ) {
+    contextGrowthPerTurn = Math.max(0, Math.round(Number(explicitGrowthRaw)));
+    promptGrowthEstimateSource = 'explicit';
+  } else if (
+    allowObservedGrowth &&
+    sessionCal?.rollingMedianPromptGrowthTokens !== null &&
+    sessionCal?.rollingMedianPromptGrowthTokens !== undefined &&
+    Number.isFinite(Number(sessionCal.rollingMedianPromptGrowthTokens)) &&
+    Number(sessionCal.rollingMedianPromptGrowthTokens) >= 0
+  ) {
+    if (growthRegimeTrusted) {
+      contextGrowthPerTurn = Math.max(
+        0,
+        Math.round(Number(sessionCal.rollingMedianPromptGrowthTokens))
+      );
+      promptGrowthEstimateSource = 'stop_hook_rolling_growth_median';
+    } else {
+      contextGrowthPerTurn = 0;
+      promptGrowthEstimateSource =
+        turnsCompleted < 5
+          ? 'capped_early_session_no_extrapolation'
+          : 'capped_unstable_regime_no_extrapolation';
+    }
+  }
+  const contextCeilingRaw =
+    event.context_ceiling ??
+    event.contextCeiling ??
+    event.context_window_size ??
+    event.contextWindowSize ??
+    event.context_window?.context_window_size ??
+    options.contextCeiling ??
+    liveState?.contextWindow?.contextCeiling;
+  const contextCeiling =
+    contextCeilingRaw !== undefined &&
+    contextCeilingRaw !== null &&
+    Number.isFinite(Number(contextCeilingRaw)) &&
+    Number(contextCeilingRaw) >= 10_000
+      ? Math.round(Number(contextCeilingRaw))
+      : undefined;
+
+  const shrinkageMinTurns = Number(
+    options.outputShrinkageMinTurns ?? horizonConfig?.thresholds?.outputShrinkageMinTurns ?? 5
+  );
+  const shrinkagePriorTokens = Number(
+    options.outputShrinkagePriorTokens ?? horizonConfig?.thresholds?.outputShrinkagePriorTokens ?? 500
+  );
+
+  let resolvedExpectedOutputTokens =
+    event.expectedOutputTokens ?? event.expected_output_tokens ?? options.expectedOutputTokens;
+  let outputEstimateSource =
+    resolvedExpectedOutputTokens !== undefined ? 'explicit' : 'default_1500';
+  let outputSampleSize = 0;
+  let rawRollingMedianOutputTokens = null;
+  let shrinkageWeight = resolvedExpectedOutputTokens !== undefined ? 1 : 0;
+  const allowObservedOutput =
+    (event.useObservedOutputTokens ?? options.useObservedOutputTokens) !== false;
+  if (resolvedExpectedOutputTokens === undefined && allowObservedOutput) {
     const turnsDone = Number(liveState?.turnsCompleted || 0);
     const cumOut =
       Number(liveState?.cumulative?.outputTokens || 0) +
@@ -266,10 +586,60 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
     const lastOut =
       Number(liveState?.contextWindow?.lastOutputTokens || 0) +
       Number(liveState?.contextWindow?.lastThinkingTokens || 0);
-    if (turnsDone > 0 && cumOut > 0) {
-      resolvedExpectedOutputTokens = Math.round(cumOut / turnsDone);
+    if (Number(sessionCal?.rollingMedianOutputTokens) > 0) {
+      const calSampleSize = Math.max(
+        1,
+        Number(
+          sessionCal.outputSampleSize ??
+            (Array.isArray(sessionCal.recentTurnOutputs)
+              ? sessionCal.recentTurnOutputs.length
+              : sessionCal.turnsCompleted || 0)
+        )
+      );
+      const shrunk = shrinkRollingOutputEstimate(
+        sessionCal.rollingMedianOutputTokens,
+        calSampleSize,
+        { minTrustedTurns: shrinkageMinTurns, priorTokens: shrinkagePriorTokens }
+      );
+      resolvedExpectedOutputTokens = shrunk.expectedOutputTokens;
+      outputEstimateSource = shrunk.source;
+      outputSampleSize = shrunk.sampleSize;
+      rawRollingMedianOutputTokens = shrunk.rawRollingMedianOutputTokens;
+      shrinkageWeight = shrunk.shrinkageWeight;
+    } else if (Number(liveState?.rollingMedianOutputTokens) > 0) {
+      const liveSampleSize = Math.max(1, turnsDone);
+      const shrunk = shrinkRollingOutputEstimate(
+        liveState.rollingMedianOutputTokens,
+        liveSampleSize,
+        { minTrustedTurns: shrinkageMinTurns, priorTokens: shrinkagePriorTokens }
+      );
+      resolvedExpectedOutputTokens = shrunk.expectedOutputTokens;
+      outputEstimateSource =
+        shrunk.shrinkageWeight < 1 ? 'live_state_shrunk_median' : 'live_state_rolling_median';
+      outputSampleSize = shrunk.sampleSize;
+      rawRollingMedianOutputTokens = shrunk.rawRollingMedianOutputTokens;
+      shrinkageWeight = shrunk.shrinkageWeight;
+    } else if (turnsDone > 0 && cumOut > 0) {
+      const shrunk = shrinkRollingOutputEstimate(Math.round(cumOut / turnsDone), turnsDone, {
+        minTrustedTurns: shrinkageMinTurns,
+        priorTokens: shrinkagePriorTokens
+      });
+      resolvedExpectedOutputTokens = shrunk.expectedOutputTokens;
+      outputEstimateSource =
+        shrunk.shrinkageWeight < 1 ? 'live_state_shrunk_mean' : 'live_state_mean';
+      outputSampleSize = shrunk.sampleSize;
+      rawRollingMedianOutputTokens = shrunk.rawRollingMedianOutputTokens;
+      shrinkageWeight = shrunk.shrinkageWeight;
     } else if (lastOut > 0) {
-      resolvedExpectedOutputTokens = lastOut;
+      const shrunk = shrinkRollingOutputEstimate(lastOut, 1, {
+        minTrustedTurns: shrinkageMinTurns,
+        priorTokens: shrinkagePriorTokens
+      });
+      resolvedExpectedOutputTokens = shrunk.expectedOutputTokens;
+      outputEstimateSource = 'live_state_shrunk_last';
+      outputSampleSize = 1;
+      rawRollingMedianOutputTokens = shrunk.rawRollingMedianOutputTokens;
+      shrinkageWeight = shrunk.shrinkageWeight;
     }
   }
 
@@ -282,7 +652,36 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
     cacheWarm,
     cacheTtlTier,
     turnsCompleted,
+    ...(apiCallsCompleted !== undefined ? { apiCallsCompleted } : {}),
+    ...(requestsPerTurn !== undefined ? { requestsPerTurn } : {}),
+    ...(contextGrowthPerTurn > 0 ? { contextGrowthPerTurn } : {}),
+    ...(contextCeiling !== undefined ? { contextCeiling } : {}),
+    initialPrefixTokens: sessionCal?.initialPrefixTokens,
     expectedOutputTokens: resolvedExpectedOutputTokens ?? 1500,
+    ...(event.minSwitchPenaltyUSD !== undefined ||
+    event.min_switch_penalty_usd !== undefined ||
+    options.minSwitchPenaltyUSD !== undefined ||
+    horizonConfig?.thresholds?.minSwitchPenaltyUSD !== undefined
+      ? {
+          minSwitchPenaltyUSD:
+            event.minSwitchPenaltyUSD ??
+            event.min_switch_penalty_usd ??
+            options.minSwitchPenaltyUSD ??
+            horizonConfig?.thresholds?.minSwitchPenaltyUSD
+        }
+      : {}),
+    ...(event.notableAllowPenaltyUSD !== undefined ||
+    event.notable_allow_penalty_usd !== undefined ||
+    options.notableAllowPenaltyUSD !== undefined ||
+    horizonConfig?.thresholds?.notableAllowPenaltyUSD !== undefined
+      ? {
+          notableAllowPenaltyUSD:
+            event.notableAllowPenaltyUSD ??
+            event.notable_allow_penalty_usd ??
+            options.notableAllowPenaltyUSD ??
+            horizonConfig?.thresholds?.notableAllowPenaltyUSD
+        }
+      : {}),
     ...(rawRemainingTurns !== undefined && rawRemainingTurns !== null
       ? { expectedRemainingTurns: Number(rawRemainingTurns) }
       : useEmpiricalHorizonPrior
@@ -309,6 +708,121 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
       advisory: false,
       overriddenByConfig: 'block'
     };
+  }
+
+  verdict = {
+    ...verdict,
+    turnsCompletedUsed: turnsCompleted,
+    apiCallsCompletedUsed: apiCallsCompleted ?? null,
+    requestsPerTurnUsed: verdict.breakEven?.requestsPerTurn ?? requestsPerTurn ?? 1,
+    rptEstimateSource,
+    rptSampleSize,
+    rawRollingMedianRequestsPerTurn,
+    rawCumulativeRequestsPerTurn,
+    rptShrinkageWeight,
+    rptPriorUsed,
+    isPlaceholderRptPrior,
+    rptTurnsAgree,
+    rptEffectiveMinTrustedTurns,
+    contextGrowthPerTurnUsed: verdict.breakEven?.contextGrowthPerTurn ?? contextGrowthPerTurn ?? 0,
+    promptGrowthEstimateSource,
+    promptGrowthSampleSize,
+    outputEstimateSource,
+    outputSampleSize,
+    rawRollingMedianOutputTokens,
+    shrinkageWeight
+  };
+
+  const interceptionLogPath =
+    options.interceptionLogPath || globalThis.process?.env?.AH_INTERCEPTION_LOG_PATH;
+  if (typeof interceptionLogPath === 'string' && interceptionLogPath.trim()) {
+    try {
+      const logTarget = interceptionLogPath.trim();
+      const logDir = path.dirname(logTarget);
+      if (logDir && logDir !== '.' && !fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+      }
+      fs.appendFileSync(
+        logTarget,
+        `${JSON.stringify({
+          timestampMs: nowMs,
+          sessionId,
+          fromModel: currentModel,
+          toModel: targetModel,
+          turnsCompletedUsed: turnsCompleted,
+          apiCallsCompleted: apiCallsCompleted ?? null,
+          requestsPerTurn: verdict.breakEven?.requestsPerTurn ?? requestsPerTurn ?? null,
+          rptEstimateSource,
+          rptSampleSize,
+          rawRollingMedianRequestsPerTurn,
+          rawCumulativeRequestsPerTurn,
+          rptShrinkageWeight,
+          rptPriorUsed,
+          isPlaceholderRptPrior,
+          rptTurnsAgree,
+          rptEffectiveMinTrustedTurns,
+          contextGrowthPerTurn: verdict.breakEven?.contextGrowthPerTurn ?? contextGrowthPerTurn ?? 0,
+          promptGrowthEstimateSource,
+          promptGrowthSampleSize,
+          outputEstimateSource,
+          outputSampleSize,
+          rawRollingMedianOutputTokens,
+          shrinkageWeight,
+          expectedOutputTokens: verdict.breakEven?.expectedOutputTokens ?? null,
+          cachedTokens,
+          breakEvenTokens: verdict.breakEven?.breakEvenTokens ?? null,
+          horizonMaxCachedTokens:
+            verdict.breakEven?.horizonMaxCachedTokens === Infinity
+              ? 'Infinity'
+              : (verdict.breakEven?.horizonMaxCachedTokens ?? null),
+          coldWritePenaltyUSD: verdict.breakEven?.coldWritePenaltyUSD ?? null,
+          perTurnPostSwitchSavingUSD: verdict.breakEven?.perTurnPostSwitchSavingUSD ?? null,
+          averagePostSwitchSavingUSD: verdict.breakEven?.averagePostSwitchSavingUSD ?? null,
+          horizonNetSavingsUSD: verdict.breakEven?.horizonNetSavingsUSD ?? null,
+          paybackTurns: verdict.breakEven?.paybackTurns ?? null,
+          paybackWarmRequests: verdict.breakEven?.paybackWarmRequests ?? null,
+          expectedRemainingTurns: verdict.breakEven?.expectedRemainingTurns ?? null,
+          postSwitchRemainingTurns: verdict.breakEven?.postSwitchRemainingTurns ?? null,
+          expectedRemainingRequests: verdict.breakEven?.expectedRemainingRequests ?? null,
+          horizonUnit: verdict.breakEven?.horizonUnit ?? 'turns',
+          priorNativeUnit: verdict.breakEven?.priorNativeUnit ?? null,
+          priorBucket: verdict.breakEven?.priorBucket ?? null,
+          isPlaceholderPrior: Boolean(verdict.breakEven?.isPlaceholderPrior),
+          horizonPriorSource: verdict.breakEven?.horizonPriorSource ?? null,
+          contextCeilingUsed: verdict.breakEven?.contextCeilingUsed ?? null,
+          initialPrefixTokensUsed: verdict.breakEven?.initialPrefixTokensUsed ?? null,
+          belowMinSwitchPenaltyUSD: Boolean(verdict.belowMinSwitchPenaltyUSD),
+          minSwitchPenaltyUSD: verdict.minSwitchPenaltyUSD ?? null,
+          notableAllowNote: verdict.notableAllowNote ?? null,
+          ruleVersion: verdict.breakEven?.ruleVersion ?? null,
+          decision: verdict.decision,
+          reason: verdict.reason ?? null
+        })}\n`,
+        'utf8'
+      );
+    } catch {
+      // Never fail PreModelSwitch hook on diagnostic log write
+    }
+  }
+
+  const shouldRecordSwitchTelemetry =
+    options.recordSwitchTelemetry !== false &&
+    Boolean(
+      options.cliInvocation ||
+        options.homeDir ||
+        options.telemetryPath ||
+        options.recordSwitchTelemetry ||
+        globalThis.process?.env?.AH_MODEL_SWITCH_TELEMETRY_PATH
+    );
+  if (shouldRecordSwitchTelemetry) {
+    try {
+      recordPreModelSwitchEvent(event, verdict.decision, {
+        homeDir: options.homeDir,
+        telemetryPath: options.telemetryPath
+      });
+    } catch {
+      // Never fail PreModelSwitch hook on local acceptance telemetry error
+    }
   }
 
   const avoidedPenaltyUSD = Math.max(
@@ -347,6 +861,22 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
       return {
         exitCode: 0,
         stdout: JSON.stringify({ hookSpecificOutput }),
+        stderr: '',
+        verdict
+      };
+    }
+    if (verdict.notableAllowNote) {
+      const hookSpecificOutput = {
+        hookEventName: 'PreModelSwitch',
+        permissionDecision: 'allow',
+        permissionDecisionReason: verdict.notableAllowNote
+      };
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify({
+          systemMessage: verdict.notableAllowNote,
+          hookSpecificOutput
+        }),
         stderr: '',
         verdict
       };
@@ -391,9 +921,14 @@ export async function executePreModelSwitchCli(cliOptions = {}) {
   const readPayload = cliOptions.readPayload || readStdinJsonAsync;
   const runHook = cliOptions.runHook || runPreModelSwitchHook;
   const ioOverride = cliOptions.ioOverride || {};
+  const isRealCliRun =
+    !cliOptions.ioOverride && !cliOptions.readPayload && !cliOptions.runHook;
   try {
     const payload = await readPayload(cliOptions.timeoutMs);
-    const res = runHook(payload, cliOptions.hookOptions);
+    const res = runHook(payload, {
+      cliInvocation: isRealCliRun,
+      ...(cliOptions.hookOptions || {})
+    });
     if (res.exitCode === 2) {
       exitHardBlockStderr(res.stderr, 'PreModelSwitch', ioOverride);
     } else if (res.stdout) {

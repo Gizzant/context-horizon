@@ -24,6 +24,7 @@ sanitized_snapshot*.json
 Thumbs.db
 .env
 .env.*
+.env.benchmark
 __pycache__/
 *.pyc
 docs/*_PLAN.md

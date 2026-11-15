@@ -475,7 +475,8 @@ export function getModelSpec(modelId = '', options = {}) {
   ) {
     return {
       ...spec,
-      contextCeiling: 1000000
+      contextCeiling: 1000000,
+      operationalSoftCeiling: 800000
     };
   }
 

@@ -204,7 +204,7 @@ export function syncAndVerifyMirrors({
     : pluginRoots;
 
   // On clean CI runners where gitignored mirror directories or evaluation_bundles do not exist yet,
-  // auto-bootstrap the default mirror directories so 8-target / 702-pair verification succeeds deterministically.
+  // auto-bootstrap the default mirror directories so 8-target / 708-pair verification succeeds deterministically.
   let effectiveVerifyOnly = verifyOnly;
   if (isDefaultRoots) {
     const evalBundleTier2 = path.join(CANONICAL_ROOT, 'evaluation_bundles', 'tier_2_full', 'src', 'webview', 'horizon_panel.html');

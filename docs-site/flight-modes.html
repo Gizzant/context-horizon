@@ -17,21 +17,21 @@
       <p class="doc-eyebrow">Foundations</p>
       <h1 class="doc-title">Flight Modes &amp; Enforcement Levels</h1>
       <p class="doc-lead">
-        Highbeam separates what it observes from how forcefully it intervenes. A three-layer enforcement hierarchy lets you tune interruption policy from silent local telemetry to automated KV-cache and hysteresis gating without disabling Ring-0 security invariants.
+        Highbeam separates tracking from blocking. A clear priority stack lets you tune alerts from quiet local tracking to automatic cache and loop locks while keeping Ring-0 safety guards active.
       </p>
 
       <h2 id="enforcement-hierarchy">1. The Three-Layer Enforcement Hierarchy</h2>
       <p>
-        Every hook event (<code>PreInvocation</code>, <code>PreToolUse</code>, <code>PreModelSwitch</code>, and <code>PostToolUse</code>) is evaluated deterministically in sub-millisecond local JavaScript inside <code>horizonConfig.mjs</code>, <code>circuitBreakers.mjs</code>, <code>cacheGravityRouter.mjs</code>, and <code>pre_invocation.mjs</code> with zero LLM judge calls.
+        Every hook event (<code>PreInvocation</code>, <code>PreToolUse</code>, <code>PreModelSwitch</code>, and <code>PostToolUse</code>) runs in sub-millisecond local JavaScript inside <code>horizonConfig.mjs</code>, <code>circuitBreakers.mjs</code>, <code>cacheGravityRouter.mjs</code>, and <code>pre_invocation.mjs</code> with zero LLM judge calls.
       </p>
       <p>
-        When computing an actionable decision (<code>allow</code>, non-blocking <code>advisory warn</code>, interactive <code>ask</code>, or hard <code>deny</code>), Highbeam resolves configuration layers in strict precedence from highest to lowest authority:
+        To pick a verdict (<code>allow</code>, soft <code>advisory warn</code>, interactive <code>ask</code>, or hard <code>deny</code>), Highbeam checks four layers from highest to lowest priority:
       </p>
       <ol>
-        <li><strong>Runtime Control Latch (<code>~/.ctxtop/runtime/&lt;sessionId&gt;.ctl</code>):</strong> Live operator states (<code>PAUSED</code>, <code>STEP</code>, or <code>ABORTED</code>) intercept execution immediately before policy rules run.</li>
-        <li><strong>Per-Detector &amp; Habit Overrides (<code>detectors</code> and <code>semanticDetectors</code>):</strong> Project-local <code>&lt;workspace&gt;/.attention-horizon.json</code> overrides user-global <code>~/.attention-horizon/config.json</code>. Explicit <code>"off"</code>, <code>"warn"</code>, or <code>"block"</code> settings supersede the active Flight Mode while Ring-0 security invariants remain protected.</li>
-        <li><strong>Top-Level Flight Mode &amp; Host Router Level:</strong> Resolved from <code>flightMode</code> (<code>OFF</code>, <code>SILENT</code>, <code>COACH</code>, <code>AUTO_PILOT</code>) in <code>.attention-horizon.json</code>, V8 Mod state (<code>ah_flight_mode</code>), or daemon <code>POST /api/router/mode</code>, paired on Google Antigravity with <code>hook_level</code> (<code>guard</code>, <code>advisory</code>, <code>off</code>) in <code>default_flightcheck.json</code> and one-turn prompt prefixes (<code>!</code>, <code>!force</code>, <code>!lock</code>, <code>#check</code>).</li>
-        <li><strong>Catalog Default Posture (<code>DETECTOR_CATALOG</code>):</strong> Built-in per-detector classification as either a blocking <code>guard</code> circuit breaker or a non-blocking <code>advisory</code> hint.</li>
+        <li><strong>Runtime Control Latch (<code>~/.ctxtop/runtime/&lt;sessionId&gt;.ctl</code>):</strong> Live session states (<code>PAUSED</code>, <code>STEP</code>, or <code>ABORTED</code>) take effect first before policy rules run.</li>
+        <li><strong>Per-Detector &amp; Habit Overrides (<code>detectors</code> and <code>semanticDetectors</code>):</strong> Project <code>&lt;workspace&gt;/.attention-horizon.json</code> overrides global <code>~/.attention-horizon/config.json</code>. Custom <code>"off"</code>, <code>"warn"</code>, or <code>"block"</code> settings beat the active Flight Mode while Ring-0 safety rules stay on.</li>
+        <li><strong>Top-Level Flight Mode &amp; Host Router Level:</strong> Read from <code>flightMode</code> (<code>OFF</code>, <code>SILENT</code>, <code>COACH</code>, <code>AUTO_PILOT</code>) in <code>.attention-horizon.json</code>, V8 Mod state (<code>ah_flight_mode</code>), or daemon <code>POST /api/router/mode</code>. On Google Antigravity, this pairs with <code>hook_level</code> (<code>guard</code>, <code>advisory</code>, <code>off</code>) in <code>default_flightcheck.json</code> and one-turn chat prefixes (<code>!</code>, <code>!force</code>, <code>!lock</code>, <code>#check</code>).</li>
+        <li><strong>Catalog Default Mode (<code>DETECTOR_CATALOG</code>):</strong> Each detector's built-in default as either a blocking <code>guard</code> or a soft <code>advisory</code> tip.</li>
       </ol>
 
       <figure class="diagram-frame" aria-label="Three-layer enforcement resolution pipeline">
@@ -94,13 +94,13 @@
           <text x="732" y="216" text-anchor="middle" font-family="var(--font-mono)" font-size="11.5" font-weight="600" fill="var(--status-danger)">deny / halt</text>
         </svg>
         <figcaption class="diagram-caption">
-          Highest-precedence match wins, with one structural boundary: non-bypassable Ring-0 security guards stay enforced unless individually disabled via an explicit local policy override where permitted.
+          Highest priority wins, with one firm rule: Ring-0 safety guards stay active unless explicitly turned off in local config where allowed.
         </figcaption>
       </figure>
 
       <h2 id="four-flight-modes">2. The Four Flight Modes (<code>OFF</code>, <code>SILENT</code>, <code>COACH</code>, <code>AUTO_PILOT</code>)</h2>
       <p>
-        Highbeam normalizes <code>flightMode</code> case-, hyphen-, and space-insensitively inside <code>normalizeConfiguredFlightMode()</code> (<code>horizonConfig.mjs</code>) and <code>normalizeFlightMode()</code> (<code>circuitBreakers.mjs</code>). Accepted aliases resolve cleanly: <code>DISABLED</code> maps to <code>OFF</code>, <code>QUIET</code> and <code>MUTE</code> map to <code>SILENT</code>, and <code>AUTOPILOT</code> and <code>AUTO</code> map to <code>AUTO_PILOT</code>. Unrecognized strings fall back safely to <code>COACH</code>.
+        Highbeam cleans up <code>flightMode</code> case, hyphens, and spaces in <code>normalizeConfiguredFlightMode()</code> (<code>horizonConfig.mjs</code>) and <code>normalizeFlightMode()</code> (<code>circuitBreakers.mjs</code>). Common aliases work too: <code>DISABLED</code> maps to <code>OFF</code>, <code>QUIET</code> and <code>MUTE</code> map to <code>SILENT</code>, and <code>AUTOPILOT</code> and <code>AUTO</code> map to <code>AUTO_PILOT</code>. Unknown values fall back safely to <code>COACH</code>.
       </p>
 
       <div class="table-wrap">
@@ -117,79 +117,80 @@
           <tbody>
             <tr>
               <td><strong>Ring-0 Security Guards</strong><br /><code>DET-01</code>, <code>DET-02</code>, <code>DET-18</code>, <code>DET-19</code></td>
-              <td>Active (still blocks destructive commands, secret leaks, untrusted settings, and IPIs)</td>
-              <td>Active (Ring-0 boundaries remain enforced; <code>scanWorkspaceSettings</code> runs)</td>
-              <td>Active</td>
-              <td>Active</td>
+              <td>On (blocks unsafe shell, secret reads, bad settings, and prompt injection)</td>
+              <td>On (Ring-0 checks stay active; <code>scanWorkspaceSettings</code> runs)</td>
+              <td>On</td>
+              <td>On</td>
             </tr>
             <tr>
-              <td><strong>Structural Circuit Breakers</strong><br /><code>DET-03..05</code>, <code>DET-07</code>, <code>DET-12</code>, <code>DET-20</code></td>
-              <td>Enforced per catalog defaults unless explicitly overridden</td>
-              <td>Enforced per catalog defaults without advisory banner noise</td>
-              <td>Enforced (lockfile/migration <code>ask</code>, 3-strike breaker, Haiku cliff, scope locks)</td>
-              <td>Enforced + pins active model and effort on <code>DET-04</code> / <code>DET-05</code> trips</td>
+              <td><strong>Core Circuit Breakers</strong><br /><code>DET-03..05</code>, <code>DET-07</code>, <code>DET-12</code>, <code>DET-20</code></td>
+              <td>Runs catalog defaults unless overridden</td>
+              <td>Runs catalog defaults with no chat tips</td>
+              <td>On (lockfile <code>ask</code>, 3-strike loop stop, Haiku cliff, file locks)</td>
+              <td>On + locks model and effort when <code>DET-04</code> or <code>DET-05</code> trips</td>
             </tr>
             <tr>
-              <td><strong><code>DET-08</code> Warm KV-Cache Switch Hold</strong><br /><code>PreModelSwitch</code> when <code>cached &gt; C*</code></td>
-              <td>Suppressed (<code>allow</code>)</td>
-              <td>Suppressed (<code>allow</code>)</td>
-              <td>Advisory warning recommending <code>Explore</code> subagent on <code>claude-haiku-5-5</code> (<code>allow</code>)</td>
-              <td>Active hold (<code>deny</code> or configured hold decision) while <code>cachedTokens &gt; C*</code></td>
+              <td><strong><code>DET-08</code> Warm KV-Cache Switch Hold</strong><br /><code>PreModelSwitch</code> when <code>cached &gt; C*</code> / <code>C_max</code></td>
+              <td>Off (<code>allow</code>)</td>
+              <td>Off (<code>allow</code>)</td>
+              <td>Soft tip suggesting an <code>Explore</code> subagent on <code>claude-haiku-5-5</code> (<code>allow</code>), plus <code>notableAllowNote</code> at <code>&gt;= $0.02</code></td>
+              <td>Active hold using <code>"ask"</code> (<code>"deny"</code> in headless runs or <code>DET-08: "block"</code>) when hit is <code>&gt;= $0.02</code> and <code>H_post &lt; paybackTurns</code></td>
             </tr>
             <tr>
-              <td><strong><code>DET-09</code> Warm Prefix Fence</strong><br /><code>CLAUDE.md</code>, <code>AGENTS.md</code>, <code>.mcp.json</code></td>
-              <td>Suppressed unless overridden</td>
-              <td>Suppressed unless overridden</td>
-              <td>Stages in <code>PostCompactMutationQueue</code> and warns (<code>allow</code>)</td>
-              <td>Fences warm-prefix edits and parameter shifts until <code>PostCompact</code> or <code>TTL == 0s</code></td>
+              <td><strong><code>DET-09</code> Warm Prefix Fence</strong><br /><code>CLAUDE.md</code>, <code>AGENTS.md</code>, <code>.mcp.json</code>, effort/thinking</td>
+              <td>Off unless overridden</td>
+              <td>Off unless overridden</td>
+              <td>Queues in <code>PostCompactMutationQueue</code> and warns (<code>allow</code>) above <code>computeDet09BreakEvenTokens</code></td>
+              <td>Holds warm-cache rule edits and effort/thinking/speed shifts until <code>PostCompact</code> or <code>TTL == 0s</code></td>
             </tr>
             <tr>
               <td><strong>Semantic Habits</strong><br /><code>drip-feed</code>, <code>vague-prompt-rubric</code> (<code>DET-14</code>), <code>effort-overkill</code></td>
               <td>Muted</td>
               <td>Muted</td>
-              <td>Non-blocking 1-line coaching hints (<code>allow</code>)</td>
-              <td>Escalates <code>drip-feed</code> (&gt;=4 edits in &lt;90s) to <code>ask</code> and Turn-1 blind multi-edit to <code>deny</code></td>
+              <td>Soft 1-line tips (<code>allow</code>)</td>
+              <td>Steps <code>drip-feed</code> (&gt;=4 edits in &lt;90s) up to <code>ask</code> and Turn-1 blind multi-edit to <code>deny</code></td>
             </tr>
             <tr>
               <td><strong>Repeated Full-File Reads</strong><br /><code>DET-06</code> Duplicate-Read Guard</td>
               <td>Allowed</td>
-              <td>Telemetry tracked silently</td>
-              <td>Emits duplicate-read savings advisory</td>
-              <td>Folds 3rd+ unmodified reads into AST signature stubs and compact line diffs</td>
+              <td>Tracked quietly</td>
+              <td>Shows duplicate-read savings tip</td>
+              <td>Folds 3rd+ unchanged reads into AST stubs and short line diffs</td>
             </tr>
             <tr>
               <td><strong>Antigravity <code>PreInvocation</code></strong><br /><code>src/hooks/pre_invocation.mjs</code></td>
-              <td>Returns <code>{}</code> immediately (skips scoring)</td>
-              <td>Suppresses non-Ring-0 scorecard; runs <code>DET-18</code> check</td>
-              <td>Uses configured <code>hook_level</code> (<code>guard</code> or <code>advisory</code>)</td>
-              <td>Forces <code>hookLevel = "guard"</code> regardless of <code>default_flightcheck.json</code></td>
+              <td>Returns <code>{}</code> right away (skips check)</td>
+              <td>Hides scorecard; still runs <code>DET-18</code> check</td>
+              <td>Uses your <code>hook_level</code> (<code>guard</code> or <code>advisory</code>)</td>
+              <td>Forces <code>hookLevel = "guard"</code></td>
             </tr>
             <tr>
               <td><strong>Telemetry &amp; <code>ah-statusline</code></strong><br /><code>ah_live_state_&lt;sessionId&gt;.json</code></td>
-              <td>Minimal guard checks only</td>
-              <td>Full telemetry, live status bar, and 30-day Saved Quota Ledger</td>
-              <td>Full telemetry, live status bar, and Saved Quota Ledger</td>
-              <td>Full telemetry, live status bar, and Saved Quota Ledger</td>
+              <td>Safety checks only</td>
+              <td>Full stats, status bar, and 30-day Saved Quota Ledger</td>
+              <td>Full stats, status bar, and Saved Quota Ledger</td>
+              <td>Full stats, status bar, and Saved Quota Ledger</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <div class="callout safe">
-        <p class="callout-title">Pro Entitlement Verification &amp; Graceful Fallback</p>
+        <p class="callout-title">Pro Entitlement Check &amp; Safe Fallback</p>
         <p>
-          In <code>hooks/handlers/pre-tool-use.mjs</code>, selecting <code>flightMode: "AUTO_PILOT"</code> checks <code>requireProFeature("auto_pilot_locks")</code> against your offline Ed25519 license (<code>~/.ctxtop/license.json</code>) or active 14-day local trial (<code>npx ctxtop pro trial</code>). If no active entitlement is found, Highbeam automatically downgrades <code>effectiveMode</code> to <code>"COACH"</code> in memory so hooks never crash or lock you out of your editor.
+          In <code>hooks/handlers/pre-tool-use.mjs</code>, setting <code>flightMode: "AUTO_PILOT"</code> checks <code>requireProFeature("auto_pilot_locks")</code> against your offline Ed25519 key (<code>~/.ctxtop/license.json</code>) or 14-day local trial (<code>npx ctxtop pro trial</code>). If neither is found, Highbeam drops back to <code>"COACH"</code> in memory so hooks never crash or block your editor.
         </p>
       </div>
 
       <h2 id="autopilot-and-hysteresis">3. <code>AUTO_PILOT</code> Escalations &amp; Hysteresis Lock</h2>
       <p>
-        Implemented in <code>src/core-isomorphic/coach/cacheGravityRouter.mjs</code>, <code>AUTO_PILOT</code> adds three stateful automation safeguards beyond static single-turn rules:
+        Built into <code>src/core-isomorphic/coach/cacheGravityRouter.mjs</code>, <code>AUTO_PILOT</code> adds four smart safeguards across turns:
       </p>
       <ul>
-        <li><strong>Hysteresis Lock (<code>HysteresisLock</code>):</strong> When <code>DET-04</code> (3 consecutive tool failures) or <code>DET-05</code> (edit thrashing) trips inside a debugging loop, <code>AUTO_PILOT</code> pins the active frontier model and elevates effort to <code>"high"</code> across subsequent turns. This stops an agent from prematurely downshifting to a smaller model before a fix is verified. The lock clears automatically when <code>completeActiveTask()</code> succeeds or <code>resetOnRewindOrBranch()</code> detects a conversation rewind/fork, or manually via <code>POST http://127.0.0.1:62935/api/router/unlock-hysteresis</code>.</li>
-        <li><strong>Post-Compact Mutation Queue (<code>PostCompactMutationQueue</code>):</strong> Mid-session changes to <code>effort</code>, <code>thinking</code>, <code>speed</code>, <code>system_prompt</code>, <code>mcp_tools</code>, or <code>model</code> invalidate cached prompt prefixes when <code>ttlRemainingSec &gt; 0</code> and <code>cachedTokens &gt;= C*</code>. In <code>AUTO_PILOT</code>, Highbeam queues those parameter shifts and flushes them safely immediately after <code>/compact</code> (<code>PostCompact</code>) or once the 5-minute (<code>300s</code>) TTL expires.</li>
-        <li><strong>3rd-Read AST Signature Stubs &amp; Delta Diffs:</strong> When an agent attempts to re-read an entire source file a third time in the same session, <code>foldCodeToSignatureStub()</code> and <code>computeCompactLineDiff()</code> replace redundant payloads with compact symbol signatures or line deltas since the last read.</li>
+        <li><strong>Hysteresis Lock (<code>HysteresisLock</code>):</strong> When <code>DET-04</code> (3 tool errors in a row) or <code>DET-05</code> (edit flip-flops) trips during debugging, <code>AUTO_PILOT</code> pins your current model and sets effort to <code>"high"</code>. That stops an agent from dropping to a weaker model before the bug is fixed. The lock clears once <code>completeActiveTask()</code> passes, on chat rewind/fork, or via <code>POST http://127.0.0.1:62935/api/router/unlock-hysteresis</code>.</li>
+        <li><strong>Interactive <code>"ask"</code> Holds &amp; Penalty Floors (<code>DET-08</code>):</strong> On Claude Code <code>PreModelSwitch</code> events, <code>AUTO_PILOT</code> holds use <code>permissionDecision: "ask"</code> (showing exact <code>coldWritePenaltyUSD</code>, <code>paybackWarmRequests</code>, <code>paybackTurns</code>, and <code>C_max</code>) when your Claude binary supports it. Headless runs (<code>-p</code> / <code>CLAUDE_HEADLESS</code>) or <code>"DET-08": "block"</code> / <code>autoPilotDecision: "deny"</code> use <code>"deny"</code>. Tiny hits under <code>minSwitchPenaltyUSD</code> (<code>$0.02</code>) stay quiet. Allowed switches at or above <code>notableAllowPenaltyUSD</code> (<code>$0.02</code>) show a <code>notableAllowNote</code>, and unknown non-Anthropic model IDs pass through with a soft note (<code>unknownModel: true</code>).</li>
+        <li><strong>Post-Compact Queue &amp; Dynamic <code>DET-09</code> Thresholds (<code>PostCompactMutationQueue</code>):</strong> Mid-session changes to <code>effort</code>, <code>thinking</code>, <code>speed</code>, <code>system_prompt</code>, <code>mcp_tools</code>, or <code>model</code> reset your warm cache when <code>ttlRemainingSec &gt; 0</code> and <code>cachedTokens</code> sits above <code>computeDet09BreakEvenTokens()</code> (or <code>det09MinCachedTokens</code>). In <code>AUTO_PILOT</code>, Highbeam queues those shifts and applies them right after <code>/compact</code> (<code>PostCompact</code>) or once the 5-minute (<code>300s</code>) or 1-hour timer ends.</li>
+        <li><strong>3rd-Read AST Stubs &amp; Delta Diffs:</strong> When an agent reads the same full file a third time in one session, <code>foldCodeToSignatureStub()</code> and <code>computeCompactLineDiff()</code> swap duplicate text for short symbol lists or line diffs since the last read.</li>
       </ul>
 
       <div class="code-block terminal">
@@ -204,18 +205,20 @@ verdict: {
   message: "[DET-08 Warm KV-Cache Hold] Prefix (64k &gt; C* 26.7k) is warm ($0.50/MTok reads vs $3.75/MTok cold write). Delegate read-only lookup to Explore subagent on claude-haiku-5-5 (&lt;2k context, 12-turn / 40k-token cap)."
 }
 
-# In AUTO_PILOT mode (active pre-switch gate):
+# In AUTO_PILOT mode (interactive PreModelSwitch defaults to "ask"; headless uses "deny"):
 verdict: {
-  decision: "deny",
+  decision: "ask",
   blocked: true,
   detectorId: "DET-08",
-  reason: "Mid-TTL switch blocked because cachedTokens (64,000) &gt; C* (26,667). Wait for TTL expiry or run /compact."
+  coldWritePenaltyUSD: 0.214,
+  paybackWarmRequests: 14.2,
+  reason: "[DET-08 Warm KV-Cache Hold] Switching from claude-opus-4-7 to claude-sonnet-4-6 with 64,000 warm cached tokens exceeds horizon break-even C_max and incurs +$0.2140 cold 1.25x prefix rewrite penalty."
 }</code></pre>
       </div>
 
       <h2 id="antigravity-hook-levels">4. Antigravity Router Levels (<code>hook_level</code>), Cooldowns &amp; Chat Prefixes</h2>
       <p>
-        On Google Antigravity, Highbeam evaluates user prompts in <code>PreInvocation</code> (<code>src/hooks/pre_invocation.mjs</code>) using settings merged from <code>config/default_flightcheck.json</code> and <code>~/.gemini/flightcheck/config.json</code>. The <code>hook_level</code> key governs how router states behave:
+        On Google Antigravity, Highbeam checks user prompts in <code>PreInvocation</code> (<code>src/hooks/pre_invocation.mjs</code>) using settings from <code>config/default_flightcheck.json</code> and <code>~/.gemini/flightcheck/config.json</code>. The <code>hook_level</code> setting controls how router stops work:
       </p>
 
       <div class="table-wrap">
@@ -230,31 +233,31 @@ verdict: {
           <tbody>
             <tr>
               <td><code>"guard"</code> <span class="badge accent">Default</span></td>
-              <td>Halts vague or hazardous prompts with the 4-Line Scorecard (<code>Context Health</code>, <code>Cache Window</code>, <code>Risk Signal</code>, <code>Recommended Action</code>).</td>
-              <td>After halting for a specific router state key, repeats of that same state within 3 turns automatically downgrade to a non-blocking <code>{ systemMessage }</code> to eliminate nag loops.</td>
+              <td>Stops vague or risky prompts with the 4-Line Scorecard (<code>Context Health</code>, <code>Cache Window</code>, <code>Risk Signal</code>, <code>Recommended Action</code>).</td>
+              <td>After one stop for a given state, repeats within 3 turns step down to a soft <code>{ systemMessage }</code> so you never get stuck in nag loops.</td>
             </tr>
             <tr>
               <td><code>"advisory"</code></td>
-              <td>Never halts prompt submission. Every triggered router state injects <code>{ systemMessage }</code> silently as advisory guidance.</td>
-              <td>Downgrade is permanent until switched back to <code>"guard"</code> (or overridden by <code>flightMode: "AUTO_PILOT"</code>).</td>
+              <td>Never stops a prompt. Every router state adds <code>{ systemMessage }</code> quietly as a tip.</td>
+              <td>Always soft until set back to <code>"guard"</code> (or overridden by <code>flightMode: "AUTO_PILOT"</code>).</td>
             </tr>
             <tr>
               <td><code>"off"</code></td>
-              <td>Skips Antigravity <code>PreInvocation</code> scoring while <code>PreToolUse</code> Ring-0 security breakers remain active.</td>
-              <td>Not applicable.</td>
+              <td>Skips Antigravity <code>PreInvocation</code> checks while <code>PreToolUse</code> Ring-0 safety guards stay on.</td>
+              <td>Not used.</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <h3>Cooldown Exemptions (Physical Context &amp; Billing Crises)</h3>
+      <h3>Cooldown Exemptions (Context &amp; Billing Crises)</h3>
       <p>
-        Three physical crises carry <code>exemptFromCooldown: true</code> and always fire immediately in <code>"guard"</code> mode even inside the 3-turn cooldown window:
+        Three urgent limits carry <code>exemptFromCooldown: true</code> and always fire right away in <code>"guard"</code> mode even inside the 3-turn cooldown:
       </p>
       <ol>
-        <li><strong>Context Truncation Crisis (<code>amputationCrisis</code>):</strong> Active context exceeds <code>140,000</code> tokens, placing Turn-0 architectural rules in <code>AGENTS.md</code> at risk of server-side FIFO truncation.</li>
-        <li><strong>Unconditional Warm Prefix Loss (<code>DET-08</code>):</strong> Destructive mid-TTL switch boundary where rebuilding cache costs more tokens than continuing.</li>
-        <li><strong>Haiku 100k <code>5x</code> Pricing Cliff (<code>DET-12</code>):</strong> Haiku session crosses the <code>100,000</code>-token pricing cliff.</li>
+        <li><strong>Context Truncation Crisis (<code>amputationCrisis</code>):</strong> Active context passes <code>140,000</code> tokens, putting early <code>AGENTS.md</code> rules at risk of server-side cutoff.</li>
+        <li><strong>Warm Cache Loss (<code>DET-08</code>):</strong> A mid-TTL switch where rebuilding your cache costs more than staying put.</li>
+        <li><strong>Haiku 100k <code>5x</code> Pricing Cliff (<code>DET-12</code>):</strong> A Haiku session reaches the <code>100,000</code>-token price jump.</li>
       </ol>
 
       <h3>In-Chat One-Turn Prompt Prefixes</h3>
@@ -271,17 +274,17 @@ verdict: {
             <tr>
               <td><code>! &lt;prompt&gt;</code> or <code>!force &lt;prompt&gt;</code></td>
               <td>Current turn only</td>
-              <td>Bypasses the <code>PreInvocation</code> scorecard halt (<code>ALLOW_SILENT</code>). Ring-0 <code>PreToolUse</code> security guards stay armed.</td>
+              <td>Skips the <code>PreInvocation</code> scorecard stop (<code>ALLOW_SILENT</code>). Ring-0 <code>PreToolUse</code> safety guards stay on.</td>
             </tr>
             <tr>
               <td><code>!lock &lt;prompt&gt;</code></td>
               <td>Active task / session</td>
-              <td>Pins the active model and effort posture alongside your prompt so background routing does not downshift mid-stream.</td>
+              <td>Pins your current model and effort level so router tips do not nudge you down mid-task.</td>
             </tr>
             <tr>
               <td><code>#check &lt;prompt&gt;</code></td>
               <td>Current turn only</td>
-              <td>Forces a full Tier-2 diagnostic scorecard evaluation even if context metrics appear green.</td>
+              <td>Runs the full 4-Line Scorecard check even when context stats look green.</td>
             </tr>
           </tbody>
         </table>
@@ -289,19 +292,19 @@ verdict: {
 
       <h2 id="per-detector-overrides">5. Per-Detector &amp; Habit Overrides (<code>default | off | warn | block</code>)</h2>
       <p>
-        When global Flight Modes are too coarse, <code>applyDetectorOverride()</code> in <code>src/core-isomorphic/config/horizonConfig.mjs</code> lets you tune individual canonical detectors (<code>DET-01..DET-20</code>) and all 8 semantic habit slugs (<code>formatter-bypass</code>, <code>drip-feed</code>, <code>vague-prompt-rubric</code>, <code>effort-overkill</code>, <code>post-commit-handoff</code>, <code>vision-screenshot-coach</code>, <code>micro-skills</code>, <code>relay-breaker</code>):
+        When global Flight Modes feel too broad, <code>applyDetectorOverride()</code> in <code>src/core-isomorphic/config/horizonConfig.mjs</code> lets you tune any detector (<code>DET-01..DET-20</code>) or habit rule (<code>formatter-bypass</code>, <code>drip-feed</code>, <code>vague-prompt-rubric</code>, <code>effort-overkill</code>, <code>post-commit-handoff</code>, <code>vision-screenshot-coach</code>, <code>micro-skills</code>, <code>relay-breaker</code>):
       </p>
       <ul>
-        <li><code>"default"</code>: Inherits the detector's catalog posture (<code>guard</code> or <code>advisory</code>) and active <code>flightMode</code> behavior.</li>
-        <li><code>"off"</code>: Suppresses the rule (<code>triggered: false, decision: "allow", overriddenByConfig: "off"</code>).</li>
-        <li><code>"warn"</code>: Downgrades a blocking detector to a non-blocking advisory (<code>decision: "allow", blocked: false, advisory: true</code>), prefixing <code>[Advisory Override (DET-XX=warn)]</code>.</li>
-        <li><code>"block"</code>: Upgrades any advisory detector or habit slug into a hard pre-execution block (<code>decision: "deny", blocked: true, advisory: false</code>).</li>
+        <li><code>"default"</code>: Uses the rule's catalog setting (<code>guard</code> or <code>advisory</code>) and your active <code>flightMode</code>.</li>
+        <li><code>"off"</code>: Turns the rule off (<code>triggered: false, decision: "allow", overriddenByConfig: "off"</code>).</li>
+        <li><code>"warn"</code>: Steps a blocking rule down to a soft tip (<code>decision: "allow", blocked: false, advisory: true</code>), adding <code>[Advisory Override (DET-XX=warn)]</code>.</li>
+        <li><code>"block"</code>: Steps any soft rule or habit up to a hard block (<code>decision: "deny", blocked: true, advisory: false</code>).</li>
       </ul>
 
       <div class="callout warn">
         <p class="callout-title">Surgical Profiles: Explicit Overrides Survive SILENT and OFF</p>
         <p>
-          Inside <code>isCoachAdvisorySuppressed()</code> (<code>circuitBreakers.mjs</code>), <code>SILENT</code> and <code>OFF</code> suppress detectors set to <code>"default"</code>, <strong>but</strong> any detector or semantic habit explicitly set to <code>"warn"</code> or <code>"block"</code> in <code>.attention-horizon.json</code> still executes. This lets teams run zero-noise <code>SILENT</code> telemetry while strictly blocking specific expensive habits like cold-cache model switches.
+          Inside <code>isCoachAdvisorySuppressed()</code> (<code>circuitBreakers.mjs</code>), <code>SILENT</code> and <code>OFF</code> mute rules left at <code>"default"</code>, <strong>but</strong> any rule set to <code>"warn"</code> or <code>"block"</code> in <code>.attention-horizon.json</code> still runs. Teams can run quiet <code>SILENT</code> tracking while still blocking costly cold-cache model switches.
         </p>
       </div>
 

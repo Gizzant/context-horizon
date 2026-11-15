@@ -17,7 +17,7 @@
       <p class="doc-eyebrow">Foundations</p>
       <h1 class="doc-title">Google Antigravity vs. Claude Code</h1>
       <p class="doc-lead">
-        Highbeam ships one shared isomorphic physics engine wrapped by native host adapters for Google Antigravity, Claude Code, and MCP editors. Each host uses its fastest native extension mechanism while sharing identical detector rules and scope locks on disk.
+        Highbeam runs one shared context engine across Google Antigravity, Claude Code, and MCP editors. Each host uses its fastest local hook path while sharing the same guard rules and file locks on disk.
       </p>
 
       <h2 id="surface-comparison-matrix">Host Capability Matrix</h2>
@@ -46,27 +46,27 @@
             </tr>
             <tr>
               <td><strong>Execution Path</strong></td>
-              <td>CLI Lifecycle Hooks + Loopback HTTP/SSE Sidecar Daemon + Micro-IPC</td>
-              <td>Tier-1 In-Process V8 Mod (<code>~0.18ms p95</code>) + Tier-2 CLI Hook Fallback</td>
+              <td>CLI Hooks + Local HTTP/SSE Sidecar Server + Micro-IPC</td>
+              <td>Tier-1 In-Process V8 Mod (<code>~0.18ms p95</code>) + Tier-2 CLI Hooks</td>
               <td>On-demand MCP tool calls (<code>ah-mcp</code> / <code>ctxtop-mcp</code>)</td>
             </tr>
             <tr>
               <td><strong>Primary Visual UI</strong></td>
-              <td>Live Sidecar Aux-Pane WebView (<code>127.0.0.1:62935</code>) + Studio <code>&lt;agent-embed&gt;</code></td>
-              <td>Responsive <code>ah-statusline</code> ANSI bar + Docked Mod View + Zero-socket HTML</td>
-              <td>Structured JSON tool responses + PDF/HTML receipts</td>
+              <td>Live Side-Pane WebView (<code>127.0.0.1:62935</code>) + Studio <code>&lt;agent-embed&gt;</code></td>
+              <td>Width-aware <code>ah-statusline</code> bar + Docked Mod View + Local HTML</td>
+              <td>JSON tool replies + PDF/HTML receipts</td>
             </tr>
             <tr>
               <td><strong>Telemetry Source</strong></td>
-              <td><code>SQLITE_OPEN_READONLY</code> on <code>conversations/*.db</code> + JSONL byte-offset slicing</td>
-              <td><code>statusLine</code> stdin stream + <code>.claude/cache/ah_live_state_&lt;id&gt;.json</code></td>
-              <td>Shared live-state snapshots + 30-day quota ledger</td>
+              <td><code>SQLITE_OPEN_READONLY</code> on <code>conversations/*.db</code> + JSONL offset reads</td>
+              <td><code>statusLine</code> stdin JSON + <code>.claude/cache/ah_live_state_&lt;id&gt;.json</code></td>
+              <td>Shared live-state files + 30-day quota ledger</td>
             </tr>
             <tr>
               <td><strong>Subagent Strategy</strong></td>
               <td><code>@ah-flash-scout</code> (<code>&lt;200</code> tok), <code>/browser</code>, <code>/swarm</code> (<code>inherit|branch|share</code>)</td>
-              <td><code>Task</code> / <code>Agent</code> tool delegation + Git worktrees + <code>DET-19</code> IPI sanitizer</td>
-              <td>Cross-editor <code>scope_lock_claim</code> lease coordination</td>
+              <td><code>Task</code> / <code>Agent</code> workers + Git worktrees + <code>DET-19</code> input scrubber</td>
+              <td>Cross-editor <code>scope_lock_claim</code> file locks</td>
             </tr>
           </tbody>
         </table>
@@ -74,41 +74,42 @@
 
       <h2 id="google-antigravity-integration">Google Antigravity Surface Architecture</h2>
       <p>
-        Inside Google Antigravity (App, IDE, and <code>agy</code> CLI), Highbeam operates as a full sidecar-backed plugin registered under <code>attention-horizon-antigravity</code> (and workspace mirror <code>agy-horizon-flightcheck</code>).
+        Inside Google Antigravity (App, IDE, and <code>agy</code> CLI), Highbeam runs as a sidecar plugin under <code>attention-horizon-antigravity</code> (and workspace mirror <code>agy-horizon-flightcheck</code>).
       </p>
 
-      <h3 id="antigravity-sidecar-and-ui">Sidecar Daemon &amp; Edward Tufte WebView</h3>
+      <h3 id="antigravity-sidecar-and-ui">Sidecar Daemon &amp; Simple / Advanced WebView</h3>
       <p>
-        The manifest in <code>sidecars/horizon-daemon/sidecar.json</code> launches <code>node --no-warnings server.mjs</code> on loopback port <code>62935</code> (scanning <code>62935..62945</code> if busy) and mounts directly into Antigravity's auxiliary side pane via <code>SIDECAR_UI_ENTRYPOINT_AUX_PANE</code>. You can also open it from chat via the <code>sidecar://agy-horizon-flightcheck/horizon-daemon/</code> pill or run <code>npx ctxtop --serve</code> in any browser.
+        <code>sidecars/horizon-daemon/sidecar.json</code> starts <code>node --no-warnings server.mjs</code> on local port <code>62935</code> (trying <code>62935..62945</code> if busy). It mounts straight into Antigravity's side pane via <code>SIDECAR_UI_ENTRYPOINT_AUX_PANE</code>. You can also open it from chat via the <code>sidecar://agy-horizon-flightcheck/horizon-daemon/</code> pill or run <code>npx ctxtop --serve</code> in a browser.
       </p>
       <p>
-        The WebView enforces strict UI invariants verified in automated JSDOM gates:
+        The panel offers a clean <strong>Simple View</strong> (<code>#argonSimpleSurface</code>) and a full <strong>Advanced Workbench</strong> (<code>#argonAdvancedSurface</code>). Both fit narrow <code>360px</code> side panes with auto light/dark themes and strict UI safeguards tested in <code>test/top10_token_wasters_ui.test.mjs</code>:
       </p>
       <ul>
-        <li><strong>1-Click Compaction Copy:</strong> Always renders <code>#btnCompactPrimary</code> and <code>#btnCopyParameterizedCompact</code> beside <code>#compactInstruction</code> and <code>#compactReclaim</code> so you can copy a parameterized <code>/compact</code> prompt in one click.</li>
-        <li><strong>Active Source File Protection:</strong> The <code>Ignore file</code> (<code>.antigravityignore</code>) action is offered exclusively on lockfiles, logs, build artifacts, and scratch outputs (<code>isIgnorablePath</code>), never on active source code files.</li>
-        <li><strong>3-Way Mirror Parity:</strong> When local plugin directories (<code>~/.gemini/config/plugins/agy-horizon</code> and <code>agy-horizon-flightcheck</code>) exist on disk, <code>node scripts/sync_mirrors.mjs</code> keeps <code>horizon_panel.html</code> and <code>src/core/*.mjs</code> byte-for-byte identical via SHA-256 verification.</li>
+        <li><strong>Zone A–D Simple View &amp; Clutter Drawer:</strong> Shows the Signal vs. Clutter bar (<code>#tsBarSignal</code>, <code>#tsBarClutter</code>, <code>#tsStatusLabel</code>), clear <code>DO</code> / <code>AVOID</code> / <code>MODEL</code> / <code>EFFORT</code> cards (<code>#tsDoText</code>, <code>#tsAvoidText</code>, <code>#tsModelCard</code>, <code>#tsEffortCard</code>), and a <em>What <code>/compact</code> clears</em> list (<code>#tsWhyClears</code>, <code>#tsWhyList</code>, <code>#tsWhyTotal</code>).</li>
+        <li><strong>1-Click Compaction Copy:</strong> Keeps <code>#btnCompactPrimary</code> and <code>#btnCopyParameterizedCompact</code> right beside <code>#compactInstruction</code> and <code>#compactReclaim</code> (plus Simple View <code>#tsBtnCleanPrimary</code>) for 1-click <code>/compact</code> copy.</li>
+        <li><strong>Active Source File Protection:</strong> In the Advanced Top Consumers list (<code>#taConsumersBody</code>), the <code>Ignore file</code> (<code>.antigravityignore</code>) button shows up only on lockfiles, logs, build outputs, and scratch files (<code>isIgnorablePath</code>). It never shows on <code>Active Source</code> code files.</li>
+        <li><strong>3-Way Mirror Parity:</strong> When local plugin folders (<code>~/.gemini/config/plugins/agy-horizon</code> and <code>agy-horizon-flightcheck</code>) exist on disk, <code>node scripts/sync_mirrors.mjs</code> keeps <code>horizon_panel.html</code> and <code>src/core/*.mjs</code> byte-for-byte matched via SHA-256 checks.</li>
       </ul>
 
       <h3 id="antigravity-subagents-and-modes">Subagents, <code>/browser</code>, <code>/swarm</code> &amp; Workspace Modes</h3>
       <p>
-        Antigravity provides native multi-agent delegation primitives that Highbeam monitors and protects:
+        Antigravity includes built-in multi-agent tools that Highbeam tracks and guards:
       </p>
       <ul>
-        <li><strong>Delegation Scout (<code>@ah-flash-scout</code>):</strong> Defined in <code>agents/ah-flash-scout.md</code> with <code>model: flash</code>, <code>commandExecutionPolicy: off</code>, and read-only search tools (<code>view_file</code>, <code>grep_search</code>, <code>find_by_name</code>, <code>list_dir</code>). It returns compact <code>File:StartLine-EndLine</code> coordinates in under <code>200</code> tokens so your main frontier model avoids reading raw grep dumps.</li>
-        <li><strong><code>/browser</code> Isolation:</strong> Interactive web verification runs inside Antigravity's isolated webview sandbox on Flash by default, staging uploads and visual references under <code>browser_sandbox/</code> without polluting workspace files.</li>
-        <li><strong><code>/swarm</code> &amp; Workspace Modes:</strong> Parallel workers choose one of three <strong>Workspace Modes</strong>:
+        <li><strong>Delegation Scout (<code>@ah-flash-scout</code>):</strong> Set in <code>agents/ah-flash-scout.md</code> with <code>model: flash</code>, <code>commandExecutionPolicy: off</code>, and read-only search tools (<code>view_file</code>, <code>grep_search</code>, <code>find_by_name</code>, <code>list_dir</code>). It returns short <code>File:StartLine-EndLine</code> hits in under <code>200</code> tokens so your main model skips raw grep noise.</li>
+        <li><strong><code>/browser</code> Isolation:</strong> Live web checks run inside Antigravity's sandboxed webview on Flash by default. Files stage in <code>browser_sandbox/</code> without cluttering your repo.</li>
+        <li><strong><code>/swarm</code> &amp; Workspace Modes:</strong> Parallel workers pick one of three <strong>Workspace Modes</strong>:
           <ul>
-            <li><code>inherit</code>: Shares your current working directory; suited for read-only scouts, reviewers, and verifiers.</li>
-            <li><code>share</code>: Allocates an independent Git working tree sharing your underlying repository object store so parallel authors can edit and build concurrently without duplicating disk storage.</li>
-            <li><code>branch</code>: Clones a fully isolated workspace branch when strict filesystem separation is required.</li>
+            <li><code>inherit</code>: Shares your main folder; best for read-only scouts, reviewers, and checkers.</li>
+            <li><code>share</code>: Opens a separate Git worktree sharing your repo's git objects so multiple writers can edit and build at once without extra disk copies.</li>
+            <li><code>branch</code>: Clones a full isolated copy when total folder separation is needed.</li>
           </ul>
         </li>
       </ul>
 
       <h2 id="claude-code-integration">Claude Code Dual-Tier Architecture</h2>
       <p>
-        Claude Code supports two execution tiers. Highbeam ships both in a single package and coordinates them automatically so guardrails never run twice on the same event.
+        Claude Code supports two hook tiers. Highbeam ships both in one package and links them so no guard ever runs twice on the same turn.
       </p>
 
       <figure class="diagram-frame" aria-label="Claude Code Tier-1 V8 Mod vs Tier-2 CLI Hook deduplication">
@@ -147,7 +148,7 @@
 
       <h3 id="responsive-statusline">Responsive Single-Line <code>ah-statusline</code> Tiers</h3>
       <p>
-        In Claude Code, <code>bin/ah-statusline.mjs</code> ingests Claude Code's <code>statusLine</code> stdin JSON after every turn, writes an atomic snapshot to <code>.claude/cache/ah_live_state_&lt;sessionId&gt;.json</code>, and renders a single-line ANSI bar tailored to your terminal width (overridable via <code>--columns &lt;N&gt;</code> or <code>AH_COLUMNS</code>):
+        In Claude Code, <code>bin/ah-statusline.mjs</code> reads Claude Code's <code>statusLine</code> JSON after each turn. It saves a snapshot to <code>.claude/cache/ah_live_state_&lt;sessionId&gt;.json</code> (with cached <code>hostCapabilities</code> and any <code>PreModelSwitch</code> binary notes from <code>inspectClaudeBinaryCapabilities()</code>). Then it prints a one-line ANSI bar sized to your terminal width (set via <code>--columns &lt;N&gt;</code> or <code>AH_COLUMNS</code>):
       </p>
 
       <div class="code-block terminal">

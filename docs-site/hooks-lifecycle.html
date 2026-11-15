@@ -17,12 +17,12 @@
       <p class="doc-eyebrow">Reference</p>
       <h1 class="doc-title">Lifecycle Hooks, V8 Mod &amp; Runtime Control</h1>
       <p class="doc-lead">
-        Highbeam enforces zero-token guardrails and collects turn telemetry through deterministic host lifecycle hooks. This chapter documents every registered hook event, matcher regex, stdin/stdout JSON contract, timeout, and control-latch transition.
+        Highbeam runs zero-token guards and gathers turn stats through fast host hooks. This chapter lists every hook event, tool matcher, JSON format, timeout, and control state.
       </p>
 
       <h2 id="antigravity-hooks">Google Antigravity Lifecycle Hooks (<code>hooks.json</code>)</h2>
       <p>
-        In Google Antigravity, <code>hooks.json</code> registers six command hooks, each executing with a hard <code>5</code>-second timeout and bounded <code>250ms</code> stdin read window:
+        In Google Antigravity, <code>hooks.json</code> wires six command hooks. Each runs with a hard <code>5</code>-second limit and a <code>250ms</code> stdin read cap:
       </p>
 
       <div class="table-wrap">
@@ -40,37 +40,37 @@
               <td><code>SessionStart</code></td>
               <td><code>hooks/session_start.mjs</code> &rarr; <code>src/hooks/session_start.mjs</code></td>
               <td>(Session lifecycle)</td>
-              <td>Hydrates sidecar session metadata, audits Turn-0 MCP schema weight, and prepares Episodic Memory resume packs.</td>
+              <td>Loads sidecar chat info, measures Turn-0 MCP tool size, and preps resume notes.</td>
             </tr>
             <tr>
               <td><code>PreInvocation</code></td>
               <td><code>hooks/pre_invocation.mjs</code> &rarr; <code>src/hooks/pre_invocation.mjs</code></td>
               <td>(User prompt turn)</td>
-              <td>Runs the 8-State Flight Check Router and 6 Blind-Spot Sensors; injects <code>systemMessage</code> context guards or emits the 4-Line Scorecard.</td>
+              <td>Runs the 8-State Flight Check Router and 6 Blind-Spot Sensors. Adds <code>systemMessage</code> guards or prints the 4-Line Scorecard.</td>
             </tr>
             <tr>
               <td><code>PreToolUse</code></td>
               <td><code>hooks/pre_tool_use.mjs</code> &rarr; <code>src/hooks/portfolio_runtime.mjs</code></td>
               <td><code>run_command|edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content|read_file|view_file|invoke_subagent|define_subagent|send_message|manage_subagents|swarm</code></td>
-              <td>Checks <code>.ctl</code> control latch (Direct or Micro-IPC), evaluates <code>DET-01..DET-32</code> pre-execution guards, and writes <code>{"decision":"allow|ask|deny","reason":"..."}</code> to <code>stdout</code> (exit <code>0</code>).</td>
+              <td>Checks the <code>.ctl</code> switch (Direct or Micro-IPC), runs <code>DET-01..DET-32</code> guards, and writes <code>{"decision":"allow|ask|deny","reason":"..."}</code> to <code>stdout</code> (exit <code>0</code>).</td>
             </tr>
             <tr>
               <td><code>PostToolUse</code></td>
               <td><code>hooks/post_tool_use.mjs</code></td>
               <td><code>run_command|edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content|invoke_subagent|define_subagent|send_message|manage_subagents|swarm</code></td>
-              <td>Strips indirect prompt-injection Unicode tags from subagent outputs (<code>DET-19</code>), tracks consecutive failure strikes (<code>DET-04</code>), and updates scope leases.</td>
+              <td>Strips hidden prompt-injection Unicode tags from subagent replies (<code>DET-19</code>), counts repeat errors (<code>DET-04</code>), and updates file locks.</td>
             </tr>
             <tr>
               <td><code>PostInvocation</code></td>
               <td><code>hooks/post_invocation.mjs</code> &rarr; <code>src/hooks/post_invocation.mjs</code></td>
               <td>(Turn completion)</td>
-              <td>Updates <code>~/.gemini/flightcheck/sessions/&lt;id&gt;.sidecar.json</code>, computes saved quota ledger deltas, and pushes SSE updates to the WebView daemon.</td>
+              <td>Updates <code>~/.gemini/flightcheck/sessions/&lt;id&gt;.sidecar.json</code>, logs saved tokens, and streams SSE updates to the side panel.</td>
             </tr>
             <tr>
               <td><code>Stop</code></td>
               <td><code>hooks/stop.mjs</code></td>
               <td>(Agent stop)</td>
-              <td>Verifies test/proof gates (<code>DET-14</code>), checks placeholder slop (<code>DET-15</code>), and flushes pending cold-cache deltas when safe.</td>
+              <td>Checks test gates (<code>DET-14</code>), scans for TODO placeholders (<code>DET-15</code>), and flushes held rule edits when the cache is cold.</td>
             </tr>
           </tbody>
         </table>
@@ -78,21 +78,21 @@
 
       <h2 id="claude-tier1-mod">Claude Code Tier-1 In-Process V8 Mod (<code>hooks/register.js</code>)</h2>
       <p>
-        Declared under <code>hooks.modules</code> in <code>hooks/hooks.json</code>, <code>hooks/register.js</code> loads directly into Claude Code's V8 isolate with zero process-spawn overhead (<code>~0.18ms p95</code>). It sets <code>AH_TIER1_MOD_ACTIVE=1</code> and registers 10 literal handlers:
+        Listed under <code>hooks.modules</code> in <code>hooks/hooks.json</code>, <code>hooks/register.js</code> runs straight inside Claude Code's V8 isolate with zero process startup cost (<code>~0.18ms p95</code>). It sets <code>AH_TIER1_MOD_ACTIVE=1</code> and wires 10 handlers:
       </p>
       <ul>
-        <li><code>on('file.changed')</code>: Tracks external workspace edits on disk to invalidate stale in-context read assumptions.</li>
-        <li><code>on('tool.call')</code>: Intercepts tool invocations synchronously inside V8, running <code>CircuitBreakerEngine.evaluatePreToolUse</code>, 3rd-read AST signature stub folding, and Scope Lock Lease checks.</li>
-        <li><code>on('turn.step')</code> &amp; <code>on('turn.complete')</code>: Updates live token envelopes, Dual-TTL countdowns, thinking-drift monitors, and the 30-day Saved Quota Ledger inside <code>$.store</code>.</li>
-        <li><code>on('classic.SessionStart')</code>: Hydrates the <strong>State Baton</strong> from <code>.claude/cache/HANDOFF_LATEST.md</code> across <code>startup|resume|clear|compact|fork</code> transitions.</li>
-        <li><code>on('classic.PreCompact')</code> &amp; <code>on('classic.PostCompact')</code>: Snapshots active constraints before compaction and flushes queued <code>TurnZeroGate</code> rule updates immediately after compaction while the prefix is cold.</li>
-        <li><code>on('classic.Stop')</code>: Runs stop-phase test verification (<code>DET-14</code>) and batched formatter/placeholder audits (<code>DET-15</code>).</li>
-        <li><code>on('command.horizon')</code> &amp; <code>on('ui.render')</code>: Renders the docked Simple View (4-Rank HUD) or 5-Section Advanced Workbench inside Claude Code.</li>
+        <li><code>on('file.changed')</code>: Spots outside disk edits so stale in-chat file copies get flagged right away.</li>
+        <li><code>on('tool.call')</code>: Checks tool calls inside V8, running <code>CircuitBreakerEngine.evaluatePreToolUse</code>, 3rd-read AST stubs, and Scope Lock checks.</li>
+        <li><code>on('turn.step')</code> &amp; <code>on('turn.complete')</code>: Updates live token counts, Dual-TTL timers, thinking-loop checks, and the 30-day Saved Quota Ledger in <code>$.store</code>.</li>
+        <li><code>on('classic.SessionStart')</code>: Loads the <strong>State Baton</strong> from <code>.claude/cache/HANDOFF_LATEST.md</code> on <code>startup|resume|clear|compact|fork</code>.</li>
+        <li><code>on('classic.PreCompact')</code> &amp; <code>on('classic.PostCompact')</code>: Saves active rules before <code>/compact</code> and writes held <code>TurnZeroGate</code> rule updates right after while the cache is cold.</li>
+        <li><code>on('classic.Stop')</code>: Runs stop-time test checks (<code>DET-14</code>) and placeholder checks (<code>DET-15</code>).</li>
+        <li><code>on('command.horizon')</code> &amp; <code>on('ui.render')</code>: Draws the docked Simple View or 5-part Advanced Workbench inside Claude Code.</li>
       </ul>
 
       <h2 id="claude-tier2-cli-hooks">Claude Code Tier-2 Spawned CLI Hooks (<code>hooks/hooks.json</code>)</h2>
       <p>
-        When Claude Code executes external command hooks (or when Tier-1 Mod APIs are unavailable), six CLI scripts in <code>hooks/handlers/</code> enforce identical contracts (plus an optional <code>user-prompt-submit.mjs</code> handler):
+        When Claude Code runs CLI hooks (or when Tier-1 Mod APIs are off), seven scripts in <code>hooks/handlers/</code> enforce the exact same rules (plus optional <code>user-prompt-submit.mjs</code>):
       </p>
 
       <div class="table-wrap">
@@ -110,56 +110,67 @@
               <td><code>PreToolUse</code></td>
               <td><code>handlers/pre-tool-use.mjs</code></td>
               <td><code>Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Task|Agent|WebFetch|mcp__.*</code></td>
-              <td>Evaluates <code>CircuitBreakerEngine</code>, persists breaker counters across CLI spawns, folds 3rd full-file reads into signature stubs (Pro), and short-circuits <code>Grep|Glob</code> if Tier-1 Mod is active.</td>
+              <td>Runs <code>CircuitBreakerEngine</code>, saves strike counts across turns, folds 3rd full reads into stubs (Pro), and skips <code>Grep|Glob</code> when Tier-1 Mod is active.</td>
             </tr>
             <tr>
               <td><code>PostToolUse</code></td>
               <td><code>handlers/post-tool-use.mjs</code></td>
               <td><code>Bash|PowerShell|Task|Agent|WebFetch|mcp__.*</code></td>
-              <td>Compresses oversized command outputs, sanitizes subagent/web payloads (<code>DET-19</code>), and records non-zero exit strikes.</td>
+              <td>Trims huge shell logs, scrubs subagent and web text (<code>DET-19</code>), and counts failed command runs.</td>
             </tr>
             <tr>
               <td><code>PreModelSwitch</code></td>
               <td><code>handlers/pre-model-switch.mjs</code></td>
               <td>(All model switches)</td>
-              <td>Computes algebraic <code>C*</code> break-even gravity (<code>DET-08</code>) and holds costly mid-TTL downshifts when <code>cachedTokens &gt; C*</code>.</td>
+              <td>Loads Stop-hook stats (<code>cal_&lt;sessionId&gt;.json</code>) and past chat priors (<code>ah_session_prior.json</code>). Checks <code>C*</code> and multi-turn <code>C_max</code> (<code>DET-08</code>), returns <code>"ask"</code> or headless <code>"deny"</code> / <code>"allow"</code> JSON, and logs saved <code>coldWritePenaltyUSD</code> to <code>SavedQuotaLedger</code>.</td>
+            </tr>
+            <tr>
+              <td><code>PostModelSwitch</code></td>
+              <td><code>handlers/post-model-switch.mjs</code></td>
+              <td>(Post model switch)</td>
+              <td>Exits <code>0</code> with empty <code>stdout</code> and <code>stderr</code> so Claude Code 2.1.x never injects extra text into next-turn context. Logs switch outcomes (<code>accepted_after_ask</code>, <code>completed_after_allow</code>, <code>bypassed_after_deny</code>) in <code>model_switch_telemetry.json</code>.</td>
             </tr>
             <tr>
               <td><code>PreCompact</code> / <code>PostCompact</code></td>
               <td><code>handlers/compact-lifecycle.mjs</code></td>
               <td><code>--phase=pre</code> / <code>--phase=post</code></td>
-              <td>Warns on warm-cache compaction (<code>HOLD_COMPACT</code>), writes <code>HANDOFF_LATEST.md</code>, and flushes <code>TurnZeroGate</code> post-compaction.</td>
+              <td>Warns before compacting a warm cache (<code>HOLD_COMPACT</code>), writes <code>HANDOFF_LATEST.md</code>, and flushes <code>TurnZeroGate</code> after compacting.</td>
             </tr>
             <tr>
               <td><code>SessionStart</code></td>
               <td><code>handlers/compact-lifecycle.mjs</code></td>
               <td><code>startup|resume|clear|compact|fork</code> (<code>--phase=start</code>)</td>
-              <td>Re-hydrates active constraints from <code>HANDOFF_LATEST.md</code> and audits eager MCP tool overhead (<code>DET-13</code>).</td>
+              <td>Reloads active rules from <code>HANDOFF_LATEST.md</code> and checks eager MCP schema size (<code>DET-13</code>).</td>
             </tr>
             <tr>
               <td><code>Stop</code></td>
               <td><code>handlers/stop-gate.mjs</code></td>
               <td>(Turn / task stop)</td>
-              <td>Enforces <code>DET-14</code> premature stop prevention when modified source files have unverified failing tests.</td>
+              <td>Checks <code>DET-14</code> stop gates and <code>DET-15</code> placeholder code. Calls <code>updateSessionCalibrationOnStop()</code> to save finished turns, unique API calls, starting cache size, and your 10-turn median output tokens.</td>
             </tr>
           </tbody>
         </table>
       </div>
 
+      <h3 id="claude-binary-capabilities">Chunked Binary Capability Probing (<code>claudeHookCapabilities.mjs</code>)</h3>
+      <p>
+        Built into <code>src/diagnostics/claudeHookCapabilities.mjs</code>, Highbeam checks Claude Code hook support on disk without spawning slow subshells or filling V8 memory. <code>inspectClaudeBinaryCapabilities()</code> streams your <code>claude</code> binary (found via <code>CLAUDE_BIN</code> or <code>PATH</code>, unwrapping Windows <code>.cmd</code> shims) in <code>4 MB</code> chunks with a <code>256</code>-byte overlap. It checks 10 markers: <code>PreModelSwitch</code>, <code>PostModelSwitch</code>, <code>PreEffortChange</code>, keys <code>from_model</code>, <code>to_model</code>, <code>prompt_cache_warm</code>, <code>context_tokens</code>, <code>permissionBehavior==="ask"</code>, ask prompt text, and <code>blocked_by_hook</code>. Results save by <code>(binaryPath, size, mtimeMs)</code> in <code>.claude/cache/ah_claude_capabilities.json</code> so <code>ctxtop install</code> skips <code>PostModelSwitch</code> on older Claude builds (<code>omittedUnsupportedHooks</code>).
+      </p>
+
       <h3 id="hook-wire-contract">Exit Code &amp; JSON Wire Contract (<code>hookIo.mjs</code>)</h3>
       <p>
-        Claude Code Tier-2 handlers strictly follow four wire rules in <code>hooks/handlers/hookIo.mjs</code>:
+        Claude Code Tier-2 scripts follow four strict wire rules in <code>hooks/handlers/hookIo.mjs</code>:
       </p>
       <ol>
-        <li><strong>Silent Pass-Through:</strong> Exit <code>0</code> with empty <code>stdout</code>.</li>
-        <li><strong>Structured JSON Decision:</strong> Write valid JSON (such as <code>{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"..."}}</code> or <code>updatedInput</code>) to <code>stdout</code> and exit <code>0</code>.</li>
-        <li><strong>Hard Veto Block:</strong> Write a concise single-block explanation to <code>stderr</code> and exit <code>2</code> with strictly empty <code>stdout</code>. Never registered on <code>WorktreeCreate</code> or <code>PermissionRequest</code>.</li>
-        <li><strong>Malformed Input Fail-Closed vs. Fail-Safe:</strong> Guard hooks reject malformed non-object stdin JSON with <code>SyntaxError</code> and fail closed (exit <code>2</code>), whereas advisory telemetry hooks pass <code>{ allowMalformed: true }</code> and fail safe (exit <code>0</code>).</li>
+        <li><strong>Quiet Pass:</strong> Exit <code>0</code> with empty <code>stdout</code>.</li>
+        <li><strong>JSON Decision:</strong> Print valid JSON (like <code>{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"..."}}</code> or <code>updatedInput</code>) to <code>stdout</code> and exit <code>0</code>.</li>
+        <li><strong>Hard Block:</strong> Print one short note to <code>stderr</code> and exit <code>2</code> with empty <code>stdout</code>. Never wired on <code>WorktreeCreate</code> or <code>PermissionRequest</code>.</li>
+        <li><strong>Bad Input Handling:</strong> Guard hooks fail closed (exit <code>2</code>) on broken stdin JSON. Advisory stats hooks pass <code>{ allowMalformed: true }</code> and fail safe (exit <code>0</code>).</li>
       </ol>
 
       <h2 id="runtime-control-fsm">5-State Runtime Control FSM (<code>.ctl</code>)</h2>
       <p>
-        Implemented in <code>src/core-isomorphic/control/controlStateMachine.mjs</code>, the Runtime Control plane lets you pause, single-step, rewind, or abort an active coding trajectory from any terminal or IDE button via <code>~/.ctxtop/runtime/&lt;sessionId&gt;.ctl</code>:
+        Built into <code>src/core-isomorphic/control/controlStateMachine.mjs</code>, Runtime Control lets you pause, step, rewind, or stop a live chat from any terminal via <code>~/.ctxtop/runtime/&lt;sessionId&gt;.ctl</code>:
       </p>
 
       <figure class="diagram-frame" aria-label="5-state runtime execution control state machine">
@@ -196,7 +207,7 @@
           <path d="M 564 108 L 640 141" stroke="var(--status-danger)" stroke-width="1.5" />
         </svg>
         <figcaption class="diagram-caption">
-          When <code>PAUSED</code>, <code>PreToolUse</code> enters a non-spinning <code>50ms</code> poll loop (up to <code>600,000ms</code>) until you issue <code>resume</code>, <code>step</code>, or <code>abort</code>. Once <code>ABORTED</code>, no further state transitions are permitted.
+          While <code>PAUSED</code>, <code>PreToolUse</code> polls lightly every <code>50ms</code> (up to <code>600,000ms</code>) until you run <code>resume</code>, <code>step</code>, or <code>abort</code>. Once <code>ABORTED</code>, the latch stays closed until reset.
         </figcaption>
       </figure>
 

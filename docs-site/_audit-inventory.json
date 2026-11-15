@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-12T23:10:00-05:00",
+  "generatedAt": "2026-11-14T21:12:00-05:00",
   "product": {
     "name": "ctxtop",
     "displayName": "Highbeam",
@@ -14,7 +14,13 @@
       "packages/claude-code",
       "packages/pro",
       "packages/mcp"
-    ]
+    ],
+    "sisterSku": {
+      "name": "ctxvault",
+      "displayName": "Highbeam Airlock",
+      "path": "packages/airlock",
+      "version": "1.0.0"
+    }
   },
   "manifests": {
     "rootPackageJson": "package.json",
@@ -409,6 +415,7 @@
       "PreToolUse",
       "PostToolUse",
       "PreModelSwitch",
+      "PostModelSwitch",
       "PreCompact",
       "PostCompact",
       "SessionStart",
@@ -416,6 +423,11 @@
       "UserPromptSubmit (handler module)"
     ]
   },
+  "diagnosticAndCalibrationModules": [
+    "src/diagnostics/claudeHookCapabilities.mjs",
+    "src/utils/sessionCalibration.mjs",
+    "src/utils/modelSwitchTelemetry.mjs"
+  ],
   "detectors": {
     "canonicalCount": 32,
     "catalog": [
@@ -752,8 +764,17 @@
         "blindSearchLimit": 6,
         "consecutiveFailureLimit": 3,
         "enableLocalKeepAlive": false,
-        "microSkillConfirmSessions": 2
-      }
+        "microSkillConfirmSessions": 2,
+        "minSwitchPenaltyUSD": 0.02,
+        "notableAllowPenaltyUSD": 0.02,
+        "outputShrinkageMinTurns": 5,
+        "outputShrinkagePriorTokens": 500
+      },
+      "optionalTopLevelKeys": [
+        "autoPilotDecision",
+        "expectedRemainingTurns",
+        "useEmpiricalHorizonPrior"
+      ]
     },
     "flightcheckJson": {
       "paths": [
@@ -813,17 +834,21 @@
   },
   "environmentVariables": [
     "AH_COLUMNS",
+    "AH_INTERCEPTION_LOG_PATH",
+    "AH_MODEL_SWITCH_TELEMETRY_PATH",
     "AH_TIER1_MOD_ACTIVE",
     "AGY_CONVERSATION_ID",
     "ANTIGRAVITY_CONVERSATION_ID",
     "ANTIGRAVITY_SIDECAR_UI_TOKEN",
     "ANTIGRAVITY_SIDECAR_WEB_PORT",
     "ATTENTION_HORIZON_HOME_DIR",
+    "CLAUDE_BIN",
     "CLAUDE_CODE_ENABLE_TELEMETRY",
     "CLAUDE_HEADLESS",
     "CLAUDE_PLUGIN_ROOT",
     "CTXTOP_ED25519_PRIVATE_KEY_PEM",
     "CTXTOP_ED25519_PUBLIC_KEY_PEM",
+    "CTXTOP_FORCE_FTS5_POLYFILL",
     "CTXTOP_FORCE_NO_SQLITE",
     "CTXTOP_IPC_PATH",
     "CTXTOP_NO_BROWSER",

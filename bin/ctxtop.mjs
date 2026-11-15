@@ -94,6 +94,7 @@ import {
   inspectHookDiagnostics,
   runDoctorDiagnostics
 } from '../src/diagnostics/doctorEngine.mjs';
+import { inspectClaudeBinaryCapabilities } from '../src/diagnostics/claudeHookCapabilities.mjs';
 import { installPlugin, runLiveOrDemoCli } from '../src/cli/init.mjs';
 import { executeStatusLineBridge, runStatusLineCli } from './ah-statusline.mjs';
 
@@ -113,7 +114,7 @@ export const LEAN_POST_TOOL_USE_MATCHER =
   'Bash|PowerShell|Task|Agent|WebFetch|mcp__.*';
 
 const AH_HANDLER_REGEX =
-  /hooks[\\/]handlers[\\/](pre-tool-use|post-tool-use|pre-model-switch|compact-lifecycle|stop-gate)\.mjs/i;
+  /hooks[\\/]handlers[\\/](pre-tool-use|post-tool-use|pre-model-switch|post-model-switch|compact-lifecycle|stop-gate)\.mjs/i;
 const AH_STATUSLINE_REGEX = /ah-statusline\.mjs/i;
 const AH_MOD_REGISTER_REGEX = /(?:^|[\\/])hooks[\\/]register\.js$|^\.\/register\.js$/i;
 
@@ -155,6 +156,7 @@ export function buildCanonicalAhHooks(options = {}) {
   const handlerPrefix = `${rootPrefix}/hooks/handlers`;
   const preMatcher = options.leanHooks ? LEAN_PRE_TOOL_USE_MATCHER : PRE_TOOL_USE_MATCHER;
   const postMatcher = options.leanHooks ? LEAN_POST_TOOL_USE_MATCHER : POST_TOOL_USE_MATCHER;
+  const includePostModelSwitch = options.includePostModelSwitch !== false;
 
   return {
     PreToolUse: [
@@ -189,6 +191,20 @@ export function buildCanonicalAhHooks(options = {}) {
         ]
       }
     ],
+    ...(includePostModelSwitch
+      ? {
+          PostModelSwitch: [
+            {
+              hooks: [
+                {
+                  type: 'command',
+                  command: `node "${handlerPrefix}/post-model-switch.mjs"`
+                }
+              ]
+            }
+          ]
+        }
+      : {}),
     PreCompact: [
       {
         hooks: [
@@ -330,10 +346,30 @@ export function installAttentionHorizon(options = {}) {
 
   const useLeanHooks =
     options.leanHooks !== undefined ? Boolean(options.leanHooks) : !Boolean(options.fullHooks);
+  let includePostModelSwitch =
+    options.includePostModelSwitch !== undefined ? Boolean(options.includePostModelSwitch) : true;
+  const omittedUnsupportedHooks = [];
+  if (
+    options.includePostModelSwitch === undefined &&
+    options.checkBinaryCapabilities !== false
+  ) {
+    const caps = inspectClaudeBinaryCapabilities({
+      ...options,
+      cwd,
+      probeVersion: false,
+      recordDiagnostic: false,
+      writeCache: false
+    });
+    if (caps.found === true && caps.postModelSwitchSupported === false) {
+      includePostModelSwitch = false;
+      omittedUnsupportedHooks.push('PostModelSwitch');
+    }
+  }
   const canonicalHooks = buildCanonicalAhHooks({
     usePluginRootVar: false,
     pkgRoot,
-    leanHooks: useLeanHooks
+    leanHooks: useLeanHooks,
+    includePostModelSwitch
   });
   for (const [eventName, ahEntries] of Object.entries(canonicalHooks)) {
     const existingList = Array.isArray(currentSettings.hooks[eventName])
@@ -395,6 +431,7 @@ export function installAttentionHorizon(options = {}) {
     settingsPath,
     backupPath,
     gitExcludeUpdated: gitExclude.updated,
+    omittedUnsupportedHooks,
     settings: currentSettings
   };
 }

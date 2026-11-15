@@ -17,12 +17,12 @@
       <p class="doc-eyebrow">Architecture &amp; Ops</p>
       <h1 class="doc-title">Pro Licensing, FinOps &amp; Troubleshooting</h1>
       <p class="doc-lead">
-        Highbeam's core HUD and 32 detector rules are MIT-licensed and free forever. Optional Pro and Team tiers add offline Ed25519-verified automation, expensable PDF 1.4 receipts, and zero-cloud Grafana/Datadog observability packs.
+        Highbeam's core HUD and all 32 guards are MIT-licensed and free forever. Optional Pro and Team plans add offline Ed25519 license keys, PDF 1.4 expense receipts, and local Grafana or Datadog metrics packs.
       </p>
 
       <h2 id="tier-matrix">1. Three-Tier Entitlement Matrix</h2>
       <p>
-        Run <code>npx ctxtop tiers</code> at any time to inspect the built-in capability matrix from <code>src/core/pro_license.mjs</code>:
+        Run <code>npx ctxtop tiers</code> anytime to view the plan table from <code>src/core/pro_license.mjs</code>:
       </p>
 
       <div class="table-wrap">
@@ -38,17 +38,17 @@
             <tr>
               <td><strong>Free</strong><br /><span class="badge safe">MIT Core</span></td>
               <td><code>$0/mo</code></td>
-              <td>Simple View HUD &amp; 4-Rank Tufte Verdict Bar, 40-Cell Parabolic U-Curve Context Map, 5m/1h Live Dual-TTL Countdown, <code>HOLD_COMPACT</code> Warm Cache Warning, and all 32 detector rules.</td>
+              <td>Simple View HUD &amp; 4-rank verdict bar, 40-cell U-curve context map, live 5m/1h cache timers, <code>HOLD_COMPACT</code> warm cache alerts, and all 32 guards.</td>
             </tr>
             <tr>
               <td><strong>Pro</strong><br /><span class="badge accent">Solo Dev</span></td>
               <td><code>$15/mo</code><br />(<code>$12-$19</code> range)</td>
-              <td>Automated <code>PreToolUse</code> Delta-Read &amp; 3rd-Read AST Signature Stub Interception, Cross-Session Chronic Offender Memory, 30-Day Workspace Savings Ledger (<code>#tufteBaselineStrip</code>), Signed Corporate PDF 1.4 Expense Receipt, and <code>AUTO_PILOT</code> Hysteresis Lock &amp; Algebraic <code>C*</code> Switch Hold.</td>
+              <td>Auto <code>PreToolUse</code> delta-reads &amp; 3rd-read AST stubs, cross-chat waste tracking, 30-day savings ledger (<code>#tufteBaselineStrip</code>), signed PDF 1.4 expense receipts, and <code>AUTO_PILOT</code> <code>C*</code> switch holds.</td>
             </tr>
             <tr>
               <td><strong>Team</strong><br /><span class="badge">Zero-Cloud FinOps</span></td>
               <td><code>$39/seat/mo</code></td>
-              <td>Shared <code>.agents/rules/</code> Primacy-Band Governance, Sanitized Cross-Developer Bloat Analytics (<code>POST /api/export/sanitized</code>), Repo-Wide MCP Lazy-Loading Enforcement, and BYO-Grafana OpenTelemetry &amp; Prometheus Alerting Pack (<code>ctxtop team-pack</code>).</td>
+              <td>Shared <code>.agents/rules/</code> top-of-prompt budgets, scrubbed team waste stats (<code>POST /api/export/sanitized</code>), repo-wide MCP lazy-load checks, and Grafana / Prometheus packs (<code>ctxtop team-pack</code>).</td>
             </tr>
           </tbody>
         </table>
@@ -56,7 +56,7 @@
 
       <h2 id="offline-ed25519-licensing">2. Offline Ed25519 Activation &amp; 14-Day Trial</h2>
       <p>
-        Pro and Team entitlements never phone home to a license server. Activation tokens are cryptographically signed Ed25519 payloads verified locally against the public key embedded in <code>src/core/pro_license.mjs</code> and stored at <code>~/.ctxtop/license.json</code>:
+        Pro and Team keys never call a cloud server. Each key is an Ed25519 token checked locally against the public key in <code>src/core/pro_license.mjs</code> and saved to <code>~/.ctxtop/license.json</code>:
       </p>
 
       <div class="code-block terminal">
@@ -79,31 +79,31 @@ npx ctxtop team-pack --org "Core Infrastructure" --out ./finops-pack --preview</
 
       <h2 id="troubleshooting-playbook">3. Platform Quirks &amp; Diagnostic Playbook</h2>
       <p>
-        Every failure state below maps to a deterministic check or one-command local repair. Start with <code>npx ctxtop doctor</code> to inspect all host contracts and recent non-fatal hook errors.
+        Every issue below has a fast check or a one-line local fix. Run <code>npx ctxtop doctor</code> first to check host setup and recent hook logs.
       </p>
 
       <h3 id="quirk-vision-http400">Upstream HTTP 400 on Image / Screenshot Attachments (<code>DET-20</code>)</h3>
       <p>
-        <strong>Symptom:</strong> Submitting a screenshot while Google AI Credit Overages are active fails upstream with HTTP <code>400 Bad Request</code> (<code>"Unable to process input image"</code>).<br />
-        <strong>Resolution:</strong> Configured in <code>config/platformQuirks.json</code>, <code>DET-20</code> warns before submission when overage mode and image media coincide. Submit text/DOM snippets only (or delegate DOM inspection) until Base Quota resets.
+        <strong>Symptom:</strong> Sending a screenshot while Google AI Credit Overages are active fails with HTTP <code>400 Bad Request</code> (<code>"Unable to process input image"</code>).<br />
+        <strong>Resolution:</strong> <code>DET-20</code> (set in <code>config/platformQuirks.json</code>) warns you before sending images during overage mode. Send plain text or DOM snippets until Base Quota resets.
       </p>
 
       <h3 id="quirk-hybrid-lockout">Preventing 168-Hour Hybrid Quota Lockouts (<code>DET-16</code>)</h3>
       <p>
-        <strong>Symptom:</strong> Aggressive parallel subagent fan-out near quota exhaustion can trigger upstream 7-day (<code>168</code>-hour) rate lockouts.<br />
-        <strong>Resolution:</strong> Keep <code>DET-16</code> enabled. It throttles concurrency to a single worker at <code>80%</code> quota utilization, prompts explicit confirmation at <code>90%</code>, and bounds individual subagents to <code>40,000</code> tokens and <code>12</code> turns.
+        <strong>Symptom:</strong> Launching many parallel subagents near your quota limit can trigger a 7-day (<code>168</code>-hour) upstream lockout.<br />
+        <strong>Resolution:</strong> Keep <code>DET-16</code> on. It caps workers to one at <code>80%</code> quota use, asks before continuing at <code>90%</code>, and limits each worker to <code>40,000</code> tokens and <code>12</code> turns.
       </p>
 
       <h3 id="quirk-powershell-chains">Windows PowerShell 5.1 Command Chaining</h3>
       <p>
-        <strong>Symptom:</strong> Shell commands containing POSIX <code>&amp;&amp;</code> operators fail with a parser error in Windows PowerShell 5.1.<br />
-        <strong>Resolution:</strong> Wrap compound verification commands inside <code>cmd /c "node scripts/sync_mirrors.mjs &amp;&amp; node bin/ctxtop.mjs verify --json"</code> or execute semicolon-separated statements cleanly.
+        <strong>Symptom:</strong> Shell commands using <code>&amp;&amp;</code> fail with a parser error in Windows PowerShell 5.1.<br />
+        <strong>Resolution:</strong> Wrap chained commands in <code>cmd /c "node scripts/sync_mirrors.mjs &amp;&amp; node bin/ctxtop.mjs verify --json"</code>, or separate steps with semicolons.
       </p>
 
       <h3 id="quirk-paused-session">Tool Execution Appears Hung or Frozen</h3>
       <p>
-        <strong>Symptom:</strong> Tool calls wait indefinitely at the <code>PreToolUse</code> boundary (up to 10 minutes) or immediately reject with <code>Execution halted by control latch</code>.<br />
-        <strong>Resolution:</strong> Check whether the session was placed into <code>PAUSED</code> or terminal <code>ABORTED</code> state via <code>ctxtop control</code>:
+        <strong>Symptom:</strong> Tool calls pause at <code>PreToolUse</code> (up to 10 minutes) or fail right away with <code>Execution halted by control latch</code>.<br />
+        <strong>Resolution:</strong> Check if the session was set to <code>PAUSED</code> or <code>ABORTED</code> via <code>ctxtop control</code>:
       </p>
       <div class="code-block terminal">
         <div class="code-header"><span>Inspect and Clear Runtime Control Latch</span></div>
@@ -113,12 +113,14 @@ npx ctxtop control resume --session default
 rm ~/.ctxtop/runtime/default.ctl</code></pre>
       </div>
 
-      <h3 id="quirk-sqlite-and-storage">Missing <code>node:sqlite</code>, Orphaned Brains &amp; Bloated <code>state.vscdb</code></h3>
+      <h3 id="quirk-sqlite-and-storage">Missing <code>node:sqlite</code> / <code>SQLITE_ENABLE_FTS5</code>, Binary Capabilities &amp; Bloated <code>state.vscdb</code></h3>
       <ul>
-        <li><strong>Force JSONL Mode:</strong> If an older custom Node 20 binary lacks experimental <code>node:sqlite</code>, set <code>CTXTOP_FORCE_NO_SQLITE=1</code>; Highbeam switches cleanly to read-only JSONL offset slicing.</li>
-        <li><strong>Relink Antigravity Brains:</strong> Run <code>npx ctxtop doctor --recover-brain --dry-run</code> (then omit <code>--dry-run</code>) to repair broken brain links after IDE profile upgrades.</li>
-        <li><strong>Compact Cursor SQLite Storage:</strong> Run <code>npx ctxtop doctor --gc-cursor --vscdb &lt;path-to-state.vscdb&gt; --dry-run</code> to preview orphan-row reclamation before compacting.</li>
-        <li><strong>Zero-PII Bug Reports:</strong> Run <code>npx ctxtop doctor --diagnostic &gt; diagnostic.md</code> to generate a sanitized issue bundle with home directories and usernames scrubbed.</li>
+        <li><strong>Automatic FTS5 Polyfill (Node 22):</strong> If your Node 22 binary lacks <code>SQLITE_ENABLE_FTS5</code>, <code>src/engine-node/db/probe.mjs</code> loads a built-in SQLite table and snippet polyfill automatically. Set <code>CTXTOP_FORCE_FTS5_POLYFILL=1</code> to test it directly.</li>
+        <li><strong>Force JSONL Mode:</strong> If an older Node 20 build lacks <code>node:sqlite</code>, set <code>CTXTOP_FORCE_NO_SQLITE=1</code>. Highbeam switches cleanly to read-only JSONL offset reads.</li>
+        <li><strong>Claude Binary Capability Warnings:</strong> If <code>ctxtop doctor</code> shows <code>[WARN] claude_pre_model_switch</code>, run <code>npx ctxtop doctor --json</code> (or set <code>CLAUDE_BIN</code> to your Claude Code binary path). That checks <code>PreModelSwitch</code>, <code>PostModelSwitch</code>, and <code>supportsAskDecision</code> support.</li>
+        <li><strong>Relink Antigravity Brains:</strong> Run <code>npx ctxtop doctor --recover-brain --dry-run</code> first, then drop <code>--dry-run</code> to fix broken brain links after IDE profile upgrades.</li>
+        <li><strong>Compact Cursor SQLite Storage:</strong> Run <code>npx ctxtop doctor --gc-cursor --vscdb &lt;path-to-state.vscdb&gt; --dry-run</code> to preview space savings before compacting.</li>
+        <li><strong>Zero-PII Bug Reports:</strong> Run <code>npx ctxtop doctor --diagnostic &gt; diagnostic.md</code> to create a clean debug bundle with usernames and home paths removed.</li>
       </ul>
 
       <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>

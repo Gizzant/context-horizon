@@ -17,12 +17,12 @@
       <p class="doc-eyebrow">Reference</p>
       <h1 class="doc-title">Configuration, Permissions &amp; Security Sandbox</h1>
       <p class="doc-lead">
-        Highbeam layers project-local configuration over user-global defaults while enforcing non-bypassable Ring-0 boundaries, read-only SQLite locks, and loopback-only network sockets.
+        Highbeam layers project settings over user defaults while keeping strict Ring-0 safety checks, read-only SQLite reads, and local-only ports.
       </p>
 
       <h2 id="horizon-json-schema">1. Unified Config Schema (<code>.attention-horizon.json</code>)</h2>
       <p>
-        Implemented in <code>src/core-isomorphic/config/horizonConfig.mjs</code>, Highbeam merges configuration in order from lowest to highest precedence: built-in defaults &rarr; user-global <code>~/.attention-horizon/config.json</code> &rarr; project-local <code>&lt;workspace&gt;/.attention-horizon.json</code>.
+        Built into <code>src/core-isomorphic/config/horizonConfig.mjs</code>, Highbeam merges settings from lowest to highest priority: built-in defaults &rarr; global <code>~/.attention-horizon/config.json</code> &rarr; project <code>&lt;workspace&gt;/.attention-horizon.json</code>.
       </p>
 
       <div class="code-block">
@@ -70,19 +70,24 @@
     "blindSearchLimit": 6,
     "consecutiveFailureLimit": 3,
     "enableLocalKeepAlive": false,
-    "microSkillConfirmSessions": 2
+    "microSkillConfirmSessions": 2,
+    "minSwitchPenaltyUSD": 0.02,
+    "notableAllowPenaltyUSD": 0.02,
+    "outputShrinkageMinTurns": 5,
+    "outputShrinkagePriorTokens": 500
   }
 }</code></pre>
       </div>
 
       <ul>
-        <li><strong>Valid <code>flightMode</code> values (<a href="flight-modes.html#four-flight-modes">behavioral matrix</a>):</strong> <code>"OFF"</code>, <code>"SILENT"</code>, <code>"COACH"</code>, <code>"AUTO_PILOT"</code> (falls back gracefully to <code>"COACH"</code> if no Pro entitlement is active).</li>
-        <li><strong>Valid per-detector override values (<a href="flight-modes.html#per-detector-overrides">override semantics</a>):</strong> <code>"default"</code> (use catalog default), <code>"off"</code>, <code>"warn"</code>, <code>"block"</code>.</li>
+        <li><strong>Valid <code>flightMode</code> values (<a href="flight-modes.html#four-flight-modes">behavioral matrix</a>):</strong> <code>"OFF"</code>, <code>"SILENT"</code>, <code>"COACH"</code>, or <code>"AUTO_PILOT"</code> (drops back to <code>"COACH"</code> if no Pro key is active).</li>
+        <li><strong>Valid per-detector override values (<a href="flight-modes.html#per-detector-overrides">override semantics</a>):</strong> <code>"default"</code> (catalog setting), <code>"off"</code>, <code>"warn"</code>, or <code>"block"</code>.</li>
+        <li><strong>Optional <code>DET-08</code> Horizon &amp; Router Keys:</strong> <code>autoPilotDecision</code> (<code>"ask" | "deny"</code>), <code>expectedRemainingTurns</code> (sets turns left <code>H_post</code>), and <code>useEmpiricalHorizonPrior</code> (<code>boolean</code>, uses Stop-hook and past chat lengths).</li>
       </ul>
 
       <h2 id="flightcheck-json-schema">2. Antigravity Router Schema (<code>default_flightcheck.json</code>)</h2>
       <p>
-        Antigravity's <code>PreInvocation</code> router loads defaults from <code>config/default_flightcheck.json</code> and overlays user overrides from <code>~/.gemini/flightcheck/config.json</code>. See <a href="flight-modes.html#antigravity-hook-levels">Antigravity Router Levels &amp; Cooldowns</a> for how <code>hook_level</code> interacts with <code>halt_cooldown_turns</code> and emergency exemptions:
+        Antigravity's <code>PreInvocation</code> router loads defaults from <code>config/default_flightcheck.json</code> and applies your changes from <code>~/.gemini/flightcheck/config.json</code>. See <a href="flight-modes.html#antigravity-hook-levels">Antigravity Router Levels &amp; Cooldowns</a> for how <code>hook_level</code> works with <code>halt_cooldown_turns</code>:
       </p>
 
       <div class="table-wrap">
@@ -98,72 +103,72 @@
             <tr>
               <td><code>hook_level</code></td>
               <td><code>"guard"</code></td>
-              <td>Router enforcement posture: <code>"guard"</code> halts with a scorecard; <code>"advisory"</code> injects warn-only notices.</td>
+              <td>Router mode: <code>"guard"</code> stops with a scorecard; <code>"advisory"</code> adds soft warnings only.</td>
             </tr>
             <tr>
               <td><code>halt_cooldown_turns</code></td>
               <td><code>3</code></td>
-              <td>Minimum turns between consecutive router halts to prevent nag loops (Context Truncation Crisis exempt).</td>
+              <td>Turns skipped between router stops to avoid nag loops (Context Truncation Crisis skips cooldown).</td>
             </tr>
             <tr>
               <td><code>cold_session_max_turns</code></td>
               <td><code>3</code></td>
-              <td>Early-turn window eligible for cold-start prompt anchoring checks.</td>
+              <td>Early turns checked for missing file or scope anchors.</td>
             </tr>
             <tr>
               <td><code>trust_decay_turn_threshold</code></td>
               <td><code>10</code></td>
-              <td>Turn count after which progressive governance decay monitoring engages.</td>
+              <td>Turn count where deeper context drift checks turn on.</td>
             </tr>
             <tr>
               <td><code>warm_cache_lock_tokens</code></td>
               <td><code>50000</code></td>
-              <td>Cached token threshold locking prefix rule files against mid-session cache invalidation.</td>
+              <td>Cached token count that locks rule files so edits do not break a warm cache.</td>
             </tr>
             <tr>
               <td><code>subagent_min_cache_tokens</code> / <code>subagent_min_purity_pct</code></td>
               <td><code>25000</code> / <code>70.0</code></td>
-              <td>Warm parent threshold triggering <code>STEER_SUBAGENT</code> delegation for broad exploratory tasks.</td>
+              <td>Warm main-chat threshold that triggers <code>STEER_SUBAGENT</code> tips for broad repo searches.</td>
             </tr>
             <tr>
               <td><code>compact_halt_purity_pct</code></td>
               <td><code>45.0</code></td>
-              <td>Signal Purity floor below which high-effort turns recommend pruning or compaction.</td>
+              <td>Signal Purity floor where high-effort turns suggest trimming or running <code>/compact</code>.</td>
             </tr>
             <tr>
               <td><code>amputation_token_threshold</code></td>
               <td><code>140000</code></td>
-              <td>Token threshold raising <code>amputationCrisis</code> (Context Truncation Risk).</td>
+              <td>Token limit that raises <code>amputationCrisis</code> (Context Truncation Risk).</td>
             </tr>
             <tr>
               <td><code>quota_floor_fraction</code></td>
               <td><code>0.10</code></td>
-              <td>5-hour quota floor (<code>10%</code>) triggering <code>HALT_EFFORT_OR_QUOTA</code> conservation guidance.</td>
+              <td>5-hour quota floor (<code>10%</code>) that triggers <code>HALT_EFFORT_OR_QUOTA</code> quota-saving tips.</td>
             </tr>
             <tr>
               <td><code>max_single_write_lines</code> / <code>max_tool_payload_tokens</code></td>
               <td><code>600</code> / <code>25000</code></td>
-              <td>Single-shot output truncation shield and maximum unarchived tool payload threshold.</td>
+              <td>Max lines for one file write and max raw tool output size before archiving.</td>
             </tr>
             <tr>
               <td><code>uncheckpointed_dirty_file_limit</code></td>
               <td><code>4</code></td>
-              <td>Dirty working-tree file count before prompting an intermediate verification checkpoint.</td>
+              <td>Dirty file count that nudges you to run a test or git check.</td>
             </tr>
             <tr>
               <td><code>consecutive_error_strike_limit</code></td>
               <td><code>3</code></td>
-              <td>Identical consecutive command/tool errors before tripping the 3-strike breaker.</td>
+              <td>Repeat identical tool errors allowed before the 3-strike breaker stops the loop.</td>
             </tr>
             <tr>
               <td><code>plan_revision_warn</code> / <code>split_recommend_minutes</code></td>
               <td><code>3</code> / <code>45</code></td>
-              <td>Plan churn count and session duration thresholds advising session rotation.</td>
+              <td>Plan rewrite count and chat length in minutes that suggest starting a fresh session.</td>
             </tr>
             <tr>
               <td><code>handoff_audit_enabled</code> / <code>deprecated_paths</code></td>
               <td><code>true</code> / <code>["**/legacy/**", "**/deprecated/**", "**/v1/**"]</code></td>
-              <td>Enables 5-point State Baton checks and defines globs flagged as <code>LEGACY_POISON</code>.</td>
+              <td>Turns on 5-point State Baton checks and lists path globs tagged as <code>LEGACY_POISON</code>.</td>
             </tr>
           </tbody>
         </table>
@@ -173,10 +178,10 @@
         <summary>Platform Quirks &amp; WebView Window Settings Schemas</summary>
         <div class="deep-dive-body">
           <p>
-            <strong><code>config/platformQuirks.json</code>:</strong> Configures two upstream platform safeguards: <code>visionOverageHttp400</code> (warns via <code>DET-20</code> when AI Credit Overages are active and an image attachment would trigger upstream HTTP 400 <code>"Unable to process input image"</code>) and <code>hybridQuotaLockout</code> (<code>DET-16</code>: throttles to 1 worker at <code>80%</code> quota, hard-asks at <code>90%</code>, caps subagents at <code>40,000</code> tokens / <code>12</code> turns to prevent <code>168</code>-hour lockouts).
+            <strong><code>config/platformQuirks.json</code>:</strong> Sets two host safety guards. First, <code>visionOverageHttp400</code> warns via <code>DET-20</code> when AI Credit Overages are on and an image would fail with HTTP 400 (<code>"Unable to process input image"</code>). Second, <code>hybridQuotaLockout</code> (<code>DET-16</code>) caps workers to 1 at <code>80%</code> quota, asks at <code>90%</code>, and limits subagents to <code>40,000</code> tokens or <code>12</code> turns to prevent <code>168</code>-hour lockouts.
           </p>
           <p>
-            <strong><code>&lt;cacheDir&gt;/settings.json</code> (<code>src/core/settings.mjs</code>):</strong> Stores WebView slider overrides <code>{ safeLimitTokens, reminderAtPct, modelOverrides }</code>, clamped strictly to <code>20,000..1,048,576</code> tokens and <code>50%..99%</code> reminder thresholds, written atomically via PID-scoped rename.
+            <strong><code>&lt;cacheDir&gt;/settings.json</code> (<code>src/core/settings.mjs</code>):</strong> Saves WebView slider values <code>{ safeLimitTokens, reminderAtPct, modelOverrides }</code>. Values stay clamped to <code>20,000..1,048,576</code> tokens and <code>50%..99%</code>, and save safely via atomic rename.
           </p>
         </div>
       </details>
@@ -195,92 +200,112 @@
             <tr>
               <td><code>AH_COLUMNS</code></td>
               <td><code>bin/ah-statusline.mjs</code></td>
-              <td>Overrides terminal column width (<code>80</code>, <code>110</code>, or <code>144+</code> layout tiers) when <code>--columns</code> is omitted.</td>
+              <td>Sets terminal width (<code>80</code>, <code>110</code>, or <code>144+</code> columns) when <code>--columns</code> is not passed.</td>
+            </tr>
+            <tr>
+              <td><code>AH_INTERCEPTION_LOG_PATH</code></td>
+              <td><code>hooks/handlers/pre-model-switch.mjs</code></td>
+              <td>Optional JSONL file path to log <code>PreModelSwitch</code> break-even math, weights, and results.</td>
+            </tr>
+            <tr>
+              <td><code>AH_MODEL_SWITCH_TELEMETRY_PATH</code></td>
+              <td><code>src/utils/modelSwitchTelemetry.mjs</code></td>
+              <td>Custom path for scrubbed switch stats (defaults to <code>~/.attention-horizon/cache/model_switch_telemetry.json</code>).</td>
             </tr>
             <tr>
               <td><code>AH_TIER1_MOD_ACTIVE</code></td>
               <td><code>hooks/register.js</code> &amp; Tier-2 handlers</td>
-              <td>Set to <code>"1"</code> by the in-process V8 Mod so spawned Tier-2 CLI hooks skip duplicate work.</td>
+              <td>Set to <code>"1"</code> by the in-process V8 Mod so Tier-2 CLI hooks do not run twice.</td>
+            </tr>
+            <tr>
+              <td><code>CLAUDE_BIN</code></td>
+              <td><code>src/diagnostics/claudeHookCapabilities.mjs</code></td>
+              <td>Path to the Claude Code binary or bundle checked for hook support flags.</td>
             </tr>
             <tr>
               <td><code>CLAUDE_PLUGIN_ROOT</code></td>
               <td><code>hooks/hooks.json</code> &amp; <code>bin/ctxtop.mjs</code></td>
-              <td>Resolved by Claude Code to locate plugin hook handlers and <code>hooks/register.js</code>.</td>
+              <td>Set by Claude Code so hooks find plugin scripts and <code>hooks/register.js</code>.</td>
             </tr>
             <tr>
               <td><code>CLAUDE_CODE_ENABLE_TELEMETRY</code></td>
               <td><code>otelExporter.mjs</code></td>
-              <td>Enables local OpenTelemetry metric export formatting when set to <code>"1"</code>.</td>
+              <td>Turns on local OpenTelemetry metric output when set to <code>"1"</code>.</td>
             </tr>
             <tr>
               <td><code>CLAUDE_HEADLESS</code></td>
               <td><code>hooks/register.js</code></td>
-              <td>Suppresses interactive docked UI view registration during headless CI runs.</td>
+              <td>Skips side-panel UI setup during headless CI runs.</td>
             </tr>
             <tr>
               <td><code>ANTIGRAVITY_CONVERSATION_ID</code> / <code>AGY_CONVERSATION_ID</code></td>
               <td><code>server.mjs</code> &amp; <code>agy_cli_compressor.mjs</code></td>
-              <td>Pins the sidecar daemon or CLI compressor shim to a specific Antigravity trajectory ID.</td>
+              <td>Pins the sidecar server or CLI log trimmer to one Antigravity chat ID.</td>
             </tr>
             <tr>
               <td><code>ANTIGRAVITY_SIDECAR_WEB_PORT</code> / <code>PORT</code></td>
               <td><code>sidecars/horizon-daemon/server.mjs</code></td>
-              <td>Overrides the default loopback port (<code>62935</code>, fallback range <code>62935..62945</code>).</td>
+              <td>Sets a custom local port (default <code>62935</code>, range <code>62935..62945</code>).</td>
             </tr>
             <tr>
               <td><code>ANTIGRAVITY_SIDECAR_UI_TOKEN</code></td>
               <td><code>sidecars/horizon-daemon/server.mjs</code></td>
-              <td>Optional host-supplied loopback bearer token validated on WebView requests when set by Antigravity.</td>
+              <td>Optional local bearer token checked on WebView requests when set by Antigravity.</td>
             </tr>
             <tr>
               <td><code>ATTENTION_HORIZON_HOME_DIR</code></td>
               <td><code>src/core/constants.mjs</code></td>
-              <td>Redirects Highbeam's local home storage root (useful in isolated sandboxes).</td>
+              <td>Moves Highbeam's local home folder (handy in test sandboxes).</td>
             </tr>
             <tr>
               <td><code>CTXTOP_FORCE_NO_SQLITE</code></td>
               <td><code>src/engine-node/db/probe.mjs</code></td>
-              <td>When <code>"1"</code>, bypasses <code>node:sqlite</code> and forces pure JSONL byte-offset fallback mode.</td>
+              <td>When <code>"1"</code>, skips <code>node:sqlite</code> and uses read-only JSONL byte-offset reads.</td>
+            </tr>
+            <tr>
+              <td><code>CTXTOP_FORCE_FTS5_POLYFILL</code></td>
+              <td><code>src/engine-node/db/probe.mjs</code></td>
+              <td>When <code>"1"</code>, uses the built-in SQLite FTS5 polyfill even if native <code>SQLITE_ENABLE_FTS5</code> exists.</td>
             </tr>
             <tr>
               <td><code>CTXTOP_IPC_PATH</code></td>
               <td><code>src/engine-node/ipc/protocol.mjs</code></td>
-              <td>Overrides the default user-scoped Unix socket or Windows Named Pipe endpoint.</td>
+              <td>Custom path for the user Unix socket or Windows Named Pipe.</td>
             </tr>
             <tr>
               <td><code>CTXTOP_NO_BROWSER</code></td>
               <td><code>src/cli/init.mjs</code></td>
-              <td>Prevents <code>agy-horizon ui</code> from launching an external OS browser tab automatically.</td>
+              <td>Stops <code>agy-horizon ui</code> from opening a browser tab on launch.</td>
             </tr>
             <tr>
               <td><code>HORIZON_DEMO</code> / <code>HORIZON_DEMO_SCENARIO</code></td>
               <td><code>server.mjs</code> &amp; <code>horizon_hud.mjs</code></td>
-              <td>Serves synthetic crisis fixture states (scenarios <code>1..5</code>) without reading real transcripts.</td>
+              <td>Loads sample test scenes (<code>1..5</code>) without reading real chat logs.</td>
             </tr>
             <tr>
               <td><code>HORIZON_DIAGNOSTICS_DIR</code></td>
               <td><code>src/core/hook_diagnostics.mjs</code></td>
-              <td>Custom directory for non-fatal hook diagnostic ring-buffer logs inspected by <code>ctxtop doctor</code>.</td>
+              <td>Custom folder for hook error logs read by <code>ctxtop doctor</code>.</td>
             </tr>
             <tr>
               <td><code>HORIZON_DEBUG</code> / <code>DEBUG</code></td>
               <td><code>classifier.mjs</code>, <code>quota.mjs</code>, <code>init.mjs</code></td>
-              <td>Enables verbose local stderr diagnostics during parser or quota troubleshooting.</td>
+              <td>Prints extra local debug lines to stderr when troubleshooting.</td>
             </tr>
             <tr>
               <td><code>HORIZON_TEST_NO_SPAWN</code></td>
               <td><code>sidecars/horizon-daemon/server.mjs</code></td>
-              <td>Disables child OS explorer/browser spawning on <code>POST /api/open-brain</code> inside test harnesses.</td>
+              <td>Blocks OS file explorer launches on <code>POST /api/open-brain</code> during tests.</td>
             </tr>
             <tr>
               <td><code>CTXTOP_ED25519_PUBLIC_KEY_PEM</code> / <code>CTXTOP_PRO_DEV</code></td>
               <td><code>src/core/pro_license.mjs</code></td>
-              <td>Custom Ed25519 verification public key for enterprise air-gapped testing, or local dev mode flag (ignored inside production/test guards unless explicitly permitted).</td>
+              <td>Custom Ed25519 public key for offline enterprise tests, or local dev flag.</td>
             </tr>
             <tr>
               <td><code>CTXTOP_ED25519_PRIVATE_KEY_PEM</code> / <code>CTXTOP_POLAR_WEBHOOK_SECRET</code></td>
               <td><code>polar_webhook_worker.mjs</code></td>
-              <td>Server-side signing secrets used exclusively by the external Polar license fulfillment worker (never required on developer machines).</td>
+              <td>Server signing keys for the Polar license worker (never needed on dev machines).</td>
             </tr>
           </tbody>
         </table>
@@ -288,14 +313,14 @@
 
       <h2 id="security-sandbox">4. Zero-Trust Security Sandbox &amp; Branch Isolation</h2>
       <p>
-        Defined in <code>SECURITY.md</code> and verified across automated static compliance suites (<code>test/mod_static_compliance.test.mjs</code>), Highbeam enforces five strict security invariants:
+        Backed by <code>SECURITY.md</code> and checked in <code>test/mod_static_compliance.test.mjs</code>, Highbeam enforces five strict safety rules:
       </p>
       <ol>
-        <li><strong>Zero Outbound Network Calls:</strong> Neither the CLI, lifecycle hooks, V8 Mod, MCP server, nor HTTP daemon imports external HTTP clients or makes DNS/HTTPS requests.</li>
-        <li><strong>Loopback-Only Binding &amp; Payload Caps:</strong> <code>sidecars/horizon-daemon/server.mjs</code> binds strictly to <code>127.0.0.1</code> and rejects POST bodies larger than <code>4,096</code> bytes to eliminate cross-origin loopback abuse.</li>
-        <li><strong>Strict Read-Only Telemetry Descriptors:</strong> All Antigravity SQLite databases open with <code>{ readOnly: true }</code> (<code>SQLITE_OPEN_READONLY</code>) inside <code>try / finally</code> blocks, and JSONL transcripts open with <code>'r'</code>.</li>
-        <li><strong>Ring-0 Self-Modification Prevention:</strong> <code>DET-18</code> blocks agents from editing <code>.claude/settings.json</code> or <code>hooks.json</code> to auto-approve commands or disable guardrails mid-session.</li>
-        <li><strong>Safe Parallel Branch Isolation:</strong> Whenever multiple agents write concurrently, prefer Git worktrees (<code>workspace: "share"</code> or <code>git worktree add</code>) paired with <code>.agents/locks/active_scopes.json</code> leases (<code>DET-20</code>) so parallel workers never corrupt a shared working index.</li>
+        <li><strong>Zero Outbound Network Calls:</strong> The CLI, hooks, V8 Mod, MCP server, and local HTTP server never make external HTTP or DNS requests.</li>
+        <li><strong>Localhost Binding &amp; Size Caps:</strong> <code>sidecars/horizon-daemon/server.mjs</code> binds only to <code>127.0.0.1</code> and drops POST bodies over <code>4,096</code> bytes.</li>
+        <li><strong>Read-Only Session Reads:</strong> Every Antigravity SQLite database opens with <code>{ readOnly: true }</code> (<code>SQLITE_OPEN_READONLY</code>) inside <code>try / finally</code>, and JSONL files open with <code>'r'</code>.</li>
+        <li><strong>No Self-Edits to Guard Configs:</strong> <code>DET-18</code> stops agents from editing <code>.claude/settings.json</code> or <code>hooks.json</code> to turn off safety checks mid-chat.</li>
+        <li><strong>Safe Parallel Worktrees:</strong> When two or more agents write code at once, pair Git worktrees (<code>workspace: "share"</code> or <code>git worktree add</code>) with <code>.agents/locks/active_scopes.json</code> file locks (<code>DET-20</code>) so edits never clash.</li>
       </ol>
 
       <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>

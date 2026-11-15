@@ -17,12 +17,12 @@
       <p class="doc-eyebrow">Architecture &amp; Ops</p>
       <h1 class="doc-title">System Architecture &amp; Internals</h1>
       <p class="doc-lead">
-        Highbeam is organized as a zero-dependency six-package monorepo separating pure isomorphic context physics from Node.js storage engines and host-specific adapters.
+        Highbeam uses a six-package monorepo with zero npm dependencies. It keeps pure ESM context math cleanly separated from Node.js storage code and host plugins.
       </p>
 
       <h2 id="monorepo-topology">1. Six-Package Workspace Topology</h2>
       <p>
-        Root <code>package.json</code> declares six workspaces under <code>packages/*</code> backed by shared source trees in <code>src/core-isomorphic/</code>, <code>src/engine-node/</code>, and <code>src/core/</code>:
+        Root <code>package.json</code> defines six packages under <code>packages/*</code> backed by shared code in <code>src/core-isomorphic/</code>, <code>src/engine-node/</code>, and <code>src/core/</code>:
       </p>
 
       <div class="table-wrap">
@@ -38,63 +38,70 @@
             <tr>
               <td><code>@ctxtop/core</code></td>
               <td>Pure ESM, zero <code>node:*</code> imports</td>
-              <td><code>DET-01..DET-32</code> catalog, <code>CircuitBreakerEngine</code>, <code>cacheGravity</code>, <code>dualTtl</code>, <code>cliffBreaker</code>, <code>horizonGrid</code>, <code>costRadarSvg</code>, <code>modViews</code>, USTF v1 normalizer.</td>
+              <td><code>DET-01..DET-32</code> rules, <code>CircuitBreakerEngine</code>, <code>cacheGravity</code>, <code>dualTtl</code>, <code>cliffBreaker</code>, <code>horizonGrid</code>, <code>costRadarSvg</code>, <code>modViews</code>, USTF v1 parser.</td>
             </tr>
             <tr>
               <td><code>@ctxtop/engine-node</code></td>
               <td>Node.js <code>&gt;= 20.0.0</code> stdlib only</td>
-              <td><code>node:sqlite</code> read-only wrapper + JSONL byte-offset fallback, Micro-IPC server/client, lossless FTS5 offloader, <code>git merge-tree</code> conflict sensor.</td>
+              <td><code>node:sqlite</code> read-only reader + JSONL offset fallback, Micro-IPC server/client, FTS5 log archiver, <code>git merge-tree</code> conflict check.</td>
             </tr>
             <tr>
               <td><code>@ctxtop/antigravity</code></td>
               <td>Node.js <code>&gt;= 20.0.0</code></td>
-              <td><code>PreInvocation</code> 8-state router, 6 Blind-Spot Sensors, loopback HTTP/SSE sidecar daemon, Edward Tufte WebView (<code>horizon_panel.html</code>).</td>
+              <td><code>PreInvocation</code> 8-state router, 6 Blind-Spot Sensors, local HTTP/SSE sidecar server, Simple &amp; Advanced WebView (<code>horizon_panel.html</code>).</td>
             </tr>
             <tr>
               <td><code>@ctxtop/claude-code</code></td>
               <td>V8 Mod isolate + Node CLI</td>
-              <td>Tier-1 Mod (<code>hooks/register.js</code>), Tier-2 CLI handlers (<code>hooks/handlers/*.mjs</code>), width-adaptive <code>ah-statusline</code> bridge.</td>
+              <td>Tier-1 Mod (<code>hooks/register.js</code>), Tier-2 CLI hooks (<code>hooks/handlers/*.mjs</code>), width-aware <code>ah-statusline</code> bar.</td>
             </tr>
             <tr>
               <td><code>@ctxtop/mcp</code></td>
               <td>Node.js stdio JSON-RPC 2.0</td>
-              <td>Content-Length and newline-framed MCP server exposing <code>horizon_status</code>, <code>cache_gravity_check</code>, <code>scope_lock_claim</code>, and <code>export_receipt_pdf</code>.</td>
+              <td>Stdio MCP server providing <code>horizon_status</code>, <code>cache_gravity_check</code>, <code>scope_lock_claim</code>, and <code>export_receipt_pdf</code>.</td>
             </tr>
             <tr>
               <td><code>@ctxtop/pro</code></td>
               <td>Offline Ed25519 + Polar worker</td>
-              <td>Offline Ed25519 license verifier, Corporate PDF 1.4 generator, <code>team_finops_pack.mjs</code> (Grafana/Datadog), and external webhook signer.</td>
+              <td>Offline Ed25519 license check, PDF 1.4 receipt writer, <code>team_finops_pack.mjs</code> (Grafana/Datadog), and webhook signer.</td>
             </tr>
           </tbody>
         </table>
       </div>
 
+      <div class="callout">
+        <p class="callout-title">Decoupled Sister SKU: Highbeam Airlock (<code>packages/airlock</code> / <code>ctxvault</code> v1.0)</p>
+        <p>
+          Local secret and PII scrubbing lives in the separate <code>packages/airlock/</code> package (<code>ctxvault</code> v1.0, tested via <code>npm run test:airlock</code>). Keeping Airlock separate lets <code>ctxtop</code> stay focused on context health, KV-cache routing, and token savings.
+        </p>
+      </div>
+
       <h2 id="isomorphic-laws">2. Claude Mod Laws 1-5 &amp; Pure-JS Cryptography</h2>
       <p>
-        Because Claude Code's Tier-1 Mod isolate executes inside a sandboxed V8 context without Node.js built-ins, every module inside <code>src/core-isomorphic/</code> obeys five statically tested laws (verified in <code>test/mod_static_compliance.test.mjs</code>):
+        Claude Code's Tier-1 Mod runs inside a sandboxed V8 isolate without Node.js built-ins. Every file in <code>src/core-isomorphic/</code> follows five strict rules checked by <code>test/mod_static_compliance.test.mjs</code>:
       </p>
       <ol>
-        <li><strong>Zero <code>node:*</code> Imports:</strong> No <code>node:fs</code>, <code>node:path</code>, <code>node:crypto</code>, or <code>node:child_process</code> imports anywhere in the isomorphic graph.</li>
-        <li><strong>Zero Unguarded Node Globals:</strong> Never references bare <code>Buffer</code> or <code>process</code> without safe <code>globalThis</code> feature guards.</li>
-        <li><strong>Zero External npm Dependencies:</strong> Eliminates supply-chain drift and bundler build steps.</li>
-        <li><strong>Pure Deterministic Hashing:</strong> Uses custom pure-JS 64-bit FNV-1a (<code>fnv1a64.mjs</code>) for content fingerprinting and pure-JS SHA-256 (<code>sha256HexPure</code>) for release verification and receipt signing.</li>
-        <li><strong>Sub-Millisecond Hot Path:</strong> Keeps <code>evaluatePreToolUse</code> and <code>computeBreakEven</code> at <code>~0.18ms p95</code>.</li>
+        <li><strong>Zero <code>node:*</code> Imports:</strong> No <code>node:fs</code>, <code>node:path</code>, <code>node:crypto</code>, or <code>node:child_process</code> imports anywhere in core.</li>
+        <li><strong>Zero Unguarded Node Globals:</strong> Never touches bare <code>Buffer</code> or <code>process</code> without safe <code>globalThis</code> checks.</li>
+        <li><strong>Zero External npm Dependencies:</strong> No supply-chain risk and no bundler step needed.</li>
+        <li><strong>Pure JS Hashing:</strong> Uses pure-JS 64-bit FNV-1a (<code>fnv1a64.mjs</code>) for fast fingerprints and pure-JS SHA-256 (<code>sha256HexPure</code>) for checksums and receipts.</li>
+        <li><strong>Sub-Millisecond Hot Path:</strong> Runs <code>evaluatePreToolUse</code> and <code>computeBreakEven</code> in <code>~0.18ms p95</code>.</li>
       </ol>
 
       <h2 id="fts5-compressor">3. Lossless FTS5 CLI Output Compressor</h2>
       <p>
-        Verbose test suites and package installs routinely emit 50,000+ characters of progress bars and passing test noise. Implemented in <code>src/core/fts5_output_compressor.mjs</code> and <code>src/shims/agy_cli_compressor.mjs</code> (<code>DET-07</code>), the offloader processes shell output in four stages:
+        Test runs and package installs often dump 50,000+ chars of progress bars and passing test lines. Built into <code>src/core/fts5_output_compressor.mjs</code> and <code>src/shims/agy_cli_compressor.mjs</code> (<code>DET-07</code>), the compressor cleans shell output in four steps:
       </p>
       <ol>
-        <li><strong>ANSI &amp; Carriage-Return Scrubbing:</strong> Strips terminal color sequences and collapses <code>\r</code> spinner overwrites <em>before</em> evaluating the <code>4,096</code>-character compression threshold.</li>
-        <li><strong>Domain Noise Profiles:</strong> Applies specialized filters for <code>cargo test</code>, <code>npm install</code>, and verbose test runners while retaining every failing assertion, stack frame, and compiler diagnostic (Critical Error-Line Recovery).</li>
-        <li><strong>SQLite FTS5 &amp; Content-Addressed Archival:</strong> Writes the full raw transcript to <code>.ctxtop/cache/artifacts/ah_&lt;sha256&gt;.txt</code> and indexes every line in <code>.ctxtop/cache/artifacts_fts5.db</code>.</li>
-        <li><strong>Searchable Digest Injection:</strong> Returns a compact head/tail + error-line summary to the model alongside an exact <code>agy-horizon log-search "&lt;query&gt;"</code> command so zero debugging detail is ever lost.</li>
+        <li><strong>ANSI &amp; Spinner Cleanup:</strong> Strips color codes and folds <code>\r</code> spinner lines <em>before</em> checking the <code>4,096</code>-char size limit.</li>
+        <li><strong>Smart Noise Filters:</strong> Trims boilerplate from <code>cargo test</code>, <code>npm install</code>, and test suites while keeping every failed assert, stack trace, and compiler error.</li>
+        <li><strong>SQLite FTS5 &amp; Polyfill Archive:</strong> Saves the full raw log to <code>.ctxtop/cache/artifacts/ah_&lt;sha256&gt;.txt</code> and indexes every line in <code>.ctxtop/cache/artifacts_fts5.db</code>. If a Node 22 build lacks <code>SQLITE_ENABLE_FTS5</code> (or <code>CTXTOP_FORCE_FTS5_POLYFILL=1</code> is set), <code>src/engine-node/db/probe.mjs</code> wraps <code>DatabaseSync</code> with <code>createFts5PolyfillClass()</code>. That provides drop-in <code>USING fts5(...)</code> tables, <code>MATCH</code>, <code>bm25()</code>, and centered <code>snippet()</code> windows (<code>evaluateFtsSnippet</code>).</li>
+        <li><strong>Searchable Summary:</strong> Sends the model a short head/tail + error summary plus an exact <code>agy-horizon log-search "&lt;query&gt;"</code> command so no debug detail is ever lost.</li>
       </ol>
 
       <h2 id="turn-zero-gate">4. <code>PrefixCacheShield</code> &amp; <code>TurnZeroGate</code> Fencing</h2>
       <p>
-        Editing <code>AGENTS.md</code>, <code>CLAUDE.md</code>, or `.agents/rules/*.md` mid-session mutates Cell 1 of the prompt prefix, invalidating every warm cached token behind it. <code>PrefixCacheShield</code> and <code>TurnZeroGate</code> eliminate mid-session cache rebuilds by staging rule updates until a natural cold-cache boundary arrives:
+        Editing <code>AGENTS.md</code>, <code>CLAUDE.md</code>, or <code>.agents/rules/*.md</code> mid-chat changes Cell 1 at the top of your prompt. That resets every warm cached token below it. <code>PrefixCacheShield</code> and <code>TurnZeroGate</code> stop mid-chat cache resets by holding rule edits until the cache cools naturally:
       </p>
 
       <figure class="diagram-frame" aria-label="TurnZeroGate warm-cache rule mutation fencing timeline">
@@ -128,8 +135,8 @@
 
       <h2 id="ustf-and-mirror-parity">5. USTF v1 &amp; 3-Way SHA-256 Mirror Parity</h2>
       <ul>
-        <li><strong>USTF v1 (<code>src/core-isomorphic/ustf/</code>):</strong> Normalizes heterogeneous Antigravity SQLite/JSONL steps and Claude Code event streams into a single schema (<code>version: "1.0.0"</code>, <code>sessionId</code>, <code>harness</code>, <code>modelId</code>, <code>usage: { uncached, cacheWrite5m, cacheWrite1h, cacheRead, output, thinking, costUSD }</code>, <code>events</code>, <code>spans</code>).</li>
-        <li><strong>Release &amp; Mirror Parity Pipeline:</strong> Whenever core or WebView files change, contributors run <code>node scripts/sync_mirrors.mjs</code>, followed by <code>node scripts/generate_checksums.mjs</code> and <code>node bin/ctxtop.mjs verify --json</code>, ensuring root sources and installed plugin mirrors match byte-for-byte.</li>
+        <li><strong>USTF v1 (<code>src/core-isomorphic/ustf/</code>):</strong> Maps Antigravity SQLite/JSONL steps and Claude Code events into one shared log format (<code>version: "1.0.0"</code>, <code>sessionId</code>, <code>harness</code>, <code>modelId</code>, <code>usage: { uncached, cacheWrite5m, cacheWrite1h, cacheRead, output, thinking, costUSD }</code>, <code>events</code>, <code>spans</code>).</li>
+        <li><strong>Release &amp; Mirror Sync:</strong> When core or WebView files change, run <code>node scripts/sync_mirrors.mjs</code> first. Then run <code>node scripts/generate_checksums.mjs</code> and <code>node bin/ctxtop.mjs verify --json</code> so root files and plugin copies stay byte-for-byte identical.</li>
       </ul>
 
       <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>

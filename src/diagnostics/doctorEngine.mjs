@@ -18,6 +18,7 @@ import {
 import { loadModelCatalog } from '../core-isomorphic/config/catalogLoader.mjs';
 import { loadHorizonConfig } from '../core-isomorphic/config/horizonConfig.mjs';
 import { inspectClaudeBinaryCapabilities } from './claudeHookCapabilities.mjs';
+import { readModelSwitchTelemetry } from '../utils/modelSwitchTelemetry.mjs';
 
 /**
  * Redacts the user's OS home directory from any diagnostic string.
@@ -187,6 +188,10 @@ export function runDoctorDiagnostics(options = {}) {
   });
 
   const hookDiagnostics = inspectHookDiagnostics({ ...options, cwd });
+  const modelSwitchTelemetry = readModelSwitchTelemetry({
+    homeDir: options.homeDir,
+    telemetryPath: options.telemetryPath
+  });
   const claudeCapabilities = inspectClaudeBinaryCapabilities({
     ...options,
     cwd,
@@ -201,7 +206,8 @@ export function runDoctorDiagnostics(options = {}) {
     nodeVersion,
     checks,
     claudeCapabilities,
-    hookDiagnostics
+    hookDiagnostics,
+    modelSwitchTelemetry
   };
 }
 

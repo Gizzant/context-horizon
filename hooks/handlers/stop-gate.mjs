@@ -6,6 +6,7 @@
 
 import { loadHorizonConfig, resolveDetectorOverride } from '../../src/core-isomorphic/config/horizonConfig.mjs';
 import { isSilentOrOffMode } from '../../src/core-isomorphic/coach/cacheGravityRouter.mjs';
+import { updateSessionCalibrationOnStop } from '../../src/utils/sessionCalibration.mjs';
 import {
   evaluateDet14PrematureStopGate,
   evaluateDet15BatchedStopFormatter,
@@ -45,6 +46,22 @@ export function runStopGateHook(event = {}, options = {}) {
     ? readBreakerStateSnapshot(sessionId, cwdOptions)
     : null;
 
+  const hasDirectOutput =
+    event.output_tokens !== undefined ||
+    event.outputTokens !== undefined ||
+    event.usage?.output_tokens !== undefined;
+  const shouldPersistCalibration =
+    options.persistCalibration !== false &&
+    Boolean(
+      event.transcript_path ||
+        event.transcriptPath ||
+        options.calibrationPath ||
+        (hasDirectOutput && (options.homeDir || event.cwd || options.cwd))
+    );
+  const sessionCalibration = shouldPersistCalibration
+    ? updateSessionCalibrationOnStop(event, cwdOptions)
+    : null;
+
   if (stopHookActive) {
     if (shouldPersistState && breakerSnap) {
       writeBreakerStateSnapshot(
@@ -64,6 +81,7 @@ export function runStopGateHook(event = {}, options = {}) {
       exitCode: 0,
       stdout: '',
       stderr: '',
+      sessionCalibration,
       det14: {
         detectorId: 'DET-14',
         triggered: false,
@@ -179,6 +197,7 @@ export function runStopGateHook(event = {}, options = {}) {
       stdout: JSON.stringify(stdoutJson),
       stdoutJson,
       stderr: '',
+      sessionCalibration,
       det14,
       det15
     };
@@ -196,6 +215,7 @@ export function runStopGateHook(event = {}, options = {}) {
       stdout: JSON.stringify(stdoutJson),
       stdoutJson,
       stderr: '',
+      sessionCalibration,
       det14,
       det15
     };
@@ -205,6 +225,7 @@ export function runStopGateHook(event = {}, options = {}) {
     exitCode: 0,
     stdout: '',
     stderr: '',
+    sessionCalibration,
     det14,
     det15
   };
