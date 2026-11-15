@@ -12,6 +12,7 @@ import { loadHorizonConfig } from '../../src/core-isomorphic/config/horizonConfi
 import { recordInterventionSavings } from '../../src/core-isomorphic/coach/savedQuotaLedger.mjs';
 import { requireProFeature } from '../../src/core/pro_license.mjs';
 import { foldCodeToSignatureStub, computeCompactLineDiff } from '../../src/core/pruner.mjs';
+import { evaluateShieldReadGuard } from '../../src/core/shield_manager.mjs';
 import {
   CircuitBreakerEngine,
   readBreakerStateSnapshot,
@@ -105,14 +106,70 @@ export function runPreToolUseHook(event = {}, options = {}) {
   });
 
   // Playbook Step 4 & VC Gap 4: Post-Edit Unified Delta Diff + 3rd-Read AST Signature Stub Interception
-  const isReadTool = /^(Read|read_file)$/i.test(toolName);
+  const isReadTool = /^(Read|read_file|view_file)$/i.test(toolName);
   const tIn = event.tool_input || event.toolInput || event.args || {};
   const hasLineBounds =
     tIn.StartLine !== undefined ||
     tIn.EndLine !== undefined ||
     tIn.offset !== undefined ||
-    tIn.limit !== undefined;
-  const rawReadPath = String(tIn.file_path || tIn.Path || tIn.path || '').trim();
+    tIn.limit !== undefined ||
+    tIn.pages !== undefined;
+  const rawReadPath = String(tIn.file_path || tIn.Path || tIn.AbsolutePath || tIn.path || '').trim();
+
+  if (
+    isReadTool &&
+    !hasLineBounds &&
+    rawReadPath &&
+    verdict.decision !== 'deny' &&
+    verdict.decision !== 'ask' &&
+    verdict.decision !== 'defer'
+  ) {
+    const baseCwdForShield = event.cwd || options.cwd || process.cwd();
+    const shieldVerdict = evaluateShieldReadGuard({
+      platform: 'claude',
+      sessionId,
+      cwd: baseCwdForShield,
+      filePath: rawReadPath,
+      hasSliceBounds: false,
+      currentPromptTokens:
+        computedEventPromptTokens || Number(liveState?.contextWindow?.totalInputTokens || 0),
+      modelId: event.model || event.modelId || liveState?.modelId || 'claude-sonnet-4-6',
+      shieldConfig: options.shieldConfig,
+      forceActive: Boolean(options.shieldForceActive),
+      recordLedger:
+        options.recordLedger !== false &&
+        Boolean(event.cwd || options.cwd || options.ledgerPath || options.recordLedger),
+      ledgerPath: options.ledgerPath
+    });
+    if (shieldVerdict.action === 'deny') {
+      if (shouldPersistState) {
+        writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
+      }
+      const denyOut = {
+        permissionDecision: 'deny',
+        reason: shieldVerdict.reason,
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'deny',
+          permissionDecisionReason: shieldVerdict.reason
+        }
+      };
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify(denyOut),
+        stderr: '',
+        verdict: {
+          triggered: true,
+          detectorId: shieldVerdict.detectorId,
+          decision: 'deny',
+          reason: shieldVerdict.reason,
+          indexPath: shieldVerdict.indexPath,
+          savedTokens: shieldVerdict.savedTokens,
+          savedUSD: shieldVerdict.savedUSD
+        }
+      };
+    }
+  }
 
   if (isReadTool && !hasLineBounds && rawReadPath) {
     try {

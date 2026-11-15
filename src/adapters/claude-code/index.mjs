@@ -141,6 +141,14 @@ export function trackClaudeCodeSessionCache(events = [], options = {}) {
   };
 }
 
+import { checkIndex, buildIndex, sliceFile } from '../../core/doc_indexer.mjs';
+import {
+  evaluateShieldReadGuard,
+  configureShield,
+  getShieldStatus
+} from '../../core/shield_manager.mjs';
+import { runSessionAudit, formatSessionAuditReport } from '../../core/session_auditor.mjs';
+
 export {
   formatAgentCacheKey,
   formatAgentStreamKey,
@@ -151,5 +159,13 @@ export {
   computeQuotaAndCacheTelemetry,
   resolveModelDescriptor,
   resolveModelRates,
-  calculateModelCost
+  calculateModelCost,
+  checkIndex,
+  buildIndex,
+  sliceFile,
+  evaluateShieldReadGuard,
+  configureShield,
+  getShieldStatus,
+  runSessionAudit,
+  formatSessionAuditReport
 };

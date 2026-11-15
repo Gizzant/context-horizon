@@ -20,6 +20,7 @@ export * from './coach/ttlWatchdog.mjs';
 export * from './coach/stateBatonHydrator.mjs';
 export * from './coach/savedQuotaLedger.mjs';
 export * from './guards/circuitBreakers.mjs';
+export * from './guards/docIndexCore.mjs';
 export * from './ui/modViews.mjs';
 export * from './ui/horizonGrid.mjs';
 export * from './ui/costRadarSvg.mjs';

@@ -97,6 +97,8 @@ import {
 import { inspectClaudeBinaryCapabilities } from '../src/diagnostics/claudeHookCapabilities.mjs';
 import { installPlugin, runLiveOrDemoCli } from '../src/cli/init.mjs';
 import { executeStatusLineBridge, runStatusLineCli } from './ah-statusline.mjs';
+import { runSessionAudit, formatSessionAuditReport } from '../src/core/session_auditor.mjs';
+import { configureShield, getShieldStatus } from '../src/core/shield_manager.mjs';
 
 export { inspectHookDiagnostics, runDoctorDiagnostics };
 
@@ -1423,6 +1425,75 @@ export function runCli(args = [], options = {}) {
     return runStatusLineCli(args.slice(1));
   }
 
+  if (subcommand === 'audit') {
+    const platIdx = args.indexOf('--platform');
+    const platform =
+      platIdx !== -1 && args[platIdx + 1]
+        ? String(args[platIdx + 1]).toLowerCase()
+        : (options.platform || 'all');
+    const daysIdx = args.indexOf('--days');
+    const days =
+      daysIdx !== -1 && args[daysIdx + 1]
+        ? Number(args[daysIdx + 1])
+        : (options.days || 7);
+    const limitIdx = args.indexOf('--limit');
+    const limit =
+      limitIdx !== -1 && args[limitIdx + 1]
+        ? Number(args[limitIdx + 1])
+        : (options.limit || 10);
+
+    const auditRes = runSessionAudit({
+      ...options,
+      platform,
+      days,
+      limit
+    });
+    if (isJson) {
+      return { exitCode: 0, output: JSON.stringify(auditRes, null, 2), data: auditRes };
+    }
+    return { exitCode: 0, output: formatSessionAuditReport(auditRes), data: auditRes };
+  }
+
+  if (subcommand === 'shield' || subcommand === 'status') {
+    const platIdx = args.indexOf('--platform');
+    const platform =
+      platIdx !== -1 && args[platIdx + 1]
+        ? String(args[platIdx + 1]).toLowerCase()
+        : (options.platform || 'all');
+    const linesIdx = args.indexOf('--max-lines');
+    const maxUnslicedLines =
+      linesIdx !== -1 && args[linesIdx + 1] ? Number(args[linesIdx + 1]) : options.maxUnslicedLines;
+
+    let action = 'status';
+    if (subcommand === 'shield') {
+      if (args.includes('--enable') || args[1] === 'enable') action = 'enable';
+      else if (args.includes('--disable') || args[1] === 'disable') action = 'disable';
+      else action = 'status';
+    }
+
+    const res =
+      subcommand === 'status'
+        ? { ok: true, action: 'status', platform, ...getShieldStatus({ ...options }) }
+        : configureShield({
+            ...options,
+            action,
+            platform,
+            ...(maxUnslicedLines ? { maxUnslicedLines } : {})
+          });
+
+    if (isJson) {
+      return { exitCode: res.ok === false ? 1 : 0, output: JSON.stringify(res, null, 2), data: res };
+    }
+    const lines = [
+      `[Highbeam Shield] Status: ${res.enabled ? 'ACTIVE' : 'PASSIVE'} (action=${res.action}, platform=${platform})`,
+      `  Targets       : Antigravity=${res.platforms.antigravity ? 'ON' : 'OFF'} (hooks=${res.hooksConfigured.antigravity}) | Claude=${res.platforms.claude ? 'ON' : 'OFF'} (hooks=${res.hooksConfigured.claude})`,
+      `  Read Threshold: >${res.maxUnslicedLines} lines default | >${res.cliffMaxUnslicedLines} lines near pricing cliff`,
+      `  Session ROI   : +${res.roi.tokensSaved.toLocaleString('en-US')} tok saved ($${res.roi.dollarsSaved.toFixed(2)} USD) | ${res.roi.readsBlocked} oversized reads indexed`,
+      ...(res.selfTest ? [`  Self-Test     : ${res.selfTest.detail}`] : [])
+    ];
+    return { exitCode: res.ok === false ? 1 : 0, output: lines.join('\n'), data: res };
+  }
+
   if (args.includes('--demo') || args.includes('--demo-animate') || args.includes('--roast') || args.includes('--serve')) {
     return runLiveOrDemoCli(options);
   }
@@ -1430,6 +1501,7 @@ export function runCli(args = [], options = {}) {
   const knownSubcommands = new Set([
     'init', 'install', 'uninstall', 'config', 'cost-radar', 'radar', 'panel',
     'receipt', 'doctor', 'statusline', 'inspect', 'control', 'postmortem',
+    'audit', 'shield', 'status',
     'license', 'pro', 'roast',
     '--help', '-h', 'help', '--version', '-v', 'version'
   ]);
@@ -1440,6 +1512,9 @@ export function runCli(args = [], options = {}) {
     'Usage: ctxtop <command> [options]',
     'Commands:',
     '  init [--antigravity | --claude | --all | --workspace | --dry-run] Zero-config dual-host installer',
+    '  audit [--platform all|antigravity|claude] [--days 7] [--json]       Zero-write historical Sludge Tax & ROI audit',
+    '  shield <--enable | --disable | --status> [--platform all|...]       Toggle Active Context Shield & read-index guard',
+    '  status [--platform all|antigravity|claude] [--json]                 Show Shield & Session ROI status',
     '  install [--global | --project]                                      Merge Claude Code hooks & statusLine',
     '  uninstall [--global | --project]                                    Remove Highbeam hooks',
     '  doctor [--diagnostic | --json]                                      Verify contracts or emit zero-PII report',

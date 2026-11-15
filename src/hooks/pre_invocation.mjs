@@ -40,6 +40,7 @@ import {
   evaluateTwoStageSightseeingIntercept
 } from '../core/shared/prompt_hygiene_governor.mjs';
 import { foldCodeToSignatureStub, computeCompactLineDiff } from '../core/pruner.mjs';
+import { evaluateShieldReadGuard } from '../core/shield_manager.mjs';
 
 export {
   classifyTaskComplexity,
@@ -242,6 +243,52 @@ export async function handlePreToolUse(inputData = {}) {
         return makeBlockPayload({ id: twoStage.detectorId, message: twoStage.reason });
       }
       if (!isSilentMode) gateSystemMessage = twoStage.reason;
+    }
+  }
+  if (!isOffMode && /^(?:default_api:)?(?:read_file|view_file)$/i.test(toolName)) {
+    const hasBounds =
+      toolInput?.StartLine !== undefined ||
+      toolInput?.EndLine !== undefined ||
+      toolInput?.offset !== undefined ||
+      toolInput?.limit !== undefined;
+    const rawReadTarget = String(
+      toolInput?.Path || toolInput?.AbsolutePath || toolInput?.file_path || toolInput?.path || ''
+    ).trim();
+    if (!hasBounds && rawReadTarget) {
+      const shieldRes = evaluateShieldReadGuard({
+        platform: 'antigravity',
+        sessionId: conversationId,
+        cwd: workspacePath,
+        filePath: rawReadTarget,
+        hasSliceBounds: false,
+        currentPromptTokens: Number(
+          inputData.totalPromptTokens ?? sidecar.telemetry?.totalInputTokens ?? 0
+        ),
+        modelId:
+          inputData.modelName ||
+          sidecar.sessionMeta?.active_model_id ||
+          sidecar.sessionMeta?.activeModel ||
+          'gemini-4-carbon',
+        shieldConfig: inputData.shieldConfig,
+        forceActive: Boolean(inputData.shieldForceActive),
+        recordLedger: inputData.recordLedger !== false
+      });
+      if (shieldRes.action === 'deny') {
+        return {
+          decision: 'deny',
+          permissionDecision: 'deny',
+          terminationBehavior: 'terminate',
+          blocked: true,
+          flightMode,
+          detectorId: shieldRes.detectorId,
+          reason: shieldRes.reason,
+          userMessage: shieldRes.reason,
+          systemMessage: shieldRes.reason,
+          indexPath: shieldRes.indexPath,
+          savedTokens: shieldRes.savedTokens,
+          savedUSD: shieldRes.savedUSD
+        };
+      }
     }
   }
   if (!isOffMode && /^(edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content)$/i.test(toolName)) {

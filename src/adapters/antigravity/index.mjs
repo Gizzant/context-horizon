@@ -47,6 +47,13 @@ import {
   writeSidecarAtomicSync,
   updateSwarmAgentStateAtomicSync
 } from '../../core/sidecar_store.mjs';
+import { checkIndex, buildIndex, sliceFile } from '../../core/doc_indexer.mjs';
+import {
+  evaluateShieldReadGuard,
+  configureShield,
+  getShieldStatus
+} from '../../core/shield_manager.mjs';
+import { runSessionAudit, formatSessionAuditReport } from '../../core/session_auditor.mjs';
 
 export {
   handlePreInvocation,
@@ -75,5 +82,13 @@ export {
   evaluateCarbonVerbosityGuardrail,
   readSidecarSync,
   writeSidecarAtomicSync,
-  updateSwarmAgentStateAtomicSync
+  updateSwarmAgentStateAtomicSync,
+  checkIndex,
+  buildIndex,
+  sliceFile,
+  evaluateShieldReadGuard,
+  configureShield,
+  getShieldStatus,
+  runSessionAudit,
+  formatSessionAuditReport
 };

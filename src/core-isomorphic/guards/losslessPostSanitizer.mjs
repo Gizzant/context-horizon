@@ -9,6 +9,7 @@
  */
 
 import { path, getCwd, sha256Hex, writeTextAtomic } from '../utils/runtime.mjs';
+import { buildStructuralIndexMarkdown } from './docIndexCore.mjs';
 
 export const OFFLOAD_TOKEN_THRESHOLD = 4000; // ~16 KB (~4 chars/token)
 export const CHARS_PER_TOKEN_ESTIMATE = 4;
@@ -213,12 +214,14 @@ export function sanitizePostToolOutput(params = {}, options = {}) {
   // Step 6: Programmatic Artifact Offloading when structured/command output exceeds 4,000 tokens
   let offloaded = false;
   let artifactPath = null;
+  let artifactIndexPath = null;
   let finalOutput = sanitizedText;
 
   if (originalTokens > offloadThresholdTokens || postFilterTokens > offloadThresholdTokens) {
     const sha256 = computeSha256(cleaned, options);
     const cwd = getCwd(options);
     const relativeArtifactPath = `.claude/cache/artifacts/ah_${sha256}.txt`;
+    const relativeIndexPath = `${relativeArtifactPath}.index.md`;
     const candidateArtifactPath = path.join(
       cwd,
       '.claude',
@@ -226,11 +229,21 @@ export function sanitizePostToolOutput(params = {}, options = {}) {
       'artifacts',
       `ah_${sha256}.txt`
     );
+    const candidateIndexPath = `${candidateArtifactPath}.index.md`;
 
     offloaded = writeTextAtomic(candidateArtifactPath, cleaned, options);
 
     if (offloaded) {
       artifactPath = candidateArtifactPath;
+      const idxBuilt = buildStructuralIndexMarkdown({
+        filePath: candidateArtifactPath,
+        displayPath: relativeArtifactPath,
+        rawText: cleaned,
+        sha256
+      });
+      if (writeTextAtomic(candidateIndexPath, idxBuilt.markdown, options)) {
+        artifactIndexPath = candidateIndexPath;
+      }
       const nonEmptyLines = filteredLines.filter((l) => l.trim().length > 0);
       const sampleLines = nonEmptyLines.slice(0, 3);
       const schemaSummary = inferPayloadSchema(cleaned);
@@ -239,6 +252,7 @@ export function sanitizePostToolOutput(params = {}, options = {}) {
         `[Highbeam Artifact Offload: ${originalTokens.toLocaleString()} tokens (${rawLines.length} lines) -> ${relativeArtifactPath}]`,
         `Schema: ${schemaSummary}`,
         `Full lossless output saved to: ${artifactPath}`,
+        ...(artifactIndexPath ? [`Structural index map: ${relativeIndexPath}`] : []),
         `Sample lines (1..${sampleLines.length}):`,
         ...sampleLines.map((l, idx) => `  ${idx + 1}: ${l.slice(0, 200)}`)
       ];
@@ -256,6 +270,7 @@ export function sanitizePostToolOutput(params = {}, options = {}) {
     } else {
       // ISS-034: Never truncate to a broken pointer stub if offload write fails! Preserve full ANSI-cleaned output.
       artifactPath = null;
+      artifactIndexPath = null;
       finalOutput = cleaned;
     }
   }
@@ -271,6 +286,7 @@ export function sanitizePostToolOutput(params = {}, options = {}) {
     sanitized: wasModified,
     offloaded,
     artifactPath,
+    artifactIndexPath,
     originalTokens,
     finalTokens,
     savedTokens,
