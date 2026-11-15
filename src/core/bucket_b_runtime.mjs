@@ -59,6 +59,15 @@ export const BUCKET_B_BETA_IDS = Object.freeze([
   '#19_OVERENGINEERING_DIFF_GATE'
 ]);
 
+export const BUCKET_B_GAMMA_COACH_IDS = Object.freeze([
+  '#5_SUBAGENT_TEAM_GOVERNOR',
+  '#13_VAGUE_PROMPT_ANCHOR',
+  '#16_MCP_CLI_ROUTER'
+]);
+
+export const BUCKET_B_GAMMA_SHADOW_IDS = Object.freeze(['#17_LSP_SYMBOL_ROUTER']);
+export const BUCKET_B_GAMMA_PREVIEW_IDS = Object.freeze(['#20_PROSE_TO_HOOK_COMPILER']);
+
 function isSilentOrOffFlightMode(options = {}) {
   const fm = String(
     options.mode || options.flightMode || options.horizonConfig?.flightMode || ''
@@ -120,8 +129,33 @@ export function resolveBucketBBetaStage(options = {}) {
 }
 
 /**
- * Resolves the active Bucket B rollout stage for Sub-Wave B-Gamma
- * (`'SHADOW'` default -> `0` prompt tokens, `0` blocks). Drops to `'SHADOW'` in `'SILENT'`/`'OFF'` modes.
+ * Resolves rollout stage for promoted Sub-Wave B-Gamma guardrails (`#5`, `#13`, `#16`) —
+ * promoted to `'COACH'` by default (and `'SHADOW'` whenever flight mode is `'SILENT'` or `'OFF'`).
+ *
+ * @param {object} [options={}]
+ * @returns {'SHADOW' | 'COACH' | 'ENFORCE'}
+ */
+export function resolveBucketBGammaCoachStage(options = {}) {
+  if (isSilentOrOffFlightMode(options)) return 'SHADOW';
+  const raw = String(
+    options.bucketBGammaStage ||
+      options.bucketBStage ||
+      process.env.CTXTOP_BUCKET_B_GAMMA_MODE ||
+      process.env.CTXTOP_BUCKET_B_MODE ||
+      options.horizonConfig?.bucketBGammaMode ||
+      options.horizonConfig?.bucketBMode ||
+      'COACH'
+  )
+    .trim()
+    .toUpperCase();
+  if (raw === 'SHADOW') return 'SHADOW';
+  if (raw === 'ENFORCE') return 'ENFORCE';
+  return 'COACH';
+}
+
+/**
+ * Resolves the active rollout stage for default-`SHADOW` Sub-Wave B-Gamma guardrails (`#17 LSP_SYMBOL_ROUTER`).
+ * Defaults to `'SHADOW'` (`0` prompt tokens, `0` blocks) unless explicitly promoted via `bucketBLspStage` / `bucketBStage`.
  *
  * @param {object} [options={}]
  * @returns {'SHADOW' | 'COACH' | 'ENFORCE'}
@@ -129,8 +163,11 @@ export function resolveBucketBBetaStage(options = {}) {
 export function resolveBucketBStage(options = {}) {
   if (isSilentOrOffFlightMode(options)) return 'SHADOW';
   const raw = String(
-    options.bucketBStage ||
+    options.bucketBLspStage ||
+      options.bucketBStage ||
+      process.env.CTXTOP_BUCKET_B_LSP_MODE ||
       process.env.CTXTOP_BUCKET_B_MODE ||
+      options.horizonConfig?.bucketBLspMode ||
       options.horizonConfig?.bucketBMode ||
       'SHADOW'
   )
@@ -139,6 +176,42 @@ export function resolveBucketBStage(options = {}) {
   if (raw === 'COACH') return 'COACH';
   if (raw === 'ENFORCE') return 'ENFORCE';
   return 'SHADOW';
+}
+
+/**
+ * Loads pre-verified offline CLI authentication/installation metadata from
+ * `<cwd>/.agents/telemetry/cli_capabilities.json` merged with `horizonConfig` / `options`.
+ * Zero subprocess spawns and zero network requests.
+ *
+ * @param {string} cwd
+ * @param {object} [options={}]
+ * @returns {Record<string, { installed?: boolean, authValid?: boolean, authExpired?: boolean }>}
+ */
+export function loadVerifiedCliCapabilities(cwd, options = {}) {
+  let diskCaps = {};
+  if (cwd) {
+    const capPath = path.join(path.resolve(cwd), '.agents', 'telemetry', 'cli_capabilities.json');
+    if (fs.existsSync(capPath)) {
+      try {
+        const parsed = JSON.parse(fs.readFileSync(capPath, 'utf8'));
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          diskCaps = parsed;
+        }
+      } catch (_err) {
+        diskCaps = {};
+      }
+    }
+  }
+  const cfgCaps =
+    options?.horizonConfig?.cliCapabilities &&
+    typeof options.horizonConfig.cliCapabilities === 'object'
+      ? options.horizonConfig.cliCapabilities
+      : {};
+  const optCaps =
+    options?.cliCapabilities && typeof options.cliCapabilities === 'object'
+      ? options.cliCapabilities
+      : {};
+  return { ...diskCaps, ...cfgCaps, ...optCaps };
 }
 
 /**
@@ -534,13 +607,14 @@ export function runBucketBPreToolShadowPass(params = {}) {
   const baseCwd = hasExplicitCwd ? path.resolve(params.cwd) : process.cwd();
   const alphaStage = resolveBucketBAlphaStage(params.options);
   const betaStage = resolveBucketBBetaStage(params.options);
-  const gammaStage = resolveBucketBStage(params.options);
+  const gammaCoachStage = resolveBucketBGammaCoachStage(params.options);
+  const gammaShadowStage = resolveBucketBStage(params.options);
   const toolName = String(params.toolName || '');
   const tIn = params.toolInput || {};
   const recorded = [];
   const activeRecords = [];
 
-  const emit = (guardrailId, verdict, elapsedMs, itemStage = gammaStage) => {
+  const emit = (guardrailId, verdict, elapsedMs, itemStage = gammaShadowStage) => {
     if (!verdict?.triggered) return;
     if (hasExplicitCwd) {
       recordBucketBShadowHint(
@@ -672,8 +746,11 @@ export function runBucketBPreToolShadowPass(params = {}) {
     }
   }
 
-  // #5 SUBAGENT_TEAM_GOVERNOR (Sub-Wave B-Gamma -> default SHADOW) on subagent/task spawns
-  if (/^(?:Task|Agent|invoke_subagent|swarm)$/i.test(toolName)) {
+  // #5 SUBAGENT_TEAM_GOVERNOR (Sub-Wave B-Gamma -> promoted COACH) on subagent/task spawns
+  if (
+    /^(?:Task|Agent|invoke_subagent)$/i.test(toolName) ||
+    (/^swarm$/i.test(toolName) && String(tIn.action || 'add').toLowerCase() === 'add')
+  ) {
     const t0 = performance.now();
     const verdict = evaluateSubagentGovernor({
       typeName: tIn.subagent_type || tIn.TypeName || tIn.name || '',
@@ -684,25 +761,77 @@ export function runBucketBPreToolShadowPass(params = {}) {
       allowedTools: tIn.allowed_tools || tIn.tools,
       workspace: tIn.isolation || tIn.Workspace || tIn.workspace || 'inherit'
     });
-    emit('#5_SUBAGENT_TEAM_GOVERNOR', verdict, performance.now() - t0, gammaStage);
+    if (verdict.triggered) {
+      verdict.decision = gammaCoachStage === 'ENFORCE' ? 'ask' : 'warn';
+    }
+    emit('#5_SUBAGENT_TEAM_GOVERNOR', verdict, performance.now() - t0, gammaCoachStage);
   }
 
-  // #16 MCP_CLI_ROUTER (Sub-Wave B-Gamma -> default SHADOW) on heavy MCP read tools
-  if (/^mcp__/i.test(toolName)) {
+  // #16 MCP_CLI_ROUTER (Sub-Wave B-Gamma -> capability-gated COACH) on heavy MCP read tools
+  let normalizedMcpToolName = '';
+  if (/^mcp__([a-z0-9_-]+)__([a-z0-9_-]+)$/i.test(toolName)) {
+    normalizedMcpToolName = toolName;
+  } else if (/^call_mcp_tool$/i.test(toolName)) {
+    const srv = String(tIn.ServerName || tIn.serverName || '').trim();
+    const tName = String(tIn.ToolName || tIn.toolName || '').trim();
+    if (srv && tName) {
+      normalizedMcpToolName = `mcp__${srv}__${tName}`;
+    }
+  } else {
+    const eagerMcpMatch = toolName.match(
+      /^mcp_(github|gh|aws|gcloud|sentry|kubectl|kubernetes)_([a-z0-9_-]+)$/i
+    );
+    if (eagerMcpMatch) {
+      normalizedMcpToolName = `mcp__${eagerMcpMatch[1]}__${eagerMcpMatch[2]}`;
+    }
+  }
+  if (normalizedMcpToolName) {
     const t0 = performance.now();
+    const cliCapabilities = loadVerifiedCliCapabilities(
+      hasExplicitCwd ? baseCwd : '',
+      params.options
+    );
     const verdict = evaluateMcpCliRouter({
-      toolName,
-      cliCapabilities: params.options?.cliCapabilities || {}
+      toolName: normalizedMcpToolName,
+      cliCapabilities
     });
-    emit('#16_MCP_CLI_ROUTER', verdict, performance.now() - t0, gammaStage);
+    if (verdict.triggered) {
+      verdict.decision = gammaCoachStage === 'ENFORCE' ? 'ask' : 'warn';
+    }
+    emit('#16_MCP_CLI_ROUTER', verdict, performance.now() - t0, gammaCoachStage);
+  }
+
+  // #17 LSP_SYMBOL_ROUTER (Sub-Wave B-Gamma -> default SHADOW, opt-in via lspCapabilities)
+  if (/^(?:Grep|grep_search|Read|read_file|view_file)$/i.test(toolName)) {
+    const lspCaps =
+      params.options?.lspCapabilities || params.options?.horizonConfig?.lspCapabilities || null;
+    if (lspCaps && lspCaps.lspToolEnabled === true) {
+      const t0 = performance.now();
+      const verdict = evaluateLspSymbolRouter({
+        symbol: String(tIn.pattern || tIn.Query || tIn.symbol || '').trim(),
+        filePath: String(tIn.path || tIn.SearchPath || tIn.file_path || tIn.Path || '').trim(),
+        symbolLookupCount: Number(tIn.symbolLookupCount ?? lspCaps.symbolLookupCount ?? 0),
+        lspToolEnabled: true,
+        activeExtensions: lspCaps.activeExtensions || []
+      });
+      if (verdict.triggered) {
+        verdict.decision = gammaShadowStage === 'ENFORCE' ? 'ask' : 'warn';
+      }
+      emit('#17_LSP_SYMBOL_ROUTER', verdict, performance.now() - t0, gammaShadowStage);
+    }
   }
 
   // Expose other runtime-callable evaluators for PostToolUse / UserPromptSubmit / tests
   return {
-    stage: gammaStage,
+    stage: gammaShadowStage,
+    gammaCoachStage,
     alphaStage,
     betaStage,
-    shadowOnly: alphaStage === 'SHADOW' && betaStage === 'SHADOW' && gammaStage === 'SHADOW',
+    shadowOnly:
+      alphaStage === 'SHADOW' &&
+      betaStage === 'SHADOW' &&
+      gammaCoachStage === 'SHADOW' &&
+      gammaShadowStage === 'SHADOW',
     triggered: activeRecords.length > 0,
     activeRecords,
     recorded,
@@ -966,5 +1095,106 @@ export function runBucketBStopPass(params = {}) {
     nonTestAddedLines: verdict.nonTestAddedLines,
     testAddedLines: verdict.testAddedLines,
     unusedExportedAbstractions: verdict.unusedExportedAbstractions
+  };
+}
+
+/**
+ * Evaluates Sub-Wave B-Gamma `UserPromptSubmit` / `handlePreInvocation` guardrail
+ * (`#13 VAGUE_PROMPT_ANCHOR`) with `0` subprocess spawns using cached dirty/failing state.
+ * Runs in `'COACH'` mode by default (`'SHADOW'` in `'SILENT'`/`'OFF'` modes) and NEVER blocks prompts.
+ *
+ * @param {object} [params={}]
+ */
+export function runBucketBPromptPass(params = {}) {
+  const platform = params.platform === 'antigravity' ? 'antigravity' : 'claude';
+  const sessionId = params.sessionId || 'default';
+  const hasExplicitCwd = params.hasExplicitCwd !== false && Boolean(params.cwd);
+  const baseCwd = hasExplicitCwd ? path.resolve(params.cwd) : process.cwd();
+  const gammaCoachStage = resolveBucketBGammaCoachStage(params.options);
+
+  if (params.isAutonomousOrSubagent) {
+    return { triggered: false, stage: gammaCoachStage, savedTokens: 0 };
+  }
+
+  const dirtySet = [];
+  const seen = new Set();
+  for (const rawItem of Array.isArray(params.cachedDirtyFiles) ? params.cachedDirtyFiles : []) {
+    const rawStr = String(rawItem || '').trim();
+    if (!rawStr) continue;
+    let norm = rawStr.replace(/\\/g, '/').replace(/^\.\//, '');
+    if (hasExplicitCwd && path.isAbsolute(rawStr)) {
+      const rel = path.relative(baseCwd, rawStr).replace(/\\/g, '/');
+      if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
+        norm = rel;
+      }
+    }
+    if (!norm || isBucketBForbiddenSkuPath(norm) || seen.has(norm)) continue;
+    seen.add(norm);
+    dirtySet.push(norm);
+    if (dirtySet.length >= 5) break;
+  }
+
+  let cleanLastFail = String(params.lastFailingLocation || '').trim().replace(/\\/g, '/');
+  if (cleanLastFail && hasExplicitCwd && path.isAbsolute(cleanLastFail)) {
+    const relFail = path.relative(baseCwd, cleanLastFail).replace(/\\/g, '/');
+    if (relFail && !relFail.startsWith('..') && !path.isAbsolute(relFail)) {
+      cleanLastFail = relFail;
+    }
+  }
+  if (cleanLastFail && isBucketBForbiddenSkuPath(cleanLastFail)) {
+    cleanLastFail = '';
+  }
+
+  const t0 = performance.now();
+  const verdict = evaluateVaguePromptAnchor({
+    prompt: String(params.prompt || ''),
+    cachedDirtyFiles: dirtySet,
+    lastFailingLocation: cleanLastFail
+  });
+  const elapsedMs = performance.now() - t0;
+
+  if (!verdict.triggered) {
+    return { triggered: false, stage: gammaCoachStage, savedTokens: 0 };
+  }
+
+  if (hasExplicitCwd) {
+    recordBucketBShadowHint(
+      sessionId,
+      {
+        guardrailId: '#13_VAGUE_PROMPT_ANCHOR',
+        stage: gammaCoachStage,
+        platform,
+        wouldTrigger: true,
+        wouldDecision: 'warn',
+        latencyMs: elapsedMs,
+        tokens_saved_est: verdict.tokensSavedEst || 0,
+        dollars_saved_est: Number((((verdict.tokensSavedEst || 0) / 1_000_000) * 3.0).toFixed(6)),
+        evidence: {
+          code: verdict.code || 'VAGUE_PROMPT_ANCHOR',
+          reason: String(verdict.reason || '').slice(0, 220)
+        }
+      },
+      { cwd: baseCwd }
+    );
+  }
+
+  if (gammaCoachStage === 'SHADOW') {
+    return {
+      triggered: false,
+      stage: 'SHADOW',
+      shadowed: true,
+      savedTokens: 0
+    };
+  }
+
+  return {
+    triggered: true,
+    stage: gammaCoachStage,
+    decision: 'warn',
+    guardrailId: '#13_VAGUE_PROMPT_ANCHOR',
+    code: verdict.code || 'VAGUE_PROMPT_ANCHOR',
+    anchorContext: verdict.anchorContext,
+    reason: `${verdict.anchorContext} — ${verdict.reason}`,
+    savedTokens: verdict.tokensSavedEst || 0
   };
 }

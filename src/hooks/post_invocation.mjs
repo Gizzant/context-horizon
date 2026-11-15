@@ -244,15 +244,25 @@ export async function handlePostToolUse(inputData = {}) {
     (typeof inputData.exitCode === 'number' && inputData.exitCode !== 0) ||
     (typeof inputData.exit_code === 'number' && inputData.exit_code !== 0);
 
-  if (
-    /^(?:run_command|execute_bash|Bash|PowerShell)$/i.test(toolName) &&
-    !didFail &&
-    /\b(?:node\s+--test|npm\s+(?:run\s+)?test|pnpm\s+(?:run\s+)?test|yarn\s+test|bun\s+test|vitest|jest|pytest|cargo\s+test|go\s+test|tsc(?:\s|$)|npx\s+tsc)\b/i.test(
-      cmdStr
-    )
-  ) {
-    if (sidecar.fileState) {
-      sidecar.fileState.unverifiedEdits = [];
+  if (/^(?:run_command|execute_bash|Bash|PowerShell)$/i.test(toolName)) {
+    const isVerificationCmd =
+      /\b(?:node\s+--test|npm\s+(?:run\s+)?test|pnpm\s+(?:run\s+)?test|yarn\s+test|bun\s+test|vitest|jest|pytest|cargo\s+test|go\s+test|tsc(?:\s|$)|npx\s+tsc)\b/i.test(
+        cmdStr
+      );
+    if (!didFail && isVerificationCmd) {
+      if (sidecar.fileState) {
+        sidecar.fileState.unverifiedEdits = [];
+      }
+      if (sidecar.sessionMeta) {
+        sidecar.sessionMeta.lastFailingLocation = null;
+      }
+    } else if (didFail && rawOutput) {
+      const locMatch = rawOutput.match(
+        /([A-Za-z0-9_./\\-]+\.(?:[cm]?[jt]sx?|py|rs|go|rb|java|kt|swift|c|cpp|h|hpp)):(\d+)(?::\d+)?/
+      );
+      if (locMatch) {
+        sidecar.sessionMeta.lastFailingLocation = `${locMatch[1].replace(/\\/g, '/')}:${locMatch[2]}`;
+      }
     }
   }
 

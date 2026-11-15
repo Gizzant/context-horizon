@@ -45,7 +45,10 @@ import {
   evaluateShieldReadGuard,
   inspectAndSanitizeMultimodalRead
 } from '../core/shield_manager.mjs';
-import { runBucketBPreToolShadowPass } from '../core/bucket_b_runtime.mjs';
+import {
+  runBucketBPreToolShadowPass,
+  runBucketBPromptPass
+} from '../core/bucket_b_runtime.mjs';
 import { evaluateParameterizedCliffBreaker } from '../core-isomorphic/economics/cliffBreaker.mjs';
 import { evaluateActiveDet30StepDown } from '../core-isomorphic/economics/driftLatency.mjs';
 import { evaluateDet05DiffThrashing } from '../core-isomorphic/guards/det04_12_thrash_rot.mjs';
@@ -583,10 +586,13 @@ export async function handlePreToolUse(inputData = {}) {
           bucketBStage: inputData.bucketBStage,
           bucketBAlphaStage: inputData.bucketBAlphaStage,
           bucketBBetaStage: inputData.bucketBBetaStage,
+          bucketBGammaStage: inputData.bucketBGammaStage,
+          bucketBLspStage: inputData.bucketBLspStage,
           persistState: inputData.persistState,
           mode: flightMode,
           registryMetadata: inputData.registryMetadata,
           cliCapabilities: inputData.cliCapabilities,
+          lspCapabilities: inputData.lspCapabilities,
           horizonConfig
         }
       });
@@ -927,6 +933,50 @@ export async function handlePreInvocation(inputData = {}) {
       const det18 = evaluateDet18UntrustedWorkspaceSettings([], { workspacePath, scanWorkspace: true });
       if (det18) {
         return { terminationBehavior: 'terminate', decision: 'block', detectorId: 'DET-18', userMessage: det18.message };
+      }
+    }
+    if (rawPrompt && (inputData.cwd || inputData.workspacePath) && inputData.bucketBShadow !== false) {
+      try {
+        const silentFileState = sidecar.fileState || {};
+        const silentSessionMeta = sidecar.sessionMeta || {};
+        const isAutonomousOrSubagent = Boolean(
+          inputData.isAutonomousTurn ||
+            inputData.autonomous ||
+            inputData.isSubagent ||
+            silentSessionMeta.isSubagent ||
+            inputData.isScheduledTask ||
+            inputData.isLoopIteration ||
+            /^(?:scheduled|cron|loop|subagent|agent_callback|callback|auto|autonomous|background|system|hook|task_notification|wake)$/i.test(
+              String(inputData.provenance || inputData.source || '')
+            )
+        );
+        const cachedDirtyFiles = Array.isArray(inputData.cachedDirtyFiles)
+          ? inputData.cachedDirtyFiles
+          : [
+              ...(silentFileState.modifiedFiles || []),
+              ...(Array.isArray(silentFileState.unverifiedEdits)
+                ? silentFileState.unverifiedEdits.map((e) => e?.filePath)
+                : [])
+            ];
+        runBucketBPromptPass({
+          platform: 'antigravity',
+          sessionId: conversationId,
+          cwd: workspacePath,
+          hasExplicitCwd: true,
+          prompt: rawPrompt,
+          isAutonomousOrSubagent,
+          cachedDirtyFiles,
+          lastFailingLocation:
+            inputData.lastFailingLocation ?? silentSessionMeta.lastFailingLocation ?? '',
+          options: {
+            bucketBStage: inputData.bucketBStage,
+            bucketBGammaStage: inputData.bucketBGammaStage,
+            mode: 'SILENT',
+            horizonConfig
+          }
+        });
+      } catch (_silentPromptErr) {
+        // Non-fatal Bucket B SILENT shadow pass
       }
     }
     return {};
@@ -1452,6 +1502,57 @@ export async function handlePreInvocation(inputData = {}) {
       writeSidecarAtomicSync(conversationId, sidecar);
     } catch (err) {
       recordHookDiagnostic('pre_invocation', 'lastUserPrompt.writeSidecar', err);
+    }
+  }
+
+  if (rawPrompt && inputData.bucketBShadow !== false) {
+    try {
+      const isAutonomousOrSubagent = Boolean(
+        inputData.isAutonomousTurn ||
+          inputData.autonomous ||
+          inputData.isSubagent ||
+          sessionMeta.isSubagent ||
+          inputData.isScheduledTask ||
+          inputData.isLoopIteration ||
+          /^(?:scheduled|cron|loop|subagent|agent_callback|callback|auto|autonomous|background|system|hook|task_notification|wake)$/i.test(
+            String(inputData.provenance || inputData.source || '')
+          )
+      );
+      const cachedDirtyFiles = Array.isArray(inputData.cachedDirtyFiles)
+        ? inputData.cachedDirtyFiles
+        : [
+            ...(fileState.modifiedFiles || []),
+            ...(Array.isArray(fileState.unverifiedEdits)
+              ? fileState.unverifiedEdits.map((e) => e?.filePath)
+              : [])
+          ];
+      const promptAnchor = runBucketBPromptPass({
+        platform: 'antigravity',
+        sessionId: conversationId,
+        cwd: workspacePath,
+        hasExplicitCwd: Boolean(inputData.cwd || inputData.workspacePath),
+        prompt: rawPrompt,
+        isAutonomousOrSubagent,
+        cachedDirtyFiles,
+        lastFailingLocation:
+          inputData.lastFailingLocation ?? sessionMeta.lastFailingLocation ?? '',
+        options: {
+          bucketBStage: inputData.bucketBStage,
+          bucketBGammaStage: inputData.bucketBGammaStage,
+          mode: flightMode,
+          horizonConfig
+        }
+      });
+      if (promptAnchor.triggered) {
+        return {
+          ephemeralMessage: promptAnchor.reason,
+          systemMessage: promptAnchor.reason,
+          anchorContext: promptAnchor.anchorContext,
+          detectorId: 'VAGUE_PROMPT_ANCHOR'
+        };
+      }
+    } catch (_bucketBPrmErr) {
+      // Non-fatal Bucket B prompt anchor pass
     }
   }
 

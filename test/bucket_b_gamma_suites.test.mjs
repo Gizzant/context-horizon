@@ -31,6 +31,7 @@ import { getShieldStatus } from '../src/core/shield_manager.mjs';
 import { runPreToolUseHook } from '../hooks/handlers/pre-tool-use.mjs';
 import { runPostToolUseHook } from '../hooks/handlers/post-tool-use.mjs';
 import { runStopGateHook } from '../hooks/handlers/stop-gate.mjs';
+import { runUserPromptSubmitHook } from '../hooks/handlers/user-prompt-submit.mjs';
 import { handlePreInvocation } from '../src/hooks/pre_invocation.mjs';
 import { handlePostInvocation } from '../src/hooks/post_invocation.mjs';
 import { runDoctorDiagnostics } from '../src/diagnostics/doctorEngine.mjs';
@@ -836,29 +837,28 @@ if (!process.env.CTXTOP_BENCH_IMPORT_ONLY) {
         )
       );
 
-      // 5. Sub-Wave B-Gamma (#5) remains in SHADOW by default (no systemMessage, logged in bucketBShadow)
+      // 5. Default-SHADOW B-Gamma (#17 LSP_SYMBOL_ROUTER) stays in SHADOW by default (no systemMessage, logged in bucketBShadow)
       const agGammaDefault = await handlePreInvocation({
         conversationId: agConvId,
         cwd: tmpDir,
-        tool_name: 'invoke_subagent',
+        tool_name: 'grep_search',
         tool_input: {
-          TypeName: 'research',
-          Role: 'File Scout',
-          Prompt: 'Find all usages of shield_manager',
-          Model: 'pro',
-          EnableWriteTools: false
-        }
+          Query: 'evaluateShieldReadGuard',
+          SearchPath: 'src/core/shield_manager.mjs',
+          symbolLookupCount: 3
+        },
+        lspCapabilities: { lspToolEnabled: true, activeExtensions: ['.mjs'] }
       });
       assert.equal(agGammaDefault.systemMessage, undefined);
 
-      // 6. Verify Quota Shield ROI separates bucketBCoach (counted) from bucketBShadow (estimated only: SILENT #6 + default #5)
+      // 6. Verify Quota Shield ROI separates bucketBCoach (counted) from bucketBShadow (estimated only: SILENT #6 + default #17)
       const status = getShieldStatus({ cwd: tmpDir });
       assert.ok(status.roi.bucketBCoach.hits >= 7);
       assert.ok(status.roi.bucketBCoach.tokensSaved > 0);
       assert.ok(status.roi.tokensSaved >= status.roi.bucketBCoach.tokensSaved);
       assert.equal(status.roi.bucketBShadow.hits, 2);
       assert.equal(status.roi.bucketBShadow.byGuardrail['#6_SLOPSQUAT_DEP_GATE'], 1);
-      assert.equal(status.roi.bucketBShadow.byGuardrail['#5_SUBAGENT_TEAM_GOVERNOR'], 1);
+      assert.equal(status.roi.bucketBShadow.byGuardrail['#17_LSP_SYMBOL_ROUTER'], 1);
     } finally {
       cleanupTempWorkspace(tmpDir);
     }
@@ -1197,22 +1197,21 @@ if (!process.env.CTXTOP_BENCH_IMPORT_ONLY) {
       });
       assert.equal(agSilentStopOut.systemMessage, undefined);
 
-      // 4. B-Gamma (#5) remains in SHADOW by default
+      // 4. Default-SHADOW B-Gamma (#17 LSP_SYMBOL_ROUTER) stays in SHADOW by default
       const agGamma = await handlePreInvocation({
         conversationId: `${agConvId}-gamma`,
         cwd: tmpDir,
-        tool_name: 'invoke_subagent',
+        tool_name: 'grep_search',
         tool_input: {
-          TypeName: 'research',
-          Role: 'Repo Scout',
-          Prompt: 'Inspect src directory',
-          Model: 'pro',
-          EnableWriteTools: false
-        }
+          Query: 'evaluateShieldReadGuard',
+          SearchPath: 'src/core/shield_manager.mjs',
+          symbolLookupCount: 3
+        },
+        lspCapabilities: { lspToolEnabled: true, activeExtensions: ['.mjs'] }
       });
       assert.equal(agGamma.systemMessage, undefined);
 
-      // 5. Verify ROI separation: B-Beta hits count in bucketBCoach, while SILENT + B-Gamma stay in bucketBShadow
+      // 5. Verify ROI separation: B-Beta hits count in bucketBCoach, while SILENT + default-SHADOW #17 stay in bucketBShadow
       const status = getShieldStatus({ cwd: tmpDir });
       assert.ok(status.roi.bucketBCoach.byGuardrail['#8_DUPLICATE_CLONE_DETECTOR'] >= 2);
       assert.ok(status.roi.bucketBCoach.byGuardrail['#3B_EVILGENIE_ORACLE'] >= 3);
@@ -1220,7 +1219,341 @@ if (!process.env.CTXTOP_BENCH_IMPORT_ONLY) {
       assert.ok(status.roi.tokensSaved >= status.roi.bucketBCoach.tokensSaved);
       assert.equal(status.roi.bucketBShadow.byGuardrail['#8_DUPLICATE_CLONE_DETECTOR'], 1);
       assert.equal(status.roi.bucketBShadow.byGuardrail['#19_OVERENGINEERING_DIFF_GATE'], 1);
+      assert.equal(status.roi.bucketBShadow.byGuardrail['#17_LSP_SYMBOL_ROUTER'], 1);
+    } finally {
+      cleanupTempWorkspace(tmpDir);
+    }
+  });
+
+  test('Sub-Wave B-Gamma selective promotion (#5, #13, capability-gated #16 -> COACH; #17 -> SHADOW; #20 -> DOCTOR_PREVIEW) across Claude & Antigravity', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ctxtop-b-gamma-select-'));
+    const agConvId = `b-gamma-ag-${Date.now()}`;
+    try {
+      // 1. #5 SUBAGENT_TEAM_GOVERNOR: frontier read-only scouts coached; write workers & Cold Critics untouched; SILENT silent
+      const claudeScoutCoach = runPreToolUseHook(
+        {
+          session_id: 'gamma-5-claude',
+          cwd: tmpDir,
+          tool_name: 'Task',
+          tool_input: {
+            subagent_type: 'Explore',
+            description: 'File Explorer',
+            prompt: 'Search for shield_manager references across src/',
+            model: 'opus'
+          }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(claudeScoutCoach.exitCode, 0);
+      assert.equal(claudeScoutCoach.verdict.detectorId, 'SUBAGENT_TEAM_GOVERNOR');
+      const scoutJson = JSON.parse(claudeScoutCoach.stdout);
+      assert.equal(scoutJson.hookSpecificOutput.permissionDecision, 'allow');
+      assert.match(scoutJson.hookSpecificOutput.additionalContext, /haiku.*flash/i);
+
+      const claudeWritePass = runPreToolUseHook(
+        {
+          session_id: 'gamma-5-claude',
+          cwd: tmpDir,
+          tool_name: 'Task',
+          tool_input: {
+            subagent_type: 'general-purpose',
+            description: 'Parser Implementer',
+            prompt: 'Edit src/parser.mjs to fix edge cases',
+            model: 'opus'
+          }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(claudeWritePass.stdout, '');
+
+      const claudeCriticExempt = runPreToolUseHook(
+        {
+          session_id: 'gamma-5-claude',
+          cwd: tmpDir,
+          tool_name: 'Task',
+          tool_input: {
+            subagent_type: 'general-purpose',
+            description: 'Cold Critic Review',
+            prompt: 'Critique the architecture plan with S0/S1 findings',
+            model: 'opus'
+          }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(claudeCriticExempt.stdout, '');
+
+      const claudeScoutSilent = runPreToolUseHook(
+        {
+          session_id: 'gamma-5-silent',
+          cwd: tmpDir,
+          mode: 'SILENT',
+          tool_name: 'Task',
+          tool_input: {
+            subagent_type: 'Explore',
+            description: 'File Explorer',
+            prompt: 'Find config usages',
+            model: 'opus'
+          }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(claudeScoutSilent.stdout, '');
+
+      const agScoutCoach = await handlePreInvocation({
+        conversationId: `${agConvId}-5`,
+        cwd: tmpDir,
+        tool_name: 'invoke_subagent',
+        tool_input: {
+          TypeName: 'research',
+          Role: 'Repo Scout',
+          Prompt: 'Explore src directory structure',
+          Model: 'pro',
+          EnableWriteTools: false
+        }
+      });
+      assert.equal(agScoutCoach.decision, 'allow');
+      assert.match(String(agScoutCoach.systemMessage || ''), /haiku.*flash/i);
+
+      const agSwarmStatusPass = await handlePreInvocation({
+        conversationId: `${agConvId}-5-swarm`,
+        cwd: tmpDir,
+        tool_name: 'swarm',
+        tool_input: { action: 'status' }
+      });
+      assert.equal(agSwarmStatusPass.systemMessage, undefined);
+
+      // 2. #13 VAGUE_PROMPT_ANCHOR: zero-spawn post-ScopeBrake context anchor on Claude & Antigravity
+      const claudeAnchorSess = 'gamma-13-claude';
+      runPreToolUseHook(
+        {
+          session_id: claudeAnchorSess,
+          turn_id: 2,
+          cwd: tmpDir,
+          tool_name: 'Write',
+          tool_input: {
+            file_path: 'src/parser.mjs',
+            content: 'export function parseTok() { return 1; }\n'
+          }
+        },
+        { cwd: tmpDir, persistState: true }
+      );
+      runPostToolUseHook(
+        {
+          session_id: claudeAnchorSess,
+          cwd: tmpDir,
+          tool_name: 'Bash',
+          tool_input: { command: 'npm test' },
+          exit_code: 1,
+          tool_output: 'AssertionError at src/parser.mjs:42:5'
+        },
+        { cwd: tmpDir, persistState: true }
+      );
+      runStopGateHook({ session_id: claudeAnchorSess, cwd: tmpDir }, { cwd: tmpDir, persistState: true });
+
+      const claudeAnchor = runUserPromptSubmitHook(
+        { session_id: claudeAnchorSess, cwd: tmpDir, prompt: 'test still fails' },
+        { cwd: tmpDir, persistState: true }
+      );
+      assert.equal(claudeAnchor.exitCode, 0);
+      assert.equal(claudeAnchor.verdict.triggered, true);
+      assert.equal(claudeAnchor.verdict.detectorId, 'VAGUE_PROMPT_ANCHOR');
+      const anchorCtx = claudeAnchor.stdoutJson?.hookSpecificOutput?.additionalContext || '';
+      assert.match(anchorCtx, /\[CTX_ANCHOR\]/);
+      assert.match(anchorCtx, /src\/parser\.mjs:42/);
+      assert.match(anchorCtx, /modified:\s*src\/parser\.mjs/i);
+
+      const claudeConfirm = runUserPromptSubmitHook(
+        { session_id: claudeAnchorSess, cwd: tmpDir, prompt: 'yes, go ahead' },
+        { cwd: tmpDir, persistState: true }
+      );
+      assert.equal(claudeConfirm.verdict.triggered, false);
+      assert.equal(claudeConfirm.stdout, '');
+
+      const claudeAnchorSilent = runUserPromptSubmitHook(
+        { session_id: claudeAnchorSess, cwd: tmpDir, mode: 'SILENT', prompt: 'test still fails' },
+        { cwd: tmpDir, persistState: true }
+      );
+      assert.equal(claudeAnchorSilent.verdict.triggered, false);
+      assert.equal(claudeAnchorSilent.stdout, '');
+
+      await handlePreInvocation({
+        conversationId: `${agConvId}-13`,
+        cwd: tmpDir,
+        tool_name: 'write_file',
+        tool_input: { Path: 'src/parser.mjs', Content: 'export function parseTok() { return 2; }\n' }
+      });
+      await handlePostInvocation({
+        hook_event_name: 'PostToolUse',
+        conversationId: `${agConvId}-13`,
+        cwd: tmpDir,
+        tool_name: 'run_command',
+        tool_input: { CommandLine: 'npm test' },
+        exitCode: 1,
+        tool_output: 'AssertionError at src/parser.mjs:42:5'
+      });
+      const agAnchor = await handlePreInvocation({
+        conversationId: `${agConvId}-13`,
+        cwd: tmpDir,
+        prompt: 'same error'
+      });
+      assert.equal(agAnchor.detectorId, 'VAGUE_PROMPT_ANCHOR');
+      assert.match(String(agAnchor.systemMessage || ''), /\[CTX_ANCHOR\].*src\/parser\.mjs:42/);
+
+      const agAnchorSilent = await handlePreInvocation({
+        conversationId: `${agConvId}-13`,
+        cwd: tmpDir,
+        flightMode: 'SILENT',
+        prompt: 'same error'
+      });
+      assert.equal(agAnchorSilent.systemMessage, undefined);
+
+      // 3. #16 MCP_CLI_ROUTER: unverified MCP calls pass silently; disk-verified non-expired CLI triggers COACH
+      const claudeUnverifiedMcp = runPreToolUseHook(
+        {
+          session_id: 'gamma-16-claude',
+          cwd: tmpDir,
+          tool_name: 'mcp__github__list_pull_requests',
+          tool_input: { owner: 'Gizzant', repo: 'context-horizon' }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(claudeUnverifiedMcp.stdout, '');
+
+      const agUnverifiedMcp = await handlePreInvocation({
+        conversationId: `${agConvId}-16`,
+        cwd: tmpDir,
+        tool_name: 'call_mcp_tool',
+        tool_input: { ServerName: 'github', ToolName: 'list_pull_requests', Arguments: {} }
+      });
+      assert.equal(agUnverifiedMcp.systemMessage, undefined);
+
+      const telemetryDir = path.join(tmpDir, '.agents', 'telemetry');
+      fs.mkdirSync(telemetryDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(telemetryDir, 'cli_capabilities.json'),
+        JSON.stringify({ gh: { installed: true, authValid: true, authExpired: false } }),
+        'utf8'
+      );
+
+      const claudeVerifiedMcp = runPreToolUseHook(
+        {
+          session_id: 'gamma-16-claude',
+          cwd: tmpDir,
+          tool_name: 'mcp__github__list_pull_requests',
+          tool_input: { owner: 'Gizzant', repo: 'context-horizon' }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(claudeVerifiedMcp.verdict.detectorId, 'MCP_CLI_ROUTER');
+      const mcpJson = JSON.parse(claudeVerifiedMcp.stdout);
+      assert.equal(mcpJson.hookSpecificOutput.permissionDecision, 'allow');
+      assert.match(mcpJson.hookSpecificOutput.additionalContext, /\[CTX_HINT\].*gh/);
+
+      const claudeExpiredOverride = runPreToolUseHook(
+        {
+          session_id: 'gamma-16-claude',
+          cwd: tmpDir,
+          tool_name: 'mcp__github__list_pull_requests',
+          tool_input: { owner: 'Gizzant', repo: 'context-horizon' },
+          cliCapabilities: { gh: { installed: true, authValid: true, authExpired: true } }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(claudeExpiredOverride.stdout, '');
+
+      const claudeMutationMcp = runPreToolUseHook(
+        {
+          session_id: 'gamma-16-claude',
+          cwd: tmpDir,
+          tool_name: 'mcp__github__merge_pull_request',
+          tool_input: { pull_number: 12 }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(claudeMutationMcp.stdout, '');
+
+      const claudeVerifiedMcpSilent = runPreToolUseHook(
+        {
+          session_id: 'gamma-16-silent',
+          cwd: tmpDir,
+          mode: 'SILENT',
+          tool_name: 'mcp__github__list_pull_requests',
+          tool_input: { owner: 'Gizzant', repo: 'context-horizon' }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(claudeVerifiedMcpSilent.stdout, '');
+
+      const agVerifiedMcp = await handlePreInvocation({
+        conversationId: `${agConvId}-16`,
+        cwd: tmpDir,
+        tool_name: 'call_mcp_tool',
+        tool_input: { ServerName: 'github', ToolName: 'list_pull_requests', Arguments: {} }
+      });
+      assert.match(String(agVerifiedMcp.systemMessage || ''), /\[CTX_HINT\].*gh/);
+
+      // 4. #17 LSP_SYMBOL_ROUTER stays SHADOW by default and promotes via opt-in bucketBLspStage
+      const claudeLspDefault = runPreToolUseHook(
+        {
+          session_id: 'gamma-17-claude',
+          cwd: tmpDir,
+          tool_name: 'Grep',
+          tool_input: {
+            pattern: 'evaluateShieldReadGuard',
+            path: 'src/core/shield_manager.mjs',
+            symbolLookupCount: 3
+          },
+          lspCapabilities: { lspToolEnabled: true, activeExtensions: ['.mjs'] }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(claudeLspDefault.stdout, '');
+
+      const claudeLspOptIn = runPreToolUseHook(
+        {
+          session_id: 'gamma-17-claude-optin',
+          cwd: tmpDir,
+          tool_name: 'Grep',
+          tool_input: {
+            pattern: 'evaluateShieldReadGuard',
+            path: 'src/core/shield_manager.mjs',
+            symbolLookupCount: 3
+          },
+          lspCapabilities: { lspToolEnabled: true, activeExtensions: ['.mjs'] },
+          bucketBLspStage: 'COACH'
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(claudeLspOptIn.verdict.detectorId, 'LSP_SYMBOL_ROUTER');
+      const lspOptOut = JSON.parse(claudeLspOptIn.stdout);
+      assert.match(lspOptOut.hookSpecificOutput.additionalContext, /\[CTX_HINT\].*LSP goToDefinition/i);
+
+      // 5. Verify scorecard stages (10 COACH, #17 SHADOW, #20 DOCTOR_PREVIEW) and ROI separation
+      const { runAllBucketBBenchmarks } = await import('../scripts/run_bucket_b_harness.mjs');
+      const harnessReport = await runAllBucketBBenchmarks();
+      assert.equal(harnessReport.totalGuardrails, 12);
+      assert.equal(harnessReport.promoteReadyCount, 12);
+      const byId = new Map(harnessReport.guardrails.map((g) => [g.id, g]));
+      assert.equal(
+        harnessReport.guardrails.filter((g) => g.defaultStage === 'COACH').length,
+        10
+      );
+      assert.equal(byId.get('#5').defaultStage, 'COACH');
+      assert.equal(byId.get('#13').defaultStage, 'COACH');
+      assert.equal(byId.get('#16').defaultStage, 'COACH');
+      assert.equal(byId.get('#17').defaultStage, 'SHADOW');
+      assert.equal(byId.get('#20').defaultStage, 'DOCTOR_PREVIEW');
+
+      const status = getShieldStatus({ cwd: tmpDir });
+      assert.ok(status.roi.bucketBCoach.byGuardrail['#5_SUBAGENT_TEAM_GOVERNOR'] >= 2);
+      assert.ok(status.roi.bucketBCoach.byGuardrail['#13_VAGUE_PROMPT_ANCHOR'] >= 2);
+      assert.ok(status.roi.bucketBCoach.byGuardrail['#16_MCP_CLI_ROUTER'] >= 2);
+      assert.equal(status.roi.bucketBCoach.byGuardrail['#17_LSP_SYMBOL_ROUTER'], 1);
+      assert.ok(status.roi.tokensSaved >= status.roi.bucketBCoach.tokensSaved);
       assert.equal(status.roi.bucketBShadow.byGuardrail['#5_SUBAGENT_TEAM_GOVERNOR'], 1);
+      assert.equal(status.roi.bucketBShadow.byGuardrail['#13_VAGUE_PROMPT_ANCHOR'], 2);
+      assert.equal(status.roi.bucketBShadow.byGuardrail['#16_MCP_CLI_ROUTER'], 1);
+      assert.equal(status.roi.bucketBShadow.byGuardrail['#17_LSP_SYMBOL_ROUTER'], 1);
     } finally {
       cleanupTempWorkspace(tmpDir);
     }

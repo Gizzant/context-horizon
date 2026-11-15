@@ -16,6 +16,7 @@ import {
   readBreakerStateSnapshot,
   writeBreakerStateSnapshot
 } from '../../src/core-isomorphic/guards/circuitBreakers.mjs';
+import { runBucketBPromptPass } from '../../src/core/bucket_b_runtime.mjs';
 import {
   isCliEntrypoint,
   readStdinJsonAsync,
@@ -76,6 +77,76 @@ export function runUserPromptSubmitHook(event = {}, options = {}) {
   }
 
   if (!verdict.triggered) {
+    if (options.bucketBShadow !== false) {
+      try {
+        const promptText = String(event.prompt ?? event.user_input ?? event.message ?? '');
+        const provenance = String(event.provenance || event.source || '');
+        const isAutonomousOrSubagent = Boolean(
+          event.isAutonomousTurn ||
+            event.autonomous ||
+            event.isSubagent ||
+            event.agentId ||
+            event.subagentId ||
+            event.isScheduledTask ||
+            event.isLoopIteration ||
+            /^(?:scheduled|cron|loop|subagent|agent_callback|callback|auto|autonomous|background|system|hook|task_notification|wake)$/i.test(
+              provenance
+            )
+        );
+        const cachedDirtyFiles = Array.isArray(event.cachedDirtyFiles)
+          ? event.cachedDirtyFiles
+          : [
+              ...Array.from(engine.modifiedFilesInTurn || []),
+              ...(Array.isArray(engine.unverifiedEdits)
+                ? engine.unverifiedEdits.map((e) => e?.filePath)
+                : []),
+              ...(Array.isArray(event.modifiedFiles) ? event.modifiedFiles : [])
+            ];
+        const hasExplicitCwd = Boolean(event.cwd || options.cwd);
+        const promptAnchor = runBucketBPromptPass({
+          platform: 'claude',
+          sessionId,
+          cwd: event.cwd || options.cwd || '',
+          hasExplicitCwd,
+          prompt: promptText,
+          isAutonomousOrSubagent,
+          cachedDirtyFiles,
+          lastFailingLocation: event.lastFailingLocation ?? engine.lastFailingLocation ?? '',
+          options: {
+            ...options,
+            bucketBStage: event.bucketBStage ?? options.bucketBStage,
+            bucketBGammaStage: event.bucketBGammaStage ?? options.bucketBGammaStage,
+            mode: effectiveMode,
+            horizonConfig
+          }
+        });
+        if (promptAnchor.triggered) {
+          const anchorStdoutJson = {
+            hookSpecificOutput: {
+              hookEventName: 'UserPromptSubmit',
+              additionalContext: String(promptAnchor.reason || '').slice(0, 9500)
+            }
+          };
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify(anchorStdoutJson),
+            stdoutJson: anchorStdoutJson,
+            stderr: '',
+            verdict: {
+              triggered: true,
+              detectorId: 'VAGUE_PROMPT_ANCHOR',
+              subType: 'VAGUE_PROMPT_ANCHOR',
+              decision: 'steer',
+              anchorContext: promptAnchor.anchorContext,
+              savedTokens: promptAnchor.savedTokens,
+              reason: promptAnchor.reason
+            }
+          };
+        }
+      } catch (_bucketBPrmErr) {
+        // Non-fatal Bucket B prompt anchor pass
+      }
+    }
     return {
       exitCode: 0,
       stdout: '',

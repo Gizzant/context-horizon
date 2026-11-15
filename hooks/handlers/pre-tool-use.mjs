@@ -361,7 +361,17 @@ export function runPreToolUseHook(event = {}, options = {}) {
         toolInput: tIn,
         lastUserPrompt: event.prompt || engine.lastUserPrompt || '',
         editsSinceVerify: priorUnverifiedEdits,
-        options: { ...options, persistState: shouldPersistState, mode: effectiveMode, horizonConfig }
+        options: {
+          ...options,
+          cliCapabilities: event.cliCapabilities || options.cliCapabilities,
+          lspCapabilities: event.lspCapabilities || options.lspCapabilities,
+          bucketBStage: event.bucketBStage ?? options.bucketBStage,
+          bucketBGammaStage: event.bucketBGammaStage ?? options.bucketBGammaStage,
+          bucketBLspStage: event.bucketBLspStage ?? options.bucketBLspStage,
+          persistState: shouldPersistState,
+          mode: effectiveMode,
+          horizonConfig
+        }
       });
       if (shadowRes.triggered && shadowRes.activeRecords.length > 0) {
         const primaryEntry =
@@ -457,7 +467,7 @@ export function runPreToolUseHook(event = {}, options = {}) {
 
   const detId = String(verdict.detectorId || '');
   const isQuotaSavingGuard =
-    /^(DET-04|DET-06|DET-09|DET-10|DET-11|DET-12|DET-13|DET-14|DET-20|SLOPSQUAT_DEP_GATE|BLAST_RADIUS_BREAKER|DUPLICATE_CLONE_DETECTOR|EVILGENIE_HARDCODED_ORACLE)$/.test(
+    /^(DET-04|DET-06|DET-09|DET-10|DET-11|DET-12|DET-13|DET-14|DET-20|SLOPSQUAT_DEP_GATE|BLAST_RADIUS_BREAKER|DUPLICATE_CLONE_DETECTOR|EVILGENIE_HARDCODED_ORACLE|SUBAGENT_TEAM_GOVERNOR|MCP_CLI_ROUTER)$/.test(
       detId
     );
   if (
