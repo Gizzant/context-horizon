@@ -9,11 +9,22 @@ import {
   handleSessionStartHydration,
   handlePostCompactFlush
 } from '../../src/core-isomorphic/coach/stateBatonHydrator.mjs';
-import { evaluateDet17AutoCompactionDeferral } from '../../src/core-isomorphic/guards/circuitBreakers.mjs';
+import {
+  evaluateDet17AutoCompactionDeferral,
+  readBreakerStateSnapshot,
+  writeBreakerStateSnapshot
+} from '../../src/core-isomorphic/guards/circuitBreakers.mjs';
 import { loadHorizonConfig, resolveDetectorOverride } from '../../src/core-isomorphic/config/horizonConfig.mjs';
 import { loadMicroSkillsRegistry, formatMicroSkillsBatonSnippet } from '../../src/core-isomorphic/coach/microSkills.mjs';
 import { readTextSafe, resolvePath, getCwd } from '../../src/core-isomorphic/utils/runtime.mjs';
 import { inspectClaudeBinaryCapabilities } from '../../src/diagnostics/claudeHookCapabilities.mjs';
+import {
+  auditClaudeIdleDrainSettings,
+  auditClaudeAgentAutoCompactWindows,
+  auditClaudeAutoMemory,
+  snapshotWorkspaceTestHashes
+} from '../../src/core/shield_manager.mjs';
+import { evaluateGeminiThinkingTimeoutRisk } from '../../src/core-isomorphic/economics/driftLatency.mjs';
 import {
   isCliEntrypoint,
   readStdinJsonAsync,
@@ -105,11 +116,51 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
       ? 'start'
       : event.hook_event_name === 'PostCompact'
         ? 'post'
-        : event.hook_event_name === 'WorktreeCreate'
-          ? 'worktree'
-          : 'pre';
+        : event.hook_event_name === 'InstructionsLoaded'
+          ? 'instructions'
+          : event.hook_event_name === 'WorktreeCreate'
+            ? 'worktree'
+            : 'pre';
   const phase = String(options.phase || event.phase || inferredPhase).toLowerCase();
   const cwdOptions = event.cwd && !options.cwd ? { ...options, cwd: event.cwd } : options;
+  const sessionId = event.session_id || event.sessionId || 'default';
+
+  if (phase === 'instructions' || event.hook_event_name === 'InstructionsLoaded') {
+    const cwd = event.cwd || cwdOptions.cwd || '';
+    const ruleAudit = auditWorkspaceClaudeMd(cwd, cwdOptions);
+    const memoryAudit = auditClaudeAutoMemory({
+      cwd: cwd || process.cwd(),
+      homeDir: cwdOptions.homeDir,
+      memoryDir: event.memoryDir || cwdOptions.memoryDir,
+      memoryFilePath: event.memoryFilePath || cwdOptions.memoryFilePath
+    });
+    const agentCliffAudit = cwd ? auditClaudeAgentAutoCompactWindows({ cwd }) : { triggered: false };
+    const blocks = [];
+    if (ruleAudit.triggered) blocks.push(ruleAudit.advisory);
+    if (memoryAudit.triggered) blocks.push(memoryAudit.advisory);
+    if (agentCliffAudit.triggered) blocks.push(agentCliffAudit.advisory);
+    if (blocks.length > 0) {
+      const stdoutJson = {
+        hookSpecificOutput: {
+          hookEventName: 'InstructionsLoaded',
+          additionalContext: blocks.join('\n\n')
+        }
+      };
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify(stdoutJson),
+        stdoutJson,
+        stderr: '',
+        result: { ruleAudit, memoryAudit, agentCliffAudit }
+      };
+    }
+    return {
+      exitCode: 0,
+      stdout: '',
+      stderr: '',
+      result: { ruleAudit, memoryAudit, agentCliffAudit }
+    };
+  }
 
   if (phase === 'worktree' || event.hook_event_name === 'WorktreeCreate') {
     return {
@@ -160,6 +211,24 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
     const hydration = handleSessionStartHydration(event, cwdOptions);
     const cwd = event.cwd || cwdOptions.cwd || '';
     const ruleAudit = auditWorkspaceClaudeMd(cwd, cwdOptions);
+    const memoryAudit = auditClaudeAutoMemory({
+      cwd: cwd || process.cwd(),
+      homeDir: cwdOptions.homeDir,
+      memoryDir: event.memoryDir || cwdOptions.memoryDir,
+      memoryFilePath: event.memoryFilePath || cwdOptions.memoryFilePath
+    });
+    const agentCliffAudit = cwd ? auditClaudeAgentAutoCompactWindows({ cwd }) : { triggered: false };
+    const idleDrainAudit = cwd ? auditClaudeIdleDrainSettings({ cwd }) : { triggered: false };
+    const thinkingTimeoutAudit = evaluateGeminiThinkingTimeoutRisk({
+      modelId: event.model || event.modelId || '',
+      maxOutputTokens: event.maxOutputTokens ?? event.max_output_tokens ?? 0,
+      thinkingBudget: event.thinkingBudget ?? event.thinking_budget ?? 0,
+      timeoutMs: event.timeoutMs ?? event.timeout_ms ?? 0
+    });
+    const testHashSnapshot =
+      cwd && options.snapshotTestHashes !== false
+        ? snapshotWorkspaceTestHashes({ cwd, sessionId })
+        : null;
     const horizonConfig = options.horizonConfig || loadHorizonConfig(cwdOptions);
     let microSkillsBaton = '';
     if (resolveDetectorOverride('micro-skills', horizonConfig) !== 'off') {
@@ -176,6 +245,10 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
     const extraBlocks = [];
     if (microSkillsBaton) extraBlocks.push(microSkillsBaton);
     if (ruleAudit.triggered) extraBlocks.push(ruleAudit.advisory);
+    if (memoryAudit.triggered) extraBlocks.push(memoryAudit.advisory);
+    if (agentCliffAudit.triggered) extraBlocks.push(agentCliffAudit.advisory);
+    if (idleDrainAudit.triggered) extraBlocks.push(idleDrainAudit.advisory);
+    if (thinkingTimeoutAudit.triggered) extraBlocks.push(thinkingTimeoutAudit.advisory);
     if (claudeCapabilities?.found && !claudeCapabilities.contractValid && claudeCapabilities.warning) {
       extraBlocks.push(claudeCapabilities.warning);
     }
@@ -204,6 +277,11 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
         result: {
           ...hydration,
           ruleAudit,
+          memoryAudit,
+          agentCliffAudit,
+          idleDrainAudit,
+          thinkingTimeoutAudit,
+          testHashSnapshot,
           microSkillsBaton,
           claudeCapabilities
         }
@@ -215,6 +293,11 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
       stderr: '',
       result: {
         ...hydration,
+        memoryAudit,
+        agentCliffAudit,
+        idleDrainAudit,
+        thinkingTimeoutAudit,
+        testHashSnapshot,
         claudeCapabilities
       }
     };
@@ -222,6 +305,50 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
 
   if (phase === 'post' || event.hook_event_name === 'PostCompact') {
     const postRes = handlePostCompactFlush(event, cwdOptions);
+    const snap = readBreakerStateSnapshot(sessionId, cwdOptions);
+    const pendingModel =
+      event.pending_downshift_model ||
+      event.pendingDownshiftModel ||
+      snap?.pendingDownshiftModel ||
+      (Array.isArray(snap?.queuedMutations)
+        ? snap.queuedMutations.find((m) => m && m.type === 'model')?.value || null
+        : null);
+
+    if (pendingModel) {
+      if (snap && (event.cwd || cwdOptions.cwd || cwdOptions.breakerStatePath)) {
+        writeBreakerStateSnapshot(
+          sessionId,
+          {
+            ...snap,
+            updatedAt: Date.now(),
+            pendingDownshiftModel: null,
+            queuedMutations: []
+          },
+          cwdOptions
+        );
+      }
+      const actuatedMsg =
+        `[Highbeam PostCompact Downshift Ready] Warm prefix compacted — held downshift to ${pendingModel} ` +
+        `can now execute at $0 cold-cache penalty (run /model ${pendingModel}).`;
+      const stdoutJson = {
+        systemMessage: actuatedMsg,
+        hookSpecificOutput: {
+          hookEventName: 'PostCompact',
+          additionalContext: actuatedMsg
+        }
+      };
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify(stdoutJson),
+        stdoutJson,
+        stderr: '',
+        result: {
+          ...postRes,
+          actuatedDownshiftModel: pendingModel
+        }
+      };
+    }
+
     return {
       exitCode: 0,
       stdout: '',

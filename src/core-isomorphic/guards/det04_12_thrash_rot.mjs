@@ -198,8 +198,42 @@ export function evaluateDet05DiffThrashing(params = {}) {
     }
   }
 
-  // 3. Scan ONLY deleted and added diff lines for test-assertion stripping / error masking
-  const assertionRegex = /\b(?:assert\.[a-zA-Z]+|expect\s*\(|should\.)/;
+  const rawIntentPrompt = String(params.lastUserInput || params.prompt || '');
+  const userExplicitTestIntent =
+    Boolean(params.userExplicitTestIntent) ||
+    /\b(?:edit|update|modify|delete|remove|drop|skip|disable|rewrite|adjust|refactor)\s+(?:(?:the|all|any|some|these|those|existing|failing|obsolete|legacy|old|broken|flaky|unit|integration|e2e)\s+)*(?:tests?|specs?|assertions?)\b/i.test(
+      rawIntentPrompt
+    ) ||
+    (/\.(?:test|spec)\.[a-z0-9]+\b/i.test(rawIntentPrompt) &&
+      /\b(?:delete|remove|drop|skip|disable|update|rewrite)\b/i.test(rawIntentPrompt));
+  const normFilePath = String(params.filePath || '').replace(/\\/g, '/');
+  const isTestTarget =
+    /\.(?:test|spec)\.[a-z0-9]+$/i.test(normFilePath) ||
+    /(?:^|\/)(?:test|tests|__tests__)\/.*\.(?:[cm]?[jt]sx?|py|go|rs)$/i.test(normFilePath) ||
+    /_test\.(?:py|go)$/i.test(normFilePath);
+
+  // 2a. Test file truncation lock (#3): block emptying/truncating short test files (>=3 lines -> <=20%)
+  if (
+    isTestTarget &&
+    !userExplicitTestIntent &&
+    effectiveOldLines >= 3 &&
+    effectiveNewLines <= Math.floor(effectiveOldLines * 0.2)
+  ) {
+    return {
+      detectorId: 'DET-05',
+      triggered: true,
+      decision: 'deny',
+      subType: 'TEST_ASSERTION_STRIPPING',
+      nextHash,
+      oldLineCount: effectiveOldLines,
+      newLineCount: effectiveNewLines,
+      reason: `[DET-05 Test Integrity Lock (#3)] Truncating test file "${params.filePath || 'test'}" from ${effectiveOldLines} lines to ${effectiveNewLines} lines without explicit user instruction is forbidden.`
+    };
+  }
+
+  // 3. Scan ONLY deleted and added diff lines for test-assertion stripping / skip injection / weakening / error masking
+  const assertionRegex =
+    /\b(?:assert(?:\.[a-zA-Z0-9_]+)?\s*\(|expect\s*\(|should\.|assert_eq!\s*\(|assert_ne!\s*\()|^\s*assert\s+(?!false\b)\S+/;
   const trivialTautologyRegex =
     /\b(?:assert\.ok\s*\(\s*true\s*\)|assert\.(?:strictEqual|equal)\s*\(\s*true\s*,\s*true\s*\)|expect\s*\(\s*true\s*\)\s*\.toBe\s*\(\s*true\s*\))/;
   const deletedAssertions = deletedLines.filter(
@@ -209,30 +243,88 @@ export function evaluateDet05DiffThrashing(params = {}) {
     (l) => assertionRegex.test(l) && !trivialTautologyRegex.test(l)
   );
 
-  const errorMaskingRegex =
-    /(?:catch\s*(?:\([^)]*\))?\s*\{\s*\}|@ts-ignore|@ts-nocheck|eslint-disable)/;
-  const addedErrorMasking = addedLines.filter((l) => errorMaskingRegex.test(l));
-
-  if (deletedAssertions.length >= 2 && addedAssertions.length === 0) {
+  // Item A2 (#3): Block >= 1 net deleted assertion without replacement unless user explicitly asked
+  if (!userExplicitTestIntent && deletedAssertions.length > addedAssertions.length) {
+    const netDeleted = deletedAssertions.length - addedAssertions.length;
     return {
       detectorId: 'DET-05',
       triggered: true,
       decision: 'deny',
       subType: 'TEST_ASSERTION_STRIPPING',
       nextHash,
-      deletedAssertionsCount: deletedAssertions.length,
-      reason: `[DET-05 Test Stripping Breaker] Diff deletes ${deletedAssertions.length} test assertions without replacement.`
+      deletedAssertionsCount: netDeleted,
+      reason: `[DET-05 Test Integrity Lock (#3)] Diff deletes ${netDeleted} net test assertion(s) without replacement.`
     };
   }
 
-  if (addedErrorMasking.length > 0 && deletedLines.length > addedLines.length && deletedAssertions.length > 0) {
+  // Item A2 (#3): Block net increase in skipped/disabled tests (.skip, xit, @pytest.mark.skip, #[ignore])
+  const skipMarkerRegex =
+    /(?:\.(?:skip|todo)\s*\(|\b(?:xit|xdescribe|xtest)\s*\(|@pytest\.mark\.skip(?:if)?\b|#\[\s*ignore\b)/;
+  const deletedSkips = deletedLines.filter((l) => skipMarkerRegex.test(l));
+  const addedSkips = addedLines.filter((l) => skipMarkerRegex.test(l));
+  if (!userExplicitTestIntent && addedSkips.length > deletedSkips.length) {
+    const netSkips = addedSkips.length - deletedSkips.length;
+    return {
+      detectorId: 'DET-05',
+      triggered: true,
+      decision: 'deny',
+      subType: 'TEST_SKIP_INJECTION',
+      nextHash,
+      addedSkipsCount: netSkips,
+      reason: `[DET-05 Test Integrity Lock (#3)] Diff injects ${netSkips} skipped/disabled test marker(s) (.skip / xit / @pytest.mark.skip) without explicit user instruction.`
+    };
+  }
+
+  // Item A2 (#3): Block assertion weakening (strict equality -> truthy/defined)
+  const strongAssertRegex = /\b(?:toEqual|toStrictEqual|deepStrictEqual|strictEqual|deepEqual)\s*\(/;
+  const weakAssertRegex = /\b(?:toBeTruthy|toBeDefined|toBeUndefined|assert\.ok)\s*\(/;
+  if (
+    !userExplicitTestIntent &&
+    deletedLines.some((l) => strongAssertRegex.test(l)) &&
+    addedLines.some((l) => weakAssertRegex.test(l)) &&
+    !addedLines.some((l) => strongAssertRegex.test(l))
+  ) {
+    return {
+      detectorId: 'DET-05',
+      triggered: true,
+      decision: 'deny',
+      subType: 'TEST_ASSERTION_WEAKENING',
+      nextHash,
+      reason: `[DET-05 Test Integrity Lock (#3)] Diff weakens strict equality assertion(s) (toEqual/deepStrictEqual) into loose truthiness check(s) (toBeTruthy/toBeDefined).`
+    };
+  }
+
+  // Item A7 (#12): Standalone Silent Error-Masking Linter (independent of deletedAssertions!)
+  const justificationCommentRe = /(?:\/\/|\/\*|#)\s*(?:ignore|expected|noop|fallback|non-fatal|intentionally|best-effort)\b/i;
+  const inlineSuppressionRe = /(?:@ts-ignore|@ts-nocheck|eslint-disable(?!\s+[^\r\n]*--\s*\S{4,}))/;
+  const singleLineEmptyCatchRe = /\bcatch\s*(?:\([^)]*\))?\s*\{\s*\}/;
+  const addedInlineMasking = addedLines.filter(
+    (l) =>
+      (singleLineEmptyCatchRe.test(l) || inlineSuppressionRe.test(l)) &&
+      !justificationCommentRe.test(l)
+  );
+
+  const multiLineEmptyCatchRe = /\bcatch\s*(?:\([^)]*\))?\s*\{\s*\}/g;
+  const oldEmptyCatchCount = (oldText.match(multiLineEmptyCatchRe) || []).length;
+  const newEmptyCatchCount = (newText.match(multiLineEmptyCatchRe) || []).length;
+
+  const pyPassBlockRe = /\bexcept(?:\s+[A-Za-z0-9_.,\s()]+)?\s*:(?:[ \t]*(?:#[^\r\n]*)?\r?\n[ \t]*|[ \t]*)pass\b/g;
+  const countUnjustifiedPyPass = (txt) => {
+    const matches = txt.match(pyPassBlockRe) || [];
+    return matches.filter((m) => !justificationCommentRe.test(m)).length;
+  };
+  const addedMultiLineMasking =
+    newEmptyCatchCount > oldEmptyCatchCount ||
+    countUnjustifiedPyPass(newText) > countUnjustifiedPyPass(oldText);
+
+  if (addedInlineMasking.length > 0 || addedMultiLineMasking) {
     return {
       detectorId: 'DET-05',
       triggered: true,
       decision: 'deny',
       subType: 'ERROR_MASKING_DIFF',
       nextHash,
-      reason: `[DET-05 Error Masking Breaker] Newly added diff lines introduce empty catch / lint suppression while deleting verification checks.`
+      reason: `[DET-05 Error Masking Breaker (#12)] Newly added diff introduces silent error masking (empty catch / except: pass / @ts-ignore / eslint-disable) without logging, rethrow, or justification comment.`
     };
   }
 

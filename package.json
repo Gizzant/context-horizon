@@ -75,7 +75,8 @@
     "test:e2e": "node tests/verify_e2e_context_memory.mjs",
     "bench": "node tests/bench_latency.mjs",
     "bench:scenario": "node --no-warnings tests/benchmark_context_scenario.mjs",
-    "bench:composite": "node scripts/run_composite_benchmarks.mjs"
+    "bench:composite": "node scripts/run_composite_benchmarks.mjs",
+    "bench:bucket-b": "node scripts/run_bucket_b_harness.mjs"
   },
   "repository": {
     "type": "git",

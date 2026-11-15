@@ -145,9 +145,17 @@ import { checkIndex, buildIndex, sliceFile } from '../../core/doc_indexer.mjs';
 import {
   evaluateShieldReadGuard,
   configureShield,
-  getShieldStatus
+  getShieldStatus,
+  syncClaudeIdleDrainSettings,
+  auditClaudeIdleDrainSettings,
+  auditClaudeAgentAutoCompactWindows
 } from '../../core/shield_manager.mjs';
 import { runSessionAudit, formatSessionAuditReport } from '../../core/session_auditor.mjs';
+import {
+  resolveModelCliffSpec,
+  evaluateParameterizedCliffBreaker
+} from '../../core-isomorphic/economics/cliffBreaker.mjs';
+import { runConfigChangeHook } from '../../../hooks/handlers/config-change.mjs';
 
 export {
   formatAgentCacheKey,
@@ -166,6 +174,12 @@ export {
   evaluateShieldReadGuard,
   configureShield,
   getShieldStatus,
+  syncClaudeIdleDrainSettings,
+  auditClaudeIdleDrainSettings,
+  auditClaudeAgentAutoCompactWindows,
+  resolveModelCliffSpec,
+  evaluateParameterizedCliffBreaker,
+  runConfigChangeHook,
   runSessionAudit,
   formatSessionAuditReport
 };

@@ -923,10 +923,16 @@ test('D07: CircuitBreakerEngine integrates DET-01..20 end-to-end and clears code
   assert.equal(editRes.decision, 'allow');
   assert.equal(engine.codeEditedSinceLastTest, true);
 
-  // Running node --test clears codeEditedSinceLastTest
+  // Running node --test arms pendingVerificationCommand on PreToolUse and clears codeEditedSinceLastTest on exit-0 PostToolUse
   engine.evaluatePreToolUse({
     tool_name: 'PowerShell',
     tool_input: { command: 'node --test test/*.test.mjs' }
+  });
+  assert.equal(engine.pendingVerificationCommand, true);
+  assert.equal(engine.codeEditedSinceLastTest, true);
+  engine.recordVerificationOutcome({
+    succeeded: true,
+    command: 'node --test test/*.test.mjs'
   });
   assert.equal(engine.codeEditedSinceLastTest, false);
 });

@@ -58,4 +58,12 @@ import './session_timeline.test.mjs';
 import './pre_release_360_capability_proofs.test.mjs';
 import './top10_token_wasters_ui.test.mjs';
 import './ctxtop_shield_dual.test.mjs';
+import './wave1_bucket_a_guards.test.mjs';
+import './wave2_bucket_a_guards.test.mjs';
+import './grep_glob_firewall_sim.test.mjs';
+import './slopsquat_dep_gate.test.mjs';
+import './web_boilerplate_fidelity.test.mjs';
+import './blast_radius_sim.test.mjs';
+import './duplicate_clone_shingle_bench.test.mjs';
+import './bucket_b_gamma_suites.test.mjs';
 

@@ -310,12 +310,18 @@ export async function handlePostInvocation(inputData = {}) {
     sidecar.sessionMeta.consecutiveErrorStreak = 0;
   }
 
-  // Track test runs
-  const isTestRun = toolsInvoked.includes('run_command') && /(test|pytest|jest|vitest|cargo test)/i.test(inputData.command || '');
+  // Track test runs (including TypeScript typecheck `tsc`)
+  const isTestRun = toolsInvoked.includes('run_command') && /\b(?:test|pytest|jest|vitest|cargo\s+test|go\s+test|tsc)\b/i.test(inputData.command || '');
   if (isTestRun && inputData.exitCode === 0) {
     sidecar.sessionMeta.turnsSinceLastPassingTest = 0;
   } else {
     sidecar.sessionMeta.turnsSinceLastPassingTest = (sidecar.sessionMeta.turnsSinceLastPassingTest || 0) + 1;
+  }
+
+  if (Array.isArray(inputData.activeBackgroundTasks)) {
+    sidecar.sessionMeta.activeBackgroundTasks = inputData.activeBackgroundTasks
+      .filter(Boolean)
+      .map((t) => (typeof t === 'string' ? t : String(t?.id || t?.command || 'bg_task')));
   }
 
   // Incremental transcript sync so sidecar.telemetry.totalInputTokens updates in standalone CLI/hook mode
@@ -393,14 +399,27 @@ export async function handlePostInvocation(inputData = {}) {
     recordHookDiagnostic('post_invocation', 'effortAdvisor', err, { persist: false });
   }
 
+  const bgTasks = Array.isArray(sidecar.sessionMeta?.activeBackgroundTasks)
+    ? sidecar.sessionMeta.activeBackgroundTasks
+    : [];
+  const orphanBackgroundWarning =
+    bgTasks.length > 0 && (inputData.sessionEnding === true || inputData.stop === true)
+      ? `[Highbeam Quota Shield — Orphan Background Drain (#10)] ${bgTasks.length} background daemon/task(s) still active (${bgTasks.slice(0, 3).join(', ')}). Kill via manage_task before ending session.`
+      : null;
+
   writeSidecarAtomicSync(conversationId, sidecar);
-  return {
+  const out = {
     active_model_id: sidecar.sessionMeta.active_model_id || sidecar.sessionMeta.activeModel || null,
     pending_model_id: sidecar.sessionMeta.pending_model_id || null,
     swarmRoster: sidecar.swarmRoster,
     swarmTtlBadges: sidecar.swarmTtlBadges,
     effortAdvisor: sidecar.effortAdvisor || null
   };
+  if (orphanBackgroundWarning) {
+    out.orphanBackgroundWarning = orphanBackgroundWarning;
+    out.systemMessage = orphanBackgroundWarning;
+  }
+  return out;
 }
 
 // Auto-run if executed directly

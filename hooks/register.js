@@ -165,10 +165,27 @@ function shouldClearRecentEditsOnToolEvent(event) {
   const cmd = String(input.command || input.cmd || event?.command || '');
   return (
     /\bgit\s+commit\b/i.test(cmd) ||
-    /\b(?:npm\s+test|npm\s+run\s+test|pnpm\s+test|yarn\s+test|bun\s+test|vitest|jest|pytest|cargo\s+test|go\s+test|node\s+--test)\b/i.test(
+    /\b(?:npm\s+test|npm\s+run\s+test|pnpm\s+(?:run\s+)?test|yarn\s+test|bun\s+test|vitest|jest|pytest|cargo\s+test|go\s+test|node\s+--test|tsc(?:\s|$)|npx\s+tsc)\b/i.test(
       cmd
     )
   );
+}
+
+function didDownstreamToolResultFail(result) {
+  if (!result || typeof result !== 'object') return false;
+  if (
+    result.is_error === true ||
+    result.isError === true ||
+    result.succeeded === false ||
+    result.status === 'error' ||
+    result.status === 'failed' ||
+    Boolean(result.error)
+  ) {
+    return true;
+  }
+  if (typeof result.exit_code === 'number' && result.exit_code !== 0) return true;
+  if (typeof result.exitCode === 'number' && result.exitCode !== 0) return true;
+  return false;
 }
 
 /**
@@ -255,19 +272,18 @@ export default function register(on) {
           };
         }
 
-        if (isWorkspaceEditToolEvent(event)) {
+        const isEditEvent = isWorkspaceEditToolEvent(event);
+        const isClearCandidate = !isEditEvent && shouldClearRecentEditsOnToolEvent(event);
+        if (isEditEvent) {
           ttlWatchdog.recordFileChanged(extractModEventFilePath(event), Date.now());
           $.store.set('ah_recent_file_changed', true);
-          $.store.set('ah_turn_mutations', (Number($.store.get('ah_turn_mutations')) || 0) + 1);
-        } else if (shouldClearRecentEditsOnToolEvent(event)) {
-          ttlWatchdog.clearRecentEdits();
-          $.store.set('ah_recent_file_changed', false);
           $.store.set('ah_turn_mutations', (Number($.store.get('ah_turn_mutations')) || 0) + 1);
         }
 
         let repeatReadAdvisory = '';
         const tName = String(event?.tool_name || event?.toolName || '');
         const tArgs = event?.tool_input || event?.toolInput || {};
+        const cmdStr = String(tArgs.command || tArgs.cmd || event?.command || '');
         if (
           activeMode !== 'OFF' &&
           /^(Read|read_file)$/i.test(tName) &&
@@ -287,15 +303,37 @@ export default function register(on) {
           }
         }
 
+        const finalizeDownstream = async () => {
+          const downstream = typeof next === 'function' ? await next(event) : undefined;
+          const failed = didDownstreamToolResultFail(downstream);
+          if (isClearCandidate && !failed) {
+            ttlWatchdog.clearRecentEdits();
+            $.store.set('ah_recent_file_changed', false);
+            $.store.set('ah_turn_mutations', (Number($.store.get('ah_turn_mutations')) || 0) + 1);
+          }
+          if (/^(bash|powershell|pwsh|cmd|sh)$/i.test(tName)) {
+            const outText =
+              typeof downstream === 'string'
+                ? downstream
+                : String(downstream?.stderr || downstream?.stdout || downstream?.output || '');
+            breakerEngine.recordVerificationOutcome({
+              succeeded: !failed,
+              command: cmdStr,
+              outputText: outText
+            });
+          }
+          return downstream;
+        };
+
         if (verdict.triggered) {
           $.store.set('ah_last_breaker_verdict', verdict);
           $.ui.invalidate('ui.render');
-          const downstream = typeof next === 'function' ? await next(event) : undefined;
+          const downstream = await finalizeDownstream();
           return downstream ?? { additionalContext: verdict.reason };
         }
 
         if (repeatReadAdvisory) {
-          const downstream = typeof next === 'function' ? await next(event) : undefined;
+          const downstream = await finalizeDownstream();
           if (downstream && typeof downstream === 'object') {
             return {
               ...downstream,
@@ -308,8 +346,9 @@ export default function register(on) {
         }
 
         if (typeof next === 'function') {
-          return await next(event);
+          return await finalizeDownstream();
         }
+        await finalizeDownstream();
         return undefined;
       })
       .catch((err) => {

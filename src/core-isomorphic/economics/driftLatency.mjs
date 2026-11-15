@@ -317,3 +317,117 @@ export function formatDriftLabel(drift) {
   const rollingStr = drift.rollingDriftRatio != null ? `${drift.rollingDriftRatio}x` : '—';
   return `Avg TTFT ${ttftStr} · Rolling Drift ${rollingStr}`;
 }
+
+/**
+ * Item A6 (#11): Audits Gemini thinking + output token ceiling against client timeout
+ * (`maxOutputTokens + thinkingBudget > 32,768` with `timeoutMs < 120,000` risks billed partial thinking on timeout).
+ *
+ * @param {object} [params={}]
+ * @param {string} [params.modelId='']
+ * @param {number} [params.maxOutputTokens=0]
+ * @param {number} [params.thinkingBudget=0]
+ * @param {number} [params.timeoutMs=0]
+ */
+export function evaluateGeminiThinkingTimeoutRisk(params = {}) {
+  const modelId = String(params.modelId || '').toLowerCase();
+  const isGeminiThinking =
+    modelId === '' ||
+    /gemini-(?:4|3\.1-pro|3-pro|2\.5-pro|2\.5-flash)/i.test(modelId);
+  const maxOutput = Math.max(0, Number(params.maxOutputTokens ?? 0));
+  const thinkingBudget = Math.max(0, Number(params.thinkingBudget ?? 0));
+  const combinedBudget = maxOutput + thinkingBudget;
+  const timeoutMs = Number(params.timeoutMs ?? 0);
+
+  if (
+    isGeminiThinking &&
+    combinedBudget > 32768 &&
+    timeoutMs > 0 &&
+    timeoutMs < 120000
+  ) {
+    return {
+      triggered: true,
+      detectorId: 'DET-30',
+      combinedBudget,
+      timeoutMs,
+      recommendedTimeoutMs: 180000,
+      advisory:
+        `[Highbeam Quota Shield — Thinking Timeout Billing Guard (#11)] ` +
+        `Combined maxOutputTokens + thinkingBudget (${combinedBudget.toLocaleString()} tok > 32,768) paired with client timeout ${Math.round(timeoutMs / 1000)}s (< 120s). ` +
+        `Under Gemini timeout-billing rules, aborted long-thinking requests bill generated thinking tokens — raise timeout >= 180s or cap thinkingBudget <= 16,000.`
+    };
+  }
+
+  return {
+    triggered: false,
+    detectorId: 'DET-30',
+    combinedBudget,
+    timeoutMs,
+    advisory: null
+  };
+}
+
+/**
+ * Item A6 (#11): Active `DET-30` Pre-Turn Step-Down Gate.
+ * Triggers when `thinkingTokens > 4,000` AND `thinkingTokens / max(1, visibleOutputTokens) > 12`
+ * across `>= 2` consecutive turns (`block` in `AUTO_PILOT`, steering advisory in `COACH`).
+ *
+ * @param {object} [params={}]
+ * @param {Array<object>} [params.recentTurns=[]]
+ * @param {object} [params.thinkingDrift=null]
+ * @param {string} [params.mode='COACH']
+ */
+export function evaluateActiveDet30StepDown(params = {}) {
+  const turns = Array.isArray(params.recentTurns) && params.recentTurns.length > 0
+    ? params.recentTurns
+    : Array.isArray(params.thinkingDrift?.turns)
+      ? params.thinkingDrift.turns
+      : [];
+
+  let streak = 0;
+  let streakThinkingTokens = 0;
+  let latestRatio = 0;
+
+  for (let i = turns.length - 1; i >= 0; i--) {
+    const t = turns[i] || {};
+    const thinking = Number(t.thinkingTokens ?? t.thinking_tokens ?? 0);
+    const visible = Number(
+      t.visibleOutputTokens ?? t.outputTokens ?? t.output_tokens ?? 0
+    );
+    const ratio = thinking / Math.max(1, visible);
+    if (thinking > 4000 && ratio > 12) {
+      streak += 1;
+      streakThinkingTokens += thinking;
+      if (latestRatio === 0) latestRatio = Math.round(ratio * 10) / 10;
+    } else {
+      break;
+    }
+  }
+
+  if (streak < 2) {
+    return {
+      triggered: false,
+      detectorId: 'DET-30',
+      subType: null,
+      decision: 'allow',
+      consecutiveTurns: streak,
+      reason: null
+    };
+  }
+
+  const flightMode = String(params.mode || 'COACH').toUpperCase();
+  const decision = flightMode === 'AUTO_PILOT' ? 'block' : 'steer';
+  return {
+    triggered: true,
+    detectorId: 'DET-30',
+    subType: 'THINKING_RUNAWAY_STEPDOWN',
+    decision,
+    consecutiveTurns: streak,
+    streakThinkingTokens,
+    latestRatio,
+    recommendedEffort: 'medium',
+    recommendedMaxThinkingTokens: 16000,
+    reason:
+      `[DET-30 Thinking Runaway Governor (#11)] ${streak} consecutive turns burned ${streakThinkingTokens.toLocaleString()} thinking tokens ` +
+      `(${latestRatio}x thinking-to-output ratio > 12x). Step down via /effort medium or set MAX_THINKING_TOKENS=16000 before continuing.`
+  };
+}

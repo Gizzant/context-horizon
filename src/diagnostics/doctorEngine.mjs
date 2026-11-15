@@ -19,6 +19,9 @@ import { loadModelCatalog } from '../core-isomorphic/config/catalogLoader.mjs';
 import { loadHorizonConfig } from '../core-isomorphic/config/horizonConfig.mjs';
 import { inspectClaudeBinaryCapabilities } from './claudeHookCapabilities.mjs';
 import { readModelSwitchTelemetry } from '../utils/modelSwitchTelemetry.mjs';
+import { auditAntigravityRulesIntegrity } from '../core/layer5_hygiene.mjs';
+import { auditClaudeAutoMemory } from '../core/shield_manager.mjs';
+import { auditProseRuleHookCandidates } from '../core/bucket_b_runtime.mjs';
 
 /**
  * Redacts the user's OS home directory from any diagnostic string.
@@ -187,6 +190,22 @@ export function runDoctorDiagnostics(options = {}) {
     detail: `20 detectors configured (FlightMode=${config.flightMode}, overrides=${customDetectors})`
   });
 
+  const agRulesAudit = auditAntigravityRulesIntegrity({ workspacePath: cwd });
+  const claudeMemAudit = auditClaudeAutoMemory({
+    cwd,
+    homeDir: options.homeDir,
+    memoryDir: options.memoryDir,
+    memoryFilePath: options.memoryFilePath
+  });
+  const memoryRuleIntegrity = {
+    ok: !options.strictRulesCheck || !(agRulesAudit.triggered || claudeMemAudit.triggered),
+    warning: Boolean(agRulesAudit.triggered || claudeMemAudit.triggered),
+    issues: [...(agRulesAudit.issues || []), ...(claudeMemAudit.issues || [])],
+    antigravityRules: agRulesAudit,
+    claudeAutoMemory: claudeMemAudit
+  };
+
+  const proseHookCandidates = auditProseRuleHookCandidates(cwd);
   const hookDiagnostics = inspectHookDiagnostics({ ...options, cwd });
   const modelSwitchTelemetry = readModelSwitchTelemetry({
     homeDir: options.homeDir,
@@ -199,6 +218,7 @@ export function runDoctorDiagnostics(options = {}) {
   });
   const ok =
     checks.every((c) => c.ok) &&
+    memoryRuleIntegrity.ok &&
     (!options.strictClaudeCheck || Boolean(claudeCapabilities.found && claudeCapabilities.contractValid));
 
   return {
@@ -207,7 +227,9 @@ export function runDoctorDiagnostics(options = {}) {
     checks,
     claudeCapabilities,
     hookDiagnostics,
-    modelSwitchTelemetry
+    modelSwitchTelemetry,
+    memoryRuleIntegrity,
+    proseHookCandidates
   };
 }
 

@@ -12,6 +12,9 @@ import { recordHookDiagnostic } from '../core/hook_diagnostics.mjs';
 import { auditWorkspaceAndGlobalMcpConfigs } from '../core/mcp_auditor.mjs';
 import { loadHorizonConfig, resolveDetectorOverride } from '../core/horizon_config.mjs';
 import { loadMicroSkillsRegistry, formatMicroSkillsBatonSnippet } from '../core/micro_skills_store.mjs';
+import { auditAntigravityRulesIntegrity } from '../core/layer5_hygiene.mjs';
+import { snapshotWorkspaceTestHashes } from '../core/shield_manager.mjs';
+import { evaluateGeminiThinkingTimeoutRisk } from '../core-isomorphic/economics/driftLatency.mjs';
 
 async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {}) {
   if (process.stdin.isTTY || process.stdin.readableEnded) return {};
@@ -141,8 +144,43 @@ export async function handleSessionStart(inputData = {}) {
     }
   }
 
+  // Item A2 (#3), Item A5 (#15) & Item A6 (#11): Test-Hash Baseline, Antigravity Rule Validator, & Thinking Timeout Guard
+  const rulesAudit = auditAntigravityRulesIntegrity({ workspacePath });
+  const thinkingTimeoutAudit = evaluateGeminiThinkingTimeoutRisk({
+    modelId: activeModel,
+    maxOutputTokens: inputData.maxOutputTokens ?? inputData.max_output_tokens ?? 0,
+    thinkingBudget: inputData.thinkingBudget ?? inputData.thinking_budget ?? 0,
+    timeoutMs: inputData.timeoutMs ?? inputData.timeout_ms ?? 0
+  });
+  const testHashSnapshot =
+    inputData.snapshotTestHashes !== false && inputData.workspacePath
+      ? snapshotWorkspaceTestHashes({ cwd: workspacePath, sessionId: conversationId })
+      : null;
+
+  sidecar.sensors.rulesAudit = rulesAudit;
+  sidecar.sensors.thinkingTimeoutAudit = thinkingTimeoutAudit;
+  if (testHashSnapshot) {
+    sidecar.sessionMeta.testHashSnapshotPath = testHashSnapshot.snapshotPath;
+  }
+
+  const sessionWarnings = [];
+  if (microSkillsSnippet) sessionWarnings.push(microSkillsSnippet);
+  if (rulesAudit.triggered && rulesAudit.advisory) sessionWarnings.push(rulesAudit.advisory);
+  if (thinkingTimeoutAudit.triggered && thinkingTimeoutAudit.advisory) {
+    sessionWarnings.push(thinkingTimeoutAudit.advisory);
+  }
+
   writeSidecarAtomicSync(conversationId, sidecar);
-  return microSkillsSnippet ? { systemMessage: microSkillsSnippet, microSkillsBaton: microSkillsSnippet } : {};
+  const combinedSystemMessage = sessionWarnings.join('\n\n');
+  return combinedSystemMessage
+    ? {
+        systemMessage: combinedSystemMessage,
+        ...(microSkillsSnippet ? { microSkillsBaton: microSkillsSnippet } : {}),
+        rulesAudit,
+        thinkingTimeoutAudit,
+        ...(testHashSnapshot ? { testHashSnapshot } : {})
+      }
+    : {};
 }
 
 // Auto-run when executed directly

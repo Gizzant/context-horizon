@@ -54,6 +54,10 @@ import {
   getShieldStatus
 } from '../../core/shield_manager.mjs';
 import { runSessionAudit, formatSessionAuditReport } from '../../core/session_auditor.mjs';
+import {
+  resolveModelCliffSpec,
+  evaluateParameterizedCliffBreaker
+} from '../../core-isomorphic/economics/cliffBreaker.mjs';
 
 export {
   handlePreInvocation,
@@ -89,6 +93,8 @@ export {
   evaluateShieldReadGuard,
   configureShield,
   getShieldStatus,
+  resolveModelCliffSpec,
+  evaluateParameterizedCliffBreaker,
   runSessionAudit,
   formatSessionAuditReport
 };

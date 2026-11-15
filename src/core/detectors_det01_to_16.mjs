@@ -610,8 +610,9 @@ export function tokenizeShellCommandSegments(cmdStr = '') {
   return segments;
 }
 
-export function isDestructiveOrBypassShellCommand(cmdStr = '', depth = 0) {
+export function isDestructiveOrBypassShellCommand(cmdStr = '', depth = 0, options = {}) {
   if (!cmdStr || depth > 2) return false;
+  const userExplicitTestIntent = Boolean(options?.userExplicitTestIntent);
   const segments = tokenizeShellCommandSegments(cmdStr);
 
   for (const rawTokens of segments) {
@@ -696,16 +697,49 @@ export function isDestructiveOrBypassShellCommand(cmdStr = '', depth = 0) {
           if (subTokens.some(t => !t.quoted && (t.value === '--force' || /^-[a-zA-Z]*f[a-zA-Z]*$/.test(t.value)))) {
             return true;
           }
+        } else if (sub === 'checkout') {
+          const isBranchCreate = subTokens.some(t => !t.quoted && (t.value === '-b' || t.value === '-B' || t.value === '--orphan'));
+          if (!isBranchCreate) {
+            const isDiscard = subTokens.some(
+              t => !t.quoted && (t.value === '--' || t.value === '.' || t.value === '-f' || t.value === '--force')
+            );
+            if (isDiscard) return true;
+          }
+        } else if (sub === 'restore') {
+          const stagedOnly =
+            subTokens.some(t => !t.quoted && (t.value === '--staged' || t.value === '-S')) &&
+            !subTokens.some(t => !t.quoted && (t.value === '--worktree' || t.value === '-W'));
+          if (!stagedOnly && subTokens.some(t => t.value !== '--help' && t.value !== '-h')) {
+            return true;
+          }
+        } else if (sub === 'fsck' || sub === 'cat-file' || sub === 'reflog') {
+          return true;
+        } else if (
+          sub === 'log' &&
+          subTokens.some(t => !t.quoted && t.value === '--all') &&
+          subTokens.some(t => !t.quoted && (t.value === '-p' || t.value === '--patch'))
+        ) {
+          return true;
         }
       }
       continue;
     }
 
-    if (exeBase === 'rm') {
+    if (exeBase === 'rm' || exeBase === 'unlink') {
       let hasRec = false;
       let hasForce = false;
       for (const t of argTokens) {
         if (/\.gemini[\\/]antigravity[\\/]brain/i.test(t.value)) return true;
+        if (
+          !userExplicitTestIntent &&
+          !t.value.startsWith('-') &&
+          isTestFilePath(t.value) &&
+          !/^(?:\/tmp\/|\/var\/folders\/)/i.test(t.value) &&
+          !/(?:^|[\\/])(?:tmp|temp|\.claude[\\/]cache|\.agents[\\/]tmp)[\\/]/i.test(t.value) &&
+          !/appdata[\\/]local[\\/]temp[\\/]/i.test(t.value)
+        ) {
+          return true;
+        }
         if (!t.quoted && t.value.startsWith('-')) {
           if (t.value === '--recursive') hasRec = true;
           else if (t.value === '--force') hasForce = true;
@@ -719,11 +753,21 @@ export function isDestructiveOrBypassShellCommand(cmdStr = '', depth = 0) {
       continue;
     }
 
-    if (['del', 'erase', 'remove-item', 'ri', 'rd', 'rmdir', 'unlink'].includes(exeBase)) {
+    if (['del', 'erase', 'remove-item', 'ri', 'rd', 'rmdir'].includes(exeBase)) {
       let hasRec = false;
       let hasForce = false;
       for (const t of argTokens) {
         if (/\.gemini[\\/]antigravity[\\/]brain/i.test(t.value)) return true;
+        if (
+          !userExplicitTestIntent &&
+          !t.value.startsWith('-') &&
+          !t.value.startsWith('/') &&
+          isTestFilePath(t.value) &&
+          !/(?:^|[\\/])(?:tmp|temp|\.claude[\\/]cache|\.agents[\\/]tmp)[\\/]/i.test(t.value) &&
+          !/appdata[\\/]local[\\/]temp[\\/]/i.test(t.value)
+        ) {
+          return true;
+        }
         if (!t.quoted) {
           if (/^-recurse$/i.test(t.value)) hasRec = true;
           if (/^-force$/i.test(t.value)) hasForce = true;
@@ -739,8 +783,13 @@ export function isDestructiveOrBypassShellCommand(cmdStr = '', depth = 0) {
 }
 
 export function evaluateDet08DestructiveShell(stepsOrCmd = [], _context = {}) {
+  const shellOpts = {
+    userExplicitTestIntent: Boolean(
+      _context?.userExplicitTestIntent || _context?.userAuthorizedTestDeletion
+    )
+  };
   if (typeof stepsOrCmd === 'string') {
-    const blocked = isDestructiveOrBypassShellCommand(stepsOrCmd);
+    const blocked = isDestructiveOrBypassShellCommand(stepsOrCmd, 0, shellOpts);
     return {
       id: 'DET-08',
       detectorId: 'DET-08',
@@ -767,7 +816,7 @@ export function evaluateDet08DestructiveShell(stepsOrCmd = [], _context = {}) {
       const args = call.args || call.arguments || call.input || {};
       const cmdStr = String(args.CommandLine || args.command || args.cmd || call.command || step.command || '').trim();
       const targetPath = String(args.Path || args.path || args.TargetFile || args.AbsolutePath || call.targetPath || '').trim();
-      if (cmdStr && isDestructiveOrBypassShellCommand(cmdStr)) {
+      if (cmdStr && isDestructiveOrBypassShellCommand(cmdStr, 0, shellOpts)) {
         return {
           id: 'DET-08',
           detectorId: 'DET-08',

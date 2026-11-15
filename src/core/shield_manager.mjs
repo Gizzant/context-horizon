@@ -8,6 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { atomicWriteFileSync } from './atomic_io.mjs';
 import { buildIndex, isForbiddenSkuPath } from './doc_indexer.mjs';
@@ -199,6 +200,45 @@ export function appendShieldHint(sessionId, eventRecord = {}, options = {}) {
     // Non-fatal telemetry write
   }
   return hintsPath;
+}
+
+/**
+ * Appends a standardized `bucket_b_shadow_v1` telemetry record to `.agents/telemetry/<sessionId>.hints.jsonl`
+ * (`0` stdout/stderr bytes, `0` prompt tokens, `0` cache-prefix mutations).
+ *
+ * @param {string} sessionId
+ * @param {object} hint
+ * @param {string} hint.guardrailId - e.g. `'#2_GREP_GLOB_FIREWALL'`
+ * @param {'SHADOW' | 'COACH' | 'ENFORCE'} [hint.stage='SHADOW']
+ * @param {'claude' | 'antigravity'} [hint.platform='claude']
+ * @param {boolean} [hint.wouldTrigger=false]
+ * @param {string} [hint.wouldDecision='allow']
+ * @param {number} [hint.latencyMs=0]
+ * @param {number} [hint.tokens_saved_est=0]
+ * @param {number} [hint.dollars_saved_est=0]
+ * @param {object} [hint.evidence={}]
+ * @param {object} [options={}]
+ * @returns {string}
+ */
+export function recordBucketBShadowHint(sessionId, hint = {}, options = {}) {
+  const stage = String(hint.stage || 'SHADOW').toUpperCase();
+  return appendShieldHint(
+    sessionId,
+    {
+      schema: 'bucket_b_shadow_v1',
+      event: 'bucket_b_shadow',
+      guardrailId: String(hint.guardrailId || 'UNKNOWN'),
+      stage: stage === 'COACH' || stage === 'ENFORCE' ? stage : 'SHADOW',
+      platform: hint.platform === 'antigravity' ? 'antigravity' : 'claude',
+      wouldTrigger: Boolean(hint.wouldTrigger),
+      wouldDecision: String(hint.wouldDecision || 'allow'),
+      latencyMs: Number(Math.max(0, Number(hint.latencyMs) || 0).toFixed(3)),
+      tokens_saved_est: Math.max(0, Math.round(Number(hint.tokens_saved_est) || 0)),
+      dollars_saved_est: Number(Math.max(0, Number(hint.dollars_saved_est) || 0).toFixed(6)),
+      evidence: hint.evidence && typeof hint.evidence === 'object' ? hint.evidence : {}
+    },
+    options
+  );
 }
 
 /**
@@ -666,6 +706,10 @@ export function getShieldStatus(options = {}) {
   let thrashStopped = 0;
   let hintTokensSaved = 0;
   let hintDollarsSaved = 0;
+  let shadowHits = 0;
+  let shadowTokensSavedEst = 0;
+  let shadowDollarsSavedEst = 0;
+  const shadowByGuardrail = {};
 
   const telemetryDir = path.join(baseCwd, '.agents', 'telemetry');
   if (fs.existsSync(telemetryDir)) {
@@ -679,6 +723,22 @@ export function getShieldStatus(options = {}) {
         for (const line of lines) {
           try {
             const row = JSON.parse(line);
+            if (row.schema === 'bucket_b_shadow_v1') {
+              if (row.wouldTrigger) {
+                shadowHits += 1;
+                const gid = String(row.guardrailId || 'UNKNOWN');
+                shadowByGuardrail[gid] = (shadowByGuardrail[gid] || 0) + 1;
+                const tokEst = Math.max(0, Number(row.tokens_saved_est || 0));
+                const usdEst = Math.max(0, Number(row.dollars_saved_est || 0));
+                shadowTokensSavedEst += tokEst;
+                shadowDollarsSavedEst += usdEst;
+                if (row.stage === 'COACH' || row.stage === 'ENFORCE') {
+                  hintTokensSaved += tokEst;
+                  hintDollarsSaved += usdEst;
+                }
+              }
+              continue;
+            }
             if (row.event === 'blocked_unsliced_read') readsBlocked += 1;
             else if (row.event === 'truncated_tail_output') logsCompacted += 1;
             else if (row.event === 'thrash_3x_breaker') thrashStopped += 1;
@@ -717,7 +777,13 @@ export function getShieldStatus(options = {}) {
       dollarsSaved,
       readsBlocked,
       logsCompacted,
-      thrashStopped
+      thrashStopped,
+      bucketBShadow: {
+        hits: shadowHits,
+        tokensSavedEst: Math.round(shadowTokensSavedEst),
+        dollarsSavedEst: Number(shadowDollarsSavedEst.toFixed(4)),
+        byGuardrail: shadowByGuardrail
+      }
     }
   };
 }
@@ -769,6 +835,9 @@ export function configureShield(options = {}) {
     }
     if (targetClaude) {
       syncClaudeShieldHooks({ mode: 'enable', cwd: baseCwd, pkgRoot });
+      if (options.syncIdleDrain !== false) {
+        syncClaudeIdleDrainSettings({ cwd: baseCwd });
+      }
     }
     const selfTest = runShieldSelfTest();
     const status = getShieldStatus({ ...options, cwd: baseCwd });
@@ -814,4 +883,520 @@ export function configureShield(options = {}) {
     action,
     reason: `Unknown shield action: ${action}`
   };
+}
+
+/**
+ * Non-destructively merges idle token-drain protections into `.claude/settings.local.json`:
+ *   - `env.CLAUDE_CODE_GOAL_CHECKIN_MINUTES = "0"`
+ *   - `crossSessionInbound = "hold"`
+ *   - `idleCompaction = false`
+ *
+ * @param {object} [options={}]
+ */
+export function syncClaudeIdleDrainSettings(options = {}) {
+  const baseCwd = path.resolve(options.cwd || process.cwd());
+  const localSettingsPath = path.join(baseCwd, '.claude', 'settings.local.json');
+  let existing = {};
+  if (fs.existsSync(localSettingsPath)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(localSettingsPath, 'utf8'));
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        existing = parsed;
+      }
+    } catch {
+      existing = {};
+    }
+  }
+  const envObj =
+    existing.env && typeof existing.env === 'object' && !Array.isArray(existing.env)
+      ? { ...existing.env }
+      : {};
+  if (envObj.CLAUDE_CODE_GOAL_CHECKIN_MINUTES === undefined) {
+    envObj.CLAUDE_CODE_GOAL_CHECKIN_MINUTES = '0';
+  }
+  const next = {
+    ...existing,
+    env: envObj,
+    crossSessionInbound:
+      existing.crossSessionInbound !== undefined ? existing.crossSessionInbound : 'hold',
+    idleCompaction:
+      typeof existing.idleCompaction === 'boolean' ? existing.idleCompaction : false
+  };
+  fs.mkdirSync(path.dirname(localSettingsPath), { recursive: true });
+  atomicWriteFileSync(localSettingsPath, `${JSON.stringify(next, null, 2)}\n`);
+  return {
+    updated: true,
+    settingsLocalPath: localSettingsPath,
+    settings: next
+  };
+}
+
+/**
+ * Audits `.claude/settings.local.json` (and `.claude/settings.json`) for idle-drain exposure.
+ * Only triggers an advisory when `.claude/settings.local.json` (or explicit settings) contains
+ * an enabled idle check-in / auto-inbound / idleCompaction drain, or when `requireExplicitGuard` is true.
+ *
+ * @param {object} [options={}]
+ */
+export function auditClaudeIdleDrainSettings(options = {}) {
+  const baseCwd = path.resolve(options.cwd || process.cwd());
+  const localPath = path.join(baseCwd, '.claude', 'settings.local.json');
+  const sharedPath = path.join(baseCwd, '.claude', 'settings.json');
+  const readSafe = (p) => {
+    if (!fs.existsSync(p)) return null;
+    try {
+      const parsed = JSON.parse(fs.readFileSync(p, 'utf8'));
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+      return null;
+    }
+  };
+  const local = readSafe(localPath);
+  const shared = readSafe(sharedPath);
+  if (!local && !shared && !options.requireExplicitGuard) {
+    return { triggered: false, issues: [], advisory: null };
+  }
+  const merged = { ...(shared || {}), ...(local || {}) };
+  const mergedEnv = { ...(shared?.env || {}), ...(local?.env || {}) };
+  const issues = [];
+
+  const checkinRaw = mergedEnv.CLAUDE_CODE_GOAL_CHECKIN_MINUTES;
+  if (checkinRaw !== undefined && String(checkinRaw) !== '0') {
+    issues.push(`CLAUDE_CODE_GOAL_CHECKIN_MINUTES=${checkinRaw} (set "0" to stop idle goal check-ins)`);
+  } else if (options.requireExplicitGuard && checkinRaw === undefined) {
+    issues.push('CLAUDE_CODE_GOAL_CHECKIN_MINUTES unset (recommend "0")');
+  }
+
+  if (merged.crossSessionInbound && merged.crossSessionInbound !== 'hold') {
+    issues.push(`crossSessionInbound="${merged.crossSessionInbound}" (set "hold" to prevent idle cache wakeups)`);
+  } else if (options.requireExplicitGuard && merged.crossSessionInbound === undefined) {
+    issues.push('crossSessionInbound unset (recommend "hold")');
+  }
+
+  if (merged.idleCompaction === true) {
+    issues.push('idleCompaction=true (set false to avoid background summarization burn)');
+  } else if (options.requireExplicitGuard && merged.idleCompaction === undefined) {
+    issues.push('idleCompaction unset (recommend false)');
+  }
+
+  if (issues.length === 0) {
+    return { triggered: false, issues: [], advisory: null };
+  }
+  return {
+    triggered: true,
+    issues,
+    advisory:
+      `[Highbeam Quota Shield — Idle Drain Guard (#10)] ${issues.join('; ')}. ` +
+      `Run "npx ctxtop shield --enable" to lock .claude/settings.local.json against background token drain.`
+  };
+}
+
+/**
+ * Audits `.claude/agents/*.md` YAML frontmatter for missing or unsafe `autoCompactWindow` caps
+ * (`<= 90000` on Haiku subagents, `<= 180000` on Sonnet/Opus/Gemini Pro subagents).
+ *
+ * @param {object} [options={}]
+ */
+export function auditClaudeAgentAutoCompactWindows(options = {}) {
+  const baseCwd = path.resolve(options.cwd || process.cwd());
+  const agentsDir = path.join(baseCwd, '.claude', 'agents');
+  if (!fs.existsSync(agentsDir)) {
+    return { triggered: false, unguardedAgents: [], advisory: null };
+  }
+  const unguardedAgents = [];
+  try {
+    const entries = fs.readdirSync(agentsDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      const fullPath = path.join(agentsDir, entry.name);
+      const raw = fs.readFileSync(fullPath, 'utf8');
+      const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+      const fm = fmMatch ? fmMatch[1] : '';
+      const modelMatch = fm.match(/^\s*model\s*:\s*([^\r\n#]+)/im);
+      const windowMatch = fm.match(/^\s*autoCompactWindow\s*:\s*(\d+)/im);
+      const modelStr = modelMatch ? modelMatch[1].trim().replace(/^['"]|['"]$/g, '') : '';
+      const isHaiku = /haiku/i.test(modelStr);
+      const recommendedMax = isHaiku ? 90000 : 180000;
+      const configuredWindow = windowMatch ? Number(windowMatch[1]) : null;
+      if (configuredWindow === null || configuredWindow > recommendedMax) {
+        unguardedAgents.push({
+          file: `.claude/agents/${entry.name}`,
+          model: modelStr || 'inherit',
+          configuredWindow,
+          recommendedMax
+        });
+      }
+    }
+  } catch {
+    return { triggered: false, unguardedAgents: [], advisory: null };
+  }
+
+  if (unguardedAgents.length === 0) {
+    return { triggered: false, unguardedAgents: [], advisory: null };
+  }
+  const summary = unguardedAgents
+    .slice(0, 4)
+    .map(
+      (a) =>
+        `${a.file} (${a.configuredWindow === null ? 'missing' : a.configuredWindow} -> <=${a.recommendedMax})`
+    )
+    .join(', ');
+  return {
+    triggered: true,
+    unguardedAgents,
+    advisory:
+      `[Highbeam Quota Shield — Pricing Cliff Cap (#7)] Subagent frontmatter missing safe autoCompactWindow: ${summary}. ` +
+      `Pin autoCompactWindow: 90000 (Haiku 100K 5x cliff) or 180000 (200K 2x cliff) to prevent cliff overruns.`
+  };
+}
+
+/**
+ * Item A2 (#3): Records a fast (<12ms) SHA-256 + assertion/skip count baseline of workspace test files
+ * at `SessionStart` into `.agents/telemetry/<sessionId>.test_hashes.json`.
+ * Strictly skips `packages/airlock/`, `node_modules/`, `.git/`, `.agents/`, and `.claude/`.
+ *
+ * @param {object} [options={}]
+ */
+export function snapshotWorkspaceTestHashes(options = {}) {
+  const baseCwd = path.resolve(options.cwd || process.cwd());
+  const sessionId = String(options.sessionId || 'default')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .slice(0, 80);
+  const maxFiles = Math.max(1, Number(options.maxFiles || 400));
+  const deadlineMs = Date.now() + Number(options.budgetMs || 18);
+  const skipDirs = new Set([
+    '.git',
+    'node_modules',
+    '.agents',
+    '.claude',
+    'dist',
+    'build',
+    'out',
+    '.next',
+    'coverage',
+    'airlock'
+  ]);
+  const files = {};
+  let scannedCount = 0;
+
+  const isTestName = (relPosix) =>
+    /\.(?:test|spec)\.(?:[cm]?[jt]sx?|py|go|rs)$/i.test(relPosix) ||
+    /(?:^|\/)(?:test|tests|__tests__)\/.*\.(?:[cm]?[jt]sx?|py|go|rs)$/i.test(relPosix) ||
+    /_test\.(?:py|go)$/i.test(relPosix);
+
+  const walk = (dir, depth) => {
+    if (depth > 4 || scannedCount >= maxFiles || Date.now() > deadlineMs) return;
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (scannedCount >= maxFiles || Date.now() > deadlineMs) break;
+      const fullPath = path.join(dir, entry.name);
+      const relPosix = path.relative(baseCwd, fullPath).replace(/\\/g, '/');
+      if (relPosix === 'packages/airlock' || relPosix.startsWith('packages/airlock/')) continue;
+      if (entry.isDirectory()) {
+        if (skipDirs.has(entry.name)) continue;
+        walk(fullPath, depth + 1);
+      } else if (entry.isFile() && isTestName(relPosix)) {
+        try {
+          const stat = fs.statSync(fullPath);
+          if (stat.size > 512 * 1024) continue;
+          const raw = fs.readFileSync(fullPath, 'utf8');
+          const sha256 = crypto.createHash('sha256').update(raw).digest('hex');
+          const assertionCount =
+            (raw.match(/\b(?:assert(?:\.[a-zA-Z0-9_]+)?\s*\(|expect\s*\(|should\.|assert_eq!\s*\()/g) || []).length +
+            (raw.match(/^\s*assert\s+\S+/gm) || []).length;
+          const skipCount =
+            (raw.match(/(?:\.(?:skip|todo)\s*\(|\b(?:xit|xdescribe|xtest)\s*\(|@pytest\.mark\.skip(?:if)?\b|#\[\s*ignore\b)/g) || []).length;
+          files[relPosix] = {
+            sha256,
+            assertionCount,
+            skipCount,
+            bytes: stat.size
+          };
+          scannedCount += 1;
+        } catch {
+          // Skip unreadable file
+        }
+      }
+    }
+  };
+
+  walk(baseCwd, 0);
+  const outPath = path.join(baseCwd, '.agents', 'telemetry', `${sessionId}.test_hashes.json`);
+  try {
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    atomicWriteFileSync(
+      outPath,
+      `${JSON.stringify(
+        {
+          schemaVersion: '2026.11.1',
+          sessionId,
+          recordedAt: new Date().toISOString(),
+          fileCount: scannedCount,
+          files
+        },
+        null,
+        2
+      )}\n`
+    );
+  } catch {
+    // Non-fatal on read-only FS
+  }
+
+  return {
+    snapshotPath: outPath,
+    fileCount: scannedCount,
+    files
+  };
+}
+
+/**
+ * Item A5 (#15): Audits Claude Code `MEMORY.md` (`>200` lines or `>25,600` bytes `25KB` silent host truncation cap).
+ *
+ * @param {object} [options={}]
+ */
+export function auditClaudeAutoMemory(options = {}) {
+  const baseCwd = path.resolve(options.cwd || process.cwd());
+  const homeDir = options.homeDir || os.homedir();
+  const candidates = [];
+
+  if (options.memoryFilePath) {
+    candidates.push(path.resolve(options.memoryFilePath));
+  }
+  if (options.memoryDir) {
+    candidates.push(path.join(path.resolve(options.memoryDir), 'MEMORY.md'));
+  }
+  candidates.push(path.join(baseCwd, '.claude', 'memory', 'MEMORY.md'));
+
+  // Resolve `~/.claude/projects/<projectSlug>/memory/MEMORY.md`
+  const slugVariants = new Set([
+    baseCwd.replace(/[:\\/]+/g, '-').replace(/^-+/, ''),
+    `-${baseCwd.replace(/[:\\/]+/g, '-').replace(/^-+/, '')}`
+  ]);
+  for (const slug of slugVariants) {
+    candidates.push(path.join(homeDir, '.claude', 'projects', slug, 'memory', 'MEMORY.md'));
+  }
+
+  const seen = new Set();
+  const issues = [];
+  let maxLines = 0;
+  let maxBytes = 0;
+  let inspectedPath = null;
+
+  for (const memPath of candidates) {
+    const norm = memPath.replace(/\\/g, '/').toLowerCase();
+    if (seen.has(norm) || !fs.existsSync(memPath)) continue;
+    seen.add(norm);
+    try {
+      const buf = fs.readFileSync(memPath);
+      const text = buf.toString('utf8');
+      const lines = text.split(/\r?\n/).length;
+      const bytes = buf.byteLength;
+      inspectedPath = memPath;
+      if (lines > maxLines) maxLines = lines;
+      if (bytes > maxBytes) maxBytes = bytes;
+      if (lines > 200 || bytes > 25600) {
+        issues.push(
+          `MEMORY.md (${lines} lines, ${(bytes / 1024).toFixed(1)}KB) exceeds Claude Code's 200-line / 25KB (25,600B) auto-memory cap — trailing lines are silently truncated`
+        );
+      }
+    } catch {
+      // Ignore unreadable candidate
+    }
+  }
+
+  if (issues.length === 0) {
+    return { triggered: false, inspectedPath, maxLines, maxBytes, issues: [], advisory: null };
+  }
+
+  return {
+    triggered: true,
+    inspectedPath,
+    maxLines,
+    maxBytes,
+    issues,
+    advisory:
+      `[Highbeam Quota Shield — Auto-Memory Truncation Guard (#15)] ${issues.join('; ')}. ` +
+      `Move detailed notes into topic files under memory/<topic>.md and keep MEMORY.md <= 200 lines / <= 25KB.`
+  };
+}
+
+/**
+ * Item A8 (#14): Multimodal `.ipynb` Base64 Stripper & Unbounded `>10`-Page `.pdf` Read Blocker.
+ *
+ * - For `.ipynb`: If file > 256KB or contains `image/png` / `image/jpeg` / `image/webp` base64 blobs > 16KB,
+ *   writes a sanitized copy (with code/markdown/text preserved and base64 images stripped) to
+ *   `.claude/cache/sanitized_<name>.ipynb` (Claude `updatedInput` rewrite) or `.agents/tmp/sanitized_<name>.ipynb` (Antigravity).
+ * - For `.pdf`: Counts `/Type /Page` objects; blocks un-paged reads (or ranges > 10 pages) when `pageCount > 10`.
+ *
+ * @param {object} [options={}]
+ */
+export function inspectAndSanitizeMultimodalRead(options = {}) {
+  const platform = String(options.platform || 'claude').toLowerCase();
+  const baseCwd = path.resolve(options.cwd || process.cwd());
+  const rawFilePath = String(options.filePath || '').trim();
+  if (!rawFilePath) return { action: 'allow' };
+
+  const resolved = path.isAbsolute(rawFilePath)
+    ? rawFilePath
+    : path.resolve(baseCwd, rawFilePath);
+  const relCheck = path.relative(baseCwd, resolved).replace(/\\/g, '/');
+  if (relCheck === 'packages/airlock' || relCheck.startsWith('packages/airlock/')) {
+    return { action: 'allow' };
+  }
+
+  const normLower = resolved.replace(/\\/g, '/').toLowerCase();
+  // Never re-intercept an already sanitized notebook!
+  if (
+    normLower.includes('/.claude/cache/sanitized_') ||
+    normLower.includes('/.agents/tmp/sanitized_')
+  ) {
+    return { action: 'allow' };
+  }
+
+  if (!/\.ipynb$|\.pdf$/i.test(normLower) || !fs.existsSync(resolved)) {
+    return { action: 'allow' };
+  }
+
+  let stat;
+  try {
+    stat = fs.statSync(resolved);
+    if (!stat.isFile()) return { action: 'allow' };
+  } catch {
+    return { action: 'allow' };
+  }
+
+  if (normLower.endsWith('.pdf')) {
+    let pageSpan = null;
+    if (options.pages !== undefined && options.pages !== null && String(options.pages).trim() !== '') {
+      const pagesStr = String(options.pages).trim();
+      const rangeMatch = pagesStr.match(/^(\d+)\s*-\s*(\d+)$/);
+      if (rangeMatch) {
+        pageSpan = Math.abs(Number(rangeMatch[2]) - Number(rangeMatch[1])) + 1;
+      } else if (/^\d+$/.test(pagesStr)) {
+        pageSpan = 1;
+      }
+    } else if (options.hasPageBounds) {
+      pageSpan = 10;
+    }
+
+    try {
+      const maxReadBytes = Math.min(stat.size, 16 * 1024 * 1024);
+      const fd = fs.openSync(resolved, 'r');
+      const buf = Buffer.allocUnsafe(maxReadBytes);
+      fs.readSync(fd, buf, 0, maxReadBytes, 0);
+      fs.closeSync(fd);
+      const latin = buf.toString('latin1');
+      const pageMatches = latin.match(/\/Type\s*\/Page\b(?!s)/g) || [];
+      const pageCount = pageMatches.length;
+
+      if (pageCount > 10 && (pageSpan === null || pageSpan > 10)) {
+        const savedTokens = Math.max(1500, (pageCount - 10) * 1500);
+        return {
+          action: 'deny',
+          detectorId: 'DET-07',
+          subType: 'UNPAGED_PDF_BLOCKED',
+          pageCount,
+          savedTokens,
+          reason:
+            `[DET-07 Multimodal PDF Guard (#14)] Unbounded read of ${pageCount}-page PDF "${path.basename(resolved)}" (>10-page cap). ` +
+            `Pass an explicit <=10-page slice (e.g. pages: "1-10") to prevent ~${savedTokens.toLocaleString()} multimodal tokens of bloat.`
+        };
+      }
+    } catch {
+      return { action: 'allow' };
+    }
+    return { action: 'allow' };
+  }
+
+  // `.ipynb` Notebook Base64 Image Sanitizer
+  if (normLower.endsWith('.ipynb')) {
+    try {
+      const rawText = fs.readFileSync(resolved, 'utf8');
+      const nb = JSON.parse(rawText);
+      const cells = Array.isArray(nb?.cells) ? nb.cells : [];
+      let strippedImages = 0;
+      let strippedBytes = 0;
+
+      for (const cell of cells) {
+        if (!cell || !Array.isArray(cell.outputs)) continue;
+        for (const out of cell.outputs) {
+          if (!out || !out.data || typeof out.data !== 'object') continue;
+          for (const mime of ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml']) {
+            const val = out.data[mime];
+            if (!val) continue;
+            const joined = Array.isArray(val) ? val.join('') : String(val);
+            if (joined.length > 16384 || stat.size > 262144) {
+              strippedImages += 1;
+              strippedBytes += joined.length;
+              delete out.data[mime];
+              if (!out.data['text/plain']) {
+                out.data['text/plain'] = [
+                  `[Highbeam Sanitized (#14): ${mime} base64 payload (${(joined.length / 1024).toFixed(1)} KB) stripped]`
+                ];
+              }
+            }
+          }
+        }
+      }
+
+      if (strippedImages === 0 && stat.size <= 262144) {
+        return { action: 'allow' };
+      }
+
+      // If >256KB even without images, truncate oversized stream outputs >16KB per cell
+      if (strippedImages === 0 && stat.size > 262144) {
+        for (const cell of cells) {
+          if (!cell || !Array.isArray(cell.outputs)) continue;
+          for (const out of cell.outputs) {
+            if (out && out.text) {
+              const txt = Array.isArray(out.text) ? out.text.join('') : String(out.text);
+              if (txt.length > 16384) {
+                strippedBytes += txt.length - 4096;
+                out.text = [
+                  `${txt.slice(0, 2048)}\n...[Highbeam Sanitized (#14): ${(txt.length / 1024).toFixed(1)} KB notebook output truncated]...\n${txt.slice(-2048)}`
+                ];
+              }
+            }
+          }
+        }
+      }
+
+      if (strippedImages === 0 && strippedBytes === 0) {
+        return { action: 'allow' };
+      }
+
+      const safeBase = path.basename(resolved).replace(/[^a-zA-Z0-9._-]/g, '_');
+      const cacheSubdir =
+        platform === 'claude'
+          ? path.join(baseCwd, '.claude', 'cache')
+          : path.join(baseCwd, '.agents', 'tmp');
+      fs.mkdirSync(cacheSubdir, { recursive: true });
+      const sanitizedPath = path.join(cacheSubdir, `sanitized_${safeBase}`);
+      const sanitizedJson = `${JSON.stringify(nb, null, 1)}\n`;
+      atomicWriteFileSync(sanitizedPath, sanitizedJson);
+      const savedTokens = Math.max(100, Math.ceil(strippedBytes / 4));
+
+      return {
+        action: platform === 'claude' ? 'rewrite' : 'deny',
+        detectorId: 'DET-07',
+        subType: 'IPYNB_BASE64_SANITIZED',
+        sanitizedPath,
+        strippedImages,
+        strippedBytes,
+        savedTokens,
+        reason:
+          `[Highbeam Multimodal Notebook Sanitizer (#14)] Stripped ${strippedImages} embedded base64 image(s) ` +
+          `(${(strippedBytes / 1024).toFixed(1)} KB, ~${savedTokens.toLocaleString()} tokens saved) from "${path.basename(resolved)}" -> "${sanitizedPath}".`
+      };
+    } catch {
+      return { action: 'allow' };
+    }
+  }
+
+  return { action: 'allow' };
 }

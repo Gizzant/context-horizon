@@ -598,6 +598,88 @@ export const MODEL_REGISTRY = Object.freeze({
         })
       })
     ])
+  }),
+  'gemini-3.1-pro': Object.freeze({
+    id: 'gemini-3.1-pro',
+    aliases: Object.freeze(['gemini-3.1-pro-preview', 'gemini-3-1-pro', 'gemini-3-1-pro-preview']),
+    family: 'gemini-pro',
+    label: 'Gemini 3.1 Pro',
+    supported_efforts: Object.freeze(['low', 'medium', 'high']),
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'pro',
+    shared_pool_ceiling: 1000000,
+    max_output_tokens: null,
+    deprecated_after: null,
+    prompt_cliff_tokens: 200000,
+    rate_schedules: Object.freeze([
+      Object.freeze({
+        effective_from_utc: null,
+        effective_until_utc: null,
+        standard: Object.freeze({
+          input_per_1m: 1.25,
+          output_per_1m: 10.00,
+          write_5m_per_1m: 1.25,
+          write_1h_per_1m: 1.25,
+          cached_read_per_1m: 0.125
+        }),
+        cliff_over_200k: Object.freeze({
+          input_per_1m: 2.50,
+          output_per_1m: 15.00,
+          write_5m_per_1m: 2.50,
+          write_1h_per_1m: 2.50,
+          cached_read_per_1m: 0.25
+        }),
+        priority: Object.freeze({
+          input_per_1m: 1.25,
+          output_per_1m: 10.00,
+          write_5m_per_1m: 1.25,
+          write_1h_per_1m: 1.25,
+          cached_read_per_1m: 0.125
+        })
+      })
+    ])
+  }),
+  'gemini-2.5-pro': Object.freeze({
+    id: 'gemini-2.5-pro',
+    aliases: Object.freeze(['gemini-2.5-pro-preview', 'gemini-2-5-pro', 'gemini-2.5-pro-1m']),
+    family: 'gemini-pro',
+    label: 'Gemini 2.5 Pro',
+    supported_efforts: Object.freeze(['low', 'medium', 'high']),
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'pro',
+    shared_pool_ceiling: 1000000,
+    max_output_tokens: null,
+    deprecated_after: null,
+    prompt_cliff_tokens: 200000,
+    rate_schedules: Object.freeze([
+      Object.freeze({
+        effective_from_utc: null,
+        effective_until_utc: null,
+        standard: Object.freeze({
+          input_per_1m: 1.25,
+          output_per_1m: 10.00,
+          write_5m_per_1m: 1.25,
+          write_1h_per_1m: 1.25,
+          cached_read_per_1m: 0.125
+        }),
+        cliff_over_200k: Object.freeze({
+          input_per_1m: 2.50,
+          output_per_1m: 15.00,
+          write_5m_per_1m: 2.50,
+          write_1h_per_1m: 2.50,
+          cached_read_per_1m: 0.25
+        }),
+        priority: Object.freeze({
+          input_per_1m: 1.25,
+          output_per_1m: 10.00,
+          write_5m_per_1m: 1.25,
+          write_1h_per_1m: 1.25,
+          cached_read_per_1m: 0.125
+        })
+      })
+    ])
   })
 });
 
@@ -715,6 +797,9 @@ export const MODEL_CEILINGS = Object.freeze({
   'gpt-oss-120b': 128000,
   'gemini-1.5-pro-1m': 1000000,
   'gemini-2.5-pro-1m': 1000000,
+  'gemini-2.5-pro-preview': 1000000,
+  'gemini-3.1-pro': 1000000,
+  'gemini-3.1-pro-preview': 1000000,
   'default': 256000
 });
 
@@ -1159,18 +1244,20 @@ export function resolveModelRates(modelId = 'gemini-4-carbon', eventTimestampUtc
       desc.rate_schedules[desc.rate_schedules.length - 1];
 
     const promptEnvelope = extractPromptEnvelopeTokens(effectiveCtx);
+    const cliffSchedule = matchedSched.cliff_over_200k || matchedSched.cliff_over_100k || null;
+    const cliffWindowName = matchedSched.cliff_over_200k ? 'cliff_over_200k' : 'cliff_over_100k';
     const cliffTriggered = Boolean(
       desc.prompt_cliff_tokens &&
       promptEnvelope > desc.prompt_cliff_tokens &&
-      matchedSched.cliff_over_100k
+      cliffSchedule
     );
     const rates = cliffTriggered
-      ? matchedSched.cliff_over_100k
+      ? cliffSchedule
       : (matchedSched[tierKey] || matchedSched.standard);
 
     let windowName = 'standard';
     if (cliffTriggered) {
-      windowName = 'cliff_over_100k';
+      windowName = cliffWindowName;
     } else if (matchedSched.window) {
       windowName = matchedSched.window;
     } else if (desc.rate_schedules.length > 1) {

@@ -12,7 +12,11 @@ import { loadHorizonConfig } from '../../src/core-isomorphic/config/horizonConfi
 import { recordInterventionSavings } from '../../src/core-isomorphic/coach/savedQuotaLedger.mjs';
 import { requireProFeature } from '../../src/core/pro_license.mjs';
 import { foldCodeToSignatureStub, computeCompactLineDiff } from '../../src/core/pruner.mjs';
-import { evaluateShieldReadGuard } from '../../src/core/shield_manager.mjs';
+import {
+  evaluateShieldReadGuard,
+  inspectAndSanitizeMultimodalRead
+} from '../../src/core/shield_manager.mjs';
+import { runBucketBPreToolShadowPass } from '../../src/core/bucket_b_runtime.mjs';
 import {
   CircuitBreakerEngine,
   readBreakerStateSnapshot,
@@ -115,6 +119,99 @@ export function runPreToolUseHook(event = {}, options = {}) {
     tIn.limit !== undefined ||
     tIn.pages !== undefined;
   const rawReadPath = String(tIn.file_path || tIn.Path || tIn.AbsolutePath || tIn.path || '').trim();
+
+  // Item A8 (#14): Multimodal .ipynb Base64 Stripper (`updatedInput`) & Unbounded >10-page .pdf Blocker
+  if (
+    isReadTool &&
+    rawReadPath &&
+    verdict.decision !== 'deny' &&
+    verdict.decision !== 'ask' &&
+    verdict.decision !== 'defer' &&
+    /\.(?:ipynb|pdf)$/i.test(rawReadPath)
+  ) {
+    const baseCwdForMm = event.cwd || options.cwd || process.cwd();
+    const mmVerdict = inspectAndSanitizeMultimodalRead({
+      platform: 'claude',
+      cwd: baseCwdForMm,
+      filePath: rawReadPath,
+      pages: tIn.pages,
+      hasPageBounds: tIn.pages !== undefined
+    });
+    if (mmVerdict.action === 'deny') {
+      if (shouldPersistState) {
+        writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
+      }
+      const denyOut = {
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'deny',
+          permissionDecisionReason: mmVerdict.reason
+        }
+      };
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify(denyOut),
+        stderr: '',
+        verdict: {
+          triggered: true,
+          detectorId: mmVerdict.detectorId,
+          subType: mmVerdict.subType,
+          decision: 'deny',
+          pageCount: mmVerdict.pageCount,
+          savedTokens: mmVerdict.savedTokens,
+          reason: mmVerdict.reason
+        }
+      };
+    }
+    if (mmVerdict.action === 'rewrite' && mmVerdict.sanitizedPath) {
+      if (shouldPersistState) {
+        writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
+      }
+      if (
+        mmVerdict.savedTokens > 0 &&
+        options.recordLedger !== false &&
+        Boolean(event.cwd || options.cwd || options.ledgerPath || options.recordLedger)
+      ) {
+        recordInterventionSavings(
+          {
+            sessionId,
+            category: 'BOUNDED_READ_ENFORCED',
+            modelId: event.model || event.modelId || liveState?.modelId || 'claude-sonnet-4-6',
+            savedTokens: mmVerdict.savedTokens,
+            detail: `Sanitized .ipynb base64 blobs in ${path.basename(rawReadPath)}`
+          },
+          cwdOptions
+        );
+      }
+      const updatedInput = {
+        ...tIn,
+        file_path: mmVerdict.sanitizedPath
+      };
+      const rewriteOut = {
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'allow',
+          updatedInput,
+          additionalContext: mmVerdict.reason
+        }
+      };
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify(rewriteOut),
+        stderr: '',
+        verdict: {
+          triggered: true,
+          detectorId: mmVerdict.detectorId,
+          subType: mmVerdict.subType,
+          decision: 'allow',
+          sanitizedPath: mmVerdict.sanitizedPath,
+          savedTokens: mmVerdict.savedTokens,
+          updatedInput,
+          reason: mmVerdict.reason
+        }
+      };
+    }
+  }
 
   if (
     isReadTool &&
@@ -248,6 +345,35 @@ export function runPreToolUseHook(event = {}, options = {}) {
   if (shouldPersistState) {
     writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
   }
+
+  // Bucket B Shadow/Coach Pass (writes zero-prompt-token `.hints.jsonl` telemetry when explicit cwd is provided)
+  if (
+    !verdict.triggered &&
+    options.bucketBShadow !== false &&
+    Boolean(event.cwd || options.cwd)
+  ) {
+    try {
+      const shadowRes = runBucketBPreToolShadowPass({
+        platform: 'claude',
+        sessionId,
+        cwd: event.cwd || options.cwd,
+        toolName,
+        toolInput: tIn,
+        lastUserPrompt: engine.lastUserPrompt || '',
+        options: { ...options, horizonConfig }
+      });
+      if (shadowRes.triggered && shadowRes.recorded.length > 0) {
+        const topRec = shadowRes.recorded[0].verdict;
+        verdict.triggered = true;
+        verdict.decision = topRec.decision === 'ask' ? 'ask' : 'allow';
+        verdict.detectorId = topRec.code || 'BUCKET_B_GUARD';
+        verdict.reason = topRec.reason;
+      }
+    } catch (_shadowErr) {
+      // Non-fatal Bucket B shadow pass
+    }
+  }
+
   if (!verdict.triggered) {
     return {
       exitCode: 0,

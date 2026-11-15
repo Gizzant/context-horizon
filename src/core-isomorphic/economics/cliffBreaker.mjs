@@ -25,6 +25,15 @@ export const HAIKU_CLIFF_THRESHOLDS = Object.freeze({
   PRICE_MULTIPLIER: 5.0
 });
 
+export const GEMINI_PRO_200K_CLIFF_THRESHOLDS = Object.freeze({
+  ADVISORY_TOKENS: 180000,
+  BREAKER_TOKENS: 196000,
+  CLIFF_TOKENS: 200000,
+  INPUT_MULTIPLIER: 2.0,
+  OUTPUT_MULTIPLIER: 1.5,
+  PRICE_MULTIPLIER: 2.0
+});
+
 /**
  * Checks whether a given model string corresponds to an Anthropic Claude Haiku model.
  * @param {string} [modelId='']
@@ -32,6 +41,62 @@ export const HAIKU_CLIFF_THRESHOLDS = Object.freeze({
  */
 export function isHaikuModel(modelId = '') {
   return String(modelId || '').toLowerCase().includes('haiku');
+}
+
+/**
+ * Checks whether a given model string corresponds to Gemini 3.1 Pro or Gemini 2.5 Pro
+ * (subject to the 200,000-token 2x input / 1.5x output pricing cliff).
+ * @param {string} [modelId='']
+ * @returns {boolean}
+ */
+export function isGeminiPro200kCliffModel(modelId = '') {
+  const lower = String(modelId || '').toLowerCase().trim();
+  return /gemini[-_.\s]*(?:3[._-]1|2[._-]5)[-_.\s]*pro\b/.test(lower);
+}
+
+/**
+ * Resolves parameterized pricing cliff metadata for models with stepped prompt pricing
+ * (Claude Haiku 5.5 at 100K 5x, Gemini 3.1/2.5 Pro at 200K 2x input / 1.5x output).
+ * Returns `null` for models without a prompt pricing cliff (Sonnet, Opus, Fable, Gemini 4, Flash).
+ *
+ * @param {string} [modelId='']
+ * @returns {{
+ *   family: 'haiku' | 'gemini-pro',
+ *   advisoryTokens: number,
+ *   breakerTokens: number,
+ *   cliffTokens: number,
+ *   inputMultiplier: number,
+ *   outputMultiplier: number,
+ *   priceMultiplier: number,
+ *   label: string
+ * } | null}
+ */
+export function resolveModelCliffSpec(modelId = '') {
+  if (isHaikuModel(modelId)) {
+    return {
+      family: 'haiku',
+      advisoryTokens: HAIKU_CLIFF_THRESHOLDS.ADVISORY_TOKENS,
+      breakerTokens: HAIKU_CLIFF_THRESHOLDS.BREAKER_TOKENS,
+      cliffTokens: HAIKU_CLIFF_THRESHOLDS.CLIFF_TOKENS,
+      inputMultiplier: HAIKU_CLIFF_THRESHOLDS.PRICE_MULTIPLIER,
+      outputMultiplier: HAIKU_CLIFF_THRESHOLDS.PRICE_MULTIPLIER,
+      priceMultiplier: HAIKU_CLIFF_THRESHOLDS.PRICE_MULTIPLIER,
+      label: 'Haiku 100k 5x cost cliff'
+    };
+  }
+  if (isGeminiPro200kCliffModel(modelId)) {
+    return {
+      family: 'gemini-pro',
+      advisoryTokens: GEMINI_PRO_200K_CLIFF_THRESHOLDS.ADVISORY_TOKENS,
+      breakerTokens: GEMINI_PRO_200K_CLIFF_THRESHOLDS.BREAKER_TOKENS,
+      cliffTokens: GEMINI_PRO_200K_CLIFF_THRESHOLDS.CLIFF_TOKENS,
+      inputMultiplier: GEMINI_PRO_200K_CLIFF_THRESHOLDS.INPUT_MULTIPLIER,
+      outputMultiplier: GEMINI_PRO_200K_CLIFF_THRESHOLDS.OUTPUT_MULTIPLIER,
+      priceMultiplier: GEMINI_PRO_200K_CLIFF_THRESHOLDS.PRICE_MULTIPLIER,
+      label: 'Gemini Pro 200k 2x input / 1.5x output cliff'
+    };
+  }
+  return null;
 }
 
 /**
@@ -127,36 +192,57 @@ export function evaluateDet12HaikuPreCliffBreaker(params = {}) {
   }
 
   const totalTokens = Math.max(0, Number(candidate) || 0);
+  const projectedDelta = Math.max(0, Number(safeParams.projectedDeltaTokens) || 0);
+  const effectiveTokens = totalTokens + projectedDelta;
 
-  const isHaiku = isHaikuModel(modelId);
-  if (!isHaiku || totalTokens < HAIKU_CLIFF_THRESHOLDS.ADVISORY_TOKENS) {
+  const cliffSpec = resolveModelCliffSpec(modelId);
+  if (!cliffSpec || effectiveTokens < cliffSpec.advisoryTokens) {
     return {
       detectorId: HAIKU_CLIFF_DETECTOR_ID,
       triggered: false,
       decision: 'allow',
       advisory: false,
       modelId,
-      totalInputTokens: totalTokens,
-      cliffThresholdTokens: HAIKU_CLIFF_THRESHOLDS.CLIFF_TOKENS,
-      reason: isHaiku
-        ? `Haiku prompt size (${totalTokens.toLocaleString()}) is within safe volume (<90k).`
-        : `Non-Haiku model (${modelId || 'unspecified'}); exempt from DET-12 100k cliff breaker.`
+      totalInputTokens: effectiveTokens,
+      cliffThresholdTokens: cliffSpec ? cliffSpec.cliffTokens : HAIKU_CLIFF_THRESHOLDS.CLIFF_TOKENS,
+      reason: cliffSpec
+        ? `${cliffSpec.family === 'haiku' ? 'Haiku' : 'Gemini Pro'} prompt size (${effectiveTokens.toLocaleString()}) is within safe volume (<${Math.round(cliffSpec.advisoryTokens / 1000)}k).`
+        : `Non-cliff model (${modelId || 'unspecified'}); exempt from DET-12 pricing cliff breaker.`
     };
   }
 
-  const isHardDeny = totalTokens >= HAIKU_CLIFF_THRESHOLDS.BREAKER_TOKENS;
+  const isHardDeny = effectiveTokens >= cliffSpec.breakerTokens;
+  const breakerLabelK = Math.round(cliffSpec.breakerTokens / 1000);
+  const advisoryLabelK = Math.round(cliffSpec.advisoryTokens / 1000);
+  const cliffLabelK = Math.round(cliffSpec.cliffTokens / 1000);
+  const multDesc =
+    cliffSpec.family === 'haiku'
+      ? '5x price jump'
+      : '2x input / 1.5x output price jump';
+
+  const familyTag = cliffSpec.family === 'haiku' ? 'Haiku' : 'Gemini Pro';
+
   return {
     detectorId: HAIKU_CLIFF_DETECTOR_ID,
     triggered: true,
     decision: isHardDeny ? 'deny' : 'advise_compact',
     advisory: !isHardDeny,
     modelId,
-    totalInputTokens: totalTokens,
-    cliffThresholdTokens: HAIKU_CLIFF_THRESHOLDS.CLIFF_TOKENS,
+    totalInputTokens: effectiveTokens,
+    cliffThresholdTokens: cliffSpec.cliffTokens,
+    cliffSpec,
     reason: isHardDeny
-      ? `[DET-12 Haiku Cliff Breaker] Prompt volume (${totalTokens.toLocaleString()} tokens) reached or exceeded 98k buffer. Tripping circuit breaker before 100k 5x price jump.`
-      : `[DET-12 Haiku 90k Pre-Cliff Breaker] Prompt volume (${totalTokens.toLocaleString()} tokens) approaching 100k 5x cost cliff. Compact now to avoid 5x billing penalty.`
+      ? `[DET-12 ${familyTag} Cliff Breaker] Prompt volume (${effectiveTokens.toLocaleString()} tokens) reached or exceeded ${breakerLabelK}k buffer. Tripping circuit breaker before ${cliffLabelK}k ${multDesc}.`
+      : `[DET-12 ${familyTag} ${advisoryLabelK}k Pre-Cliff Breaker] Prompt volume (${effectiveTokens.toLocaleString()} tokens) approaching ${cliffLabelK}k ${multDesc}. Compact now to avoid stepped billing penalty.`
   };
+}
+
+/**
+ * Parameterized cross-provider pricing cliff breaker (`Haiku 5.5` 100K 5x + `Gemini 3.1/2.5 Pro` 200K 2x/1.5x).
+ * @param {object} [params={}]
+ */
+export function evaluateParameterizedCliffBreaker(params = {}) {
+  return evaluateDet12HaikuPreCliffBreaker(params);
 }
 
 /**

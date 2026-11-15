@@ -412,6 +412,45 @@ function splitEnvKeyValToken(token = '') {
 }
 
 /**
+ * Checks whether the user's prompt explicitly requested modifying, deleting, or skipping tests.
+ * @param {string} [promptText='']
+ * @returns {boolean}
+ */
+export function hasExplicitTestModifyIntent(promptText = '') {
+  const s = String(promptText || '');
+  if (!s) return false;
+  return (
+    /\b(?:edit|update|modify|delete|remove|drop|skip|disable|rewrite|adjust|refactor)\s+(?:(?:the|all|any|some|these|those|existing|failing|obsolete|legacy|old|broken|flaky|unit|integration|e2e)\s+)*(?:tests?|specs?|assertions?)\b/i.test(
+      s
+    ) ||
+    (/\.(?:test|spec)\.[a-z0-9]+\b/i.test(s) &&
+      /\b(?:delete|remove|drop|skip|disable|update|rewrite)\b/i.test(s))
+  );
+}
+
+/**
+ * Checks whether a shell argument token points to a repository test file (excluding temp/cache paths).
+ * @param {string} [token='']
+ * @returns {boolean}
+ */
+function isProtectedTestFileToken(token = '') {
+  const norm = String(token || '').trim().replace(/^['"]|['"]$/g, '').replace(/\\/g, '/');
+  if (!norm) return false;
+  if (
+    /^(?:\/tmp\/|\/var\/folders\/)/i.test(norm) ||
+    /(?:^|\/)(?:tmp|temp|\.claude\/cache|\.agents\/tmp)\//i.test(norm) ||
+    /appdata\/local\/temp\//i.test(norm)
+  ) {
+    return false;
+  }
+  return (
+    /\.(?:test|spec)\.(?:[cm]?[jt]sx?|py|go|rs)$/i.test(norm) ||
+    /(?:^|\/)(?:test|tests|__tests__)\/.*\.(?:[cm]?[jt]sx?|py|go|rs)$/i.test(norm) ||
+    /_test\.(?:py|go)$/i.test(norm)
+  );
+}
+
+/**
  * DET-01: Destructive Shell & Git Hook-Bypass Blocker (`Bash|PowerShell`).
  * Strictly skips option arguments (such as `-m "-next..."`, `-m "Fix HUSKY=0"`, `-F`, `-c`, `--author`),
  * never blocks `git log -n 5`, `git clean -n`, `git commit -mnotes`, or `git config --get core.hooksPath`,
@@ -585,11 +624,19 @@ export function evaluateDet01GitAndShellSafety(params = {}, _depth = 0) {
     }
 
     // 2f. Nested shell wrappers (`bash -c "..."`, `sh -c "..."`, `cmd /c "..."`, `pwsh -Command "..."`)
+    const userExplicitTestIntent =
+      Boolean(params.userExplicitTestIntent) ||
+      hasExplicitTestModifyIntent(params.lastUserInput || params.prompt || '');
     if (['bash', 'bash.exe', 'sh', 'sh.exe', 'zsh', 'dash'].includes(bin)) {
       const cPos = rawTokens.findIndex((t, ti) => ti > idx && (t === '-c' || /^-[a-zA-Z]*c$/.test(t)));
       if (cPos !== -1 && rawTokens[cPos + 1]) {
         const nested = evaluateDet01GitAndShellSafety(
-          { toolName: 'Bash', command: rawTokens[cPos + 1] },
+          {
+            toolName: 'Bash',
+            command: rawTokens[cPos + 1],
+            userExplicitTestIntent,
+            lastUserInput: params.lastUserInput || params.prompt || ''
+          },
           _depth + 1
         );
         if (nested.triggered) return nested;
@@ -601,7 +648,12 @@ export function evaluateDet01GitAndShellSafety(params = {}, _depth = 0) {
       if (cPos !== -1 && cPos + 1 < rawTokens.length) {
         const nestedCmd = rawTokens.slice(cPos + 1).join(' ');
         const nested = evaluateDet01GitAndShellSafety(
-          { toolName: 'cmd', command: nestedCmd },
+          {
+            toolName: 'cmd',
+            command: nestedCmd,
+            userExplicitTestIntent,
+            lastUserInput: params.lastUserInput || params.prompt || ''
+          },
           _depth + 1
         );
         if (nested.triggered) return nested;
@@ -613,7 +665,12 @@ export function evaluateDet01GitAndShellSafety(params = {}, _depth = 0) {
       if (cPos !== -1 && cPos + 1 < rawTokens.length) {
         const nestedCmd = rawTokens.slice(cPos + 1).join(' ');
         const nested = evaluateDet01GitAndShellSafety(
-          { toolName: 'PowerShell', command: nestedCmd },
+          {
+            toolName: 'PowerShell',
+            command: nestedCmd,
+            userExplicitTestIntent,
+            lastUserInput: params.lastUserInput || params.prompt || ''
+          },
           _depth + 1
         );
         if (nested.triggered) return nested;
@@ -621,8 +678,8 @@ export function evaluateDet01GitAndShellSafety(params = {}, _depth = 0) {
       continue;
     }
 
-    // 2g. Destructive filesystem wipe commands on tokenized segment (`rm -rf /`, `Remove-Item -Recurse -Force C:\`)
-    if (bin === 'rm' || bin === 'rm.exe') {
+    // 2g. Destructive filesystem wipe commands & Test File Deletion Lock (#3)
+    if (bin === 'rm' || bin === 'rm.exe' || bin === 'unlink' || bin === 'unlink.exe') {
       const rmArgs = rawTokens.slice(idx + 1);
       const hasRecursive = rmArgs.some(
         (a) => a === '--recursive' || (/^-[a-zA-Z]+$/.test(a) && /[rR]/.test(a))
@@ -642,6 +699,20 @@ export function evaluateDet01GitAndShellSafety(params = {}, _depth = 0) {
           reason: `[DET-01 Destructive Shell Blocked] Recursive root/home deletion is forbidden.`
         };
       }
+      if (!userExplicitTestIntent) {
+        const deletedTestTarget = rmArgs.find(
+          (a) => !a.startsWith('-') && isProtectedTestFileToken(a)
+        );
+        if (deletedTestTarget) {
+          return {
+            detectorId: 'DET-01',
+            triggered: true,
+            decision: 'deny',
+            subType: 'TEST_FILE_DELETION',
+            reason: `[DET-01 Test Integrity Lock (#3)] Deleting test file "${deletedTestTarget}" via shell without explicit user instruction is forbidden.`
+          };
+        }
+      }
       continue;
     }
 
@@ -660,6 +731,20 @@ export function evaluateDet01GitAndShellSafety(params = {}, _depth = 0) {
           subType: 'DESTRUCTIVE_FS_WIPE',
           reason: `[DET-01 Destructive Shell Blocked] Recursive root/home deletion is forbidden.`
         };
+      }
+      if (!userExplicitTestIntent) {
+        const deletedTestTarget = psArgs.find(
+          (a) => !a.startsWith('-') && !a.startsWith('/') && isProtectedTestFileToken(a)
+        );
+        if (deletedTestTarget) {
+          return {
+            detectorId: 'DET-01',
+            triggered: true,
+            decision: 'deny',
+            subType: 'TEST_FILE_DELETION',
+            reason: `[DET-01 Test Integrity Lock (#3)] Deleting test file "${deletedTestTarget}" via shell without explicit user instruction is forbidden.`
+          };
+        }
       }
       continue;
     }
@@ -934,6 +1019,70 @@ export function evaluateDet01GitAndShellSafety(params = {}, _depth = 0) {
             reason: `[DET-01 Destructive Git Blocked] Unconditional "git push --force" is forbidden (use --force-with-lease if required).`
           };
         }
+      }
+    }
+
+    // Item A9 (#18): Un-stashed Working-Tree Discard Guard (`git checkout -- <path>`, `git checkout .`, `git checkout -f`, `git restore <path>`)
+    if (subcommand === 'checkout') {
+      const isBranchCreation = subArgs.some((a) => a === '-b' || a === '-B' || a === '--orphan');
+      if (!isBranchCreation) {
+        const hasForceCheckout = subArgs.some((a) => a === '-f' || a === '--force');
+        const hasDoubleDashDiscard = subArgs.includes('--');
+        const hasDotDiscard = subArgs.includes('.');
+        if (hasForceCheckout || hasDoubleDashDiscard || hasDotDiscard) {
+          return {
+            detectorId: 'DET-01',
+            triggered: true,
+            decision: 'deny',
+            subType: 'GIT_UNSTASHED_DISCARD',
+            reason: `[DET-01 Worktree Destructive Guard (#18)] Un-stashed working-tree discard ("git checkout") destroys uncommitted edits. Run "git stash push -u" first.`
+          };
+        }
+      }
+    }
+
+    if (subcommand === 'restore') {
+      const hasStagedOnly =
+        subArgs.some((a) => a === '--staged' || a === '-S') &&
+        !subArgs.some((a) => a === '--worktree' || a === '-W');
+      if (!hasStagedOnly && subArgs.some((a) => a !== '--help' && a !== '-h')) {
+        return {
+          detectorId: 'DET-01',
+          triggered: true,
+          decision: 'deny',
+          subType: 'GIT_UNSTASHED_DISCARD',
+          reason: `[DET-01 Worktree Destructive Guard (#18)] Un-stashed "git restore" overwrites working-tree edits. Run "git stash push -u" first (or pass --staged to unstage).`
+        };
+      }
+    }
+
+    // Item A2 (#3): EvilGenie `.git` Object / Reflog Answer-Mining Guard (`git fsck`, `git cat-file`, `git reflog`, `git log --all -p`)
+    const promptForGit = String(params.lastUserInput || params.prompt || '');
+    const userRequestedGitForensics = /\b(?:reflog|fsck|cat-file|recover\s+lost|dangling)\b/i.test(
+      promptForGit
+    );
+    if (!userRequestedGitForensics) {
+      if (subcommand === 'fsck' || subcommand === 'cat-file' || subcommand === 'reflog') {
+        return {
+          detectorId: 'DET-01',
+          triggered: true,
+          decision: 'deny',
+          subType: 'GIT_HISTORY_MINING',
+          reason: `[DET-01 Test Integrity Lock (#3)] Raw git object/reflog inspection ("git ${subcommand}") is blocked to prevent benchmark/test history mining.`
+        };
+      }
+      if (
+        subcommand === 'log' &&
+        subArgs.includes('--all') &&
+        subArgs.some((a) => a === '-p' || a === '--patch')
+      ) {
+        return {
+          detectorId: 'DET-01',
+          triggered: true,
+          decision: 'deny',
+          subType: 'GIT_HISTORY_MINING',
+          reason: `[DET-01 Test Integrity Lock (#3)] Full-history patch mining ("git log --all -p") is blocked.`
+        };
       }
     }
   }

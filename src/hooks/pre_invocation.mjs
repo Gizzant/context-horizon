@@ -7,6 +7,7 @@ import { scorePromptSufficiency, toWorkspaceRelativePath } from '../core/prompt_
 import { loadFlightcheckConfig } from '../core/config.mjs';
 import {
   resolveModelCeiling,
+  resolveModelRates,
   normalizeModelKey,
   isModelDeprecated,
   getDeprecatedModelMigrationNotice,
@@ -40,7 +41,47 @@ import {
   evaluateTwoStageSightseeingIntercept
 } from '../core/shared/prompt_hygiene_governor.mjs';
 import { foldCodeToSignatureStub, computeCompactLineDiff } from '../core/pruner.mjs';
-import { evaluateShieldReadGuard } from '../core/shield_manager.mjs';
+import {
+  evaluateShieldReadGuard,
+  inspectAndSanitizeMultimodalRead
+} from '../core/shield_manager.mjs';
+import { runBucketBPreToolShadowPass } from '../core/bucket_b_runtime.mjs';
+import { evaluateParameterizedCliffBreaker } from '../core-isomorphic/economics/cliffBreaker.mjs';
+import { evaluateActiveDet30StepDown } from '../core-isomorphic/economics/driftLatency.mjs';
+import { evaluateDet05DiffThrashing } from '../core-isomorphic/guards/det04_12_thrash_rot.mjs';
+import { hasExplicitTestModifyIntent } from '../core-isomorphic/guards/det01_03_shell_secret.mjs';
+import { evaluateDet04ConsecutiveFailureBreaker } from '../core/shared/detectors.mjs';
+
+const KNOWN_ANTIGRAVITY_TOOL_NAMES = new Set([
+  'read_file',
+  'view_file',
+  'view_file_outline',
+  'view_code_item',
+  'write_file',
+  'write_to_file',
+  'edit_file',
+  'replace_file_content',
+  'multi_replace_file_content',
+  'run_command',
+  'grep_search',
+  'find_by_name',
+  'list_dir',
+  'search_web',
+  'invoke_subagent',
+  'define_subagent',
+  'send_message',
+  'manage_subagents',
+  'manage_task',
+  'schedule',
+  'ask_question',
+  'call_mcp_tool',
+  'list_resources',
+  'read_resource',
+  'swarm',
+  'run_workflow',
+  'search_marketplace',
+  'list_plugin_accounts'
+]);
 
 export {
   classifyTaskComplexity,
@@ -192,13 +233,23 @@ export async function handlePreToolUse(inputData = {}) {
   });
 
   // Ring-0 Security Gates (active even in SILENT / OFF unless explicitly disabled in Antigravity namespace)
+  const effectivePromptText = String(
+    inputData.lastUserInput ??
+      inputData.prompt ??
+      inputData.user_input ??
+      sidecar.sessionMeta?.lastUserPrompt ??
+      ''
+  );
+  const userExplicitTestIntent =
+    Boolean(inputData.userExplicitTestIntent || inputData.userAuthorizedTestDeletion) ||
+    hasExplicitTestModifyIntent(effectivePromptText);
   if (/^(run_command|execute_bash|bash|powershell|exec)$/i.test(toolName)) {
     if (resolveDetectorOverride(horizonConfig, 'DET-19') !== 'off') {
       const det19 = evaluateDet19GitHookBypass(syntheticStep);
       if (det19) return makeBlockPayload(det19);
     }
     if (resolveDetectorOverride(horizonConfig, 'DET-08') !== 'off') {
-      const det08 = evaluateDet08DestructiveShell(syntheticStep);
+      const det08 = evaluateDet08DestructiveShell(syntheticStep, { userExplicitTestIntent });
       if (det08) return makeBlockPayload(det08);
     }
   }
@@ -244,6 +295,93 @@ export async function handlePreToolUse(inputData = {}) {
       }
       if (!isSilentMode) gateSystemMessage = twoStage.reason;
     }
+
+    // Item A0: Unify shared DET-04 3-Strike Consecutive Tool Failure Breaker in handlePreToolUse
+    if (resolveDetectorOverride(horizonConfig, 'DET-04') !== 'off' && sidecar.portfolio?.failureStreaks) {
+      const currentTurnNum = Math.max(1, Number(inputData.turn ?? sidecar.sessionMeta?.turnCount ?? 1));
+      const det04 = evaluateDet04ConsecutiveFailureBreaker({
+        toolName,
+        toolArgs: toolInput && typeof toolInput === 'object' ? toolInput : {},
+        failureStreaks: sidecar.portfolio.failureStreaks,
+        currentTurn: currentTurnNum,
+        lastAlertTurnByKey: sidecar.portfolio.lastAlertTurnByKey || {},
+        cooldownTurns: 3,
+        flightMode
+      });
+      if (det04.triggered) {
+        if (det04.decision === 'deny') {
+          return makeBlockPayload({ id: 'DET-04', message: det04.reason });
+        }
+        if (!isSilentMode && !gateSystemMessage && det04.reason) gateSystemMessage = det04.reason;
+      }
+    }
+
+    // Item A0: Validate define_subagent tools: array against known Antigravity tool names
+    if (toolName === 'define_subagent') {
+      const rawTools = toolInput?.tools ?? toolInput?.Tools;
+      if (Array.isArray(rawTools) && rawTools.length > 0) {
+        const invalidTools = rawTools
+          .map((t) => String(t || '').trim().replace(/^default_api:/, ''))
+          .filter((t) => t && !KNOWN_ANTIGRAVITY_TOOL_NAMES.has(t) && !t.startsWith('mcp_'));
+        if (invalidTools.length > 0) {
+          const invalidMsg = `[DET-16 Subagent Tool Validation] Unknown tool name(s) in define_subagent (${invalidTools.join(', ')}). Invalid names are silently stripped by the host; use canonical Antigravity tool names or EnableWriteTools/EnableMCPTools.`;
+          if (isAutoPilotMode) return makeBlockPayload({ id: 'DET-16', message: invalidMsg });
+          if (!isSilentMode && !gateSystemMessage) gateSystemMessage = invalidMsg;
+        }
+      }
+    }
+
+    // Item A0 + #10: Guard Monitor / IsDaemon shell commands lacking bounds & track active background tasks
+    if (toolName === 'Monitor') {
+      const hasTimeout = Number.isFinite(Number(toolInput?.timeout_ms ?? toolInput?.timeoutMs));
+      const hasFilter = Boolean(toolInput?.filter || toolInput?.pattern || toolInput?.regex);
+      if (!hasTimeout || !hasFilter) {
+        const monMsg = '[Highbeam Quota Shield — Unbounded Monitor (#10)] Monitor called without explicit timeout_ms and filter; stream bursts can flood main-thread context.';
+        if (isAutoPilotMode) return makeBlockPayload({ id: 'DET-07', message: monMsg });
+        if (!isSilentMode && !gateSystemMessage) gateSystemMessage = monMsg;
+      }
+    } else if (/^(run_command|execute_bash)$/i.test(toolName) && Boolean(toolInput?.IsDaemon)) {
+      sidecar.sessionMeta = sidecar.sessionMeta || {};
+      const bgList = Array.isArray(sidecar.sessionMeta.activeBackgroundTasks)
+        ? sidecar.sessionMeta.activeBackgroundTasks
+        : [];
+      const label = String(toolInput?.toolSummary || toolInput?.CommandLine || 'daemon_task').slice(0, 60);
+      if (!bgList.includes(label)) bgList.push(label);
+      sidecar.sessionMeta.activeBackgroundTasks = bgList.slice(-16);
+    } else if (toolName === 'manage_task' && String(toolInput?.Action || '').toLowerCase() === 'kill') {
+      if (Array.isArray(sidecar.sessionMeta?.activeBackgroundTasks)) {
+        const killedId = String(toolInput?.TaskId || '').trim();
+        sidecar.sessionMeta.activeBackgroundTasks = killedId
+          ? sidecar.sessionMeta.activeBackgroundTasks.filter((t) => t !== killedId)
+          : [];
+      }
+    }
+
+    // Item A3 (#7): Parameterized Pricing Cliff Breaker (Haiku 100K 5x + Gemini 3.1/2.5 Pro 200K 2x/1.5x)
+    const det12Mode = resolveDetectorOverride(horizonConfig, 'DET-12');
+    if (det12Mode !== 'off') {
+      const cliffEval = evaluateParameterizedCliffBreaker({
+        modelId:
+          inputData.modelName ||
+          sidecar.sessionMeta?.active_model_id ||
+          sidecar.sessionMeta?.activeModel ||
+          '',
+        totalInputTokens: Number(
+          inputData.totalPromptTokens ??
+            inputData.totalInputTokens ??
+            sidecar.telemetry?.totalInputTokens ??
+            0
+        )
+      });
+      if (cliffEval.triggered) {
+        if (cliffEval.decision === 'deny' && (isAutoPilotMode || det12Mode === 'block')) {
+          return makeBlockPayload({ id: 'DET-12', message: cliffEval.reason });
+        }
+        if (!isSilentMode && !gateSystemMessage) {
+          gateSystemMessage = cliffEval.reason;
+        }
+      }
+    }
   }
   if (!isOffMode && /^(?:default_api:)?(?:read_file|view_file)$/i.test(toolName)) {
     const hasBounds =
@@ -254,6 +392,35 @@ export async function handlePreToolUse(inputData = {}) {
     const rawReadTarget = String(
       toolInput?.Path || toolInput?.AbsolutePath || toolInput?.file_path || toolInput?.path || ''
     ).trim();
+
+    // Item A8 (#14): Multimodal .ipynb Base64 Stripper & Unbounded >10-page .pdf Read Blocker
+    if (rawReadTarget && /\.(?:ipynb|pdf)$/i.test(rawReadTarget)) {
+      const mmRes = inspectAndSanitizeMultimodalRead({
+        platform: 'antigravity',
+        cwd: workspacePath,
+        filePath: rawReadTarget,
+        pages: toolInput?.pages,
+        hasPageBounds: hasBounds || toolInput?.pages !== undefined
+      });
+      if (mmRes.action === 'deny') {
+        return {
+          decision: 'deny',
+          permissionDecision: 'deny',
+          terminationBehavior: 'terminate',
+          blocked: true,
+          flightMode,
+          detectorId: mmRes.detectorId,
+          subType: mmRes.subType,
+          reason: mmRes.reason,
+          userMessage: mmRes.reason,
+          systemMessage: mmRes.reason,
+          sanitizedPath: mmRes.sanitizedPath || null,
+          pageCount: mmRes.pageCount || null,
+          savedTokens: mmRes.savedTokens || 0
+        };
+      }
+    }
+
     if (!hasBounds && rawReadTarget) {
       const shieldRes = evaluateShieldReadGuard({
         platform: 'antigravity',
@@ -292,6 +459,70 @@ export async function handlePreToolUse(inputData = {}) {
     }
   }
   if (!isOffMode && /^(edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content)$/i.test(toolName)) {
+    // Item A2 (#3) & Item A7 (#12): Test Integrity Lock + Standalone Silent Error-Masking Linter
+    const det03Mode = resolveDetectorOverride(horizonConfig, 'DET-03');
+    if (det03Mode !== 'off') {
+      const editTarget = String(
+        toolInput?.Path || toolInput?.path || toolInput?.TargetFile || toolInput?.AbsolutePath || ''
+      ).trim();
+      const chunks = Array.isArray(toolInput?.ReplacementChunks) ? toolInput.ReplacementChunks : null;
+      let oldTxt = String(
+        toolInput?.Target ??
+          toolInput?.TargetContent ??
+          toolInput?.old_string ??
+          (chunks ? chunks.map((c) => c?.TargetContent ?? c?.Target ?? '').join('\n') : '') ??
+          ''
+      );
+      if (!oldTxt && /^(write_file|write_to_file)$/i.test(toolName) && editTarget) {
+        try {
+          const absEdit = path.isAbsolute(editTarget)
+            ? editTarget
+            : path.resolve(workspacePath, editTarget);
+          if (fs.existsSync(absEdit) && fs.statSync(absEdit).isFile()) {
+            oldTxt = fs.readFileSync(absEdit, 'utf8');
+          }
+        } catch {
+          oldTxt = '';
+        }
+      }
+      const newTxt = String(
+        toolInput?.Replacement ??
+          toolInput?.ReplacementContent ??
+          toolInput?.Content ??
+          toolInput?.CodeContent ??
+          toolInput?.new_string ??
+          (chunks ? chunks.map((c) => c?.ReplacementContent ?? c?.Replacement ?? '').join('\n') : '') ??
+          ''
+      );
+      if (oldTxt || newTxt) {
+        const diffRes = evaluateDet05DiffThrashing({
+          filePath: editTarget,
+          oldText: oldTxt,
+          newText: newTxt,
+          toolName,
+          flightMode,
+          lastUserInput: effectivePromptText,
+          userExplicitTestIntent
+        });
+        if (diffRes.triggered && diffRes.decision === 'deny' && diffRes.subType !== 'SUDDEN_FILE_SHRINKAGE') {
+          if (det03Mode !== 'warn') {
+            return makeBlockPayload({ id: 'DET-03', message: diffRes.reason });
+          }
+          if (!isSilentMode && !gateSystemMessage) gateSystemMessage = diffRes.reason;
+        } else if (
+          diffRes.triggered &&
+          diffRes.subType === 'SUDDEN_FILE_SHRINKAGE' &&
+          /\.(?:test|spec)\.[a-z0-9]+$/i.test(editTarget) &&
+          !userExplicitTestIntent
+        ) {
+          if (det03Mode !== 'warn') {
+            return makeBlockPayload({ id: 'DET-03', message: diffRes.reason });
+          }
+          if (!isSilentMode && !gateSystemMessage) gateSystemMessage = diffRes.reason;
+        }
+      }
+    }
+
     const det09Mode = resolveDetectorOverride(horizonConfig, 'DET-09');
     if (det09Mode !== 'off') {
       const det09 = evaluateDet09MidSessionRuleMutate(syntheticStep, {
@@ -328,6 +559,34 @@ export async function handlePreToolUse(inputData = {}) {
           if (!isSilentMode && !gateSystemMessage) gateSystemMessage = det20.message;
         }
       }
+    }
+  }
+
+  if (
+    !isOffMode &&
+    inputData.bucketBShadow !== false &&
+    Boolean(inputData.cwd || inputData.workspacePath)
+  ) {
+    try {
+      const shadowRes = runBucketBPreToolShadowPass({
+        platform: 'antigravity',
+        sessionId: conversationId,
+        cwd: workspacePath,
+        toolName,
+        toolInput: toolInput && typeof toolInput === 'object' ? toolInput : {},
+        lastUserPrompt: effectivePromptText,
+        options: {
+          bucketBStage: inputData.bucketBStage,
+          registryMetadata: inputData.registryMetadata,
+          cliCapabilities: inputData.cliCapabilities,
+          horizonConfig
+        }
+      });
+      if (shadowRes.triggered && shadowRes.recorded.length > 0 && !isSilentMode && !gateSystemMessage) {
+        gateSystemMessage = shadowRes.recorded[0].verdict.reason;
+      }
+    } catch (_shadowErr) {
+      // Non-fatal Bucket B shadow pass
     }
   }
 
@@ -462,16 +721,52 @@ export async function handlePreToolUse(inputData = {}) {
         systemMessage = coldCacheWakeup.message;
       }
     }
-  } else if (toolName === 'invoke_subagent' || toolName === 'define_subagent') {
-    const subagentId = toolInput?.ConversationId || toolInput?.conversationId || toolInput?.Name || toolInput?.TypeName || toolInput?.Role || 'subagent';
-    const subagentModel = toolInput?.Model && toolInput.Model !== 'inherit'
-      ? toolInput.Model
-      : (sidecar.sessionMeta.active_model_id || sidecar.sessionMeta.activeModel || 'gemini-4-carbon');
-    tracker.touchAgentActive(subagentId, {
-      modelId: subagentModel,
-      warmPrefixTokens: Number(toolInput?.warm_prefix_tokens ?? 0),
-      timestampMs: nowMs
-    });
+  } else if (toolName === 'invoke_subagent' || toolName === 'define_subagent' || toolName === 'swarm') {
+    // Item A9 (#18): Concurrent Multi-Agent Worktree Isolation Guard (`Workspace: "branch" | "share"`)
+    if (
+      !isOffMode &&
+      (toolName === 'invoke_subagent' ||
+        (toolName === 'swarm' && String(toolInput?.action || '').toLowerCase() === 'add'))
+    ) {
+      const subType = String(toolInput?.TypeName || toolInput?.name || '').trim().toLowerCase();
+      const isReadOnlySub =
+        subType === 'research' || subType === 'ah-flash-scout' || subType === 'browser';
+      const wsMode = String(toolInput?.Workspace || toolInput?.workspace || 'inherit')
+        .trim()
+        .toLowerCase();
+      if (!isReadOnlySub && wsMode !== 'branch' && wsMode !== 'share') {
+        const activeLeasesCount = Array.isArray(inputData.activeLeases)
+          ? inputData.activeLeases.length
+          : loadRegistry(workspacePath).leases.length;
+        const activeRosterCount = Object.values(tracker.getRosterSnapshot() || {}).filter(
+          (a) => a && a.status !== 'terminated' && !/^(research|ah-flash-scout|browser)$/i.test(String(a.id || ''))
+        ).length;
+        const concurrentWriters = Math.max(
+          activeLeasesCount,
+          activeRosterCount,
+          Number(inputData.activeWriteWorkers ?? 0)
+        );
+        if (concurrentWriters >= 1 && resolveDetectorOverride(horizonConfig, 'DET-20') !== 'off') {
+          const wtMsg =
+            `[DET-20 Worktree Isolation Guard (#18)] Spawning write-capable ${toolName} with Workspace: "${wsMode}" while ${concurrentWriters} write worker(s)/lease(s) are already active risks shared-tree clobbering. Set Workspace: "branch" or "share".`;
+          if (isAutoPilotMode || resolveDetectorOverride(horizonConfig, 'DET-20') === 'block') {
+            return makeBlockPayload({ id: 'DET-20', message: wtMsg });
+          }
+          if (!isSilentMode && !systemMessage) systemMessage = wtMsg;
+        }
+      }
+    }
+    if (toolName === 'invoke_subagent' || toolName === 'define_subagent') {
+      const subagentId = toolInput?.ConversationId || toolInput?.conversationId || toolInput?.Name || toolInput?.TypeName || toolInput?.Role || 'subagent';
+      const subagentModel = toolInput?.Model && toolInput.Model !== 'inherit'
+        ? toolInput.Model
+        : (sidecar.sessionMeta.active_model_id || sidecar.sessionMeta.activeModel || 'gemini-4-carbon');
+      tracker.touchAgentActive(subagentId, {
+        modelId: subagentModel,
+        warmPrefixTokens: Number(toolInput?.warm_prefix_tokens ?? 0),
+        timestampMs: nowMs
+      });
+    }
   } else if (toolName === 'manage_subagents') {
     const action = String(toolInput?.Action || toolInput?.action || '').toLowerCase();
     if (action === 'kill' && Array.isArray(toolInput?.ConversationIds)) {
@@ -661,7 +956,93 @@ export async function handlePreInvocation(inputData = {}) {
   }
 
   // 3. HALT_HYGIENE_OR_SAFETY
+  sessionMeta.lastUserPrompt = rawPrompt;
   const isHighOrMaxEffort = activeEffort === 'high' || activeEffort === 'max';
+
+  // 3a.0 Item A6 (#11): Active DET-30 Thinking Runaway Step-Down Gate (>4,000 thinking tokens & >12x ratio across >=2 turns)
+  if (resolveDetectorOverride(horizonConfig, 'DET-30') !== 'off') {
+    const det30Check = evaluateActiveDet30StepDown({
+      recentTurns: inputData.recentTurns || telemetry.recentTurns,
+      thinkingDrift: inputData.thinkingDrift || telemetry.thinkingDrift || sensors.thinkingDrift,
+      mode: flightMode
+    });
+    if (det30Check.triggered) {
+      const det30Card = formatScorecard(
+        det30Check.reason,
+        `[Thinking Streak: ${det30Check.consecutiveTurns} turns | Ratio: ${det30Check.latestRatio}x]`,
+        `Step down effort to medium or cap MAX_THINKING_TOKENS=16000`,
+        `"Switch to medium effort before sending next prompt"`
+      );
+      const det30Res = applyHabitOverride('thinking-runaway', 'DET30_THINKING_STEPDOWN', det30Card, {
+        detectorId: 'DET-30',
+        defaultMode: 'flightMode'
+      });
+      if (det30Res) return det30Res;
+    }
+  }
+
+  // 3a. Item A3 (#7): Parameterized Pricing Cliff Breaker (Haiku 100K 5x + Gemini 3.1/2.5 Pro 200K 2x/1.5x)
+  if (resolveDetectorOverride(horizonConfig, 'DET-12') !== 'off') {
+    const cliffCheck = evaluateParameterizedCliffBreaker({
+      modelId: activeModel,
+      totalInputTokens: Number(inputData.totalInputTokens ?? inputData.totalPromptTokens ?? tokens)
+    });
+    if (cliffCheck.triggered) {
+      if (cliffCheck.decision === 'deny') {
+        const cliffCard = formatScorecard(
+          cliffCheck.reason,
+          `[Useful Context: ${purity}% | Cliff Threshold: ${Math.round(cliffCheck.cliffThresholdTokens / 1000)}k]`,
+          `/compact or /clear`,
+          `"Compact context before crossing the ${Math.round(cliffCheck.cliffThresholdTokens / 1000)}k stepped pricing cliff"`
+        );
+        return haltOrAdvise('PRICING_CLIFF_BREAKER', cliffCard, { exemptFromCooldown: true });
+      }
+      const advRes = applyHabitOverride('pricing-cliff', 'PRICING_CLIFF_ADVISORY', cliffCheck.reason, {
+        detectorId: 'DET-12',
+        defaultMode: 'warn'
+      });
+      if (advRes) return advRes;
+    }
+  }
+
+  // 3b. Item A1 (#1): Warm-Cache Mid-Session Model Switch Guard (Antigravity PreInvocation)
+  const priorActiveModel = sessionMeta.active_model_id || sessionMeta.activeModel || null;
+  if (
+    inputData.modelName &&
+    priorActiveModel &&
+    turnCount >= 1 &&
+    normalizeModelKey(inputData.modelName) !== normalizeModelKey(priorActiveModel)
+  ) {
+    const cachedTok = Number(
+      inputData.cachedTokens ?? telemetry.cachedTokens ?? telemetry.cacheReadTokens ?? tokens ?? 0
+    );
+    const cacheTtlSec = Number(inputData.cacheTtlSeconds ?? telemetry.cacheTtlSeconds ?? 300);
+    if (cachedTok >= 25000 && cacheTtlSec > 0) {
+      const prevRates = resolveModelRates(priorActiveModel, inputData.eventTimestampUtc, 'standard', {
+        totalPromptTokens: cachedTok
+      });
+      const nextRates = resolveModelRates(inputData.modelName, inputData.eventTimestampUtc, 'standard', {
+        totalPromptTokens: cachedTok
+      });
+      const coldPenaltyUsd =
+        (cachedTok / 1_000_000) * Math.max(0, nextRates.write5m - prevRates.cachedRead);
+      const outputDeltaSavingUsd =
+        (1500 / 1_000_000) * Math.max(0, prevRates.output - nextRates.output);
+      if (coldPenaltyUsd > outputDeltaSavingUsd && coldPenaltyUsd >= 0.03) {
+        const bustCard = formatScorecard(
+          `[DET-08 Warm-Cache Model Switch] ${normalizeModelKey(priorActiveModel)} -> ${normalizeModelKey(inputData.modelName)} on ${Math.round(cachedTok / 1000)}k warm prefix`,
+          `[Cold Cache Penalty: +$${coldPenaltyUsd.toFixed(3)} vs $${outputDeltaSavingUsd.toFixed(3)} output saving]`,
+          `Stay on ${normalizeModelKey(priorActiveModel)} or delegate via invoke_subagent`,
+          `"Keep main thread on ${normalizeModelKey(priorActiveModel)} until /compact, or use invoke_subagent"`
+        );
+        const bustRes = applyHabitOverride('mid-session-model-switch', 'MID_SESSION_CACHE_BUST', bustCard, {
+          detectorId: 'DET-08',
+          defaultMode: 'flightMode'
+        });
+        if (bustRes) return bustRes;
+      }
+    }
+  }
   if (telemetry.amputationRisk && isTelemetryReliable) {
     const handoff = sidecar.handoff || {};
     const handoffAction = handoff.result === 'NEEDS_FIXES'

@@ -117,17 +117,29 @@ export function runPostToolUseHook(event = {}, options = {}) {
       mode: event.mode || options.mode || horizonConfig.flightMode || 'COACH',
       initialState: priorSnap
     });
+    const toolInput = event.tool_input || event.toolInput || {};
+    const cmdStr = String(toolInput.command || toolInput.cmd || event.command || '');
     engine.recordToolOutcome(!failed, toolName);
+    if (/^(Bash|PowerShell|pwsh|cmd|sh|run_command|execute_bash)$/i.test(toolName)) {
+      engine.recordVerificationOutcome({
+        succeeded: !failed,
+        command: cmdStr,
+        outputText: rawOutput
+      });
+    }
     if (failed && engine.modifiedFilesInTurn.size > 0) {
       // If a test command failed, code edits remain unverified
       engine.codeEditedSinceLastTest = true;
+    }
+    if (Array.isArray(event.active_background_tasks || event.activeBackgroundTasks)) {
+      engine.activeBackgroundTasks = (event.active_background_tasks || event.activeBackgroundTasks)
+        .filter(Boolean)
+        .map((t) => (typeof t === 'string' ? t : String(t?.id || t?.command || 'bg_task')));
     }
     writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
 
     // RSI-04 ('micro-skills'): Capture shell failure -> recovery pairs within <= 3 turns
     if (/^(Bash|PowerShell|pwsh|cmd|sh)$/i.test(toolName) && resolveDetectorOverride('micro-skills', horizonConfig) !== 'off') {
-      const toolInput = event.tool_input || event.toolInput || {};
-      const cmdStr = String(toolInput.command || toolInput.cmd || event.command || '');
       if (cmdStr) {
         const rawExit =
           event.exit_code ??

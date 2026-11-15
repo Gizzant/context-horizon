@@ -41,7 +41,8 @@ import {
 
 export { isPrefixInstructionFile, evaluateDet09PrefixMutationFence };
 import { TtlWatchdog } from '../coach/ttlWatchdog.mjs';
-import { evaluateScopeAndQuotaBrake } from '../telemetry/scopeLockRegistry.mjs';
+import { evaluateScopeAndQuotaBrake, readActiveScopeLocks } from '../telemetry/scopeLockRegistry.mjs';
+import { evaluateActiveDet30StepDown } from '../economics/driftLatency.mjs';
 import { loadMicroSkillsRegistry, evaluateMicroSkillIntercept } from '../coach/microSkills.mjs';
 import {
   RELAY_STATES,
@@ -179,6 +180,16 @@ export class CircuitBreakerEngine {
     this.codeEditedSinceLastTest = Boolean(options.codeEditedSinceLastTest || false);
     this.lastTurnGitCommitted = Boolean(options.lastTurnGitCommitted || false);
     this.committedTopDirs = Array.isArray(options.committedTopDirs) ? [...options.committedTopDirs] : [];
+    this.pendingVerificationCommand = Boolean(options.pendingVerificationCommand || false);
+    this.lastFailingLocation = options.lastFailingLocation ? String(options.lastFailingLocation) : null;
+    this.pendingDownshiftModel = options.pendingDownshiftModel ? String(options.pendingDownshiftModel) : null;
+    this.activeBackgroundTasks = Array.isArray(options.activeBackgroundTasks)
+      ? [...options.activeBackgroundTasks]
+      : [];
+    this.activeWriteWorkers = Array.isArray(options.activeWriteWorkers)
+      ? [...options.activeWriteWorkers]
+      : [];
+    this.lastUserPrompt = options.lastUserPrompt ? String(options.lastUserPrompt) : '';
     this.consecutiveTrivialMaxEffortTurns = Number(options.consecutiveTrivialMaxEffortTurns || 0);
     this.recentEditTimestampsByFile = options.recentEditTimestampsByFile && typeof options.recentEditTimestampsByFile === 'object' ? { ...options.recentEditTimestampsByFile } : {};
     this.totalDiscoveryCalls = Number(options.totalDiscoveryCalls || 0);
@@ -258,6 +269,16 @@ export class CircuitBreakerEngine {
       pendingBatchEdits: Array.from(this.pendingBatchEdits),
       pendingFormatFiles: Array.from(this.pendingFormatFiles),
       codeEditedSinceLastTest: Boolean(this.codeEditedSinceLastTest),
+      pendingVerificationCommand: Boolean(this.pendingVerificationCommand),
+      lastFailingLocation: this.lastFailingLocation || null,
+      pendingDownshiftModel: this.pendingDownshiftModel || null,
+      activeBackgroundTasks: Array.isArray(this.activeBackgroundTasks)
+        ? [...this.activeBackgroundTasks]
+        : [],
+      activeWriteWorkers: Array.isArray(this.activeWriteWorkers)
+        ? [...this.activeWriteWorkers]
+        : [],
+      lastUserPrompt: this.lastUserPrompt || '',
       lastTurnGitCommitted: Boolean(this.lastTurnGitCommitted),
       committedTopDirs: Array.isArray(this.committedTopDirs) ? [...this.committedTopDirs] : [],
       consecutiveTrivialMaxEffortTurns: this.consecutiveTrivialMaxEffortTurns,
@@ -323,6 +344,24 @@ export class CircuitBreakerEngine {
     }
     if (typeof snap.codeEditedSinceLastTest === 'boolean') {
       this.codeEditedSinceLastTest = snap.codeEditedSinceLastTest;
+    }
+    if (typeof snap.pendingVerificationCommand === 'boolean') {
+      this.pendingVerificationCommand = snap.pendingVerificationCommand;
+    }
+    if (snap.lastFailingLocation !== undefined) {
+      this.lastFailingLocation = snap.lastFailingLocation ? String(snap.lastFailingLocation) : null;
+    }
+    if (snap.pendingDownshiftModel !== undefined) {
+      this.pendingDownshiftModel = snap.pendingDownshiftModel ? String(snap.pendingDownshiftModel) : null;
+    }
+    if (Array.isArray(snap.activeBackgroundTasks)) {
+      this.activeBackgroundTasks = snap.activeBackgroundTasks.filter(Boolean).map(String);
+    }
+    if (Array.isArray(snap.activeWriteWorkers)) {
+      this.activeWriteWorkers = snap.activeWriteWorkers.filter(Boolean).map(String);
+    }
+    if (typeof snap.lastUserPrompt === 'string') {
+      this.lastUserPrompt = snap.lastUserPrompt;
     }
     if (typeof snap.lastTurnGitCommitted === 'boolean') {
       this.lastTurnGitCommitted = snap.lastTurnGitCommitted;
@@ -710,9 +749,58 @@ export class CircuitBreakerEngine {
     );
     if (det04.triggered) return det04;
 
-    // 4. DET-01: Destructive Shell & Git Hook-Bypass Blocker (Ring-0 Security)
-    const det01 = resolveVerdict(evaluateDet01GitAndShellSafety({ toolName, command }));
+    // 4. DET-01: Destructive Shell & Git Hook-Bypass Blocker (Ring-0 Security + #3 Test Integrity + #18 Worktree Discard)
+    const effectiveUserPrompt = String(
+      toolEvent.lastUserInput ?? toolEvent.prompt ?? toolEvent.user_input ?? this.lastUserPrompt ?? ''
+    );
+    const det01 = resolveVerdict(
+      evaluateDet01GitAndShellSafety({
+        toolName,
+        command,
+        lastUserInput: effectiveUserPrompt,
+        userExplicitTestIntent: Boolean(toolEvent.userExplicitTestIntent)
+      })
+    );
     if (det01.triggered) return det01;
+
+    // 4b. Item A9 (#18): Concurrent Multi-Agent Worktree Isolation Guard on write-capable Task/Agent spawns
+    if (/^(?:Task|Agent)$/i.test(toolName) && !isCoachAdvisorySuppressed('DET-20')) {
+      const subagentType = String(
+        toolInput.subagent_type || toolInput.subagentType || toolInput.agent_type || toolInput.type || ''
+      ).trim();
+      const isReadOnlySubagent =
+        /^(?:Explore|Plan|research|claude-code-guide|ah-flash-scout)$/i.test(subagentType) ||
+        toolInput.readonly === true;
+      if (!isReadOnlySubagent) {
+        const isolation = String(toolInput.isolation || '').trim().toLowerCase();
+        const activeLocksCount = readActiveScopeLocks(this.options).locks.length;
+        const activeWorkersCount = Math.max(
+          activeLocksCount,
+          Array.isArray(this.activeWriteWorkers) ? this.activeWriteWorkers.length : 0,
+          Number(toolEvent.activeWriteWorkers ?? telemetryState.activeWriteWorkers ?? 0)
+        );
+        if (isolation !== 'worktree' && activeWorkersCount >= 1) {
+          const det20Worktree = resolveVerdict({
+            detectorId: 'DET-20',
+            triggered: true,
+            subType: 'WORKTREE_ISOLATION_REQUIRED',
+            decision: activeMode === FLIGHT_MODES.AUTO_PILOT ? 'deny' : 'ask',
+            advisory: false,
+            reason:
+              `[DET-20 Worktree Isolation Guard (#18)] Spawning write-capable ${toolName} without isolation: "worktree" while ${activeWorkersCount} write worker(s)/lock(s) are already active risks shared-tree clobbering. Set isolation: "worktree".`
+          });
+          if (det20Worktree.triggered) return det20Worktree;
+        }
+        if (toolInput.run_in_background === true || toolInput.background === true) {
+          const workerId = String(
+            toolInput.name || toolInput.description || `${toolName}_${Date.now()}`
+          ).slice(0, 60);
+          if (!this.activeWriteWorkers.includes(workerId)) {
+            this.activeWriteWorkers.push(workerId);
+          }
+        }
+      }
+    }
 
     // 5. DET-02: Secret & Credential Boundary (Ring-0 Security)
     const det02 = resolveVerdict(evaluateDet02SecretBoundary({ toolName, filePath, command }));
@@ -743,7 +831,7 @@ export class CircuitBreakerEngine {
       }
     }
 
-    // 9. DET-05: AST/Diff Edit Thrashing & Code Stripping Breaker
+    // 9. DET-05: AST/Diff Edit Thrashing, Test Integrity (#3) & Error Masking (#12) Breaker
     if (EDIT_WRITE_TOOL_REGEX.test(toolName)) {
       if (oldText || newText) {
         const history = this.fileHashHistory.get(filePath) || [];
@@ -751,6 +839,10 @@ export class CircuitBreakerEngine {
           filePath,
           oldText,
           newText,
+          toolName,
+          flightMode: activeMode,
+          lastUserInput: effectiveUserPrompt,
+          userExplicitTestIntent: Boolean(toolEvent.userExplicitTestIntent),
           fullFileOldLines: toolEvent.fullFileOldLines,
           fullFileNewLines: toolEvent.fullFileNewLines,
           hashHistory: history
@@ -843,11 +935,11 @@ export class CircuitBreakerEngine {
           .filter(Boolean);
       }
       if (
-        /\b(?:node\s+--test|npm\s+test|pnpm\s+test|yarn\s+test|bun\s+test|vitest|jest|pytest|cargo\s+test|go\s+test)\b/i.test(
+        /\b(?:node\s+--test|npm\s+(?:run\s+)?test|pnpm\s+(?:run\s+)?test|yarn\s+test|bun\s+test|vitest|jest|pytest|cargo\s+test|go\s+test|tsc(?:\s|$)|npx\s+tsc)\b/i.test(
           command
         )
       ) {
-        this.codeEditedSinceLastTest = false;
+        this.pendingVerificationCommand = true;
       }
       this.sequentialSearchCount = 0;
     }
@@ -1060,6 +1152,53 @@ export class CircuitBreakerEngine {
   }
 
   /**
+   * Updates `codeEditedSinceLastTest` and `lastFailingLocation` strictly on `PostToolUse`
+   * after a test/typecheck command actually completes with `exit_code === 0`.
+   *
+   * @param {{ succeeded: boolean, command?: string, outputText?: string }} outcome
+   */
+  recordVerificationOutcome(outcome = {}) {
+    const succeeded = Boolean(outcome.succeeded);
+    const command = String(outcome.command || '');
+    const outputText = String(outcome.outputText || '');
+    const isVerificationCmd =
+      this.pendingVerificationCommand ||
+      /\b(?:node\s+--test|npm\s+(?:run\s+)?test|pnpm\s+(?:run\s+)?test|yarn\s+test|bun\s+test|vitest|jest|pytest|cargo\s+test|go\s+test|tsc(?:\s|$)|npx\s+tsc)\b/i.test(
+        command
+      );
+
+    if (!isVerificationCmd) {
+      return {
+        wasVerificationCommand: false,
+        codeEditedSinceLastTest: this.codeEditedSinceLastTest,
+        lastFailingLocation: this.lastFailingLocation
+      };
+    }
+
+    this.pendingVerificationCommand = false;
+    if (succeeded) {
+      this.codeEditedSinceLastTest = false;
+      this.lastFailingLocation = null;
+    } else {
+      if (this.modifiedFilesInTurn.size > 0 || this.codeEditedSinceLastTest) {
+        this.codeEditedSinceLastTest = true;
+      }
+      const locMatch = outputText.match(
+        /([A-Za-z0-9_./\\-]+\.(?:[cm]?[jt]sx?|py|rs|go|rb|java|kt|swift|c|cpp|h|hpp)):(\d+)(?::\d+)?/
+      );
+      if (locMatch) {
+        this.lastFailingLocation = `${locMatch[1].replace(/\\/g, '/')}:${locMatch[2]}`;
+      }
+    }
+
+    return {
+      wasVerificationCommand: true,
+      codeEditedSinceLastTest: this.codeEditedSinceLastTest,
+      lastFailingLocation: this.lastFailingLocation
+    };
+  }
+
+  /**
    * Evaluates `UserPromptSubmit` for Prompt Hygiene Governor (v4.1 Phase 1):
    * Relay Breaker (`'relay-breaker'`) & Scope Brake (`'vague-prompt-rubric'`).
    *
@@ -1070,11 +1209,30 @@ export class CircuitBreakerEngine {
     const prompt = String(
       promptEvent.prompt ?? promptEvent.user_input ?? promptEvent.message ?? ''
     );
+    this.lastUserPrompt = prompt;
     const activeMode = normalizeFlightMode(
       promptEvent.mode || telemetryState.flightMode || this.mode || FLIGHT_MODES.COACH
     );
     if (activeMode === FLIGHT_MODES.OFF) {
       return { triggered: false, decision: 'allow', reason: null };
+    }
+
+    // Item A6 (#11): Active DET-30 Thinking Runaway Step-Down Gate (>4,000 thinking tokens & >12x ratio across >=2 turns)
+    const det30Override = resolveDetectorOverride('DET-30', this.horizonConfig);
+    if (det30Override !== 'off' && activeMode !== FLIGHT_MODES.SILENT) {
+      const det30Eval = evaluateActiveDet30StepDown({
+        recentTurns: promptEvent.recentTurns || telemetryState.recentTurns,
+        thinkingDrift: promptEvent.thinkingDrift || telemetryState.thinkingDrift,
+        mode: det30Override === 'block' ? FLIGHT_MODES.AUTO_PILOT : (det30Override === 'warn' ? FLIGHT_MODES.COACH : activeMode)
+      });
+      if (det30Eval.triggered) {
+        if (det30Eval.decision === 'block') {
+          this.blockedPrompts = Number(this.blockedPrompts || 0) + 1;
+        } else {
+          this.steeredPrompts = Number(this.steeredPrompts || 0) + 1;
+        }
+        return det30Eval;
+      }
     }
 
     const modifiedNonMd = Array.from(this.modifiedFilesInTurn).filter(

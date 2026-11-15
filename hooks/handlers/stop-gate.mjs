@@ -37,6 +37,9 @@ export function runStopGateHook(event = {}, options = {}) {
   const horizonConfig = options.horizonConfig || loadHorizonConfig(cwdOptions);
   const effectiveMode = options.mode || event.mode || horizonConfig?.flightMode || 'COACH';
   const stopHookActive = Boolean(event.stop_hook_active ?? event.stopHookActive);
+  const isSessionEnd =
+    String(options.phase || event.phase || '').toLowerCase() === 'end' ||
+    event.hook_event_name === 'SessionEnd';
 
   const shouldPersistState =
     options.persistState !== false &&
@@ -45,6 +48,54 @@ export function runStopGateHook(event = {}, options = {}) {
   const breakerSnap = shouldPersistState
     ? readBreakerStateSnapshot(sessionId, cwdOptions)
     : null;
+
+  const rawBgTasks =
+    event.active_background_tasks ??
+    event.activeBackgroundTasks ??
+    event.backgroundTasks ??
+    breakerSnap?.activeBackgroundTasks ??
+    [];
+  const activeBackgroundTasks = Array.isArray(rawBgTasks)
+    ? rawBgTasks
+        .filter(Boolean)
+        .map((t) => (typeof t === 'string' ? t : String(t?.id || t?.command || 'bg_task')))
+    : [];
+  const bgDrainWarning =
+    activeBackgroundTasks.length > 0 && !isSilentOrOffMode(effectiveMode)
+      ? `[Highbeam Quota Shield — Orphan Background Drain (#10)] ${activeBackgroundTasks.length} active background task(s) still running (${activeBackgroundTasks.slice(0, 3).join(', ')}). Terminate orphan daemons/watchers to prevent idle token & CPU drain.`
+      : null;
+
+  if (isSessionEnd) {
+    if (shouldPersistState && breakerSnap && activeBackgroundTasks.length === 0) {
+      writeBreakerStateSnapshot(
+        sessionId,
+        {
+          ...breakerSnap,
+          updatedAt: Date.now(),
+          activeBackgroundTasks: []
+        },
+        cwdOptions
+      );
+    }
+    if (bgDrainWarning) {
+      const stdoutJson = { systemMessage: bgDrainWarning };
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify(stdoutJson),
+        stdoutJson,
+        stderr: '',
+        activeBackgroundTasks,
+        bgDrainWarning
+      };
+    }
+    return {
+      exitCode: 0,
+      stdout: '',
+      stderr: '',
+      activeBackgroundTasks,
+      bgDrainWarning: null
+    };
+  }
 
   const hasDirectOutput =
     event.output_tokens !== undefined ||
@@ -188,9 +239,12 @@ export function runStopGateHook(event = {}, options = {}) {
   }
 
   if (det14.decision === 'block') {
+    const locSuffix = breakerSnap?.lastFailingLocation
+      ? ` (last failing location: ${breakerSnap.lastFailingLocation})`
+      : '';
     const stdoutJson = {
       decision: 'block',
-      reason: det14.reason
+      reason: `${det14.reason}${locSuffix}`
     };
     return {
       exitCode: 0,
@@ -199,12 +253,17 @@ export function runStopGateHook(event = {}, options = {}) {
       stderr: '',
       sessionCalibration,
       det14,
-      det15
+      det15,
+      activeBackgroundTasks
     };
   }
 
-  if (det14.advisory || det15.triggered) {
-    const reasons = [det14.reason, det15.batchCommand ? `Batch format: ${det15.batchCommand}` : null]
+  if (det14.advisory || det15.triggered || bgDrainWarning) {
+    const reasons = [
+      det14.advisory ? det14.reason : null,
+      det15.batchCommand ? `Batch format: ${det15.batchCommand}` : null,
+      bgDrainWarning
+    ]
       .filter(Boolean)
       .join(' | ');
     const stdoutJson = {
@@ -217,7 +276,8 @@ export function runStopGateHook(event = {}, options = {}) {
       stderr: '',
       sessionCalibration,
       det14,
-      det15
+      det15,
+      activeBackgroundTasks
     };
   }
 
@@ -227,12 +287,13 @@ export function runStopGateHook(event = {}, options = {}) {
     stderr: '',
     sessionCalibration,
     det14,
-    det15
+    det15,
+    activeBackgroundTasks
   };
 }
 
 /**
- * CLI runner for `Stop` (`ISS-035`).
+ * CLI runner for `Stop` and `SessionEnd` (`--phase=end`) (`ISS-035`).
  * Non-blocking lifecycle hook on uncaught internal error: logs diagnostic to stderr and exits `0`.
  *
  * @param {object} [cliOptions={}]
@@ -242,8 +303,15 @@ export async function executeStopGateCli(cliOptions = {}) {
   const runHook = cliOptions.runHook || runStopGateHook;
   const ioOverride = cliOptions.ioOverride || {};
   try {
+    const argv = cliOptions.argv || globalThis.process?.argv || [];
+    const phaseArg = argv.find((a) => String(a).startsWith('--phase='));
+    const explicitPhase = phaseArg ? String(phaseArg).split('=')[1] : undefined;
     const payload = await readPayload(cliOptions.timeoutMs);
-    const res = runHook(payload, { persistState: true, ...(cliOptions.hookOptions || {}) });
+    const res = runHook(payload, {
+      persistState: true,
+      ...(cliOptions.hookOptions || {}),
+      ...(explicitPhase ? { phase: explicitPhase } : {})
+    });
     if (res.stdout) {
       exitWithStdoutJson(res.stdout, ioOverride);
     } else {

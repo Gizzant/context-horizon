@@ -963,4 +963,122 @@ export function validateAntigravityHooksSchema(hooksConfig) {
   };
 }
 
+/**
+ * Item A5 (#15): Audits Antigravity `.agents/rules/` markdown files (and `AGENTS.md`) for:
+ *  1. Invalid camelCase YAML frontmatter keys (`alwaysOn`, `modelDecision`, `globPattern`, `triggerType`)
+ *     that are silently dropped by the Antigravity rule loader instead of `always_on`, `model_decision`, `glob`.
+ *  2. Cumulative always-on rule token budget exceeding `20,000` tokens.
+ *  3. Nested `.agents/rules/<subdir>/<file>.md` files when `.agents/rules.json` is absent.
+ *
+ * Strictly skips `packages/airlock/`.
+ *
+ * @param {object} [options={}]
+ */
+export function auditAntigravityRulesIntegrity(options = {}) {
+  const workspacePath = path.resolve(options.workspacePath || options.cwd || process.cwd());
+  const rulesDir = path.join(workspacePath, '.agents', 'rules');
+  const rulesJsonPath = path.join(workspacePath, '.agents', 'rules.json');
+  const hasRulesJson = fs.existsSync(rulesJsonPath);
+
+  const camelCaseFiles = [];
+  const nestedUnindexedFiles = [];
+  let alwaysOnTokens = 0;
+
+  const agentsMdPath = path.join(workspacePath, 'AGENTS.md');
+  if (fs.existsSync(agentsMdPath)) {
+    try {
+      const rawAgents = fs.readFileSync(agentsMdPath, 'utf8');
+      alwaysOnTokens += Math.ceil(rawAgents.length / 3.8);
+    } catch {
+      // Ignore unreadable AGENTS.md
+    }
+  }
+
+  const walkRules = (dir, relSubdir = '') => {
+    if (!fs.existsSync(dir)) return;
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      const relFromWorkspace = path.relative(workspacePath, fullPath).replace(/\\/g, '/');
+      if (relFromWorkspace === 'packages/airlock' || relFromWorkspace.startsWith('packages/airlock/')) {
+        continue;
+      }
+      if (entry.isDirectory()) {
+        walkRules(fullPath, relSubdir ? `${relSubdir}/${entry.name}` : entry.name);
+      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+        if (relSubdir && !hasRulesJson) {
+          nestedUnindexedFiles.push(relFromWorkspace);
+        }
+        try {
+          const raw = fs.readFileSync(fullPath, 'utf8');
+          const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+          const fm = fmMatch ? fmMatch[1] : '';
+          const badKeys = [];
+          if (/^\s*alwaysOn\s*:/m.test(fm) || /\btrigger\s*:\s*alwaysOn\b/.test(fm)) {
+            badKeys.push('alwaysOn -> trigger: always_on');
+          }
+          if (/^\s*modelDecision\s*:/m.test(fm) || /\btrigger\s*:\s*modelDecision\b/.test(fm)) {
+            badKeys.push('modelDecision -> trigger: model_decision');
+          }
+          if (/^\s*globPattern\s*:/m.test(fm) || /\btrigger\s*:\s*globPattern\b/.test(fm)) {
+            badKeys.push('globPattern -> trigger: glob + globs:');
+          }
+          if (badKeys.length > 0) {
+            camelCaseFiles.push({ file: relFromWorkspace, fixes: badKeys });
+          }
+
+          const isAlwaysOn =
+            !fmMatch ||
+            /\btrigger\s*:\s*always_on\b/i.test(fm) ||
+            /^\s*always_on\s*:\s*true\b/im.test(fm);
+          if (isAlwaysOn) {
+            alwaysOnTokens += Math.ceil(raw.length / 3.8);
+          }
+        } catch {
+          // Ignore unreadable rule file
+        }
+      }
+    }
+  };
+
+  walkRules(rulesDir, '');
+
+  const issues = [];
+  if (camelCaseFiles.length > 0) {
+    const detail = camelCaseFiles
+      .slice(0, 4)
+      .map((c) => `${c.file} (${c.fixes.join(', ')})`)
+      .join('; ');
+    issues.push(`Silent camelCase frontmatter drop in ${detail}`);
+  }
+  if (nestedUnindexedFiles.length > 0) {
+    issues.push(
+      `Nested rule file(s) ignored without .agents/rules.json (${nestedUnindexedFiles.slice(0, 4).join(', ')})`
+    );
+  }
+  if (alwaysOnTokens > 20000) {
+    issues.push(
+      `Cumulative always-on rules consume ~${alwaysOnTokens.toLocaleString()} tokens (>20,000 token budget)`
+    );
+  }
+
+  return {
+    valid: issues.length === 0,
+    triggered: issues.length > 0,
+    camelCaseFiles,
+    nestedUnindexedFiles,
+    alwaysOnTokens,
+    issues,
+    advisory:
+      issues.length > 0
+        ? `[Highbeam Quota Shield — Antigravity Rule Validator (#15)] ${issues.join('. ')}.`
+        : null
+  };
+}
+
 

@@ -116,7 +116,7 @@ export const LEAN_POST_TOOL_USE_MATCHER =
   'Bash|PowerShell|Task|Agent|WebFetch|mcp__.*';
 
 const AH_HANDLER_REGEX =
-  /hooks[\\/]handlers[\\/](pre-tool-use|post-tool-use|pre-model-switch|post-model-switch|compact-lifecycle|stop-gate)\.mjs/i;
+  /hooks[\\/]handlers[\\/](pre-tool-use|post-tool-use|pre-model-switch|post-model-switch|compact-lifecycle|stop-gate|user-prompt-submit|config-change)\.mjs/i;
 const AH_STATUSLINE_REGEX = /ah-statusline\.mjs/i;
 const AH_MOD_REGISTER_REGEX = /(?:^|[\\/])hooks[\\/]register\.js$|^\.\/register\.js$/i;
 
@@ -244,6 +244,46 @@ export function buildCanonicalAhHooks(options = {}) {
           {
             type: 'command',
             command: `node "${handlerPrefix}/stop-gate.mjs"`
+          }
+        ]
+      }
+    ],
+    UserPromptSubmit: [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: `node "${handlerPrefix}/user-prompt-submit.mjs"`
+          }
+        ]
+      }
+    ],
+    ConfigChange: [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: `node "${handlerPrefix}/config-change.mjs"`
+          }
+        ]
+      }
+    ],
+    InstructionsLoaded: [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: `node "${handlerPrefix}/compact-lifecycle.mjs" --phase=instructions`
+          }
+        ]
+      }
+    ],
+    SessionEnd: [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: `node "${handlerPrefix}/stop-gate.mjs" --phase=end`
           }
         ]
       }

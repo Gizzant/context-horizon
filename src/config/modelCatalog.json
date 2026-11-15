@@ -615,6 +615,90 @@
           }
         }
       ]
+    },
+    "gemini-3.1-pro": {
+      "id": "gemini-3.1-pro",
+      "aliases": ["gemini-3.1-pro-preview", "gemini-3-1-pro", "gemini-3-1-pro-preview"],
+      "family": "gemini-pro",
+      "label": "Gemini 3.1 Pro",
+      "supported_efforts": ["low", "medium", "high"],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 1000000,
+      "deprecated_after": null,
+      "prompt_cliff_tokens": 200000,
+      "quota_multipliers": { "low": 2.0, "med": 3.5, "medium": 3.5, "high": 5.5 },
+      "rate_schedules": [
+        {
+          "id": "gemini-3-1-pro-standard",
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 1.25,
+            "output_per_1m": 10.00,
+            "write_5m_per_1m": 1.25,
+            "write_1h_per_1m": 1.25,
+            "cached_read_per_1m": 0.125
+          },
+          "cliff_over_200k": {
+            "input_per_1m": 2.50,
+            "output_per_1m": 15.00,
+            "write_5m_per_1m": 2.50,
+            "write_1h_per_1m": 2.50,
+            "cached_read_per_1m": 0.25
+          },
+          "priority": {
+            "input_per_1m": 1.25,
+            "output_per_1m": 10.00,
+            "write_5m_per_1m": 1.25,
+            "write_1h_per_1m": 1.25,
+            "cached_read_per_1m": 0.125
+          }
+        }
+      ]
+    },
+    "gemini-2.5-pro": {
+      "id": "gemini-2.5-pro",
+      "aliases": ["gemini-2.5-pro-preview", "gemini-2-5-pro", "gemini-2.5-pro-1m"],
+      "family": "gemini-pro",
+      "label": "Gemini 2.5 Pro",
+      "supported_efforts": ["low", "medium", "high"],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 1000000,
+      "deprecated_after": null,
+      "prompt_cliff_tokens": 200000,
+      "quota_multipliers": { "low": 2.0, "med": 3.5, "medium": 3.5, "high": 5.5 },
+      "rate_schedules": [
+        {
+          "id": "gemini-2-5-pro-standard",
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 1.25,
+            "output_per_1m": 10.00,
+            "write_5m_per_1m": 1.25,
+            "write_1h_per_1m": 1.25,
+            "cached_read_per_1m": 0.125
+          },
+          "cliff_over_200k": {
+            "input_per_1m": 2.50,
+            "output_per_1m": 15.00,
+            "write_5m_per_1m": 2.50,
+            "write_1h_per_1m": 2.50,
+            "cached_read_per_1m": 0.25
+          },
+          "priority": {
+            "input_per_1m": 1.25,
+            "output_per_1m": 10.00,
+            "write_5m_per_1m": 1.25,
+            "write_1h_per_1m": 1.25,
+            "cached_read_per_1m": 0.125
+          }
+        }
+      ]
     }
   }
 }
