@@ -178,6 +178,9 @@ export class CircuitBreakerEngine {
     this.unverifiedEdits = Array.isArray(options.unverifiedEdits)
       ? options.unverifiedEdits.filter((e) => e && typeof e.filePath === 'string').map((e) => ({ ...e }))
       : [];
+    this.turnFileDiffs = Array.isArray(options.turnFileDiffs)
+      ? options.turnFileDiffs.filter((e) => e && typeof e.filePath === 'string').map((e) => ({ ...e }))
+      : [];
     this.pendingBatchEdits = new Set();
     this.pendingFormatFiles = new Set();
     this.codeEditedSinceLastTest = Boolean(options.codeEditedSinceLastTest || false);
@@ -270,6 +273,7 @@ export class CircuitBreakerEngine {
       modifiedFilesInTurn: Array.from(this.modifiedFilesInTurn),
       editedFiles: Array.from(this.modifiedFilesInTurn),
       unverifiedEdits: Array.isArray(this.unverifiedEdits) ? this.unverifiedEdits.slice(-32) : [],
+      turnFileDiffs: Array.isArray(this.turnFileDiffs) ? this.turnFileDiffs.slice(-32) : [],
       pendingBatchEdits: Array.from(this.pendingBatchEdits),
       pendingFormatFiles: Array.from(this.pendingFormatFiles),
       codeEditedSinceLastTest: Boolean(this.codeEditedSinceLastTest),
@@ -348,6 +352,16 @@ export class CircuitBreakerEngine {
           filePath: String(e.filePath),
           netLines: Math.max(0, Number(e.netLines) || 0),
           ...(Array.isArray(e.changedLines) ? { changedLines: e.changedLines.slice(0, 64).map(String) } : {})
+        }));
+    }
+    if (Array.isArray(snap.turnFileDiffs)) {
+      this.turnFileDiffs = snap.turnFileDiffs
+        .filter((e) => e && typeof e.filePath === 'string')
+        .slice(-32)
+        .map((e) => ({
+          filePath: String(e.filePath),
+          addedLines: Array.isArray(e.addedLines) ? e.addedLines.slice(0, 400).map(String) : [],
+          deletedLineCount: Math.max(0, Number(e.deletedLineCount) || 0)
         }));
     }
     if (Array.isArray(snap.pendingBatchEdits)) {

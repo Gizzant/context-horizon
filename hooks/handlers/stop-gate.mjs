@@ -13,6 +13,7 @@ import {
   readBreakerStateSnapshot,
   writeBreakerStateSnapshot
 } from '../../src/core-isomorphic/guards/circuitBreakers.mjs';
+import { runBucketBStopPass } from '../../src/core/bucket_b_runtime.mjs';
 import {
   isCliEntrypoint,
   readStdinJsonAsync,
@@ -123,6 +124,7 @@ export function runStopGateHook(event = {}, options = {}) {
           modifiedFilesInTurn: [],
           editedFiles: [],
           pendingFormatFiles: [],
+          turnFileDiffs: [],
           codeEditedSinceLastTest: false
         },
         cwdOptions
@@ -223,6 +225,40 @@ export function runStopGateHook(event = {}, options = {}) {
         modifiedFiles: modifiedFilesForFormat
       });
 
+  let stopPass = null;
+  if (
+    !isSessionEnd &&
+    !stopHookActive &&
+    det14.decision !== 'block' &&
+    String(effectiveMode).toUpperCase() !== 'OFF' &&
+    options.bucketBShadow !== false &&
+    event.bucketBShadow !== false
+  ) {
+    const turnFileDiffs = Array.isArray(event.fileDiffs)
+      ? event.fileDiffs
+      : Array.isArray(breakerSnap?.turnFileDiffs)
+        ? breakerSnap.turnFileDiffs
+        : [];
+    const lastUserPrompt = String(
+      event.lastUserPrompt ?? event.prompt ?? breakerSnap?.lastUserPrompt ?? ''
+    );
+    if (turnFileDiffs.length > 0) {
+      try {
+        stopPass = runBucketBStopPass({
+          platform: 'claude',
+          sessionId,
+          cwd: event.cwd || options.cwd || '',
+          hasExplicitCwd: Boolean(event.cwd || options.cwd),
+          fileDiffs: turnFileDiffs,
+          lastUserPrompt,
+          options: { ...options, mode: effectiveMode, horizonConfig }
+        });
+      } catch (_stopPassErr) {
+        stopPass = null;
+      }
+    }
+  }
+
   if (shouldPersistState && breakerSnap && det14.decision !== 'block') {
     writeBreakerStateSnapshot(
       sessionId,
@@ -232,6 +268,7 @@ export function runStopGateHook(event = {}, options = {}) {
         modifiedFilesInTurn: [],
         editedFiles: [],
         pendingFormatFiles: [],
+        turnFileDiffs: [],
         codeEditedSinceLastTest: false
       },
       cwdOptions
@@ -258,11 +295,30 @@ export function runStopGateHook(event = {}, options = {}) {
     };
   }
 
-  if (det14.advisory || det15.triggered || bgDrainWarning) {
+  if (stopPass?.triggered && stopPass.decision === 'block') {
+    const stdoutJson = {
+      decision: 'block',
+      reason: stopPass.reason
+    };
+    return {
+      exitCode: 0,
+      stdout: JSON.stringify(stdoutJson),
+      stdoutJson,
+      stderr: '',
+      sessionCalibration,
+      det14,
+      det15,
+      overengineeringGate: stopPass,
+      activeBackgroundTasks
+    };
+  }
+
+  if (det14.advisory || det15.triggered || bgDrainWarning || stopPass?.triggered) {
     const reasons = [
       det14.advisory ? det14.reason : null,
       det15.batchCommand ? `Batch format: ${det15.batchCommand}` : null,
-      bgDrainWarning
+      bgDrainWarning,
+      stopPass?.triggered ? stopPass.reason : null
     ]
       .filter(Boolean)
       .join(' | ');
@@ -277,6 +333,7 @@ export function runStopGateHook(event = {}, options = {}) {
       sessionCalibration,
       det14,
       det15,
+      ...(stopPass ? { overengineeringGate: stopPass } : {}),
       activeBackgroundTasks
     };
   }
@@ -288,6 +345,7 @@ export function runStopGateHook(event = {}, options = {}) {
     sessionCalibration,
     det14,
     det15,
+    ...(stopPass ? { overengineeringGate: stopPass } : {}),
     activeBackgroundTasks
   };
 }

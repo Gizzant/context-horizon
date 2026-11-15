@@ -23,6 +23,7 @@ import {
   computeFileShingles,
   detectDuplicateClones,
   evaluateHardcodedOracle,
+  evaluateOverengineeringDiffGate,
   evaluateSubagentGovernor,
   evaluateVaguePromptAnchor,
   evaluateMcpCliRouter,
@@ -43,11 +44,19 @@ const SKIP_WALK_DIRS = new Set([
   'experiments'
 ]);
 
+const MEM_SHINGLE_CACHE = new Map();
+
 export const BUCKET_B_ALPHA_IDS = Object.freeze([
   '#2_GREP_GLOB_FIREWALL',
   '#6_SLOPSQUAT_DEP_GATE',
   '#9_WEB_BOILERPLATE_BUDGETER',
   '#4_BLAST_RADIUS_BREAKER'
+]);
+
+export const BUCKET_B_BETA_IDS = Object.freeze([
+  '#8_DUPLICATE_CLONE_DETECTOR',
+  '#3B_EVILGENIE_ORACLE',
+  '#19_OVERENGINEERING_DIFF_GATE'
 ]);
 
 function isSilentOrOffFlightMode(options = {}) {
@@ -86,7 +95,32 @@ export function resolveBucketBAlphaStage(options = {}) {
 }
 
 /**
- * Resolves the active Bucket B rollout stage for Sub-Waves B-Beta & B-Gamma
+ * Resolves rollout stage for Sub-Wave B-Beta (`#8`, `#3b`, `#19`) — promoted to `'COACH'`
+ * by default; drops to `'SHADOW'` whenever flight mode is `'SILENT'` or `'OFF'`.
+ *
+ * @param {object} [options={}]
+ * @returns {'SHADOW' | 'COACH' | 'ENFORCE'}
+ */
+export function resolveBucketBBetaStage(options = {}) {
+  if (isSilentOrOffFlightMode(options)) return 'SHADOW';
+  const raw = String(
+    options.bucketBBetaStage ||
+      options.bucketBStage ||
+      process.env.CTXTOP_BUCKET_B_BETA_MODE ||
+      process.env.CTXTOP_BUCKET_B_MODE ||
+      options.horizonConfig?.bucketBBetaMode ||
+      options.horizonConfig?.bucketBMode ||
+      'COACH'
+  )
+    .trim()
+    .toUpperCase();
+  if (raw === 'SHADOW') return 'SHADOW';
+  if (raw === 'ENFORCE') return 'ENFORCE';
+  return 'COACH';
+}
+
+/**
+ * Resolves the active Bucket B rollout stage for Sub-Wave B-Gamma
  * (`'SHADOW'` default -> `0` prompt tokens, `0` blocks). Drops to `'SHADOW'` in `'SILENT'`/`'OFF'` modes.
  *
  * @param {object} [options={}]
@@ -222,14 +256,19 @@ export function buildOrLoadWorkspaceShingleIndex(cwd, options = {}) {
   const indexPath = path.join(baseCwd, '.agents', 'telemetry', 'shingle_index.json');
 
   let cachedFiles = {};
-  if (options.useCache !== false && fs.existsSync(indexPath)) {
-    try {
-      const parsed = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
-      if (parsed && parsed.version === 1 && parsed.files && typeof parsed.files === 'object') {
-        cachedFiles = parsed.files;
+  if (options.useCache !== false) {
+    const memCached = MEM_SHINGLE_CACHE.get(baseCwd);
+    if (memCached && memCached.files && typeof memCached.files === 'object') {
+      cachedFiles = memCached.files;
+    } else if (fs.existsSync(indexPath)) {
+      try {
+        const parsed = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+        if (parsed && parsed.version === 1 && parsed.files && typeof parsed.files === 'object') {
+          cachedFiles = parsed.files;
+        }
+      } catch (_err) {
+        cachedFiles = {};
       }
-    } catch (_err) {
-      cachedFiles = {};
     }
   }
 
@@ -310,6 +349,14 @@ export function buildOrLoadWorkspaceShingleIndex(cwd, options = {}) {
     files: nextFiles,
     postings
   };
+
+  if (options.useCache !== false) {
+    if (!MEM_SHINGLE_CACHE.has(baseCwd) && MEM_SHINGLE_CACHE.size >= 8) {
+      const oldestKey = MEM_SHINGLE_CACHE.keys().next().value;
+      if (oldestKey !== undefined) MEM_SHINGLE_CACHE.delete(oldestKey);
+    }
+    MEM_SHINGLE_CACHE.set(baseCwd, { files: nextFiles, postings });
+  }
 
   if (options.persist !== false) {
     try {
@@ -466,8 +513,8 @@ export function auditProseRuleHookCandidates(cwd) {
 
 /**
  * Evaluates applicable Bucket B guardrails on an incoming `PreToolUse` / `pre_invocation` event.
- * Sub-Wave B-Alpha (`#6`, `#4`) runs in `'COACH'` mode by default (`'SHADOW'` in `SILENT`/`OFF`);
- * Sub-Waves B-Beta & B-Gamma default to `'SHADOW'` (`0` stdout bytes, `0` blocks, `.hints.jsonl` telemetry).
+ * Sub-Waves B-Alpha (`#6`, `#4`) & B-Beta (`#8`, `#3b`) run in `'COACH'` mode by default
+ * (`'SHADOW'` in `SILENT`/`OFF`); Sub-Wave B-Gamma defaults to `'SHADOW'` (`0` stdout, `.hints.jsonl`).
  *
  * @param {object} params
  * @param {'claude' | 'antigravity'} [params.platform='claude']
@@ -486,13 +533,14 @@ export function runBucketBPreToolShadowPass(params = {}) {
   const hasExplicitCwd = params.hasExplicitCwd !== false && Boolean(params.cwd);
   const baseCwd = hasExplicitCwd ? path.resolve(params.cwd) : process.cwd();
   const alphaStage = resolveBucketBAlphaStage(params.options);
-  const betaGammaStage = resolveBucketBStage(params.options);
+  const betaStage = resolveBucketBBetaStage(params.options);
+  const gammaStage = resolveBucketBStage(params.options);
   const toolName = String(params.toolName || '');
   const tIn = params.toolInput || {};
   const recorded = [];
   const activeRecords = [];
 
-  const emit = (guardrailId, verdict, elapsedMs, itemStage = betaGammaStage) => {
+  const emit = (guardrailId, verdict, elapsedMs, itemStage = gammaStage) => {
     if (!verdict?.triggered) return;
     if (hasExplicitCwd) {
       recordBucketBShadowHint(
@@ -538,7 +586,7 @@ export function runBucketBPreToolShadowPass(params = {}) {
     }
   }
 
-  // #4 BLAST_RADIUS_BREAKER (Sub-Wave B-Alpha -> default COACH) & #3b Hardcoded Oracle (B-Beta -> default SHADOW)
+  // #4 BLAST_RADIUS_BREAKER (B-Alpha -> COACH) & #3b Hardcoded Oracle / #8 Duplicate Clone (B-Beta -> COACH)
   if (
     /^(?:Edit|MultiEdit|Write|edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content)$/i.test(
       toolName
@@ -547,6 +595,15 @@ export function runBucketBPreToolShadowPass(params = {}) {
     const filePath = String(
       tIn.file_path || tIn.Path || tIn.path || tIn.TargetFile || tIn.AbsolutePath || ''
     );
+    const absTarget = filePath
+      ? (path.isAbsolute(filePath) ? path.resolve(filePath) : path.resolve(baseCwd, filePath))
+      : '';
+    const relFromCwd = absTarget ? path.relative(baseCwd, absTarget).replace(/\\/g, '/') : '';
+    const relTargetPath =
+      relFromCwd && !relFromCwd.startsWith('..') && !path.isAbsolute(relFromCwd)
+        ? relFromCwd
+        : filePath.replace(/\\/g, '/').replace(/^\.\//, '');
+
     const addedCode = String(
       tIn.new_string ??
         tIn.Replacement ??
@@ -567,7 +624,7 @@ export function runBucketBPreToolShadowPass(params = {}) {
       const changedLines = addedCode.split(/\r?\n/);
       const netLines = changedLines.filter((l) => l.trim().length > 0).length;
       const priorEdits = Array.isArray(params.editsSinceVerify) ? params.editsSinceVerify : [];
-      const editsSinceVerify = [...priorEdits, { filePath, netLines, changedLines }];
+      const editsSinceVerify = [...priorEdits, { filePath: relTargetPath || filePath, netLines, changedLines }];
       const blastVerdict = evaluateBlastRadiusBreaker({
         editsSinceVerify,
         lastUserPrompt: params.lastUserPrompt || ''
@@ -578,10 +635,40 @@ export function runBucketBPreToolShadowPass(params = {}) {
       emit('#4_BLAST_RADIUS_BREAKER', blastVerdict, performance.now() - tBlast, alphaStage);
     }
 
-    if (filePath && addedCode.length >= 60) {
+    if (relTargetPath && addedCode.length >= 60) {
       const t0 = performance.now();
-      const verdict = evaluateHardcodedOracle({ filePath, addedCode });
-      emit('#3B_EVILGENIE_ORACLE', verdict, performance.now() - t0, betaGammaStage);
+      const verdict = evaluateHardcodedOracle({ filePath: relTargetPath, addedCode });
+      if (verdict.triggered) {
+        verdict.decision = betaStage === 'ENFORCE' ? 'ask' : 'warn';
+      }
+      emit('#3B_EVILGENIE_ORACLE', verdict, performance.now() - t0, betaStage);
+    }
+
+    if (
+      relTargetPath &&
+      addedCode.length >= 100 &&
+      CODE_SCAN_EXT_RE.test(relTargetPath) &&
+      !isBucketBForbiddenSkuPath(relTargetPath) &&
+      computeFileShingles(addedCode, 5).length >= 2
+    ) {
+      const tClone = performance.now();
+      const postings =
+        params.options?.shingleIndex ||
+        (hasExplicitCwd
+          ? buildOrLoadWorkspaceShingleIndex(baseCwd, {
+              useCache: true,
+              persist: params.options?.persistState !== false
+            }).postings
+          : {});
+      const cloneVerdict = detectDuplicateClones({
+        targetPath: relTargetPath,
+        addedCode,
+        shingleIndex: postings
+      });
+      if (cloneVerdict.triggered) {
+        cloneVerdict.decision = betaStage === 'ENFORCE' ? 'ask' : 'warn';
+      }
+      emit('#8_DUPLICATE_CLONE_DETECTOR', cloneVerdict, performance.now() - tClone, betaStage);
     }
   }
 
@@ -597,7 +684,7 @@ export function runBucketBPreToolShadowPass(params = {}) {
       allowedTools: tIn.allowed_tools || tIn.tools,
       workspace: tIn.isolation || tIn.Workspace || tIn.workspace || 'inherit'
     });
-    emit('#5_SUBAGENT_TEAM_GOVERNOR', verdict, performance.now() - t0, betaGammaStage);
+    emit('#5_SUBAGENT_TEAM_GOVERNOR', verdict, performance.now() - t0, gammaStage);
   }
 
   // #16 MCP_CLI_ROUTER (Sub-Wave B-Gamma -> default SHADOW) on heavy MCP read tools
@@ -607,14 +694,15 @@ export function runBucketBPreToolShadowPass(params = {}) {
       toolName,
       cliCapabilities: params.options?.cliCapabilities || {}
     });
-    emit('#16_MCP_CLI_ROUTER', verdict, performance.now() - t0, betaGammaStage);
+    emit('#16_MCP_CLI_ROUTER', verdict, performance.now() - t0, gammaStage);
   }
 
   // Expose other runtime-callable evaluators for PostToolUse / UserPromptSubmit / tests
   return {
-    stage: betaGammaStage,
+    stage: gammaStage,
     alphaStage,
-    shadowOnly: alphaStage === 'SHADOW' && betaGammaStage === 'SHADOW',
+    betaStage,
+    shadowOnly: alphaStage === 'SHADOW' && betaStage === 'SHADOW' && gammaStage === 'SHADOW',
     triggered: activeRecords.length > 0,
     activeRecords,
     recorded,
@@ -623,6 +711,7 @@ export function runBucketBPreToolShadowPass(params = {}) {
       distillHtmlWebPayload,
       evaluateBlastRadiusBreaker,
       detectDuplicateClones,
+      evaluateOverengineeringDiffGate,
       evaluateVaguePromptAnchor,
       evaluateLspSymbolRouter
     }
@@ -803,5 +892,79 @@ export function runBucketBPostToolPass(params = {}) {
     stage: alphaStage,
     updatedOutput: rawOutput,
     savedTokens: 0
+  };
+}
+
+/**
+ * Evaluates Sub-Wave B-Beta `Stop` / `post_invocation` guardrail (`#19 OVERENGINEERING_DIFF_GATE`).
+ * Runs in `'COACH'` mode by default (`'SHADOW'` in `SILENT`/`OFF` modes) and records
+ * `.hints.jsonl` telemetry when `hasExplicitCwd` is true.
+ *
+ * @param {object} [params={}]
+ */
+export function runBucketBStopPass(params = {}) {
+  const platform = params.platform === 'antigravity' ? 'antigravity' : 'claude';
+  const sessionId = params.sessionId || 'default';
+  const hasExplicitCwd = Boolean(params.hasExplicitCwd && params.cwd);
+  const baseCwd = hasExplicitCwd ? path.resolve(params.cwd) : process.cwd();
+  const betaStage = resolveBucketBBetaStage(params.options);
+  const fileDiffs = Array.isArray(params.fileDiffs) ? params.fileDiffs : [];
+  if (fileDiffs.length === 0) {
+    return { triggered: false, stage: betaStage, savedTokens: 0 };
+  }
+
+  const t0 = performance.now();
+  const verdict = evaluateOverengineeringDiffGate({
+    fileDiffs,
+    lastUserPrompt: String(params.lastUserPrompt || '')
+  });
+  const elapsedMs = performance.now() - t0;
+
+  if (!verdict.triggered) {
+    return { triggered: false, stage: betaStage, savedTokens: 0 };
+  }
+
+  const decision = betaStage === 'ENFORCE' ? 'block' : 'warn';
+  if (hasExplicitCwd) {
+    recordBucketBShadowHint(
+      sessionId,
+      {
+        guardrailId: '#19_OVERENGINEERING_DIFF_GATE',
+        stage: betaStage,
+        platform,
+        wouldTrigger: true,
+        wouldDecision: decision,
+        latencyMs: elapsedMs,
+        tokens_saved_est: verdict.tokensSavedEst || 0,
+        dollars_saved_est: Number((((verdict.tokensSavedEst || 0) / 1_000_000) * 3.0).toFixed(6)),
+        evidence: {
+          code: verdict.code || 'OVERENGINEERING_DIFF_GATE',
+          reason: String(verdict.reason || '').slice(0, 220)
+        }
+      },
+      { cwd: baseCwd }
+    );
+  }
+
+  if (betaStage === 'SHADOW') {
+    return {
+      triggered: false,
+      stage: betaStage,
+      shadowed: true,
+      savedTokens: 0
+    };
+  }
+
+  return {
+    triggered: true,
+    stage: betaStage,
+    decision,
+    guardrailId: '#19_OVERENGINEERING_DIFF_GATE',
+    code: verdict.code || 'OVERENGINEERING_DIFF_GATE',
+    reason: verdict.reason,
+    savedTokens: verdict.tokensSavedEst || 0,
+    nonTestAddedLines: verdict.nonTestAddedLines,
+    testAddedLines: verdict.testAddedLines,
+    unusedExportedAbstractions: verdict.unusedExportedAbstractions
   };
 }

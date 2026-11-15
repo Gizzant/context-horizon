@@ -15,7 +15,7 @@ import { SwarmIdleTtlTracker, computeSwarmRosterTtlBadges } from '../core/subage
 import { loadHorizonConfig } from '../core/horizon_config.mjs';
 import { recordHookDiagnostic } from '../core/hook_diagnostics.mjs';
 import { evaluateBetweenTurnEffortAdvisor } from '../core/coach/effort_advisor.mjs';
-import { runBucketBPostToolPass } from '../core/bucket_b_runtime.mjs';
+import { runBucketBPostToolPass, runBucketBStopPass } from '../core/bucket_b_runtime.mjs';
 
 export async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {}) {
   if (process.stdin.isTTY || process.stdin.readableEnded) return {};
@@ -517,6 +517,45 @@ export async function handlePostInvocation(inputData = {}) {
     }
   }
 
+  const turnFileDiffs = Array.isArray(inputData.fileDiffs)
+    ? inputData.fileDiffs
+    : Array.isArray(sidecar.fileState?.turnFileDiffs)
+      ? sidecar.fileState.turnFileDiffs
+      : [];
+  let turnStopPass = null;
+  let turnFlightMode = invPostFlightMode;
+  if (turnFileDiffs.length > 0 && inputData.bucketBShadow !== false) {
+    try {
+      const turnWorkspace = inputData.cwd || inputData.workspacePath || sidecar.workspacePath || process.cwd();
+      const turnHorizonConfig = inputData.horizonConfig || loadHorizonConfig({
+        cwd: turnWorkspace,
+        ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {})
+      });
+      turnFlightMode = String(inputData.flightMode || turnHorizonConfig.flightMode || 'COACH').toUpperCase();
+      if (turnFlightMode !== 'OFF') {
+        turnStopPass = runBucketBStopPass({
+          platform: 'antigravity',
+          sessionId: conversationId,
+          cwd: turnWorkspace,
+          hasExplicitCwd: Boolean(inputData.cwd || inputData.workspacePath),
+          fileDiffs: turnFileDiffs,
+          lastUserPrompt: String(inputData.lastUserPrompt ?? inputData.prompt ?? sidecar.sessionMeta?.lastUserPrompt ?? ''),
+          options: {
+            bucketBStage: inputData.bucketBStage,
+            bucketBBetaStage: inputData.bucketBBetaStage,
+            mode: turnFlightMode,
+            horizonConfig: turnHorizonConfig
+          }
+        });
+      }
+    } catch (_turnStopErr) {
+      turnStopPass = null;
+    }
+  }
+  if (sidecar.fileState) {
+    sidecar.fileState.turnFileDiffs = [];
+  }
+
   writeSidecarAtomicSync(conversationId, sidecar);
   const out = {
     active_model_id: sidecar.sessionMeta.active_model_id || sidecar.sessionMeta.activeModel || null,
@@ -530,11 +569,18 @@ export async function handlePostInvocation(inputData = {}) {
     out.savedTokens = invPostPass.savedTokens;
     out.guardrailId = invPostPass.guardrailId;
   }
+  if (turnStopPass?.triggered) {
+    out.overengineeringHint = turnStopPass.reason;
+    out.savedTokens = (out.savedTokens || 0) + (turnStopPass.savedTokens || 0);
+    out.guardrailId = out.guardrailId || turnStopPass.guardrailId;
+  }
   if (orphanBackgroundWarning) {
     out.orphanBackgroundWarning = orphanBackgroundWarning;
     out.systemMessage = orphanBackgroundWarning;
   } else if (invPostPass?.triggered && invPostFlightMode !== 'SILENT' && !out.systemMessage) {
     out.systemMessage = invPostPass.reason;
+  } else if (turnStopPass?.triggered && turnFlightMode !== 'SILENT' && !out.systemMessage) {
+    out.systemMessage = turnStopPass.reason;
   }
   return out;
 }

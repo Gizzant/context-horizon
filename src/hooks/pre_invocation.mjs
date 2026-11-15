@@ -582,6 +582,8 @@ export async function handlePreToolUse(inputData = {}) {
         options: {
           bucketBStage: inputData.bucketBStage,
           bucketBAlphaStage: inputData.bucketBAlphaStage,
+          bucketBBetaStage: inputData.bucketBBetaStage,
+          persistState: inputData.persistState,
           mode: flightMode,
           registryMetadata: inputData.registryMetadata,
           cliCapabilities: inputData.cliCapabilities,
@@ -589,18 +591,20 @@ export async function handlePreToolUse(inputData = {}) {
         }
       });
       if (shadowRes.triggered && shadowRes.activeRecords.length > 0) {
-        const activeEntry = shadowRes.activeRecords[0];
-        if (
-          activeEntry.stage === 'ENFORCE' ||
-          (isAutoPilotMode && activeEntry.verdict.decision === 'ask')
-        ) {
+        const blockingEntry = shadowRes.activeRecords.find(
+          (r) => r.stage === 'ENFORCE' || (isAutoPilotMode && r.verdict.decision === 'ask')
+        );
+        if (blockingEntry) {
           return makeBlockPayload({
-            id: activeEntry.verdict.code || 'BUCKET_B_GUARD',
-            message: activeEntry.verdict.reason
+            id: blockingEntry.verdict.code || 'BUCKET_B_GUARD',
+            message: blockingEntry.verdict.reason
           });
         }
         if (!isSilentMode && !gateSystemMessage) {
-          gateSystemMessage = activeEntry.verdict.reason;
+          gateSystemMessage = shadowRes.activeRecords
+            .map((r) => r.verdict.reason)
+            .filter(Boolean)
+            .join('\n');
         }
       }
     } catch (_shadowErr) {
@@ -628,8 +632,16 @@ export async function handlePreToolUse(inputData = {}) {
           (chunks ? chunks.map((c) => c?.ReplacementContent ?? c?.Replacement ?? '').join('\n') : '') ??
           ''
       );
+      const oldTxt = String(
+        toolInput?.Target ??
+          toolInput?.TargetContent ??
+          toolInput?.old_string ??
+          (chunks ? chunks.map((c) => c?.TargetContent ?? c?.Target ?? '').join('\n') : '') ??
+          ''
+      );
       const changedLines = newTxt.split(/\r?\n/);
       const netLines = changedLines.filter((l) => l.trim().length > 0).length;
+      const deletedLineCount = oldTxt ? oldTxt.split(/\r?\n/).length : 0;
       if (!sidecar.fileState || typeof sidecar.fileState !== 'object') sidecar.fileState = {};
       if (!Array.isArray(sidecar.fileState.unverifiedEdits)) sidecar.fileState.unverifiedEdits = [];
       sidecar.fileState.unverifiedEdits.push({
@@ -639,6 +651,18 @@ export async function handlePreToolUse(inputData = {}) {
       });
       if (sidecar.fileState.unverifiedEdits.length > 32) {
         sidecar.fileState.unverifiedEdits = sidecar.fileState.unverifiedEdits.slice(-32);
+      }
+      if (!Array.isArray(sidecar.fileState.turnFileDiffs)) sidecar.fileState.turnFileDiffs = [];
+      sidecar.fileState.turnFileDiffs.push({
+        filePath: editTarget,
+        addedLines: newTxt ? changedLines.slice(0, 400) : [],
+        deletedLineCount
+      });
+      if (sidecar.fileState.turnFileDiffs.length > 32) {
+        sidecar.fileState.turnFileDiffs = sidecar.fileState.turnFileDiffs.slice(-32);
+      }
+      if (effectivePromptText) {
+        sidecar.sessionMeta.lastUserPrompt = effectivePromptText;
       }
     }
   }
@@ -1419,6 +1443,16 @@ export async function handlePreInvocation(inputData = {}) {
     );
     const vagueRes = applyHabitOverride('vague-prompt-rubric', 'REWRITE_SCORECARD', card);
     if (vagueRes) return vagueRes;
+  }
+
+  if (rawPrompt && (inputData.cwd || inputData.workspacePath)) {
+    sessionMeta.lastUserPrompt = rawPrompt;
+    sidecar.sessionMeta = sessionMeta;
+    try {
+      writeSidecarAtomicSync(conversationId, sidecar);
+    } catch (err) {
+      recordHookDiagnostic('pre_invocation', 'lastUserPrompt.writeSidecar', err);
+    }
   }
 
   return {};

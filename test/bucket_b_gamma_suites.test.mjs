@@ -30,6 +30,7 @@ import {
 import { getShieldStatus } from '../src/core/shield_manager.mjs';
 import { runPreToolUseHook } from '../hooks/handlers/pre-tool-use.mjs';
 import { runPostToolUseHook } from '../hooks/handlers/post-tool-use.mjs';
+import { runStopGateHook } from '../hooks/handlers/stop-gate.mjs';
 import { handlePreInvocation } from '../src/hooks/pre_invocation.mjs';
 import { handlePostInvocation } from '../src/hooks/post_invocation.mjs';
 import { runDoctorDiagnostics } from '../src/diagnostics/doctorEngine.mjs';
@@ -857,6 +858,368 @@ if (!process.env.CTXTOP_BENCH_IMPORT_ONLY) {
       assert.ok(status.roi.tokensSaved >= status.roi.bucketBCoach.tokensSaved);
       assert.equal(status.roi.bucketBShadow.hits, 2);
       assert.equal(status.roi.bucketBShadow.byGuardrail['#6_SLOPSQUAT_DEP_GATE'], 1);
+      assert.equal(status.roi.bucketBShadow.byGuardrail['#5_SUBAGENT_TEAM_GOVERNOR'], 1);
+    } finally {
+      cleanupTempWorkspace(tmpDir);
+    }
+  });
+
+  test('Sub-Wave B-Beta (#8, #3b, #19) defaults to COACH across Claude & Antigravity while B-Gamma stays SHADOW, tests stay exempt, and SILENT emits 0 stdout', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ctxtop-b-beta-coach-'));
+    const agConvId = `b-beta-ag-${Date.now()}`;
+    const agSilentConvId = `b-beta-ag-silent-${Date.now()}`;
+    try {
+      // 1. #8 DUPLICATE_CLONE_DETECTOR in default COACH mode across Claude & Antigravity
+      const donorDir = path.join(tmpDir, 'src');
+      fs.mkdirSync(donorDir, { recursive: true });
+      const sharedLogicBlock = [
+        'export function computeWeightedSignalDelta(samples, decayFactor, ceilingLimit) {',
+        '  const normalizedWindow = Math.max(8, Math.min(256, samples.length * 4));',
+        '  const baselineWeight = decayFactor > 0 ? decayFactor * 1.375 : 0.85;',
+        '  const adjustedFloor = Math.round(normalizedWindow * baselineWeight + 19);',
+        '  let runningAccumulator = adjustedFloor * 2;',
+        '  for (let idx = 0; idx < samples.length; idx += 1) {',
+        '    const currentSample = Number(samples[idx] || 0);',
+        '    runningAccumulator += Math.min(ceilingLimit, currentSample * baselineWeight);',
+        '  }',
+        '  return { normalizedWindow, adjustedFloor, runningAccumulator };',
+        '}'
+      ].join('\n');
+      fs.writeFileSync(path.join(donorDir, 'donor_math.mjs'), `${sharedLogicBlock}\n`, 'utf8');
+
+      // Claude Write to new non-test file -> COACH allow + additionalContext citing donor_math.mjs
+      const claudeClone = runPreToolUseHook(
+        {
+          session_id: 'beta-clone-claude',
+          turn_id: 2,
+          cwd: tmpDir,
+          tool_name: 'Write',
+          tool_input: {
+            file_path: 'src/copy_handler.mjs',
+            content: sharedLogicBlock
+          }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(claudeClone.exitCode, 0);
+      assert.equal(claudeClone.verdict.detectorId, 'DUPLICATE_CLONE_DETECTOR');
+      const cloneOut = JSON.parse(claudeClone.stdout);
+      assert.equal(cloneOut.hookSpecificOutput.permissionDecision, 'allow');
+      assert.match(cloneOut.hookSpecificOutput.additionalContext, /duplicates.*donor_math\.mjs/i);
+
+      // Antigravity write_file to new non-test file -> COACH allow + systemMessage
+      const agClone = await handlePreInvocation({
+        conversationId: `${agConvId}-clone`,
+        cwd: tmpDir,
+        tool_name: 'write_file',
+        tool_input: {
+          Path: 'src/ag_copy.mjs',
+          Content: sharedLogicBlock
+        }
+      });
+      assert.equal(agClone.decision, 'allow');
+      assert.match(String(agClone.systemMessage || ''), /duplicates.*donor_math\.mjs/i);
+
+      // Self-edit to donor_math.mjs (even via absolute path) & test file edits must NOT trigger #8
+      const selfEdit = runPreToolUseHook(
+        {
+          session_id: 'beta-clone-self',
+          turn_id: 2,
+          cwd: tmpDir,
+          tool_name: 'Write',
+          tool_input: {
+            file_path: path.join(tmpDir, 'src', 'donor_math.mjs'),
+            content: sharedLogicBlock
+          }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(selfEdit.exitCode, 0);
+      assert.notEqual(selfEdit.verdict.detectorId, 'DUPLICATE_CLONE_DETECTOR');
+      assert.equal(selfEdit.stdout, '');
+
+      const testClone = runPreToolUseHook(
+        {
+          session_id: 'beta-clone-test-exempt',
+          turn_id: 2,
+          cwd: tmpDir,
+          tool_name: 'Write',
+          tool_input: {
+            file_path: 'test/copy_handler.test.mjs',
+            content: sharedLogicBlock
+          }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(testClone.exitCode, 0);
+      assert.notEqual(testClone.verdict.detectorId, 'DUPLICATE_CLONE_DETECTOR');
+      assert.equal(testClone.stdout, '');
+
+      const silentClone = runPreToolUseHook(
+        {
+          session_id: 'beta-clone-silent',
+          turn_id: 2,
+          cwd: tmpDir,
+          mode: 'SILENT',
+          tool_name: 'Write',
+          tool_input: {
+            file_path: 'src/silent_copy.mjs',
+            content: sharedLogicBlock
+          }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(silentClone.exitCode, 0);
+      assert.equal(silentClone.stdout, '', 'SILENT flightMode must downgrade B-Beta to SHADOW (0 stdout)');
+
+      // 2. #3b EVILGENIE_HARDCODED_ORACLE in default COACH + ENFORCE escalation + test exemption
+      const oracleCode = [
+        'export function solveBenchmarkOracle(alphaVal, betaVal) {',
+        '  if (alphaVal === 17 && betaVal === 42) return 991;',
+        '  if (alphaVal === 29 && betaVal === 83) return 447;',
+        '  if (alphaVal === 51 && betaVal === 94) return 812;',
+        '  return alphaVal + betaVal;',
+        '}'
+      ].join('\n');
+
+      const oracleCoach = runPreToolUseHook(
+        {
+          session_id: 'beta-oracle-claude',
+          turn_id: 2,
+          cwd: tmpDir,
+          tool_name: 'Write',
+          tool_input: {
+            file_path: 'src/solver.mjs',
+            content: oracleCode
+          }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(oracleCoach.exitCode, 0);
+      assert.equal(oracleCoach.verdict.detectorId, 'EVILGENIE_HARDCODED_ORACLE');
+      const oracleCoachJson = JSON.parse(oracleCoach.stdout);
+      assert.equal(oracleCoachJson.hookSpecificOutput.permissionDecision, 'allow');
+      assert.match(oracleCoachJson.hookSpecificOutput.additionalContext, /Test Integrity Shield/i);
+
+      const oracleEnforce = runPreToolUseHook(
+        {
+          session_id: 'beta-oracle-claude-enforce',
+          turn_id: 2,
+          cwd: tmpDir,
+          tool_name: 'Write',
+          tool_input: {
+            file_path: 'src/solver.mjs',
+            content: oracleCode
+          }
+        },
+        { cwd: tmpDir, persistState: false, bucketBBetaStage: 'ENFORCE' }
+      );
+      assert.equal(JSON.parse(oracleEnforce.stdout).hookSpecificOutput.permissionDecision, 'ask');
+
+      const agOracleEnforce = await handlePreInvocation({
+        conversationId: `${agConvId}-oracle`,
+        cwd: tmpDir,
+        bucketBBetaStage: 'ENFORCE',
+        tool_name: 'write_file',
+        tool_input: {
+          Path: 'src/solver.mjs',
+          Content: oracleCode
+        }
+      });
+      assert.equal(agOracleEnforce.decision, 'block');
+      assert.equal(agOracleEnforce.blocked, true);
+
+      const testOracleExempt = runPreToolUseHook(
+        {
+          session_id: 'beta-oracle-test-exempt',
+          turn_id: 2,
+          cwd: tmpDir,
+          tool_name: 'Write',
+          tool_input: {
+            file_path: 'test/solver.test.mjs',
+            content: oracleCode
+          }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(testOracleExempt.stdout, '');
+
+      // 3. #19 OVERENGINEERING_DIFF_GATE across Claude Stop & Antigravity PostInvocation
+      const bloatedProdLines = [
+        'export class HotfixStrategyFactory {',
+        '  buildHandler() { return true; }',
+        '}',
+        ...Array.from(
+          { length: 190 },
+          (_, idx) => `export const uniqueHotfixConst_${idx} = (${idx + 17} * 31) + ${idx};`
+        )
+      ].join('\n');
+
+      const stopSess = 'beta-stop-overeng';
+      runPreToolUseHook(
+        {
+          session_id: stopSess,
+          turn_id: 2,
+          cwd: tmpDir,
+          prompt: 'fix the typo in parser',
+          tool_name: 'Write',
+          tool_input: {
+            file_path: 'src/parser.mjs',
+            old_string: 'const oldVal = 1;',
+            content: bloatedProdLines
+          }
+        },
+        { cwd: tmpDir, persistState: true }
+      );
+      runPostToolUseHook(
+        {
+          session_id: stopSess,
+          cwd: tmpDir,
+          tool_name: 'Bash',
+          tool_input: { command: 'npm test' },
+          exit_code: 0,
+          tool_output: 'ok'
+        },
+        { cwd: tmpDir, persistState: true }
+      );
+      const stopRes = runStopGateHook(
+        {
+          session_id: stopSess,
+          cwd: tmpDir
+        },
+        { cwd: tmpDir, persistState: true }
+      );
+      assert.equal(stopRes.exitCode, 0);
+      const stopOut = JSON.parse(stopRes.stdout);
+      assert.match(stopOut.systemMessage, /non-test production lines/i);
+
+      // Subsequent Stop is clean (`turnFileDiffs` cleared)
+      const secondStopRes = runStopGateHook(
+        {
+          session_id: stopSess,
+          cwd: tmpDir
+        },
+        { cwd: tmpDir, persistState: true }
+      );
+      assert.equal(secondStopRes.stdout, '');
+
+      // Test-backed bugfix (250 test lines + 10 prod lines) -> 0 #19 warnings
+      const testHeavySess = 'beta-stop-test-exempt';
+      const heavyTestLines = Array.from(
+        { length: 250 },
+        (_, idx) => `assert.equal(${idx} + 1, ${idx + 1});`
+      ).join('\n');
+      runPreToolUseHook(
+        {
+          session_id: testHeavySess,
+          turn_id: 2,
+          cwd: tmpDir,
+          prompt: 'fix the typo in parser',
+          tool_name: 'Write',
+          tool_input: {
+            file_path: 'test/parser.test.mjs',
+            content: heavyTestLines
+          }
+        },
+        { cwd: tmpDir, persistState: true }
+      );
+      runPreToolUseHook(
+        {
+          session_id: testHeavySess,
+          turn_id: 3,
+          cwd: tmpDir,
+          prompt: 'fix the typo in parser',
+          tool_name: 'Edit',
+          tool_input: {
+            file_path: 'src/parser.mjs',
+            old_string: 'const a = 1;',
+            new_string: 'const a = 2;\nconst b = 3;'
+          }
+        },
+        { cwd: tmpDir, persistState: true }
+      );
+      runPostToolUseHook(
+        {
+          session_id: testHeavySess,
+          cwd: tmpDir,
+          tool_name: 'Bash',
+          tool_input: { command: 'npm test' },
+          exit_code: 0,
+          tool_output: 'ok'
+        },
+        { cwd: tmpDir, persistState: true }
+      );
+      const testHeavyStop = runStopGateHook(
+        {
+          session_id: testHeavySess,
+          cwd: tmpDir
+        },
+        { cwd: tmpDir, persistState: true }
+      );
+      assert.equal(testHeavyStop.overengineeringGate?.triggered ?? false, false);
+      assert.ok(!/non-test production lines|OVERENGINEERING/i.test(testHeavyStop.stdout));
+
+      // Antigravity pre + post invocation turn completion triggers #19 in COACH, suppressed in SILENT
+      await handlePreInvocation({
+        conversationId: `${agConvId}-overeng`,
+        cwd: tmpDir,
+        prompt: 'fix the typo in parser',
+        tool_name: 'write_file',
+        tool_input: {
+          Path: 'src/ag_bloated.mjs',
+          Target: 'const oldAg = 1;',
+          Content: bloatedProdLines
+        }
+      });
+      const agStopOut = await handlePostInvocation({
+        conversationId: `${agConvId}-overeng`,
+        cwd: tmpDir
+      });
+      assert.match(String(agStopOut.overengineeringHint || ''), /non-test production lines/i);
+      assert.match(String(agStopOut.systemMessage || ''), /non-test production lines/i);
+
+      await handlePreInvocation({
+        conversationId: agSilentConvId,
+        cwd: tmpDir,
+        flightMode: 'SILENT',
+        prompt: 'fix the typo in parser',
+        tool_name: 'write_file',
+        tool_input: {
+          Path: 'src/ag_silent_bloated.mjs',
+          Target: 'const oldSilent = 1;',
+          Content: bloatedProdLines
+        }
+      });
+      const agSilentStopOut = await handlePostInvocation({
+        conversationId: agSilentConvId,
+        cwd: tmpDir,
+        flightMode: 'SILENT'
+      });
+      assert.equal(agSilentStopOut.systemMessage, undefined);
+
+      // 4. B-Gamma (#5) remains in SHADOW by default
+      const agGamma = await handlePreInvocation({
+        conversationId: `${agConvId}-gamma`,
+        cwd: tmpDir,
+        tool_name: 'invoke_subagent',
+        tool_input: {
+          TypeName: 'research',
+          Role: 'Repo Scout',
+          Prompt: 'Inspect src directory',
+          Model: 'pro',
+          EnableWriteTools: false
+        }
+      });
+      assert.equal(agGamma.systemMessage, undefined);
+
+      // 5. Verify ROI separation: B-Beta hits count in bucketBCoach, while SILENT + B-Gamma stay in bucketBShadow
+      const status = getShieldStatus({ cwd: tmpDir });
+      assert.ok(status.roi.bucketBCoach.byGuardrail['#8_DUPLICATE_CLONE_DETECTOR'] >= 2);
+      assert.ok(status.roi.bucketBCoach.byGuardrail['#3B_EVILGENIE_ORACLE'] >= 3);
+      assert.ok(status.roi.bucketBCoach.byGuardrail['#19_OVERENGINEERING_DIFF_GATE'] >= 2);
+      assert.ok(status.roi.tokensSaved >= status.roi.bucketBCoach.tokensSaved);
+      assert.equal(status.roi.bucketBShadow.byGuardrail['#8_DUPLICATE_CLONE_DETECTOR'], 1);
+      assert.equal(status.roi.bucketBShadow.byGuardrail['#19_OVERENGINEERING_DIFF_GATE'], 1);
       assert.equal(status.roi.bucketBShadow.byGuardrail['#5_SUBAGENT_TEAM_GOVERNOR'], 1);
     } finally {
       cleanupTempWorkspace(tmpDir);

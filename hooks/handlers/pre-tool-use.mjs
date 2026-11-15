@@ -361,18 +361,28 @@ export function runPreToolUseHook(event = {}, options = {}) {
         toolInput: tIn,
         lastUserPrompt: event.prompt || engine.lastUserPrompt || '',
         editsSinceVerify: priorUnverifiedEdits,
-        options: { ...options, mode: effectiveMode, horizonConfig }
+        options: { ...options, persistState: shouldPersistState, mode: effectiveMode, horizonConfig }
       });
       if (shadowRes.triggered && shadowRes.activeRecords.length > 0) {
-        const topRec = shadowRes.activeRecords[0].verdict;
+        const primaryEntry =
+          shadowRes.activeRecords.find((r) => r.verdict.decision === 'ask') ||
+          shadowRes.activeRecords[0];
+        const topRec = primaryEntry.verdict;
         verdict.triggered = true;
         verdict.decision = topRec.decision === 'ask' ? 'ask' : 'allow';
         verdict.detectorId = topRec.code || 'BUCKET_B_GUARD';
-        verdict.reason = topRec.reason;
-        if (topRec.tokensSavedEst > 0) {
+        verdict.reason = shadowRes.activeRecords
+          .map((r) => r.verdict.reason)
+          .filter(Boolean)
+          .join('\n');
+        const maxSavedTokens = Math.max(
+          0,
+          ...shadowRes.activeRecords.map((r) => Number(r.verdict.tokensSavedEst || 0))
+        );
+        if (maxSavedTokens > 0) {
           verdict.savedTokens = Math.max(
             Number(verdict.savedTokens || 0),
-            Number(topRec.tokensSavedEst)
+            maxSavedTokens
           );
         }
       }
@@ -398,8 +408,15 @@ export function runPreToolUseHook(event = {}, options = {}) {
           (Array.isArray(tIn.edits) ? tIn.edits.map((e) => e?.new_string ?? '').join('\n') : '') ??
           ''
       );
+      const oldTxt = String(
+        tIn.old_string ??
+          tIn.oldText ??
+          (Array.isArray(tIn.edits) ? tIn.edits.map((e) => e?.old_string ?? '').join('\n') : '') ??
+          ''
+      );
       const changedLines = addedTxt.split(/\r?\n/);
       const netLines = changedLines.filter((l) => l.trim().length > 0).length;
+      const deletedLineCount = oldTxt ? oldTxt.split(/\r?\n/).length : 0;
       if (!Array.isArray(engine.unverifiedEdits)) engine.unverifiedEdits = [];
       engine.unverifiedEdits.push({
         filePath: rawEditPath,
@@ -408,6 +425,18 @@ export function runPreToolUseHook(event = {}, options = {}) {
       });
       if (engine.unverifiedEdits.length > 32) {
         engine.unverifiedEdits = engine.unverifiedEdits.slice(-32);
+      }
+      if (!Array.isArray(engine.turnFileDiffs)) engine.turnFileDiffs = [];
+      engine.turnFileDiffs.push({
+        filePath: rawEditPath,
+        addedLines: addedTxt ? changedLines.slice(0, 400) : [],
+        deletedLineCount
+      });
+      if (engine.turnFileDiffs.length > 32) {
+        engine.turnFileDiffs = engine.turnFileDiffs.slice(-32);
+      }
+      if (event.prompt) {
+        engine.lastUserPrompt = String(event.prompt);
       }
       engine.codeEditedSinceLastTest = true;
     }
@@ -428,7 +457,7 @@ export function runPreToolUseHook(event = {}, options = {}) {
 
   const detId = String(verdict.detectorId || '');
   const isQuotaSavingGuard =
-    /^(DET-04|DET-06|DET-09|DET-10|DET-11|DET-12|DET-13|DET-14|DET-20|SLOPSQUAT_DEP_GATE|BLAST_RADIUS_BREAKER)$/.test(
+    /^(DET-04|DET-06|DET-09|DET-10|DET-11|DET-12|DET-13|DET-14|DET-20|SLOPSQUAT_DEP_GATE|BLAST_RADIUS_BREAKER|DUPLICATE_CLONE_DETECTOR|EVILGENIE_HARDCODED_ORACLE)$/.test(
       detId
     );
   if (
