@@ -29,7 +29,9 @@ import {
 } from '../src/core-isomorphic/guards/bucketBHeuristics.mjs';
 import { getShieldStatus } from '../src/core/shield_manager.mjs';
 import { runPreToolUseHook } from '../hooks/handlers/pre-tool-use.mjs';
+import { runPostToolUseHook } from '../hooks/handlers/post-tool-use.mjs';
 import { handlePreInvocation } from '../src/hooks/pre_invocation.mjs';
+import { handlePostInvocation } from '../src/hooks/post_invocation.mjs';
 import { runDoctorDiagnostics } from '../src/diagnostics/doctorEngine.mjs';
 import { runBucketBExperiment } from './helpers/bucket_b_harness.mjs';
 import { cleanupTempWorkspace } from './helpers/e2e_harness.mjs';
@@ -553,7 +555,7 @@ if (!process.env.CTXTOP_BENCH_IMPORT_ONLY) {
     }
   });
 
-  test('Live SHADOW telemetry writes `.hints.jsonl` (0 stdout tokens, 0 blocks) & doctor exposes proseHookCandidates with checks.length === 7', () => {
+  test('Explicit SHADOW telemetry writes `.hints.jsonl` (0 stdout tokens, 0 blocks) & doctor exposes proseHookCandidates with checks.length === 7', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ctxtop-b-shadow-'));
     try {
       fs.writeFileSync(
@@ -566,7 +568,7 @@ if (!process.env.CTXTOP_BENCH_IMPORT_ONLY) {
         'utf8'
       );
 
-      // 1. Claude Code PreToolUse in default SHADOW mode on slopsquat install
+      // 1. Claude Code PreToolUse in explicit SHADOW override on slopsquat install
       const claudeRes = runPreToolUseHook(
         {
           session_id: 'shadow-sess-1',
@@ -574,15 +576,16 @@ if (!process.env.CTXTOP_BENCH_IMPORT_ONLY) {
           tool_name: 'Bash',
           tool_input: { command: 'npm install react-codeshift' }
         },
-        { cwd: tmpDir, persistState: false }
+        { cwd: tmpDir, persistState: false, bucketBStage: 'SHADOW' }
       );
       assert.equal(claudeRes.exitCode, 0);
       assert.equal(claudeRes.stdout, '', 'SHADOW mode must emit 0 stdout bytes (0 prompt tokens)');
 
-      // 2. Antigravity handlePreInvocation in default SHADOW mode on frontier read-only scout
-      const agRes = handlePreInvocation({
-        conversation_id: 'shadow-sess-1',
+      // 2. Antigravity handlePreInvocation in SHADOW mode on frontier read-only scout (#5 B-Gamma defaults to SHADOW)
+      const agRes = await handlePreInvocation({
+        conversation_id: `shadow-sess-${Date.now()}`,
         cwd: tmpDir,
+        bucketBStage: 'SHADOW',
         tool_name: 'invoke_subagent',
         tool_input: {
           TypeName: 'research',
@@ -612,6 +615,249 @@ if (!process.env.CTXTOP_BENCH_IMPORT_ONLY) {
       assert.equal(doc.proseHookCandidates.candidateCount, 1);
       assert.equal(doc.proseHookCandidates.skippedConditionalCount, 1);
       assert.deepEqual(doc.proseHookCandidates.candidates[0].patterns, ['secrets/prod.key']);
+    } finally {
+      cleanupTempWorkspace(tmpDir);
+    }
+  });
+
+  test('Sub-Wave B-Alpha (#2, #6, #9, #4) defaults to COACH across Claude & Antigravity while B-Gamma stays SHADOW and SILENT emits 0 stdout', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ctxtop-b-alpha-coach-'));
+    const agConvId = `b-alpha-ag-${Date.now()}`;
+    try {
+      // 1. #6 SLOPSQUAT_DEP_GATE in default COACH mode -> Claude asks on slopsquat, allows express, silent on SILENT
+      const slopsquatAsk = runPreToolUseHook(
+        {
+          session_id: 'alpha-claude-1',
+          cwd: tmpDir,
+          tool_name: 'Bash',
+          tool_input: { command: 'npm install react-codeshift' }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(slopsquatAsk.exitCode, 0);
+      const slopsquatJson = JSON.parse(slopsquatAsk.stdout);
+      assert.equal(slopsquatJson.hookSpecificOutput.permissionDecision, 'ask');
+      assert.equal(slopsquatAsk.verdict.detectorId, 'SLOPSQUAT_DEP_GATE');
+      assert.match(slopsquatJson.hookSpecificOutput.permissionDecisionReason, /react-codeshift/i);
+
+      const legitAllow = runPreToolUseHook(
+        {
+          session_id: 'alpha-claude-1',
+          cwd: tmpDir,
+          tool_name: 'Bash',
+          tool_input: { command: 'npm install express' }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(legitAllow.exitCode, 0);
+      assert.equal(legitAllow.stdout, '', 'Canonical express install must pass through cleanly');
+
+      const silentSlop = runPreToolUseHook(
+        {
+          session_id: 'alpha-claude-silent',
+          cwd: tmpDir,
+          mode: 'SILENT',
+          tool_name: 'Bash',
+          tool_input: { command: 'npm install react-codeshift' }
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(silentSlop.exitCode, 0);
+      assert.equal(silentSlop.stdout, '', 'SILENT flightMode must downgrade B-Alpha to SHADOW (0 stdout bytes)');
+
+      const agSlop = await handlePreInvocation({
+        conversationId: agConvId,
+        cwd: tmpDir,
+        tool_name: 'run_command',
+        tool_input: { CommandLine: 'npm install react-codeshift' }
+      });
+      assert.equal(agSlop.decision, 'allow');
+      assert.match(String(agSlop.systemMessage || ''), /Quota Shield|react-codeshift/i);
+
+      // 2. #9 WEB_BOILERPLATE_BUDGETER in default COACH mode -> distills HTML cleanly preserving <pre> and <table>
+      const navNoise = Array.from({ length: 40 }, (_, i) => `<li><a href="/nav/${i}">Nav Item ${i}</a></li>`).join('');
+      const bloatedHtml = `<!doctype html><html><head><style>.nav{color:red;}</style><script>window.track=function(){return ${'1'.repeat(600)};};</script></head><body><nav><ul>${navNoise}</ul></nav><div class="cookie-banner">Accept all cookies right now!</div><main><h1>API Reference</h1><p>Keep core payload.</p><pre><code>const keepMe = 42;</code></pre><table><tr><th>Metric</th><th>Value</th></tr><tr><td>SLA</td><td>100%</td></tr></table></main><footer>Copyright 2026</footer></body></html>`;
+
+      const claudeWeb = runPostToolUseHook(
+        {
+          session_id: 'alpha-claude-1',
+          cwd: tmpDir,
+          tool_name: 'WebFetch',
+          tool_output: bloatedHtml
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      assert.equal(claudeWeb.exitCode, 0);
+      const webOut = JSON.parse(claudeWeb.stdout);
+      assert.match(webOut.hookSpecificOutput.additionalContext, /const keepMe = 42;/);
+      assert.match(webOut.hookSpecificOutput.additionalContext, /\| Metric \| Value \|/);
+      assert.ok(!webOut.hookSpecificOutput.additionalContext.includes('window.track'));
+
+      const agWeb = await handlePostInvocation({
+        hook_event_name: 'PostToolUse',
+        conversationId: agConvId,
+        cwd: tmpDir,
+        tool_name: 'read_url_content',
+        tool_output: bloatedHtml
+      });
+      assert.ok(agWeb.savedTokens > 0);
+      assert.match(agWeb.updatedOutput, /const keepMe = 42;/);
+      assert.match(agWeb.updatedOutput, /\| Metric \| Value \|/);
+      assert.match(String(agWeb.systemMessage || ''), /Distilled web HTML/i);
+
+      // 3. #2 GREP_GLOB_FIREWALL in default COACH mode -> ranks >15 match Grep output to Top 8 active paths
+      const grepLines = [
+        ...Array.from({ length: 16 }, (_, i) => `docs/archive/noise_${i}.md:${i + 1}:match token`),
+        'src/core/shield_manager.mjs:12:export function matchActiveTarget() {}',
+        'src/a1.mjs:1:match a1',
+        'src/a2.mjs:2:match a2',
+        'src/a3.mjs:3:match a3',
+        'src/a4.mjs:4:match a4',
+        'src/a5.mjs:5:match a5'
+      ].join('\n');
+      const claudeGrep = runPostToolUseHook(
+        {
+          session_id: 'alpha-claude-grep',
+          cwd: tmpDir,
+          tool_name: 'Grep',
+          tool_input: { pattern: 'match' },
+          tool_output: grepLines,
+          activeFiles: ['src/core/shield_manager.mjs']
+        },
+        { cwd: tmpDir, persistState: false }
+      );
+      const grepOut = JSON.parse(claudeGrep.stdout);
+      assert.match(grepOut.hookSpecificOutput.additionalContext, /Ranked 22 search matches -> Top 8/);
+      assert.match(grepOut.hookSpecificOutput.additionalContext, /src\/core\/shield_manager\.mjs/);
+      assert.ok(!grepOut.hookSpecificOutput.additionalContext.includes('noise_15.md'));
+
+      // 4. #4 BLAST_RADIUS_BREAKER in default COACH mode + reset on passing npm test (Claude + Antigravity)
+      const blastSess = 'alpha-blast-claude';
+      for (let i = 1; i <= 6; i++) {
+        const res = runPreToolUseHook(
+          {
+            session_id: blastSess,
+            turn_id: i + 1,
+            cwd: tmpDir,
+            tool_name: 'Edit',
+            tool_input: {
+              file_path: `src/mod_${i}.mjs`,
+              old_string: 'const x = 1;',
+              new_string: `const x = ${i + 1};`
+            }
+          },
+          { cwd: tmpDir, persistState: true }
+        );
+        assert.equal(res.verdict.decision !== 'deny', true);
+        assert.notEqual(res.verdict.detectorId, 'BLAST_RADIUS_BREAKER');
+      }
+      const seventhClaude = runPreToolUseHook(
+        {
+          session_id: blastSess,
+          turn_id: 8,
+          cwd: tmpDir,
+          tool_name: 'Edit',
+          tool_input: {
+            file_path: 'src/mod_7.mjs',
+            old_string: 'const x = 1;',
+            new_string: 'const x = 8;'
+          }
+        },
+        { cwd: tmpDir, persistState: true }
+      );
+      assert.equal(seventhClaude.verdict.detectorId, 'BLAST_RADIUS_BREAKER');
+      assert.equal(JSON.parse(seventhClaude.stdout).hookSpecificOutput.permissionDecision, 'allow');
+
+      // Passing `npm test` resets unverifiedEdits -> 8th edit is clean
+      runPostToolUseHook(
+        {
+          session_id: blastSess,
+          cwd: tmpDir,
+          tool_name: 'Bash',
+          tool_input: { command: 'npm test' },
+          exit_code: 0,
+          tool_output: 'All tests passed'
+        },
+        { cwd: tmpDir, persistState: true }
+      );
+      const afterTestClaude = runPreToolUseHook(
+        {
+          session_id: blastSess,
+          turn_id: 9,
+          cwd: tmpDir,
+          tool_name: 'Edit',
+          tool_input: {
+            file_path: 'src/mod_8.mjs',
+            old_string: 'const x = 1;',
+            new_string: 'const x = 9;'
+          }
+        },
+        { cwd: tmpDir, persistState: true }
+      );
+      assert.notEqual(afterTestClaude.verdict.detectorId, 'BLAST_RADIUS_BREAKER');
+
+      for (let i = 1; i <= 6; i++) {
+        await handlePreInvocation({
+          conversationId: agConvId,
+          cwd: tmpDir,
+          tool_name: 'edit_file',
+          tool_input: { Path: `src/ag_${i}.mjs`, Target: 'a', Replacement: 'b' }
+        });
+      }
+      const agSeventh = await handlePreInvocation({
+        conversationId: agConvId,
+        cwd: tmpDir,
+        tool_name: 'edit_file',
+        tool_input: { Path: 'src/ag_7.mjs', Target: 'a', Replacement: 'b' }
+      });
+      assert.match(
+        String(agSeventh.systemMessage || ''),
+        /Build Integrity Shield|without an intervening passing test/i
+      );
+
+      await handlePostInvocation({
+        hook_event_name: 'PostToolUse',
+        conversationId: agConvId,
+        cwd: tmpDir,
+        tool_name: 'run_command',
+        tool_input: { CommandLine: 'npm test' },
+        exitCode: 0
+      });
+      const agAfterTest = await handlePreInvocation({
+        conversationId: agConvId,
+        cwd: tmpDir,
+        tool_name: 'edit_file',
+        tool_input: { Path: 'src/ag_8.mjs', Target: 'a', Replacement: 'b' }
+      });
+      assert.ok(
+        !/Build Integrity Shield|without an intervening passing test/i.test(
+          String(agAfterTest.systemMessage || '')
+        )
+      );
+
+      // 5. Sub-Wave B-Gamma (#5) remains in SHADOW by default (no systemMessage, logged in bucketBShadow)
+      const agGammaDefault = await handlePreInvocation({
+        conversationId: agConvId,
+        cwd: tmpDir,
+        tool_name: 'invoke_subagent',
+        tool_input: {
+          TypeName: 'research',
+          Role: 'File Scout',
+          Prompt: 'Find all usages of shield_manager',
+          Model: 'pro',
+          EnableWriteTools: false
+        }
+      });
+      assert.equal(agGammaDefault.systemMessage, undefined);
+
+      // 6. Verify Quota Shield ROI separates bucketBCoach (counted) from bucketBShadow (estimated only: SILENT #6 + default #5)
+      const status = getShieldStatus({ cwd: tmpDir });
+      assert.ok(status.roi.bucketBCoach.hits >= 7);
+      assert.ok(status.roi.bucketBCoach.tokensSaved > 0);
+      assert.ok(status.roi.tokensSaved >= status.roi.bucketBCoach.tokensSaved);
+      assert.equal(status.roi.bucketBShadow.hits, 2);
+      assert.equal(status.roi.bucketBShadow.byGuardrail['#6_SLOPSQUAT_DEP_GATE'], 1);
+      assert.equal(status.roi.bucketBShadow.byGuardrail['#5_SUBAGENT_TEAM_GOVERNOR'], 1);
     } finally {
       cleanupTempWorkspace(tmpDir);
     }

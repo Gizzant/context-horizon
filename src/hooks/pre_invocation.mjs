@@ -562,31 +562,84 @@ export async function handlePreToolUse(inputData = {}) {
     }
   }
 
-  if (
-    !isOffMode &&
-    inputData.bucketBShadow !== false &&
-    Boolean(inputData.cwd || inputData.workspacePath)
-  ) {
+  if (!isOffMode && inputData.bucketBShadow !== false) {
     try {
+      const hasExplicitCwd = Boolean(inputData.cwd || inputData.workspacePath);
+      const priorUnverifiedEdits = Array.isArray(inputData.editsSinceVerify)
+        ? inputData.editsSinceVerify
+        : Array.isArray(sidecar.fileState?.unverifiedEdits)
+          ? sidecar.fileState.unverifiedEdits
+          : [];
       const shadowRes = runBucketBPreToolShadowPass({
         platform: 'antigravity',
         sessionId: conversationId,
         cwd: workspacePath,
+        hasExplicitCwd,
         toolName,
         toolInput: toolInput && typeof toolInput === 'object' ? toolInput : {},
         lastUserPrompt: effectivePromptText,
+        editsSinceVerify: priorUnverifiedEdits,
         options: {
           bucketBStage: inputData.bucketBStage,
+          bucketBAlphaStage: inputData.bucketBAlphaStage,
+          mode: flightMode,
           registryMetadata: inputData.registryMetadata,
           cliCapabilities: inputData.cliCapabilities,
           horizonConfig
         }
       });
-      if (shadowRes.triggered && shadowRes.recorded.length > 0 && !isSilentMode && !gateSystemMessage) {
-        gateSystemMessage = shadowRes.recorded[0].verdict.reason;
+      if (shadowRes.triggered && shadowRes.activeRecords.length > 0) {
+        const activeEntry = shadowRes.activeRecords[0];
+        if (
+          activeEntry.stage === 'ENFORCE' ||
+          (isAutoPilotMode && activeEntry.verdict.decision === 'ask')
+        ) {
+          return makeBlockPayload({
+            id: activeEntry.verdict.code || 'BUCKET_B_GUARD',
+            message: activeEntry.verdict.reason
+          });
+        }
+        if (!isSilentMode && !gateSystemMessage) {
+          gateSystemMessage = activeEntry.verdict.reason;
+        }
       }
     } catch (_shadowErr) {
-      // Non-fatal Bucket B shadow pass
+      // Non-fatal Bucket B shadow/coach pass
+    }
+  }
+
+  if (
+    !isOffMode &&
+    /^(edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content)$/i.test(
+      toolName
+    )
+  ) {
+    const editTarget = String(
+      toolInput?.Path || toolInput?.path || toolInput?.TargetFile || toolInput?.AbsolutePath || ''
+    ).trim();
+    if (editTarget) {
+      const chunks = Array.isArray(toolInput?.ReplacementChunks) ? toolInput.ReplacementChunks : null;
+      const newTxt = String(
+        toolInput?.Replacement ??
+          toolInput?.ReplacementContent ??
+          toolInput?.Content ??
+          toolInput?.CodeContent ??
+          toolInput?.new_string ??
+          (chunks ? chunks.map((c) => c?.ReplacementContent ?? c?.Replacement ?? '').join('\n') : '') ??
+          ''
+      );
+      const changedLines = newTxt.split(/\r?\n/);
+      const netLines = changedLines.filter((l) => l.trim().length > 0).length;
+      if (!sidecar.fileState || typeof sidecar.fileState !== 'object') sidecar.fileState = {};
+      if (!Array.isArray(sidecar.fileState.unverifiedEdits)) sidecar.fileState.unverifiedEdits = [];
+      sidecar.fileState.unverifiedEdits.push({
+        filePath: editTarget,
+        netLines,
+        changedLines: changedLines.slice(0, 64)
+      });
+      if (sidecar.fileState.unverifiedEdits.length > 32) {
+        sidecar.fileState.unverifiedEdits = sidecar.fileState.unverifiedEdits.slice(-32);
+      }
     }
   }
 

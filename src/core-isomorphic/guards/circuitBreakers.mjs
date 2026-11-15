@@ -175,6 +175,9 @@ export class CircuitBreakerEngine {
     this.sequentialSearchCount = Number(options.sequentialSearchCount || 0);
     this.fileHashHistory = new Map();
     this.modifiedFilesInTurn = new Set();
+    this.unverifiedEdits = Array.isArray(options.unverifiedEdits)
+      ? options.unverifiedEdits.filter((e) => e && typeof e.filePath === 'string').map((e) => ({ ...e }))
+      : [];
     this.pendingBatchEdits = new Set();
     this.pendingFormatFiles = new Set();
     this.codeEditedSinceLastTest = Boolean(options.codeEditedSinceLastTest || false);
@@ -266,6 +269,7 @@ export class CircuitBreakerEngine {
       fileHashHistory: hashObj,
       modifiedFilesInTurn: Array.from(this.modifiedFilesInTurn),
       editedFiles: Array.from(this.modifiedFilesInTurn),
+      unverifiedEdits: Array.isArray(this.unverifiedEdits) ? this.unverifiedEdits.slice(-32) : [],
       pendingBatchEdits: Array.from(this.pendingBatchEdits),
       pendingFormatFiles: Array.from(this.pendingFormatFiles),
       codeEditedSinceLastTest: Boolean(this.codeEditedSinceLastTest),
@@ -335,6 +339,16 @@ export class CircuitBreakerEngine {
         : null;
     if (editedList) {
       this.modifiedFilesInTurn = new Set(editedList.filter(Boolean).map(String));
+    }
+    if (Array.isArray(snap.unverifiedEdits)) {
+      this.unverifiedEdits = snap.unverifiedEdits
+        .filter((e) => e && typeof e.filePath === 'string')
+        .slice(-32)
+        .map((e) => ({
+          filePath: String(e.filePath),
+          netLines: Math.max(0, Number(e.netLines) || 0),
+          ...(Array.isArray(e.changedLines) ? { changedLines: e.changedLines.slice(0, 64).map(String) } : {})
+        }));
     }
     if (Array.isArray(snap.pendingBatchEdits)) {
       this.pendingBatchEdits = new Set(snap.pendingBatchEdits.filter(Boolean).map(String));
@@ -1178,6 +1192,7 @@ export class CircuitBreakerEngine {
     this.pendingVerificationCommand = false;
     if (succeeded) {
       this.codeEditedSinceLastTest = false;
+      this.unverifiedEdits = [];
       this.lastFailingLocation = null;
     } else {
       if (this.modifiedFilesInTurn.size > 0 || this.codeEditedSinceLastTest) {

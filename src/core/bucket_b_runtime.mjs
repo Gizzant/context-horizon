@@ -43,13 +43,57 @@ const SKIP_WALK_DIRS = new Set([
   'experiments'
 ]);
 
+export const BUCKET_B_ALPHA_IDS = Object.freeze([
+  '#2_GREP_GLOB_FIREWALL',
+  '#6_SLOPSQUAT_DEP_GATE',
+  '#9_WEB_BOILERPLATE_BUDGETER',
+  '#4_BLAST_RADIUS_BREAKER'
+]);
+
+function isSilentOrOffFlightMode(options = {}) {
+  const fm = String(
+    options.mode || options.flightMode || options.horizonConfig?.flightMode || ''
+  )
+    .trim()
+    .toUpperCase();
+  return fm === 'SILENT' || fm === 'OFF';
+}
+
 /**
- * Resolves the active Bucket B rollout stage (`'SHADOW'` default -> `0` prompt tokens, `0` blocks).
+ * Resolves rollout stage for Sub-Wave B-Alpha (`#2`, `#6`, `#9`, `#4`) — promoted to `'COACH'`
+ * by default after achieving `100%` precision and `0%` false-deny SLAs; drops to `'SHADOW'`
+ * whenever flight mode is `'SILENT'` or `'OFF'`.
+ *
+ * @param {object} [options={}]
+ * @returns {'SHADOW' | 'COACH' | 'ENFORCE'}
+ */
+export function resolveBucketBAlphaStage(options = {}) {
+  if (isSilentOrOffFlightMode(options)) return 'SHADOW';
+  const raw = String(
+    options.bucketBAlphaStage ||
+      options.bucketBStage ||
+      process.env.CTXTOP_BUCKET_B_ALPHA_MODE ||
+      process.env.CTXTOP_BUCKET_B_MODE ||
+      options.horizonConfig?.bucketBAlphaMode ||
+      options.horizonConfig?.bucketBMode ||
+      'COACH'
+  )
+    .trim()
+    .toUpperCase();
+  if (raw === 'SHADOW') return 'SHADOW';
+  if (raw === 'ENFORCE') return 'ENFORCE';
+  return 'COACH';
+}
+
+/**
+ * Resolves the active Bucket B rollout stage for Sub-Waves B-Beta & B-Gamma
+ * (`'SHADOW'` default -> `0` prompt tokens, `0` blocks). Drops to `'SHADOW'` in `'SILENT'`/`'OFF'` modes.
  *
  * @param {object} [options={}]
  * @returns {'SHADOW' | 'COACH' | 'ENFORCE'}
  */
 export function resolveBucketBStage(options = {}) {
+  if (isSilentOrOffFlightMode(options)) return 'SHADOW';
   const raw = String(
     options.bucketBStage ||
       process.env.CTXTOP_BUCKET_B_MODE ||
@@ -422,67 +466,126 @@ export function auditProseRuleHookCandidates(cwd) {
 
 /**
  * Evaluates applicable Bucket B guardrails on an incoming `PreToolUse` / `pre_invocation` event.
- * In default `'SHADOW'` stage, logs `bucket_b_shadow_v1` telemetry to `.hints.jsonl` and returns
- * `{ stage: 'SHADOW', triggered: false }` so live workflows experience `0` prompt-token overhead
- * and `0` false-positive blocks while accumulating dogfood metrics.
+ * Sub-Wave B-Alpha (`#6`, `#4`) runs in `'COACH'` mode by default (`'SHADOW'` in `SILENT`/`OFF`);
+ * Sub-Waves B-Beta & B-Gamma default to `'SHADOW'` (`0` stdout bytes, `0` blocks, `.hints.jsonl` telemetry).
  *
  * @param {object} params
  * @param {'claude' | 'antigravity'} [params.platform='claude']
  * @param {string} [params.sessionId='default']
  * @param {string} [params.cwd]
+ * @param {boolean} [params.hasExplicitCwd]
  * @param {string} [params.toolName='']
  * @param {object} [params.toolInput={}]
  * @param {string} [params.lastUserPrompt='']
+ * @param {Array<{ filePath: string, netLines?: number, changedLines?: string[] }>} [params.editsSinceVerify=[]]
  * @param {object} [params.options={}]
  */
 export function runBucketBPreToolShadowPass(params = {}) {
   const platform = params.platform === 'antigravity' ? 'antigravity' : 'claude';
   const sessionId = params.sessionId || 'default';
-  const baseCwd = path.resolve(params.cwd || process.cwd());
-  const stage = resolveBucketBStage(params.options);
+  const hasExplicitCwd = params.hasExplicitCwd !== false && Boolean(params.cwd);
+  const baseCwd = hasExplicitCwd ? path.resolve(params.cwd) : process.cwd();
+  const alphaStage = resolveBucketBAlphaStage(params.options);
+  const betaGammaStage = resolveBucketBStage(params.options);
   const toolName = String(params.toolName || '');
   const tIn = params.toolInput || {};
   const recorded = [];
+  const activeRecords = [];
 
-  const emit = (guardrailId, verdict, elapsedMs) => {
+  const emit = (guardrailId, verdict, elapsedMs, itemStage = betaGammaStage) => {
     if (!verdict?.triggered) return;
-    recordBucketBShadowHint(
-      sessionId,
-      {
-        guardrailId,
-        stage,
-        platform,
-        wouldTrigger: true,
-        wouldDecision: verdict.decision || 'warn',
-        latencyMs: elapsedMs,
-        tokens_saved_est: verdict.tokensSavedEst || 0,
-        dollars_saved_est: Number((((verdict.tokensSavedEst || 0) / 1_000_000) * 3.0).toFixed(6)),
-        evidence: {
-          code: verdict.code || guardrailId,
-          reason: String(verdict.reason || '').slice(0, 220)
-        }
-      },
-      { cwd: baseCwd }
-    );
-    recorded.push({ guardrailId, verdict });
+    if (hasExplicitCwd) {
+      recordBucketBShadowHint(
+        sessionId,
+        {
+          guardrailId,
+          stage: itemStage,
+          platform,
+          wouldTrigger: true,
+          wouldDecision: verdict.decision || 'warn',
+          latencyMs: elapsedMs,
+          tokens_saved_est: verdict.tokensSavedEst || 0,
+          dollars_saved_est: Number((((verdict.tokensSavedEst || 0) / 1_000_000) * 3.0).toFixed(6)),
+          evidence: {
+            code: verdict.code || guardrailId,
+            reason: String(verdict.reason || '').slice(0, 220)
+          }
+        },
+        { cwd: baseCwd }
+      );
+    }
+    const entry = { guardrailId, stage: itemStage, verdict };
+    recorded.push(entry);
+    if (itemStage !== 'SHADOW') {
+      activeRecords.push(entry);
+    }
   };
 
-  // #6 SLOPSQUAT_DEP_GATE on shell commands
+  // #6 SLOPSQUAT_DEP_GATE (Sub-Wave B-Alpha -> default COACH) on shell install commands
   if (/^(?:Bash|PowerShell|run_command)$/i.test(toolName)) {
     const command = String(tIn.command || tIn.CommandLine || tIn.cmd || '');
     if (/\b(?:npm|pnpm|yarn|bun|pip3?|uv|poetry|cargo)\b/i.test(command)) {
       const t0 = performance.now();
-      const allowlist = loadWorkspacePackageAllowlist(baseCwd);
+      const allowlist = hasExplicitCwd
+        ? loadWorkspacePackageAllowlist(baseCwd)
+        : { manifestDeps: new Set(), workspacePackages: new Set(), privateScopes: new Set() };
       const verdict = evaluateSlopsquatCommand({
         command,
         ...allowlist,
         registryMetadata: params.options?.registryMetadata
       });
-      emit('#6_SLOPSQUAT_DEP_GATE', verdict, performance.now() - t0);
+      emit('#6_SLOPSQUAT_DEP_GATE', verdict, performance.now() - t0, alphaStage);
     }
   }
 
-  // #5 SUBAGENT_TEAM_GOVERNOR on subagent/task spawns
+  // #4 BLAST_RADIUS_BREAKER (Sub-Wave B-Alpha -> default COACH) & #3b Hardcoded Oracle (B-Beta -> default SHADOW)
+  if (
+    /^(?:Edit|MultiEdit|Write|edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content)$/i.test(
+      toolName
+    )
+  ) {
+    const filePath = String(
+      tIn.file_path || tIn.Path || tIn.path || tIn.TargetFile || tIn.AbsolutePath || ''
+    );
+    const addedCode = String(
+      tIn.new_string ??
+        tIn.Replacement ??
+        tIn.ReplacementContent ??
+        tIn.content ??
+        tIn.Content ??
+        tIn.CodeContent ??
+        (Array.isArray(tIn.edits)
+          ? tIn.edits.map((e) => e?.new_string ?? '').join('\n')
+          : Array.isArray(tIn.ReplacementChunks)
+            ? tIn.ReplacementChunks.map((c) => c?.ReplacementContent ?? c?.Replacement ?? '').join('\n')
+            : '') ??
+        ''
+    );
+
+    if (filePath) {
+      const tBlast = performance.now();
+      const changedLines = addedCode.split(/\r?\n/);
+      const netLines = changedLines.filter((l) => l.trim().length > 0).length;
+      const priorEdits = Array.isArray(params.editsSinceVerify) ? params.editsSinceVerify : [];
+      const editsSinceVerify = [...priorEdits, { filePath, netLines, changedLines }];
+      const blastVerdict = evaluateBlastRadiusBreaker({
+        editsSinceVerify,
+        lastUserPrompt: params.lastUserPrompt || ''
+      });
+      if (blastVerdict.triggered) {
+        blastVerdict.decision = alphaStage === 'ENFORCE' ? 'ask' : 'warn';
+      }
+      emit('#4_BLAST_RADIUS_BREAKER', blastVerdict, performance.now() - tBlast, alphaStage);
+    }
+
+    if (filePath && addedCode.length >= 60) {
+      const t0 = performance.now();
+      const verdict = evaluateHardcodedOracle({ filePath, addedCode });
+      emit('#3B_EVILGENIE_ORACLE', verdict, performance.now() - t0, betaGammaStage);
+    }
+  }
+
+  // #5 SUBAGENT_TEAM_GOVERNOR (Sub-Wave B-Gamma -> default SHADOW) on subagent/task spawns
   if (/^(?:Task|Agent|invoke_subagent|swarm)$/i.test(toolName)) {
     const t0 = performance.now();
     const verdict = evaluateSubagentGovernor({
@@ -494,35 +597,26 @@ export function runBucketBPreToolShadowPass(params = {}) {
       allowedTools: tIn.allowed_tools || tIn.tools,
       workspace: tIn.isolation || tIn.Workspace || tIn.workspace || 'inherit'
     });
-    emit('#5_SUBAGENT_TEAM_GOVERNOR', verdict, performance.now() - t0);
+    emit('#5_SUBAGENT_TEAM_GOVERNOR', verdict, performance.now() - t0, betaGammaStage);
   }
 
-  // #16 MCP_CLI_ROUTER on heavy MCP read tools
+  // #16 MCP_CLI_ROUTER (Sub-Wave B-Gamma -> default SHADOW) on heavy MCP read tools
   if (/^mcp__/i.test(toolName)) {
     const t0 = performance.now();
     const verdict = evaluateMcpCliRouter({
       toolName,
       cliCapabilities: params.options?.cliCapabilities || {}
     });
-    emit('#16_MCP_CLI_ROUTER', verdict, performance.now() - t0);
-  }
-
-  // #3b Hardcoded Oracle on newly written/edited code
-  if (/^(?:Edit|MultiEdit|Write|edit_file|write_file)$/i.test(toolName)) {
-    const filePath = String(tIn.file_path || tIn.Path || tIn.path || '');
-    const addedCode = String(tIn.new_string || tIn.Replacement || tIn.content || tIn.Content || '');
-    if (filePath && addedCode.length >= 60) {
-      const t0 = performance.now();
-      const verdict = evaluateHardcodedOracle({ filePath, addedCode });
-      emit('#3B_EVILGENIE_ORACLE', verdict, performance.now() - t0);
-    }
+    emit('#16_MCP_CLI_ROUTER', verdict, performance.now() - t0, betaGammaStage);
   }
 
   // Expose other runtime-callable evaluators for PostToolUse / UserPromptSubmit / tests
   return {
-    stage,
-    shadowOnly: stage === 'SHADOW',
-    triggered: stage !== 'SHADOW' && recorded.length > 0,
+    stage: betaGammaStage,
+    alphaStage,
+    shadowOnly: alphaStage === 'SHADOW' && betaGammaStage === 'SHADOW',
+    triggered: activeRecords.length > 0,
+    activeRecords,
     recorded,
     evaluators: {
       evaluateGrepGlobFirewall,
@@ -532,5 +626,182 @@ export function runBucketBPreToolShadowPass(params = {}) {
       evaluateVaguePromptAnchor,
       evaluateLspSymbolRouter
     }
+  };
+}
+
+function parseSearchOutputPath(line = '') {
+  const trimmed = String(line || '').replace(/\r$/, '').trim();
+  if (!trimmed || trimmed === '--' || /^Found\s+\d+\s+(?:results?|files?|matches?)/i.test(trimmed)) {
+    return null;
+  }
+  // Match `dir/file.ext:12:snippet` or `C:\dir\file.ext:12-snippet`
+  const lineNumMatch = trimmed.match(
+    /^((?:[A-Za-z]:[\\/])?[^:\s][^:]*?\.[A-Za-z0-9]{1,8}):\d+(?:[:\-]|$)/
+  );
+  if (lineNumMatch) return lineNumMatch[1];
+
+  // Match `dir/file.ext: snippet`
+  const colonSnippetMatch = trimmed.match(
+    /^((?:[A-Za-z]:[\\/])?[^:\s][^:]*?(?:[\\/][^:\s]+|\.[A-Za-z0-9]{1,8})):\s/
+  );
+  if (colonSnippetMatch) return colonSnippetMatch[1];
+
+  // Plain file path per line (requires `/` or `\` or extension, and no internal whitespace)
+  if (!/\s/.test(trimmed) && (/[\\/]/.test(trimmed) || /\.[A-Za-z0-9]{1,8}$/.test(trimmed))) {
+    return trimmed;
+  }
+  return null;
+}
+
+/**
+ * Evaluates Sub-Wave B-Alpha `PostToolUse` / `post_invocation` guardrails:
+ *   - `#9 WEB_BOILERPLATE_BUDGETER` (lossless HTML `<pre>`/`<code>`/`<table>` distillation)
+ *   - `#2 GREP_GLOB_FIREWALL` (active-context Top-K ranking for `>15` matched search files)
+ *
+ * Runs in `'COACH'` mode by default (`'SHADOW'` in `SILENT`/`OFF` modes) and records
+ * `.hints.jsonl` telemetry when `hasExplicitCwd` is true.
+ *
+ * @param {object} [params={}]
+ */
+export function runBucketBPostToolPass(params = {}) {
+  const platform = params.platform === 'antigravity' ? 'antigravity' : 'claude';
+  const sessionId = params.sessionId || 'default';
+  const hasExplicitCwd = Boolean(params.hasExplicitCwd && params.cwd);
+  const baseCwd = hasExplicitCwd ? path.resolve(params.cwd) : process.cwd();
+  const alphaStage = resolveBucketBAlphaStage(params.options);
+  const toolName = String(params.toolName || '');
+  const tIn = params.toolInput || {};
+  const rawOutput = typeof params.rawOutput === 'string' ? params.rawOutput : String(params.rawOutput ?? '');
+
+  // 1. #9 WEB_BOILERPLATE_BUDGETER
+  if (
+    /^(?:WebFetch|read_url_content|mcp__(?:fetch|firecrawl|playwright|puppeteer|browser).*)$/i.test(
+      toolName
+    ) &&
+    rawOutput.length >= 1200 &&
+    /<(?:html|body|div|table|script|style|nav|header|footer|article|main|section|pre|code)\b/i.test(
+      rawOutput
+    )
+  ) {
+    const t0 = performance.now();
+    const verdict = distillHtmlWebPayload({
+      html: rawOutput,
+      webFetchesInTurn: Number(params.webFetchesInTurn) || 1
+    });
+    const elapsedMs = performance.now() - t0;
+    if (verdict.triggered) {
+      if (hasExplicitCwd) {
+        recordBucketBShadowHint(
+          sessionId,
+          {
+            guardrailId: '#9_WEB_BOILERPLATE_BUDGETER',
+            stage: alphaStage,
+            platform,
+            wouldTrigger: true,
+            wouldDecision: 'warn',
+            latencyMs: elapsedMs,
+            tokens_saved_est: verdict.tokensSavedEst || 0,
+            dollars_saved_est: Number((((verdict.tokensSavedEst || 0) / 1_000_000) * 3.0).toFixed(6)),
+            evidence: {
+              code: verdict.code || 'WEB_BOILERPLATE_BUDGETER',
+              reason: String(verdict.reason || '').slice(0, 220)
+            }
+          },
+          { cwd: baseCwd }
+        );
+      }
+      if (alphaStage !== 'SHADOW') {
+        return {
+          triggered: true,
+          stage: alphaStage,
+          guardrailId: '#9_WEB_BOILERPLATE_BUDGETER',
+          code: verdict.code || 'WEB_BOILERPLATE_BUDGETER',
+          updatedOutput: `${verdict.reason}\n\n${verdict.distilled}`,
+          savedTokens: verdict.tokensSavedEst || 0,
+          reason: verdict.reason
+        };
+      }
+    }
+  }
+
+  // 2. #2 GREP_GLOB_FIREWALL
+  if (/^(?:Grep|Glob|grep_search|find_by_name)$/i.test(toolName) && rawOutput) {
+    const t0 = performance.now();
+    const lines = rawOutput.split(/\r?\n/);
+    const linesByPath = new Map();
+    const matchPaths = [];
+
+    for (const rawLine of lines) {
+      const candidate = parseSearchOutputPath(rawLine);
+      if (!candidate) continue;
+      const norm = candidate.replace(/\\/g, '/').replace(/^\.\//, '');
+      if (!norm || isBucketBForbiddenSkuPath(norm)) continue;
+      if (!linesByPath.has(norm)) {
+        linesByPath.set(norm, []);
+        matchPaths.push(norm);
+      }
+      linesByPath.get(norm).push(rawLine.replace(/\r$/, ''));
+    }
+
+    if (matchPaths.length > 15) {
+      const query = String(tIn.pattern || tIn.Query || tIn.Pattern || '');
+      const verdict = evaluateGrepGlobFirewall({
+        matchPaths,
+        query,
+        lastUserPrompt: params.lastUserPrompt || '',
+        activeFiles: params.activeFiles || [],
+        dirtyFiles: params.dirtyFiles || [],
+        lastEditedFile: params.lastEditedFile || ''
+      });
+      const elapsedMs = performance.now() - t0;
+
+      if (verdict.triggered) {
+        if (hasExplicitCwd) {
+          recordBucketBShadowHint(
+            sessionId,
+            {
+              guardrailId: '#2_GREP_GLOB_FIREWALL',
+              stage: alphaStage,
+              platform,
+              wouldTrigger: true,
+              wouldDecision: 'warn',
+              latencyMs: elapsedMs,
+              tokens_saved_est: verdict.tokensSavedEst || 0,
+              dollars_saved_est: Number((((verdict.tokensSavedEst || 0) / 1_000_000) * 3.0).toFixed(6)),
+              evidence: {
+                code: verdict.code || 'GREP_GLOB_FIREWALL',
+                reason: String(verdict.reason || '').slice(0, 220)
+              }
+            },
+            { cwd: baseCwd }
+          );
+        }
+        if (alphaStage !== 'SHADOW') {
+          const topBlocks = [];
+          for (const p of verdict.topPaths) {
+            const matchedLines = linesByPath.get(p) || [p];
+            topBlocks.push(...matchedLines.slice(0, 4));
+          }
+          return {
+            triggered: true,
+            stage: alphaStage,
+            guardrailId: '#2_GREP_GLOB_FIREWALL',
+            code: verdict.code || 'GREP_GLOB_FIREWALL',
+            updatedOutput: `${verdict.reason}\n${topBlocks.join('\n')}`,
+            savedTokens: verdict.tokensSavedEst || 0,
+            reason: verdict.reason,
+            topPaths: verdict.topPaths,
+            omittedCount: verdict.omittedCount
+          };
+        }
+      }
+    }
+  }
+
+  return {
+    triggered: false,
+    stage: alphaStage,
+    updatedOutput: rawOutput,
+    savedTokens: 0
   };
 }

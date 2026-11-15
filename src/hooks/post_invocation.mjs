@@ -15,6 +15,7 @@ import { SwarmIdleTtlTracker, computeSwarmRosterTtlBadges } from '../core/subage
 import { loadHorizonConfig } from '../core/horizon_config.mjs';
 import { recordHookDiagnostic } from '../core/hook_diagnostics.mjs';
 import { evaluateBetweenTurnEffortAdvisor } from '../core/coach/effort_advisor.mjs';
+import { runBucketBPostToolPass } from '../core/bucket_b_runtime.mjs';
 
 export async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {}) {
   if (process.stdin.isTTY || process.stdin.readableEnded) return {};
@@ -221,16 +222,85 @@ export async function handlePostToolUse(inputData = {}) {
   });
   const flightMode = String(inputData.flightMode || horizonConfig.flightMode || 'COACH').toUpperCase();
 
+  const toolName = String(inputData.tool_name || inputData.toolName || '');
+  const toolInput = inputData.tool_input || inputData.toolInput || inputData.args || {};
+  const cmdStr = String(toolInput.CommandLine || toolInput.command || toolInput.cmd || inputData.command || '');
+  const rawOutput =
+    typeof (inputData.tool_output ?? inputData.toolOutput ?? inputData.output ?? inputData.tool_response) === 'string'
+      ? (inputData.tool_output ?? inputData.toolOutput ?? inputData.output ?? inputData.tool_response)
+      : String(
+          inputData.tool_output ??
+            inputData.toolOutput ??
+            inputData.output ??
+            inputData.tool_response?.output ??
+            inputData.tool_response?.content ??
+            ''
+        );
+  const didFail =
+    inputData.is_error === true ||
+    inputData.isError === true ||
+    inputData.succeeded === false ||
+    inputData.status === 'ERROR' ||
+    (typeof inputData.exitCode === 'number' && inputData.exitCode !== 0) ||
+    (typeof inputData.exit_code === 'number' && inputData.exit_code !== 0);
+
+  if (
+    /^(?:run_command|execute_bash|Bash|PowerShell)$/i.test(toolName) &&
+    !didFail &&
+    /\b(?:node\s+--test|npm\s+(?:run\s+)?test|pnpm\s+(?:run\s+)?test|yarn\s+test|bun\s+test|vitest|jest|pytest|cargo\s+test|go\s+test|tsc(?:\s|$)|npx\s+tsc)\b/i.test(
+      cmdStr
+    )
+  ) {
+    if (sidecar.fileState) {
+      sidecar.fileState.unverifiedEdits = [];
+    }
+  }
+
+  let postPass = null;
+  if (flightMode !== 'OFF' && inputData.bucketBShadow !== false && toolName && rawOutput) {
+    try {
+      postPass = runBucketBPostToolPass({
+        platform: 'antigravity',
+        sessionId: conversationId,
+        cwd: workspacePath,
+        hasExplicitCwd: Boolean(inputData.cwd || inputData.workspacePath),
+        toolName,
+        toolInput: toolInput && typeof toolInput === 'object' ? toolInput : {},
+        rawOutput,
+        lastUserPrompt: String(inputData.lastUserPrompt || ''),
+        activeFiles: sidecar.fileState?.activeSetPaths || [],
+        webFetchesInTurn: Number(inputData.webFetchesInTurn || 1),
+        options: {
+          bucketBStage: inputData.bucketBStage,
+          bucketBAlphaStage: inputData.bucketBAlphaStage,
+          mode: flightMode,
+          horizonConfig
+        }
+      });
+    } catch (_postErr) {
+      postPass = null;
+    }
+  }
+
   writeSidecarAtomicSync(conversationId, sidecar);
   if (flightMode === 'OFF') {
     return { flightMode };
   }
-  return {
+  const postToolOut = {
     flightMode,
     active_model_id: sidecar.sessionMeta.active_model_id || sidecar.sessionMeta.activeModel || null,
     pending_model_id: sidecar.sessionMeta.pending_model_id || null,
     swarmTtlBadges: sidecar.swarmTtlBadges
   };
+  if (postPass?.triggered) {
+    postToolOut.updatedOutput = postPass.updatedOutput;
+    postToolOut.savedTokens = postPass.savedTokens;
+    postToolOut.guardrailId = postPass.guardrailId;
+    if (flightMode !== 'SILENT') {
+      postToolOut.systemMessage = postPass.reason;
+    }
+  }
+  return postToolOut;
 }
 
 export async function handlePostInvocation(inputData = {}) {
@@ -314,6 +384,9 @@ export async function handlePostInvocation(inputData = {}) {
   const isTestRun = toolsInvoked.includes('run_command') && /\b(?:test|pytest|jest|vitest|cargo\s+test|go\s+test|tsc)\b/i.test(inputData.command || '');
   if (isTestRun && inputData.exitCode === 0) {
     sidecar.sessionMeta.turnsSinceLastPassingTest = 0;
+    if (sidecar.fileState) {
+      sidecar.fileState.unverifiedEdits = [];
+    }
   } else {
     sidecar.sessionMeta.turnsSinceLastPassingTest = (sidecar.sessionMeta.turnsSinceLastPassingTest || 0) + 1;
   }
@@ -407,6 +480,43 @@ export async function handlePostInvocation(inputData = {}) {
       ? `[Highbeam Quota Shield — Orphan Background Drain (#10)] ${bgTasks.length} background daemon/task(s) still active (${bgTasks.slice(0, 3).join(', ')}). Kill via manage_task before ending session.`
       : null;
 
+  const postToolName = String(inputData.tool_name || inputData.toolName || '');
+  const postRawOutput = inputData.tool_output ?? inputData.toolOutput ?? inputData.output;
+  let invPostPass = null;
+  let invPostFlightMode = 'COACH';
+  if (postToolName && postRawOutput && inputData.bucketBShadow !== false) {
+    try {
+      const postWorkspace = inputData.cwd || inputData.workspacePath || sidecar.workspacePath || process.cwd();
+      const postHorizonConfig = inputData.horizonConfig || loadHorizonConfig({
+        cwd: postWorkspace,
+        ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {})
+      });
+      invPostFlightMode = String(inputData.flightMode || postHorizonConfig.flightMode || 'COACH').toUpperCase();
+      if (invPostFlightMode !== 'OFF') {
+        invPostPass = runBucketBPostToolPass({
+          platform: 'antigravity',
+          sessionId: conversationId,
+          cwd: postWorkspace,
+          hasExplicitCwd: Boolean(inputData.cwd || inputData.workspacePath),
+          toolName: postToolName,
+          toolInput: inputData.tool_input || inputData.toolInput || {},
+          rawOutput: String(postRawOutput),
+          lastUserPrompt: String(inputData.lastUserPrompt || ''),
+          activeFiles: sidecar.fileState?.activeSetPaths || [],
+          webFetchesInTurn: Number(inputData.webFetchesInTurn || 1),
+          options: {
+            bucketBStage: inputData.bucketBStage,
+            bucketBAlphaStage: inputData.bucketBAlphaStage,
+            mode: invPostFlightMode,
+            horizonConfig: postHorizonConfig
+          }
+        });
+      }
+    } catch (_invPostErr) {
+      invPostPass = null;
+    }
+  }
+
   writeSidecarAtomicSync(conversationId, sidecar);
   const out = {
     active_model_id: sidecar.sessionMeta.active_model_id || sidecar.sessionMeta.activeModel || null,
@@ -415,9 +525,16 @@ export async function handlePostInvocation(inputData = {}) {
     swarmTtlBadges: sidecar.swarmTtlBadges,
     effortAdvisor: sidecar.effortAdvisor || null
   };
+  if (invPostPass?.triggered) {
+    out.updatedOutput = invPostPass.updatedOutput;
+    out.savedTokens = invPostPass.savedTokens;
+    out.guardrailId = invPostPass.guardrailId;
+  }
   if (orphanBackgroundWarning) {
     out.orphanBackgroundWarning = orphanBackgroundWarning;
     out.systemMessage = orphanBackgroundWarning;
+  } else if (invPostPass?.triggered && invPostFlightMode !== 'SILENT' && !out.systemMessage) {
+    out.systemMessage = invPostPass.reason;
   }
   return out;
 }

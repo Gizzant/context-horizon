@@ -18,6 +18,7 @@ import { recordWorkspaceShellOutcome } from '../../src/core-isomorphic/coach/mic
 import { recordSavingsReceipt } from '../../src/core-isomorphic/coach/savedQuotaLedger.mjs';
 import { readLiveStateSnapshot } from '../../src/core-isomorphic/telemetry/telemetryBridge.mjs';
 import { resolveEffectiveRates, computeTotalPromptTokens } from '../../src/core-isomorphic/config/catalogLoader.mjs';
+import { runBucketBPostToolPass } from '../../src/core/bucket_b_runtime.mjs';
 import {
   isCliEntrypoint,
   readStdinJsonAsync,
@@ -104,6 +105,8 @@ export function runPostToolUseHook(event = {}, options = {}) {
   const cwdOptions = event.cwd && !options.cwd ? { ...options, cwd: event.cwd } : options;
   const horizonConfig = options.horizonConfig || loadHorizonConfig(cwdOptions);
 
+  const hasExplicitCwd = Boolean(event.cwd || options.cwd);
+  let loadedPriorSnap = null;
   const shouldPersistState =
     options.persistState !== false &&
     Boolean(event.cwd || options.cwd || options.breakerStatePath || options.persistState);
@@ -111,6 +114,7 @@ export function runPostToolUseHook(event = {}, options = {}) {
   if (shouldPersistState) {
     const failed = didToolExecutionFail(event);
     const priorSnap = readBreakerStateSnapshot(sessionId, cwdOptions);
+    loadedPriorSnap = priorSnap;
     const engine = new CircuitBreakerEngine({
       ...cwdOptions,
       horizonConfig,
@@ -160,16 +164,45 @@ export function runPostToolUseHook(event = {}, options = {}) {
     }
   }
 
+  if (!loadedPriorSnap && options.bucketBShadow !== false && hasExplicitCwd && /^(?:Grep|Glob)$/i.test(toolName)) {
+    loadedPriorSnap = readBreakerStateSnapshot(sessionId, cwdOptions);
+  }
+  const bAlphaPost =
+    options.bucketBShadow === false
+      ? { triggered: false, updatedOutput: rawOutput, savedTokens: 0 }
+      : runBucketBPostToolPass({
+          platform: 'claude',
+          sessionId,
+          cwd: event.cwd || options.cwd || '',
+          hasExplicitCwd,
+          toolName,
+          toolInput: event.tool_input || event.toolInput || {},
+          rawOutput,
+          lastUserPrompt: event.prompt || loadedPriorSnap?.lastUserPrompt || '',
+          activeFiles: event.activeFiles || loadedPriorSnap?.modifiedFilesInTurn || [],
+          dirtyFiles: event.dirtyFiles || [],
+          lastEditedFile:
+            event.lastEditedFile || (loadedPriorSnap?.modifiedFilesInTurn || []).slice(-1)[0] || '',
+          webFetchesInTurn: Number(event.webFetchesInTurn || 1),
+          options: {
+            ...options,
+            mode: event.mode || options.mode || horizonConfig.flightMode,
+            horizonConfig
+          }
+        });
+
+  const effectiveRawOutput = bAlphaPost.triggered ? bAlphaPost.updatedOutput : rawOutput;
+
   const sanitized = sanitizePostToolOutput(
     {
       toolName,
-      toolOutput: rawOutput
+      toolOutput: effectiveRawOutput
     },
     cwdOptions
   );
 
   let finalOutput = sanitized.updatedToolOutput;
-  let wasModified = sanitized.sanitized;
+  let wasModified = sanitized.sanitized || Boolean(bAlphaPost.triggered);
 
   // Apply DET-19 IPI sanitizer if output comes from a subagent (Task/Agent/agentId) or external WebFetch/MCP tool
   const isSubagentSource =
@@ -192,7 +225,12 @@ export function runPostToolUseHook(event = {}, options = {}) {
     }
   }
 
-  if (sanitized.savedTokens > 0 && options.recordLedger !== false) {
+  const totalSavedTokens = sanitized.savedTokens + Number(bAlphaPost.savedTokens || 0);
+  if (
+    totalSavedTokens > 0 &&
+    options.recordLedger !== false &&
+    (sanitized.savedTokens > 0 || hasExplicitCwd || options.ledgerPath || options.recordLedger === true)
+  ) {
     const liveState = options.telemetryState || readLiveStateSnapshot(sessionId, cwdOptions);
     const rawEventModel =
       typeof event.model === 'string'
@@ -208,10 +246,14 @@ export function runPostToolUseHook(event = {}, options = {}) {
       {
         sessionId,
         modelId: rates.modelId,
-        category: sanitized.offloaded ? 'ARTIFACT_OFFLOAD_4K' : 'LOSSLESS_POST_SANITIZER',
-        savedTokens: sanitized.savedTokens,
-        savedUSD: Number(((sanitized.savedTokens / 1_000_000) * rates.inputPer1M).toFixed(6)),
-        detail: `${toolName} output compressed (${sanitized.originalTokens} -> ${sanitized.finalTokens} tokens)`
+        category: sanitized.offloaded
+          ? 'ARTIFACT_OFFLOAD_4K'
+          : sanitized.savedTokens > 0
+            ? 'LOSSLESS_POST_SANITIZER'
+            : bAlphaPost.code || 'BUCKET_B_POST_SHIELD',
+        savedTokens: totalSavedTokens,
+        savedUSD: Number(((totalSavedTokens / 1_000_000) * rates.inputPer1M).toFixed(6)),
+        detail: `${toolName} output compressed (+${totalSavedTokens} tokens saved)`
       },
       cwdOptions
     );

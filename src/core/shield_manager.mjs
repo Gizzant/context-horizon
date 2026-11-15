@@ -710,6 +710,10 @@ export function getShieldStatus(options = {}) {
   let shadowTokensSavedEst = 0;
   let shadowDollarsSavedEst = 0;
   const shadowByGuardrail = {};
+  let coachHits = 0;
+  let coachTokensSaved = 0;
+  let coachDollarsSaved = 0;
+  const coachByGuardrail = {};
 
   const telemetryDir = path.join(baseCwd, '.agents', 'telemetry');
   if (fs.existsSync(telemetryDir)) {
@@ -725,16 +729,21 @@ export function getShieldStatus(options = {}) {
             const row = JSON.parse(line);
             if (row.schema === 'bucket_b_shadow_v1') {
               if (row.wouldTrigger) {
-                shadowHits += 1;
                 const gid = String(row.guardrailId || 'UNKNOWN');
-                shadowByGuardrail[gid] = (shadowByGuardrail[gid] || 0) + 1;
                 const tokEst = Math.max(0, Number(row.tokens_saved_est || 0));
                 const usdEst = Math.max(0, Number(row.dollars_saved_est || 0));
-                shadowTokensSavedEst += tokEst;
-                shadowDollarsSavedEst += usdEst;
                 if (row.stage === 'COACH' || row.stage === 'ENFORCE') {
+                  coachHits += 1;
+                  coachByGuardrail[gid] = (coachByGuardrail[gid] || 0) + 1;
+                  coachTokensSaved += tokEst;
+                  coachDollarsSaved += usdEst;
                   hintTokensSaved += tokEst;
                   hintDollarsSaved += usdEst;
+                } else {
+                  shadowHits += 1;
+                  shadowByGuardrail[gid] = (shadowByGuardrail[gid] || 0) + 1;
+                  shadowTokensSavedEst += tokEst;
+                  shadowDollarsSavedEst += usdEst;
                 }
               }
               continue;
@@ -778,6 +787,12 @@ export function getShieldStatus(options = {}) {
       readsBlocked,
       logsCompacted,
       thrashStopped,
+      bucketBCoach: {
+        hits: coachHits,
+        tokensSaved: Math.round(coachTokensSaved),
+        dollarsSaved: Number(coachDollarsSaved.toFixed(4)),
+        byGuardrail: coachByGuardrail
+      },
       bucketBShadow: {
         hits: shadowHits,
         tokensSavedEst: Math.round(shadowTokensSavedEst),

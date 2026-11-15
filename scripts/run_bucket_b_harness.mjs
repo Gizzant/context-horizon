@@ -58,7 +58,10 @@ export async function runAllBucketBBenchmarks() {
     promoteReadyCount,
     keepShadowCount: results.length - promoteReadyCount,
     zeroOutboundNetworkVerified: results.every((r) => r.zeroOutboundNetwork),
-    guardrails: results.map(({ itemRecords: _ir, ...summary }) => summary)
+    guardrails: results.map(({ itemRecords: _ir, ...summary }) => ({
+      ...summary,
+      defaultStage: summary.subWave === 'B-Alpha' ? 'COACH' : 'SHADOW'
+    }))
   };
 }
 
@@ -72,10 +75,10 @@ function renderMarkdownScorecard(summary) {
     '# Highbeam (`ctxtop`) — Bucket B Validation & Shadow-Promotion Scorecard',
     '',
     `- **Guardrails Evaluated**: \`${summary.totalGuardrails}\` (\`0\` live API tokens, \`0\` outbound network calls: \`${summary.zeroOutboundNetworkVerified}\`)`,
-    `- **SLA Promotion Status**: \`${summary.promoteReadyCount}/${summary.totalGuardrails} PROMOTE_READY\` (deployed in \`SHADOW\` \`.hints.jsonl\` mode by default)`,
+    `- **SLA Promotion Status**: \`${summary.promoteReadyCount}/${summary.totalGuardrails} PROMOTE_READY\` (Sub-Wave B-Alpha in \`COACH\` by default; B-Beta/B-Gamma in \`SHADOW\` \`.hints.jsonl\`)`,
     '',
-    '| ID | Guardrail | Sub-Wave | Samples | Precision | Recall | FPR | Extra SLA Metric | p99 Latency | Status |',
-    '| :--- | :--- | :--- | ---: | ---: | ---: | ---: | :--- | ---: | :--- |'
+    '| ID | Guardrail | Sub-Wave | Default Stage | Samples | Precision | Recall | FPR | Extra SLA Metric | p99 Latency | Status |',
+    '| :--- | :--- | :--- | :--- | ---: | ---: | ---: | ---: | :--- | ---: | :--- |'
   ];
 
   for (const g of summary.guardrails) {
@@ -92,8 +95,9 @@ function renderMarkdownScorecard(summary) {
       extra = `FalseDeny=${g.falseDenies}`;
     }
 
+    const stage = g.defaultStage || (g.subWave === 'B-Alpha' ? 'COACH' : 'SHADOW');
     lines.push(
-      `| \`${g.id}\` | \`${g.code}\` | ${g.subWave} | ${g.sampleCount} | ${formatPct(g.precision)} | ${formatPct(g.recall)} | ${formatPct(g.falsePositiveRate)} | ${extra} | ${g.latencyMs.p99}ms | **${g.status}** |`
+      `| \`${g.id}\` | \`${g.code}\` | ${g.subWave} | \`${stage}\` | ${g.sampleCount} | ${formatPct(g.precision)} | ${formatPct(g.recall)} | ${formatPct(g.falsePositiveRate)} | ${extra} | ${g.latencyMs.p99}ms | **${g.status}** |`
     );
   }
 

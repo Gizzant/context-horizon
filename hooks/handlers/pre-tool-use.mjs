@@ -342,36 +342,79 @@ export function runPreToolUseHook(event = {}, options = {}) {
     }
   }
 
-  if (shouldPersistState) {
-    writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
-  }
+  const hasExplicitCwd = Boolean(event.cwd || options.cwd);
 
-  // Bucket B Shadow/Coach Pass (writes zero-prompt-token `.hints.jsonl` telemetry when explicit cwd is provided)
-  if (
-    !verdict.triggered &&
-    options.bucketBShadow !== false &&
-    Boolean(event.cwd || options.cwd)
-  ) {
+  // Bucket B Coach/Shadow Pass (B-Alpha defaults to COACH; B-Beta & B-Gamma default to SHADOW)
+  if (!verdict.triggered && options.bucketBShadow !== false) {
     try {
+      const priorUnverifiedEdits = Array.isArray(event.editsSinceVerify)
+        ? event.editsSinceVerify
+        : engine.codeEditedSinceLastTest
+          ? engine.unverifiedEdits
+          : [];
       const shadowRes = runBucketBPreToolShadowPass({
         platform: 'claude',
         sessionId,
-        cwd: event.cwd || options.cwd,
+        cwd: event.cwd || options.cwd || '',
+        hasExplicitCwd,
         toolName,
         toolInput: tIn,
-        lastUserPrompt: engine.lastUserPrompt || '',
-        options: { ...options, horizonConfig }
+        lastUserPrompt: event.prompt || engine.lastUserPrompt || '',
+        editsSinceVerify: priorUnverifiedEdits,
+        options: { ...options, mode: effectiveMode, horizonConfig }
       });
-      if (shadowRes.triggered && shadowRes.recorded.length > 0) {
-        const topRec = shadowRes.recorded[0].verdict;
+      if (shadowRes.triggered && shadowRes.activeRecords.length > 0) {
+        const topRec = shadowRes.activeRecords[0].verdict;
         verdict.triggered = true;
         verdict.decision = topRec.decision === 'ask' ? 'ask' : 'allow';
         verdict.detectorId = topRec.code || 'BUCKET_B_GUARD';
         verdict.reason = topRec.reason;
+        if (topRec.tokensSavedEst > 0) {
+          verdict.savedTokens = Math.max(
+            Number(verdict.savedTokens || 0),
+            Number(topRec.tokensSavedEst)
+          );
+        }
       }
     } catch (_shadowErr) {
-      // Non-fatal Bucket B shadow pass
+      // Non-fatal Bucket B shadow/coach pass
     }
+  }
+
+  if (
+    shouldPersistState &&
+    /^(?:Edit|MultiEdit|Write)$/i.test(toolName) &&
+    verdict.decision !== 'deny' &&
+    verdict.decision !== 'ask'
+  ) {
+    const rawEditPath = String(
+      tIn.file_path || tIn.Path || tIn.path || tIn.filePath || ''
+    ).trim();
+    if (rawEditPath) {
+      const addedTxt = String(
+        tIn.new_string ??
+          tIn.content ??
+          tIn.newText ??
+          (Array.isArray(tIn.edits) ? tIn.edits.map((e) => e?.new_string ?? '').join('\n') : '') ??
+          ''
+      );
+      const changedLines = addedTxt.split(/\r?\n/);
+      const netLines = changedLines.filter((l) => l.trim().length > 0).length;
+      if (!Array.isArray(engine.unverifiedEdits)) engine.unverifiedEdits = [];
+      engine.unverifiedEdits.push({
+        filePath: rawEditPath,
+        netLines,
+        changedLines: changedLines.slice(0, 64)
+      });
+      if (engine.unverifiedEdits.length > 32) {
+        engine.unverifiedEdits = engine.unverifiedEdits.slice(-32);
+      }
+      engine.codeEditedSinceLastTest = true;
+    }
+  }
+
+  if (shouldPersistState) {
+    writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
   }
 
   if (!verdict.triggered) {
@@ -385,7 +428,9 @@ export function runPreToolUseHook(event = {}, options = {}) {
 
   const detId = String(verdict.detectorId || '');
   const isQuotaSavingGuard =
-    /^(DET-04|DET-06|DET-09|DET-10|DET-11|DET-12|DET-13|DET-14|DET-20)$/.test(detId);
+    /^(DET-04|DET-06|DET-09|DET-10|DET-11|DET-12|DET-13|DET-14|DET-20|SLOPSQUAT_DEP_GATE|BLAST_RADIUS_BREAKER)$/.test(
+      detId
+    );
   if (
     isQuotaSavingGuard &&
     (verdict.decision === 'deny' || verdict.decision === 'ask' || verdict.decision === 'defer' || Boolean(verdict.astSignatureStub) || Boolean(verdict.deltaDiffStub)) &&
