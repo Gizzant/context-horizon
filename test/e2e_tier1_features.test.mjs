@@ -2604,7 +2604,7 @@ describe('Feature 31: Unified ctxtop CLI', () => {
   it('31.2 Unified ctxtop CLI: supports statusline command', async () => {
     const res = await runCli(['statusline', '--demo']);
     assert.ok(res);
-    assert.ok(res.line.includes('AH ['));
+    assert.ok(res.line.includes('HB ['));
   });
 
   it('31.3 Unified ctxtop CLI: supports doctor command', async () => {

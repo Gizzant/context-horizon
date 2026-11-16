@@ -310,12 +310,22 @@ test('UX-4: Self-contained Claude Code HTML HUD (renderHorizonPanelHtml & npx ah
       ]
     });
 
-    // 1. 4-Rank Simple View & 5-Accordion Advanced View DOM markers exist
+    // 1. 4-Card Tufte Glass Simple View & 5-Accordion Advanced View DOM markers exist
     for (const id of [
       'simpleViewContainer',
+      'claudeSimpleSurface',
       'verdictBanner',
       'capacityAndCacheCard',
+      'ccGlassVessel',
+      'ccGlassFill',
+      'ccGlassSegNew',
+      'ccGlassSegOld',
+      'ccGlassSegPinned',
       'priorityActionCard',
+      'ccDoRow',
+      'ccAvoidRow',
+      'ccActivitySection',
+      'ccGuardList',
       'tokensSavedCard',
       'advancedViewContainer',
       'advSavingsAccordion',

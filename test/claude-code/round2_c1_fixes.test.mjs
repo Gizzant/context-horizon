@@ -981,6 +981,20 @@ test('Follow-up Item 1: R estimator (prior 2.0, agreement reduction, >=3 local t
   assert.equal(shrunkAgree.expectedRequestsPerTurn, 4.4);
   assert.equal(shrunkAgree.source, 'stop_hook_agreed_shrunk_rpt_median');
 
+  // Trailing regime transition step-down ([2,2,2,1,1] tool setup -> Q&A) uses trailing R=1 while keeping turnsAgree=false
+  const trailStepDown = shrinkRollingRequestsPerTurn(2, 5, { recentTurnRequestCounts: [2, 2, 2, 1, 1] });
+  assert.equal(trailStepDown.turnsAgree, false);
+  assert.equal(trailStepDown.trailingRegimeDetected, true);
+  assert.equal(trailStepDown.expectedRequestsPerTurn, 1);
+  assert.equal(trailStepDown.source, 'stop_hook_trailing_regime_rpt');
+
+  // Trailing regime transition step-up ([1,1,1,5,5] Q&A -> tool-heavy) shrinks trailing R=5 toward prior: 0.8*5 + 0.2*2 = 4.4
+  const trailStepUp = shrinkRollingRequestsPerTurn(1, 5, { recentTurnRequestCounts: [1, 1, 1, 5, 5] });
+  assert.equal(trailStepUp.turnsAgree, false);
+  assert.equal(trailStepUp.trailingRegimeDetected, true);
+  assert.equal(trailStepUp.expectedRequestsPerTurn, 4.4);
+  assert.equal(trailStepUp.source, 'stop_hook_trailing_regime_shrunk_rpt');
+
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpt-shrinkage-eval-'));
   try {
     // 1. Simulate L1 @ T3 (2 prior tool turns with R = 2 each + synthetic command entries)
@@ -1202,6 +1216,65 @@ test('Follow-up Item 1: R estimator (prior 2.0, agreement reduction, >=3 local t
     assert.ok(hookL2.verdict.breakEven.horizonNetSavingsUSD < -0.02);
     assert.equal(hookL2.verdict.decision, 'ask');
     assert.ok(!hookL2.verdict.reason.includes('C*'));
+
+    // 2b. Simulate 12-turn short-chat regime transition at T6 ([2,2,2,1,1] setup -> Q&A, H=6)
+    const txShift = path.join(tmpDir, 'shift_t5.jsonl');
+    const shiftLines = [];
+    for (let t = 1; t <= 5; t += 1) {
+      const ctx = 9000 + t * 1100;
+      shiftLines.push(JSON.stringify({ type: 'user', message: { role: 'user', content: `Turn ${t}` } }));
+      shiftLines.push(
+        JSON.stringify({
+          type: 'assistant',
+          message: {
+            id: `msg_sh_${t}_a`,
+            role: 'assistant',
+            usage: { input_tokens: 3, cache_creation_input_tokens: 350, cache_read_input_tokens: ctx, output_tokens: 133 }
+          }
+        })
+      );
+      if (t <= 3) {
+        shiftLines.push(
+          JSON.stringify({
+            type: 'user',
+            message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: `tu_sh_${t}`, content: 'ok' }] }
+          }),
+          JSON.stringify({
+            type: 'assistant',
+            message: {
+              id: `msg_sh_${t}_b`,
+              role: 'assistant',
+              usage: { input_tokens: 3, cache_creation_input_tokens: 350, cache_read_input_tokens: ctx + 350, output_tokens: 133 }
+            }
+          })
+        );
+      }
+    }
+    fs.writeFileSync(txShift, `${shiftLines.join('\n')}\n`, 'utf8');
+    const stopShift = runStopGateHook(
+      { session_id: 'shift_rpt', transcript_path: txShift, cwd: tmpDir },
+      { cwd: tmpDir, homeDir: tmpDir, persistState: false }
+    );
+    assert.deepEqual(stopShift.sessionCalibration.recentTurnRequestCounts, [2, 2, 2, 1, 1]);
+    const hookShift = runPreModelSwitchHook(
+      {
+        hook_event_name: 'PreModelSwitch',
+        session_id: 'shift_rpt',
+        from_model: 'claude-opus-4-6',
+        to_model: 'claude-sonnet-4-6',
+        context_tokens: 14_789,
+        prompt_cache_warm: true,
+        cache_ttl: '5m',
+        expected_remaining_turns: 6,
+        mode: 'AUTO_PILOT'
+      },
+      { cwd: tmpDir, homeDir: tmpDir, recordLedger: false, bypassLicense: true }
+    );
+    assert.equal(hookShift.verdict.requestsPerTurnUsed, 1);
+    assert.equal(hookShift.verdict.rptEstimateSource, 'stop_hook_trailing_regime_rpt');
+    assert.equal(hookShift.verdict.rptTurnsAgree, false);
+    assert.equal(hookShift.verdict.contextGrowthPerTurnUsed, 0);
+    assert.equal(hookShift.verdict.blocked, true);
 
     // 3. Local R prior requires >= 3 qualifying sessions, excludes the current session, and excludes benchmark/harness sessions
     const projDir = path.join(tmpDir, '.claude', 'projects', 'projRpt');

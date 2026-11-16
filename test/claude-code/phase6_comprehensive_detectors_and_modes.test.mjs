@@ -836,8 +836,12 @@ test('D02: .claude-plugin/plugin.json uses canonical "attention-horizon" namespa
   const pluginJson = JSON.parse(
     fs.readFileSync(path.join(PROJECT_ROOT, '.claude-plugin', 'plugin.json'), 'utf-8')
   );
+  const rootPkg = JSON.parse(
+    fs.readFileSync(path.join(PROJECT_ROOT, 'package.json'), 'utf-8')
+  );
   assert.equal(pluginJson.name, 'attention-horizon');
-  assert.ok(['1.1.0', '4.0.0'].includes(pluginJson.version));
+  assert.match(pluginJson.version, /^\d+\.\d+\.\d+$/);
+  assert.equal(pluginJson.version, rootPkg.version);
   assert.match(pluginJson.description, /Highbeam/);
 });
 

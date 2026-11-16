@@ -6,6 +6,9 @@ node_modules/
 .claude/horizon-state/
 .claude/cache/
 .claude/locks/
+.claude/rules/rsl-*.md
+.claude/skills/rsl-*/
+.attention-horizon/
 .ctxtop/
 evaluation_bundles/
 dist/

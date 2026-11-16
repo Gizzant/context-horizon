@@ -1,0 +1,821 @@
+  <!-- =========================================================================
+       LIVE EDWARD TUFTE "ADVANCED VIEW" SURFACE (Active when data-view-mode=advanced)
+       ========================================================================= -->
+  <div id="argonAdvancedSurface" aria-label="Highbeam Advanced Telemetry Workbench">
+    <div class="ta-subhud">
+      <span id="taSessionLabel">Active Session</span>
+      <span>
+        5h: <strong id="taSprint5h" style="color:var(--hz-fg);">0%</strong> &middot;
+        7d: <strong id="taWeekly7d" style="color:var(--hz-fg);">0%</strong> &middot;
+        RAM: <strong id="taHostRam" style="color:var(--hz-fg);">0.0GB</strong>
+      </span>
+    </div>
+
+    <!-- Zone A: Chrono-Positional Physics -->
+    <section class="ts-zone">
+      <div class="ts-head">
+        <h2 class="ts-overline">Zone A &middot; Chrono-Positional Physics</h2>
+        <span id="taDualTtl" class="ts-meta" data-tone="muted">0% hit &middot; 5m KV 00:00</span>
+      </div>
+      <div class="ts-status-row">
+        <div class="ts-status-badge">
+          <span id="taStatusDot" class="ts-dot" data-tone="signal"></span>
+          <span id="taStatusLabel">Optimal Cache</span>
+        </div>
+        <div style="font-size:11px;">
+          <strong id="taUsedTok">0.0k</strong>
+          <span style="color:var(--hz-muted);">(<span id="taSigTok" style="color:var(--hz-useful);">0.0k</span> sig + <span id="taClutterTok" style="color:var(--hz-clutter);">0.0k</span> recl) / <span id="taSafeTok">179.0k</span></span>
+        </div>
+      </div>
+      <div id="taHorizonGrid" class="ta-cell-grid" role="listbox" aria-label="40-cell chronological context window"></div>
+      <div id="taCellInspector" class="ta-inspector">
+        <span id="taCellLeft">Cell #1 &middot; System Anchor &amp; Rules</span>
+        <span id="taCellRight">6.4k / cell &middot; 1.00 recall</span>
+      </div>
+      <div class="ta-ucurve">
+        <div><span style="color:var(--hz-muted);">Primacy (0–30%)</span><br><strong id="taUPrimacy" style="color:var(--hz-useful);">96% recall</strong></div>
+        <div><span style="color:var(--hz-muted);">Mid Trough (30–70%)</span><br><strong id="taUTrough" style="color:var(--hz-fg);">62% (0 specs)</strong></div>
+        <div><span style="color:var(--hz-muted);">Recency (70–100%)</span><br><strong id="taURecency" style="color:var(--hz-useful);">94% recall</strong></div>
+      </div>
+      <table class="ta-table" aria-label="Top context token consumers">
+        <thead>
+          <tr>
+            <th style="width:41%;">Consumer Target</th>
+            <th style="width:19%;">Pattern</th>
+            <th class="num" style="width:13%;">Tokens</th>
+            <th class="num" style="width:27%;">Protection</th>
+          </tr>
+        </thead>
+        <tbody id="taConsumersBody">
+          <tr><td colspan="4" style="color:var(--hz-muted);">Zero duplicate reads or dead error traces in active window.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Zone B: Action Queue & Router Governance -->
+    <section class="ts-zone">
+      <div class="ts-head">
+        <h2 class="ts-overline">Zone B &middot; Action Queue &amp; Router Governance</h2>
+        <div id="taRouterSwitch" style="display:inline-flex;gap:3px;">
+          <button type="button" class="ta-mini-btn" data-ta-mode="off">Off</button>
+          <button type="button" class="ta-mini-btn" data-ta-mode="coach" style="border-color:var(--hz-useful);color:var(--hz-useful);">Coach</button>
+          <button type="button" class="ta-mini-btn" data-ta-mode="autopilot">Auto-Pilot</button>
+        </div>
+      </div>
+      <div id="taActionQueue" class="ts-guidance-list">
+        <div class="ts-guidance-row" data-tone="do">
+          <span class="ts-tag">QUEUE</span>
+          <span>Nominal queue &middot; 0 orphan PIDs, 0 idle eager MCPs, 0 trough specs</span>
+        </div>
+      </div>
+      <div id="taRouterNote" class="ta-inspector" style="color:var(--hz-fg-secondary);">
+        KV Gravity Router ready &middot; Turn-boundary switch buffer armed
+      </div>
+    </section>
+
+    <!-- Zone C: Turn-0 Baseline & DET-01..32 Guard Log -->
+    <section class="ts-zone">
+      <div class="ts-head">
+        <h2 class="ts-overline">Zone C &middot; Turn-0 Baseline &amp; DET-01..32 Log</h2>
+        <span id="taDetBadge" class="ts-meta">32/32 guards armed</span>
+      </div>
+      <div class="ta-inspector">
+        <span id="taBaselineText">Turn-0 Baseline: <strong>0.0k</strong> / 20.0k budget</span>
+        <button type="button" id="taBtnShield" class="ta-mini-btn" disabled>Shield: 0 queued</button>
+      </div>
+      <table class="ta-table" aria-label="DET-01 to DET-32 guard log">
+        <thead>
+          <tr>
+            <th style="width:14%;">Age</th>
+            <th style="width:18%;">Guard</th>
+            <th style="width:50%;">Intervention</th>
+            <th class="num" style="width:18%;">Saved</th>
+          </tr>
+        </thead>
+        <tbody id="taGuardBody">
+          <tr><td>now</td><td>DET-01..32</td><td>FTS5 compressor &amp; 3-strike breakers armed</td><td class="num" style="color:var(--hz-muted);">armed</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Zone D: Verified Savings & Memory Surgery -->
+    <section class="ts-zone-last">
+      <div class="ts-head">
+        <h2 class="ts-overline">Zone D &middot; Verified Savings &amp; Memory Surgery</h2>
+        <div style="display:inline-flex;gap:4px;">
+          <button type="button" id="taBtnCopyCompact" class="ta-mini-btn">Copy /compact</button>
+          <button type="button" id="taBtnCopyReceipt" class="ta-mini-btn">Copy Receipt</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
+        <div>
+          <span id="taKpiTokens" class="ts-kpi-num">0.0k</span>
+          <span style="font-size:11px;color:var(--hz-muted);margin-left:4px;">saved</span>
+          <span id="taKpiUsd" style="font-size:11.5px;color:var(--hz-useful);margin-left:5px;font-weight:600;">$0.00</span>
+        </div>
+        <span id="taKpi30d" class="ts-meta">30d: 0.0k ($0.00)</span>
+      </div>
+      <div class="ta-source-grid">
+        <div><span style="color:var(--hz-muted);">Warm KV</span><br><strong id="taSrcCache">+0.0k</strong></div>
+        <div><span style="color:var(--hz-muted);">Subagents</span><br><strong id="taSrcSub">+0.0k</strong></div>
+        <div><span style="color:var(--hz-muted);">FTS5 CLI</span><br><strong id="taSrcCli">+0.0k</strong></div>
+        <div><span style="color:var(--hz-muted);">Guards</span><br><strong id="taSrcGuards">+0.0k</strong></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:6px;">
+        <button type="button" id="taBtnSurgeryPrimary" class="ts-cta-btn" data-cta-state="disabled" disabled>
+          <span id="taBtnSurgeryLabel">Memory Clean &middot; 0.0k Reclaimable</span>
+        </button>
+        <button type="button" id="taBtnForceAst" class="ta-mini-btn" style="padding:0 10px;border-color:var(--hz-clutter);color:var(--hz-clutter);" disabled>Fold AST</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="legacyCompatSurface" class="legacy-compat-surface" aria-hidden="true">
+  <!-- Active Conversation Context & Model Chip -->
+  <div class="active-session-strip" id="activeConversationStrip">
+    <div class="active-session-title-wrap">
+      <span class="active-session-icon" aria-hidden="true">&#x1F4AC;</span>
+      <span class="active-session-label">Active chat</span>
+      <span class="active-session-title" id="activeConversationTitle" title="Active Conversation">Active Conversation</span>
+    </div>
+    <div class="active-session-chips simple-only">
+      <span class="amnesia-radar-pill mono" id="simpleAmnesiaPill" hidden title="Memory check: whether your rules and pinned instructions are still inside the AI's working memory.">Memory: 3/3 safe</span>
+      <span class="simple-model-chip mono" id="simpleModelChip" title="Active model and reasoning effort. Changing either one mid-session rewrites the prompt cache, so the next turn costs full price.">Model Auto</span>
+    </div>
+    <button type="button" class="pinned-reset-chip mono" id="btnFollowActiveSession" hidden title="Currently inspecting a pinned conversation. Click to return to live Auto tracking.">Pinned &middot; Follow Active</button>
+  </div>
+
+  <!-- Box 1: Context Memory Capacity (Apple Bento Hero in Simple View; Full Box in Advanced View) -->
+  <section class="storage-card" id="storageCard">
+    <div class="simple-sec-intro"><span class="simple-sec-name">Context health</span><span class="simple-sec-blurb">How full the AI's working memory is. Past the safe limit it starts forgetting your earliest instructions.</span></div>
+    <!-- Deterministic Top-Level Verdict Pill -->
+    <div class="tufte-verdict-bar mono" id="unifiedVerdictBar" data-verdict-state="NOMINAL">
+      <span class="tufte-verdict-text" id="unifiedVerdictText">NOMINAL &middot; Cache warm &middot; 140k to Auto cap</span>
+      <span class="tufte-router-hold" id="unifiedRouterHoldNote" hidden></span>
+    </div>
+
+    <!-- Option A+ Hero Strip: Runway Left + Apple Watch SVG Cache Ring Right -->
+    <div class="simple-hero-row simple-only" id="simpleHeroRow">
+      <div class="simple-runway-stack">
+        <div class="simple-runway-hero" id="simpleRunwayHero" data-level="good">Healthy</div>
+        <div class="simple-runway-sub" id="simpleRunwaySub">0k / 140k safe &middot; 256k cap</div>
+      </div>
+      <div class="simple-cache-ring-wrap" id="simpleCacheRingWrap" data-warm="false" data-expiring="false" role="img" aria-label="Prompt cache" title="Prompt cache. 'hit' = share of your prompt served from cache at a discount. 'warm' = time left before the cache expires and the next turn is billed at full price.">
+        <svg class="simple-cache-ring-svg" viewBox="0 0 40 40" aria-hidden="true">
+          <circle class="cache-ring-bg" cx="20" cy="20" r="16"></circle>
+          <circle class="cache-ring-fg" id="simpleCacheRingArc" cx="20" cy="20" r="16" stroke-dasharray="100.53" stroke-dashoffset="100.53"></circle>
+        </svg>
+        <div class="simple-cache-ring-meta">
+          <span class="simple-cache-ring-cap" id="simpleCacheRingCap">Prompt cache</span>
+          <span class="simple-cache-ring-pct" id="simpleCacheRingPct">Cold</span>
+          <span class="simple-cache-ring-ttl" id="simpleCacheRingTtl">0s warm</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-box-header">
+      <div class="section-box-title-group">
+        <span class="section-box-icon" aria-hidden="true">&#x1F4CA;</span>
+        <h2 class="section-box-title">Context Memory Capacity</h2>
+      </div>
+      <div class="section-box-meta-group">
+        <span class="prefix-lock-badge mono" id="prefixLockBadge" hidden title="Active warm cache (&gt;50k tokens). Switching models (within or across families) triggers a full uncached cache rebuild; on Claude, changing reasoning effort also re-bills cached chat history (Gemini thinking-level changes keep the cache).">&#x1F512; Warm</span>
+        <span class="summary-status-pill mono" id="sessionModelPill" style="font-size:10px;">Auto</span>
+        <span class="summary-status-pill mono" id="storageHorizonBadge">Safe Limit: 140k</span>
+      </div>
+    </div>
+    <div class="storage-top">
+      <div>
+        <span class="used-big mono" id="usedBig">0k</span>
+        <span class="used-of mono">/ <span id="usedMaxTok">256k</span> tokens (<span id="usedPct">0%</span>)</span>
+        <span class="ceiling-clamp-pill mono" id="ceilingClampPill" hidden></span>
+      </div>
+      <div class="free-wrap">
+        <span class="tufte-model-burn-pill mono" id="tufteModelBurnPill" title="Active Model &amp; Effort Burn Multiplier">Flash 3.8 &middot; Auto</span>
+        <span class="tufte-sparkline-group mono" id="tufteTurnSparkline" title="16-turn token velocity sparkline"></span>
+        <div class="free-label mono" id="freeLabel">140k safe limit</div>
+        <button class="gear-btn" id="btnSettings" type="button" title="Safe limit & reminder settings" aria-expanded="false" aria-controls="settingsPop">&#x2699;</button>
+      </div>
+    </div>
+    <form class="settings-pop" id="settingsPop" hidden>
+      <label>Safe limit (tokens)
+        <input type="number" id="setSafeLimit" min="20000" max="1048576" step="1000" required>
+      </label>
+      <label>Remind me at (% of limit)
+        <input type="number" id="setReminderPct" min="50" max="99" step="1" required>
+      </label>
+      <div class="settings-row">
+        <button type="submit" class="settings-save">Save</button>
+        <button type="button" class="settings-cancel" id="btnSettingsCancel">Cancel</button>
+        <span class="settings-msg" id="settingsMsg"></span>
+      </div>
+    </form>
+    <div class="delta-line mono" id="deltaLine" style="display:none;"></div>
+    <div class="tufte-delta-accounting mono" id="tufteDeltaAccounting" hidden></div>
+
+    <div class="bar-outer">
+      <div class="cascade-line" id="cascadeWatermarkLine" title="50k Cascade Sync Armed: Crossing 50k arms the automatic checkpointer. Completing a task.md item or switching subagents will trigger synchronous auto-compaction.">
+        <span class="cascade-tag mono" id="cascadeWatermarkTag">50k Sync</span>
+      </div>
+      <div class="limit-line border-rose-400/80" id="limitLine" title="Attention Horizon (Safe Limit): Above this mark, earliest instructions start being forgotten">
+        <span class="limit-tag text-rose-300" id="limitTag">Safe Limit</span>
+      </div>
+      <div class="hard-ceiling-line" id="hardCeilingLine" data-source="cortex/utils.GetCheckpointConfig" title="Hard assembly limit (cortex/utils.GetCheckpointConfig)">
+        <span class="hard-ceiling-tag mono" id="hardCeilingTag">256k</span>
+      </div>
+      <div class="bar-track">
+        <div class="seg-useful" id="barUseful" style="width: 0%" title="Active Signal"></div>
+        <div class="seg-clutter" id="barClutter" style="width: 0%" title="Reclaimable"></div>
+        <div class="seg-error" id="barError" style="width: 0%; display: none;" title="Resolved Errors"></div>
+      </div>
+    </div>
+
+    <div class="breakdown-grid">
+      <div class="b-item" title="Rules, task plan, and active files the agent is working with right now">
+        <div class="b-head">
+          <span class="b-swatch" style="background:var(--hz-useful)"></span>
+          <span>Useful Context</span>
+        </div>
+        <div class="b-val mono" id="valUseful" style="color:var(--hz-useful) !important;">0k (100%)</div>
+        <button class="b-sub b-toggle" id="btnSignalToggle" aria-expanded="false" aria-controls="signalDrawer" title="Click to see what is inside Useful Context" style="white-space:nowrap;"><span class="caret">&#x25B6;</span> Rules &amp; work</button>
+      </div>
+
+      <div class="b-item" title="Old conversation steps and duplicate file snapshots that can be safely freed">
+        <div class="b-head">
+          <span class="b-swatch" id="swatchClutter" style="background:var(--hz-clutter)"></span>
+          <span id="lblClutter">Reclaimable</span>
+        </div>
+        <div class="b-val mono" id="valClutter">0k (0%)</div>
+        <div class="b-sub" id="subClutter">Can be cleared</div>
+        <div class="tufte-col2-cache-strip mono" id="tufteCol2CacheStrip">
+          <span id="tufteCol2TtlLabel">Cold &middot; 0s</span>
+          <div class="tufte-col2-bar-track"><div class="tufte-col2-bar-fill" id="tufteCol2BarFill" style="width: 0%;"></div></div>
+        </div>
+      </div>
+
+      <div class="b-item" title="Available memory before the agent begins truncating earliest instructions">
+        <div class="b-head">
+          <span class="b-swatch" id="swatchFree" style="background:#334155; border: 1.5px solid #64748b"></span>
+          <span id="lblFree">Safe Headroom</span>
+        </div>
+        <div class="b-val mono text-slate-100" id="valFree" style="color:#f1f5f9 !important;">140k left</div>
+        <div class="b-sub" id="subFree">Until 140k safe limit</div>
+      </div>
+    </div>
+
+    <!-- Honest 2-Item Storage Legend & Burn Rate (Simple View Only) -->
+    <div class="simple-bar-legend simple-only" id="simpleBarLegend">
+      <div class="sbl-pair">
+        <span class="sbl-item"><i class="sbl-dot useful"></i><strong id="simpleUsefulVal">0k</strong> Useful</span>
+        <span class="sbl-item"><i class="sbl-dot reclaim"></i><strong id="simpleReclaimVal">0k</strong> Reclaimable</span>
+      </div>
+      <span class="simple-burn-lbl mono" id="simpleBurnRateLbl"></span>
+    </div>
+
+    <!-- Inline Top-Offender Cause Attribution (Simple View Only, auto-hides when clean) -->
+    <div class="simple-top-offender mono simple-only" id="simpleTopOffenderLine" hidden></div>
+
+    <!-- 1-line Primary Bloat Driver Callout (Advanced View) -->
+    <div class="storage-bloat-callout mono" id="storagePrimaryBloatLine">
+      <span class="bloat-callout-icon">&#x25CF;</span>
+      <strong class="bloat-callout-label">Primary Bloat:</strong>
+      <span class="bloat-callout-text" id="storagePrimaryBloatText">Analyzing transcript forensics...</span>
+    </div>
+  </section>
+
+  <!-- Rank 2B: Top-3 Context Hogs & Swarm Collision (Simple View) / Full Quota Telemetry (Advanced View) -->
+  <section class="quota-strip cache-box mono" id="quotaStrip">
+    <div class="simple-sec-intro"><span class="simple-sec-name">Waste &amp; prompt cache</span><span class="simple-sec-blurb">Files and old errors wasting memory that you can free, plus when the prompt cache (a discount on re-sent text) expires.</span></div>
+    <div class="section-box-header">
+      <div class="section-box-title-group">
+        <span class="section-box-icon" aria-hidden="true">&#x26A1;</span>
+        <h2 class="section-box-title">Prompt Cache &amp; Quota Pacing</h2>
+      </div>
+      <div class="section-box-meta-group">
+        <span class="summary-status-pill mono" id="quotaCacheStatusPill">Cold</span>
+      </div>
+    </div>
+
+    <details class="simple-hogs-drawer simple-only" id="simpleTopHogsDrawer" data-empty="true">
+      <summary class="simple-hogs-summary" id="simpleTopHogsSummary">
+        <span id="simpleTopHogsLabel">Clean working set &middot; 0 context hogs</span>
+        <span class="mono" id="simpleTopHogsHint"></span>
+      </summary>
+      <div class="simple-hogs-list" id="simpleTopHogsList"></div>
+    </details>
+
+    <div class="cache-efficiency-meter mono" id="cacheEfficiencyMeter">
+      <div class="cache-meter-row">
+        <span class="cache-meter-hit" id="cacheHitPctDisplay"><strong id="cacheHitPctVal">0%</strong> Cached</span>
+        <span class="cache-meter-split" id="cacheTokenSplitDisplay">No active discount</span>
+        <span class="cache-meter-countdown ttl-countdown-clock mono cold" id="ttlCountdownClock" title="5-Minute Prompt Cache Window">Expired</span>
+        <span class="cache-meter-saved" id="cacheTokensSavedDisplay">+0k saved</span>
+      </div>
+      <div class="cache-meter-row sprint-metrics-row mono" id="sprintMetricsRow">
+        <span class="sprint-metric retention" id="prefixRetentionDisplay" data-grade="n/a" title="Prefix-Cache Retention Index: share of the reusable prompt prefix actually served from warm KV cache on turns 2+ inside the TTL.">Retain &mdash;</span>
+        <span class="sprint-metric drift" id="thinkingDriftDisplay" data-drift="n/a" title="Thinking vs. Generation Drift: reasoning tokens / visible output tokens on the latest turn, plus time-to-first-token.">Think &mdash; &middot; TTFT &mdash;</span>
+      </div>
+      <details class="swarm-topology-drawer mono" id="swarmTopologyDrawer" data-mode="solo" data-collision="false">
+        <summary id="swarmTopologySummary" title="Subagent /swarm roster, git worktrees and scope-lock overlaps (DET-20). Parked (waiting) workers cost $0 until messaged.">Solo agent</summary>
+        <div class="swarm-topology-body" id="swarmTopologyBody"></div>
+      </details>
+      <div class="cache-timer-bar-track" title="5-Minute Prompt Cache Timer">
+        <div class="cache-timer-bar-fill cold" id="cacheTimerBarFill" style="width: 0%;"></div>
+      </div>
+      <div class="cache-operational-guide cold" id="cacheOperationalGuide">
+        <span class="guide-icon" id="guideIcon">&#x1F513;</span>
+        <span class="guide-text" id="guideText"><strong>What to do now:</strong> Cache is cold — great time to run <code>/compact</code>, switch models, or edit rules without losing a discount.</span>
+      </div>
+    </div>
+
+    <!-- Quota Telemetry Pills (Advanced View) -->
+    <div class="quota-pills flex items-center justify-between gap-2 flex-wrap" id="quotaPills">5h Sprint: 0% &middot; 7d: 0% &middot; Cache: 0% hit (300s TTL)</div>
+    <div class="physical-metrics-bar mono" id="physicalMetricsBar" style="display:none;">0k / 256k &middot; 0% &middot; Cache Hit: 0% &middot; Waste: 0k &middot; TTL: 300s</div>
+    <div class="quota-Forecast" id="quotaForecast" hidden></div>
+    <div class="quota-meta-row mono" id="quotaMetaRow" hidden>
+      <span id="quotaPoolReset"></span>
+      <span class="quota-credits" id="quotaAiCredits" hidden></span>
+    </div>
+    <div class="overage-guardrail-banner" id="quotaOverageAlert" hidden></div>
+    <div class="overage-guardrail-banner warn" id="overageTtlCliffBanner" hidden></div>
+    <div class="overage-guardrail-banner danger" id="coldSessionCostGateBanner" hidden></div>
+    <div class="overage-guardrail-banner warn" id="prefixMutationDiffBanner" hidden></div>
+  </section>
+
+  <!-- Tier 2: Event-Driven Intervention Card Slot -->
+  <div class="tier2-intervention-slot" id="tier2InterventionSlot" hidden>
+    <div class="tier2-card-body">
+      <span class="tier2-card-title" id="tier2CardTitle">Intervention Required</span>
+      <span class="tier2-card-sub mono" id="tier2CardSub"></span>
+    </div>
+    <button type="button" class="mini-btn m3-action-btn" id="btnTier2PrimaryAction"><span class="simple-emoji-decor" aria-hidden="true">&#x1F4CB; </span>Copy Prompt</button>
+  </div>
+
+  <!-- Emergency Circuit Breaker & Drift Alerts (Circuit Breaker surfaces in Simple View too) -->
+  <div class="overage-guardrail-banner danger" id="detCircuitBreakerAlert" hidden style="margin: 4px 0; padding: 6px 10px;">
+    <span class="alert-icon">&#x26A0;</span>
+    <span id="detCircuitBreakerMsg">Guardrail Intervention Active</span>
+  </div>
+  <div class="high-effort-sludge-banner" id="highEffortSludgeBanner" hidden style="margin: 6px 0;"></div>
+  <div class="artifact-drift-banner" id="artifactDriftBanner" hidden style="margin: 6px 0;"><span id="artifactDriftText"></span> <button type="button" class="mini-btn" id="btnDriftSaveTask" title="Sends a prompt to the agent in this chat to save progress to task.md (same as Ask Agent: Save task.md)">Save task.md</button></div>
+
+  <!-- Rank 3: GitHub Check-Run Action Slot (Simple View) -->
+  <div class="simple-nominal-confirm simple-only" id="simpleNominalConfirm">
+    <span class="nominal-left">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.2"/><path d="M5.4 8.2 7.2 10l3.5-3.8"/></svg>
+      <span>Auto-guard healthy</span>
+    </span>
+    <span class="savings-scope-sub mono" id="simpleNominalSub">0 actions needed</span>
+  </div>
+
+  <section class="health-summary-card simple-actionable-card simple-only" id="simpleActionableBox" hidden>
+    <div class="health-summary-header section-box-header">
+      <div class="health-summary-title-group">
+        <span class="health-summary-icon" aria-hidden="true">&#x26A1;</span>
+        <h2 class="health-summary-title">Recommended Actions</h2>
+      </div>
+      <div class="health-summary-meta-group" style="display:inline-flex; align-items:center; gap:8px;">
+        <button type="button" id="simpleResetDismissedBtn" class="m3-reset-btn mono" style="display:none;" title="Restore all dismissed recommendations">&#x21BA; Reset (<span id="simpleResetDismissedCount">0</span>)</button>
+        <span class="summary-status-pill warn mono" id="simpleActionCountPill">0 actions</span>
+      </div>
+    </div>
+    <div class="cache-gated-hold-banner mono" id="cacheGatedHoldBanner" style="display:none;">
+      <span id="cacheGatedHoldMsg">&#x23F3; <strong id="cacheGatedHoldCount">0 actions</strong> held while cache is warm (<span id="cacheGatedHoldTtl">0s TTL</span>)</span>
+      <button type="button" class="cache-gated-toggle-btn" id="btnToggleDeferredActions">Show anyway</button>
+    </div>
+    <div class="action-rows-stack" id="simpleActionList"></div>
+  </section>
+
+  <!-- Advanced View Workbench: 4 Clean Collapsible Drawers -->
+  <details class="adv-accordion hz-adv-drawer advanced-only" id="advAccWindow" data-adv-id="window" open>
+    <summary class="adv-accordion-summary">
+      <span class="adv-accordion-title">1. Context &amp; Cache Physics (40-Cell Map &amp; Consumers)</span>
+      <span class="summary-status-pill mono" id="advWindowSummaryPill">40 cells</span>
+    </summary>
+    <div class="adv-accordion-body">
+      <details class="advanced-drawer" id="chronoTimelineDrawer" data-slot="collapsible" open>
+        <summary><span>40-Cell Context Window Map</span><span class="mono" id="cellSizeTag" style="font-size:10px;">6.4k / cell</span></summary>
+        <div class="mini-timeline" id="miniTimeline"></div>
+        <div class="tufte-horizon-scale scale-ticks mono" id="tufteHorizonScale">
+          <span class="tufte-scale-tick" id="tufteScaleTick0" style="left:0%;">0k</span>
+          <span class="tufte-scale-tick" id="tufteScaleTick50" style="left:19.5%;transform:translateX(-50%);">50k</span>
+          <span class="tufte-scale-tick" id="tufteScaleTickTrough" style="left:36%;transform:translateX(-50%);">Mid-Window (Lowest Recall)</span>
+          <span class="tufte-scale-tick tufte-scale-limit" id="tufteScaleLimitLabel" style="left:57.4%;transform:translateX(-50%);">147k&#x26A1; High limit</span>
+          <span class="tufte-scale-tick" id="tufteScaleMaxLabel" style="right:0%;">256k</span>
+        </div>
+        <div class="chrono-glyph-key mono">
+          <span>&#x26A1; Subagent call &middot; &#x21C4; Model/Effort shift</span>
+          <span>Hover/click cell to inspect</span>
+        </div>
+        <div class="det17-badge-strip mono" id="det17BadgeStrip" hidden></div>
+        <div class="top-risky-cells-list mono advanced-only" id="topRiskyCellsList" hidden></div>
+        <div class="mini-inspector mono" id="miniInspector">Hover or click any block above to inspect 6.4k token slice</div>
+        <div class="stranded-signal-banner" id="strandedSignalBanner" hidden></div>
+        <div class="cell-turn-filter-panel mono" id="cellTurnFilterPanel" hidden></div>
+        <div class="subagent-pills mono" id="subagentPills" hidden></div>
+      </details>
+
+      <!-- Context Consumers & Remediations -->
+      <section class="playbook-card advanced-only" data-slot="accordion">
+        <div class="section-box-header playbook-header">
+          <div class="section-box-title-group">
+            <span class="section-box-icon" aria-hidden="true">&#x1F50D;</span>
+            <h2 class="section-box-title playbook-title">Context Consumers &amp; Remediations</h2>
+          </div>
+          <div class="section-box-meta-group">
+            <span class="summary-status-pill mono playbook-sub" id="playbookSub">Context Consumers</span>
+          </div>
+        </div>
+        <div id="playbookList"></div>
+      </section>
+
+      <!-- Action Queue Control Surface -->
+      <div class="action-queue mono advanced-only" id="actionQueuePanel" hidden>
+        <div class="section-box-header aq-head">
+          <div class="section-box-title-group">
+            <span class="section-box-icon" aria-hidden="true">&#x1F4CB;</span>
+            <h2 class="section-box-title" id="aqTitle">Action Queue (Ranked Payoff)</h2>
+          </div>
+          <div class="section-box-meta-group">
+            <span class="aq-payoff-total summary-status-pill mono" id="aqTotalPayoff" style="color:var(--hz-useful);font-weight:normal;"></span>
+          </div>
+        </div>
+        <div class="aq-list" id="aqList"></div>
+      </div>
+
+      <!-- Smart Action Center: Step-by-Step Guided Action -->
+      <section class="action-card" id="actionCard">
+        <div class="simple-sec-intro"><span class="simple-sec-name">Next best step</span><span class="simple-sec-blurb">The one action that protects this session most right now. Copy it, then paste it into the chat.</span></div>
+        <div class="section-box-header">
+          <div class="section-box-title-group">
+            <span class="section-box-icon" aria-hidden="true">&#x26A1;</span>
+            <h2 class="section-box-title">Smart Action Center</h2>
+          </div>
+          <div class="section-box-meta-group">
+            <span class="summary-status-pill mono" id="actionCardStatusPill">Active</span>
+          </div>
+        </div>
+        <div class="action-msg">
+          <span class="action-icon" id="actionIcon">&#x2713;</span>
+          <div id="actionText">
+            <strong>Memory is clean.</strong> Only active files and rules are loaded.
+          </div>
+        </div>
+
+        <div class="guided-step-box" id="guidedStepBox" style="display:none;">
+          <div class="cache-compaction-advisory warm-defer" id="cacheCompactionAdvisory" data-advisory-state="warm-defer">
+            Cache is currently warm (95% token cost discount). Defer compaction until work pause to avoid 70s execution stall and complete KV cache invalidation.
+          </div>
+          <div class="action-rows-stack" id="actionRowsStack">
+            <div class="m3-action-row" id="actionRowCheckpoint" hidden>
+              <div class="m3-action-content">
+                <span class="m3-action-icon dot" id="actionCheckpointDot">&#x25CF;</span>
+                <div class="m3-action-text">
+                  <span class="m3-action-title" id="actionCheckpointTitle">Update task.md checkpoint before compacting</span>
+                  <span class="m3-action-sub mono" id="actionCheckpointSub">currently 1 turn behind</span>
+                </div>
+                <button type="button" class="mini-btn m3-action-btn" id="btnActionSaveTask" title="Ask Agent to save progress to task.md">Save task.md</button>
+              </div>
+            </div>
+
+            <!-- Action 1: /compact instruction & 1-click copy button -->
+            <div class="m3-action-row" id="actionRowCompact">
+              <div class="compact-instruction" id="compactInstruction">
+                <span class="m3-action-icon amber" aria-hidden="true">&#x26A1;</span>
+                <div class="compact-instruction-main">
+                  <span class="compact-instruction-title">Compact conversation history</span>
+                  <span class="compact-instruction-sub mono">Type <kbd class="cmd-kbd">/compact</kbd> in the chat box and press <kbd>Enter</kbd></span>
+                </div>
+                <span class="compact-reclaim mono" id="compactReclaim">reclaims ~0k</span>
+                <button type="button" class="mini-btn m3-action-btn mono" id="btnCompactPrimary" title="Copy /compact command to clipboard"><span class="simple-emoji-decor" aria-hidden="true">&#x1F4CB; </span>Copy /compact</button>
+              </div>
+            </div>
+
+            <div class="m3-action-row" id="actionRowHighLeverage" hidden>
+              <div class="m3-action-content">
+                <span class="m3-action-icon spark" id="actionHighLeverageIcon">&#x2726;</span>
+                <div class="m3-action-text">
+                  <span class="m3-action-title" id="actionHighLeverageTitle">Promote 1 unlogged correction to AGENTS.md</span>
+                  <span class="m3-action-sub mono" id="actionHighLeverageSub">Primacy zone candidate</span>
+                </div>
+                <button type="button" class="mini-btn m3-action-btn" id="btnActionHighLeverage" title="Execute high-leverage action">Promote Rule</button>
+              </div>
+            </div>
+          </div>
+          <details class="param-compact-details advanced-only" id="parameterizedCompactDetails">
+            <summary>Parameterized <code>/compact</code> template</summary>
+            <div class="param-compact-box mono" id="parameterizedCompactBox">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;">
+                <span class="param-compact-label">Parameterized Compaction Template (Copy or Type in Chat)</span>
+                <button type="button" class="mini-btn m3-action-btn mono" id="btnCopyParameterizedCompact" title="Copy parameterized /compact command to clipboard"><span class="simple-emoji-decor" aria-hidden="true">&#x1F4CB; </span>Copy Template</button>
+              </div>
+              <div id="parameterizedCompactText">/compact Focus on preserving: 1) Exported symbol signatures and state scales for [active workspace files], 2) Current checklist state in task.md.</div>
+            </div>
+          </details>
+          <div class="baton-pass-row advanced-only" id="batonPassRow">
+            <div class="baton-pass-info">
+              <strong>Save Handoff &amp; Start Fresh Chat</strong> &middot; Start fresh: writes <code>docs/HANDOFF_&lt;time&gt;.md</code> to paste into a new chat
+            </div>
+            <button type="button" class="btn-baton-pass" id="btnGenerateHandoff" title="Writes docs/HANDOFF_<timestamp>.md summarizing active AST contracts, test states, and pending task.md tasks">Generate Handoff Markdown</button>
+          </div>
+
+          <div class="action-footers-row advanced-only">
+            <details class="survive-drawer" id="surviveDrawer">
+              <summary>What survives /compact?</summary>
+              <div class="survive-grid">
+                <div class="survive-col keep">
+                  <div class="survive-title">&#x2713; Preserved</div>
+                  <ul>
+                    <li>AGENTS.md &amp; rules</li>
+                    <li>task.md state</li>
+                    <li id="surviveRecent">Most recent active turns</li>
+                  </ul>
+                </div>
+                <div class="survive-col drop">
+                  <div class="survive-title" id="surviveDropTitle">Compressed</div>
+                  <ul id="surviveDropList"></ul>
+                </div>
+              </div>
+            </details>
+
+            <details class="secondary-drawer" id="secondaryDrawer">
+              <summary>Other actions (Save, refresh, start fresh) <span class="handoff-dot" id="handoffDot"></span></summary>
+              <div class="secondary-buttons">
+                <button class="btn-secondary" id="btnCheckpoint" title="Sends a prompt to the agent in this chat to save progress to task.md">&#x1F4AC; Ask Agent: Save task.md</button>
+                <button class="btn-secondary" id="btnCondenseAst" title="Condenses stale duplicate file reads into compact declaration signature stubs and collapses resolved stack traces (Prefix-Cache Safe)">&#x2702;&#xFE0F; Condense Stale Reads (Signature Stubs)</button>
+                <button class="btn-secondary" id="btnNewChat" title="Opens a fresh chat session with handoff context from this conversation">&#x1F680; Resume in Clean Chat &#x2197;</button>
+              </div>
+              <div class="handoff-status" id="handoffStatus" hidden></div>
+              <div class="handoff-confirm" id="handoffConfirm" hidden>
+                <div id="handoffConfirmMsg"></div>
+                <div class="handoff-confirm-btns">
+                  <button class="mini-btn" id="btnSyncFirst">Sync task.md first</button>
+                  <button class="mini-btn muted" id="btnStartAnyway">Start anyway</button>
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+      </section>
+    </div>
+  </details>
+
+  <details class="adv-accordion hz-adv-drawer advanced-only" id="advAccGuards" data-adv-id="guards">
+    <summary class="adv-accordion-summary">
+      <span class="adv-accordion-title">2. Active Guards, DET-01..32 Breakers &amp; Savings Ledger</span>
+      <span class="summary-status-pill mono" id="advGuardsSummaryPill">32 active</span>
+    </summary>
+    <div class="adv-accordion-body">
+      <div class="coaching-guardrails-row mono" id="coachingGuardrailsLine">
+        <span class="guardrails-icon">&#x1F6E1;&#xFE0F;</span>
+        <span id="coachingGuardrailsText">32 guards active (DET-01..32) &middot; FTS5 Log Compression: 0.0k tokens saved</span>
+      </div>
+      <div class="mono" id="advCircuitBreakerLog" style="font-size:10.5px;color:var(--hz-muted);">No circuit breakers tripped in this session.</div>
+      <div class="cross-session-banner mono advanced-only" id="crossSessionOffenderBanner" hidden>
+        <span id="crossSessionOffenderText"></span>
+        <button type="button" class="mini-btn" id="btnExportSanitized" title="Export a zero-PII sanitized JSON snapshot with secrets and tokens scrubbed">[Export Sanitized Snapshot]</button>
+      </div>
+      <div class="adv-sub-ledger" id="advAccQuota" data-adv-id="quota" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--hz-border);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+          <span class="mono" style="font-size:10.5px;font-weight:600;color:var(--hz-fg);">Verified Savings Ledger</span>
+          <span class="summary-status-pill mono" id="advQuotaSummaryPill">+0.0k saved</span>
+        </div>
+        <div class="savings-why-drawer mono" id="advSavingsBreakdownBox" style="border-top:none;padding-top:0;">
+          <div class="savings-why-row"><span>Subagent context isolation</span><strong id="advSavSubagentVal">+0.0k</strong></div>
+          <div class="savings-why-row"><span>Warm prompt cache (95% discount + shield)</span><strong id="advSavCacheVal">+0.0k</strong></div>
+          <div class="savings-why-row"><span>CLI &amp; log output compression (FTS5)</span><strong id="advSavCliVal">+0.0k</strong></div>
+          <div class="savings-why-row"><span>Loops, re-reads &amp; tail trims avoided</span><strong id="advSavGuardsVal">+0.0k</strong></div>
+        </div>
+        <footer class="tier3-saved-quota-footer mono" id="savedQuotaFooterBar">
+          <span class="tier3-receipt-text" id="savedQuotaReceiptText">Tokens Saved: +0.0k (0 Cold Prefills &middot; 0 Downshifts &middot; 0 CLI Compress)</span>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button type="button" class="btn-copy-receipt mono" id="btnCopySavingsReceipt" title="Copy Markdown Verified Tokens Saved Receipt to clipboard">[Copy Receipt]</button>
+            <a href="/api/receipt/export?format=pdf" download class="btn-copy-receipt mono" id="btnExportPdfReceipt" style="text-decoration:none;" title="Download Signed Corporate Expense Receipt (PDF 1.4)">[Export PDF Receipt]</a>
+          </div>
+        </footer>
+      </div>
+    </div>
+  </details>
+
+  <details class="adv-accordion hz-adv-drawer advanced-only" id="advAccRouter" data-adv-id="router">
+    <summary class="adv-accordion-summary">
+      <span class="adv-accordion-title">3. Model Router, Effort Timeline (&#x21C4;) &amp; Sessions</span>
+      <span class="summary-status-pill mono" id="coachingStatusPill">Coach Active</span>
+    </summary>
+    <div class="adv-accordion-body">
+      <section class="coaching-box advanced-only" id="coachingBox">
+        <div class="section-box-header" style="display:none;">
+          <div class="section-box-title-group">
+            <span class="section-box-icon" aria-hidden="true">&#x1F3AF;</span>
+            <h2 class="section-box-title">Active Coaching &amp; Effort Governor</h2>
+          </div>
+        </div>
+        <div class="model-coach-bar mono" id="modelCoachBar">
+          <div class="model-coach-status">
+            <span class="model-coach-badge" id="modelCoachLiveLabel">Active: Gemini 4 Argon &bull; High (9.25x burn &bull; live synced)</span>
+            <span class="model-coach-reset" id="modelCoachResetLabel">Resets in 46m</span>
+          </div>
+          <div class="model-coach-controls">
+            <div class="model-mode-switch" role="group" aria-label="Router Mode">
+              <button type="button" class="mode-btn" id="btnModeOff" data-mode="off">Off</button>
+              <button type="button" class="mode-btn active" id="btnModeCoach" data-mode="coach">Coach</button>
+              <button type="button" class="mode-btn" id="btnModeAutopilot" data-mode="autopilot">Auto-Pilot</button>
+            </div>
+            <button type="button" class="mini-btn mono" id="btnUnlockHysteresis" hidden title="1-click unlock for Hysteresis Tier Escalation">&#x1F513; Unlock Tier</button>
+            <div class="coach-pill" id="coachActionPill" hidden></div>
+            <div class="subagent-live-pill mono" id="subagentLivePill" hidden title="Active Subagent Phantom Burn Auditor"></div>
+          </div>
+        </div>
+        <div class="action-rows-stack coaching-actions-stack" id="coachingActionList" hidden></div>
+      </section>
+      <div class="mono" id="advEffortHistoryList" style="font-size:10.5px;color:var(--hz-muted);">No model or effort switches recorded in this chat.</div>
+      <div class="adv-session-inspector" id="advSessionInspector">
+        <div class="adv-session-inspector-head">
+          <span class="session-label">Inspect Past Conversation</span>
+          <span class="adv-session-hint mono">Alt+Click Open &#x2197; for brain folder</span>
+        </div>
+        <div class="session-bar-controls">
+          <select class="session-select" id="sessionSelect" aria-label="Select conversation" title="Select which conversation's context memory to inspect">
+            <option value="auto">&#x26A1; Auto (Active Conversation)</option>
+          </select>
+          <button class="icon-btn" id="btnOpenChat" title="Click: Switch IDE chat pane to the selected conversation | Alt+Click: Open local ~/.gemini/&lt;surface&gt;/brain/&lt;session-uuid&gt;/ folder in OS file explorer">Open &#x2197;</button>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <details class="adv-accordion hz-adv-drawer advanced-only" id="advAccRules" data-adv-id="rules">
+    <summary class="adv-accordion-summary">
+      <span class="adv-accordion-title">4. Workspace Rules, MCP Audit &amp; Candidates</span>
+      <span class="summary-status-pill mono" id="advRulesSummaryPill">Rules &amp; MCP</span>
+    </summary>
+    <div class="adv-accordion-body">
+      <div class="signal-drawer" id="signalDrawer">
+        <div class="sig-row">
+          <div class="sig-head"><span class="sig-name">Workspace Baseline Overhead</span><span class="sig-val mono" id="sigBaseVal">0k (0%)</span></div>
+          <div class="sig-desc" id="sigBaseStaticNote">AGENTS.md / .agents/rules/, active skills &amp; loaded MCP tool schemas. Loaded every turn; <code>/compact</code> keeps it.</div>
+          <div class="bucket-bars mono" id="bucketBars" hidden></div>
+          <div class="duplicate-plugin-notice mono" id="duplicatePluginNotice" hidden></div>
+          <ul class="base-rows mono" id="baseRows" hidden></ul>
+        </div>
+        <div class="sig-row">
+          <div class="sig-head"><span class="sig-name">Live Session Work</span><span class="sig-val mono" id="sigLiveVal">0k (0%)</span></div>
+          <div class="sig-desc">Pinned task.md state &amp; your most recent active turns.</div>
+        </div>
+        <div class="sig-row" id="uShapedAttentionRow">
+          <div class="sig-head"><span class="sig-name">Rule Position &amp; Attention Decay (Read-Only)</span><span class="sig-val mono" id="uCurveHealthVal">Primacy: 94%</span></div>
+          <div class="sig-desc" id="uCurveHealthDesc">Read-only conversation positional decay &middot; Middle Trough: 0 critical turns &middot; Static Prefix Diet ceiling: 8k tok</div>
+          <div class="prefix-shield-staged-queue mono" id="prefixShieldQueue" hidden></div>
+        </div>
+      </div>
+
+      <section class="rsi-box advanced-only" id="rsiBox">
+        <div class="section-box-header">
+          <div class="section-box-title-group">
+            <span class="section-box-icon" aria-hidden="true">&#x1F9EC;</span>
+            <h2 class="section-box-title">Session Rule Candidates</h2>
+          </div>
+          <div class="section-box-meta-group">
+            <span class="summary-status-pill mono" id="rsiStatusPill">Primacy: 94%</span>
+          </div>
+        </div>
+        <div class="rsi-health-row mono" id="rsiHealthLine">
+          <span class="rsi-icon">&#x1F9E0;</span>
+          <div class="rsi-health-summary">
+            <span id="rsiPrimacyLabel">Primacy Band: <strong>94%</strong></span> &middot;
+            <span id="rsiMiddleTroughLabel">0 Trough Risks</span> &middot;
+            <span id="rsiShieldLabel">Rule Shield: 0 queued</span>
+          </div>
+        </div>
+        <div class="rsi-health-row rsl-summary-strip mono" id="rslSummaryStrip">
+          <span class="rsi-icon" aria-hidden="true">&#x1F501;</span>
+          <div class="rsi-health-summary" id="rslSummaryText">RSL Dual-Sync: <strong>0</strong> rules &middot; <strong>0</strong> skills &middot; <strong>0</strong> hooks &middot; Budget: <strong>0/20k</strong> tok</div>
+        </div>
+        <div class="action-rows-stack rsi-actions-stack" id="rsiActionList" hidden></div>
+      </section>
+    </div>
+  </details>
+
+  <div class="feedback-toast" id="feedbackToast"></div>
+
+  <!-- Inert Legacy Summary Container (Hidden via CSS; preserved for backward-compatible gate hooks) -->
+  <section class="health-summary-card advanced-only" id="sessionHealthSummary">
+    <div class="health-summary-header section-box-header">
+      <div class="health-summary-title-group">
+        <span class="health-summary-icon" aria-hidden="true">&#x1F4CA;</span>
+        <h2 class="health-summary-title">Session Health Summary</h2>
+      </div>
+      <span class="summary-status-pill mono" id="summaryStatusPill">Optimal</span>
+    </div>
+    <div class="health-summary-body">
+      <div class="summary-bullet">
+        <span class="summary-bullet-icon" id="summaryIconMemory">&#x25CF;</span>
+        <div class="summary-bullet-text">
+          <strong class="summary-bullet-heading">Memory &amp; Headroom:</strong>
+          <span id="summaryTextMemory">Calculating memory headroom...</span>
+        </div>
+      </div>
+      <div class="summary-bullet">
+        <span class="summary-bullet-icon" id="summaryIconBloat">&#x25CF;</span>
+        <div class="summary-bullet-text">
+          <strong class="summary-bullet-heading">Primary Bloat Driver:</strong>
+          <span id="summaryTextBloat">Analyzing transcript forensics...</span>
+        </div>
+      </div>
+      <div class="summary-bullet">
+        <span class="summary-bullet-icon" id="summaryIconQuota">&#x25CF;</span>
+        <div class="summary-bullet-text">
+          <strong class="summary-bullet-heading">Cache &amp; Quota Pacing:</strong>
+          <span id="summaryTextQuota">Checking prompt cache and weekly quota pacing...</span>
+        </div>
+      </div>
+      <div class="summary-bullet" id="summaryBulletGuardrails">
+        <span class="summary-bullet-icon" id="summaryIconGuardrails">&#x25CF;</span>
+        <div class="summary-bullet-text">
+          <strong class="summary-bullet-heading">Guardrails &amp; Compression:</strong>
+          <span id="summaryTextGuardrails">&#x1F6E1;&#xFE0F; DET-01..20 Active &middot; FTS5 Log Compression: 0.0k tokens saved</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Host Runtime Watchdog Bar (Critical Alert in Simple View + Full Status in Advanced View) -->
+  <div class="host-watchdog-bar mono" id="hostWatchdogBar" hidden>
+    <div class="section-box-header">
+      <div class="section-box-title-group">
+        <span class="section-box-icon" aria-hidden="true">&#x1F5A5;&#xFE0F;</span>
+        <h2 class="section-box-title">Host Runtime Health</h2>
+      </div>
+      <div class="section-box-meta-group">
+        <span class="summary-status-pill warn mono" id="hostWatchdogStatusPill">Active</span>
+      </div>
+    </div>
+    <div class="host-watchdog-body">
+      <span id="hostWatchdogText">Host RAM: 0.0 GB &middot; Orphans: 0</span>
+      <button class="mini-btn" id="btnReapOrphans" hidden data-reap-label="[Reap Orphans]" title="[Reap Orphans] Lists detached language_server / MCP orphan processes and asks before terminating them">Clean up orphans…</button>
+    </div>
+  </div>
+
+  <!-- Zone 4 & 5: Unified Session Activity, Canonical +Saved Pill & Git Auto-Guard Rail -->
+  <section class="flight-recorder simple-only" id="simpleFlightRecorder" aria-label="Session activity and verified tokens saved">
+    <div class="fr-top-bar">
+      <div class="fr-title-group">
+        <span class="fr-main-title">Session Activity</span>
+        <button type="button" class="fr-ambient-btn mono" id="btnAmbientExpand" aria-expanded="false" aria-controls="frZonesBody">Show ▾</button>
+      </div>
+      <!-- Canonical Verified "Tokens Saved" Diff Badge (single instance in panel) -->
+      <div class="tufte-baseline-strip mono" id="tufteBaselineStrip" data-muted="false">
+        <div class="savings-strip-head">
+          <span class="savings-strip-main">
+            <span class="savings-primary-pill" title="Physical tokens saved in this conversation">
+              <strong class="savings-primary-val" id="tufteSavedTokensLabel">+0.0k</strong>
+              <span>saved this chat</span>
+            </span>
+            <span class="savings-scope-sub" id="tufteSavedUsd"></span>
+            <span class="savings-scope-sub">&middot;</span>
+            <span class="savings-scope-sub" id="tufteWorkspaceSavedLabel">+0.0k</span>
+            <span class="savings-scope-sub" title="Tokens saved across all your chats in this workspace over the last 30 days">30d</span>
+          </span>
+          <span id="tufteGuardsQuietLabel" hidden>32 guards quiet</span>
+          <button type="button" class="savings-why-btn mono" id="btnToggleSavingsWhy" aria-expanded="false" aria-controls="simpleSavingsWhyDrawer">[&#x25BE; Why]</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="savings-why-drawer mono" id="simpleSavingsWhyDrawer" hidden>
+      <div class="savings-why-row"><span>Subagent context isolation</span><strong id="savSubagentVal">+0.0k</strong></div>
+      <div class="savings-why-row"><span>Warm prompt cache (95% off)</span><strong id="savCacheVal">+0.0k</strong></div>
+      <div class="savings-why-row"><span>CLI &amp; log compression</span><strong id="savCliVal">+0.0k</strong></div>
+      <div class="savings-why-row"><span>Loops, re-reads &amp; trims avoided</span><strong id="savGuardsVal">+0.0k</strong></div>
+      <div class="savings-why-foot">
+        <span class="savings-scope-sub" id="savEstUsdLabel">Est. input value: $0.00</span>
+        <button type="button" class="btn-copy-receipt mono" id="btnCopySimpleSavingsReceipt" title="Copy plain-English Verified Tokens Saved Receipt">[Copy Receipt]</button>
+      </div>
+    </div>
+
+    <div class="simple-sec-intro"><span class="simple-sec-blurb">What happened in this chat, what the guard fixed for you, and the tokens that saved.</span></div>
+    <div class="fr-zones-body" id="frZonesBody">
+      <div class="fr-zone fr-timeline" id="timelineZone">
+        <div class="fr-head">
+          <span class="fr-title">Practice Pulse</span>
+          <span class="fr-legend" aria-hidden="true"><i class="lg lg-good"></i>good <i class="lg lg-bad"></i>bad <i class="lg lg-neutral"></i>neutral <i class="lg lg-limit"></i>safe limit</span>
+        </div>
+        <div class="simple-sec-intro"><span class="simple-sec-blurb">Memory growth turn by turn. Green marks good habits, red marks wasteful ones.</span></div>
+        <div class="tl-chart" id="timelineChart" role="group" aria-label="Per-turn context growth with good and bad practices"></div>
+        <div class="tl-markers mono" id="timelineMarkers" aria-hidden="true"></div>
+        <div class="tl-detail mono" id="timelineDetail" aria-live="polite"></div>
+      </div>
+      <div class="fr-zone fr-log" id="autoFixZone">
+        <div class="fr-head">
+          <span class="fr-title">Auto-Guard Stream</span>
+          <span class="fr-count mono" id="autoFixCount">0</span>
+        </div>
+        <div class="simple-sec-intro"><span class="simple-sec-blurb">Wasteful reads and loops the guard fixed automatically. Nothing to do.</span></div>
+        <div class="fx-list mono" id="autoFixList" role="list"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer-meta mono" id="footerMeta">Live updates active</div>
+  </div><!-- /#legacyCompatSurface -->
+</div>

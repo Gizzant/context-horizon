@@ -17,7 +17,7 @@ import os from 'node:os';
  */
 export const DEFAULT_PRO_PUBLIC_KEY_PEM = [
   '-----BEGIN PUBLIC KEY-----',
-  'MCowBQYDK2VwAyEAz6vC7wF1m2r8nK9pQ4tL3xY5vW0jH8gD2sB6eR1cA4o=',
+  'MCowBQYDK2VwAyEAsKBx+VAPklTmfQPootRr8wzq4ZEDhEu9ImAI7Q4GMDM=',
   '-----END PUBLIC KEY-----'
 ].join('\n');
 
@@ -37,7 +37,7 @@ export const PLG_TIER_MATRIX = Object.freeze({
     id: 'free',
     name: 'Free Tier (Community Core)',
     priceMonthlyUSD: 0,
-    installCommand: 'npx attention-horizon',
+    installCommand: 'npx ctxtop',
     features: Object.freeze([
       'Simple View HUD & 4-Rank Tufte Verdict Bar',
       '40-Cell Parabolic U-Curve Context Map',
@@ -379,7 +379,7 @@ export function requireProFeature(featureId = 'pro_feature', options = {}) {
     source: status.source,
     status,
     upgradeHint: needsTeamTier
-      ? 'Requires Highbeam Team ($299/yr for 5 seats) or an active 14-day trial (`npx ctxtop license trial`).'
-      : 'Requires Highbeam Pro ($9/mo · $79/yr · $119 LTD) or an active 14-day trial (`npx ctxtop license trial`).'
+      ? 'Requires Highbeam Team ($299/yr for 5 seats — Commercial License: packages/pro/LICENSE-COMMERCIAL.md) or an active 14-day trial (`npx ctxtop license trial`).'
+      : 'Requires Highbeam Pro ($15/mo · $149/yr · $199 LTD — Commercial License: packages/pro/LICENSE-COMMERCIAL.md) or an active 14-day trial (`npx ctxtop license trial`).'
   };
 }

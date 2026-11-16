@@ -96,11 +96,15 @@ export function mapPolarOrderToLicenseSpec(eventPayload = {}) {
     tier = 'team';
     seats = Number(data.seats || 5);
     expiresAt = new Date(Date.now() + 366 * 86400 * 1000).toISOString();
-  } else if (productName.includes('lifetime') || productName.includes('ltd') || (amountCents >= 10000 && amountCents < 25000)) {
+  } else if (productName.includes('annual') || productName.includes('year')) {
+    tier = 'pro';
+    seats = 1;
+    expiresAt = new Date(Date.now() + 366 * 86400 * 1000).toISOString();
+  } else if (productName.includes('lifetime') || productName.includes('ltd') || (amountCents >= 18000 && amountCents < 25000)) {
     tier = 'ltd';
     seats = 1;
     expiresAt = null;
-  } else if (productName.includes('annual') || productName.includes('year') || (amountCents >= 5000 && amountCents < 10000)) {
+  } else if (amountCents >= 10000 && amountCents < 18000) {
     tier = 'pro';
     seats = 1;
     expiresAt = new Date(Date.now() + 366 * 86400 * 1000).toISOString();

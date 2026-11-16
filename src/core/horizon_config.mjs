@@ -577,6 +577,48 @@ export function setDetectorOverride(detectorId, mode, options = {}) {
 }
 
 /**
+ * Persists global or workspace `flightMode` (`OFF` | `COACH` | `AUTO_PILOT` | `SILENT`)
+ * without creating an untracked project `.attention-horizon.json` unless one already exists
+ * or `scope: 'project'` / `configPath` is explicitly requested.
+ *
+ * @param {string} rawMode
+ * @param {object} [options={}]
+ * @returns {{ ok: boolean, flightMode: string, routerMode: string, configPath: string }}
+ */
+export function setHorizonFlightMode(rawMode = 'COACH', options = {}) {
+  const lower = String(rawMode || '').trim().toLowerCase();
+  const normalizedFlight =
+    normalizeFlightMode(rawMode) ||
+    (lower === 'auto' || lower === 'autopilot' || lower === 'auto-pilot'
+      ? 'AUTO_PILOT'
+      : (lower === 'disabled' ? 'OFF' : 'COACH'));
+  const routerMode =
+    normalizedFlight === 'AUTO_PILOT'
+      ? 'autopilot'
+      : (normalizedFlight === 'OFF' ? 'off' : 'coach');
+
+  const { projectConfigPath, globalConfigPath } = resolveHorizonConfigPaths(options);
+  const targetPath =
+    options.configPath
+      ? projectConfigPath
+      : (options.scope === 'project' || fs.existsSync(projectConfigPath) ? projectConfigPath : globalConfigPath);
+
+  const existing = readJsonSafe(targetPath, {}) || {};
+  const nextPayload = {
+    schemaVersion: '1.0.0',
+    ...existing,
+    flightMode: normalizedFlight
+  };
+  const ok = writeJsonAtomic(targetPath, nextPayload);
+  return {
+    ok,
+    flightMode: normalizedFlight,
+    routerMode,
+    configPath: targetPath
+  };
+}
+
+/**
  * Maps a detector trigger or runtime telemetry state to concrete native slash-command
  * recovery prescriptions (`/rewind`, `/fork`, `/mcp`, `/context`, `/effort`, `/handoff` -> `/clear`).
  * Strictly preserves Antigravity UI Invariant #1: `/compact` is always a plain-text instruction

@@ -24,6 +24,7 @@ import { buildGitCommitTokenLedger } from '../src/core/git_ledger.mjs';
 import { upsertFencedCoachBlock } from '../src/core/coach/turn_zero_gate.mjs';
 import { applyRuleDeltaToContent, PrefixCacheShield } from '../src/core/prefix_cache_shield.mjs';
 import { serializeScriptJson, buildDemoPage } from '../scripts/build_demo_page.mjs';
+import { buildWebviewHtml } from '../scripts/build_webview_html.mjs';
 import { syncAndVerifyMirrors } from '../scripts/sync_mirrors.mjs';
 import {
   FULL_TOOL_HOOK_MATCHER,
@@ -481,6 +482,16 @@ describe('Batch 4 Remediation — ISS-056 & ISS-057: Mirror Sync Parity, 6 Hooks
         () => syncAndVerifyMirrors({ verifyOnly: true, pluginRoots: [mockLegacy, mockFlightcheck] }),
         /Mirror SHA-256 Parity FAILED/
       );
+
+      // Hermetic --retire-legacy-mirror deletes legacyRoot and retains Flightcheck parity
+      const retireRes = syncAndVerifyMirrors({
+        verifyOnly: false,
+        pluginRoots: [mockFlightcheck],
+        retireLegacyMirror: true,
+        legacyRoot: mockLegacy
+      });
+      assert.equal(retireRes.parityOk, true);
+      assert.equal(fs.existsSync(mockLegacy), false, 'retireLegacyMirror must remove legacy agy-horizon directory');
     } finally {
       fs.rmSync(tmpRoot, { recursive: true, force: true });
     }
@@ -525,6 +536,12 @@ describe('Batch 4 Remediation — ISS-056 & ISS-057: Mirror Sync Parity, 6 Hooks
     assert.ok(!packedPaths.some(p => p.startsWith('test/') || p.startsWith('tests/')), 'Tarball must exclude test/ and tests/');
     assert.ok(!packedPaths.some(p => p.startsWith('docs/') || p.startsWith('scripts/')), 'Tarball must exclude docs/ and scripts/');
     assert.ok(!packedPaths.includes('EXHAUSTIVE_ISSUE_LEDGER.md'), 'Tarball must exclude EXHAUSTIVE_ISSUE_LEDGER.md');
+    assert.equal(packedPaths.filter((p) => p.includes('airlock')).length, 0, 'Tarball must exclude packages/airlock');
+    assert.equal(packedPaths.some((p) => p.startsWith('src/webview/partials/')), false, 'Tarball must exclude src/webview/partials/');
+
+    const webviewBuild = buildWebviewHtml({ checkOnly: true, silent: true });
+    assert.equal(webviewBuild.identical, true);
+    assert.ok(webviewBuild.maxPartialLines < 2500, `Max partial lines (${webviewBuild.maxPartialLines}) must be < 2500`);
 
     assert.equal(fs.existsSync(path.join(ROOT, '.agents', 'cache')), false, '.agents/cache must not exist');
     assert.equal(fs.existsSync(path.join(ROOT, 'dist')), false, 'dist/ must not exist');

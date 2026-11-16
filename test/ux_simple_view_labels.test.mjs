@@ -119,4 +119,32 @@ describe('Claude Code HUD parity with Antigravity Simple View', () => {
     assert.ok(doc.getElementById('savedWorkspace30d').getAttribute('title'));
     assert.match(doc.querySelector('.ah-brand').textContent, /^Highbeam/);
   });
+
+  it('renders 4-Card Glass-of-Water stack (New -> Old -> Pinned), sorted Guard Roster, and RSL/Sharded-Spec guidance', () => {
+    const html = renderHorizonPanelHtml(state, {
+      offenders,
+      breakerVerdict: { triggered: true, detectorId: 'DET-09', reason: 'Hold prefix edit' },
+      rsl: { activeRules: 2, candidateRules: 1, clashCount: 1 },
+      shardedSpec: { sharded: true, count: 3 },
+      shield: { armed: true, quarantined: true }
+    }).html;
+    const doc = new JSDOM(html).window.document;
+    assert.ok(doc.getElementById('claudeSimpleSurface'));
+    assert.ok(doc.getElementById('ccGlassVessel'));
+    assert.deepEqual(
+      [...doc.getElementById('ccGlassFill').children].map((el) => el.id),
+      ['ccGlassSegNew', 'ccGlassSegOld', 'ccGlassSegPinned']
+    );
+    assert.ok(doc.getElementById('ccDoRow') && doc.getElementById('ccAvoidRow'));
+    const guardRows = [...doc.querySelectorAll('#ccGuardList .ts-guard-row')];
+    assert.ok(guardRows.length >= 10);
+    assert.equal(guardRows[0].dataset.role, 'tripped');
+    assert.match(guardRows[0].textContent, /DET-09/);
+    assert.match(html, /npx ah rsl status/);
+    assert.match(html, /npx ah handoff --consolidate/);
+    assert.doesNotMatch(
+      html,
+      new RegExp('antigravity|50k Cascade Sync|task\\.md|GEMINI\\.md|Argon|Carbon|ctxtop|ga-visualizer' + '-v2|cc-attention-horizon', 'i')
+    );
+  });
 });

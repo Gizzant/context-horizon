@@ -4,16 +4,19 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 import {
   generateProKeyPair,
   signProLicensePayload,
+  verifyProLicenseKey,
   activateProLicense,
   activateLocalTrial,
   requireProFeature
 } from '../src/core/pro_license.mjs';
 import {
   verifyPolarWebhookSignature,
+  mapPolarOrderToLicenseSpec,
   handlePolarWebhookRequest
 } from '../packages/pro/workers/polar_webhook_worker.mjs';
 import {
@@ -208,6 +211,77 @@ describe('Pre-Launch v4.0 Finishing Pack (Dual-License, Lean Hooks, BYO-Grafana 
       const html = fs.readFileSync(path.resolve('src/webview/horizon_panel.html'), 'utf8');
       assert.match(html, /id="btnCompactPrimary"/);
       assert.match(html, /id="btnCopyParameterizedCompact"/);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('Workstream 4: Persistent Ed25519 --keygen / --private-key-file round-trip and Polar.sh $15/$149/$199/$299 webhook tiers', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ah-prelaunch-w4-'));
+    try {
+      const privKeyPath = path.join(tmpDir, 'prod_ed25519.pem');
+      const keygenRaw = execFileSync(
+        process.execPath,
+        [path.resolve('scripts/generate_pro_license.mjs'), '--keygen', '--out-private', privKeyPath, '--json'],
+        { encoding: 'utf8' }
+      );
+      const keygenRes = JSON.parse(keygenRaw);
+      assert.equal(keygenRes.ok, true);
+      assert.equal(fs.existsSync(privKeyPath), true);
+
+      const signedRaw = execFileSync(
+        process.execPath,
+        [
+          path.resolve('scripts/generate_pro_license.mjs'),
+          '--private-key-file',
+          privKeyPath,
+          '--email',
+          'buyer@acme.dev',
+          '--tier',
+          'pro',
+          '--days',
+          '366',
+          '--json'
+        ],
+        { encoding: 'utf8' }
+      );
+      const signedRes = JSON.parse(signedRaw);
+      assert.equal(signedRes.ok, true);
+      assert.equal(signedRes.keySource, 'file');
+      const verified = verifyProLicenseKey(signedRes.licenseKey, { publicKeyPem: keygenRes.publicKeyPem });
+      assert.equal(verified.valid, true);
+      assert.equal(verified.payload.email, 'buyer@acme.dev');
+      assert.equal(verified.payload.tier, 'pro');
+
+      // Polar.sh $15 Monthly / $149 Annual / $199 LTD / $299 Team webhook mapping
+      const monthly = mapPolarOrderToLicenseSpec({
+        data: { amount: 1500, product: { name: 'Highbeam Pro' }, customer: { email: 'm@acme.dev' } }
+      });
+      assert.equal(monthly.tier, 'pro');
+      assert.equal(monthly.seats, 1);
+      assert.ok(monthly.expiresAt !== null);
+
+      // Regression guard: $149 (14900 cents) WITHOUT 'annual' in product name MUST still mint expiring annual Pro, NEVER ltd
+      const annualUntitled = mapPolarOrderToLicenseSpec({
+        data: { amount: 14900, product: { name: 'Highbeam Pro' }, customer: { email: 'a@acme.dev' } }
+      });
+      assert.equal(annualUntitled.tier, 'pro');
+      assert.equal(annualUntitled.seats, 1);
+      assert.ok(annualUntitled.expiresAt !== null, '$149 Annual must set expiresAt (~366d), never lifetime ltd');
+
+      const ltd = mapPolarOrderToLicenseSpec({
+        data: { amount: 19900, product: { name: 'Highbeam Founders' }, customer: { email: 'l@acme.dev' } }
+      });
+      assert.equal(ltd.tier, 'ltd');
+      assert.equal(ltd.seats, 1);
+      assert.equal(ltd.expiresAt, null);
+
+      const team = mapPolarOrderToLicenseSpec({
+        data: { amount: 29900, product: { name: 'Highbeam Team' }, customer: { email: 't@acme.dev' } }
+      });
+      assert.equal(team.tier, 'team');
+      assert.equal(team.seats, 5);
+      assert.ok(team.expiresAt !== null);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

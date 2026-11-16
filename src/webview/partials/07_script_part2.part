@@ -1,0 +1,1829 @@
+      // AI Credit Overage Guardrail & Vision Bug Alert when 7d reaches 100%
+      if (quotaOverageAlert) {
+        const overagesOn = Boolean(
+          q.weekly7d?.aiCreditOveragesEnabled ??
+          q.aiCredits?.overagesEnabled ??
+          raw.aiCreditOveragesEnabled ??
+          false
+        );
+        if (q.overageAlert && q.overageAlert.state && q.overageAlert.state !== 'NONE' && !w7IsEstimate) {
+          quotaOverageAlert.hidden = false;
+          quotaOverageAlert.className = `overage-guardrail-banner ${q.overageAlert.severity || 'warn'}`;
+          quotaOverageAlert.dataset.alertState = q.overageAlert.state;
+          quotaOverageAlert.textContent = q.overageAlert.message;
+        } else if (w7 >= 100 && !w7IsEstimate) {
+          quotaOverageAlert.hidden = false;
+          if (!overagesOn) {
+            quotaOverageAlert.className = 'overage-guardrail-banner danger';
+            quotaOverageAlert.dataset.alertState = 'LOCKOUT_ALERT';
+            quotaOverageAlert.textContent = '7d Quota Exhausted. Enable AI Credit Overages in Settings > Models to prevent session lockout.';
+          } else {
+            quotaOverageAlert.className = 'overage-guardrail-banner warn';
+            quotaOverageAlert.dataset.alertState = 'OVERAGES_ACTIVE_VISION_WARN';
+            quotaOverageAlert.textContent = 'Overages Active. Do NOT attach images or screenshots (known upstream HTTP 400 Bad Request bug on overage calls).';
+          }
+        } else {
+          quotaOverageAlert.hidden = true;
+          quotaOverageAlert.dataset.alertState = 'NONE';
+          quotaOverageAlert.textContent = '';
+        }
+        // the overage banner already says it; don't also show the 7d Lockout pill.
+        if (!quotaOverageAlert.hidden) {
+          const lockPill = document.getElementById('quotaLockoutPill');
+          if (lockPill) lockPill.remove();
+        }
+      }
+
+      // Dual-TTL Overage Cliff, Cold-Session Cost Gate & Prefix Mutation Diff Banners
+      const overageTtlCliffBanner = document.getElementById('overageTtlCliffBanner');
+      if (overageTtlCliffBanner) {
+        const dTtl = q.cache?.dualTtl;
+        const cliffMsg = dTtl?.overageTtlCliffMessage || dTtl?.cliffWarning || '';
+        if (dTtl && dTtl.overageTtlCliffDetected && cliffMsg) {
+          overageTtlCliffBanner.hidden = false;
+          overageTtlCliffBanner.textContent = cliffMsg;
+        } else {
+          overageTtlCliffBanner.hidden = true;
+          overageTtlCliffBanner.textContent = '';
+        }
+      }
+      const coldSessionCostGateBanner = document.getElementById('coldSessionCostGateBanner');
+      if (coldSessionCostGateBanner) {
+        const cg = q.cache?.costGate;
+        if (cg && cg.state && cg.state !== 'NOMINAL' && cg.bannerMessage) {
+          coldSessionCostGateBanner.hidden = false;
+          coldSessionCostGateBanner.className = `overage-guardrail-banner ${cg.state === 'COLD_COST_GATE' ? 'danger' : 'warn'}`;
+          coldSessionCostGateBanner.dataset.costGateState = cg.state;
+          coldSessionCostGateBanner.textContent = cg.bannerMessage;
+        } else {
+          coldSessionCostGateBanner.hidden = true;
+          coldSessionCostGateBanner.dataset.costGateState = 'NOMINAL';
+          coldSessionCostGateBanner.textContent = '';
+        }
+      }
+      const prefixMutationDiffBanner = document.getElementById('prefixMutationDiffBanner');
+      if (prefixMutationDiffBanner) {
+        const pDiff = q.cache?.prefixDiff;
+        if (pDiff && pDiff.mutated && pDiff.summary) {
+          prefixMutationDiffBanner.hidden = false;
+          prefixMutationDiffBanner.textContent = pDiff.summary;
+        } else {
+          prefixMutationDiffBanner.hidden = true;
+          prefixMutationDiffBanner.textContent = '';
+        }
+      }
+    }
+
+    // Tenth-of-a-Kilotoken parity: headline, Active Signal and Reclaimable cards share one rounding basis.
+    const displayParity = computeDisplayTenthsParity(totalTokens, usefulTokens, Math.round(reclaimSumK * 10));
+    document.getElementById('usedBig').textContent = fmtTenths(displayParity.displayTotalTenths);
+    document.getElementById('usedPct').textContent = `${usedPct}%`;
+
+    // Raw Physical Metrics Side-by-Side (No Composite 0-100 Score Pill)
+    const physicalMetricsBar = document.getElementById('physicalMetricsBar');
+    if (physicalMetricsBar) {
+      const cHitVal = raw.quota?.cache?.hitRatePct ?? 0;
+      const ttlVal = raw.quota?.cache?.ttlRemainingSec ?? 300;
+      const dTtl = raw.quota?.cache?.dualTtl;
+      const mainRem = dTtl?.mainTtlRemainingSec ?? dTtl?.mainRemainingSec ?? ttlVal;
+      const mainWin = dTtl?.mainTtlTier || dTtl?.mainWindowLabel || '5m';
+      const subRem = dTtl?.subagentTtlRemainingSec ?? dTtl?.subagentRemainingSec ?? null;
+      const subWin = dTtl?.subagentWindowLabel || '5m';
+      const ttlDisplay = dTtl
+        ? `${mainRem}s (${mainWin})${subRem !== null && subRem !== undefined ? ` | Sub: ${subRem}s (${subWin})` : ''}`
+        : `${ttlVal}s`;
+      physicalMetricsBar.textContent = `${fmtTenths(displayParity.displayTotalTenths)} / ${fmtK(maxTokens)} \u00B7 ${usedPct}% \u00B7 Cache Hit: ${cHitVal}% \u00B7 Waste: ${reclaimSumStr} \u00B7 TTL: ${ttlDisplay}`;
+    }
+
+    // Zero-Click Passive Workload Tag
+    const workloadModeBadge = document.getElementById('workloadModeBadge');
+    if (workloadModeBadge) {
+      const wm = raw.workloadMode;
+      workloadModeBadge.textContent = wm?.tag || '[Mode: Read-Heavy Audit]';
+      workloadModeBadge.dataset.workloadMode = wm?.modeId || 'READ_HEAVY_AUDIT';
+    }
+    const defaultStdLimit = maxTokens >= 256000 ? 179000 : 140000;
+    const safeLimit = (hasEffortMeta && effortProfile.safeLimit > 0 && (!win.safeLimit || win.safeLimit === 140000 || (effortProfile.tier !== 'STANDARD' && win.safeLimit === defaultStdLimit)))
+      ? effortProfile.safeLimit
+      : (win.safeLimit > 0 ? win.safeLimit : (effortProfile.safeLimit || defaultStdLimit));
+    const reminderAt = (win.reminderAt > 0 && win.safeLimit === safeLimit)
+      ? win.reminderAt
+      : Math.round(safeLimit * 0.85);
+    const limitK = fmtK(safeLimit);
+    const showProfileTag = hasEffortMeta || safeLimit === effortProfile.safeLimit;
+    renderLimitLine(safeLimit, maxTokens, showProfileTag ? effortProfile : null);
+    const safeLimitTenths = Math.round(Math.max(0, Number(safeLimit) || 0) / 100);
+    const toLimitTenths = safeLimitTenths - displayParity.displayTotalTenths;
+    const toLimit = safeLimit - totalTokens;
+    document.getElementById('freeLabel').textContent = toLimit >= 0
+      ? `${fmtTenths(Math.max(0, toLimitTenths))} below ${limitK} safe limit`
+      : `${fmtTenths(Math.max(1, -toLimitTenths))} past ${limitK} safe limit!`;
+    renderDelta(raw.delta, raw);
+
+    // Tufte Header Model Burn Pill & Scale Markers
+    const tufteModelBurnEl = document.getElementById('tufteModelBurnPill');
+    if (tufteModelBurnEl) {
+      const coachData = raw.coachState?.taskQuotaRouter;
+      const rawModelName = coachData?.activeModelLabel || raw.quota?.sprint5h?.modelPoolName || raw.model?.label || 'Gemini 3.8 Flash';
+      const cleanMod = String(rawModelName).replace(/\s+\(.*\)$/, '').replace(/\s+Experimental$/i, '').trim();
+      const shortMod = cleanMod.length > 24 ? cleanMod.slice(0, 22).trim() + '\u2026' : cleanMod;
+      const effShort = effortProfile?.shortLabel || 'Auto';
+      const burnMult = coachData?.activeBurnMultiplier ?? (effShort === 'High' ? 1.5 : (effShort === 'Fast' ? 0.5 : 1.0));
+      tufteModelBurnEl.textContent = `${shortMod} \u00B7 ${effShort}`;
+      tufteModelBurnEl.title = `Active Model: ${rawModelName} (${effShort}) · Quota burn weight: ${burnMult}x baseline`;
+    }
+    const maxTokensVal = maxTokens || raw.contextWindow || 256000;
+    const scaleContainer = document.getElementById('tufteHorizonScale');
+    const scaleWidthPx = (scaleContainer && scaleContainer.clientWidth > 0)
+      ? scaleContainer.clientWidth
+      : 260;
+    const minEndpointGapPx = 30;
+    const minInteriorGapPx = Math.max(48, Math.round(scaleWidthPx * 0.18));
+    const midTickVal = maxTokensVal >= 1000000 ? 256000 : 50000;
+    const midTickLabel = maxTokensVal >= 1000000 ? '256k' : '50k';
+    const p50 = Math.min(100, Math.max(0, (midTickVal / maxTokensVal) * 100));
+    const pLim = Math.min(92, Math.max(8, (safeLimit / maxTokensVal) * 100));
+    const troughPct = maxTokensVal >= 1000000
+      ? Math.min(100, Math.max(0, (512000 / maxTokensVal) * 100))
+      : (Math.abs(pLim - 50) < 18 ? 37 : 50);
+    const troughLabel = maxTokensVal >= 1000000 ? '512k' : 'trough';
+
+    const pxOfPct = (pct) => (pct / 100) * scaleWidthPx;
+    const endpointPx = [0, scaleWidthPx];
+    const interiorPx = [];
+    const tryPlaceTickPct = (pct) => {
+      const px = pxOfPct(pct);
+      if (endpointPx.some(existing => Math.abs(existing - px) < minEndpointGapPx)) {
+        return false;
+      }
+      if (interiorPx.some(existing => Math.abs(existing - px) < minInteriorGapPx)) {
+        return false;
+      }
+      interiorPx.push(px);
+      return true;
+    };
+
+    const showLimTick = tryPlaceTickPct(pLim);
+    const show50Tick = tryPlaceTickPct(p50);
+    const showTroughTick = tryPlaceTickPct(troughPct);
+
+    const tick0 = document.getElementById('tufteScaleTick0');
+    if (tick0) {
+      tick0.style.left = '0%';
+      tick0.style.right = 'auto';
+      tick0.style.transform = 'none';
+      tick0.style.display = '';
+      tick0.dataset.px = '0';
+    }
+    const tufteScaleMaxEl = document.getElementById('tufteScaleMaxLabel');
+    if (tufteScaleMaxEl) {
+      tufteScaleMaxEl.style.left = 'auto';
+      tufteScaleMaxEl.style.right = '0%';
+      tufteScaleMaxEl.style.transform = 'none';
+      tufteScaleMaxEl.style.display = '';
+      tufteScaleMaxEl.textContent = fmtK(maxTokensVal);
+      tufteScaleMaxEl.dataset.px = String(Math.round(scaleWidthPx));
+    }
+    const tufteScaleLimitEl = document.getElementById('tufteScaleLimitLabel');
+    if (tufteScaleLimitEl) {
+      tufteScaleLimitEl.style.left = `${pLim}%`;
+      tufteScaleLimitEl.style.transform = 'translateX(-50%)';
+      tufteScaleLimitEl.textContent = `${limitK}\u26A1 ${effortProfile?.shortLabel || 'Auto'} limit`;
+      tufteScaleLimitEl.style.display = showLimTick ? '' : 'none';
+      tufteScaleLimitEl.dataset.px = String(Math.round(pxOfPct(pLim)));
+    }
+    const tick50 = document.getElementById('tufteScaleTick50');
+    if (tick50) {
+      tick50.style.left = `${p50}%`;
+      tick50.style.transform = 'translateX(-50%)';
+      tick50.textContent = midTickLabel;
+      tick50.style.display = show50Tick ? '' : 'none';
+      tick50.dataset.px = String(Math.round(pxOfPct(p50)));
+    }
+    const tickTrough = document.getElementById('tufteScaleTickTrough');
+    if (tickTrough) {
+      tickTrough.style.left = `${troughPct}%`;
+      tickTrough.style.transform = 'translateX(-50%)';
+      tickTrough.textContent = troughLabel;
+      tickTrough.style.display = showTroughTick ? '' : 'none';
+      tickTrough.dataset.px = String(Math.round(pxOfPct(troughPct)));
+    }
+    const storageHorizonBadge = document.getElementById('storageHorizonBadge');
+    if (storageHorizonBadge) {
+      if (toLimit >= 0) {
+        if (toLimit > 15000) {
+          storageHorizonBadge.className = 'summary-status-pill mono';
+          storageHorizonBadge.textContent = `Safe (${fmtTenths(toLimitTenths)} left)`;
+        } else {
+          storageHorizonBadge.className = 'summary-status-pill warn mono';
+          storageHorizonBadge.textContent = `Horizon Near (${fmtTenths(toLimitTenths)} left)`;
+        }
+      } else {
+        storageHorizonBadge.className = 'summary-status-pill danger mono';
+        storageHorizonBadge.textContent = `Over Limit (+${fmtTenths(Math.max(1, -toLimitTenths))})`;
+      }
+    }
+
+    const parityActiveTok = displayParity.displayActiveTenths * 100;
+    const parityReclaimTok = displayParity.displayReclaimableTenths * 100;
+    const parityPureRound = displayParity.displayTotalTenths > 0
+      ? Math.round((displayParity.displayActiveTenths / displayParity.displayTotalTenths) * 100)
+      : pureRound;
+    const parityClutterPct = displayParity.displayTotalTenths > 0
+      ? Math.max(0, 100 - parityPureRound)
+      : clutterPct;
+
+    const usefulWidthPct = Math.min(100, (parityActiveTok / maxTokens) * 100);
+    const clutterWidthPct = Math.min(100 - usefulWidthPct, (parityReclaimTok / maxTokens) * 100);
+
+    const barUsefulEl = document.getElementById('barUseful');
+    const barClutterEl = document.getElementById('barClutter');
+    const barErrorEl = document.getElementById('barError');
+    if (barUsefulEl) barUsefulEl.style.width = `${usefulWidthPct}%`;
+    // Single source of truth for the history segment state: decouples Highbeam overflow
+    // (totalTokens > safeLimit) from KV-cache warmth (isTrulyWarm && ttlRemSec > 0) so warm >179k
+    // sessions NEVER render contradictory "Cache cold" or "Cold · 0s TTL" labels.
+    const cacheTtlSec = Math.max(0, Math.round(Number(raw.quota?.cache?.ttlRemainingSec ?? (raw.quota?.cache?.isCacheCold ? 0 : 300)) || 0));
+    const isWarmCandidate = cacheTtlSec > 0 && !raw.quota?.cache?.isCacheCold;
+    const historyBarStatePayload = raw.window?.historyBarState || raw.historyBarState;
+    const hasZeroHitFalseWarm = Boolean(raw.quota?.cache && typeof raw.quota.cache.hitRatePct === 'number' && raw.quota.cache.hitRatePct === 0 && Number(raw.quota.cache.cacheReadTokens ?? 0) === 0);
+    const isOverSafeHorizon = totalTokens > safeLimit;
+    const isColdBloat = Boolean(historyBarStatePayload?.state === 'COLD_BLOAT' && (!isWarmCandidate || isOverSafeHorizon)) ||
+      (!isWarmCandidate) ||
+      hasZeroHitFalseWarm ||
+      isOverSafeHorizon;
+    if (barClutterEl) {
+      barClutterEl.style.width = `${clutterWidthPct}%`;
+      if (isColdBloat) {
+        barClutterEl.className = 'seg-clutter cold-bloat';
+        barClutterEl.dataset.barState = 'cold-bloat';
+        const barLbl = (isWarmCandidate && !hasZeroHitFalseWarm && isOverSafeHorizon)
+          ? 'Over Safe Limit (Warm Cache Active)'
+          : 'Reclaimable Cold Bloat';
+        barClutterEl.dataset.barLabel = barLbl;
+        barClutterEl.title = barLbl;
+      } else {
+        barClutterEl.className = 'seg-clutter cached-warm';
+        barClutterEl.dataset.barState = 'cached-warm';
+        barClutterEl.dataset.barLabel = 'Cached History \u2014 95% Discounted';
+        barClutterEl.title = 'Cached History \u2014 95% Discounted';
+      }
+    }
+    if (barErrorEl) barErrorEl.style.width = '0%';
+
+    // 3. 3 Beginner-Friendly Breakdown Boxes
+    document.getElementById('valUseful').innerHTML = `${escAttr(fmtTenths(displayParity.displayActiveTenths))}<span class="b-pct-sub"> \u00B7 ${parityPureRound}% of used</span>`;
+    document.getElementById('valUseful').style.setProperty('color', '#10b981', 'important');
+    document.getElementById('valClutter').innerHTML = `${escAttr(fmtTenths(displayParity.displayReclaimableTenths))}<span class="b-pct-sub"> \u00B7 ${parityClutterPct}% of used</span>`;
+    // Middle card mirrors the history bar segment directly above it: Violet "Cached History" while truly warm
+    // and within safe horizon, Amber "Reclaimable" when cold or over safeLimit — without ever misreporting
+    // KV-cache warmth as "Cache cold" / "0s TTL".
+    const swatchClutterEl = document.getElementById('swatchClutter');
+    const lblClutterEl = document.getElementById('lblClutter');
+    const clutterCardColor = isColdBloat ? 'var(--hz-clutter)' : 'var(--hz-cached-history)';
+    document.getElementById('valClutter').style.setProperty('color', clutterCardColor, 'important');
+    document.getElementById('valClutter').dataset.historyState = isColdBloat ? 'cold-bloat' : 'cached-warm';
+    if (swatchClutterEl) swatchClutterEl.style.background = clutterCardColor;
+    if (lblClutterEl) lblClutterEl.textContent = isColdBloat ? 'Reclaimable' : 'Cached History';
+    const conf = telemetry.confidence || raw.confidence || 'HIGH';
+    const isLowConfidence = conf === 'LOW' || conf === 'DEGRADED';
+    const qCache = raw.quota?.cache || {};
+    const ttlRemSec = Math.max(0, Math.round(Number(qCache.ttlRemainingSec ?? (qCache.isCacheCold ? 0 : 300)) || 0));
+    const isTrulyWarm = isCacheTrulyWarmInline(qCache);
+    const isCacheWarmNow = Boolean(isTrulyWarm && ttlRemSec > 0 && !hasZeroHitFalseWarm);
+    const fmtTtlShort = (s) => {
+      if (s <= 0) return '0s';
+      const m = Math.floor(s / 60);
+      const sec = s % 60;
+      return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+    };
+    const isCrisisHere = Boolean(amputation.amputationCrisis || telemetry.amputationRisk);
+    const subClutterEl = document.getElementById('subClutter');
+    subClutterEl.title = isCrisisHere ? 'Amputation crisis · compact now' : '';
+    subClutterEl.textContent = isLowConfidence
+      ? 'Transcript not indexed'
+      : (isCrisisHere
+        ? 'Crisis · compact'
+        : (isCacheWarmNow
+          ? `95% discounted \u00B7 hold /compact`
+          : (!isColdBloat
+            ? `Cache cold \u00B7 /compact ready`
+            : (clutterTokens > 0 ? `Can be cleared` : `Zero outdated noise`))));
+
+    // Coupled 300s Cache TTL Strip inside Column 2 & Unified Top Verdict Line
+    const col2TtlLbl = document.getElementById('tufteCol2TtlLabel');
+    const col2BarFill = document.getElementById('tufteCol2BarFill');
+    if (col2TtlLbl) {
+      col2TtlLbl.textContent = isCacheWarmNow
+        ? `95% off \u00B7 ${fmtTtlShort(ttlRemSec)}`
+        : (clutterTokens > 0 ? `Cold \u00B7 0s TTL` : `Clean \u00B7 0k waste`);
+    }
+    if (col2BarFill) {
+      const pctFill = isCacheWarmNow ? Math.max(6, Math.min(100, Math.round((ttlRemSec / 300) * 100))) : 0;
+      col2BarFill.style.width = `${pctFill}%`;
+      col2BarFill.className = !isCacheWarmNow
+        ? 'tufte-col2-bar-fill cold'
+        : (ttlRemSec <= 60 ? 'tufte-col2-bar-fill expiring' : 'tufte-col2-bar-fill');
+    }
+
+    const verdictBarEl = document.getElementById('unifiedVerdictBar');
+    const verdictTextEl = document.getElementById('unifiedVerdictText');
+    const routerHoldNoteEl = document.getElementById('unifiedRouterHoldNote');
+    if (verdictBarEl && verdictTextEl) {
+      const effShortLabel = effortProfile?.shortLabel || 'Auto';
+      const trippedBreaker = raw.coachState?.detectors?.tripped || raw.circuitBreakerTripped;
+      const routerCoach = raw.coachState?.taskQuotaRouter;
+      const routerNudge = routerCoach?.coachPillText || (routerCoach?.recommendDownshift ? `Switch to ${routerCoach?.recommendedModelLabel || 'Flash (Med)'}` : '');
+      const overTok = Math.max(0, totalTokens - safeLimit);
+      const leftTok = Math.max(0, safeLimit - totalTokens);
+      const turnCnt = Number(win.turnCount ?? raw.turnCount ?? 0);
+      const compactReadyFloor = Math.max(50000, Math.round(safeLimit * 0.30));
+      if (trippedBreaker) {
+        const bId = typeof trippedBreaker === 'object' ? (trippedBreaker.detectorId || trippedBreaker.id || 'DET-19') : 'DET-19';
+        const rawReason = typeof trippedBreaker === 'object'
+          ? (trippedBreaker.reason || trippedBreaker.message || trippedBreaker.title || 'Guardrail intervention')
+          : String(trippedBreaker);
+        const bReason = String(rawReason)
+          .replace(/^[\u26A0\uFE0F\uD83D\uDEA8\s]+/u, '')
+          .replace(/^DET-\d+[a-z]?[:\s-]+/i, '')
+          .replace(/[a-zA-Z]:\\(?:[^\\:\s]+\\)+([^\\:\s]+)/g, '$1');
+        verdictBarEl.dataset.verdictState = 'CIRCUIT_BREAKER';
+        verdictTextEl.textContent = `GUARDRAIL TRIPPED (${bId}) \u00B7 ${bReason}`;
+        if (routerHoldNoteEl) routerHoldNoteEl.hidden = true;
+      } else if (amputation.amputationCrisis || telemetry.amputationRisk) {
+        verdictBarEl.dataset.verdictState = 'CRITICAL_STOP';
+        verdictTextEl.textContent = `OLDEST CONTEXT DROPPING \u00B7 Type /compact now (${reclaimSumStr} clearable)`;
+        if (routerHoldNoteEl) routerHoldNoteEl.hidden = true;
+      } else if (totalTokens > safeLimit && isCacheWarmNow) {
+        verdictBarEl.dataset.verdictState = 'HOLD_COMPACT';
+        verdictTextEl.textContent = `HOLD COMPACT \u00B7 Cache warm ${fmtTtlShort(ttlRemSec)} \u00B7 +${fmtK(overTok)} over ${effShortLabel}`;
+        if (routerHoldNoteEl) {
+          if (routerNudge) {
+            routerHoldNoteEl.hidden = false;
+            routerHoldNoteEl.textContent = `Hold switch (${fmtTtlShort(ttlRemSec)})`;
+            routerHoldNoteEl.title = `Model switch (${routerNudge}) held while 95% cache is warm (${fmtTtlShort(ttlRemSec)} left) to avoid an uncached prefill bust.`;
+          } else {
+            routerHoldNoteEl.hidden = true;
+          }
+        }
+      } else if (raw.verdictCode === 'HOLD_COMPACT' && isCacheWarmNow) {
+        verdictBarEl.dataset.verdictState = 'HOLD_COMPACT';
+        verdictTextEl.textContent = `HOLD COMPACT \u00B7 Warm ${fmtTtlShort(ttlRemSec)} \u00B7 ${reclaimSumStr} staged`;
+        if (routerHoldNoteEl) {
+          if (routerNudge) {
+            routerHoldNoteEl.hidden = false;
+            routerHoldNoteEl.textContent = `Hold switch (${fmtTtlShort(ttlRemSec)})`;
+            routerHoldNoteEl.title = `Model switch (${routerNudge}) held while 95% cache is warm (${fmtTtlShort(ttlRemSec)} left) to avoid an uncached prefill bust.`;
+          } else {
+            routerHoldNoteEl.hidden = true;
+          }
+        }
+      } else if (totalTokens > safeLimit && !isCacheWarmNow) {
+        verdictBarEl.dataset.verdictState = 'COMPACT_NOW';
+        verdictTextEl.textContent = `COMPACT NOW \u00B7 Cache cold \u00B7 +${fmtK(overTok)} over ${effShortLabel} (${reclaimSumStr} reclaimable)`;
+        if (routerHoldNoteEl) {
+          if (routerNudge) {
+            routerHoldNoteEl.hidden = false;
+            routerHoldNoteEl.textContent = routerNudge;
+          } else {
+            routerHoldNoteEl.hidden = true;
+          }
+        }
+      } else if (!isCacheWarmNow && (clutterTokens >= 25000 || (reclaimSumK * 1000) >= 25000) && totalTokens >= compactReadyFloor && (turnCnt === 0 || turnCnt >= 2)) {
+        verdictBarEl.dataset.verdictState = 'COMPACT_READY';
+        verdictTextEl.textContent = `COMPACT READY \u00B7 Cache cold \u00B7 ${reclaimSumStr} reclaimable (${fmtK(leftTok)} under ${effShortLabel})`;
+        if (routerHoldNoteEl) routerHoldNoteEl.hidden = true;
+      } else if ((raw.routerState || raw.demoMeta?.routerState || raw.coachState?.routerState) && (raw.routerState || raw.demoMeta?.routerState || raw.coachState?.routerState) !== 'ALLOW_ACTIVE_SET' && (raw.routerState || raw.demoMeta?.routerState || raw.coachState?.routerState) !== 'NOMINAL') {
+        const activeRouterState = raw.routerState || raw.demoMeta?.routerState || raw.coachState?.routerState;
+        const activeRouterAction = raw.recommendedAction || raw.demoMeta?.recommendedAction || raw.coachState?.recommendedAction || 'Action recommended';
+        verdictBarEl.dataset.verdictState = activeRouterState;
+        verdictTextEl.textContent = `${activeRouterState} \u00B7 ${activeRouterAction}`;
+        if (routerHoldNoteEl) routerHoldNoteEl.hidden = true;
+      } else {
+        verdictBarEl.dataset.verdictState = 'NOMINAL';
+        const cacheClause = isCacheWarmNow
+          ? `Cache warm ${fmtTtlShort(ttlRemSec)} (95% off)`
+          : (qCache.nextTurnLikelyWarm && ttlRemSec > 0 ? `Prefix rebuilt (${fmtTtlShort(ttlRemSec)})` : 'Cache cold');
+        verdictTextEl.textContent = `NOMINAL \u00B7 ${cacheClause} \u00B7 ${fmtK(leftTok)} below ${limitK} ${effShortLabel}`;
+        if (routerHoldNoteEl) {
+          if (routerNudge && isCacheWarmNow) {
+            routerHoldNoteEl.hidden = false;
+            routerHoldNoteEl.textContent = `Hold switch (${fmtTtlShort(ttlRemSec)})`;
+          } else {
+            routerHoldNoteEl.hidden = true;
+          }
+        }
+      }
+    }
+
+    const btnSignalToggleEl = document.getElementById('btnSignalToggle');
+    if (btnSignalToggleEl) {
+      if (isLowConfidence && (!signals.activeSignal || !signals.activeSignal.baselineTokens)) {
+        btnSignalToggleEl.style.display = 'none';
+      } else {
+        btnSignalToggleEl.style.display = '';
+      }
+    }
+
+    const valFreeEl = document.getElementById('valFree');
+    const lblFreeEl = document.getElementById('lblFree');
+    const subFreeEl = document.getElementById('subFree');
+    const swatchFreeEl = document.getElementById('swatchFree');
+    const reasonTip = effortProfile?.limitReason
+      ? ` <span class="limit-reason-tip" title="${escAttr(effortProfile.limitReason)}" data-limit-reason="${escAttr(effortProfile.limitReason)}">&#x24D8;</span>`
+      : '';
+    subFreeEl.title = effortProfile?.limitReason || '';
+    if (totalTokens <= safeLimit) {
+      lblFreeEl.textContent = 'Safe Headroom';
+      if (swatchFreeEl) {
+        swatchFreeEl.style.background = '#334155';
+        swatchFreeEl.style.borderColor = '#64748b';
+      }
+      valFreeEl.textContent = `${fmtTenths(Math.max(0, toLimitTenths))} left`;
+      // Neutral white/slate (#f1f5f9) when > 15k left, amber when approaching safe limit, red when over limit
+      valFreeEl.style.setProperty('color', (safeLimit - totalTokens) > 15000 ? '#f1f5f9' : '#f59e0b', 'important');
+      subFreeEl.innerHTML = `Until ${limitK} safe limit${reasonTip}`;
+    } else {
+      lblFreeEl.textContent = 'Over Limit';
+      if (swatchFreeEl) {
+        swatchFreeEl.style.background = 'var(--hz-danger)';
+        swatchFreeEl.style.borderColor = 'var(--hz-danger)';
+      }
+      valFreeEl.textContent = `+${fmtTenths(Math.max(1, -toLimitTenths))} over`;
+      valFreeEl.style.setProperty('color', '#ef4444', 'important');
+      subFreeEl.innerHTML = `Past ${limitK} limit${reasonTip}`;
+    }
+
+    // 4. Composite Session Risk & Action Center
+    const sessionRisk = evaluateCompositeSessionRiskInline(raw, totalTokens, safeLimit);
+    const isOverLimit = totalTokens >= safeLimit || Boolean(amputation.amputationCrisis || telemetry.amputationRisk);
+    const isCompactionWorthStall = totalTokens > 179000 || (totalTokens >= 50000 && (clutterTokens >= 25000 || (reclaimSumK * 1000) >= 25000)) || clutterTokens >= 35000 || (reclaimSumK * 1000) >= 35000;
+    const isNeedsCleanup = (totalTokens >= reminderAt && totalTokens >= 50000) || clutterTokens >= 25000 || (reclaimSumK * 1000) >= 25000 || (isCompactionWorthStall && parityPureRound < 65);
+
+    const dot = document.getElementById('statusDot');
+    const badge = document.getElementById('statusBadge');
+    const prefixLockBadgeEl = document.getElementById('prefixLockBadge');
+    if (dot) {
+      const vState = verdictBarEl?.dataset?.verdictState || 'NOMINAL';
+      const reasonsArr = Array.isArray(sessionRisk.reasons) ? sessionRisk.reasons : [];
+      const coldOnlyAmber = sessionRisk.band === 'AMBER' && reasonsArr.length === 1 && /Cache TTL == 0s/i.test(reasonsArr[0]);
+      if (vState === 'CIRCUIT_BREAKER' || vState === 'CRITICAL_STOP' || sessionRisk.band === 'RED') {
+        dot.className = 'dot danger';
+        dot.dataset.riskBand = 'RED';
+      } else if (vState === 'HOLD_COMPACT' || vState === 'COMPACT_NOW' || vState === 'COMPACT_READY' || (sessionRisk.band === 'AMBER' && !coldOnlyAmber)) {
+        dot.className = 'dot warn';
+        dot.dataset.riskBand = 'AMBER';
+      } else {
+        dot.className = 'dot';
+        dot.dataset.riskBand = 'GREEN';
+      }
+      dot.title = verdictTextEl?.textContent || sessionRisk.summary;
+    }
+    if (selEl) {
+      selEl.dataset.prefixLock = String(Boolean(sessionRisk.prefixLockWarning));
+      selEl.title = sessionRisk.prefixLockWarning
+        ? sessionRisk.prefixLockTooltip
+        : "Select which conversation's context memory to inspect";
+    }
+    if (prefixLockBadgeEl) {
+      prefixLockBadgeEl.hidden = !sessionRisk.prefixLockWarning;
+      prefixLockBadgeEl.title = sessionRisk.prefixLockTooltip || PREFIX_LOCK_WARNING_TEXT;
+    }
+
+    const actionCard = document.getElementById('actionCard');
+    const actionIcon = document.getElementById('actionIcon');
+    const actionText = document.getElementById('actionText');
+    const guidedBox = document.getElementById('guidedStepBox');
+    const compactReclaim = document.getElementById('compactReclaim');
+    const highEffortBanner = document.getElementById('highEffortSludgeBanner');
+    const confBadge = document.getElementById('confidenceBadge');
+    if (confBadge) {
+      const conf = telemetry.confidence || raw.confidence || 'HIGH';
+      if (conf === 'LOW' || conf === 'DEGRADED') {
+        confBadge.hidden = false;
+        confBadge.style.display = 'inline-block';
+        confBadge.textContent = conf === 'LOW' ? 'Low confidence' : 'Degraded';
+        confBadge.className = conf === 'LOW' ? 'badge danger' : 'badge warn';
+      } else {
+        confBadge.hidden = true;
+        confBadge.style.display = 'none';
+      }
+    }
+
+    // Update Top Header Badge and /compact instruction subtitle in all states
+    const reclaimLine = (clutterTokens > 0 || reclaimSumK > 0)
+      ? `reclaims up to ~${reclaimSumStr} \u00B7 keeps rules, task.md & active summary intact`
+      : '';
+    compactReclaim.textContent = (guidedBox && guidedBox.dataset.cacheAdvisory === 'lean' ? `Session is lean (${fmtK(totalTokens)} / ${Math.round(totalTokens / (raw.window?.maxTokens || 256000) * 100)}%) \u00B7 No compaction needed until >50k \u00B7 ` : '') + reclaimLine;
+    if (isOverLimit) {
+      const overK = totalTokens > safeLimit ? fmtTenths(Math.max(1, -toLimitTenths)) : '';
+      badge.textContent = overK ? `${overK} Over Limit` : 'Over Safe Limit';
+    } else if (clutterTokens > 0 || reclaimSumK > 0) {
+      badge.textContent = `${reclaimSumStr} can be cleared`;
+    } else if (isNeedsCleanup) {
+      badge.textContent = 'Near Limit';
+    } else {
+      badge.textContent = 'Healthy';
+    }
+
+    // Dynamic Parameterized /compact, Cache-Aware Advisory & Pre-Compaction Git Drift Warning
+    const paramTextEl = document.getElementById('parameterizedCompactText');
+    if (paramTextEl) {
+      if (raw.compaction?.parameterizedCommand) {
+        paramTextEl.textContent = raw.compaction.parameterizedCommand;
+      } else {
+        const activeFileShortList = dupFiles.length > 0
+          ? dupFiles.slice(0, 4).map(f => formatWorkspaceRelativePath(f.path)).filter(Boolean).join(', ')
+          : 'active workspace files';
+        // Never emit a count placeholder for clause 3; interpolate real sanitized text or omit the clause.
+        const corrTexts = (Array.isArray(signals.userCorrectionTexts) ? signals.userCorrectionTexts : [])
+          .map(t => String(t || '')
+            .split(/\r?\n/).map(l => l.trim()).filter(l => l && !/^\/[a-z][\w-]*\b/i.test(l) && !/^#{1,6}\s/.test(l)).join(' ')
+            .replace(/\b[a-z][a-z0-9+.-]*:\/\/\S+/gi, ' ').replace(/\s+/g, ' ').trim())
+          .filter(t => /[a-z]{2,}/i.test(t))
+          .map(t => t.length > 90 ? t.slice(0, 89).replace(/\s+\S*$/, '').replace(/[\s,;:.\-]+$/, '') + '\u2026' : t)
+          .slice(0, 3);
+        const baseCmd = `/compact Focus on preserving: 1) Exported symbol signatures and state scales for [${activeFileShortList || 'active workspace files'}], 2) Current checklist state in task.md`;
+        paramTextEl.textContent = corrTexts.length > 0
+          ? `${baseCmd}, 3) Explicit user constraints: [${corrTexts.join('; ')}].`
+          : `${baseCmd}.`;
+      }
+    }
+
+    const batonPassEl = document.getElementById('batonPassRow');
+    if (batonPassEl) {
+      const showBaton = totalTokens >= 120000 || Boolean(raw.coachState?.compactionCoach?.recommendBatonPass);
+      batonPassEl.hidden = !showBaton;
+    }
+
+    const handoffAudit = signals.handoff || {};
+    const sludgeNow = Math.max(clutterTokens, Math.round(reclaimSumK * 1000), Number(raw.metrics?.sludgeTokens || 0));
+    const compactionRelevant = isOverLimit || totalTokens >= 50000 || sludgeNow >= 25000;
+    const sessionEditedWs = signals.activeSignal?.sessionHasWorkspaceEdits !== false;
+    const explicitPreCompactWarn = raw.compaction?.preCompactionWarning ?? handoffAudit.preCompactionWarning;
+    const hasDriftWarn = Boolean(
+      compactionRelevant &&
+      sessionEditedWs &&
+      (typeof explicitPreCompactWarn === 'boolean'
+        ? explicitPreCompactWarn
+        : ((handoffAudit.gitDrift?.dirtyFileCount > 0) && ((signals.activeSignal?.taskMdTurnsBehind || 0) >= 1 || (signals.handoff?.artifacts?.taskMd?.exists === false && !signals.activeSignal?.taskMdSaved))))
+    );
+
+    const cacheAdvisoryEl = document.getElementById('cacheCompactionAdvisory');
+    if (cacheAdvisoryEl) {
+      const ttlVal = Math.max(0, Math.round(Number(raw.quota?.cache?.ttlRemainingSec ?? (raw.quota?.cache?.isCacheCold ? 0 : 300)) || 0));
+      const isTrulyWarmAdv = Boolean(isCacheTrulyWarmInline(raw.quota?.cache) && ttlVal > 0 && !hasZeroHitFalseWarm);
+      const isColdAdvisory = !isTrulyWarmAdv && (
+        Boolean(raw.compaction?.cacheAdvisory?.state === 'COMPACT_NOW') ||
+        ttlVal <= 0 ||
+        !isCacheTrulyWarmInline(raw.quota?.cache)
+      );
+      cacheAdvisoryEl.hidden = false;
+      if (!compactionRelevant) {
+        cacheAdvisoryEl.className = 'cache-compaction-advisory lean-no-compact';
+        cacheAdvisoryEl.dataset.advisoryState = 'lean';
+        cacheAdvisoryEl.textContent = 'Session is lean \u2014 no compaction needed until >50k tokens';
+        cacheAdvisoryEl.hidden = true;
+      } else if (isColdAdvisory) {
+        cacheAdvisoryEl.className = 'cache-compaction-advisory cold-compact-now';
+        cacheAdvisoryEl.dataset.advisoryState = 'cold-compact-now';
+        cacheAdvisoryEl.textContent = hasDriftWarn
+          ? 'Cache is cold \u2014 click "Save task.md" first, then run /compact.'
+          : (totalTokens >= safeLimit
+            ? `Context is past the ${limitK} safe limit (cache cold). Compact or start a fresh chat before next turn.`
+            : 'Cache expired. Run parameterized compaction now before firing next turn.');
+      } else {
+        cacheAdvisoryEl.className = 'cache-compaction-advisory warm-defer';
+        cacheAdvisoryEl.dataset.advisoryState = 'warm-defer';
+        cacheAdvisoryEl.textContent = 'Cache is currently warm (95% token cost discount). Defer compaction until work pause to avoid 70s execution stall and complete KV cache invalidation.';
+      }
+      // Mute the /compact instruction's amber accent while the green "Defer compaction" banner is shown.
+      if (guidedBox) guidedBox.dataset.cacheAdvisory = cacheAdvisoryEl.dataset.advisoryState;
+    }
+
+    if (highEffortBanner) {
+      const isWarmDeferActive = cacheAdvisoryEl && cacheAdvisoryEl.dataset.advisoryState === 'warm-defer';
+      if (effortProfile.tier === 'HIGH' && clutterTokens >= 30000) {
+        highEffortBanner.hidden = false;
+        highEffortBanner.textContent = hasDriftWarn
+          ? `\u26A1 High Effort active with ${reclaimSumStr} of stale noise \u2014 sync task.md first, then compact to prevent thinking-token burn.`
+          : (isWarmDeferActive
+              ? `\u26A1 High Effort active with ${reclaimSumStr} of stale noise \u2014 compact at your next pause (or when cache TTL expires) to prevent thinking-token burn.`
+              : `\u26A1 High Effort active with ${reclaimSumStr} of stale noise \u2014 compact now to prevent slow reasoning turns and thinking-token burn.`);
+      } else {
+        highEffortBanner.hidden = true;
+        highEffortBanner.textContent = '';
+      }
+    }
+
+    const driftBannerEl = document.getElementById('artifactDriftBanner');
+    if (driftBannerEl) {
+      // Keep the inline "Save task.md" button; only the text span changes.
+      const driftTextEl = document.getElementById('artifactDriftText') || driftBannerEl;
+      const driftSaveBtn = document.getElementById('btnDriftSaveTask');
+      const isSimpleMode = document.body.getAttribute('data-view-mode') === 'simple';
+      const isDismissedCp = typeof getDismissedActionKeys === 'function' && getDismissedActionKeys().has('checkpoint');
+      if (hasDriftWarn) {
+        driftBannerEl.hidden = false;
+        // In simple view when checkpoint-sync is rendered in the action list, hide the redundant inline button on the banner
+        // to uphold Single Action Button Simplicity (avoiding competing duplicate buttons for the same task).
+        if (driftSaveBtn) {
+          driftSaveBtn.style.display = (isSimpleMode && !isDismissedCp) ? 'none' : '';
+        }
+        const gd = handoffAudit.gitDrift || {};
+        const hs = signals.activeSignal;
+        const taskExists = Boolean(hs?.taskMdSaved || handoffAudit.artifacts?.taskMd?.exists);
+        const behindCount = hs?.taskMdTurnsBehind || 0;
+        const taskState = !taskExists ? 'missing' : (behindCount > 0 ? `${behindCount} turn${behindCount === 1 ? '' : 's'} stale` : 'stale');
+        const fallbackMsg = (gd.sessionScoped && typeof gd.sessionDirtyFileCount === 'number')
+          ? `\u26A0\uFE0F ${gd.sessionDirtyFileCount} file${gd.sessionDirtyFileCount === 1 ? '' : 's'} edited in this session ${gd.sessionDirtyFileCount === 1 ? 'is' : 'are'} uncommitted (${gd.dirtyFileCount || 0} repo-wide) while task.md is ${taskState}.`
+          : `\u26A0\uFE0F ${gd.dirtyFileCount || 1} uncommitted workspace file(s) while task.md is ${taskState}. Sync task.md before compacting.`;
+        driftTextEl.textContent = raw.compaction?.preCompactionWarningMessage ||
+          handoffAudit.preCompactionWarningMessage ||
+          fallbackMsg;
+      } else {
+        driftBannerEl.hidden = true;
+        driftTextEl.textContent = '';
+      }
+    }
+
+    if (isOverLimit) {
+      badge.className = 'badge danger';
+      actionCard.className = 'action-card danger';
+      actionCard.dataset.cleanState = '';
+      actionIcon.textContent = '🚨';
+      if (document.querySelector('.action-msg')) document.querySelector('.action-msg').style.display = 'none';
+      guidedBox.style.display = 'flex';
+      compactReclaim.textContent = (guidedBox && guidedBox.dataset.cacheAdvisory === 'lean' ? `Session is lean (${fmtK(totalTokens)} / ${Math.round(totalTokens / (raw.window?.maxTokens || 256000) * 100)}%) \u00B7 No compaction needed until >50k \u00B7 ` : '') + reclaimLine;
+    } else if (isNeedsCleanup && compactionRelevant) {
+      badge.className = 'badge warn';
+      actionCard.className = 'action-card warn';
+      actionCard.dataset.cleanState = '';
+      actionIcon.textContent = '⚠️';
+      if (document.querySelector('.action-msg')) document.querySelector('.action-msg').style.display = 'none';
+      guidedBox.style.display = 'flex';
+      compactReclaim.textContent = (guidedBox && guidedBox.dataset.cacheAdvisory === 'lean' ? `Session is lean (${fmtK(totalTokens)} / ${Math.round(totalTokens / (raw.window?.maxTokens || 256000) * 100)}%) \u00B7 No compaction needed until >50k \u00B7 ` : '') + reclaimLine;
+    } else {
+      badge.className = (clutterTokens > 0 || reclaimSumK > 0) ? 'badge warn' : 'badge';
+      actionCard.className = 'action-card';
+      actionCard.dataset.cleanState = 'nominal-clean';
+      actionIcon.textContent = '✓';
+      if (document.querySelector('.action-msg')) document.querySelector('.action-msg').style.display = 'flex';
+      actionText.innerHTML = `<strong>Memory is clean and focused.</strong> ${parityPureRound}% of context (${fmtTenths(displayParity.displayActiveTenths)}) is active code and rules with ${fmtTenths(Math.max(0, toLimitTenths))} of room before earliest instructions could be affected.`;
+      guidedBox.style.display = 'none';
+    }
+
+    // 5. Build Actionable Brain Diagnostics Playbook
+    const playbookList = document.getElementById('playbookList');
+    const reclaimCards = [], spikeCards = [], tipCards = [];
+    let cards = reclaimCards;
+
+    // Card A: Duplicate File Reads
+    if (hasDupRow) {
+      const fileCountStr = dupFiles.length === 1 ? '1 file' : `${dupFiles.length} files`;
+      const NOISY = /(^|[\\/])(package-lock\.json|yarn\.lock|pnpm-lock\.yaml|poetry\.lock|Cargo\.lock|dist|build|out|coverage|node_modules)([\\/]|$)|\.(log|min\.js|map|lock)$/i;
+      const fileRows = dupFiles.map(f => {
+        const noisy = NOISY.test(String(f.path));
+        const canIgnore = isIgnorablePath(f.path);
+        const ch = chronicOf(f);
+        const chronic = isChronic(f);
+        const badge = ch && ch.sessions >= 2
+          ? `<span class="chronic-badge${chronic ? ' hot' : ''}" title="Seen as a repeated read across recent sessions">&#x21BB; re-read in ${ch.sessions} of last ${ch.windowSessions} sessions</span>`
+          : '';
+        const ignoreBtn = canIgnore
+          ? `<button class="chip-btn${noisy ? ' noisy' : ''}${chronic ? ' chronic' : ''}" data-act="ignore" data-path="${escAttr(f.path)}" title="Add to .antigravityignore">Ignore file</button>`
+          : '';
+        return `
+        <div class="file-subrow rich mono">
+          <span class="fpath" title="${escAttr(f.path)}">${formatShortPath(f.path)}</span>
+          <span class="fmeta">${f.occurrences} ${f.occurrences === 1 ? 're-read' : 're-reads'} &middot; ${fmtK(f.wastedTokens)} tok</span>
+          ${badge}
+          ${ignoreBtn}
+        </div>
+      `;}).join('');
+
+      cards.push(`
+        <details class="diag-item diag-rollup" data-slot="collapsible">
+          <summary class="diag-top" data-slot="collapsible-trigger">
+            <span class="diag-name"><span class="diag-caret">&#x25B6;</span> &#x1F501; Repeated File Reads (${fileCountStr})</span>
+            <span class="diag-impact mono">${fmtKFixed1(dupRowK)}</span>
+          </summary>
+          <div class="diag-body" data-slot="collapsible-content">
+            <div class="diag-desc">Older snapshots of re-read files stay in context; <code>/compact</code> drops them.</div>
+            <div class="file-sublist dup-file-sublist">${fileRows}</div>
+            <div class="diag-footer-bar diag-actions-row">
+              <span class="diag-hint">Prevent re-reads:</span>
+              <div class="diag-actions-buttons">
+                <button class="mini-btn prompt-btn" onclick="runPrompt('lines', this)" title="${promptTitle('lines')}">${CAN_INJECT ? '&#x26A1;' : '&#x1F4CB;'} Tell agent: Read line ranges</button>
+                <button class="mini-btn prompt-btn" onclick="runPrompt('subagent', this)" title="${promptTitle('subagent')}">${CAN_INJECT ? '&#x26A1;' : '&#x1F4CB;'} Tell agent: Use subagent</button>
+              </div>
+            </div>
+            <!-- Hidden details drawer element retained for backward-compatible JSDOM assertions -->
+            <details class="file-drawer diag-drawer-full" style="display:none;"><summary>Inspect ${fileCountStr}</summary></details>
+          </div>
+        </details>
+      `);
+    }
+
+    // Card B: Earlier Chat History (>25 steps ago)
+    if (hasOldTurnRow) {
+      cards.push(`
+        <details class="diag-item diag-rollup">
+          <summary class="diag-top">
+            <span class="diag-name"><span class="diag-caret">&#x25B6;</span> &#x1F4AC; Earlier Chat History (${oldTurnCount} old turn${oldTurnCount === 1 ? '' : 's'})</span>
+            <span class="diag-impact mono">${fmtKFixed1(oldTurnRowK)}</span>
+          </summary>
+          <div class="diag-body">
+            <div class="diag-desc">Completed steps (&gt;25 turns old) are re-sent every turn; <code>/compact</code> summarizes them while keeping semantically pinned schemas intact.</div>
+          </div>
+        </details>
+      `);
+    }
+
+    cards = spikeCards;
+    // Card C: Blowup Steps (Single massive outputs >= 8k tok)
+    const blowups = signals.blowupSteps || [];
+    let spikeIncluded = false, spikePill = 'Retained';
+    if (blowups.length > 0) {
+      const topBlowup = blowups[0];
+      const bp = topBlowup.payload || {};
+      const bpKind = bp.kind || 'other';
+      const spikeTurns = win.turnCount || sessionMeta.turnCount || 0;
+      const spikeStepsAgo = Math.max(0, spikeTurns - 1 - topBlowup.stepIndex);
+      spikeIncluded = spikeStepsAgo > 25 || /STALE|ERROR/.test(topBlowup.category || '');
+      spikePill = spikeIncluded ? 'Cleared by /compact' : 'Retained';
+      cards.push(`
+        <details class="diag-item diag-rollup">
+          <summary class="diag-top">
+            <span class="diag-name"><span class="diag-caret">&#x25B6;</span> &#x26A1; Large Output at Step #${topBlowup.stepIndex}</span>
+            <span class="diag-impact mono">${fmtK(topBlowup.tokens)} in 1 step</span>
+          </summary>
+          <div class="diag-body">
+            <div class="diag-desc">Step #${topBlowup.stepIndex} injected ${fmtK(topBlowup.tokens)} tokens in one go.</div>
+            <div class="payload-box mono">
+              <span class="payload-kind">${bpKind === 'command' ? 'Command that produced this output:' : (bpKind === 'file' ? 'File read into context:' : 'Source of this output:')}</span>
+              ${escAttr(bp.detail || formatShortPath(topBlowup.target))}
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">${bpKind === 'file' && bp.path && isIgnorablePath(bp.path)
+                ? `<button class="chip-btn" data-act="ignore" data-path="${escAttr(bp.path)}" title="Add to .antigravityignore">Ignore file</button>`
+                : (bpKind === 'file'
+                  ? `<button class="mini-btn prompt-btn" onclick="runPrompt('lines', this, 'Use view_file_outline or StartLine/EndLine ranges instead of reading/emitting the full file in one step')" title="Sends line-range prompt to agent">&#x26A1; Send Prompt</button>`
+                  : `<button class="mini-btn prompt-btn" onclick="runPrompt('truncate', this)" title="${promptTitle('truncate')}">${promptLabel('truncate')}</button>`)}${bpKind === 'command'
+                ? `<button type="button" class="mini-btn" id="btnRegisterDampeningHook" data-act="dampen-hook" data-command="${escAttr(bp.detail || '')}" title="Registers a fail-open PreToolUse wrapper in .agents/hooks.json (head -n 100 / log redirect) to prevent 20k+ single-turn CLI bloat">&#x1F6E1;&#xFE0F; Register PreToolUse Hook</button>`
+                : ''}</div>
+            </div>
+            <div class="diag-actions" style="margin-top:4px;">
+              <span class="retained-badge">${spikeIncluded
+                ? 'Included in Earlier Chat History total above'
+                : 'In active window (not cleared by /compact)'}</span>
+            </div>
+          </div>
+        </details>
+      `);
+    }
+
+    cards = reclaimCards;
+    // Card D: Dead Errors / Error Loop
+    if (hasErrRow) {
+      if (isErrLoop) {
+        cards.push(`
+          <details class="diag-item diag-rollup">
+            <summary class="diag-top">
+              <span class="diag-name"><span class="diag-caret">&#x25B6;</span> &#x1F6A8; Repeated Tool / Command Error Loop</span>
+              <span class="diag-impact mono" style="color:var(--hz-clutter)">${fmtKFixed1(errRowK)}</span>
+            </summary>
+            <div class="diag-body">
+              <div class="diag-desc">Repeated failures keep broken approaches in context and can cause loops. <code>/compact</code> or AST Fold collapses them into 1-line tombstones.</div>
+              <div class="diag-actions">
+                <span></span>
+                <button class="mini-btn danger prompt-btn" onclick="runPrompt('loop', this)" title="${promptTitle('loop')}">${promptLabel('loop')}</button>
+              </div>
+            </div>
+          </details>
+        `);
+      } else {
+        cards.push(`
+          <details class="diag-item diag-rollup">
+            <summary class="diag-top">
+              <span class="diag-name"><span class="diag-caret">&#x25B6;</span> &#x26A0;&#xFE0F; Fixed Error Logs (${signals.deadErrors?.errorCount || 1} old error${(signals.deadErrors?.errorCount || 1) === 1 ? '' : 's'})</span>
+              <span class="diag-impact mono" style="color:var(--hz-clutter)">${fmtKFixed1(errRowK)}</span>
+            </summary>
+            <div class="diag-body">
+              <div class="diag-desc">Dead error output stays in context; <code>/compact</code> or AST Fold collapses them into 1-line tombstones.</div>
+            </div>
+          </details>
+        `);
+      }
+    }
+
+    cards = tipCards;
+    // Card D2: Chronic re-reads across sessions -> ignore or summarise once
+    const dismissedKeysPlaybook = getDismissedActionKeys();
+    const chronicList = (raw.chronicReads || [])
+      .filter(c => c.sessions >= 3 && !dismissedKeysPlaybook.has('chronic:' + normPath(c.path)))
+      .slice(0, 5);
+    if (chronicList.length) {
+      const rows = chronicList.map(c => {
+        const canIgnore = isIgnorablePath(c.path);
+        const ignoreBtn = canIgnore
+          ? `<button class="chip-btn chronic" data-act="ignore" data-path="${escAttr(c.path)}" title="Add to .antigravityignore">Ignore file</button>`
+          : '';
+        return `
+        <div class="file-subrow rich mono">
+          <span class="fpath" title="${escAttr(c.path)}">${formatShortPath(c.path)}</span>
+          <span class="chronic-badge hot">&#x21BB; ${c.sessions} of last ${c.windowSessions} sessions</span>
+          ${ignoreBtn}
+        </div>`;
+      }).join('');
+      cards.push(`
+        <details class="diag-item diag-rollup" id="chronicCard">
+          <summary class="diag-top">
+            <span class="diag-name"><span class="diag-caret">&#x25B6;</span> &#x21BB; Chronic Re-reads (${chronicList.length} file${chronicList.length === 1 ? '' : 's'})</span>
+            <span class="diag-impact mono">Across sessions</span>
+          </summary>
+          <div class="diag-body">
+            <div class="diag-desc">Re-read in 3 or more recent sessions. Keep key interfaces documented in on-demand <code>.agents/skills/</code> so full files aren't loaded into context on Turn 1.</div>
+            <div class="file-sublist">${rows}</div>
+          </div>
+        </details>
+      `);
+    }
+    // Card E: User Corrections Detected -> Teach Agent Permanently (Attention-Aware Rule Promotion)
+    if ((signals.userCorrections || 0) >= 1 && !dismissedKeysPlaybook.has('rule')) {
+      const rulePromo = signals.rulePromotion || {};
+      const rawCorrection = Array.isArray(signals.userCorrectionTexts) && signals.userCorrectionTexts.length > 0
+        ? signals.userCorrectionTexts[0]
+        : '';
+      const firstCorrection = rawCorrection.replace(/^<USER_REQUEST>\s*/i, '').replace(/\s*<\/USER_REQUEST>$/i, '').trim();
+      const truncWarnHtml = rulePromo.truncationWarning
+        ? `<div class="diag-desc" style="color:var(--hz-clutter);margin-top:3px;">&#x26A0;&#xFE0F; ${escAttr(rulePromo.truncationWarning)}</div>`
+        : '';
+      cards.push(`
+        <details class="diag-item diag-rollup">
+          <summary class="diag-top">
+            <span class="diag-name"><span class="diag-caret">&#x25B6;</span> &#x1F9E0; Unlogged User Corrections (${signals.userCorrections} rule candidate${signals.userCorrections === 1 ? '' : 's'})</span>
+            <span class="diag-impact mono" style="color:var(--hz-anchor)">Can Teach Agent</span>
+          </summary>
+          <div class="diag-body">
+            <div class="diag-desc">Stage repeated corrections via 1-click user diff approval gated by TurnZeroGate (or run <code>/evolve</code> when static AGENTS.md overhead exceeds 8,000 tokens).</div>
+            ${truncWarnHtml}
+            <div class="diag-actions" style="flex-wrap:wrap;gap:6px;">
+              <button type="button" class="mini-btn" id="btnPromoteRulePrimacy" data-act="promote-rule" data-zone="primacy" data-rule="${escAttr(firstCorrection)}" title="Stage directive for TurnZeroGate Cold-Cache approval">&#x1F3AF; Stage Rule Diff (TurnZeroGate)</button>
+              <button class="mini-btn prompt-btn" onclick="runPrompt('rule', this)" title="${promptTitle('rule')}">${promptLabel('rule')}</button>
+            </div>
+          </div>
+        </details>
+      `);
+    }
+
+    // Card F: MCP Prefix Bloat & Unused Eager Servers Audit
+    const mcpAudit = signals.mcpAudit || raw.baseline?.mcpAudit || null;
+    const unusedEagerList = Array.isArray(mcpAudit?.unusedEagerServers) ? mcpAudit.unusedEagerServers : [];
+    if (unusedEagerList.length > 0) {
+      const eagerRows = unusedEagerList.map(srv => `
+        <div class="file-subrow rich mono">
+          <span class="fpath" title="${escAttr(srv.configSource || '')}">${escAttr(srv.name)} (eager)</span>
+          <span class="fmeta">${fmtK(srv.schemaTokens || 0)} schema &middot; 0 calls in session &middot; switch to <code>lazy</code></span>
+          <button type="button" class="chip-btn" data-act="mcp-switch-lazy" data-server="${escAttr(srv.name)}" title="Copy instruction to switch ${escAttr(srv.name)} to lazy loading in mcp_config.json">[Switch to Lazy]</button>
+        </div>
+      `).join('');
+      const totalEagerTok = unusedEagerList.reduce((s, r) => s + (r.schemaTokens || 0), 0);
+      cards.push(`
+        <details class="diag-item diag-rollup" id="mcpAuditCard">
+          <summary class="diag-top">
+            <span class="diag-name"><span class="diag-caret">&#x25B6;</span> &#x1F50C; Unused Eager MCP Schemas (${unusedEagerList.length} server${unusedEagerList.length === 1 ? '' : 's'})</span>
+            <span class="diag-impact mono" style="color:var(--hz-clutter)">${fmtK(totalEagerTok)} static</span>
+          </summary>
+          <div class="diag-body">
+            <div class="diag-desc">These MCP servers are configured as <code>eager</code> in <code>mcp_config.json</code> with zero tool calls across the active session. Switch them to <code>lazy</code> loading to reclaim static prefix tokens.</div>
+            <div class="file-sublist">${eagerRows}</div>
+          </div>
+        </details>
+      `);
+    }
+
+    const totalCards = reclaimCards.length + spikeCards.length + tipCards.length;
+    if (totalCards === 0) {
+      playbookList.dataset.sig = '';
+      playbookList.innerHTML = `
+        <div class="diag-item">
+          <div class="diag-name" style="color:var(--hz-useful)">&#x2713; Zero Context Bottlenecks Detected</div>
+          <div class="diag-desc">No duplicate file reads, oversized step outputs, or error loops in active memory.</div>
+        </div>
+      `;
+    } else {
+      const group = (cls, title, pill, items, metaLabel = '') => items.length
+        ? `<div class="diag-group ${cls}"><div class="group-head"><span class="group-title">${title}</span><span class="group-pill mono"${cls === 'reclaim' ? ' hidden style="display:none !important;"' : ''}>${pill}</span>${metaLabel ? `<span class="group-meta mono">${metaLabel}</span>` : ''}</div>${items.join('')}</div>`
+        : '';
+      const isWarmEarly = totalTokens < 80000 && !isColdBloat && !raw.quota?.cache?.prefixBustDetected;
+      const reclaimCategoryPill = `${reclaimCards.length} ${reclaimCards.length === 1 ? 'category' : 'categories'}`;
+      const reclaimMeta = isWarmEarly
+        ? `${reclaimCategoryPill} &middot; <span style="color:var(--hz-useful);">Warm Cache (Compaction optional)</span>`
+        : reclaimCategoryPill;
+      const html =
+        group('reclaim', 'Cleared by /compact', `${reclaimSumStr} total`, reclaimCards, reclaimMeta) +
+        group('spike', 'Biggest Single Turn', spikePill, spikeCards) +
+        group('tips', 'Improve future sessions', 'Optional', tipCards);
+      // Only rewrite when content changed so click confirmations are not wiped by the 2s live refresh
+      if (playbookList.dataset.sig !== html) {
+        playbookList.innerHTML = html;
+        playbookList.dataset.sig = html;
+      }
+    }
+
+    // 5b. Active Signal drawer: baseline overhead vs live session work
+    const activeTenthsTotal = displayParity.displayActiveTenths;
+    const rawLiveTok = Math.min(parityActiveTok, signals.activeSignal?.liveSessionTokens ?? Math.round(parityActiveTok * 0.5));
+    const liveTenths = Math.min(activeTenthsTotal, Math.round(Math.max(0, rawLiveTok) / 100));
+    const baseTenths = Math.max(0, activeTenthsTotal - liveTenths);
+    const baseTok = baseTenths * 100;
+    const pctOfTenths = t => displayParity.displayTotalTenths > 0 ? Math.round((t / displayParity.displayTotalTenths) * 100) : 0;
+    document.getElementById('sigBaseVal').textContent = `${fmtTenths(baseTenths)} (${pctOfTenths(baseTenths)}%)`;
+    document.getElementById('sigLiveVal').textContent = `${fmtTenths(liveTenths)} (${pctOfTenths(liveTenths)}%)`;
+    renderBaselineRows(raw.baseline, baseTok);
+
+    const uCurveVal = document.getElementById('uCurveHealthVal');
+    const uCurveDesc = document.getElementById('uCurveHealthDesc');
+    const shieldQueueEl = document.getElementById('prefixShieldQueue');
+    const uCurveData = raw.coachState?.uShapedAttention;
+    const shieldData = raw.coachState?.prefixCacheShield;
+    if (uCurveVal) {
+      uCurveVal.textContent = `Primacy: ${uCurveData?.healthScore || 94}%`;
+    }
+    if (uCurveDesc) {
+      uCurveDesc.textContent = `Middle Trough Risk: ${uCurveData?.middleTroughRiskCount || 0} critical rules stranded \u00B7 Recency Mirror: ${uCurveData?.recencyMirrorActive ? 'Active in task.md' : 'Inactive'}`;
+    }
+    if (shieldQueueEl) {
+      if (shieldData && shieldData.stagedCount > 0) {
+        shieldQueueEl.hidden = false;
+        shieldQueueEl.textContent = shieldData.badge || `\u23F3 ${shieldData.stagedCount} Rule Updates Staged`;
+      } else {
+        shieldQueueEl.hidden = true;
+      }
+    }
+
+    // 5c. "What survives /compact" preview (numbers match the reclaimable banner)
+    const errCount = signals.deadErrors?.errorCount || 0;
+    document.getElementById('surviveDropTitle').textContent = `Compressed (~${reclaimSumStr})`;
+    const dropItems = [];
+    if (dupFiles.length) dropItems.push(`${dupFiles.length} duplicate file snapshot${dupFiles.length === 1 ? '' : 's'}`);
+    if (oldTurnCount) dropItems.push(`${oldTurnCount} turns &gt;25 steps old`);
+    if (errCount) dropItems.push(`${errCount} resolved stack trace${errCount === 1 ? '' : 's'}`);
+    document.getElementById('surviveDropList').innerHTML = dropItems.length ? dropItems.map(t => `<li>${t}</li>`).join('') : '<li>Nothing to compress</li>';
+
+    // 5d. Handoff readiness: is task.md up to date with recent turns?
+    const handoffStatus = document.getElementById('handoffStatus');
+    const handoffDot = document.getElementById('handoffDot');
+    const btnCp = document.getElementById('btnCheckpoint');
+    if (btnCp) btnCp.title = promptTitleRaw('checkpoint');
+    const hs = signals.activeSignal;
+    if (hs && typeof hs.taskMdTurnsBehind === 'number') {
+      const behind = hs.taskMdTurnsBehind;
+      const taskExists = Boolean(hs.taskMdSaved || signals.handoff?.artifacts?.taskMd?.exists);
+      const synced = Boolean(hs.taskMdSaved && taskExists && behind < 3 && !hasDriftWarn);
+      handoffState = { synced, behind, saved: hs.taskMdSaved };
+      const txt = synced ? '&#x25CF; task.md synced'
+        : (taskExists ? `&#x25CF; task.md stale &bull; ${behind} turn${behind === 1 ? '' : 's'} behind` : '&#x25CF; task.md missing &bull; not saved yet');
+      handoffStatus.hidden = true;
+      handoffStatus.className = 'handoff-status ' + (synced ? 'synced' : 'stale');
+      handoffStatus.innerHTML = txt;
+      handoffDot.className = 'handoff-dot ' + (synced ? 'synced' : 'stale');
+      // Single status dot only — no leading bullet separator that would inherit the green color.
+      handoffDot.innerHTML = synced
+        ? '<span class="task-sync-badge" id="taskSyncBadge">&#x25CF; task.md synced</span>'
+        : (!taskExists
+          ? '<span class="task-sync-badge" id="taskSyncBadge">&#x25CF; task.md missing</span>'
+          : `<span class="task-sync-badge" id="taskSyncBadge">&#x25CF; task.md stale (${behind} behind)</span>`);
+      btnCp.classList.toggle('emphasis', !synced);
+      const drawer = document.getElementById('secondaryDrawer');
+      // Keep secondaryDrawer collapsed by default as per UX rollup specification
+    } else {
+      handoffState = null;
+      handoffStatus.hidden = true;
+      handoffDot.innerHTML = '';
+    }
+
+    // 6. Optional Collapsible 40-Block Timeline
+    const turns = sessionMeta.turnCount || win.turnCount || 0;
+    const tokensPerCell = Math.max(1, Math.round(maxTokens / 40));
+    const activeBlocks = Math.max(1, Math.min(40, Math.ceil(totalTokens / tokensPerCell)));
+    const transitionsByBlock = new Map();
+    for (const tr of transitions) {
+      const tStep = tr.stepNumber ?? tr.turnIndex ?? 0;
+      const tIdx = tr.turnIndex ?? tr.stepNumber ?? 0;
+      let bIdx = typeof tr.blockIndex === 'number' ? tr.blockIndex : -1;
+      if (bIdx < 0) {
+        for (let ci = 0; ci < cells.length; ci++) {
+          const rng = cells[ci]?.turnRange;
+          if (rng && rng[0] >= 0 && tIdx >= rng[0] && tIdx <= rng[1]) {
+            bIdx = ci;
+            break;
+          }
+        }
+      }
+      if (bIdx < 0) {
+        bIdx = Math.min(39, Math.max(0, Math.floor((tIdx / Math.max(1, turns || 1)) * activeBlocks)));
+      }
+      if (bIdx >= activeBlocks) {
+        bIdx = Math.min(39, Math.max(0, activeBlocks - 1));
+      }
+      const list = transitionsByBlock.get(bIdx) || [];
+      list.push({ ...tr, stepNumber: tStep, turnIndex: tIdx, blockIndex: bIdx });
+      transitionsByBlock.set(bIdx, list);
+    }
+
+    const mini = document.getElementById('miniTimeline');
+    const strandedBannerEl = document.getElementById('strandedSignalBanner');
+    const turnFilterPanelEl = document.getElementById('cellTurnFilterPanel');
+    mini.innerHTML = '';
+
+    const STRANDED_WARNING_TEXT = 'Stranded in Low-Attention Trough. Risk of recall decay during multi-file reasoning. Re-reference in active prompt or anchor to task.md.';
+    const populatedCellCount = Math.max(
+      1,
+      cells.filter(cellItem => (cellItem?.dominantCategory || 'FREE_HEADROOM') !== 'FREE_HEADROOM' || (Number(cellItem?.totalTokens) || 0) > 0).length || activeBlocks || 1
+    );
+    const globalFractures = Array.isArray(raw.attentionHeatmap?.fractures) ? raw.attentionHeatmap.fractures : [];
+    const strandedTargets = [];
+
+    for (let i = 0; i < 40; i++) {
+      const c = cells[i] || { dominantCategory: 'FREE_HEADROOM', totalTokens: 0 };
+      const cat = c.dominantCategory || 'FREE_HEADROOM';
+
+      // Session Fracture Overlay (⚡ between cells where Compaction or Prefix Bust occurred)
+      const cellFractures = Array.isArray(c.fractures) && c.fractures.length > 0
+        ? c.fractures
+        : globalFractures.filter(f => Number(f.cellIndex) === i);
+      if (cellFractures.length > 0) {
+        for (const frac of cellFractures) {
+          const fracEl = document.createElement('span');
+          fracEl.className = 'fracture-marker';
+          fracEl.dataset.fractureCell = String(i);
+          fracEl.dataset.fractureType = String(frac.type || 'FRACTURE');
+          fracEl.title = frac.label || `${frac.type || 'Fracture'} at Cell ${i + 1}`;
+          fracEl.textContent = '\u26A1';
+          mini.appendChild(fracEl);
+        }
+      }
+
+      const el = document.createElement('div');
+      el.className = 'mini-cell';
+      el.dataset.cellIndex = String(i);
+
+      const cellStartTokens = i * tokensPerCell;
+      const cellEndTokens = (i + 1) * tokensPerCell;
+      const isPopulatedCell = (cat !== 'FREE_HEADROOM' && (Number(c.totalTokens) || 0) > 0) || i < activeBlocks;
+      const cellHasOverage = cellEndTokens > safeLimit && totalTokens > safeLimit && cellStartTokens < totalTokens;
+      const cellOverageTokens = cellHasOverage
+        ? Math.max(0, Math.min(totalTokens, cellEndTokens) - Math.max(safeLimit, cellStartTokens))
+        : 0;
+      const isOverLimitCell = cellHasOverage && (cellStartTokens >= safeLimit || cellOverageTokens >= 0.25 * tokensPerCell);
+      const isPartialMutedOverage = cellHasOverage && !isOverLimitCell;
+
+      if (isOverLimitCell) {
+        el.style.background = 'rgba(239, 68, 68, 0.7)';
+        el.classList.add('over-limit-cell');
+        el.dataset.overLimit = 'true';
+      } else {
+        if (cat.includes('ANCHOR') || cat.includes('MEMORY')) el.style.background = 'var(--hz-anchor)';
+        else if (cat.includes('ACTIVE')) el.style.background = isLowConfidence ? 'rgba(16, 185, 129, 0.65)' : 'var(--hz-useful)';
+        else if (cat.includes('ERROR')) el.style.background = 'var(--hz-danger)';
+        else if (cat.includes('STALE') || cat.includes('DIRTY')) {
+          if (!isColdBloat) {
+            el.style.background = 'rgba(245, 158, 11, 0.45)';
+            el.style.borderTop = '2px solid #38bdf8';
+            el.dataset.warmProtected = 'true';
+          } else {
+            el.style.background = 'var(--hz-clutter)';
+          }
+        }
+        else if (isPopulatedCell) {
+          el.style.background = isLowConfidence ? 'rgba(16, 185, 129, 0.65)' : 'var(--hz-useful)';
+        }
+        if (isPartialMutedOverage) {
+          el.style.borderRight = '1px solid rgba(239, 68, 68, 0.5)';
+        }
+      }
+
+      // Parabolic U-Shaped Attention Curve A(i) = 1.0 - 4.0 * gamma * (i/N - 0.5)^2 (gamma = 0.6)
+      const normRatio = populatedCellCount > 1 ? Math.min(1, i / (populatedCellCount - 1)) : 0;
+      const centered = normRatio - 0.5;
+      const specFormulaVal = c.parabolicAttention?.specFormulaValue ?? Number((1.0 - 4.0 * 0.6 * (centered * centered)).toFixed(4));
+      const uShapedWeight = c.parabolicAttention?.uShapedWeight ?? Number(((1.0 - 0.6) + 4.0 * 0.6 * (centered * centered)).toFixed(4));
+      const meetsTroughFloor = populatedCellCount >= 7 && totalTokens >= 44800;
+      const inRatioTrough = isPopulatedCell && meetsTroughFloor && normRatio >= 0.30 && normRatio <= 0.70;
+      const inCanonicalTrough = isPopulatedCell && meetsTroughFloor && i >= 6 && i <= 15 && i < populatedCellCount;
+      const inTrough = Boolean(c.inAttentionTrough) || inRatioTrough || inCanonicalTrough;
+
+      el.dataset.attentionFormula = String(specFormulaVal);
+      el.dataset.attentionWeight = String(uShapedWeight);
+      el.style.setProperty('--u-weight', String(uShapedWeight));
+
+      if (inTrough) {
+        el.classList.add('low-attention-trough');
+        el.dataset.attentionZone = 'LOW_ATTENTION_TROUGH';
+      } else if (isPopulatedCell) {
+        el.dataset.attentionZone = normRatio < 0.30 ? 'PRIMACY' : 'RECENCY';
+      } else {
+        el.classList.add('headroom-empty');
+        el.dataset.attentionZone = 'HEADROOM';
+      }
+
+      const isStranded = Boolean(c.isStrandedSignal) || (
+        meetsTroughFloor &&
+        inTrough &&
+        (cat.includes('ACTIVE') || cat.includes('ANCHOR'))
+      );
+
+      const cellShifts = transitionsByBlock.get(i) || c.effortTransitions || [];
+      const shiftTooltip = cellShifts.length > 0
+        ? cellShifts.map(t => `Turn #${t.stepNumber ?? t.turnIndex}: Switched effort ${t.fromLabel || t.fromTier || 'Auto'} \u2192 ${t.toLabel || t.toTier || 'Auto'}`).join(' | ')
+        : '';
+
+      const titleParts = [];
+      if (isStranded) {
+        el.classList.add('stranded-signal');
+        el.dataset.strandedSignal = 'true';
+        const warnMsg = c.strandedWarning || STRANDED_WARNING_TEXT;
+        titleParts.push(`\u26A0 ${warnMsg}`);
+        const resolvedTarget = c.topTarget && !/free headroom/i.test(c.topTarget)
+          ? formatShortPath(c.topTarget)
+          : (c.primaryPath ? formatShortPath(c.primaryPath) : (c.dominantCategory === 'ANCHOR' ? 'AGENTS.md, rules' : `Cell ${i + 1}`));
+        strandedTargets.push({
+          cellNumber: i + 1,
+          category: cat,
+          target: resolvedTarget,
+          rawTarget: c.topTarget || c.primaryPath || '',
+          warning: warnMsg
+        });
+      }
+      if (shiftTooltip) {
+        el.classList.add('effort-shift');
+        el.dataset.effortShift = shiftTooltip;
+        titleParts.push(shiftTooltip);
+        const badgeEl = document.createElement('span');
+        badgeEl.className = 'effort-shift-badge';
+        badgeEl.textContent = '\u21C4';
+        el.appendChild(badgeEl);
+      }
+      if (titleParts.length > 0) {
+        el.title = titleParts.join(' | ');
+      }
+
+      el.onmouseenter = () => {
+        const cellStepK = Math.round((maxTokens / 40) / 100) / 10;
+        const startK = fmtKVal(i * cellStepK).replace(/k$/, '');
+        const endK = fmtKVal((i + 1) * cellStepK);
+        const zoneTag = inTrough ? ' [Low-Attention Trough 30%\u201370%]' : '';
+        const catLabel = cat.replace(/_/g, ' ');
+        const targetClean = (c.topTarget && c.topTarget.toLowerCase() !== catLabel.toLowerCase() && !c.topTarget.toLowerCase().includes('free headroom'))
+          ? ' \u2022 ' + formatShortPath(c.topTarget)
+          : '';
+        document.getElementById('miniInspector').textContent =
+          `Block ${i + 1}/40 (${startK}k\u2013${endK}) \u2022 ${catLabel}${zoneTag}${targetClean}${isStranded ? ' \u2022 ' + STRANDED_WARNING_TEXT : ''}${shiftTooltip ? ' \u2022 ' + shiftTooltip : ''}`;
+      };
+
+      // Interactive Turn Inspection on Cell Click
+      el.onclick = () => {
+        mini.querySelectorAll('.mini-cell.selected').forEach(node => node.classList.remove('selected'));
+        el.classList.add('selected');
+        if (!turnFilterPanelEl) return;
+        const cellStepK = Math.round((maxTokens / 40) / 100) / 10;
+        const startK = fmtKVal(i * cellStepK).replace(/k$/, '');
+        const endK = fmtKVal((i + 1) * cellStepK);
+        const turnsDetail = Array.isArray(c.turnsDetail) ? c.turnsDetail : [];
+        const rangeLabel = Array.isArray(c.turnRange) && c.turnRange.length === 2
+          ? `Turns #${c.turnRange[0]}\u2013#${c.turnRange[1]}`
+          : (turnsDetail.length > 0 ? `${turnsDetail.length} turn(s)` : 'No active turns');
+        const rowsHtml = turnsDetail.length > 0
+          ? turnsDetail.map(td => {
+              const tools = Array.isArray(td.toolCalls) && td.toolCalls.length > 0
+                ? ` \u2022 tools: ${td.toolCalls.map(escAttr).join(', ')}`
+                : '';
+              const tgt = td.target ? ` \u2022 ${escAttr(formatShortPath(td.target))}` : '';
+              return `<div class="cell-turn-row">Turn #${Number(td.stepIndex ?? 0)} \u2022 ${escAttr(String(td.category || cat))} (${fmtK(td.tokens || 0)})${tgt}${tools}</div>`;
+            }).join('')
+          : `<div class="cell-turn-row">${escAttr(rangeLabel)} \u2022 ${escAttr(cat.replace(/_/g, ' '))}${c.topTarget ? ' \u2022 ' + escAttr(formatShortPath(c.topTarget)) : ''}</div>`;
+
+        turnFilterPanelEl.hidden = false;
+        turnFilterPanelEl.innerHTML =
+          `<div class="cell-turn-filter-head">` +
+            `<span>Cell ${i + 1}/40 (${startK}k\u2013${endK}) \u2022 ${escAttr(rangeLabel)}</span>` +
+            `<span>Attention: ${Math.round(uShapedWeight * 100)}%${inTrough ? ' (Trough)' : ''}</span>` +
+          `</div>` +
+          (isStranded ? `<div style="color:var(--hz-warn);margin-bottom:4px;">\u26A0 ${escAttr(STRANDED_WARNING_TEXT)}</div>` : '') +
+          rowsHtml;
+      };
+
+      mini.appendChild(el);
+    }
+
+    const updateDefaultInspector = () => {
+      const activeCount = Math.min(40, Math.ceil(totalTokens / (maxTokens / 40)));
+      const inspectorEl = document.getElementById('miniInspector');
+      if (inspectorEl) {
+        inspectorEl.textContent = `${activeCount}/40 Cells Active \u2022 ${fmtK(totalTokens)} / ${fmtK(maxTokens)} \u2022 Hover or click any block to inspect`;
+      }
+    };
+    updateDefaultInspector();
+    mini.onmouseleave = updateDefaultInspector;
+
+    if (strandedBannerEl) {
+      if (strandedTargets.length > 0) {
+        const minCell = Math.min(...strandedTargets.map(s => s.cellNumber));
+        const maxCell = Math.max(...strandedTargets.map(s => s.cellNumber));
+        const cellSpan = minCell === maxCell ? `Cell ${minCell}` : `Cells ${minCell}–${maxCell}`;
+        const distinctNames = Array.from(new Set(strandedTargets.map(s => s.target).filter(Boolean)));
+        const targetSummary = distinctNames.length > 0 ? ` \u00B7 ${distinctNames.slice(0, 3).join(', ')}` : '';
+        const reanchorFiles = distinctNames.length > 0 ? distinctNames.join(', ') : 'critical rules and active specifications';
+        const reanchorPrompt = `To keep stranded context active, please reference: ${reanchorFiles} in the next turn and note progress in task.md.`;
+
+        strandedBannerEl.hidden = false;
+        strandedBannerEl.innerHTML =
+          `<span class="stranded-banner-text">\u26A0 ${cellSpan}${escAttr(targetSummary)}: ${escAttr(STRANDED_WARNING_TEXT)}</span>` +
+          `<button type="button" class="mini-btn stranded-reanchor-btn" id="btnStrandedReanchor" title="Copy recency reminder for stranded files">&#x1F4CB; Re-anchor</button>`;
+
+        const btnReanchor = document.getElementById('btnStrandedReanchor');
+        if (btnReanchor) {
+          btnReanchor.onclick = async (e) => {
+            e.stopPropagation();
+            try {
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(reanchorPrompt);
+              }
+            } catch {}
+            const orig = btnReanchor.textContent;
+            btnReanchor.textContent = '\u2713 Copied';
+            setTimeout(() => { btnReanchor.textContent = orig; }, 2000);
+          };
+        }
+      } else {
+        strandedBannerEl.hidden = true;
+        strandedBannerEl.innerHTML = '';
+      }
+    }
+
+    // Hero 40-Cell Flamegraph + Top 3-5 Riskiest Cells directly underneath
+    const topRiskyListEl = document.getElementById('topRiskyCellsList');
+    if (topRiskyListEl) {
+      const riskyCells = Array.isArray(raw.topRiskyCells) ? raw.topRiskyCells.slice(0, 5) : [];
+      if (riskyCells.length > 0) {
+        topRiskyListEl.hidden = false;
+        topRiskyListEl.innerHTML = riskyCells.map(rc => {
+          const rawPathStr = rc.filePath || `Cell #${rc.cellNumber}`;
+          const pathStr = rc.filePath ? formatShortPath(rc.filePath) : rawPathStr;
+          const tokStr = fmtK(rc.tokenWeight || 6400);
+          const recPct = rc.attentionRecallPct ?? 40;
+          const actLabel = rc.actionLabel || '[Re-Anchor / Prune]';
+          const specificTitle = rc.specificActionLabel || (rc.actionType === 'PRUNE' ? '[Prune Stale Tool Outputs]' : '[Re-Anchor Cell to Handoff]');
+          return `<div class="top-risky-cell-row" data-cell-index="${Number(rc.cellIndex ?? 0)}">` +
+            `<span title="${escAttr(rawPathStr)}">Cell #${Number(rc.cellNumber ?? 1)} \u00B7 ${escAttr(pathStr)} \u00B7 ${tokStr} tok (${recPct}% recall)</span>` +
+            `<button type="button" class="mini-btn" data-act="reanchor-prune" data-path="${escAttr(rawPathStr)}" data-action-type="${escAttr(rc.actionType || 'RE_ANCHOR')}" title="${escAttr(specificTitle)}">${escAttr(actLabel)}</button>` +
+          `</div>`;
+        }).join('');
+        topRiskyListEl.querySelectorAll('[data-act="reanchor-prune"]').forEach(btn => {
+          btn.onclick = () => {
+            const actType = btn.dataset.actionType || 'RE_ANCHOR';
+            if (actType === 'PRUNE') {
+              document.getElementById('btnCondenseAst')?.click();
+            } else {
+              runPrompt('checkpoint', btn);
+            }
+          };
+        });
+      } else {
+        topRiskyListEl.hidden = true;
+        topRiskyListEl.innerHTML = '';
+      }
+    }
+
+    // Zero-Prose ACTION QUEUE Control Surface
+    const aqPanel = document.getElementById('actionQueuePanel');
+    const aqList = document.getElementById('aqList');
+    const aqTitle = document.getElementById('aqTitle');
+    const aqTotalPayoff = document.getElementById('aqTotalPayoff');
+    const queue = buildClientActionQueue(raw);
+
+    if (aqPanel && aqList) {
+      if (!queue || queue.length === 0) {
+        aqPanel.hidden = true;
+        aqList.innerHTML = '';
+      } else {
+        aqPanel.hidden = false;
+        const totalTok = queue.reduce((s, it) => s + (it.reclaimTokens || 0), 0);
+        const totalRam = queue.reduce((s, it) => s + (it.reclaimRamGb || 0), 0);
+        const payoffParts = [];
+        if (totalTok > 0) payoffParts.push(`${fmtK(totalTok)} tok`);
+        if (totalRam > 0) payoffParts.push(`${totalRam.toFixed(2)} GB RAM`);
+        if (aqTitle) aqTitle.textContent = `ACTION QUEUE (${queue.length})`;
+        if (aqTotalPayoff) aqTotalPayoff.textContent = payoffParts.length > 0 ? `${payoffParts.join(' + ')} reclaimable` : '';
+
+        aqList.innerHTML = queue.map((item) => `
+          <div class="aq-row mono" data-aq-id="${escAttr(item.id)}">
+            <button type="button" class="aq-btn" data-act="${escAttr(item.apiAction)}" data-cmd="${escAttr(item.commandToCopy || '')}" title="${escAttr(item.commandToCopy || item.actionLabel)}">${escAttr(item.actionLabel)}</button>
+            <span class="aq-target" title="${escAttr(item.target)}">${escAttr(item.target)}</span>
+            <span class="aq-payoff">&rarr; ${escAttr(item.payoff)}</span>
+          </div>
+        `).join('');
+
+        aqList.querySelectorAll('.aq-btn').forEach(btn => {
+          btn.onclick = async (e) => {
+            e.stopPropagation();
+            const act = btn.dataset.act;
+            const cmd = btn.dataset.cmd;
+            if (act === 'reap-orphans') {
+              const reapBtn = document.getElementById('btnReapOrphans');
+              if (reapBtn) reapBtn.click();
+            } else if (act === 'condense-ast') {
+              const condenseBtn = document.getElementById('btnCondenseAst');
+              if (condenseBtn) condenseBtn.click();
+            } else if (act === 'generate-handoff') {
+              const handoffBtn = document.getElementById('btnGenerateHandoff');
+              if (handoffBtn) handoffBtn.click();
+            } else if (act === 'reanchor-spec') {
+              const checkpointBtn = document.getElementById('btnCheckpoint');
+              if (checkpointBtn) checkpointBtn.click();
+            } else if (act === 'mcp-switch-lazy') {
+              const mcpBtn = document.querySelector('[data-act="mcp-switch-lazy"]');
+              if (mcpBtn) mcpBtn.click();
+            }
+            if (cmd) {
+              try {
+                await navigator.clipboard.writeText(cmd);
+                const originalText = btn.textContent;
+                btn.textContent = '\u2713 Copied';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                  btn.textContent = originalText;
+                  btn.classList.remove('copied');
+                }, 1600);
+              } catch {}
+            }
+          };
+        });
+      }
+    }
+
+    // 6b. Multi-Agent (invoke_subagent) Context Tree Pills
+    const subagentPillsEl = document.getElementById('subagentPills');
+    if (subagentPillsEl) {
+      const invs = raw.subagents?.invocations || [];
+      if (invs.length > 0) {
+        subagentPillsEl.hidden = false;
+        subagentPillsEl.innerHTML = invs.map(inv =>
+          `<div class="subagent-pill" title="Workspace mode: ${escAttr(inv.workspaceMode)} | Saved ${fmtK(inv.tokensSaved)} from parent window">${escAttr(inv.badgeLabel)}</div>`
+        ).join('');
+      } else {
+        subagentPillsEl.hidden = true;
+        subagentPillsEl.innerHTML = '';
+      }
+    }
+
+    // Factual Cross-Session Offender Banner & Scrubbed Export
+    const crossSessionBannerEl = document.getElementById('crossSessionOffenderBanner');
+    const crossSessionTextEl = document.getElementById('crossSessionOffenderText');
+    if (crossSessionBannerEl && crossSessionTextEl) {
+      const dismissedKeysBanner = getDismissedActionKeys();
+      const topChronic = Array.isArray(raw.chronicReads) && raw.chronicReads.length > 0
+        ? raw.chronicReads.find(c => !dismissedKeysBanner.has('chronic:' + normPath(c.path)))
+        : null;
+      const wastedTokens = Number(topChronic?.totalWastedTokens ?? topChronic?.wastedTokens ?? ((topChronic?.reads || topChronic?.sessions || 1) * 1500));
+      if (topChronic && (topChronic.bannerText || wastedTokens >= 5000)) {
+        crossSessionBannerEl.hidden = false;
+        const winN = topChronic.windowSessions || topChronic.sessions || 1;
+        crossSessionTextEl.textContent = topChronic.bannerText ||
+          `Across last ${winN} sessions, ${formatShortPath(topChronic.path)} caused ~${fmtK(wastedTokens)} repeated re-reads`;
+      } else {
+        crossSessionBannerEl.hidden = true;
+        crossSessionTextEl.textContent = '';
+      }
+    }
+
+    // 6c. Host Runtime Watchdog Footer Pill ()
+    const hostBar = document.getElementById('hostWatchdogBar');
+    const hostTxt = document.getElementById('hostWatchdogText');
+    const btnReap = document.getElementById('btnReapOrphans');
+    if (hostBar && raw.hostHealth) {
+      const hh = raw.hostHealth;
+      const orphanCount = Number(hh.orphanCount || 0);
+      const isNominal = orphanCount === 0 && (!hh.status || hh.status === 'HEALTHY');
+      if (isNominal) {
+        hostBar.hidden = true;
+        hostBar.className = 'host-watchdog-bar mono';
+        hostBar.removeAttribute('data-severity');
+        if (btnReap) btnReap.hidden = true;
+      } else {
+        const rssVal = hh.rssGb ?? (hh.orphanRamMb ? Math.round((hh.orphanRamMb / 1024) * 100) / 100 : 0);
+        const isAlert = hh.status === 'ZOMBIE_LEAK' || hh.status === 'HIGH_RAM' || orphanCount > 3 || Number(rssVal) >= 2.0;
+        hostBar.hidden = false;
+        hostBar.dataset.severity = isAlert ? 'critical' : 'warning';
+        hostBar.className = isAlert ? 'host-watchdog-bar mono alert' : 'host-watchdog-bar mono';
+        const firstOrphan = Array.isArray(hh.orphans) && hh.orphans[0];
+        const isScheduled = firstOrphan?.reason === 'active_scheduled_task';
+        const labelType = isScheduled ? 'Standing Task' : 'Orphan';
+        const taskDetail = firstOrphan?.scheduleDetails
+          ? ` (${firstOrphan.scheduleDetails})`
+          : (hh.orphanRamMb > 0 ? ` (${hh.orphanRamMb} MB)` : '');
+        hostTxt.textContent = `Host RAM: ${rssVal} GB \u00B7 ${labelType}s: ${orphanCount}${taskDetail}`;
+        const hostPill = document.getElementById('hostWatchdogStatusPill');
+        if (hostPill) {
+          if (isAlert) {
+            hostPill.className = 'summary-status-pill danger mono';
+            hostPill.textContent = orphanCount > 0 ? `${orphanCount} ${labelType}${orphanCount === 1 ? '' : 's'}` : 'High RAM';
+          } else {
+            hostPill.className = 'summary-status-pill warn mono';
+            hostPill.textContent = orphanCount > 0 ? `${orphanCount} ${labelType}${orphanCount === 1 ? '' : 's'}` : 'Active';
+          }
+        }
+        if (btnReap) {
+          btnReap.hidden = !(orphanCount > 0);
+          btnReap.textContent = `Clean up ${orphanCount} ${labelType.toLowerCase()}${orphanCount === 1 ? '' : 's'}\u2026`;
+        }
+      }
+    } else if (hostBar) {
+      hostBar.hidden = true;
+      hostBar.removeAttribute('data-severity');
+    }
+
+    // Tier 2: Update Material 3 Action Rows (compact impact badge, task.md sync, high-leverage candidate)
+    const compactBadgeEl = document.getElementById('compactImpactBadge');
+    if (compactBadgeEl) {
+      compactBadgeEl.textContent = `~${reclaimSumStr}`;
+    }
+
+    const dismissedKeysHl = getDismissedActionKeys();
+
+    const actionRowCp = document.getElementById('actionRowCheckpoint');
+    const actionCpDot = document.getElementById('actionCheckpointDot');
+    const actionCpTitle = document.getElementById('actionCheckpointTitle');
+    const actionCpSub = document.getElementById('actionCheckpointSub');
+    if (actionRowCp) {
+      const hs = signals.activeSignal;
+      const turnsBehind = hs && typeof hs.taskMdTurnsBehind === 'number' ? hs.taskMdTurnsBehind : 0;
+      const isSaved = Boolean(hs && hs.taskMdSaved);
+      const exists = Boolean(isSaved || signals.handoff?.artifacts?.taskMd?.exists === true);
+      const isCompactNeededCp = isOverLimit || isNeedsCleanup || (reclaimSumK * 1000) >= 25000;
+      const isCheckpointNeededCp = (isCompactNeededCp || hasDriftWarn || turnsBehind >= 5) && (!exists || !isSaved || turnsBehind >= 3 || hasDriftWarn);
+      if (dismissedKeysHl.has('checkpoint') || !isCheckpointNeededCp) {
+        actionRowCp.hidden = true;
+      } else if (!isSaved && !exists) {
+        actionRowCp.hidden = false;
+        if (actionCpDot) { actionCpDot.className = 'm3-action-icon dot'; actionCpDot.textContent = '●'; }
+        if (actionCpTitle) actionCpTitle.textContent = 'Save initial task.md checkpoint before compacting';
+        if (actionCpSub) actionCpSub.textContent = 'no checkpoint saved in this chat yet';
+      } else if (turnsBehind >= 3 || !isSaved || hasDriftWarn) {
+        actionRowCp.hidden = false;
+        if (actionCpDot) { actionCpDot.className = 'm3-action-icon dot'; actionCpDot.textContent = '●'; }
+        if (actionCpTitle) actionCpTitle.textContent = 'Update task.md checkpoint before compacting';
+        if (actionCpSub) actionCpSub.textContent = `currently ${turnsBehind} turn${turnsBehind === 1 ? '' : 's'} behind live state`;
+      } else {
+        actionRowCp.hidden = true;
+      }
+    }
+
+    const actionRowHl = document.getElementById('actionRowHighLeverage');
+    const actionHlIcon = document.getElementById('actionHighLeverageIcon');
+    const actionHlTitle = document.getElementById('actionHighLeverageTitle');
+    const actionHlSub = document.getElementById('actionHighLeverageSub');
+    const btnActionHl = document.getElementById('btnActionHighLeverage');
+    if (actionRowHl) {
+      const userCorr = Number(signals.userCorrections || 0);
+      const chronicList = (raw.chronicReads || []).filter(c => c.sessions >= 3 && !dismissedKeysHl.has('chronic:' + normPath(c.path)));
+      if (userCorr >= 1 && !dismissedKeysHl.has('rule')) {
+        actionRowHl.hidden = false;
+        if (actionHlIcon) actionHlIcon.innerHTML = '&#x2726;';
+        if (actionHlTitle) actionHlTitle.textContent = `Promote ${userCorr} unlogged correction${userCorr === 1 ? '' : 's'} to AGENTS.md`;
+        if (actionHlSub) actionHlSub.textContent = 'Primacy zone (top 30%) rule candidate';
+        if (btnActionHl) {
+          btnActionHl.textContent = 'Promote Rule';
+          btnActionHl.dataset.action = 'promote-rule';
+        }
+      } else if (chronicList.length >= 1) {
+        actionRowHl.hidden = false;
+        const topC = chronicList[0];
+        const canIgnoreTop = isIgnorablePath(topC.path);
+        if (actionHlIcon) actionHlIcon.innerHTML = '&#x21BB;';
+        if (actionHlTitle) actionHlTitle.textContent = `Stop chronic re-reads of ${formatShortPath(topC.path)}`;
+        if (actionHlSub) actionHlSub.textContent = canIgnoreTop
+          ? `seen in ${topC.sessions} recent sessions · add to .antigravityignore`
+          : `seen in ${topC.sessions} recent sessions · use subagent or line ranges`;
+        if (btnActionHl) {
+          btnActionHl.textContent = canIgnoreTop ? 'Ignore File' : 'Use Subagent';
+          btnActionHl.dataset.action = canIgnoreTop ? 'ignore-file' : 'prompt-subagent';
+          btnActionHl.dataset.path = topC.path;
+        }
+      } else if (reclaimCards.length > 0) {
+        actionRowHl.hidden = false;
+        if (actionHlIcon) actionHlIcon.innerHTML = '&#x2139;';
+        if (actionHlTitle) actionHlTitle.textContent = `Inspect ${reclaimCards.length} waste categories in Advanced View`;
+        if (actionHlSub) actionHlSub.textContent = `${reclaimSumStr} reclaimable across transcript forensics`;
+        if (btnActionHl) {
+          btnActionHl.textContent = 'Inspect Details →';
+          btnActionHl.dataset.action = 'switch-advanced';
+        }
+      } else {
+        actionRowHl.hidden = true;
+      }
+    }
+
+    // Tier 3A & 3B: Upper Session Health Summary (Fixed 3 Bullets) & Lower Actionable Box (Ranked by Descending Importance)
+    renderSessionHealthSummary(raw, totalTokens, maxTokens, safeLimit, effortProfile, usedPct, reclaimSumStr, reclaimSumK, clutterTokens, oldTurnCount, oldTurnRowK, dupFiles, dupRowK, errRowK, turns, signals, isNeedsCleanup, isOverLimit, hasDriftWarn);
+
+    const tStr = raw.updatedAt ? new Date(raw.updatedAt).toLocaleTimeString() : new Date().toLocaleTimeString();
+    const stepCount = raw.window?.stepCount || raw.metrics?.totalSteps || raw.stepCount || 0;
+    const turnLabel = (stepCount > 0 && stepCount !== turns)
+      ? `Turn ${turns} \u00B7 ${stepCount} steps`
+      : `Turn ${turns}`;
+    document.getElementById('playbookSub').textContent = (stepCount > 0 && stepCount !== turns)
+      ? `${turns} turns (${stepCount} steps) analyzed`
+      : `${turns} turns analyzed`;
+    // Footer: the session selector already shows the title and token route, so keep only turn + time.
+    document.getElementById('footerMeta').textContent = `${turnLabel} \u00B7 Updated ${tStr}`;
+  }
+
+  // --- Simple View Flight Recorder: Session Timeline, Auto-fix log & pinned KPI bar ---
+  let selectedTimelineTurn = null;
+  const TL_SLOTS = 40;
+  const TL_MARKER_GLYPH = { COLD_GAP: '\u25D0', COMPACT: '\u25B2', MODEL_SWITCH: '\u21C4', CHECKPOINT: '\u25C6' };
+  const TL_MARKER_ORDER = ['COLD_GAP', 'COMPACT', 'MODEL_SWITCH', 'CHECKPOINT'];
+  const flightFmtK = (n) => {
+    const v = Math.max(0, Number(n) || 0);
+    return v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : `${(v / 1000).toFixed(1)}k`;
+  };
+
+  function timelineDetailText(tl, turnKey) {
+    if (turnKey === 'earlier') {
+      const e = tl.earlier || {};
+      return { practice: 'neutral', text: `Earlier ${e.turns || 0} turns \u00B7 ${flightFmtK(e.tokens)} added \u00B7 ${e.bad || 0} bad \u00B7 ${e.good || 0} good` };
+    }
+    const t = (tl.turns || []).find((x) => String(x.turn) === String(turnKey));
+    if (!t) return { practice: 'neutral', text: '' };
+    const mk = (tl.markers || []).filter((m) => m.turn === t.turn).map((m) => m.label);
+    return { practice: t.practice, text: `T${t.turn} \u00B7 ${t.reason}${mk.length ? ' \u00B7 ' + mk.join(' \u00B7 ') : ''}` };
+  }
+
+  function renderSessionTimeline(tl) {
+    const chart = document.getElementById('timelineChart');
+    const markersEl = document.getElementById('timelineMarkers');
+    const detail = document.getElementById('timelineDetail');
+    if (!chart || !markersEl || !detail) return;
+    const turns = tl && Array.isArray(tl.turns) ? tl.turns : [];
+    const emptySlot = '<span class="tl-slot empty" aria-hidden="true"><span class="tl-bar"></span></span>';
+    if (turns.length === 0) {
+      chart.innerHTML = emptySlot.repeat(TL_SLOTS);
+      markersEl.innerHTML = '';
+      detail.innerHTML = 'Timeline starts after the first turn.';
+      return;
+    }
+    const slots = [];
+    if (tl.earlier && tl.earlier.turns > 0) slots.push({ kind: 'earlier' });
+    for (const t of turns) slots.push({ kind: 'turn', t });
+    const visible = slots.slice(-TL_SLOTS);
+    const maxAdd = Math.max(1, ...turns.map((t) => t.tokensAdded));
+    let html = '';
+    for (let i = 0; i < TL_SLOTS; i++) {
+      const s = visible[i];
+      if (!s) { html += emptySlot; continue; }
+      if (s.kind === 'earlier') {
+        const info = timelineDetailText(tl, 'earlier');
+        html += `<button type="button" class="tl-slot earlier" data-turn="earlier" aria-pressed="${selectedTimelineTurn === 'earlier'}" aria-label="${escAttr(info.text)}"><span class="tl-bar" style="height:40%"></span></button>`;
+      } else {
+        const t = s.t;
+        const h = Math.max(4, Math.round((t.tokensAdded / maxAdd) * 100));
+        html += `<button type="button" class="tl-slot" data-turn="${t.turn}" aria-pressed="${String(selectedTimelineTurn) === String(t.turn)}" aria-label="${escAttr(`Turn ${t.turn}, ${t.practice}. ${t.reason}`)}"><span class="tl-bar ${t.practice}" style="height:${h}%"></span></button>`;
+      }
+    }
+    // Cumulative context line vs the safe-limit rule (own scale: 0..max(1.1 x limit, peak)).
+    const peak = Math.max(...turns.map((t) => t.cumulative), 0);
+    const limit = Number(tl.safeLimit) || 0;
+    const yMax = Math.max(limit * 1.1, peak * 1.05, 1);
+    const pts = [];
+    visible.forEach((s, i) => {
+      if (s.kind !== 'turn') return;
+      const x = ((i + 0.5) / TL_SLOTS) * 100;
+      const y = 100 - Math.min(100, (s.t.cumulative / yMax) * 100);
+      pts.push(`${x.toFixed(2)},${y.toFixed(2)}`);
+    });
+    const limitY = limit > 0 ? 100 - Math.min(100, (limit / yMax) * 100) : null;
+    html += `<svg class="tl-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">` +
+      (limitY !== null ? `<line x1="0" y1="${limitY.toFixed(2)}" x2="100" y2="${limitY.toFixed(2)}" stroke="#fda4af" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>` : '') +
+      (pts.length > 1 ? `<polyline points="${pts.join(' ')}" fill="none" stroke="#e2e8f0" stroke-width="1" vector-effect="non-scaling-stroke"/>` : '') +
+      `</svg>`;
+    chart.innerHTML = html;
+
+    // Baseline event markers (one glyph per slot by priority; full labels in tooltip + detail line).
+    let mk = '';
+    for (let i = 0; i < TL_SLOTS; i++) {
+      const s = visible[i];
+      const list = s && s.kind === 'turn' ? (tl.markers || []).filter((m) => m.turn === s.t.turn) : [];
+      if (!list.length) { mk += '<span class="tl-mk"></span>'; continue; }
+      const top = TL_MARKER_ORDER.find((k) => list.some((m) => m.kind === k)) || list[0].kind;
+      mk += `<span class="tl-mk" title="${escAttr(list.map((m) => m.label).join(' \u00B7 '))}">${TL_MARKER_GLYPH[top] || '\u00B7'}</span>`;
+    }
+    markersEl.innerHTML = mk;
+
+    const keyExists = selectedTimelineTurn !== null && (selectedTimelineTurn === 'earlier' || turns.some((t) => String(t.turn) === String(selectedTimelineTurn)));
+    if (!keyExists) {
+      const worst = [...turns].reverse().find((t) => t.practice === 'bad') || turns[turns.length - 1];
+      selectedTimelineTurn = null;
+      var defaultKey = worst.turn;
+    }
+    const info = timelineDetailText(tl, keyExists ? selectedTimelineTurn : defaultKey);
+    detail.innerHTML = `<span class="tl-dot ${info.practice}"></span>${escAttr(info.text)}`;
+    chart.onclick = (e) => {
+      const b = e.target.closest ? e.target.closest('.tl-slot[data-turn]') : null;
+      if (!b) return;
+      selectedTimelineTurn = b.dataset.turn;
+      chart.querySelectorAll('.tl-slot[data-turn]').forEach((el) => el.setAttribute('aria-pressed', String(el === b)));
+      const sel = timelineDetailText(tl, selectedTimelineTurn);
+      detail.innerHTML = `<span class="tl-dot ${sel.practice}"></span>${escAttr(sel.text)}`;
+    };
+  }
+
+  let userExpandedAmbient = false;
+
+  function coalesceAutoFixItems(items) {
+    const grouped = [];
+    const indexByKey = new Map();
+    for (const it of items) {
+      if (!it || typeof it !== 'object') continue;
+      const key = `${it.type || it.label || ''}|${it.turn || ''}|${it.detail || ''}`;
+      if (indexByKey.has(key)) {
+        const existing = grouped[indexByKey.get(key)];
+        existing.tokensSaved = (Number(existing.tokensSaved) || 0) + (Number(it.tokensSaved) || 0);
+        existing.usd = (Number(existing.usd) || 0) + (Number(it.usd) || 0);
+        existing.repeatCount += 1;
+      } else {
+        indexByKey.set(key, grouped.length);
+        grouped.push({ ...it, tokensSaved: Number(it.tokensSaved) || 0, usd: Number(it.usd) || 0, repeatCount: 1 });
+      }
+    }
+    return grouped;
+  }
+
+  function renderAutoFixRow(it, idx) {
+    const usd = it.usd > 0 ? ` \u00B7 ~$${it.usd.toFixed(4)}` : '';
+    const when = it.at ? String(it.at).replace('T', ' ').replace(/\.\d+Z?$/, 'Z') : '';
+    const repeatBadge = it.repeatCount > 1 ? `<span class="fx-repeat">\u00D7${it.repeatCount}</span>` : '';
+    return `<div class="fx-row" role="listitem">` +
+      `<button type="button" class="fx-main" aria-expanded="false" data-fx="${idx}">` +
+        `<span class="fx-turn">${it.turn ? 'T' + it.turn : '\u00B7'}</span>` +
+        `<span class="fx-label">${escAttr(it.label)}${repeatBadge}</span>` +
+        `<span class="fx-detail">${escAttr(it.detail || '')}</span>` +
+        `<span class="fx-saved">+${flightFmtK(it.tokensSaved)}</span>` +
+      `</button>` +
+      `<div class="fx-more" hidden>${escAttr((it.detail || it.label) + ' \u00B7 ' + flightFmtK(it.tokensSaved) + ' tokens' + usd + (when ? ' \u00B7 ' + when : ''))}</div>` +
+    `</div>`;
+  }
+
+  function renderAutoFixLog(log) {
+    const list = document.getElementById('autoFixList');
+    const count = document.getElementById('autoFixCount');
+    if (!list || !count) return;
+    const rawItems = log && Array.isArray(log.items) ? log.items : [];
+    const items = coalesceAutoFixItems(rawItems);
+    count.textContent = String(Math.max(Number(log?.total) || 0, rawItems.length));
+    const armedAnchorHtml = '<div class="fx-rail-armed"><span>Auto-guard armed</span><span class="mono">Watching loops &amp; CLI dumps</span></div>';
+    if (items.length === 0) {
+      list.innerHTML = `<div class="fx-empty">No auto-fixes yet.</div>${armedAnchorHtml}`;
+      return;
+    }
+    const visible = items.slice(0, 4);
+    const older = items.slice(4);
+    const olderHtml = older.length > 0
+      ? `<details class="fx-older-details"><summary class="fx-older-summary">+ ${older.length} older fix${older.length === 1 ? '' : 'es'} \u25BE</summary>${older.map((it, idx) => renderAutoFixRow(it, idx + 4)).join('')}</details>`
+      : '';
+    list.innerHTML = visible.map((it, idx) => renderAutoFixRow(it, idx)).join('') + olderHtml + armedAnchorHtml;
+    list.onclick = (e) => {
+      const b = e.target.closest ? e.target.closest('.fx-main') : null;
+      if (!b) return;
+      const more = b.parentElement.querySelector('.fx-more');
+      const open = b.getAttribute('aria-expanded') === 'true';
+      b.setAttribute('aria-expanded', String(!open));
+      if (more) more.hidden = open;
+    };
+  }
+
+  function renderSimpleHeroAndRing(raw, tl, ctx) {
+    const k = (tl && tl.kpis) || {};
+    const total = Math.max(0, Number(ctx.totalTokens) || 0);
+    const safeLim = Math.max(1, Number(ctx.safeLimit) || 140000);
+    const maxTok = Math.max(safeLim, Number(raw.window?.maxTokens) || 256000);
+    const effShort = ctx.effortShort || raw.activeEffortProfile?.shortLabel || raw.effortProfile?.shortLabel || 'Auto';
+    const isCrisis = Boolean(raw.amputation?.amputationCrisis || raw.telemetry?.amputationRisk);
+    const vState = ctx.verdictState || 'NOMINAL';
+
+    const runwayEl = document.getElementById('simpleRunwayHero');
+    const runwaySubEl = document.getElementById('simpleRunwaySub');
+    if (runwayEl) {
+      if (isCrisis) {
+        runwayEl.textContent = 'Compact Now';
+        runwayEl.dataset.level = 'bad';
+      } else if (total > safeLim || k.overLimit) {
+        const overK = flightFmtK(Math.max(100, total - safeLim));
+        runwayEl.textContent = `+${overK} past safe`;
+        runwayEl.dataset.level = 'bad';
+      } else if (k.turnsLeft !== null && k.turnsLeft !== undefined) {
+        runwayEl.textContent = `~${k.turnsLeft} turn${k.turnsLeft === 1 ? '' : 's'} left`;
+        runwayEl.dataset.level = k.turnsLeft <= 3 ? 'bad' : (k.turnsLeft <= 8 ? 'warn' : 'good');
+      } else {
+        const leftK = flightFmtK(Math.max(0, safeLim - total));
+        runwayEl.textContent = total < 25000 ? 'Healthy' : `${leftK} left`;
+        runwayEl.dataset.level = (safeLim - total) <= 15000 ? 'warn' : 'good';
+      }
+    }
+    if (runwaySubEl) {
+      runwaySubEl.textContent = `${flightFmtK(total)} / ${flightFmtK(safeLim)} safe \u00B7 ${Math.round(maxTok / 1000)}k cap`;
+    }
+
+    const modelChip = document.getElementById('simpleModelChip');
+    if (modelChip) {
+      const pool = raw.quota?.sprint5h?.modelPoolName || raw.window?.activeModelLabel || 'Model';
+      modelChip.textContent = `Model ${pool} \u00B7 ${effShort}`;
+    }
+
+    const storageCardEl = document.getElementById('storageCard');
+    if (storageCardEl) storageCardEl.dataset.crisis = String(isCrisis || total > safeLim);
+
+    // Honest 2-segment legend + burn rate
+    const usefulEl = document.getElementById('simpleUsefulVal');
+    const reclaimEl = document.getElementById('simpleReclaimVal');
+    const burnEl = document.getElementById('simpleBurnRateLbl');
+    if (usefulEl && ctx.usefulTok !== undefined) usefulEl.textContent = flightFmtK(ctx.usefulTok);
+    if (reclaimEl && ctx.reclaimTok !== undefined) reclaimEl.textContent = flightFmtK(ctx.reclaimTok);
+    if (burnEl) {
+      const burnTok = Number(k.burnRateTokens) || 0;
+      burnEl.textContent = burnTok > 0 ? `Burn ~${flightFmtK(burnTok)}/turn` : '';
+    }
+
+    // Inline Apple Watch Cache Ring
+    const c = raw.quota?.cache || {};
+    const ttl = Math.max(0, Math.round(Number(c.ttlRemainingSec) || 0));
+    const warm = ttl > 0 && !c.isCacheCold;
+    const hitPct = Math.max(0, Math.min(100, Math.round(Number(c.hitRatePct) || 0)));
+    const ringWrap = document.getElementById('simpleCacheRingWrap');
+    const ringArc = document.getElementById('simpleCacheRingArc');
+    const ringPct = document.getElementById('simpleCacheRingPct');
+    const ringTtl = document.getElementById('simpleCacheRingTtl');
+    const CIRC = 100.53;
+    if (ringWrap) {
+      ringWrap.dataset.warm = String(warm);
+      ringWrap.dataset.expiring = String(warm && ttl <= 60);
+      ringWrap.setAttribute('aria-label', warm ? `Prompt cache: ${hitPct}% hit, ${Math.floor(ttl / 60)}m ${ttl % 60}s warm` : 'Prompt cache: cold');
+    }
+    if (ringArc) {
+      const fillFrac = warm ? Math.max(0.08, hitPct / 100) : 0;
+      ringArc.style.strokeDashoffset = (CIRC * (1 - fillFrac)).toFixed(2);
+    }
+    if (ringPct) ringPct.textContent = warm ? `${hitPct}% hit` : 'Cold';
+    if (ringTtl) {
+      const lost = Number(k.coldRestartLossUsd) || 0;
+      if (warm) {
+        const m = Math.floor(ttl / 60);
+        ringTtl.textContent = `${m > 0 ? m + 'm ' : ''}${ttl % 60}s warm`;
+      } else {
+        ringTtl.textContent = lost > 0 ? `lost -$${lost.toFixed(2)}` : 'uncached';
+      }
+    }
+
+    // Wishlist #1: Amnesia Radar survival pill
+    const radarEl = document.getElementById('simpleAmnesiaPill');
+    if (radarEl) {
+      const anchorsAtRisk = Number(raw.amputation?.anchorsAtRisk || 0);
+      const drifting = isCrisis || anchorsAtRisk > 0 || vState === 'CIRCUIT_BREAKER';
+      const warning = total > safeLim || (raw.brainSignals?.activeSignal?.taskMdTurnsBehind || 0) >= 3;
+      if (total < 1500 && !drifting && !warning) {
+        radarEl.hidden = true;
+      } else {
+        radarEl.hidden = false;
+        if (drifting) {
+          radarEl.dataset.risk = 'danger';
+          radarEl.textContent = 'Memory: ' + (anchorsAtRisk > 0 ? `${anchorsAtRisk} rule${anchorsAtRisk === 1 ? '' : 's'} at risk` : 'specs at risk');
+        } else if (warning) {
+          radarEl.dataset.risk = 'warn';
+          radarEl.textContent = 'Memory: checkpoint behind';
+        } else {
+          radarEl.dataset.risk = 'good';
+          radarEl.textContent = 'Memory: rules safe';
+        }
+      }
+    }
+
+    // Wishlist #6: Adaptive Ambient Collapse below 580px when NOMINAL
+    const isNominal = vState === 'NOMINAL' && !isCrisis;
+    document.body.dataset.ambientCompact = String(isNominal && !userExpandedAmbient);
+    document.body.dataset.ambientExpanded = String(isNominal && userExpandedAmbient);
+    const ambBtn = document.getElementById('btnAmbientExpand');
+    if (ambBtn && !ambBtn._bound) {
+      ambBtn._bound = true;
+      ambBtn.onclick = () => {
+        userExpandedAmbient = !userExpandedAmbient;
+        if (currentRenderedState) {
+          const cur = currentRenderedState;
+          renderSimpleHeroAndRing(cur, cur.sessionTimeline || null, ctx);
+        }
+      };
+    }
+    if (ambBtn) {
+      ambBtn.setAttribute('aria-expanded', String(userExpandedAmbient || !isNominal));
+      ambBtn.textContent = userExpandedAmbient ? 'Hide \u25B4' : 'Show \u25BE';
+    }
+  }

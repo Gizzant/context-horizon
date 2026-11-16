@@ -158,7 +158,7 @@ describe('Milestone 5: Developer Workflow, UI Surfaces & Studio Artifacts', () =
       assert.ok(res.visibleLength <= 80);
       assert.equal(res.line.includes('\n'), false);
       assert.equal(res.line.includes('\r'), false);
-      assert.ok(res.line.includes('AH ['));
+      assert.ok(res.line.includes('HB ['));
       assert.ok(res.line.includes('COACH'));
     });
 
@@ -176,7 +176,7 @@ describe('Milestone 5: Developer Workflow, UI Surfaces & Studio Artifacts', () =
       assert.ok(res);
       assert.ok(res.visibleLength <= 144);
       assert.equal(res.line.includes('\n'), false);
-      assert.ok(res.line.includes('AH ['));
+      assert.ok(res.line.includes('HB ['));
       assert.ok(res.line.includes('[COACH]'));
     });
 

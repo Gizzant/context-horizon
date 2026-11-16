@@ -1243,7 +1243,7 @@ describe('Tier 3: Pairwise Interactions (Features 29 - 41)', () => {
       // CLI demo mode execution
       const demoRes = await runCli(['statusline', '--demo']);
       assert.ok(demoRes);
-      assert.ok(demoRes.line.includes('AH ['));
+      assert.ok(demoRes.line.includes('HB ['));
 
       // Exercise programmatic statusline bridge across columns
       const dummyPayload = {

@@ -23,6 +23,7 @@ import { PrefixCacheShield } from '../../src/core/prefix_cache_shield.mjs';
 import { CompactionCoach, assessCompactionState, trimUncachedTail } from '../../src/core/compaction_coach.mjs';
 import { RsiInstinctEngine } from '../../src/core/rsi_instinct_engine.mjs';
 import { getRslSummary } from '../../src/core/rsl_ledger.mjs';
+import { loadShieldConfig } from '../../src/core/shield_manager.mjs';
 import { UShapedAttentionOptimizer } from '../../src/core/u_shaped_optimizer.mjs';
 import {
   evaluateTaskAndQuotaRoute,
@@ -31,7 +32,7 @@ import {
   TaskMdDirectiveWatcher,
   ModelSelectorActuator
 } from '../../src/core/task_quota_router.mjs';
-import { loadHorizonConfig } from '../../src/core/horizon_config.mjs';
+import { loadHorizonConfig, setHorizonFlightMode } from '../../src/core/horizon_config.mjs';
 import { TrajectoryWatcher } from '../../src/core/telemetry/trajectory_watcher.mjs';
 import { detectShadowedFileBloat } from '../../src/core/telemetry/shadow_file_detector.mjs';
 import { CacheTtlWatchdog } from '../../src/core/telemetry/cache_ttl_watchdog.mjs';
@@ -166,6 +167,7 @@ try {
 const uShapedOptimizer = new UShapedAttentionOptimizer({ prefixCacheShield, prefixShield: prefixCacheShield });
 const cacheGravityScorer = new CacheGravityScorer();
 const modelSelectorActuator = new ModelSelectorActuator({ cacheGravityScorer });
+let hasExplicitSessionMode = false;
 const taskMdWatcher = new TaskMdDirectiveWatcher({ cacheGravityScorer, actuator: modelSelectorActuator });
 const hysteresisLock = new HysteresisLock();
 const turnBoundaryQueue = new TurnBoundaryActuationQueue();
@@ -372,12 +374,20 @@ function buildCoachState(state, targetConvId) {
     const clusters = rsiEngine?.getDomainClusters ? rsiEngine.getDomainClusters() : [];
     const horizonCfg = loadHorizonConfig({ cwd: wsDir });
     const configuredFlightMode = String(horizonCfg.flightMode || 'COACH').toUpperCase();
-    const effectiveRouterMode = modelSelectorActuator.mode === 'autopilot' || configuredFlightMode === 'AUTO_PILOT'
+    const diskRouterMode = configuredFlightMode === 'AUTO_PILOT'
       ? 'autopilot'
-      : (configuredFlightMode === 'OFF' ? 'off' : modelSelectorActuator.mode);
+      : (configuredFlightMode === 'OFF' ? 'off' : 'coach');
+    if (!hasExplicitSessionMode && modelSelectorActuator.mode !== diskRouterMode) {
+      modelSelectorActuator.setMode(diskRouterMode);
+    }
+    const effectiveRouterMode = hasExplicitSessionMode ? modelSelectorActuator.mode : diskRouterMode;
     const effectiveFlightMode = effectiveRouterMode === 'autopilot'
       ? 'AUTO_PILOT'
-      : configuredFlightMode;
+      : (effectiveRouterMode === 'off' ? 'OFF' : (configuredFlightMode === 'SILENT' ? 'SILENT' : 'COACH'));
+    if (state && typeof state === 'object') {
+      state.routerMode = effectiveRouterMode;
+      state.flightMode = effectiveFlightMode;
+    }
 
     const resolvedEffort = String(
       state?.activeEffort ||
@@ -571,6 +581,24 @@ function buildCoachState(state, targetConvId) {
           };
         }
       })(),
+      shield: (() => {
+        try {
+          const shieldCfg = loadShieldConfig({ cwd: wsDir });
+          const shieldSummary = {
+            enabled: Boolean(shieldCfg?.enabled),
+            platforms: shieldCfg?.platforms || { antigravity: false, claude: false },
+            maxUnslicedLines: Number(shieldCfg?.maxUnslicedLines || 1200),
+            cliffMaxUnslicedLines: Number(shieldCfg?.cliffMaxUnslicedLines || 150)
+          };
+          if (state && typeof state === 'object') {
+            state.shield = shieldSummary;
+          }
+          return shieldSummary;
+        } catch (err) {
+          if (err?.code !== 'ENOENT') recordDaemonDiagnostic('buildCoachState:shield', err);
+          return null;
+        }
+      })(),
       rsl: (() => {
         try {
           const rslSummary = getRslSummary(wsDir);
@@ -578,18 +606,25 @@ function buildCoachState(state, targetConvId) {
             state.rsl = rslSummary;
             const telDir = path.join(wsDir, '.agents', 'telemetry');
             let shardCount = Array.isArray(state.sessionMeta?.specShards) ? state.sessionMeta.specShards.length : 0;
-            if (shardCount === 0 && fs.existsSync(telDir)) {
+            let turn1Steered = Boolean(state.turn1ContractSteered);
+            if (fs.existsSync(telDir)) {
               const pFiles = fs.readdirSync(telDir).filter((n) => n.startsWith('prompt_state.') && n.endsWith('.json'));
               for (const pf of pFiles.slice(0, 3)) {
                 try {
                   const ps = JSON.parse(fs.readFileSync(path.join(telDir, pf), 'utf8'));
-                  shardCount = Math.max(shardCount, Array.isArray(ps?.specShards) ? ps.specShards.length : 0);
+                  if (shardCount === 0) {
+                    shardCount = Math.max(shardCount, Array.isArray(ps?.specShards) ? ps.specShards.length : 0);
+                  }
+                  if (ps?.turn1ContractInjected || ps?.turn1ContractSteered) {
+                    turn1Steered = true;
+                  }
                 } catch (parseErr) {
                   recordDaemonDiagnostic('buildCoachState:promptState', parseErr);
                 }
               }
             }
             state.shardedSpecCount = shardCount;
+            state.turn1ContractSteered = turn1Steered;
           }
           return rslSummary;
         } catch (err) {
@@ -597,6 +632,8 @@ function buildCoachState(state, targetConvId) {
           return null;
         }
       })(),
+      routerMode: effectiveRouterMode,
+      flightMode: effectiveFlightMode,
       taskQuotaRouter: taskRoute
     };
   } catch (err) {
@@ -1851,21 +1888,22 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Route: POST /api/router/mode (Set Coach / Auto-Pilot mode)
+  // Route: POST /api/router/mode (Set Off / Coach / Auto-Pilot mode & persist flightMode)
   if (url.pathname === '/api/router/mode' && req.method === 'POST') {
     const bodyStr = await readRequestBody(req, res);
     if (bodyStr === null) return;
     const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/router/mode');
     if (body === null) return;
     const mode = body.mode || 'coach';
+    hasExplicitSessionMode = true;
     const modeRes = modelSelectorActuator.setMode(mode);
-    cacheTtlWatchdog.setFlightMode(
-      modeRes.mode === 'autopilot' ? 'AUTO_PILOT' : (modeRes.mode === 'off' ? 'OFF' : 'COACH')
-    );
+    const wsDir = cachedLiveState?.workspace?.canonicalPath || process.cwd();
+    const persistRes = setHorizonFlightMode(modeRes.mode, { cwd: wsDir });
+    cacheTtlWatchdog.setFlightMode(persistRes.flightMode);
     const nextState = await refreshLiveState(true, pinnedConversationId);
     broadcastState(nextState);
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, ...modeRes, state: nextState }));
+    res.end(JSON.stringify({ success: true, ...modeRes, flightMode: persistRes.flightMode, state: nextState }));
     return;
   }
 

@@ -8,7 +8,8 @@ import { atomicWriteFileSync } from '../src/core/atomic_io.mjs';
 import {
   FULL_TOOL_HOOK_MATCHER,
   LEAN_PRE_TOOL_HOOK_MATCHER,
-  LEAN_POST_TOOL_HOOK_MATCHER
+  LEAN_POST_TOOL_HOOK_MATCHER,
+  ULTRA_LEAN_PRE_TOOL_HOOK_MATCHER
 } from '../src/core/layer5_hygiene.mjs';
 import { buildDemoPage } from './build_demo_page.mjs';
 import { buildEvaluationBundles, TIER_1_FILES, TIER_2_FILES } from './build_evaluation_bundles.mjs';
@@ -45,7 +46,7 @@ export function getSyncedPluginSubdirs(canonicalRoot = CANONICAL_ROOT) {
         return;
       }
       for (const ent of entries) {
-        if (ent.isDirectory()) {
+        if (ent.isDirectory() && ent.name !== 'partials') {
           walk([...relParts, ent.name]);
         }
       }
@@ -169,8 +170,12 @@ function hasCompleteSixLifecycleHooks(lifecycleBlock, pluginRoot) {
   if (!preCmd.includes(normPre)) return false;
   if (!expectQuoted && (preCmd.includes(`"${normPre}"`) || preToolCmd.includes(`"${normPre}"`))) return false;
   if (!preToolCmd.includes('--event=PreToolUse')) return false;
-  if (lifecycleBlock.PreToolUse?.[0]?.matcher !== LEAN_PRE_TOOL_HOOK_MATCHER) return false;
-  if (lifecycleBlock.PostToolUse?.[0]?.matcher !== LEAN_POST_TOOL_HOOK_MATCHER) return false;
+  const preMatcher = String(lifecycleBlock.PreToolUse?.[0]?.matcher || '');
+  const postMatcher = String(lifecycleBlock.PostToolUse?.[0]?.matcher || '');
+  const allowedPreMatchers = new Set([LEAN_PRE_TOOL_HOOK_MATCHER, ULTRA_LEAN_PRE_TOOL_HOOK_MATCHER, FULL_TOOL_HOOK_MATCHER]);
+  const allowedPostMatchers = new Set([LEAN_POST_TOOL_HOOK_MATCHER, FULL_TOOL_HOOK_MATCHER]);
+  if (!allowedPreMatchers.has(preMatcher)) return false;
+  if (!allowedPostMatchers.has(postMatcher)) return false;
   return true;
 }
 
@@ -229,24 +234,33 @@ function listSkillAndAssetFiles(relRootDir) {
 
 export function syncAndVerifyMirrors({
   verifyOnly = false,
-  pluginRoots
+  pluginRoots,
+  retireLegacyMirror = false,
+  legacyRoot = AGY_HORIZON_ROOT
 } = {}) {
   const canonicalHtml = path.join(CANONICAL_ROOT, 'src', 'webview', 'horizon_panel.html');
   if (!fs.existsSync(canonicalHtml)) {
     throw new Error(`Canonical WebView HTML missing: ${canonicalHtml}`);
   }
 
+  if (retireLegacyMirror && legacyRoot && fs.existsSync(legacyRoot)) {
+    fs.rmSync(legacyRoot, { recursive: true, force: true });
+  }
+
   const isDefaultRoots = !Array.isArray(pluginRoots);
+  const bootstrapRoots = [FLIGHTCHECK_ROOT, IN_REPO_FLIGHTCHECK_ROOT];
   const candidateRoots = isDefaultRoots
-    ? [AGY_HORIZON_ROOT, FLIGHTCHECK_ROOT, IN_REPO_FLIGHTCHECK_ROOT]
+    ? (!retireLegacyMirror && fs.existsSync(AGY_HORIZON_ROOT)
+        ? [AGY_HORIZON_ROOT, ...bootstrapRoots]
+        : bootstrapRoots)
     : pluginRoots;
 
   // On clean CI runners where gitignored mirror directories or evaluation_bundles do not exist yet,
-  // auto-bootstrap the default mirror directories so 8-target / 708-pair verification succeeds deterministically.
+  // auto-bootstrap active Flightcheck mirror directories (never recreating retired agy-horizon).
   let effectiveVerifyOnly = verifyOnly;
   if (isDefaultRoots) {
     const evalBundleTier2 = path.join(CANONICAL_ROOT, 'evaluation_bundles', 'tier_2_full', 'src', 'webview', 'horizon_panel.html');
-    for (const r of candidateRoots) {
+    for (const r of bootstrapRoots) {
       const uiDir = path.join(r, 'src', 'ui');
       const sidepaneHtml = path.join(uiDir, 'sidepane.html');
       if (!fs.existsSync(sidepaneHtml)) {
@@ -536,7 +550,8 @@ export function syncAndVerifyMirrors({
         mismatches.push(`Missing hooks.json in ${root}`);
       } else {
         const hJson = JSON.parse(fs.readFileSync(hJsonPath, 'utf8'));
-        if (!hasCompleteSixLifecycleHooks(hJson?.['horizon-flightcheck-lifecycle'], root)) {
+        const lifecycleBlock = hJson?.['horizon-flightcheck-lifecycle'] || hJson?.hooks || null;
+        if (!hasCompleteSixLifecycleHooks(lifecycleBlock, root)) {
           mismatches.push(`Incomplete lifecycle hooks in ${hJsonPath}: expected all 6 hooks with widened matcher`);
         }
       }
@@ -603,5 +618,6 @@ function isSyncMain(argv1 = process.argv[1], metaUrl = import.meta.url) {
 
 if (isSyncMain()) {
   const verifyOnly = process.argv.includes('--verify-only');
-  syncAndVerifyMirrors({ verifyOnly });
+  const retireLegacyMirror = process.argv.includes('--retire-legacy-mirror');
+  syncAndVerifyMirrors({ verifyOnly, retireLegacyMirror });
 }

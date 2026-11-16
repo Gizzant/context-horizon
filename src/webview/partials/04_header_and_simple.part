@@ -1,0 +1,261 @@
+<body data-view-mode="simple">
+
+<div class="wrap">
+  <!-- 1. Header -->
+  <header>
+    <div class="title-group">
+      <div class="dot" id="statusDot"></div>
+      <img class="brand-wordmark" src="data:image/png;base64,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" width="161" height="26" alt="Highbeam" decoding="async">
+      <h1>Highbeam</h1>
+    </div>
+    <img class="brand-logo" src="data:image/png;base64,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" width="28" height="28" alt="" aria-hidden="true" decoding="async">
+  </header>
+  <div class="header-controls">
+    <div class="header-right">
+      <span class="badge mono advanced-only" id="workloadModeBadge">[Mode: Read-Heavy Audit]</span>
+      <span class="badge" id="statusBadge">Healthy</span>
+      <span class="badge warn advanced-only" id="confidenceBadge" hidden style="display:none;">Degraded</span>
+      <div class="shadcn-tabs-list" role="tablist" aria-label="Telemetry density mode" data-slot="tabs-list">
+        <button type="button" role="tab" class="shadcn-tab-trigger" id="tabSimple" data-view-tab="simple" aria-selected="true" title="Focused summary view">Simple</button>
+        <button type="button" role="tab" class="shadcn-tab-trigger" id="tabAdvanced" data-view-tab="advanced" aria-selected="false" title="Full diagnostic & timeline view">Advanced</button>
+      </div>
+      <span class="tufte-top-host-badge" id="tufteTopHostBadge">Antigravity &middot; Auto</span>
+      <button class="icon-btn" onclick="window.location.reload()" title="Reload panel" aria-label="Reload panel"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.35-3.6"/><path d="M13.5 2.5v3h-3"/></svg></button>
+    </div>
+  </div>
+
+  <div id="tsModeBar" class="ts-mode-bar" role="region" aria-label="Protection mode">
+    <div class="ts-mode-meta" data-tip title="Choose how actively Highbeam steps in during your coding session: Off = watch only, Coach = trims noisy logs & gives advice, Auto = hands-free guards & routing.">
+      <span class="ts-mode-title">Mode</span>
+      <span id="tsModeHint" class="ts-mode-hint">Advises &amp; trims noisy logs</span>
+    </div>
+    <div id="tsModeSlider" class="ts-mode-slider" role="radiogroup" aria-label="Highbeam protection mode" data-active-mode="coach">
+      <span class="ts-mode-thumb" aria-hidden="true"></span>
+      <button type="button" role="radio" id="tsModeBtnOff" class="ts-mode-btn" data-mode="off" aria-checked="false" title="Off (Watch only): passively tracks your context glass, cache timer, and savings without blocking commands or injecting advice.">Off</button>
+      <button type="button" role="radio" id="tsModeBtnCoach" class="ts-mode-btn" data-mode="coach" aria-checked="true" title="Coach (Recommended): trims noisy command logs in the background and advises you before risky edits or costly model switches.">Coach</button>
+      <button type="button" role="radio" id="tsModeBtnAuto" class="ts-mode-btn" data-mode="autopilot" aria-checked="false" title="Auto (Hands-free): enforces active safety guards, large-file read limits, and turn-boundary model/effort routing automatically.">Auto</button>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       LIVE EDWARD TUFTE "SIMPLE VIEW" SURFACE (4-Card Sketch Layout)
+       ========================================================================= -->
+  <div id="argonSimpleSurface" aria-label="Highbeam Simple View">
+    <!-- CARD 1: CONTEXT (scrollTop: 0) + Upper-Right Reversed "Glass of Water" Bar -->
+    <section id="tsMetricHeader" class="ts-card ts-metric-header" aria-label="Context usage and categories">
+      <div class="ts-card-head">
+        <span class="ts-card-title" data-tip title="How full your AI's working memory is right now compared to the safe limit where it stays accurate and remembers early project rules.">CONTEXT</span>
+        <div class="ts-status-badge" role="status" aria-live="polite" data-tip title="Current memory and prompt-cache health. Green or neutral means you have room to work cleanly; amber or red means it is time to compact or slow down.">
+          <span id="tsStatusDot" class="ts-dot" data-tone="nominal"></span>
+          <span id="tsStatusLabel">Nominal Memory</span>
+        </div>
+      </div>
+
+      <p id="tsContextSummary" class="ts-explain" data-tip title="A plain-English snapshot of what is inside your AI's working memory right now and how much room remains before older rules risk getting crowded out.">Working memory has plenty of room for edits and multi-file tasks without losing earlier instructions.</p>
+
+      <div class="ts-context-split">
+        <div class="ts-context-info">
+          <div class="ts-quant-row">
+            <span class="ts-quant-primary" data-tip title="Tokens currently in working memory compared to the safe attention ceiling. Staying under this limit prevents the AI from overlooking instructions in the middle or start of chat.">
+              <strong id="tsUsedLabel">0.0k</strong> / <span id="tsSafeLabel">179.0k</span> safe (<span id="tsUsedPct">0%</span>)
+            </span>
+            <span id="tsRunwayMeta" class="ts-runway-meta" data-tone="nominal" data-tip title="Estimated room left before reaching the safe context limit, based on your recent turn size.">179.0k headroom</span>
+          </div>
+
+          <div class="ts-cat-list" role="list" aria-label="Context breakdown from newest to oldest">
+            <div class="ts-cat-row" id="tsRowNew" role="listitem" data-tip title="Your newest prompts, current code edits, and active working files sitting at the top of the glass.">
+              <span class="ts-swatch-dot" style="background:var(--ts-new);" aria-hidden="true"></span>
+              <div class="ts-cat-meta">
+                <span class="ts-cat-name">New &amp; active</span>
+                <span class="ts-cat-sub" id="tsNewSub">Current files &amp; replies</span>
+              </div>
+              <strong id="tsValNew" class="ts-cat-val">0.0k</strong>
+            </div>
+
+            <div class="ts-cat-row" id="tsRowOld" role="listitem" data-tip title="Older conversation turns, repeat full-file reads, resolved error logs, and unrelated memory items that /compact can safely trim away.">
+              <span id="tsClutterDot" class="ts-swatch-dot" style="background:var(--ts-clu);" aria-hidden="true"></span>
+              <div class="ts-cat-meta">
+                <span id="tsClutterKind" class="ts-cat-name">Reclaimable</span>
+                <span class="ts-cat-sub" id="tsOldSub">Older chat &amp; repeat reads</span>
+              </div>
+              <strong id="tsValClutter" class="ts-cat-val">0.0k</strong>
+            </div>
+
+            <div class="ts-cat-row" id="tsRowPinned" role="listitem" data-tip title="Foundational project rules (AGENTS.md / CLAUDE.md), learned session rules, and connected tool definitions loaded at the start of the chat (base of the glass).">
+              <span class="ts-swatch-dot" style="background:var(--ts-pinned);" aria-hidden="true"></span>
+              <div class="ts-cat-meta">
+                <span class="ts-cat-name">Rules &amp; tools</span>
+                <span id="tsAnchorHealth" class="ts-anchor-health" data-risk="false" title="Whether your pinned startup rules are safely inside the safe memory window or at risk of being pushed out.">Pinned rules safe</span>
+              </div>
+              <strong id="tsValPinned" class="ts-cat-val">0.0k</strong>
+            </div>
+          </div>
+
+          <!-- Hidden DOM/screen-reader parity elements preserved for automated accessibility & test checks -->
+          <div class="sr-only-metrics" aria-hidden="true">
+            <span id="tsValSignal">0.0k</span>
+            <div class="ts-bar-wrap">
+              <div class="ts-bar-track">
+                <div id="tsBarSignal" class="ts-seg-signal" style="width:0%"><span id="tsBarSignalLabel" class="ts-seg-label"></span></div>
+                <div id="tsBarClutter" class="ts-seg-clutter" data-clutter-tone="stale" style="width:0%"><span id="tsBarClutterLabel" class="ts-seg-label"></span></div>
+              </div>
+              <div id="tsSafeTick" class="ts-safe-tick" style="left:70%"></div>
+              <div id="tsSafeTickLabel" class="ts-safe-label" style="left:70%">safe limit</div>
+              <div id="tsBarOuterLabel" class="ts-bar-outer-label" hidden></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ts-glass-col">
+          <div id="tsGlassVessel" class="ts-glass-vessel" role="img" aria-label="Vertical context fill gauge from pinned rules at bottom to new active work on top" data-state="nominal" data-tip title="Fills bottom-to-top up to your safe limit: pinned Rules & tools sit at the base, Older & reclaimable clutter in the middle, and New & active work on top. Empty space is free headroom.">
+            <span id="tsGlassHeadroom" class="ts-glass-headroom-label">100% free</span>
+            <div id="tsGlassSafeLine" class="ts-glass-safe-line" hidden title="Safe limit line — context above this dashed line risks slowing down or forgetting early rules."></div>
+            <div id="tsGlassFill" class="ts-glass-fill" data-empty="true" style="height:0%">
+              <div id="tsGlassSegNew" class="ts-glass-seg ts-glass-seg-new" style="height:0%" title="New & active work (recent chat & current files): 0.0k"><span id="tsGlassTagNew" class="ts-glass-seg-tag" hidden>NEW</span></div>
+              <div id="tsGlassSegOld" class="ts-glass-seg ts-glass-seg-old" data-clutter-tone="stale" style="height:0%" title="Older & reclaimable clutter (old turns, repeat reads & fixed errors): 0.0k"><span id="tsGlassTagOld" class="ts-glass-seg-tag" hidden>OLD</span></div>
+              <div id="tsGlassSegPinned" class="ts-glass-seg ts-glass-seg-pinned" style="height:0%" title="Rules & tools (AGENTS.md / CLAUDE.md, MCP schemas): 0.0k"><span id="tsGlassTagPinned" class="ts-glass-seg-tag" hidden>BASE</span></div>
+            </div>
+          </div>
+          <span id="tsGlassCaption" class="ts-glass-caption" data-state="nominal" data-tip title="Percentage of the safe working memory limit currently filled.">0% of safe</span>
+        </div>
+      </div>
+
+      <div class="ts-remediation">
+        <button type="button" id="tsBtnCleanPrimary" class="ts-cta-btn" data-cta-state="guarded" title="Copies a tailored /compact command to your clipboard so you can paste it into chat to clear out older clutter while preserving rules and active files.">
+          <span id="tsBtnCleanLabel">Copy /compact Command (Memory Clean)</span>
+        </button>
+        <div class="ts-compact-caption">
+          <span id="tsCompactReclaim" title="How many tokens of older history, duplicate reads, or old errors can be reclaimed without touching your active code.">0.0k reclaimable clutter &middot; Active working set protected</span>
+          <span id="tsCompactInstruction" title="Paste the copied /compact command into your AI chat box and press Enter.">Type <code>/compact</code> in chat &amp; press Enter</span>
+        </div>
+      </div>
+
+      <details id="tsWhyClears" class="ts-why" hidden>
+        <summary title="Click to preview exactly which old turns, duplicate file reads, or resolved error logs /compact will remove."><span title="See what gets cleaned up without touching your project rules or current code."><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>What <code>/compact</code> clears</span><span id="tsWhyTotal" class="ts-why-total">0.0k</span></summary>
+        <ul id="tsWhyList" class="ts-why-list" role="list"></ul>
+        <div id="tsWhyKeepNote" class="ts-why-keep">Keeps project rules, <code>task.md</code>, your plan, and active code.</div>
+      </details>
+    </section>
+
+    <!-- CARD 2: DIRECT GUIDANCE -->
+    <section id="tsGuidanceSection" class="ts-card" aria-label="Direct guidance">
+      <div class="ts-card-head">
+        <span class="ts-card-title" data-tip title="Actionable next steps and warnings based on your current memory fill, cache warmth, active guards, and rule health.">DIRECT GUIDANCE</span>
+        <span id="tsGuidanceBadge" class="ts-meta" data-tone="muted" data-tip title="Shows whether switching your AI model or reasoning effort right now is free (OK) or will force a costly cache rebuild (Hold).">Model: OK &middot; Effort: OK</span>
+      </div>
+
+      <div id="tsDoRow" class="ts-guidance-row" data-tone="do" title="Recommended best next step for your current session state.">
+        <span class="ts-tag">DO</span>
+        <span id="tsDoText">Safe to run multi-file edits or implementation tasks; working memory has plenty of room for clean work.</span>
+      </div>
+
+      <div id="tsAvoidRow" class="ts-guidance-row" data-tone="avoid" title="What to avoid right now so you do not waste quota, lose prompt-cache savings, or confuse the model.">
+        <span class="ts-tag">AVOID</span>
+        <span id="tsAvoidText">Avoid reading large files without StartLine/EndLine bounds so unneeded lines do not crowd working memory.</span>
+      </div>
+
+      <details id="tsSwitchDetailsDrawer" class="ts-drawer">
+        <summary title="Expand to see exact Model and Effort switching rules, warm cache hold countdowns, and last model switch impact."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Model &amp; effort switching <span id="tsSwitchActiveSummary" class="ts-kpi-sub">Auto &middot; Auto</span></span><span id="tsSwitchDrawerHint" class="ts-kpi-sub">Details</span></summary>
+        <div class="ts-drawer-body">
+          <div class="ts-switch-grid">
+            <div id="tsModelCard" class="ts-guidance-row ts-switch-card" data-tone="do" title="Whether changing your AI model mid-chat will invalidate your discounted prompt cache.">
+              <div class="ts-switch-head"><span class="ts-tag">MODEL</span><span id="tsModelVerdict" class="ts-switch-verdict">OK</span></div>
+              <div id="tsModelName" class="ts-switch-name">Auto</div>
+              <ul class="ts-switch-lines">
+                <li id="tsModelSameFam">Cache is cold &mdash; switching within the same model family adds no rewrite cost.</li>
+                <li id="tsModelCrossFam"></li>
+              </ul>
+              <div id="tsModelLast" class="ts-sub" hidden></div>
+            </div>
+            <div id="tsEffortCard" class="ts-guidance-row ts-switch-card" data-tone="do" title="Whether changing reasoning effort level right now breaks your cached chat history.">
+              <div class="ts-switch-head"><span class="ts-tag">EFFORT</span><span id="tsEffortVerdict" class="ts-switch-verdict">OK</span></div>
+              <div id="tsEffortName" class="ts-switch-name">Auto</div>
+              <div id="tsEffortText" class="ts-sub">Match effort to the task: Low or Medium keeps edits fast, and High helps on tricky specs or bugs.</div>
+              <div id="tsEffortHist" class="ts-sub" hidden></div>
+            </div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- CARD 3: AUTOMATED ACTIVITY -->
+    <section id="tsActivitySection" class="ts-card" aria-label="Automated activity">
+      <div class="ts-card-head">
+        <span class="ts-card-title" data-tip title="Automatic protections Highbeam is running behind the scenes: trimming noisy test logs, deduplicating repeat reads, protecting warm caches, and applying learned session rules.">AUTOMATED ACTIVITY</span>
+        <span id="tsGuardsSummary" class="ts-kpi-sub" data-tip title="Number of background interventions active in this chat and how many safety/efficiency guards are currently armed.">Guards armed</span>
+      </div>
+
+      <ul id="tsLedgerList" class="ts-ledger" role="list">
+        <li class="ts-ledger-row" title="Highbeam watches tool outputs and rule writes locally so noisy logs and premature rule edits do not bloat memory or break warm caches.">
+          <span class="ts-ledger-age">now</span>
+          <span>Auto-guards armed — trimming noisy command output (FTS5) and shielding warm prompt caches</span>
+          <span class="ts-ledger-saved">ready</span>
+        </li>
+      </ul>
+
+      <details id="tsActivityDrawer" class="ts-drawer">
+        <summary title="Click to view every active guard rule, whether it is tripped right now, blocks bad actions automatically, or advises you softly."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Active safety &amp; efficiency guards</span><span id="tsGuardRosterHint" class="ts-kpi-sub">Details</span></summary>
+        <div id="tsGuardListHead" class="ts-guard-head" hidden>Live guards</div>
+        <ul id="tsGuardList" class="ts-ledger ts-guard-list" role="list" hidden></ul>
+      </details>
+    </section>
+
+    <!-- CARD 4: SESSION OVERVIEW -->
+    <section id="tsSessionSection" class="ts-card" aria-label="Session overview">
+      <div class="ts-card-head">
+        <span class="ts-card-title" data-tip title="A big-picture look at your entire chat session from Turn 1 until now: how fast context is growing, how well the prompt cache is sticking, and total savings.">SESSION OVERVIEW</span>
+        <span id="tsSessionTurnsMeta" class="ts-kpi-sub" data-tip title="Total turns recorded in this conversation so far, along with how many stayed lean vs. triggered a spike or warning.">Session start</span>
+      </div>
+
+      <p id="tsSessionDigest" class="ts-explain" data-tip title="A plain-English summary of how this whole conversation is progressing, including compactions, checkpoints, and cache reuse.">Tracking your session from Turn 1 &mdash; watching context growth, prompt cache reuse, and token savings.</p>
+
+      <div class="ts-metric-list" role="region" aria-label="Entire session metrics">
+        <!-- Row 1: Entire Session Pace & Velocity Sparkline -->
+        <div class="ts-metric-row" title="Shows how quickly context is growing per turn and highlights key milestones like /compact runs, checkpoints, or model switches.">
+          <div class="ts-metric-main">
+            <span class="ts-metric-label">Session pace</span>
+            <span id="tsSessionPaceMeta" class="ts-meta" data-tone="muted">Steady</span>
+          </div>
+          <svg id="tsTurnSparkline" class="ts-sparkline" width="72" height="18" viewBox="0 0 72 18" role="img" aria-label="Per-turn context velocity sparkline">
+            <title id="tsSparklineTip">Per-turn context size trend across this chat (left = earlier turns, right = latest turn).</title>
+            <polyline id="tsSparklinePath" fill="none" stroke="var(--text-secondary)" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" points="1,15 71,15"/>
+            <circle id="tsSparklineDot" cx="71" cy="15" r="2" fill="var(--text-primary)"/>
+          </svg>
+        </div>
+
+        <!-- Row 2: Prompt Cache Hit Rate, Retention & TTL -> 1D BulletBar -->
+        <div class="ts-metric-row" title="Warm prompt cache reuses earlier conversation turns at a 90%–95% discount until the timer runs out or the prefix changes. Target line sits at 80%.">
+          <div class="ts-metric-main">
+            <span class="ts-metric-label">Prompt cache</span>
+            <span id="tsCacheMeta" class="ts-meta" data-tone="muted">0% hit &middot; Cold</span>
+            <span id="tsRetentionMeta" class="ts-kpi-sub" hidden></span>
+          </div>
+          <div class="ts-micro-bullet" role="img" aria-label="Prompt cache hit rate against 80% target" title="Current prompt cache hit rate compared against the 80% target tick mark.">
+            <div id="tsCacheBulletFill" class="ts-micro-bullet-fill" style="width:0%"></div>
+            <div class="ts-micro-bullet-tick" title="80% cache hit target"></div>
+          </div>
+        </div>
+
+        <!-- Row 3: Verified Savings & 5h Quota Pacing -->
+        <div class="ts-metric-row" title="Tokens and estimated spend saved locally by trimming verbose logs, skipping duplicate reads, and keeping your prompt cache warm.">
+          <div class="ts-metric-main">
+            <span class="ts-metric-label">Saved</span>
+            <span id="tsKpiSaved" class="ts-kpi-inline" title="Verified tokens saved during this active chat session.">+0.0k</span>
+            <span id="tsKpiUsd" class="ts-kpi-sub" title="Estimated input cost avoided in this chat based on your active model rate.">~$0.00</span>
+            <span class="ts-kpi-sub" aria-hidden="true">&middot;</span>
+            <span id="tsKpi30d" class="ts-kpi-sub" title="Cumulative verified savings across this workspace over the last 30 days.">30d: +0.0k (~$0.00)</span>
+            <span id="tsSprintMeta" class="ts-kpi-sub" hidden title="Estimated share of your 5-hour rolling seat quota used so far."></span>
+          </div>
+          <span id="tsSavedHint" class="ts-kpi-sub" title="All savings are counted once per turn from Highbeam's local ledger with zero estimates padded in.">verified</span>
+        </div>
+
+        <!-- Row 4 (Conditional): v4.1 Multi-Agent Swarm, Learned Rules & Sharded Constraints -->
+        <div id="tsSessionExtraRow" class="ts-metric-row" hidden>
+          <div class="ts-metric-main">
+            <span class="ts-metric-label">Workspace state</span>
+            <span id="tsSessionExtraText" class="ts-kpi-sub"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>

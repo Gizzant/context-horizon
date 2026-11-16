@@ -6,6 +6,7 @@ docs/
 evaluation_bundles/
 design-system/
 scripts/
+src/webview/partials/
 dist/
 .github/
 .agents/

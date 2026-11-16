@@ -30,7 +30,86 @@ const EXCLUDED_DIR_SEGMENTS = new Set([
 const GIT_MINING_RE = /\bgit\s+(?:fsck|cat-file|reflog|verify-pack)\b/i;
 const TEST_CMD_RE = /(?:npm\s+(?:run\s+)?test|node\s+--test|pytest|vitest|jest|cargo\s+test|go\s+test|unittest|mocha|playwright)/i;
 const USER_AUTHORIZED_TEST_REMOVAL_RE = /\b(?:delete|remove|drop|prune|disable|skip)\s+(?:the\s+|these\s+|old\s+|obsolete\s+)?tests?\b/i;
-const USER_CORRECTION_RE = /\b(?:don'?t|do\s+not|never|instead\s+use|wrong|stop\s+using|should\s+be|always\s+use|avoid|rejected)\b/i;
+const USER_CORRECTION_RE = /\b(?:do\s+not|don'?t|never|instead\s+of|stop\s+using|wrong|should\s+be|always\s+use|avoid|rejected)\b/i;
+const CONVERSATIONAL_NON_DIRECTIVE_RE = /\b(?:i\s+(?:don'?t|do\s+not)\s+(?:see|know|have|think|understand|want\s+to\s+wait)|don'?t\s+worry)\b/i;
+const SLASH_COMMAND_ONLY_RE = /^\/(?:plan|browser|compact|handoff|horizon|grill-me|boost|teamwork|learn|evolve|schedule)\b/i;
+const STRONG_DIRECTIVE_CORRECTION_RE = /\b(?:never\s+(?:use|run|modify|edit|read|write|commit|push|skip)|do\s+not\s+(?:use|run|modify|edit|read|write|touch)|instead\s+of|always\s+use|stop\s+using|must\s+(?:never|not|always))\b/i;
+
+/**
+ * Strips injected prompt wrappers (`<CONTEXT_SUMMARY>`, `<ADDITIONAL_METADATA>`, etc.)
+ * and extracts only raw `<USER_REQUEST>` body text before directive classification.
+ * @param {string} raw
+ * @returns {string}
+ */
+export function extractCleanUserRequestText(raw = '') {
+  let text = String(raw || '');
+  const userReqMatches = [];
+  text.replace(/<USER_REQUEST>([\s\S]*?)<\/USER_REQUEST>/gi, (_, inner) => {
+    const cleanInner = String(inner || '').trim();
+    if (cleanInner) userReqMatches.push(cleanInner);
+    return '';
+  });
+  if (userReqMatches.length > 0) {
+    return userReqMatches.join('\n').trim();
+  }
+  text = text
+    .replace(/<(?:CONTEXT_SUMMARY|ADDITIONAL_METADATA|USER_SETTINGS_CHANGE|SYSTEM_MESSAGE|PLAN|system_context_prefix|user_rules|system-reminder)>[\s\S]*?<\/(?:CONTEXT_SUMMARY|ADDITIONAL_METADATA|USER_SETTINGS_CHANGE|SYSTEM_MESSAGE|PLAN|system_context_prefix|user_rules|system-reminder)>/gi, ' ')
+    .replace(/<\/?(?:USER_REQUEST|ARTIFACT|TASK)\b[^>]*>/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text;
+}
+
+/**
+ * Filters out casual UI status observations or bare slash commands while preserving real coding directives.
+ * @param {string} cleanText
+ * @returns {boolean}
+ */
+export function isExplicitDirectiveCorrection(cleanText = '') {
+  const txt = String(cleanText || '').trim();
+  if (!txt || txt.length < 10) return false;
+  if (!USER_CORRECTION_RE.test(txt)) return false;
+  if (CONVERSATIONAL_NON_DIRECTIVE_RE.test(txt) && !STRONG_DIRECTIVE_CORRECTION_RE.test(txt)) {
+    return false;
+  }
+  if (SLASH_COMMAND_ONLY_RE.test(txt) && !STRONG_DIRECTIVE_CORRECTION_RE.test(txt)) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Returns true if a file path points outside the active workspace or inside ephemeral brain/temp storage.
+ * @param {string} targetPath
+ * @param {string} [workspaceRoot='']
+ * @returns {boolean}
+ */
+export function isExternalOrEphemeralPath(targetPath = '', workspaceRoot = '') {
+  const raw = String(targetPath || '').trim();
+  if (!raw) return false;
+  const norm = raw.replace(/\\/g, '/');
+  if (
+    raw.startsWith('~') ||
+    raw.startsWith('..') ||
+    /(?:^|\/)\.(?:gemini|claude\/cache|attention-horizon|agents\/telemetry)\//i.test(norm) ||
+    /\/antigravity[^/]*\/brain\//i.test(norm)
+  ) {
+    return true;
+  }
+  if (workspaceRoot && (path.isAbsolute(raw) || /^[a-zA-Z]:[\\/]/.test(raw))) {
+    const resolvedRoot = path.resolve(workspaceRoot);
+    const resolvedTarget = path.resolve(raw);
+    const rel = path.relative(resolvedRoot, resolvedTarget);
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
+      return true;
+    }
+    return false;
+  }
+  if (/\/AppData\/Local\/Temp\//i.test(norm) || /^\/(?:tmp|var\/folders)\//i.test(norm)) {
+    return true;
+  }
+  return false;
+}
 
 /**
  * Sanitizes a conversation/session identifier for telemetry filenames.
@@ -445,13 +524,13 @@ function parseTranscriptForRsl(transcriptPath, workspaceRoot, sessionId, platfor
 
     // 1. Antigravity transcript entries
     if (obj.type === 'USER_INPUT' && typeof obj.content === 'string') {
-      const txt = obj.content.trim();
-      if (txt) {
-        prompts.push(txt);
-        if (USER_CORRECTION_RE.test(txt)) {
+      const cleanTxt = extractCleanUserRequestText(obj.content);
+      if (cleanTxt) {
+        prompts.push(cleanTxt);
+        if (isExplicitDirectiveCorrection(cleanTxt)) {
           userCorrections.push({
             stepIdx: obj.step_index ?? syntheticIdx,
-            text: txt.slice(0, 400)
+            text: cleanTxt.slice(0, 400)
           });
         }
       }
@@ -477,13 +556,13 @@ function parseTranscriptForRsl(transcriptPath, workspaceRoot, sessionId, platfor
     // 2. Claude Code JSONL transcript entries
     if (obj.type === 'user' || obj.role === 'user') {
       const msgContent = obj.message?.content ?? obj.content;
-      const text = extractTextFromClaudeContent(msgContent).trim();
-      if (text) {
-        prompts.push(text);
-        if (USER_CORRECTION_RE.test(text)) {
+      const cleanText = extractCleanUserRequestText(extractTextFromClaudeContent(msgContent));
+      if (cleanText) {
+        prompts.push(cleanText);
+        if (isExplicitDirectiveCorrection(cleanText)) {
           userCorrections.push({
             stepIdx: syntheticIdx,
-            text: text.slice(0, 400)
+            text: cleanText.slice(0, 400)
           });
         }
       }
@@ -676,7 +755,7 @@ function stepsMatchTarget(a, b) {
   return false;
 }
 
-function extractContrastivePairsAndThrash(steps = [], cleanStop = true) {
+function extractContrastivePairsAndThrash(steps = [], cleanStop = true, workspaceRoot = '') {
   const pairs = [];
   const thrashLoops = [];
   const windowSize = RSL_CONSTANTS.CONTRASTIVE_WINDOW_STEPS;
@@ -733,11 +812,15 @@ function extractContrastivePairsAndThrash(steps = [], cleanStop = true) {
       }
 
       if (recoveredIdx !== -1 && (validatedByTest || cleanStop)) {
+        const pairTarget = st.targetFile || steps[recoveredIdx].targetFile || '';
+        if (isExternalOrEphemeralPath(pairTarget, workspaceRoot)) {
+          continue;
+        }
         pairs.push({
           failureStepIdx: st.stepIdx ?? i,
           recoveryStepIdx: steps[recoveredIdx].stepIdx ?? recoveredIdx,
           toolName: st.toolName,
-          targetFile: st.targetFile || steps[recoveredIdx].targetFile || '',
+          targetFile: pairTarget,
           command: st.command,
           errorText: st.errorText,
           recoveryAction: steps[recoveredIdx].command || steps[recoveredIdx].targetFile || steps[recoveredIdx].toolName,
@@ -832,13 +915,15 @@ export function buildContrastiveDigest(rawStopPayload = {}, options = {}) {
     };
   }
 
-  const { pairs, thrashLoops } = extractContrastivePairsAndThrash(steps, term.cleanStop);
+  const { pairs, thrashLoops } = extractContrastivePairsAndThrash(steps, term.cleanStop, workspaceRoot);
+  const filteredPairs = pairs.filter((p) => !isExternalOrEphemeralPath(p.targetFile, workspaceRoot));
+  const filteredThrash = thrashLoops.filter((l) => !isExternalOrEphemeralPath(l.target, workspaceRoot));
   const artifactComments = scanArtifactDirectoryForSupervision(artifactDirectoryPath);
   const userCorrections = transcriptData.userCorrections.slice(0, 8);
 
   const hasTriggers =
     !term.canceled &&
-    (pairs.length > 0 || artifactComments.length > 0 || userCorrections.length > 0 || thrashLoops.length > 0);
+    (filteredPairs.length > 0 || artifactComments.length > 0 || userCorrections.length > 0 || filteredThrash.length > 0);
 
   if (!hasTriggers) {
     return {
@@ -872,10 +957,10 @@ export function buildContrastiveDigest(rawStopPayload = {}, options = {}) {
     tainted: false,
     status: 'READY',
     taintDetails: [],
-    contrastivePairs: pairs.slice(0, 6),
+    contrastivePairs: filteredPairs.slice(0, 6),
     artifactComments: artifactComments.slice(0, 6),
     userCorrections: userCorrections.slice(0, 6),
-    thrashLoops: thrashLoops.slice(0, 4),
+    thrashLoops: filteredThrash.slice(0, 4),
     touchedFiles: touchedFiles.slice(0, 20),
     executedTools: executedTools.slice(0, 15),
     unresolvedErrors: unresolvedErrors.slice(0, 10)

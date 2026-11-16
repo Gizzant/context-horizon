@@ -18,7 +18,7 @@
  */
 
 import { computeHorizonGrid, CELL_CATEGORIES } from './horizonGrid.mjs';
-import { summarizeCoreAuditableGuards } from '../catalog/detectorCatalog.mjs';
+import { DETECTOR_CATALOG, summarizeCoreAuditableGuards } from '../catalog/detectorCatalog.mjs';
 import {
   formatTokensCompact,
   formatUsd,
@@ -122,16 +122,112 @@ function computeCacheRingDashOffset(pct) {
   return (circ * (1 - clamped / 100)).toFixed(2);
 }
 
+function sanitizeClaudeCopy(text = '') {
+  return String(text || '')
+    .replace(/\bAGENTS\.md\s*\/\s*CLAUDE\.md\b/gi, 'CLAUDE.md')
+    .replace(/\btask\.md\b/gi, 'plan state')
+    .replace(/\bGEMINI\.md\b/gi, 'CLAUDE.md')
+    .replace(/\bAntigravity\b/gi, 'Claude Code');
+}
+
 /**
- * Static (zero-script) Simple View Session Activity & Auto-Guard Rail + canonical Saved pill.
- * Consumes the same `sessionTimeline` / `autoFixLog` contract as the Antigravity panel.
- * @param {object|null} tl
- * @param {object|null} log
- * @param {object} metrics
- * @param {Array<object>} catList
- * @returns {string}
+ * Builds sorted live guard roster rows (`tripped` -> `blocks` -> `advises`) from DETECTOR_CATALOG.
+ * @param {object|null} breakerVerdict
+ * @returns {{ summaryText: string, count: number, html: string }}
  */
-function renderFlightRecorderHtml(tl, log, metrics, catList) {
+function renderGuardRosterHtml(breakerVerdict = null) {
+  const trippedId = breakerVerdict?.triggered
+    ? String(breakerVerdict.detectorId || breakerVerdict.ruleId || '').toUpperCase()
+    : '';
+  const weight = { tripped: 0, blocks: 1, advises: 2 };
+  const items = Object.values(DETECTOR_CATALOG).map((det) => {
+    const role = trippedId && det.id === trippedId
+      ? 'tripped'
+      : det.defaultMode === 'guard'
+        ? 'blocks'
+        : 'advises';
+    return { det, role };
+  });
+  items.sort((a, b) => weight[a.role] - weight[b.role] || a.det.id.localeCompare(b.det.id));
+  const trippedCount = items.filter((it) => it.role === 'tripped').length;
+  const blockCount = items.filter((it) => it.role === 'blocks').length;
+  const summaryText = trippedCount > 0
+    ? `${trippedCount} tripped · ${items.length} armed`
+    : `${blockCount} blocking · ${items.length - blockCount} advisory`;
+  const html = items
+    .map(({ det, role }) => {
+      const badge = role === 'tripped' ? 'TRIPPED' : role;
+      return `<li class="ts-guard-row" data-role="${role}" title="${escapeHtml(sanitizeClaudeCopy(det.description))}"><span class="ts-guard-id">${escapeHtml(det.id)}</span><span class="ts-guard-name">${escapeHtml(sanitizeClaudeCopy(det.name))}</span><span class="ts-guard-role ts-role-${role}">${badge}</span></li>`;
+    })
+    .join('');
+  return { summaryText, count: items.length, html };
+}
+
+/**
+ * Renders Card 3 (`AUTOMATED ACTIVITY`) with coalesced auto-guard events, Shield/RSL badges, and live guard roster.
+ */
+function renderAutomatedActivityHtml(log, breakerVerdict, shieldData, rslData) {
+  const rawItems = log && Array.isArray(log.items) ? log.items : [];
+  const items = coalesceClaudeAutoFixItems(rawItems);
+  const total = Math.max(Number((log && log.total) || 0), rawItems.length);
+  const visibleItems = items.slice(0, 4);
+  const hiddenCount = Math.max(0, items.length - visibleItems.length);
+  const renderRow = (it) => {
+    const mult = it.count > 1 ? `<span class="ah-fx-mult">\u00D7${it.count}</span>` : '';
+    const extra = `${it.detail || it.label} \u00B7 ${formatTokensCompact(it.tokensSaved)} tokens${Number(it.usd) > 0 ? ` \u00B7 ~${formatUsd(it.usd)}` : ''}`;
+    return `<details class="ah-fx-row"><summary><span class="ah-fx-turn">${it.turn ? `T${escapeHtml(it.turn)}` : '\u00B7'}</span><span class="ah-fx-label">\u2713 ${escapeHtml(it.label)}${mult}</span><span class="ah-fx-detail">${escapeHtml(it.detail || '')}</span><span class="ah-fx-saved">+${escapeHtml(formatTokensCompact(it.tokensSaved))}</span></summary><div class="ah-fx-more">${escapeHtml(extra)}</div></details>`;
+  };
+  const rowsHtml = items.length === 0
+    ? '<div class="ah-fx-empty">No auto-fixes yet.</div>'
+    : visibleItems.map(renderRow).join('') +
+      (hiddenCount > 0
+        ? `<details class="ah-fx-overflow"><summary>+${hiddenCount} older guard event${hiddenCount === 1 ? '' : 's'}</summary>${items.slice(4).map(renderRow).join('')}</details>`
+        : '');
+
+  const roster = renderGuardRosterHtml(breakerVerdict);
+  const signalChips = [];
+  if (shieldData && (shieldData.armed !== false || shieldData.quarantined)) {
+    signalChips.push(
+      `<span class="ah-pill${shieldData.quarantined ? ' ah-pill-risk' : ''}" id="ccShieldBadge">${shieldData.quarantined ? 'Shield: mutation held' : 'Shield: armed'}</span>`
+    );
+  }
+  if (rslData) {
+    const activeR = Number(rslData.activeRules || 0);
+    const candR = Number(rslData.candidateRules || 0);
+    const clashR = Number(rslData.clashCount || 0);
+    const label = clashR > 0
+      ? `RSL: ${clashR} clash${clashR === 1 ? '' : 'es'}`
+      : candR > 0
+        ? `RSL: ${activeR} active · ${candR} staged`
+        : `RSL: ${activeR} active`;
+    signalChips.push(
+      `<span class="ah-pill${clashR > 0 ? ' ah-pill-risk' : ''}" id="ccRslBadge">${escapeHtml(label)}</span>`
+    );
+  }
+
+  return `<section class="ah-card ts-card" id="ccActivitySection" aria-label="Automated activity" data-rank="3b">
+      <div class="ts-card-head">
+        <span class="ah-sec-name">Automated activity</span>
+        <span class="ts-kpi-sub" id="ccGuardsSummary">${escapeHtml(roster.summaryText)}</span>
+      </div>
+      <div class="ah-sec-blurb">Background protections trimming noisy outputs, shielding warm caches, and managing learned rules.</div>
+      ${signalChips.length > 0 ? `<div class="ts-signal-row">${signalChips.join('')}</div>` : ''}
+      <div class="ah-fr-zone ah-fr-log">
+        <div class="ah-fr-head"><span>AUTO-GUARD STREAM</span><span class="ah-fr-count" id="autoFixCount">${total}</span></div>
+        <div class="ah-sec-blurb">Wasteful reads and loops the guard fixed automatically. Nothing to do.</div>
+        <div class="ah-fx-list" id="autoFixList">${rowsHtml}<div class="ah-fx-rail-armed"><span class="ah-rail-dot" aria-hidden="true"></span>Auto-guard armed · watching reads &amp; CLI spikes</div></div>
+      </div>
+      <details class="ts-drawer" id="ccActivityDrawer">
+        <summary><span>Active safety &amp; efficiency guards (${roster.count})</span><span class="ts-kpi-sub">${breakerVerdict?.triggered ? '1 tripped' : 'Details'}</span></summary>
+        <ul id="ccGuardList" class="ts-guard-list" role="list">${roster.html}</ul>
+      </details>
+    </section>`;
+}
+
+/**
+ * Renders Card 4 (`SESSION OVERVIEW` + `#simpleFlightRecorder` Turn Pulse & `#tokensSavedCard`).
+ */
+function renderSessionOverviewHtml(tl, metrics, catList) {
   const turns = tl && Array.isArray(tl.turns) ? tl.turns : [];
   const slots = [];
   if (turns.length > 0) {
@@ -180,33 +276,19 @@ function renderFlightRecorderHtml(tl, log, metrics, catList) {
     ? `<span class="ah-tl-dot ah-tl-${escapeHtml(focus.practice)}"></span>${escapeHtml(`T${focus.turn} \u00B7 ${focus.reason}`)}`
     : 'Pulse tracking starts after the first turn.';
 
-  const rawItems = log && Array.isArray(log.items) ? log.items : [];
-  const items = coalesceClaudeAutoFixItems(rawItems);
-  const total = Math.max(Number((log && log.total) || 0), rawItems.length);
-  const visibleItems = items.slice(0, 4);
-  const hiddenCount = Math.max(0, items.length - visibleItems.length);
-  const renderRow = (it) => {
-    const mult = it.count > 1 ? `<span class="ah-fx-mult">\u00D7${it.count}</span>` : '';
-    const extra = `${it.detail || it.label} \u00B7 ${formatTokensCompact(it.tokensSaved)} tokens${Number(it.usd) > 0 ? ` \u00B7 ~${formatUsd(it.usd)}` : ''}`;
-    return `<details class="ah-fx-row"><summary><span class="ah-fx-turn">${it.turn ? `T${escapeHtml(it.turn)}` : '\u00B7'}</span><span class="ah-fx-label">\u2713 ${escapeHtml(it.label)}${mult}</span><span class="ah-fx-detail">${escapeHtml(it.detail || '')}</span><span class="ah-fx-saved">+${escapeHtml(formatTokensCompact(it.tokensSaved))}</span></summary><div class="ah-fx-more">${escapeHtml(extra)}</div></details>`;
-  };
-  const rowsHtml = items.length === 0
-    ? '<div class="ah-fx-empty">No auto-fixes yet.</div>'
-    : visibleItems.map(renderRow).join('') +
-      (hiddenCount > 0
-        ? `<details class="ah-fx-overflow"><summary>+${hiddenCount} older guard event${hiddenCount === 1 ? '' : 's'}</summary>${items.slice(4).map(renderRow).join('')}</details>`
-        : '');
-
-  const savedMainTxt = `+${formatTokensCompact(metrics.sessionSavedTokens)} (${formatUsd(metrics.sessionSavedUSD)})`;
+  const hasSessionSavings = Number(metrics.sessionSavedTokens || 0) > 0;
+  const savedMainTxt = hasSessionSavings
+    ? `+${formatTokensCompact(metrics.sessionSavedTokens)} (${formatUsd(metrics.sessionSavedUSD)})`
+    : 'Tracking ready';
   const saved30dTxt = `+${formatTokensCompact(metrics.workspace30dSavedTokens)} (${formatUsd(metrics.workspace30dSavedUSD)}) 30d`;
   const driverTxt = `${metrics.topSavingsDriver.label} (+${formatTokensCompact(metrics.topSavingsDriver.savedTokens)})`;
 
-  return `<section class="ah-card ah-flight" id="simpleFlightRecorder" aria-label="Session activity and savings">
+  return `<section class="ah-card ts-card ah-flight" id="simpleFlightRecorder" aria-label="Session overview and savings">
       <div class="ah-fr-topbar">
-        <span class="ah-fr-title">SESSION ACTIVITY</span>
-        <details class="ah-saved-pill-wrap" id="tokensSavedCard" data-rank="4">
+        <span class="ah-fr-title">SESSION OVERVIEW</span>
+        <details class="ah-saved-pill-wrap${hasSessionSavings ? '' : ' ah-saved-zero'}" id="tokensSavedCard" data-rank="4">
           <summary class="ah-saved-pill" id="savedSessionHeadline" title="View verified session savings breakdown">
-            <span class="ah-saved-kicker">Saved this chat</span>
+            <span class="ah-saved-kicker">Saved</span>
             <strong class="ah-saved-num">${escapeHtml(savedMainTxt)}</strong>
             <span class="ah-saved-30d" id="savedWorkspace30d" title="Tokens saved across all your chats in this workspace over the last 30 days">${escapeHtml(saved30dTxt)}</span>
           </summary>
@@ -216,19 +298,14 @@ function renderFlightRecorderHtml(tl, log, metrics, catList) {
           </div>
         </details>
       </div>
-      <div class="ah-sec-blurb">What happened in this chat, what the guard fixed for you, and the tokens that saved.</div>
+      <div class="ah-sec-blurb">Session pace from Turn 1, turn-by-turn growth, and verified tokens saved.</div>
       <div class="ah-fr-zones-body">
         <div class="ah-fr-zone">
           <div class="ah-fr-head"><span>TURN PULSE</span><span class="ah-fr-legend" aria-hidden="true"><i class="ah-lg ah-lg-good"></i>clean <i class="ah-lg ah-lg-bad"></i>waste <i class="ah-lg ah-lg-limit"></i>safe limit</span></div>
-          <div class="ah-sec-blurb">Memory growth turn by turn. Green marks clean turns, red marks wasteful ones.</div>
+          <div class="ah-sec-blurb">Memory growth turn by turn. Dark bars mark clean turns, red bars mark waste.</div>
           <div class="ah-tl-chart" id="timelineChart" role="img" aria-label="Per-turn context growth">${bars}${overlay}</div>
           <div class="ah-tl-markers" id="timelineMarkers" aria-hidden="true">${marks}</div>
           <div class="ah-tl-detail" id="timelineDetail">${detail}</div>
-        </div>
-        <div class="ah-fr-zone ah-fr-log">
-          <div class="ah-fr-head"><span>AUTO-GUARD STREAM</span><span class="ah-fr-count" id="autoFixCount">${total}</span></div>
-          <div class="ah-sec-blurb">Wasteful reads and loops the guard fixed automatically. Nothing to do.</div>
-          <div class="ah-fx-list" id="autoFixList">${rowsHtml}<div class="ah-fx-rail-armed"><span class="ah-rail-dot" aria-hidden="true"></span>Auto-guard armed · watching reads &amp; CLI spikes</div></div>
         </div>
       </div>
     </section>`;
@@ -383,6 +460,23 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
   const hasExplicitOffenders = Boolean(Array.isArray(options.offenders) && options.offenders.length > 0 && grid.tokens.D > 0);
   const usefulTokens = Math.max(0, grid.totalInputTokens - grid.tokens.D);
   const holdWarmActive = Boolean(metrics.cacheWarm && grid.tokens.D > 0 && verdict.severity !== 'critical');
+
+  const safeCeiling = Math.max(1, Number(grid.zoomTier.ceilingTokens || 1));
+  const pinnedTok = Math.max(0, Number(grid.tokens.S || 0));
+  const reclaimTok = Math.max(0, Number(grid.tokens.D || 0));
+  const newActiveTok = Math.max(0, Number(grid.tokens.C || 0) + Number(grid.tokens.W || 0));
+  const fillPct = Math.min(100, Math.max(0, Math.round((grid.totalInputTokens / safeCeiling) * 100)));
+  const freePct = Math.max(0, 100 - fillPct);
+  const glassSum = Math.max(1, newActiveTok + reclaimTok + pinnedTok);
+  const segNewPct = newActiveTok > 0 ? Number(((newActiveTok / glassSum) * 100).toFixed(1)) : 0;
+  const segOldPct = reclaimTok > 0 ? Number(((reclaimTok / glassSum) * 100).toFixed(1)) : 0;
+  const segPinPct = pinnedTok > 0 ? Math.max(0, Number((100 - segNewPct - segOldPct).toFixed(1))) : 0;
+
+  const shieldData = options.shield || state.shield || null;
+  const rslData = options.rsl || state.rsl || null;
+  const avoidText = metrics.cacheWarm
+    ? `Avoid switching models or editing CLAUDE.md/.mcp.json while ${formatTokensCompact(metrics.cachedTokens)} cached prefix reads at 0.10x.`
+    : 'Avoid unbounded full-file reads so older instructions and CLAUDE.md rules stay inside the safe limit.';
 
   const html = `<!doctype html>
 <html lang="en">
@@ -1006,6 +1100,75 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
     color: var(--warn);
     border: 1px solid #785a1a;
   }
+  /* Wave 3: 4-Card Tufte Sketch Glass-of-Water & Direct Guidance Layout */
+  html, body { overflow-x: hidden; max-width: 100%; }
+  #claudeSimpleSurface { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .ts-card { display: flex; flex-direction: column; gap: 4px; }
+  .ts-card-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .ts-context-split { display: grid; grid-template-columns: minmax(0, 1fr) 74px; gap: 10px; align-items: stretch; margin: 4px 0; }
+  .ts-context-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .ts-cat-list { display: flex; flex-direction: column; gap: 3px; font-size: 10.5px; }
+  .ts-cat-row { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; gap: 6px; }
+  .ts-swatch-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .ts-cat-meta { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+  .ts-cat-name { font-weight: 600; color: var(--text-primary); font-size: 10.5px; }
+  .ts-cat-sub { font-size: 9.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ts-cat-val { font-family: var(--font-mono); font-size: 10.5px; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+  .ts-glass-col { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .ts-glass-vessel { position: relative; width: 60px; height: 108px; border: 1px solid var(--hairline); border-radius: 6px; background: var(--bg-elevated); overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
+  .ts-glass-headroom-label { position: absolute; top: 4px; left: 4px; right: 4px; text-align: center; font-family: var(--font-mono); font-size: 8.5px; font-weight: 600; color: var(--text-primary); background: var(--bg-surface); border-radius: 3px; padding: 0 2px; opacity: 0.92; z-index: 2; pointer-events: none; }
+  .ts-glass-safe-line { position: absolute; left: 0; right: 0; top: 14%; border-top: 1px dashed var(--text-muted); opacity: 0.7; z-index: 2; pointer-events: none; }
+  .ts-glass-fill { width: 100%; display: flex; flex-direction: column; justify-content: flex-end; transition: height var(--ease-snappy); }
+  .ts-glass-seg { width: 100%; min-height: 1px; }
+  .ts-glass-seg-new { background: var(--accent-focus); }
+  .ts-glass-seg-old { background: var(--status-warning); }
+  .ts-glass-seg-pinned { background: var(--text-secondary); }
+  .ts-glass-caption { font-family: var(--font-mono); font-size: 9.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ts-guidance-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: start; gap: 6px; padding: 5px 7px; border: 1px solid var(--hairline); border-radius: 5px; background: var(--bg-surface); font-size: 10.5px; color: var(--text-primary); }
+  .ts-tag { font-family: var(--font-mono); font-size: 9px; font-weight: 700; text-align: center; padding: 1px 4px; border-radius: 3px; background: var(--bg-elevated); border: 1px solid var(--hairline); color: var(--text-primary); }
+  .ts-guidance-row[data-tone="do"] .ts-tag { border-color: var(--status-nominal); }
+  .ts-guidance-row[data-tone="avoid"] .ts-tag { border-color: var(--status-warning); }
+  .ts-drawer { margin-top: 4px; font-size: 10.5px; color: var(--text-secondary); }
+  .ts-drawer summary { cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 6px; font-weight: 600; color: var(--text-secondary); }
+  .ts-drawer-body { margin-top: 4px; font-size: 10px; color: var(--text-secondary); line-height: 1.35; }
+  .ts-kpi-sub { font-family: var(--font-mono); font-size: 9.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .ts-signal-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+  .ts-guard-list { list-style: none; margin: 5px 0 0 0; padding: 0; max-height: 150px; overflow-y: auto; border-top: 1px solid var(--hairline); }
+  .ts-guard-row { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 6px; padding: 3px 0; border-bottom: 1px solid var(--hairline); font-size: 10px; }
+  .ts-guard-id { font-family: var(--font-mono); color: var(--text-muted); }
+  .ts-guard-name { color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ts-guard-role { font-family: var(--font-mono); font-size: 9px; padding: 0 5px; border-radius: 3px; border: 1px solid var(--hairline); text-transform: uppercase; color: var(--text-secondary); }
+  .ts-role-tripped { color: var(--text-primary); border-color: var(--status-critical); background: rgba(217, 48, 37, 0.16); font-weight: 700; }
+  .ts-role-blocks { color: var(--text-primary); }
+  .ts-role-advises { color: var(--text-muted); }
+  .ah-saved-zero .ah-saved-pill { opacity: 0.72; }
+  /* Explicit Dark Theme Override & Strict <=340px Zero-Overflow Wrapping */
+  [data-theme="dark"] {
+    color-scheme: dark;
+    --bg-canvas: #0B0C0E;
+    --bg-surface: #121417;
+    --bg-elevated: #1B1E23;
+    --hairline: rgba(255, 255, 255, 0.08);
+    --text-primary: #F1F3F4;
+    --text-secondary: #9AA0A6;
+    --text-muted: #80868B;
+    --status-critical: #D93025;
+    --status-warning: #F29900;
+    --status-nominal: #1E8E3E;
+    --accent-focus: #1A73E8;
+  }
+  [data-theme="dark"] .ah-wordmark { filter: none; }
+  .ah-wrap, #claudeSimpleSurface, .ah-card, .ts-card, .ts-context-info, .ts-cat-meta, .ts-guidance-row > *, .ah-fr-zone { min-width: 0; max-width: 100%; }
+  .ah-pills { flex-wrap: wrap; }
+  .ts-card-head { flex-wrap: wrap; min-width: 0; }
+  .ah-verdict-row { flex: 1 1 140px; min-width: 0; margin-bottom: 0; justify-content: flex-end; }
+  .ah-verdict-left { min-width: 0; overflow: hidden; }
+  .ts-context-split { grid-template-columns: minmax(0, 1fr) 64px; gap: 8px; }
+  .ts-glass-vessel { width: 58px; }
+  .ah-action-hdr { flex-wrap: wrap; min-width: 0; }
+  .ah-action-instr { overflow-wrap: anywhere; }
+  .ts-drawer summary { flex-wrap: wrap; min-width: 0; }
+  .ah-fr-topbar, .ah-fr-head, .ah-saved-pill { flex-wrap: wrap; white-space: normal; min-width: 0; max-width: 100%; }
 </style>
 </head>
 <body>
@@ -1021,108 +1184,164 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
       <label class="ah-tab-label" for="viewModeAdvanced" id="tabAdvanced">Advanced</label>
   </nav>
 
-  <!-- SIMPLE VIEW: Option A+ Hybrid Glanceable Architecture -->
+  <!-- SIMPLE VIEW: 4-Card Tufte Sketch Glass-of-Water Layout -->
   <main id="simpleViewContainer" data-verdict-state="${escapeHtml(verdict.severity)}">
-    <div class="ah-pills" id="activeChatPills">
-      <span class="ah-pill${amnesiaAtRisk ? ' ah-pill-risk' : ''}" id="simpleAmnesiaPill" title="Memory check: whether your rules and pinned instructions are still inside the AI's working memory.">${amnesiaAtRisk ? 'Memory: anchors at risk' : 'Memory: anchors pinned'}</span>
-      <span class="ah-pill" id="flightModeBadge">${escapeHtml(metrics.flightMode)}</span>
-      <span class="ah-pill" id="modelBadge" title="Active model. Switching model or effort mid-session rewrites the prompt cache, so the next turn costs full price.">Model: ${escapeHtml(state.modelLabel || grid.modelId)}</span>
+    <div id="claudeSimpleSurface" aria-label="Highbeam Simple View">
+      <div class="ah-pills" id="activeChatPills">
+        <span class="ah-pill${amnesiaAtRisk ? ' ah-pill-risk' : ''}" id="simpleAmnesiaPill" title="Memory check: whether your rules and pinned instructions are still inside the AI's working memory.">${amnesiaAtRisk ? 'Memory: anchors at risk' : 'Memory: anchors pinned'}</span>
+        <span class="ah-pill" id="flightModeBadge">${escapeHtml(metrics.flightMode)}</span>
+        <span class="ah-pill" id="modelBadge" title="Active model. Switching model or effort mid-session rewrites the prompt cache, so the next turn costs full price.">Model: ${escapeHtml(state.modelLabel || grid.modelId)}</span>
+      </div>
+
+      <!-- Card 1: CONTEXT + Reversed Glass-of-Water Vertical Gauge -->
+      <section class="ah-card ts-card" id="capacityAndCacheCard" data-severity="${escapeHtml(verdict.severity)}" data-hold="${holdWarmActive ? 'true' : 'false'}" data-rank="1">
+        <div class="ts-card-head">
+          <span class="ah-sec-name">Context</span>
+          <div class="ah-verdict-row" id="verdictBanner">
+            <div class="ah-verdict-left">
+              <span class="ah-dot ah-dot-${escapeHtml(verdict.severity)}"></span>
+              <span class="ah-verdict-title" id="verdictHeadline">${escapeHtml(verdict.headline)}</span>
+            </div>
+          </div>
+        </div>
+        <div class="ah-sec-blurb">How full the AI's working memory is. Past the safe limit it starts forgetting your earliest instructions.</div>
+
+        <div class="ts-context-split">
+          <div class="ts-context-info">
+            <div class="ah-runway-hero" id="simpleRunwayHero" data-level="${escapeHtml(runwayLevel)}">${escapeHtml(runwayText)}</div>
+            <div class="ah-runway-sub" id="simpleRunwaySub">${escapeHtml(runwaySub)}</div>
+
+            <div class="ts-cat-list" role="list" aria-label="Context breakdown from newest to oldest">
+              <div class="ts-cat-row" role="listitem">
+                <span class="ts-swatch-dot" style="background:var(--accent-focus);" aria-hidden="true"></span>
+                <div class="ts-cat-meta"><span class="ts-cat-name">New &amp; active</span><span class="ts-cat-sub">Current files &amp; replies</span></div>
+                <strong class="ts-cat-val">${escapeHtml(formatTokensCompact(newActiveTok))}</strong>
+              </div>
+              <div class="ts-cat-row" role="listitem">
+                <span class="ts-swatch-dot" style="background:var(--status-warning);" aria-hidden="true"></span>
+                <div class="ts-cat-meta"><span class="ts-cat-name">Reclaimable</span><span class="ts-cat-sub">Older chat &amp; repeat reads</span></div>
+                <strong class="ts-cat-val">${escapeHtml(formatTokensCompact(reclaimTok))}</strong>
+              </div>
+              <div class="ts-cat-row" role="listitem">
+                <span class="ts-swatch-dot" style="background:var(--text-secondary);" aria-hidden="true"></span>
+                <div class="ts-cat-meta"><span class="ts-cat-name">Rules &amp; tools</span><span class="ts-cat-sub">Pinned in CLAUDE.md &amp; MCP</span></div>
+                <strong class="ts-cat-val">${escapeHtml(formatTokensCompact(pinnedTok))}</strong>
+              </div>
+            </div>
+
+            <div class="ah-hero-row">
+              <div class="ah-ring-col">
+                <span class="ah-ring-cap">Prompt cache</span>
+                <div class="ah-cache-ring-wrap" id="simpleCacheRingWrap" role="img" aria-label="Prompt cache" data-warm="${ringWarm ? 'true' : 'false'}" data-expiring="${ringExpiring ? 'true' : 'false'}" title="Prompt cache ${ringWarm ? `warm ${metrics.ttlClock} (${metrics.ttlTier})` : 'cold'} · ${metrics.cacheHitPct}% hit. 'hit' = share of your prompt served from cache at a discount; 'warm' = time left before the cache expires and the next turn costs full price.">
+                  <div class="ah-ring-center">
+                    <span class="ah-ring-pct" id="simpleCacheRingPct">${metrics.cacheHitPct}%</span>
+                    <span class="ah-ring-ttl" id="simpleCacheRingTtl">${escapeHtml(metrics.cacheWarm ? metrics.ttlCompact : 'cold')}</span>
+                  </div>
+                  <div class="ah-cache-bullet" aria-hidden="true">
+                    <div class="ah-cache-bullet-fill" style="width:${Math.max(0, Math.min(100, Number(metrics.cacheHitPct) || 0))}%"></div>
+                    <div class="ah-cache-bullet-tick" title="80% cache hit target"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ts-glass-col">
+            <div id="ccGlassVessel" class="ts-glass-vessel" role="img" aria-label="Vertical context fill gauge from pinned rules at bottom to new active work on top">
+              <span id="ccGlassHeadroom" class="ts-glass-headroom-label">${freePct}% free</span>
+              <div id="ccGlassSafeLine" class="ts-glass-safe-line" title="Safe limit line"></div>
+              <div id="ccGlassFill" class="ts-glass-fill" style="height:${fillPct}%">
+                <div id="ccGlassSegNew" class="ts-glass-seg ts-glass-seg-new" style="height:${segNewPct}%" title="New &amp; active: ${escapeHtml(formatTokensCompact(newActiveTok))}"></div>
+                <div id="ccGlassSegOld" class="ts-glass-seg ts-glass-seg-old" style="height:${segOldPct}%" title="Reclaimable clutter: ${escapeHtml(formatTokensCompact(reclaimTok))}"></div>
+                <div id="ccGlassSegPinned" class="ts-glass-seg ts-glass-seg-pinned" style="height:${segPinPct}%" title="Rules &amp; tools: ${escapeHtml(formatTokensCompact(pinnedTok))}"></div>
+              </div>
+            </div>
+            <span id="ccGlassCaption" class="ts-glass-caption">${grid.utilizationPct}% of safe</span>
+          </div>
+        </div>
+
+        <div class="ah-grid-bar" id="horizonGridBar" role="img" aria-label="40-Cell Context Horizon Bar">
+          ${renderHtmlHorizonCells(grid)}
+        </div>
+        <div class="ah-ruler">
+          <span>0k</span>
+          <span>${escapeHtml(midTickLabel)}</span>
+          <span>${escapeHtml(maxTickLabel)}</span>
+        </div>
+
+        <div class="ah-bar-legend">
+          <span>Useful <strong id="statUsed">${escapeHtml(`${formatTokensCompact(usefulTokens)} / ${grid.zoomTier.id}`)}</strong></span>
+          <span>Reclaimable <strong id="statDebt">${escapeHtml(formatTokensCompact(grid.tokens.D))}</strong></span>
+          <span>Free <strong id="statHeadroom">${escapeHtml(formatTokensCompact(headroomTokens))}</strong></span>
+        </div>
+        <div class="ah-verdict-sub" id="verdictDetail">${escapeHtml(verdict.detail)}</div>
+
+        ${
+          hasExplicitOffenders
+            ? `<div class="ah-sec-name ah-sec-gap">Waste &amp; prompt cache</div>
+          <div class="ah-sec-blurb">Files and old errors wasting memory that you can free, plus when the prompt cache expires.</div>
+          <div class="ah-top-offender" id="simpleTopOffender"><span class="ah-offender-kicker">Cause:</span> ${escapeHtml(
+                rawOffenders
+                  .slice(0, 2)
+                  .map((o) => {
+                    const shortName = String(o.name).replace(/\\/g, '/').split('/').filter(Boolean).pop() || o.name;
+                    return o.occurrences > 1
+                      ? `${shortName} (${o.occurrences}x · ${formatTokensCompact(o.tokens)})`
+                      : `${shortName} (${formatTokensCompact(o.tokens)})`;
+                  })
+                  .join(' · ')
+              )}</div>
+              <details class="ah-hogs-drawer" id="simpleTopHogsDrawer">
+                <summary>Top context hogs (${rawOffenders.length})</summary>
+                ${rawOffenders
+                  .slice(0, 3)
+                  .map((o) => {
+                    const shortName = String(o.name).replace(/\\/g, '/').split('/').filter(Boolean).pop() || o.name;
+                    return `<div class="ah-hog-row"><span class="ah-hog-name">${escapeHtml(shortName)}</span><span class="ah-hog-meta">${o.ignorable ? '<span class="adv-badge-ignore">.claudeignore</span>' : ''}<strong>${escapeHtml(formatTokensCompact(o.tokens))}</strong> (${o.pct}%)</span></div>`;
+                  })
+                  .join('')}
+              </details>`
+            : ''
+        }
+      </section>
+
+      <!-- Card 2: DIRECT GUIDANCE (DO / AVOID / Copy /compact) -->
+      <section class="ah-card ts-card" id="priorityActionCard" data-severity="${escapeHtml(verdict.severity)}" data-hold="${holdWarmActive ? 'true' : 'false'}" data-rank="3">
+        <div class="ts-card-head">
+          <span class="ah-sec-name">Direct guidance</span>
+          <span class="ts-kpi-sub">${metrics.cacheWarm ? 'Model: Hold · Effort: Match task' : 'Model: OK · Effort: OK'}</span>
+        </div>
+        <div class="ah-sec-blurb">The highest-leverage step right now and what to avoid to protect your cache.</div>
+        <div id="ccDoRow" class="ts-guidance-row" data-tone="do">
+          <span class="ts-tag">DO</span>
+          <span id="priorityActionTitle">${escapeHtml(priorityAction.title)}</span>
+        </div>
+        <div class="ah-action-hdr">
+          <span class="ah-action-reclaim" id="compactReclaim">${escapeHtml(compactReclaimText)}</span>
+          <button type="button" class="ah-btn-copy-compact" id="btnCompactPrimary" onclick="navigator.clipboard&&navigator.clipboard.writeText('${escapeHtml(compactCommandJs)}')">Copy /compact</button>
+        </div>
+        <div class="ah-action-instr" id="compactInstruction">${escapeHtml(compactInstructionText)}</div>
+        <div id="ccAvoidRow" class="ts-guidance-row" data-tone="avoid">
+          <span class="ts-tag">AVOID</span>
+          <span>${escapeHtml(avoidText)}</span>
+        </div>
+        <details class="ts-drawer" id="ccSwitchDetailsDrawer">
+          <summary><span>Model &amp; effort switching</span><span class="ts-kpi-sub">C*: ${escapeHtml(breakEven.breakEvenTokens.toLocaleString('en-US'))} tok &rarr; ${escapeHtml(peerModel)}</span></summary>
+          <div class="ts-drawer-body">${metrics.cacheWarm ? `Cache is warm (${metrics.ttlCompact} left). Switching models rebuilds ${escapeHtml(formatTokensCompact(metrics.cachedTokens))} uncached.` : 'Cache is cold — switching model or effort adds zero rewrite penalty.'}</div>
+        </details>
+        ${
+          overflowActionCount > 0
+            ? `<details class="ah-overflow"><summary>+${overflowActionCount} more optimization${overflowActionCount === 1 ? '' : 's'}</summary><ul>${secondaryActions.map((a) => `<li><strong>${escapeHtml(a.title)}:</strong> ${escapeHtml(a.instruction)}</li>`).join('')}</ul></details>`
+            : ''
+        }
+      </section>
+
+      <!-- Card 3: AUTOMATED ACTIVITY & Live Guard Roster -->
+      ${renderAutomatedActivityHtml(options.autoFixLog || state.autoFixLog || null, options.breakerVerdict || null, shieldData, rslData)}
+
+      <!-- Card 4: SESSION OVERVIEW & Turn Pulse + Canonical Saved Pill -->
+      ${renderSessionOverviewHtml(tl, metrics, catList)}
     </div>
-    <!-- Zone 1+2: Apple Bento Hero Card (Verdict Pill, Runway Hero, Watch Cache Ring, Horizon Bar & Surgical Hogs) -->
-    <section class="ah-card" id="capacityAndCacheCard" data-severity="${escapeHtml(verdict.severity)}" data-hold="${holdWarmActive ? 'true' : 'false'}" data-rank="1">
-      <div class="ah-sec-name">Context health</div>
-      <div class="ah-sec-blurb">How full the AI's working memory is. Past the safe limit it starts forgetting your earliest instructions.</div>
-      <div class="ah-verdict-row" id="verdictBanner">
-        <div class="ah-verdict-left">
-          <span class="ah-dot ah-dot-${escapeHtml(verdict.severity)}"></span>
-          <span class="ah-verdict-title" id="verdictHeadline">${escapeHtml(verdict.headline)}</span>
-        </div>
-      </div>
-
-      <div class="ah-hero-row">
-        <div>
-          <div class="ah-runway-hero" id="simpleRunwayHero" data-level="${escapeHtml(runwayLevel)}">${escapeHtml(runwayText)}</div>
-          <div class="ah-runway-sub" id="simpleRunwaySub">${escapeHtml(runwaySub)}</div>
-        </div>
-        <div class="ah-ring-col">
-        <span class="ah-ring-cap">Prompt cache</span>
-        <div class="ah-cache-ring-wrap" id="simpleCacheRingWrap" role="img" aria-label="Prompt cache" data-warm="${ringWarm ? 'true' : 'false'}" data-expiring="${ringExpiring ? 'true' : 'false'}" title="Prompt cache ${ringWarm ? `warm ${metrics.ttlClock} (${metrics.ttlTier})` : 'cold'} · ${metrics.cacheHitPct}% hit. 'hit' = share of your prompt served from cache at a discount; 'warm' = time left before the cache expires and the next turn costs full price.">
-          <div class="ah-ring-center">
-            <span class="ah-ring-pct" id="simpleCacheRingPct">${metrics.cacheHitPct}%</span>
-            <span class="ah-ring-ttl" id="simpleCacheRingTtl">${escapeHtml(metrics.cacheWarm ? metrics.ttlCompact : 'cold')}</span>
-          </div>
-          <div class="ah-cache-bullet" aria-hidden="true">
-            <div class="ah-cache-bullet-fill" style="width:${Math.max(0, Math.min(100, Number(metrics.cacheHitPct) || 0))}%"></div>
-            <div class="ah-cache-bullet-tick" title="80% cache hit target"></div>
-          </div>
-        </div>
-        </div>
-      </div>
-
-      <div class="ah-grid-bar" id="horizonGridBar" role="img" aria-label="40-Cell Context Horizon Bar">
-        ${renderHtmlHorizonCells(grid)}
-      </div>
-      <div class="ah-ruler">
-        <span>0k</span>
-        <span>${escapeHtml(midTickLabel)}</span>
-        <span>${escapeHtml(maxTickLabel)}</span>
-      </div>
-
-      <div class="ah-bar-legend">
-        <span>Useful <strong id="statUsed">${escapeHtml(`${formatTokensCompact(usefulTokens)} / ${grid.zoomTier.id}`)}</strong></span>
-        <span>Reclaimable <strong id="statDebt">${escapeHtml(formatTokensCompact(grid.tokens.D))}</strong></span>
-        <span>Free <strong id="statHeadroom">${escapeHtml(formatTokensCompact(headroomTokens))}</strong></span>
-      </div>
-      <div class="ah-verdict-sub" id="verdictDetail">${escapeHtml(verdict.detail)}</div>
-
-      ${
-        hasExplicitOffenders
-          ? `<div class="ah-sec-name ah-sec-gap">Waste &amp; prompt cache</div>
-        <div class="ah-sec-blurb">Files and old errors wasting memory that you can free, plus when the prompt cache (a discount on re-sent text) expires.</div>
-        <div class="ah-top-offender" id="simpleTopOffender"><span class="ah-offender-kicker">Cause:</span> ${escapeHtml(
-              rawOffenders
-                .slice(0, 2)
-                .map((o) => {
-                  const shortName = String(o.name).replace(/\\/g, '/').split('/').filter(Boolean).pop() || o.name;
-                  return o.occurrences > 1
-                    ? `${shortName} (${o.occurrences}x · ${formatTokensCompact(o.tokens)})`
-                    : `${shortName} (${formatTokensCompact(o.tokens)})`;
-                })
-                .join(' · ')
-            )}</div>
-            <details class="ah-hogs-drawer" id="simpleTopHogsDrawer">
-              <summary>Top context hogs (${rawOffenders.length})</summary>
-              ${rawOffenders
-                .slice(0, 3)
-                .map((o) => {
-                  const shortName = String(o.name).replace(/\\/g, '/').split('/').filter(Boolean).pop() || o.name;
-                  return `<div class="ah-hog-row"><span class="ah-hog-name">${escapeHtml(shortName)}</span><span class="ah-hog-meta">${o.ignorable ? '<span class="adv-badge-ignore">.claudeignore</span>' : ''}<strong>${escapeHtml(formatTokensCompact(o.tokens))}</strong> (${o.pct}%)</span></div>`;
-                })
-                .join('')}
-            </details>`
-          : ''
-      }
-    </section>
-
-    <!-- Zone 3: GitHub Check-Run Action Slot -->
-    <section class="ah-card" id="priorityActionCard" data-severity="${escapeHtml(verdict.severity)}" data-hold="${holdWarmActive ? 'true' : 'false'}" data-rank="3">
-      <div class="ah-sec-name">Next best step</div>
-      <div class="ah-sec-blurb">The one action that protects this session most right now. Copy it, then paste it into the chat.</div>
-      <div class="ah-action-hdr">
-        <span id="priorityActionTitle">${escapeHtml(priorityAction.title)}</span>
-        <span class="ah-action-reclaim" id="compactReclaim">${escapeHtml(compactReclaimText)}</span>
-        <button type="button" class="ah-btn-copy-compact" id="btnCompactPrimary" onclick="navigator.clipboard&&navigator.clipboard.writeText('${escapeHtml(compactCommandJs)}')">Copy /compact</button>
-      </div>
-      <div class="ah-action-instr" id="compactInstruction">${escapeHtml(compactInstructionText)}</div>
-      ${
-        overflowActionCount > 0
-          ? `<details class="ah-overflow"><summary>+${overflowActionCount} more optimization${overflowActionCount === 1 ? '' : 's'}</summary><ul>${secondaryActions.map((a) => `<li><strong>${escapeHtml(a.title)}:</strong> ${escapeHtml(a.instruction)}</li>`).join('')}</ul></details>`
-          : ''
-      }
-    </section>
-
-    <!-- Zone 4+5: Unified Session Activity + Auto-Guard Stream + Canonical Saved Pill -->
-    ${renderFlightRecorderHtml(tl, options.autoFixLog || state.autoFixLog || null, metrics, catList)}
   </main>
 
   <!-- ADVANCED VIEW: 5 Progressive-Disclosure Accordions -->

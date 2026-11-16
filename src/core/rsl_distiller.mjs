@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SDK_SCRIPT_PATH = path.resolve(__dirname, '..', '..', 'scripts', 'rsl_sdk_distiller.py');
 
-const XML_LEAK_RE = /<\/?(?:system_context_prefix|ADDITIONAL_METADATA|USER_SETTINGS_CHANGE|CONTEXT_SUMMARY|SYSTEM_MESSAGE|RULE|user_rules)\b/i;
+const XML_LEAK_RE = /<\/?(?:system_context_prefix|ADDITIONAL_METADATA|USER_SETTINGS_CHANGE|CONTEXT_SUMMARY|SYSTEM_MESSAGE|RULE|user_rules|USER_REQUEST|PLAN|TASK|ARTIFACT|system-reminder|antml:)\b/i;
 const TRIVIAL_TYPO_RE = /\b(?:SyntaxError:\s*Unexpected\s+token|missing\s+semicolon|typo\s+in\s+identifier)\b/i;
 
 /**
@@ -36,16 +36,35 @@ function shortStableHash(input = '') {
   return crypto.createHash('sha1').update(String(input || '')).digest('hex').slice(0, 6);
 }
 
-function buildGlobPatterns(targetFile = '') {
-  const posix = String(targetFile || '').replace(/\\/g, '/').replace(/^\.\//, '');
+export function buildGlobPatterns(targetFile = '', workspaceRoot = '') {
+  let posix = String(targetFile || '').trim().replace(/\\/g, '/').replace(/^\.\//, '');
   if (!posix) return { globs: '', paths: [] };
+  if (
+    posix.startsWith('~') ||
+    posix.startsWith('..') ||
+    /\/antigravity[^/]*\/brain\//i.test(posix) ||
+    /(?:^|\/)\.(?:gemini|claude\/cache|attention-horizon|agents\/telemetry)\//i.test(posix)
+  ) {
+    return { globs: '', paths: [] };
+  }
+  if (/^[a-zA-Z]:/.test(posix) || posix.startsWith('/')) {
+    if (!workspaceRoot) return { globs: '', paths: [] };
+    const rel = path.relative(path.resolve(workspaceRoot), path.resolve(posix)).replace(/\\/g, '/');
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel) || /^[a-zA-Z]:/.test(rel)) {
+      return { globs: '', paths: [] };
+    }
+    posix = rel;
+  }
+  if (/\/AppData\/Local\/Temp\//i.test(posix) || /^\/(?:tmp|var\/folders)\//i.test(posix)) {
+    return { globs: '', paths: [] };
+  }
   const ext = path.posix.extname(posix);
   const dir = path.posix.dirname(posix);
   const patterns = [];
   if (ext) patterns.push(`*${ext}`);
   if (dir && dir !== '.') {
     const topDir = dir.split('/')[0];
-    if (topDir) patterns.push(`${topDir}/**`);
+    if (topDir && !topDir.includes(':') && topDir !== '..') patterns.push(`${topDir}/**`);
   } else {
     patterns.push(posix);
   }
@@ -102,7 +121,8 @@ function buildThirdPersonDescription(contextText = '', negativeScope = 'unrelate
 function sanitizeGuidanceText(raw = '') {
   return String(raw || '')
     .replace(/\$ARGUMENTS\b/gi, '')
-    .replace(XML_LEAK_RE, '')
+    .replace(new RegExp(XML_LEAK_RE.source, 'gi'), ' ')
+    .replace(/<\/?[A-Z][A-Z0-9_:-]{1,30}>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -110,6 +130,7 @@ function sanitizeGuidanceText(raw = '') {
 function distillLocally(digest) {
   const heuristics = [];
   const seenSlugs = new Set();
+  const wsRoot = String(digest?.workspaceRoot || '');
 
   const pushHeuristic = (item) => {
     if (!item || !item.slug || !item.then_guidance) return;
@@ -146,7 +167,7 @@ function distillLocally(digest) {
     }
 
     const isMultiStep = nonTestRecoverySteps.length >= 2;
-    const { globs, paths } = buildGlobPatterns(targetFile);
+    const { globs, paths } = buildGlobPatterns(targetFile, wsRoot);
     const matchers = inferToolMatchers(pair.toolName, cmd);
     const errorSignature = `${pair.toolName || 'tool'}:${err.slice(0, 80)}`.toLowerCase();
 
@@ -210,7 +231,7 @@ function distillLocally(digest) {
     if (!cleanText || cleanText.length < 8) continue;
     const fileMatch = cleanText.match(/([a-zA-Z0-9_./-]+\.(?:mjs|js|ts|tsx|py|json|md|go|rs))/);
     const targetFile = fileMatch ? fileMatch[1].replace(/\\/g, '/') : '';
-    const { globs, paths } = buildGlobPatterns(targetFile);
+    const { globs, paths } = buildGlobPatterns(targetFile, wsRoot);
     const carrier = globs ? 'rule_glob' : 'rule_model_decision';
     const slug = toKebabSlug(`review-${comment.kind || 'feedback'}-${shortStableHash(cleanText)}`);
     pushHeuristic({
@@ -235,12 +256,13 @@ function distillLocally(digest) {
     if (!cleanText || cleanText.length < 8) continue;
     const fileMatch = cleanText.match(/([a-zA-Z0-9_./-]+\.(?:mjs|js|ts|tsx|py|json|md|go|rs))/);
     const targetFile = fileMatch ? fileMatch[1].replace(/\\/g, '/') : '';
-    const { globs, paths } = buildGlobPatterns(targetFile);
+    const { globs, paths } = buildGlobPatterns(targetFile, wsRoot);
     const carrier = globs ? 'rule_glob' : 'rule_model_decision';
     const slug = toKebabSlug(`user-correction-${shortStableHash(cleanText)}`);
     pushHeuristic({
       carrier,
       slug,
+      initialStatus: 'candidate',
       when_condition: `Session user correction turn (${digest.platform || 'agent'})`,
       description: `handling ${targetFile || 'commands and edits'} governed by explicit user correction`,
       globs,
@@ -257,7 +279,7 @@ function distillLocally(digest) {
   // 4. Resolved 3+ Turn Thrash Loops -> Rules (if not already captured above)
   for (const loop of digest.thrashLoops || []) {
     const target = String(loop.target || '').replace(/\\/g, '/');
-    const { globs, paths } = buildGlobPatterns(target.includes('.') || target.includes('/') ? target : '');
+    const { globs, paths } = buildGlobPatterns(target.includes('.') || target.includes('/') ? target : '', wsRoot);
     const slug = toKebabSlug(`stop-thrash-${target || loop.resolvedTool || 'loop'}-${shortStableHash(String(loop.startStepIdx))}`);
     if (seenSlugs.has(slug)) continue;
     pushHeuristic({

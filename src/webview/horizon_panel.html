@@ -4046,6 +4046,9 @@
       --ts-clu-text: #F29900;
       --ts-clu-cached: #64748B;
       --ts-clu-cached-text: #9AA0A6;
+      --ts-new: #4C8DF6;
+      --ts-new-text: #8AB4F8;
+      --ts-pinned: rgba(154, 160, 166, 0.42);
     }
     :root[data-theme="light"],
     [data-theme="light"] body,
@@ -4070,6 +4073,9 @@
       --ts-clu-text: #B45309;
       --ts-clu-cached: #64748B;
       --ts-clu-cached-text: #5F6368;
+      --ts-new: #1A73E8;
+      --ts-new-text: #1557B0;
+      --ts-pinned: rgba(60, 64, 67, 0.28);
     }
 
     body[data-view-mode="simple"] {
@@ -4094,9 +4100,97 @@
       border-bottom: 1px solid var(--hairline) !important;
     }
 
+    /* 3-Way Protection Mode Segmented Slider Bar (Off | Coach | Auto) */
+    .ts-mode-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 5px 8px;
+      background: var(--bg-surface);
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      min-width: 0;
+    }
+    .ts-mode-meta {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .ts-mode-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .ts-mode-hint {
+      font-size: 10.5px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+    .ts-mode-slider {
+      position: relative;
+      display: inline-grid;
+      grid-template-columns: repeat(3, 46px);
+      align-items: center;
+      padding: 2px;
+      border-radius: 999px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--hairline);
+      flex-shrink: 0;
+    }
+    .ts-mode-thumb {
+      position: absolute;
+      top: 2px;
+      bottom: 2px;
+      left: 2px;
+      width: calc((100% - 4px) / 3);
+      border-radius: 999px;
+      background: var(--bg-surface);
+      border: 1px solid var(--hairline);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+      transition: transform var(--ease-snappy), background var(--ease-snappy), border-color var(--ease-snappy);
+      pointer-events: none;
+    }
+    .ts-mode-slider[data-active-mode="off"] .ts-mode-thumb { transform: translateX(0%); }
+    .ts-mode-slider[data-active-mode="coach"] .ts-mode-thumb { transform: translateX(100%); border-color: var(--text-muted); }
+    .ts-mode-slider[data-active-mode="autopilot"] .ts-mode-thumb {
+      transform: translateX(200%);
+      background: var(--accent-focus);
+      border-color: var(--accent-focus);
+    }
+    .ts-mode-btn {
+      position: relative;
+      z-index: 1;
+      appearance: none;
+      border: 0;
+      background: transparent;
+      padding: 3px 0;
+      font-family: var(--font-sans);
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      text-align: center;
+      border-radius: 999px;
+      transition: color var(--ease-snappy);
+    }
+    .ts-mode-btn:hover { color: var(--text-primary); }
+    .ts-mode-btn[aria-checked="true"] { color: var(--text-primary); }
+    .ts-mode-slider[data-active-mode="autopilot"] .ts-mode-btn[data-mode="autopilot"] { color: #FFFFFF; }
+
     #argonSimpleSurface {
       display: none;
       flex-direction: column;
+      gap: 8px;
+      padding: 2px 0 8px;
       width: 100%;
       font-family: var(--font-sans);
       color: var(--text-primary);
@@ -4115,13 +4209,66 @@
       display: flex;
     }
 
-    /* Pass 2 Atomic Primitives: MetricHeader (Pinned at scrollTop: 0) */
-    .ts-metric-header {
-      padding: 8px 0;
-      border-bottom: 1px solid var(--hairline);
+    /* 4-Card Section Foundation (90% Calm Monochrome + 1px Hairlines, Zero Nested Cards) */
+    [data-tip] { cursor: help; }
+    .ts-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      padding: 10px 12px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 7px;
+      min-width: 0;
+      transition: opacity var(--ease-snappy), border-color var(--ease-snappy);
+    }
+    #argonSimpleSurface[data-protection-mode="off"] #tsGuidanceSection:not([data-crisis="true"]),
+    #argonSimpleSurface[data-protection-mode="off"] #tsActivitySection {
+      opacity: 0.72;
+      border-style: dashed;
+    }
+    #argonSimpleSurface[data-protection-mode="coach"] #tsGuidanceSection { border-left: 2.5px solid var(--text-secondary); }
+    #argonSimpleSurface[data-protection-mode="coach"] #tsGuidanceSection[data-tone="warn"] { border-left-color: var(--status-warning); }
+    #argonSimpleSurface[data-protection-mode="coach"] #tsGuidanceSection[data-tone="danger"] { border-left-color: var(--status-critical); }
+    #argonSimpleSurface[data-protection-mode="autopilot"] #tsActivitySection { border-left: 2.5px solid var(--accent-focus); }
+    .ts-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+    }
+    .ts-card-head > :last-child { text-align: right; }
+    .ts-card-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .ts-explain {
+      font-size: 11px;
+      line-height: 1.42;
+      color: var(--text-secondary);
+      overflow-wrap: anywhere;
+    }
+    .sr-only-metrics {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    /* Pass 2 Atomic Primitives: MetricHeader (Pinned at scrollTop: 0) */
+    .ts-metric-header {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
     }
     .ts-status-row {
       display: flex;
@@ -4134,7 +4281,7 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      font-size: 12.5px;
+      font-size: 11.5px;
       font-weight: 600;
       color: var(--text-primary);
       min-width: 0;
@@ -4152,9 +4299,22 @@
     .ts-dot[data-tone="danger"] { background: var(--status-critical); }
     .ts-dot[data-tone="active"] { background: var(--accent-focus); }
 
+    .ts-context-split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 70px;
+      gap: 12px;
+      align-items: center;
+      min-width: 0;
+    }
+    .ts-context-info {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
     .ts-runway-meta {
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 10.5px;
       font-variant-numeric: tabular-nums;
       color: var(--text-secondary);
       white-space: nowrap;
@@ -4167,7 +4327,8 @@
       display: flex;
       align-items: baseline;
       justify-content: space-between;
-      gap: 8px;
+      flex-wrap: wrap;
+      gap: 3px 8px;
       font-size: 11px;
       color: var(--text-secondary);
       font-variant-numeric: tabular-nums;
@@ -4182,7 +4343,7 @@
       font-weight: 600;
     }
     .ts-anchor-health {
-      font-size: 10.5px;
+      font-size: 10px;
       color: var(--text-muted);
       white-space: nowrap;
     }
@@ -4191,95 +4352,172 @@
       font-weight: 600;
     }
 
-    /* 1D 8px Horizon BulletBar (Zero Chartjunk) */
-    .ts-bar-wrap {
-      position: relative;
-      padding: 1px 0 11px;
+    /* 3 Context Layer Callouts (Aligned top-to-bottom with the Glass Vessel on the right) */
+    .ts-cat-list {
+      display: flex;
+      flex-direction: column;
+      border-top: 1px solid var(--hairline);
     }
-    .ts-bar-track {
-      width: 100%;
-      height: 8px;
-      background: var(--bg-elevated);
-      border: 1px solid var(--hairline);
-      border-radius: 2px;
+    .ts-cat-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: baseline;
+      gap: 6px;
+      padding: 4.5px 0;
+      border-bottom: 1px solid var(--hairline);
+      font-size: 11px;
+      min-width: 0;
+    }
+    .ts-cat-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 2px 6px;
+      min-width: 0;
+    }
+    .ts-cat-name {
+      color: var(--text-primary);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .ts-cat-sub {
+      font-size: 10px;
+      color: var(--text-muted);
+      overflow-wrap: anywhere;
+    }
+    .ts-cat-val {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+
+    /* Upper-Right Vertical "Glass of Water" Stacked Context Chart */
+    .ts-glass-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+    }
+    .ts-glass-vessel {
+      position: relative;
+      width: 64px;
+      height: 116px;
+      border: 1.5px solid var(--text-muted);
+      border-top: 2px solid var(--text-secondary);
+      border-radius: 3px 3px 9px 9px;
+      background: var(--bg-canvas);
       overflow: hidden;
       display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
     }
-    .ts-seg-signal {
-      height: 100%;
-      background: var(--ts-sig);
-      transition: width var(--ease-snappy);
-      position: relative;
-      overflow: hidden;
-    }
-    .ts-seg-clutter {
-      height: 100%;
-      background: var(--ts-clu);
-      transition: width var(--ease-snappy);
-      position: relative;
-      overflow: hidden;
-    }
-    .ts-seg-clutter[data-clutter-tone="cached"] {
-      background: var(--ts-clu-cached);
-    }
-    .ts-seg-label,
-    .ts-bar-outer-label {
+    .ts-glass-vessel[data-state="warn"] { border-color: var(--status-warning); }
+    .ts-glass-vessel[data-state="crisis"] { border-color: var(--status-critical); }
+    .ts-glass-headroom-label {
       position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      pointer-events: none;
-    }
-    .ts-safe-tick {
-      position: absolute;
-      top: -1px;
-      bottom: 9px;
-      width: 2px;
-      background: var(--text-secondary);
-      pointer-events: none;
-    }
-    .ts-safe-tick[data-breach="true"] {
-      background: var(--status-critical);
-    }
-    .ts-safe-label {
-      position: absolute;
-      bottom: 0;
-      transform: translateX(-100%);
-      padding-right: 3px;
-      white-space: nowrap;
+      top: 5px;
+      left: 2px;
+      right: 2px;
+      text-align: center;
       font-family: var(--font-mono);
-      font-size: 9.5px;
-      line-height: 10px;
+      font-size: 8.5px;
+      line-height: 1.15;
       color: var(--text-muted);
-      font-variant-numeric: tabular-nums;
+      pointer-events: none;
+      z-index: 2;
     }
-    .ts-safe-label[data-breach="true"] {
-      color: var(--status-critical);
-      font-weight: 600;
+    .ts-glass-headroom-label[hidden] { display: none; }
+    .ts-glass-safe-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      border-top: 1.5px dashed var(--status-critical);
+      z-index: 3;
+      pointer-events: none;
     }
-    .ts-legend {
+    .ts-glass-safe-line[hidden] { display: none; }
+    .ts-glass-fill {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      transition: height var(--ease-snappy);
+      border-top: 1.5px solid var(--accent-focus);
+      min-height: 0;
+      overflow: hidden;
+    }
+    .ts-glass-fill[data-empty="true"] { border-top: none; }
+    .ts-glass-seg {
+      width: 100%;
+      position: relative;
+      transition: height var(--ease-snappy);
       display: flex;
       align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      font-size: 10.5px;
-      color: var(--text-secondary);
-      font-variant-numeric: tabular-nums;
+      justify-content: center;
+      overflow: hidden;
+      min-height: 0;
     }
-    .ts-legend strong {
+    .ts-glass-seg-new {
+      background: var(--ts-new);
+      opacity: 0.9;
+    }
+    .ts-glass-seg-old {
+      background: var(--ts-clu);
+      opacity: 0.88;
+      border-top: 1px solid rgba(0, 0, 0, 0.14);
+    }
+    .ts-glass-seg-old[data-clutter-tone="cached"] {
+      background: var(--ts-clu-cached);
+    }
+    .ts-glass-seg-pinned {
+      background: var(--ts-pinned);
+      border-top: 1px solid rgba(0, 0, 0, 0.14);
+    }
+    .ts-glass-seg-tag {
       font-family: var(--font-mono);
-      color: var(--text-primary);
-      font-weight: 600;
+      font-size: 8.5px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #FFFFFF;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+      pointer-events: none;
     }
+    .ts-glass-seg-pinned .ts-glass-seg-tag {
+      color: var(--text-primary);
+      text-shadow: none;
+    }
+    .ts-glass-seg-tag[hidden] { display: none; }
+    .ts-glass-caption {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-muted);
+      text-align: center;
+      white-space: nowrap;
+    }
+    .ts-glass-caption[data-state="warn"] { color: var(--status-warning); font-weight: 600; }
+    .ts-glass-caption[data-state="crisis"] { color: var(--status-critical); font-weight: 600; }
+
+    /* Legacy parity bar utilities (hidden inside .sr-only-metrics) */
+    .ts-bar-wrap { position: relative; padding: 1px 0 11px; }
+    .ts-bar-track { width: 100%; height: 8px; display: flex; }
+    .ts-seg-signal { height: 100%; background: var(--ts-sig); }
+    .ts-seg-clutter { height: 100%; background: var(--ts-clu); }
+    .ts-seg-clutter[data-clutter-tone="cached"] { background: var(--ts-clu-cached); }
+    .ts-seg-label, .ts-bar-outer-label { white-space: nowrap; pointer-events: none; }
+    .ts-safe-tick { position: absolute; width: 2px; }
+    .ts-safe-label { position: absolute; font-family: var(--font-mono); font-size: 9.5px; }
+
     .ts-swatch-dot {
       display: inline-block;
-      width: 6px;
-      height: 6px;
+      width: 7px;
+      height: 7px;
       border-radius: 999px;
-      margin-right: 4px;
-      vertical-align: middle;
+      flex-shrink: 0;
     }
 
     /* Immediate Remediation Strip + 28px ActionPill */
@@ -4398,6 +4636,7 @@
       border-bottom: 1px solid var(--hairline);
       min-width: 0;
     }
+    .ts-metric-row:last-child { border-bottom: none; padding-bottom: 1px; }
     .ts-metric-main {
       display: flex;
       flex-wrap: wrap;
@@ -4475,8 +4714,8 @@
     /* Progressive Disclosure Drawers (CollapsibleSection, Zero Layout Shift) */
     .ts-why,
     .ts-drawer {
-      border-bottom: 1px solid var(--hairline);
-      padding: 6px 0;
+      border-top: 1px solid var(--hairline);
+      padding: 6px 0 0;
     }
     .ts-why > summary,
     .ts-drawer > summary {
@@ -4600,6 +4839,15 @@
     .ts-guard-list .ts-ledger-row { grid-template-columns: 46px minmax(0, 1fr) auto; }
     .ts-guard-list .ts-ledger-row[data-tripped="true"] .ts-ledger-saved { color: var(--warn, #f59e0b); }
     .ts-guard-list .ts-ledger-row[data-mode="advisory"] .ts-ledger-saved { font-weight: 400; color: var(--text-muted); }
+    .ts-guidance-row[data-tone="handled"] {
+      padding-left: 6px;
+      border-left: 2px solid var(--accent-focus);
+      color: var(--text-secondary);
+    }
+    .ts-guidance-row[data-tone="handled"] .ts-tag { color: var(--accent-focus); }
+    #tsAvoidRow[hidden] { display: none; }
+    .ts-guard-list .ts-ledger-row[data-effective-state="enforces"] .ts-ledger-saved { color: var(--accent-focus); font-weight: 600; }
+    .ts-guard-list .ts-ledger-row[data-effective-state="paused"] .ts-ledger-saved { color: var(--text-muted); font-weight: 400; font-style: italic; }
 
     [data-theme="light"] .ta-cell:not([data-cat]) { background: var(--hz-free); }
     [data-theme="light"] .ta-inspector,
@@ -4612,7 +4860,7 @@
     [data-theme="light"] .ta-table td { border-bottom-color: var(--hz-border-subtle); }
 
     @media (prefers-reduced-motion: reduce) {
-      .ts-why-caret, .ts-seg-signal, .ts-seg-clutter, .ts-micro-bullet-fill, .ts-cta-btn { transition: none; }
+      .ts-why-caret, .ts-seg-signal, .ts-seg-clutter, .ts-glass-fill, .ts-glass-seg, .ts-micro-bullet-fill, .ts-cta-btn, .ts-mode-thumb, .ts-mode-btn { transition: none; }
     }
 
     /* Advanced Forensic Surface inside horizon_panel.html */
@@ -4732,10 +4980,20 @@
       .header-controls .shadcn-tab-trigger { padding: 2px 7px !important; font-size: 10px !important; }
       .tufte-top-host-badge { font-size: 10px; padding: 2px 5px; }
       .ts-switch-grid { grid-template-columns: 1fr; }
+      .ts-context-split { grid-template-columns: minmax(0, 1fr) 62px; gap: 8px; }
+      .ts-glass-vessel { width: 58px; height: 108px; }
       .ta-ucurve { gap: 4px; padding: 5px; font-size: 10px; }
       .ta-source-grid { gap: 3px; padding: 5px; font-size: 9.5px; }
       .ta-table th, .ta-table td { padding: 3px 2px; font-size: 9.5px; }
       .ta-mini-btn { padding: 2px 5px; font-size: 9.5px; }
+    }
+    @media (max-width: 340px) {
+      .ts-mode-slider { grid-template-columns: repeat(3, 40px); }
+    }
+    @media (max-width: 320px) {
+      .ts-card { padding: 8px 10px; }
+      .ts-context-split { grid-template-columns: minmax(0, 1fr) 56px; gap: 6px; }
+      .ts-glass-vessel { width: 52px; height: 100px; }
     }
 </style>
 </head>
@@ -4765,143 +5023,240 @@
     </div>
   </div>
 
+  <div id="tsModeBar" class="ts-mode-bar" role="region" aria-label="Protection mode">
+    <div class="ts-mode-meta" data-tip title="Choose how actively Highbeam steps in during your coding session: Off = watch only, Coach = trims noisy logs & gives advice, Auto = hands-free guards & routing.">
+      <span class="ts-mode-title">Mode</span>
+      <span id="tsModeHint" class="ts-mode-hint">Advises &amp; trims noisy logs</span>
+    </div>
+    <div id="tsModeSlider" class="ts-mode-slider" role="radiogroup" aria-label="Highbeam protection mode" data-active-mode="coach">
+      <span class="ts-mode-thumb" aria-hidden="true"></span>
+      <button type="button" role="radio" id="tsModeBtnOff" class="ts-mode-btn" data-mode="off" aria-checked="false" title="Off (Watch only): passively tracks your context glass, cache timer, and savings without blocking commands or injecting advice.">Off</button>
+      <button type="button" role="radio" id="tsModeBtnCoach" class="ts-mode-btn" data-mode="coach" aria-checked="true" title="Coach (Recommended): trims noisy command logs in the background and advises you before risky edits or costly model switches.">Coach</button>
+      <button type="button" role="radio" id="tsModeBtnAuto" class="ts-mode-btn" data-mode="autopilot" aria-checked="false" title="Auto (Hands-free): enforces active safety guards, large-file read limits, and turn-boundary model/effort routing automatically.">Auto</button>
+    </div>
+  </div>
+
   <!-- =========================================================================
-       LIVE EDWARD TUFTE "SIMPLE VIEW" SURFACE (Active when data-view-mode=simple)
+       LIVE EDWARD TUFTE "SIMPLE VIEW" SURFACE (4-Card Sketch Layout)
        ========================================================================= -->
   <div id="argonSimpleSurface" aria-label="Highbeam Simple View">
-    <!-- Pass 2 MetricHeader: Pinned at scrollTop: 0 (Status + HorizonBulletBar + Primary ActionPill) -->
-    <section id="tsMetricHeader" class="ts-metric-header">
-      <div class="ts-status-row">
-        <div class="ts-status-badge" role="status" aria-live="polite">
+    <!-- CARD 1: CONTEXT (scrollTop: 0) + Upper-Right Reversed "Glass of Water" Bar -->
+    <section id="tsMetricHeader" class="ts-card ts-metric-header" aria-label="Context usage and categories">
+      <div class="ts-card-head">
+        <span class="ts-card-title" data-tip title="How full your AI's working memory is right now compared to the safe limit where it stays accurate and remembers early project rules.">CONTEXT</span>
+        <div class="ts-status-badge" role="status" aria-live="polite" data-tip title="Current memory and prompt-cache health. Green or neutral means you have room to work cleanly; amber or red means it is time to compact or slow down.">
           <span id="tsStatusDot" class="ts-dot" data-tone="nominal"></span>
           <span id="tsStatusLabel">Nominal Memory</span>
         </div>
-        <span id="tsRunwayMeta" class="ts-runway-meta" data-tone="nominal">179.0k headroom</span>
       </div>
 
-      <div class="ts-quant-row">
-        <span class="ts-quant-primary">
-          <strong id="tsUsedLabel">0.0k</strong> / <span id="tsSafeLabel">179.0k</span> safe (<span id="tsUsedPct">0%</span>)
-        </span>
-        <span id="tsAnchorHealth" class="ts-anchor-health" data-risk="false">Pinned rules safe</span>
-      </div>
+      <p id="tsContextSummary" class="ts-explain" data-tip title="A plain-English snapshot of what is inside your AI's working memory right now and how much room remains before older rules risk getting crowded out.">Working memory has plenty of room for edits and multi-file tasks without losing earlier instructions.</p>
 
-      <div class="ts-bar-wrap" role="img" aria-label="Context usage vs safe limit">
-        <div class="ts-bar-track">
-          <div id="tsBarSignal" class="ts-seg-signal" style="width:0%"><span id="tsBarSignalLabel" class="ts-seg-label"></span></div>
-          <div id="tsBarClutter" class="ts-seg-clutter" data-clutter-tone="stale" style="width:0%"><span id="tsBarClutterLabel" class="ts-seg-label"></span></div>
+      <div class="ts-context-split">
+        <div class="ts-context-info">
+          <div class="ts-quant-row">
+            <span class="ts-quant-primary" data-tip title="Tokens currently in working memory compared to the safe attention ceiling. Staying under this limit prevents the AI from overlooking instructions in the middle or start of chat.">
+              <strong id="tsUsedLabel">0.0k</strong> / <span id="tsSafeLabel">179.0k</span> safe (<span id="tsUsedPct">0%</span>)
+            </span>
+            <span id="tsRunwayMeta" class="ts-runway-meta" data-tone="nominal" data-tip title="Estimated room left before reaching the safe context limit, based on your recent turn size.">179.0k headroom</span>
+          </div>
+
+          <div class="ts-cat-list" role="list" aria-label="Context breakdown from newest to oldest">
+            <div class="ts-cat-row" id="tsRowNew" role="listitem" data-tip title="Your newest prompts, current code edits, and active working files sitting at the top of the glass.">
+              <span class="ts-swatch-dot" style="background:var(--ts-new);" aria-hidden="true"></span>
+              <div class="ts-cat-meta">
+                <span class="ts-cat-name">New &amp; active</span>
+                <span class="ts-cat-sub" id="tsNewSub">Current files &amp; replies</span>
+              </div>
+              <strong id="tsValNew" class="ts-cat-val">0.0k</strong>
+            </div>
+
+            <div class="ts-cat-row" id="tsRowOld" role="listitem" data-tip title="Older conversation turns, repeat full-file reads, resolved error logs, and unrelated memory items that /compact can safely trim away.">
+              <span id="tsClutterDot" class="ts-swatch-dot" style="background:var(--ts-clu);" aria-hidden="true"></span>
+              <div class="ts-cat-meta">
+                <span id="tsClutterKind" class="ts-cat-name">Reclaimable</span>
+                <span class="ts-cat-sub" id="tsOldSub">Older chat &amp; repeat reads</span>
+              </div>
+              <strong id="tsValClutter" class="ts-cat-val">0.0k</strong>
+            </div>
+
+            <div class="ts-cat-row" id="tsRowPinned" role="listitem" data-tip title="Foundational project rules (AGENTS.md / CLAUDE.md), learned session rules, and connected tool definitions loaded at the start of the chat (base of the glass).">
+              <span class="ts-swatch-dot" style="background:var(--ts-pinned);" aria-hidden="true"></span>
+              <div class="ts-cat-meta">
+                <span class="ts-cat-name">Rules &amp; tools</span>
+                <span id="tsAnchorHealth" class="ts-anchor-health" data-risk="false" title="Whether your pinned startup rules are safely inside the safe memory window or at risk of being pushed out.">Pinned rules safe</span>
+              </div>
+              <strong id="tsValPinned" class="ts-cat-val">0.0k</strong>
+            </div>
+          </div>
+
+          <!-- Hidden DOM/screen-reader parity elements preserved for automated accessibility & test checks -->
+          <div class="sr-only-metrics" aria-hidden="true">
+            <span id="tsValSignal">0.0k</span>
+            <div class="ts-bar-wrap">
+              <div class="ts-bar-track">
+                <div id="tsBarSignal" class="ts-seg-signal" style="width:0%"><span id="tsBarSignalLabel" class="ts-seg-label"></span></div>
+                <div id="tsBarClutter" class="ts-seg-clutter" data-clutter-tone="stale" style="width:0%"><span id="tsBarClutterLabel" class="ts-seg-label"></span></div>
+              </div>
+              <div id="tsSafeTick" class="ts-safe-tick" style="left:70%"></div>
+              <div id="tsSafeTickLabel" class="ts-safe-label" style="left:70%">safe limit</div>
+              <div id="tsBarOuterLabel" class="ts-bar-outer-label" hidden></div>
+            </div>
+          </div>
         </div>
-        <div id="tsSafeTick" class="ts-safe-tick" style="left:70%" title="Safe Attention Horizon"></div>
-        <div id="tsSafeTickLabel" class="ts-safe-label" style="left:70%">safe limit</div>
-        <div id="tsBarOuterLabel" class="ts-bar-outer-label" hidden></div>
-      </div>
 
-      <div class="ts-legend">
-        <span><span class="ts-swatch-dot" style="background:var(--ts-sig);" aria-hidden="true"></span>Signal <strong id="tsValSignal">0.0k</strong></span>
-        <span><span id="tsClutterDot" class="ts-swatch-dot" style="background:var(--ts-clu);" aria-hidden="true"></span><span id="tsClutterKind">Reclaimable</span> <strong id="tsValClutter">0.0k</strong></span>
+        <div class="ts-glass-col">
+          <div id="tsGlassVessel" class="ts-glass-vessel" role="img" aria-label="Vertical context fill gauge from pinned rules at bottom to new active work on top" data-state="nominal" data-tip title="Fills bottom-to-top up to your safe limit: pinned Rules & tools sit at the base, Older & reclaimable clutter in the middle, and New & active work on top. Empty space is free headroom.">
+            <span id="tsGlassHeadroom" class="ts-glass-headroom-label">100% free</span>
+            <div id="tsGlassSafeLine" class="ts-glass-safe-line" hidden title="Safe limit line — context above this dashed line risks slowing down or forgetting early rules."></div>
+            <div id="tsGlassFill" class="ts-glass-fill" data-empty="true" style="height:0%">
+              <div id="tsGlassSegNew" class="ts-glass-seg ts-glass-seg-new" style="height:0%" title="New & active work (recent chat & current files): 0.0k"><span id="tsGlassTagNew" class="ts-glass-seg-tag" hidden>NEW</span></div>
+              <div id="tsGlassSegOld" class="ts-glass-seg ts-glass-seg-old" data-clutter-tone="stale" style="height:0%" title="Older & reclaimable clutter (old turns, repeat reads & fixed errors): 0.0k"><span id="tsGlassTagOld" class="ts-glass-seg-tag" hidden>OLD</span></div>
+              <div id="tsGlassSegPinned" class="ts-glass-seg ts-glass-seg-pinned" style="height:0%" title="Rules & tools (AGENTS.md / CLAUDE.md, MCP schemas): 0.0k"><span id="tsGlassTagPinned" class="ts-glass-seg-tag" hidden>BASE</span></div>
+            </div>
+          </div>
+          <span id="tsGlassCaption" class="ts-glass-caption" data-state="nominal" data-tip title="Percentage of the safe working memory limit currently filled.">0% of safe</span>
+        </div>
       </div>
 
       <div class="ts-remediation">
-        <div id="tsDoRow" class="ts-guidance-row" data-tone="do">
-          <span class="ts-tag">Next</span>
-          <span id="tsDoText">Safe to run multi-file edits or implementation tasks; working memory has ample headroom.</span>
-        </div>
-        <button type="button" id="tsBtnCleanPrimary" class="ts-cta-btn" data-cta-state="guarded">
+        <button type="button" id="tsBtnCleanPrimary" class="ts-cta-btn" data-cta-state="guarded" title="Copies a tailored /compact command to your clipboard so you can paste it into chat to clear out older clutter while preserving rules and active files.">
           <span id="tsBtnCleanLabel">Copy /compact Command (Memory Clean)</span>
         </button>
         <div class="ts-compact-caption">
-          <span id="tsCompactReclaim">0.0k reclaimable clutter &middot; Active working set protected</span>
-          <span id="tsCompactInstruction">Type <code>/compact</code> in chat &amp; press Enter</span>
+          <span id="tsCompactReclaim" title="How many tokens of older history, duplicate reads, or old errors can be reclaimed without touching your active code.">0.0k reclaimable clutter &middot; Active working set protected</span>
+          <span id="tsCompactInstruction" title="Paste the copied /compact command into your AI chat box and press Enter.">Type <code>/compact</code> in chat &amp; press Enter</span>
         </div>
       </div>
+
+      <details id="tsWhyClears" class="ts-why" hidden>
+        <summary title="Click to preview exactly which old turns, duplicate file reads, or resolved error logs /compact will remove."><span title="See what gets cleaned up without touching your project rules or current code."><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>What <code>/compact</code> clears</span><span id="tsWhyTotal" class="ts-why-total">0.0k</span></summary>
+        <ul id="tsWhyList" class="ts-why-list" role="list"></ul>
+        <div id="tsWhyKeepNote" class="ts-why-keep">Keeps project rules, <code>task.md</code>, your plan, and active code.</div>
+      </details>
     </section>
 
-    <!-- Core Health Signals: 3 Full-Bleed 1px Hairline Rows (Zero Nested Cards) -->
-    <div class="ts-metric-list" role="region" aria-label="Core session telemetry">
-      <!-- Signal 1: Prompt Cache Hit Rate & TTL -> 1D BulletBar -->
-      <div class="ts-metric-row">
-        <div class="ts-metric-main">
-          <span class="ts-metric-label">Prompt cache</span>
-          <span id="tsCacheMeta" class="ts-meta" data-tone="muted">0% hit &middot; Cold</span>
-        </div>
-        <div class="ts-micro-bullet" role="img" aria-label="Prompt cache hit rate against 80% target">
-          <div id="tsCacheBulletFill" class="ts-micro-bullet-fill" style="width:0%"></div>
-          <div class="ts-micro-bullet-tick" title="80% cache hit target"></div>
-        </div>
+    <!-- CARD 2: DIRECT GUIDANCE -->
+    <section id="tsGuidanceSection" class="ts-card" aria-label="Direct guidance">
+      <div class="ts-card-head">
+        <span class="ts-card-title" data-tip title="Actionable next steps and warnings based on your current memory fill, cache warmth, active guards, and rule health.">DIRECT GUIDANCE</span>
+        <span id="tsGuidanceBadge" class="ts-meta" data-tone="muted" data-tip title="Shows whether switching your AI model or reasoning effort right now is free (OK) or will force a costly cache rebuild (Hold).">Model: OK &middot; Effort: OK</span>
       </div>
 
-      <!-- Signal 2: Model & Effort Switch Gate -->
-      <div class="ts-metric-row">
-        <div class="ts-metric-main">
-          <span class="ts-metric-label">Switch gate</span>
-          <span id="tsSwitchActiveSummary" class="ts-kpi-sub">Auto &middot; Auto</span>
-        </div>
-        <span id="tsGuidanceBadge" class="ts-meta" data-tone="muted">Model: OK &middot; Effort: OK</span>
+      <div id="tsDoRow" class="ts-guidance-row" data-tone="do" title="Recommended best next step for your current session state.">
+        <span class="ts-tag">DO</span>
+        <span id="tsDoText">Safe to run multi-file edits or implementation tasks; working memory has plenty of room for clean work.</span>
       </div>
 
-      <!-- Signal 3: Verified Savings & Velocity -> 72x18 Word-Sized SVG Sparkline -->
-      <div class="ts-metric-row">
-        <div class="ts-metric-main">
-          <span class="ts-metric-label">Saved</span>
-          <span id="tsKpiSaved" class="ts-kpi-inline">+0.0k</span>
-          <span id="tsKpiUsd" class="ts-kpi-sub">~$0.00</span>
-          <span class="ts-kpi-sub" aria-hidden="true">&middot;</span>
-          <span id="tsKpi30d" class="ts-kpi-sub">30d: +0.0k (~$0.00)</span>
-          <span id="tsSprintMeta" class="ts-kpi-sub" hidden></span>
-        </div>
-        <svg id="tsTurnSparkline" class="ts-sparkline" width="72" height="18" viewBox="0 0 72 18" role="img" aria-label="Per-turn context velocity sparkline">
-          <polyline id="tsSparklinePath" fill="none" stroke="var(--text-secondary)" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" points="1,15 71,15"/>
-          <circle id="tsSparklineDot" cx="71" cy="15" r="2" fill="var(--text-primary)"/>
-        </svg>
+      <div id="tsAvoidRow" class="ts-guidance-row" data-tone="avoid" title="What to avoid right now so you do not waste quota, lose prompt-cache savings, or confuse the model.">
+        <span class="ts-tag">AVOID</span>
+        <span id="tsAvoidText">Avoid reading large files without StartLine/EndLine bounds so unneeded lines do not crowd working memory.</span>
       </div>
-    </div>
 
-    <!-- Progressive Disclosure: Zero-Layout-Shift Expandable Diagnostics -->
-    <details id="tsWhyClears" class="ts-why" hidden>
-      <summary><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>What <code>/compact</code> clears</span><span id="tsWhyTotal" class="ts-why-total">0.0k</span></summary>
-      <ul id="tsWhyList" class="ts-why-list" role="list"></ul>
-      <div id="tsWhyKeepNote" class="ts-why-keep">Keeps rules, <code>task.md</code>, plan &amp; active code.</div>
-    </details>
-
-    <details id="tsSwitchDetailsDrawer" class="ts-drawer">
-      <summary><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Switch cost &amp; hygiene rules</span><span id="tsSwitchDrawerHint" class="ts-kpi-sub">Details</span></summary>
-      <div class="ts-drawer-body">
-        <div id="tsAvoidRow" class="ts-guidance-row" data-tone="avoid">
-          <span class="ts-tag">AVOID</span>
-          <span id="tsAvoidText">Avoid reading large files without line bounds (`StartLine`/`EndLine`) to keep context lean.</span>
-        </div>
-        <div class="ts-switch-grid">
-          <div id="tsModelCard" class="ts-guidance-row ts-switch-card" data-tone="do">
-            <div class="ts-switch-head"><span class="ts-tag">MODEL</span><span id="tsModelVerdict" class="ts-switch-verdict">OK</span></div>
-            <div id="tsModelName" class="ts-switch-name">Auto</div>
-            <ul class="ts-switch-lines">
-              <li id="tsModelSameFam">Cache is cold &mdash; no rewrite penalty.</li>
-              <li id="tsModelCrossFam"></li>
-            </ul>
-            <div id="tsModelLast" class="ts-sub" hidden></div>
-          </div>
-          <div id="tsEffortCard" class="ts-guidance-row ts-switch-card" data-tone="do">
-            <div class="ts-switch-head"><span class="ts-tag">EFFORT</span><span id="tsEffortVerdict" class="ts-switch-verdict">OK</span></div>
-            <div id="tsEffortName" class="ts-switch-name">Auto</div>
-            <div id="tsEffortText" class="ts-sub">Match tier to task: Low/Med for edits, High for specs.</div>
-            <div id="tsEffortHist" class="ts-sub" hidden></div>
+      <details id="tsSwitchDetailsDrawer" class="ts-drawer">
+        <summary title="Expand to see exact Model and Effort switching rules, warm cache hold countdowns, and last model switch impact."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Model &amp; effort switching <span id="tsSwitchActiveSummary" class="ts-kpi-sub">Auto &middot; Auto</span></span><span id="tsSwitchDrawerHint" class="ts-kpi-sub">Details</span></summary>
+        <div class="ts-drawer-body">
+          <div class="ts-switch-grid">
+            <div id="tsModelCard" class="ts-guidance-row ts-switch-card" data-tone="do" title="Whether changing your AI model mid-chat will invalidate your discounted prompt cache.">
+              <div class="ts-switch-head"><span class="ts-tag">MODEL</span><span id="tsModelVerdict" class="ts-switch-verdict">OK</span></div>
+              <div id="tsModelName" class="ts-switch-name">Auto</div>
+              <ul class="ts-switch-lines">
+                <li id="tsModelSameFam">Cache is cold &mdash; switching within the same model family adds no rewrite cost.</li>
+                <li id="tsModelCrossFam"></li>
+              </ul>
+              <div id="tsModelLast" class="ts-sub" hidden></div>
+            </div>
+            <div id="tsEffortCard" class="ts-guidance-row ts-switch-card" data-tone="do" title="Whether changing reasoning effort level right now breaks your cached chat history.">
+              <div class="ts-switch-head"><span class="ts-tag">EFFORT</span><span id="tsEffortVerdict" class="ts-switch-verdict">OK</span></div>
+              <div id="tsEffortName" class="ts-switch-name">Auto</div>
+              <div id="tsEffortText" class="ts-sub">Match effort to the task: Low or Medium keeps edits fast, and High helps on tricky specs or bugs.</div>
+              <div id="tsEffortHist" class="ts-sub" hidden></div>
+            </div>
           </div>
         </div>
-      </div>
-    </details>
+      </details>
+    </section>
 
-    <details id="tsActivityDrawer" class="ts-drawer">
-      <summary><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Auto-guard activity</span><span id="tsGuardsSummary" class="ts-kpi-sub">Guards armed</span></summary>
+    <!-- CARD 3: AUTOMATED ACTIVITY -->
+    <section id="tsActivitySection" class="ts-card" aria-label="Automated activity">
+      <div class="ts-card-head">
+        <span class="ts-card-title" data-tip title="Automatic protections Highbeam is running behind the scenes: trimming noisy test logs, deduplicating repeat reads, protecting warm caches, and applying learned session rules.">AUTOMATED ACTIVITY</span>
+        <span id="tsGuardsSummary" class="ts-kpi-sub" data-tip title="Number of background interventions active in this chat and how many safety/efficiency guards are currently armed.">Guards armed</span>
+      </div>
+
       <ul id="tsLedgerList" class="ts-ledger" role="list">
-        <li class="ts-ledger-row">
+        <li class="ts-ledger-row" title="Highbeam watches tool outputs and rule writes locally so noisy logs and premature rule edits do not bloat memory or break warm caches.">
           <span class="ts-ledger-age">now</span>
-          <span>Auto-guards armed (FTS5 CLI compressor &amp; PrefixCacheShield)</span>
+          <span>Auto-guards armed — trimming noisy command output (FTS5) and shielding warm prompt caches</span>
           <span class="ts-ledger-saved">ready</span>
         </li>
       </ul>
-      <div id="tsGuardListHead" class="ts-guard-head" hidden>Live guards</div>
-      <ul id="tsGuardList" class="ts-ledger ts-guard-list" role="list" hidden></ul>
-    </details>
+
+      <details id="tsActivityDrawer" class="ts-drawer">
+        <summary title="Click to view every active guard rule, whether it is tripped right now, blocks bad actions automatically, or advises you softly."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Active safety &amp; efficiency guards</span><span id="tsGuardRosterHint" class="ts-kpi-sub">Details</span></summary>
+        <div id="tsGuardListHead" class="ts-guard-head" hidden>Live guards</div>
+        <ul id="tsGuardList" class="ts-ledger ts-guard-list" role="list" hidden></ul>
+      </details>
+    </section>
+
+    <!-- CARD 4: SESSION OVERVIEW -->
+    <section id="tsSessionSection" class="ts-card" aria-label="Session overview">
+      <div class="ts-card-head">
+        <span class="ts-card-title" data-tip title="A big-picture look at your entire chat session from Turn 1 until now: how fast context is growing, how well the prompt cache is sticking, and total savings.">SESSION OVERVIEW</span>
+        <span id="tsSessionTurnsMeta" class="ts-kpi-sub" data-tip title="Total turns recorded in this conversation so far, along with how many stayed lean vs. triggered a spike or warning.">Session start</span>
+      </div>
+
+      <p id="tsSessionDigest" class="ts-explain" data-tip title="A plain-English summary of how this whole conversation is progressing, including compactions, checkpoints, and cache reuse.">Tracking your session from Turn 1 &mdash; watching context growth, prompt cache reuse, and token savings.</p>
+
+      <div class="ts-metric-list" role="region" aria-label="Entire session metrics">
+        <!-- Row 1: Entire Session Pace & Velocity Sparkline -->
+        <div class="ts-metric-row" title="Shows how quickly context is growing per turn and highlights key milestones like /compact runs, checkpoints, or model switches.">
+          <div class="ts-metric-main">
+            <span class="ts-metric-label">Session pace</span>
+            <span id="tsSessionPaceMeta" class="ts-meta" data-tone="muted">Steady</span>
+          </div>
+          <svg id="tsTurnSparkline" class="ts-sparkline" width="72" height="18" viewBox="0 0 72 18" role="img" aria-label="Per-turn context velocity sparkline">
+            <title id="tsSparklineTip">Per-turn context size trend across this chat (left = earlier turns, right = latest turn).</title>
+            <polyline id="tsSparklinePath" fill="none" stroke="var(--text-secondary)" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" points="1,15 71,15"/>
+            <circle id="tsSparklineDot" cx="71" cy="15" r="2" fill="var(--text-primary)"/>
+          </svg>
+        </div>
+
+        <!-- Row 2: Prompt Cache Hit Rate, Retention & TTL -> 1D BulletBar -->
+        <div class="ts-metric-row" title="Warm prompt cache reuses earlier conversation turns at a 90%–95% discount until the timer runs out or the prefix changes. Target line sits at 80%.">
+          <div class="ts-metric-main">
+            <span class="ts-metric-label">Prompt cache</span>
+            <span id="tsCacheMeta" class="ts-meta" data-tone="muted">0% hit &middot; Cold</span>
+            <span id="tsRetentionMeta" class="ts-kpi-sub" hidden></span>
+          </div>
+          <div class="ts-micro-bullet" role="img" aria-label="Prompt cache hit rate against 80% target" title="Current prompt cache hit rate compared against the 80% target tick mark.">
+            <div id="tsCacheBulletFill" class="ts-micro-bullet-fill" style="width:0%"></div>
+            <div class="ts-micro-bullet-tick" title="80% cache hit target"></div>
+          </div>
+        </div>
+
+        <!-- Row 3: Verified Savings & 5h Quota Pacing -->
+        <div class="ts-metric-row" title="Tokens and estimated spend saved locally by trimming verbose logs, skipping duplicate reads, and keeping your prompt cache warm.">
+          <div class="ts-metric-main">
+            <span class="ts-metric-label">Saved</span>
+            <span id="tsKpiSaved" class="ts-kpi-inline" title="Verified tokens saved during this active chat session.">+0.0k</span>
+            <span id="tsKpiUsd" class="ts-kpi-sub" title="Estimated input cost avoided in this chat based on your active model rate.">~$0.00</span>
+            <span class="ts-kpi-sub" aria-hidden="true">&middot;</span>
+            <span id="tsKpi30d" class="ts-kpi-sub" title="Cumulative verified savings across this workspace over the last 30 days.">30d: +0.0k (~$0.00)</span>
+            <span id="tsSprintMeta" class="ts-kpi-sub" hidden title="Estimated share of your 5-hour rolling seat quota used so far."></span>
+          </div>
+          <span id="tsSavedHint" class="ts-kpi-sub" title="All savings are counted once per turn from Highbeam's local ledger with zero estimates padded in.">verified</span>
+        </div>
+
+        <!-- Row 4 (Conditional): v4.1 Multi-Agent Swarm, Learned Rules & Sharded Constraints -->
+        <div id="tsSessionExtraRow" class="ts-metric-row" hidden>
+          <div class="ts-metric-main">
+            <span class="ts-metric-label">Workspace state</span>
+            <span id="tsSessionExtraText" class="ts-kpi-sub"></span>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 
   <!-- =========================================================================
@@ -11101,12 +11456,62 @@
     btnCopySimpleSavingsReceipt.onclick = copyVerifiedTokensSavedReceipt;
   }
 
-  // Model & Effort Router 3-Way Mode Switch handler (syncs both card buttons and Tufte 24px baseline strip)
-  function setRouterModeActiveUI(mode) {
-    document.querySelectorAll('.model-mode-switch .mode-btn, .tufte-mode-chip').forEach(b => {
-      b.classList.toggle('active', b.dataset.mode === mode);
+  // Model & Effort Router 3-Way Mode Switch handler (syncs header slider, card buttons, Advanced switch, and Tufte strip)
+  function normalizeHorizonUiMode(rawMode = 'coach') {
+    const m = String(rawMode || 'coach').trim().toLowerCase();
+    if (m === 'off' || m === 'disabled') return 'off';
+    if (m === 'auto' || m === 'autopilot' || m === 'auto-pilot' || m === 'auto_pilot') return 'autopilot';
+    return 'coach';
+  }
+  function syncModeSliderUI(rawMode = 'coach') {
+    const norm = normalizeHorizonUiMode(rawMode);
+    const slider = document.getElementById('tsModeSlider');
+    if (slider) slider.dataset.activeMode = norm;
+    document.querySelectorAll('#tsModeSlider .ts-mode-btn').forEach(btn => {
+      const match = normalizeHorizonUiMode(btn.dataset.mode) === norm;
+      btn.setAttribute('aria-checked', match ? 'true' : 'false');
+    });
+    const hint = document.getElementById('tsModeHint');
+    if (hint) {
+      hint.textContent = norm === 'off'
+        ? 'Watch only \u2014 tracking context'
+        : (norm === 'autopilot' ? 'Hands-free guards & routing' : 'Advises & trims noisy logs');
+    }
+    document.querySelectorAll('#taRouterSwitch button').forEach(btn => {
+      const m = normalizeHorizonUiMode(btn.dataset.taMode || btn.dataset.mode);
+      const active = m === norm;
+      btn.classList.toggle('active', active);
+      btn.style.borderColor = active ? 'var(--hz-useful)' : '';
+      btn.style.color = active ? 'var(--hz-useful)' : '';
     });
   }
+  function setRouterModeActiveUI(mode) {
+    const norm = normalizeHorizonUiMode(mode);
+    document.querySelectorAll('.model-mode-switch .mode-btn, .tufte-mode-chip').forEach(b => {
+      b.classList.toggle('active', normalizeHorizonUiMode(b.dataset.mode) === norm);
+    });
+    syncModeSliderUI(norm);
+  }
+  document.querySelectorAll('#tsModeSlider .ts-mode-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const mode = normalizeHorizonUiMode(btn.dataset.mode || 'coach');
+      setRouterModeActiveUI(mode);
+      if (currentRenderedState && typeof currentRenderedState === 'object') {
+        currentRenderedState.routerMode = mode;
+        currentRenderedState.flightMode = mode === 'autopilot' ? 'AUTO_PILOT' : (mode === 'off' ? 'OFF' : 'COACH');
+        try { renderArgonTufteSurfaces(currentRenderedState); } catch {}
+      }
+      try {
+        await fetch('/api/router/mode', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify({ mode })
+        });
+      } catch {}
+      const label = mode === 'off' ? 'Off (Watch only)' : (mode === 'autopilot' ? 'Auto (Hands-free)' : 'Coach');
+      showToast(`&#x2713; Mode set to <strong>${escAttr(label)}</strong>`);
+    });
+  });
   ['btnModeOff', 'btnModeCoach', 'btnModeAutopilot', 'tufteModeOff', 'tufteModeCoach', 'tufteModeAutopilot'].forEach(id => {
     const btn = document.getElementById(id);
     if (btn) {
@@ -11309,6 +11714,9 @@
       )
     );
     const usefulT = Math.max(0, total - staleT);
+    const memKiT = Number(bdLive.MEMORY_KI ?? bd.memoryKi) || 0;
+    const pinnedT = Math.min(usefulT, Math.max(0, rulesT + toolsT + memKiT));
+    const newActiveT = Math.max(0, usefulT - pinnedT);
     const remainingSafe = Math.max(0, safeCap - total);
     const kpis = raw.sessionTimeline?.kpis || {};
     const burnRate = Number(raw.burnRatePerTurn ?? kpis.burnRateTokens) || 0;
@@ -11316,6 +11724,7 @@
     const usedPct = safeCap > 0 ? Math.min(100, Math.round((total / safeCap) * 100)) : 0;
 
     const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    const setTip = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.title = v; };
 
     // Authoritative active model (raw.model) — quota pool name is only a legacy fallback.
     const mdl = raw.model || {};
@@ -11335,6 +11744,7 @@
     if (hostBadge) {
       const surfaceName = (raw.storeSource || 'antigravity').toLowerCase().includes('claude') ? 'Claude Code' : 'Antigravity';
       hostBadge.textContent = `${surfaceName} \u00B7 ${activeModel} (${activeEffort})`;
+      hostBadge.title = `Active editor host: ${surfaceName}. Current model: ${activeModel}. Reasoning effort: ${activeEffort}.`;
     }
 
     // --- Cache state (supports both raw.quota.cache and raw.prefixCache) ---
@@ -11365,6 +11775,16 @@
     // =======================================================================
     // 1. SIMPLE VIEW UPDATES (#argonSimpleSurface — Antigravity & Claude Code)
     // =======================================================================
+    const rawFm = String(raw.flightMode || raw.coachState?.flightMode || '').toUpperCase();
+    const effectiveMode = normalizeHorizonUiMode(
+      raw.routerMode ||
+      raw.coachState?.routerMode ||
+      raw.coachState?.taskQuotaRouter?.routerMode ||
+      (rawFm === 'OFF' ? 'off' : (rawFm === 'AUTO_PILOT' ? 'autopilot' : 'coach'))
+    );
+    syncModeSliderUI(effectiveMode);
+    const simpleSurface = document.getElementById('argonSimpleSurface');
+    if (simpleSurface) simpleSurface.dataset.protectionMode = effectiveMode;
     const isClaudeSurface = (raw.storeSource || 'antigravity').toLowerCase().includes('claude');
     const tsCacheMeta = document.getElementById('tsCacheMeta');
     const cacheUnmeasured = !isWarm && cache.prefixRetention?.unmeasuredReason === 'no_cache_telemetry';
@@ -11376,8 +11796,12 @@
           ? `Cache not reported \u00B7 TTL ${ttlMm}:${ttlSs}`
           : (isRebuilding ? `${hitPct}% hit \u00B7 Rebuilding (${ttlMm}:${ttlSs})` : `${hitPct}% hit \u00B7 Cold`));
       tsCacheMeta.title = cacheUnmeasured
-        ? 'The host reports no cache-read tokens for this model, so the hit rate is unknown.'
-        : (cache.prefixBustLabel || '');
+        ? 'This host does not report cache-read token counts for the active model, so hit rate cannot be measured.'
+        : (cache.prefixBustLabel || (isWarm
+          ? `Prompt cache is warm: ${hitPct}% of input tokens are billed at the discounted cached rate for ${ttlMm}:${ttlSs}.`
+          : (isRebuilding
+            ? `Cache was recently cleared and is warming back up over the next ${ttlMm}:${ttlSs}.`
+            : 'Cache is cold or expired — the next turn will pay full input rate once and re-warm the prefix.')));
     }
     const tsCacheBulletFill = document.getElementById('tsCacheBulletFill');
     if (tsCacheBulletFill) {
@@ -11416,13 +11840,29 @@
         const overTok = Math.max(0, total - safeCap);
         tsRunwayMeta.dataset.tone = 'danger';
         tsRunwayMeta.textContent = overTok > 0 ? `+${formatTokens(overTok)} over safe` : 'At safe limit';
+        tsRunwayMeta.title = 'Working memory has passed the safe ceiling. Run /compact before continuing so early instructions stay in view.';
       } else if (burnRate > 0 && turnsLeft < 99) {
         tsRunwayMeta.dataset.tone = turnsLeft <= 4 ? 'danger' : (turnsLeft <= 8 ? 'warn' : 'nominal');
         tsRunwayMeta.textContent = `~${turnsLeft} turn${turnsLeft === 1 ? '' : 's'} \u00B7 +${formatTokens(burnRate)}/t`;
+        tsRunwayMeta.title = `At ~${formatTokens(burnRate)} added per turn, you have roughly ${turnsLeft} turn${turnsLeft === 1 ? '' : 's'} left before reaching the safe limit.`;
       } else {
         tsRunwayMeta.dataset.tone = isWarn ? 'warn' : 'nominal';
         tsRunwayMeta.textContent = `${formatTokens(remainingSafe)} headroom`;
+        tsRunwayMeta.title = `${formatTokens(remainingSafe)} of safe working room remaining below the ${formatTokens(safeCap)} ceiling.`;
       }
+    }
+
+    // Friendly narrative summary in Card 1 (CONTEXT)
+    if (isCrisis) {
+      setTxt('tsContextSummary', `Context is at ${usedPct}% of the safe limit (${formatTokens(total)} used). Early project rules risk getting pushed out unless you clean up ${formatTokens(staleT)} of older clutter.`);
+    } else if (isWarn && staleT >= 35000) {
+      setTxt('tsContextSummary', `Older turns and repeat file reads have grown to ${formatTokens(staleT)}. Clearing them with /compact frees space while keeping your project rules and active edits intact.`);
+    } else if (isWarm) {
+      setTxt('tsContextSummary', `Prompt cache is warm at a ${hitPct}% hit rate for ${ttlMm}:${ttlSs}, with ${formatTokens(remainingSafe)} of comfortable room below your safe limit.`);
+    } else {
+      setTxt('tsContextSummary', total > 0
+        ? `Working memory uses ${formatTokens(total)} out of ${formatTokens(safeCap)} safe capacity, leaving ${formatTokens(remainingSafe)} of clean room before slowdowns or rule fade.`
+        : `Ready to track live context usage against your ${formatTokens(safeCap)} safe limit as soon as your session grows.`);
     }
 
     setTxt('tsUsedLabel', formatTokens(total));
@@ -11484,6 +11924,77 @@
       tsSafeTickLabel.textContent = `${formatTokens(safeCap)} safe limit`;
     }
 
+    // Reversed Vertical "Glass of Water" Bar Chart (Bottom = Rules & tools -> Middle = Older & clutter -> Top = New & active)
+    {
+      const vessel = document.getElementById('tsGlassVessel');
+      const fill = document.getElementById('tsGlassFill');
+      const segNew = document.getElementById('tsGlassSegNew');
+      const segOld = document.getElementById('tsGlassSegOld');
+      const segPin = document.getElementById('tsGlassSegPinned');
+      const tagNew = document.getElementById('tsGlassTagNew');
+      const tagOld = document.getElementById('tsGlassTagOld');
+      const tagPin = document.getElementById('tsGlassTagPinned');
+      const headroomEl = document.getElementById('tsGlassHeadroom');
+      const safeLine = document.getElementById('tsGlassSafeLine');
+      const captionEl = document.getElementById('tsGlassCaption');
+      const glassState = isCrisis ? 'crisis' : (isNearOrPastSafe || isWarn ? 'warn' : 'nominal');
+
+      const vesselCeiling = Math.max(safeCap, total, 1);
+      const sumLayers = newActiveT + staleT + pinnedT;
+      const denom = Math.max(1, sumLayers);
+      const fillHeightPct = total > 0 ? Math.min(100, Math.max(5, (total / vesselCeiling) * 100)) : 0;
+      const newSegPct = sumLayers > 0 ? (newActiveT / denom) * 100 : 0;
+      const oldSegPct = sumLayers > 0 ? (staleT / denom) * 100 : 0;
+      const pinSegPct = sumLayers > 0 ? Math.max(0, 100 - newSegPct - oldSegPct) : 0;
+
+      if (vessel) {
+        vessel.dataset.state = glassState;
+        vessel.title = `Context glass (${formatTokens(total)} / ${formatTokens(safeCap)} safe): bottom = Rules & tools (${formatTokens(pinnedT)}), middle = Older & reclaimable (${formatTokens(staleT)}), top = New & active work (${formatTokens(newActiveT)}).`;
+      }
+      if (fill) {
+        fill.style.height = `${fillHeightPct.toFixed(1)}%`;
+        fill.dataset.empty = total <= 0 ? 'true' : 'false';
+      }
+      if (segNew) {
+        segNew.style.height = `${newSegPct.toFixed(1)}%`;
+        segNew.title = `New & active work (top of glass): ${formatTokens(newActiveT)} tokens of recent replies and active files.`;
+      }
+      if (segOld) {
+        segOld.style.height = `${oldSegPct.toFixed(1)}%`;
+        segOld.dataset.clutterTone = isWarm ? 'cached' : 'stale';
+        segOld.title = isWarm && staleT > 0
+          ? `Older & reclaimable history (middle layer): ${formatTokens(staleT)} tokens — currently discounted in warm cache until the timer ends.`
+          : `Older & reclaimable clutter (middle layer): ${formatTokens(staleT)} tokens that /compact can remove safely.`;
+      }
+      if (segPin) {
+        segPin.style.height = `${pinSegPct.toFixed(1)}%`;
+        segPin.title = `Rules & tools (base of glass): ${formatTokens(pinnedT)} tokens of AGENTS.md / CLAUDE.md instructions, learned rules, and connected tool definitions.`;
+      }
+      const vesselPx = 116;
+      const pxHeight = (segPct) => (fillHeightPct / 100) * (segPct / 100) * vesselPx;
+      if (tagNew) tagNew.hidden = pxHeight(newSegPct) < 15;
+      if (tagOld) tagOld.hidden = pxHeight(oldSegPct) < 15;
+      if (tagPin) tagPin.hidden = pxHeight(pinSegPct) < 15;
+
+      if (safeLine) {
+        if (total > safeCap) {
+          safeLine.hidden = false;
+          safeLine.style.bottom = `${Math.max(5, Math.min(95, (safeCap / vesselCeiling) * 100)).toFixed(1)}%`;
+        } else {
+          safeLine.hidden = true;
+        }
+      }
+      if (headroomEl) {
+        const freePct = Math.max(0, 100 - usedPct);
+        headroomEl.textContent = `${freePct}% free`;
+        headroomEl.hidden = fillHeightPct > 78 || total > safeCap;
+      }
+      if (captionEl) {
+        captionEl.dataset.state = glassState;
+        captionEl.textContent = total > safeCap ? 'Over safe limit' : `${usedPct}% of safe`;
+      }
+    }
+
     // Progressive Disclosure Drawer 1: "What /compact clears" (auto-hidden at <100 tok)
     const tsWhyClears = document.getElementById('tsWhyClears');
     const tsWhyList = document.getElementById('tsWhyList');
@@ -11491,7 +12002,7 @@
     if (tsWhyKeepNote) {
       tsWhyKeepNote.innerHTML = isClaudeSurface
         ? 'Keeps <code>CLAUDE.md</code>, <code>HANDOFF_LATEST.md</code> &amp; active code.'
-        : 'Keeps rules, <code>task.md</code>, plan &amp; active code.';
+        : 'Keeps project rules, <code>task.md</code>, your plan &amp; active code.';
     }
     if (tsWhyClears && tsWhyList) {
       const dupFilesN = Number(bs.duplicateReads?.fileCount ?? (Array.isArray(bs.duplicateReads) ? bs.duplicateReads.length : 0)) || 0;
@@ -11501,11 +12012,11 @@
       const knownWaste = dupWaste + histWaste + errWaste + bleedWaste;
       const otherWaste = staleT > knownWaste + 99 ? (staleT - knownWaste) : 0;
       const whyRows = [
-        { label: 'Repeated file reads', sub: dupFilesN ? plural(dupFilesN, 'file', 'files') : '', tok: dupWaste },
-        { label: 'Earlier chat history', sub: histTurnsN ? plural(histTurnsN, 'old turn', 'old turns') : '', tok: histWaste },
-        { label: isStuckErrorLoop ? 'Error logs & loop traces' : 'Fixed error logs', sub: errN ? plural(errN, isStuckErrorLoop ? 'error' : 'old error', isStuckErrorLoop ? 'errors' : 'old errors') : '', tok: errWaste },
-        { label: 'Cross-project memory bleed', sub: 'foreign KIs', tok: bleedWaste },
-        { label: 'Other stale tool outputs', sub: '', tok: otherWaste }
+        { label: 'Repeated file reads', sub: dupFilesN ? plural(dupFilesN, 'file', 'files') : '', tok: dupWaste, tip: 'Full copies of files read more than once after edits.' },
+        { label: 'Earlier chat history', sub: histTurnsN ? plural(histTurnsN, 'old turn', 'old turns') : '', tok: histWaste, tip: 'Older back-and-forth turns that /compact summarizes cleanly.' },
+        { label: isStuckErrorLoop ? 'Error logs & loop traces' : 'Fixed error logs', sub: errN ? plural(errN, isStuckErrorLoop ? 'error' : 'old error', isStuckErrorLoop ? 'errors' : 'old errors') : '', tok: errWaste, tip: 'Past command failures and tracebacks that are already resolved or repeating.' },
+        { label: 'Cross-project memory bleed', sub: 'foreign KIs', tok: bleedWaste, tip: 'Background memory notes pulled in from unrelated repositories.' },
+        { label: 'Other stale tool outputs', sub: '', tok: otherWaste, tip: 'Earlier search results or tool outputs no longer needed in full.' }
       ].filter(r => r.tok >= 100).sort((a, b) => b.tok - a.tok);
       if (whyRows.length === 0) {
         tsWhyClears.hidden = true;
@@ -11513,25 +12024,46 @@
       } else {
         tsWhyClears.hidden = false;
         tsWhyList.innerHTML = whyRows.map(r =>
-          `<li class="ts-why-row"><span>${escAttr(r.label)}${r.sub ? ` <span class="ts-why-sub">(${escAttr(r.sub)})</span>` : ''}</span>` +
+          `<li class="ts-why-row" title="${escAttr(r.tip)}"><span>${escAttr(r.label)}${r.sub ? ` <span class="ts-why-sub">(${escAttr(r.sub)})</span>` : ''}</span>` +
           `<span class="ts-why-tok">${escAttr(formatTokens(r.tok))}</span></li>`
         ).join('');
         setTxt('tsWhyTotal', formatTokens(staleT));
       }
     }
 
+    setTxt('tsValNew', formatTokens(newActiveT));
+    setTxt('tsValPinned', formatTokens(pinnedT));
     setTxt('tsValSignal', formatTokens(usefulT));
     setTxt('tsValClutter', formatTokens(staleT));
     setTxt('tsClutterKind', isWarm && staleT > 0 ? 'Warm Reclaimable' : 'Reclaimable');
+    setTip('tsRowNew', `New & active: ${formatTokens(newActiveT)} tokens of your current prompts and open source files (top of the glass). Total useful signal = ${formatTokens(usefulT)}.`);
+    setTip('tsRowOld', staleT > 0
+      ? `Reclaimable clutter: ${formatTokens(staleT)} tokens of older turns, repeat file reads, or resolved errors that /compact can trim without losing active code.`
+      : 'No older clutter accumulated yet — working memory contains only startup rules and fresh work.');
+    setTip('tsRowPinned', `Rules & tools: ${formatTokens(pinnedT)} tokens of startup instructions and connected tool definitions anchored at the base of context.`);
     const tsAnchorHealthEl = document.getElementById('tsAnchorHealth');
     if (tsAnchorHealthEl) {
       tsAnchorHealthEl.dataset.risk = isCrisis ? 'true' : 'false';
       tsAnchorHealthEl.textContent = isCrisis ? 'Oldest rules at risk' : 'Pinned rules safe';
+      tsAnchorHealthEl.title = isCrisis
+        ? 'Memory has crossed the safe ceiling — startup rules risk getting truncated or ignored unless you run /compact.'
+        : 'Startup project rules and task constraints sit comfortably inside the safe attention window.';
     }
 
     // Zone B: Direct Guidance (DO / AVOID / MODEL & EFFORT)
+    const tsGuidanceSection = document.getElementById('tsGuidanceSection');
     const tsGuidanceBadge = document.getElementById('tsGuidanceBadge');
     const tsDoRow = document.getElementById('tsDoRow');
+    const doTagEl = tsDoRow ? tsDoRow.querySelector('.ts-tag') : null;
+    const avoidRowEl = document.getElementById('tsAvoidRow');
+    const avoidTagEl = avoidRowEl ? avoidRowEl.querySelector('.ts-tag') : null;
+    if (doTagEl) doTagEl.textContent = 'DO';
+    if (avoidRowEl) {
+      avoidRowEl.hidden = false;
+      avoidRowEl.dataset.tone = 'avoid';
+    }
+    if (avoidTagEl) avoidTagEl.textContent = 'AVOID';
+
     const breakerSrc = raw.coachState?.detectors?.tripped || raw.circuitBreakerTripped ||
       (Array.isArray(raw.coachState?.circuitBreakerAlerts) ? raw.coachState.circuitBreakerAlerts[0] : null);
     const simpleBreaker = (breakerSrc && typeof breakerSrc === 'object')
@@ -11539,35 +12071,42 @@
       : null;
     const shardedSpecCount = Number(raw.shardedSpecCount || 0);
     const rslClashCount = Number(raw.rsl?.clashCount || 0);
+    const scopeCollisions = Array.isArray(raw.swarmTopology?.scopeLocks?.collisions)
+      ? raw.swarmTopology.scopeLocks.collisions
+      : (Array.isArray(raw.coachState?.scopeCollision) ? raw.coachState.scopeCollision : []);
 
     if (isCrisis) {
       if (tsDoRow) tsDoRow.dataset.tone = 'danger';
-      setTxt('tsDoText', `Run /compact now or checkpoint to task.md \u2014 context is ${formatTokens(Math.max(0, total - safeCap))} past safe limit.`);
-      setTxt('tsAvoidText', `Avoid full-file reads or verbose test loops until ${formatTokens(staleT)} clutter is purged.`);
+      setTxt('tsDoText', `Run /compact now or save a checkpoint to task.md — working memory is ${formatTokens(Math.max(0, total - safeCap))} past the safe limit, so early rules can start fading.`);
+      setTxt('tsAvoidText', `Avoid opening whole files or running verbose test suites until that ${formatTokens(staleT)} of clutter is cleared.`);
     } else if (isStuckErrorLoop) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `Pause blind retries (${errLoopCount}\u00D7 error loop) \u2014 inspect root cause${staleT >= 5000 ? ` or /compact ${formatTokens(staleT)} of error noise` : ''}.`);
-      setTxt('tsAvoidText', 'Avoid repeating the same failing command; upshift model/effort or isolate a minimal repro.');
+      setTxt('tsDoText', `Pause blind retries (${errLoopCount}\u00D7 error loop) — the same failure is piling up in chat; inspect the root cause${staleT >= 5000 ? ` or /compact ${formatTokens(staleT)} of error noise` : ''}.`);
+      setTxt('tsAvoidText', 'Avoid running the exact same failing command again; isolate a small repro or step up to a stronger model/effort.');
     } else if (simpleBreaker) {
       if (tsDoRow) tsDoRow.dataset.tone = 'danger';
-      setTxt('tsDoText', `Guard tripped (${simpleBreaker.id}): ${simpleBreaker.msg} \u2014 review the agent's last changes before continuing.`);
-      setTxt('tsAvoidText', 'Avoid approving further edits until the flagged change is reviewed or reverted.');
+      setTxt('tsDoText', `Guard tripped (${simpleBreaker.id}): ${simpleBreaker.msg} — pause and review the AI's last edit before approving further work.`);
+      setTxt('tsAvoidText', 'Avoid accepting follow-up changes blindly until the flagged safeguard issue is reviewed or reverted.');
+    } else if (scopeCollisions.length > 0) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'danger';
+      setTxt('tsDoText', `Subagent file overlap (${scopeCollisions.length} collision${scopeCollisions.length === 1 ? '' : 's'}) — assign separate files or wait for the other agent to finish before editing.`);
+      setTxt('tsAvoidText', 'Avoid running parallel agents on the same file path without separate worktrees or scope locks.');
     } else if (isWarm && staleT > 10000) {
       if (tsDoRow) tsDoRow.dataset.tone = 'do';
-      setTxt('tsDoText', `Keep prompting while ${hitPct}% cache discount is warm (${formatTokens(remainingSafe)} safe headroom left).`);
-      setTxt('tsAvoidText', `Avoid /compact for ${ttlMm}:${ttlSs} so you do not invalidate the warm prefix cache.`);
+      setTxt('tsDoText', `Keep prompting cleanly while your ${hitPct}% cache discount is warm — you still have ${formatTokens(remainingSafe)} of safe headroom left.`);
+      setTxt('tsAvoidText', `Avoid running /compact for the next ${ttlMm}:${ttlSs} unless needed, so you keep reusing cached context at a discount.`);
     } else if (total >= safeCap * 0.82) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `Checkpoint to task.md or run /compact soon \u2014 only ${formatTokens(remainingSafe)} left below ${formatTokens(safeCap)} safe limit.`);
-      setTxt('tsAvoidText', 'Avoid multi-file reads or verbose test loops until context is compacted.');
+      setTxt('tsDoText', `Save progress to task.md or run /compact soon — only ${formatTokens(remainingSafe)} of room remains below the ${formatTokens(safeCap)} safe limit.`);
+      setTxt('tsAvoidText', 'Avoid loading more large files or unfiltered build logs before trimming older context.');
     } else if (shardedSpecCount >= 4) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `Consolidate ${shardedSpecCount} scattered requirement changes \u2014 run ctxtop handoff --consolidate and restart from one spec.`);
-      setTxt('tsAvoidText', 'Avoid drip-feeding new constraints mid-task; state them together in one prompt or spec file.');
+      setTxt('tsDoText', `Consolidate ${shardedSpecCount} scattered requirement changes — run ctxtop handoff --consolidate and continue from one clean spec so nothing gets missed.`);
+      setTxt('tsAvoidText', 'Avoid drip-feeding new requirements across many chat turns; combine them into one clear plan.');
     } else if (isHighEffort && staleT >= 30000) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `Run /compact to clear ${formatTokens(staleT)} clutter \u2014 ${activeEffort} effort re-processes stale noise every turn.`);
-      setTxt('tsAvoidText', 'Avoid stacking full-file reads or verbose logs while High effort is active.');
+      setTxt('tsDoText', `Run /compact to clear ${formatTokens(staleT)} clutter \u2014 ${activeEffort} effort re-processes stale noise every turn, slowing responses and burning extra quota.`);
+      setTxt('tsAvoidText', 'Avoid keeping full-file reads or long terminal logs in memory while High effort is enabled.');
     } else if (staleT >= 35000) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
       const dominantCause = dupWaste >= histWaste && dupWaste >= bleedWaste && dupWaste >= errWaste && dupWaste > 0
@@ -11577,37 +12116,70 @@
           : bleedWaste >= errWaste && bleedWaste > 0
             ? 'cross-project bleed'
             : errWaste > 0 ? 'error logs' : 'stale outputs';
-      setTxt('tsDoText', `Run /compact when ready to reclaim ${formatTokens(staleT)} clutter (${dominantCause}).`);
+      setTxt('tsDoText', `Run /compact when you reach a natural stopping point to reclaim ${formatTokens(staleT)} clutter (${dominantCause}) and keep future turns fast.`);
       setTxt('tsAvoidText', dominantCause === 'repeated file reads'
-        ? 'Avoid re-reading full files; use StartLine/EndLine bounds or delegate exploration to a subagent.'
+        ? 'Avoid re-reading whole files after small edits; pass StartLine/EndLine bounds or let a subagent inspect long files.'
         : dominantCause === 'cross-project bleed'
-          ? 'Avoid relying on unverified cross-project Knowledge Items; pin only current-workspace facts.'
-          : 'Avoid letting stale turns accumulate past ~35k without compacting.');
+          ? 'Avoid mixing background memory notes from other projects into this task; keep only current-repo context.'
+          : 'Avoid letting old back-and-forth turns pile up past ~35k when a task finishes.');
     } else if (topBlowup && Number(topBlowup.tokens) >= 12000) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
       const rawBlowupDetail = String(topBlowup.payload?.detail || topBlowup.target || 'tool output');
       const blowupShort = topBlowup.payload?.kind === 'file'
         ? rawBlowupDetail.replace(/\\/g, '/').split('/').pop()
         : (rawBlowupDetail.length > 36 ? rawBlowupDetail.slice(0, 33) + '...' : rawBlowupDetail);
-      setTxt('tsDoText', `Single-turn spike: ${formatTokens(topBlowup.tokens)} from ${blowupShort} (Turn #${topBlowup.userTurnNumber || topBlowup.stepIndex}) \u2014 filter future output.`);
-      setTxt('tsAvoidText', 'Avoid unfiltered verbose test/build dumps; pipe output or delegate to a scout subagent.');
+      setTxt('tsDoText', `Single-turn spike: ${formatTokens(topBlowup.tokens)} from ${blowupShort} (Turn #${topBlowup.userTurnNumber || topBlowup.stepIndex}) — filter or scope future output so it does not replay.`);
+      setTxt('tsAvoidText', 'Avoid pasting or printing full un-filtered test/build dumps into chat; inspect targeted slices instead.');
     } else if ((idleEagerMcps.length > 0 && idleEagerTokens >= 5000) || baselineOverBudget) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
       setTxt('tsDoText', idleEagerMcps.length > 0
-        ? `Switch ${idleEagerMcps.length} idle eager MCP${idleEagerMcps.length === 1 ? '' : 's'} to lazy loading to save ~${formatTokens(idleEagerTokens)} at Turn 0.`
-        : `Trim Turn-0 customizations (${formatTokens(baselineEst)} vs 20.0k budget) to free permanent headroom.`);
-      setTxt('tsAvoidText', 'Avoid eager-loading unused MCP schemas or >200-line global rule files.');
+        ? `Switch ${idleEagerMcps.length} idle eager MCP${idleEagerMcps.length === 1 ? '' : 's'} to lazy loading to save ~${formatTokens(idleEagerTokens)} at Turn 0 before chatting even starts.`
+        : `Trim Turn-0 startup rules and instructions (${formatTokens(baselineEst)} vs 20.0k budget) so more room stays open for code.`);
+      setTxt('tsAvoidText', 'Avoid loading unused MCP tool schemas or oversized global rule files into every new session.');
     } else if (rslClashCount > 0) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `${rslClashCount} conflicting rule${rslClashCount === 1 ? '' : 's'} detected \u2014 run ctxtop rsl status and keep one directive per conflict.`);
-      setTxt('tsAvoidText', 'Avoid adding rules that contradict existing AGENTS.md or .agents/rules directives.');
+      setTxt('tsDoText', `${rslClashCount} conflicting rule${rslClashCount === 1 ? '' : 's'} detected — run ctxtop rsl status to review the overlap and keep one clear instruction per topic.`);
+      setTxt('tsAvoidText', 'Avoid adding contradictory rules across AGENTS.md and learned rule files.');
+    } else if (raw.turn1ContractSteered) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'do';
+      setTxt('tsDoText', 'List target file paths and a verification command up front — Turn-1 contract guidance noticed an open-ended multi-file prompt.');
+      setTxt('tsAvoidText', 'Avoid starting broad multi-file changes without naming which files can be edited and how to test them.');
     } else {
       if (tsDoRow) tsDoRow.dataset.tone = 'do';
-      setTxt('tsDoText', `Safe to run multi-file edits or implementation tasks (${formatTokens(remainingSafe)} left below ${formatTokens(safeCap)} safe limit).`);
-      setTxt('tsAvoidText', 'Avoid reading large files without line bounds (StartLine/EndLine) to keep context lean.');
+      setTxt('tsDoText', `Safe to run multi-file edits or implementation tasks — you have ${formatTokens(remainingSafe)} of clean room left below your ${formatTokens(safeCap)} safe limit.`);
+      setTxt('tsAvoidText', 'Avoid reading large files without line bounds (StartLine/EndLine) so unused sections stay out of working memory.');
     }
 
-    // Zone B: separate MODEL and EFFORT containers (model-family aware)
+    if (effectiveMode === 'off' && !isCrisis) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'do';
+      if (doTagEl) doTagEl.textContent = 'WATCH';
+      setTxt('tsDoText', `Watch-only mode \u2014 tracking ${formatTokens(total)} / ${formatTokens(safeCap)} safe memory without blocking commands or injecting advice.`);
+      if (avoidRowEl) avoidRowEl.hidden = true;
+    } else if (effectiveMode === 'autopilot') {
+      const needsHumanAction = isCrisis || isStuckErrorLoop || Boolean(simpleBreaker) ||
+        scopeCollisions.length > 0 || shardedSpecCount >= 4 || rslClashCount > 0 ||
+        total >= safeCap * 0.82 || staleT >= 30000;
+      if (!needsHumanAction) {
+        if (tsDoRow) tsDoRow.dataset.tone = 'do';
+        if (doTagEl) doTagEl.textContent = 'AUTO';
+        setTxt('tsDoText', isWarm
+          ? `Hands-free protection active \u2014 keeping your ${hitPct}% warm cache locked for ${ttlMm}:${ttlSs} (${formatTokens(remainingSafe)} safe room left).`
+          : `Hands-free protection active \u2014 Highbeam is enforcing safety guards and turn-end routing automatically (${formatTokens(remainingSafe)} safe room left).`);
+        if (avoidRowEl) {
+          avoidRowEl.hidden = false;
+          avoidRowEl.dataset.tone = 'handled';
+        }
+        if (avoidTagEl) avoidTagEl.textContent = 'HANDLED';
+        setTxt('tsAvoidText', 'Large unsliced reads, warm-cache rule edits, and costly mid-turn switches are guarded automatically for you.');
+      }
+    }
+    if (tsGuidanceSection) {
+      tsGuidanceSection.dataset.crisis = isCrisis ? 'true' : 'false';
+      const doTone = tsDoRow?.dataset.tone || 'do';
+      tsGuidanceSection.dataset.tone = doTone === 'danger' ? 'danger' : (doTone === 'avoid' ? 'warn' : 'nominal');
+    }
+
+    // Card 2 Sub-Drawer: separate MODEL and EFFORT switching explanations (model-family aware)
     {
       const ttlTxt = `${ttlMm}:${ttlSs}`;
       const otherFamily = modelProvider === 'Claude' ? 'Gemini' : (modelProvider === 'Gemini' ? 'Claude' : 'another family');
@@ -11616,9 +12188,9 @@
       const rewriteUsd = Number(cg.coldRewriteCostUsd) || 0;
       const quotaUnits = Number(cg.quotaPenaltyUnits) || 0;
       const usdTxt = rewriteUsd >= 0.01 ? `$${rewriteUsd.toFixed(2)}` : '<$0.01';
-      const costTxt = rewriteUsd > 0 ? ` \u2248 ${usdTxt}${quotaUnits > 0 ? ` \u00B7 ${formatTokens(quotaUnits)} quota units` : ''}` : '';
-      const windowTxt = `now ${formatTokens(maxCap)} window / ${formatTokens(safeCap)} safe`;
-      const crossFamTxt = `To ${otherFamily}: cache rebuilds, tokens are re-counted, window & safe limit change (${windowTxt}).`;
+      const costTxt = rewriteUsd > 0 ? ` (\u2248 ${usdTxt}${quotaUnits > 0 ? ` \u00B7 ${formatTokens(quotaUnits)} quota units` : ''})` : '';
+      const windowTxt = `switches to ${formatTokens(maxCap)} window / ${formatTokens(safeCap)} safe`;
+      const crossFamTxt = `To ${otherFamily}: prompt cache rebuilds from scratch, tokens are re-counted, and ${windowTxt}.`;
       // Claude (and unknown providers, conservatively): effort/thinking changes invalidate cached chat history.
       // Gemini: thinking level is not part of the cached prompt prefix.
       const effortBustsCache = modelProvider !== 'Gemini';
@@ -11628,38 +12200,40 @@
 
       if (isCrisis) {
         m = { tone: 'danger', verdict: 'LOCK', badge: 'Hold',
-          same: `Run /compact first \u2014 any switch re-sends ${formatTokens(total)} uncached.`,
-          cross: `To ${otherFamily}: same rebuild, plus tokens re-counted against a new window.` };
-        e = { tone: 'danger', verdict: 'LOWER', badge: 'Lower', text: 'Drop to Low/Med to stop thinking-token overflow.' };
+          same: `Run /compact first — switching models now would re-send all ${formatTokens(total)} tokens without a cache discount.`,
+          cross: `To ${otherFamily}: full rebuild plus tokens re-counted against the new window.` };
+        e = { tone: 'danger', verdict: 'LOWER', badge: 'Lower', text: 'Switch effort down to Low or Medium so long reasoning steps do not overflow memory.' };
       } else if (isStuckErrorLoop) {
         m = { tone: 'avoid', verdict: 'UPSHIFT OK', badge: 'Upshift OK',
-          same: `${errLoopCount}\u00D7 error loop \u2014 a stronger ${modelProvider} model can break it${costTxt}.`,
-          cross: `To ${otherFamily}: fresh perspective; cache rebuilds and tokens are re-counted.` };
-        e = { tone: 'avoid', verdict: 'RAISE OK', badge: 'High OK', text: 'Raise to High to break the error loop.' };
+          same: `${errLoopCount}\u00D7 error loop — moving up to a stronger ${modelProvider} model can break the deadlock${costTxt}.`,
+          cross: `To ${otherFamily}: brings a fresh perspective, though the prompt cache rebuilds.` };
+        e = { tone: 'avoid', verdict: 'RAISE OK', badge: 'High OK', text: 'Raise effort to High to help reason through the repeating failure.' };
       } else if (isWarm) {
         m = { tone: 'avoid', verdict: `HOLD ${ttlTxt}`, badge: `Hold ${ttlTxt}`,
-          same: `Within ${modelProvider} (${familyHint}): full cache rebuild${costTxt}.`, cross: crossFamTxt };
+          same: `Within ${modelProvider} (${familyHint}): switching now forces a full cache rebuild${costTxt}.`, cross: crossFamTxt };
         e = effortBustsCache
-          ? { tone: 'avoid', verdict: `HOLD ${ttlTxt}`, badge: `Hold ${ttlTxt}`, text: 'Changing re-bills cached chat history; tools & system prompt stay cached.' }
-          : { tone: 'do', verdict: 'OK', badge: 'OK', text: 'Thinking level is not part of the cached prompt \u2014 cache is kept.' };
+          ? { tone: 'avoid', verdict: `HOLD ${ttlTxt}`, badge: `Hold ${ttlTxt}`, text: 'Changing effort right now re-bills cached chat history; startup tools and system prompt stay cached.' }
+          : { tone: 'do', verdict: 'OK', badge: 'OK', text: 'Thinking level stays outside this model\'s cached prompt — your warm cache stays intact.' };
       } else if (isRebuilding) {
         m = { tone: 'avoid', verdict: 'STAY', badge: 'Stay',
-          same: `Cache is likely rebuilding on ${activeModel} \u2014 staying reuses it next turn.`, cross: crossFamTxt };
+          same: `Cache is warming up on ${activeModel} — staying on it reuses the cache next turn.`, cross: crossFamTxt };
         e = effortBustsCache
-          ? { tone: 'avoid', verdict: 'STAY', badge: 'Stay', text: 'Changing now discards the history cache being rebuilt.' }
-          : { tone: 'do', verdict: 'OK', badge: 'OK', text: 'Thinking level is not part of the cached prompt \u2014 cache is kept.' };
+          ? { tone: 'avoid', verdict: 'STAY', badge: 'Stay', text: 'Changing effort now resets the chat cache that just started warming.' }
+          : { tone: 'do', verdict: 'OK', badge: 'OK', text: 'Thinking level stays outside this model\'s cached prompt — your cache stays intact.' };
       } else {
         m = { tone: 'do', verdict: 'OK', badge: 'OK',
-          same: `Cache is cold \u2014 no rewrite penalty within ${modelProvider} (${familyHint}).`,
-          cross: `To ${otherFamily}: tokens are re-counted, window & safe limit change (${windowTxt}).` };
+          same: `Cache is cold — switching within ${modelProvider} (${familyHint}) has no extra rewrite penalty.`,
+          cross: `To ${otherFamily}: tokens are re-counted and context ${windowTxt}.` };
         e = { tone: 'do', verdict: 'OK', badge: 'OK',
-          text: isHighEffort && usedPct >= 45 ? 'Consider Low/Med for routine edits.' : 'Match tier to task: Low/Med for edits, High for specs.' };
+          text: isHighEffort && usedPct >= 45
+            ? 'Consider Low or Medium effort for routine edits now that memory is filling up.'
+            : 'Match effort to task complexity: Low/Medium for routine edits, High for tricky specs or debugging.' };
       }
 
       const tsModelCard = document.getElementById('tsModelCard');
       const tsEffortCard = document.getElementById('tsEffortCard');
-      if (tsModelCard) { tsModelCard.dataset.tone = m.tone; tsModelCard.title = `${activeModel} \u00B7 ${modelProvider} family`; }
-      if (tsEffortCard) { tsEffortCard.dataset.tone = e.tone; tsEffortCard.title = `${activeEffort} effort on ${activeModel}`; }
+      if (tsModelCard) { tsModelCard.dataset.tone = m.tone; tsModelCard.title = `Active model: ${activeModel} (${modelProvider} family). Verdict: ${m.verdict}.`; }
+      if (tsEffortCard) { tsEffortCard.dataset.tone = e.tone; tsEffortCard.title = `Active reasoning effort: ${activeEffort} on ${activeModel}. Verdict: ${e.verdict}.`; }
       setTxt('tsModelVerdict', m.verdict);
       setTxt('tsModelName', activeModel);
       setTxt('tsModelSameFam', m.same);
@@ -11696,10 +12270,25 @@
         tsSwitchDetailsDrawer.open = true;
       }
       if (tsGuidanceBadge) {
-        tsGuidanceBadge.dataset.tone = (m.tone === 'danger' || e.tone === 'danger')
-          ? 'danger'
-          : ((m.tone === 'do' && e.tone === 'do') ? 'muted' : 'warn');
-        tsGuidanceBadge.textContent = `Model: ${m.badge} \u00B7 Effort: ${e.badge}`;
+        if (effectiveMode === 'off') {
+          tsGuidanceBadge.dataset.tone = isCrisis ? 'danger' : 'muted';
+          tsGuidanceBadge.textContent = 'Watch only';
+          tsGuidanceBadge.title = 'Mode is Off — Highbeam is passively measuring memory and cache timers without stepping in.';
+        } else if (effectiveMode === 'autopilot' && !isCrisis) {
+          tsGuidanceBadge.dataset.tone = 'signal';
+          tsGuidanceBadge.textContent = isWarm ? `Auto-hold ${ttlTxt}` : 'Auto-routed at turn end';
+          tsGuidanceBadge.title = isWarm
+            ? 'Auto mode protects your warm prompt cache automatically and waits until turn end or cache expiry before switching.'
+            : 'Auto mode automatically selects and shifts model/effort at turn boundaries.';
+        } else {
+          tsGuidanceBadge.dataset.tone = (m.tone === 'danger' || e.tone === 'danger')
+            ? 'danger'
+            : ((m.tone === 'do' && e.tone === 'do') ? 'muted' : 'warn');
+          tsGuidanceBadge.textContent = `Model: ${m.badge} \u00B7 Effort: ${e.badge}`;
+          tsGuidanceBadge.title = isWarm
+            ? `Cache is warm (${ttlTxt} left) — avoid switching models unnecessarily so you keep the cached rate.`
+            : 'Cache is cold — changing models or effort right now triggers no warm-cache penalty.';
+        }
       }
     }
 
@@ -11725,6 +12314,10 @@
       0
     );
     const queuedShield = Number(raw.prefixShield?.queuedCount ?? raw.coachState?.prefixCacheShield?.queuedCount ?? raw.coachState?.prefixShield?.queuedCount ?? 0);
+    const shieldEnabled = Boolean(raw.shield?.enabled ?? raw.coachState?.shield?.enabled);
+    const shieldMaxLines = Number(raw.shield?.maxUnslicedLines ?? raw.coachState?.shield?.maxUnslicedLines ?? 1200);
+    const rslActiveCount = Number(raw.rsl?.totalActive || 0);
+    const rslHooksCount = Number(raw.rsl?.promotedHooks || 0);
 
     if (tsLedgerList) {
       const rows = [];
@@ -11734,7 +12327,8 @@
         rows.push({
           age: ev.turn ? `T${ev.turn}` : (ev.ageLabel || ev.turnLabel || 'live'),
           action: `${ev.label || ev.title || ev.summary || ev.detail || 'Auto-guard intervention'}${repeatSuffix}`,
-          saved: tokSaved > 0 ? `+${formatTokens(tokSaved)}` : 'guard'
+          saved: tokSaved > 0 ? `+${formatTokens(tokSaved)}` : 'guard',
+          tip: ev.detail || ev.summary || 'Automatic optimization applied locally before tokens reached billing.'
         });
       });
 
@@ -11742,71 +12336,125 @@
         if (rows.length < 4 && savCli > 0) {
           rows.push({
             age: 'live',
-            action: 'Compressed verbose terminal & test output (FTS5)',
-            saved: `+${formatTokens(savCli)}`
+            action: 'Trimmed noisy terminal & test output using local FTS5 indexing so full logs stay out of chat',
+            saved: `+${formatTokens(savCli)}`,
+            tip: 'Saves raw test/build output to local disk and injects only the matching error lines.'
           });
         }
         if (rows.length < 4 && savCache > 0) {
           rows.push({
             age: 'live',
-            action: 'Served system & history prefix from warm KV cache',
-            saved: `+${formatTokens(savCache)}`
+            action: 'Reused startup rules & earlier turns directly from warm prompt cache',
+            saved: `+${formatTokens(savCache)}`,
+            tip: 'Warm cache hits avoid re-paying full input rates on unchanged prefix tokens.'
           });
         }
         if (rows.length < 4 && savSubagent > 0) {
           rows.push({
             age: 'live',
-            action: 'Isolated heavy search in read-only subagent',
-            saved: `+${formatTokens(savSubagent)}`
+            action: 'Ran heavy repository searches inside a separate subagent so results did not flood main memory',
+            saved: `+${formatTokens(savSubagent)}`,
+            tip: 'Subagent isolation keeps exploratory file reads out of your main coding session.'
           });
         }
         if (rows.length < 4 && savGuards > 0) {
           rows.push({
             age: 'live',
-            action: 'Deduplicated repeated file reads & trimmed stale logs',
-            saved: `+${formatTokens(savGuards)}`
+            action: 'Skipped repeat full-file reads and cleared stale tool logs automatically',
+            saved: `+${formatTokens(savGuards)}`,
+            tip: 'Replaces unmodified or post-edit repeat file reads with compact diffs and outlines.'
           });
         }
       }
       if (rows.length < 4 && queuedShield > 0) {
         rows.push({
           age: 'live',
-          action: `Staged ${queuedShield} rule edit${queuedShield === 1 ? '' : 's'} via PrefixCacheShield until TTL expiry`,
-          saved: 'shielded'
+          action: `Held ${queuedShield} rule update${queuedShield === 1 ? '' : 's'} with PrefixCacheShield until the warm cache timer ends`,
+          saved: 'shielded',
+          tip: 'Deferring non-urgent AGENTS.md / CLAUDE.md edits protects your active 90%–95% prompt cache discount.'
+        });
+      }
+      if (rows.length < 4 && shieldEnabled) {
+        rows.push({
+          age: 'shield',
+          action: `Large-file read firewall active — asks for line ranges on files over ${shieldMaxLines.toLocaleString()} lines`,
+          saved: 'active',
+          tip: 'Prevents huge single-file reads from flooding context when only a small line range is needed.'
+        });
+      }
+      if (rows.length < 4 && rslActiveCount > 0) {
+        rows.push({
+          age: 'rsl',
+          action: `Applying ${rslActiveCount} learned rule${rslActiveCount === 1 ? '' : 's'} distilled from past coding sessions`,
+          saved: rslHooksCount > 0 ? `${rslHooksCount} hook${rslHooksCount === 1 ? '' : 's'}` : 'learned',
+          tip: 'Recursive Self-Learning (RSL) turns repeated mistakes from verified sessions into concise workspace rules.'
         });
       }
 
       const activeInterventionCount = rows.length;
       const liveGuardTotal = Number(raw.coachState?.detectors?.totalCount || 0);
       const guardLabel = liveGuardTotal > 0 ? `${liveGuardTotal} guards` : 'guards';
-      if (rows.length === 0) {
-        if (rulesT > 0) {
-          rows.push({
-            age: 'active',
-            action: `Pinned ${formatTokens(rulesT)} system rules & workspace invariants`,
-            saved: 'pinned'
-          });
+      if (effectiveMode === 'off') {
+        setTxt('tsGuardsSummary', 'Paused (Watch only)');
+        setTip('tsGuardsSummary', 'Protection mode is set to Off (Watch only) — Highbeam still tracks context and timers without blocking commands or injecting advice.');
+        tsLedgerList.innerHTML = `
+          <li class="ts-ledger-row" title="Switch to Coach or Auto anytime to re-enable background protections.">
+            <span class="ts-ledger-age">off</span>
+            <span>Background log trimming, active guards, and auto-routing are paused while Mode is Off</span>
+            <span class="ts-ledger-saved">watch only</span>
+          </li>
+        `;
+      } else {
+        if (rows.length === 0) {
+          if (rulesT > 0) {
+            rows.push({
+              age: 'active',
+              action: `Protecting ${formatTokens(rulesT)} of pinned startup project rules & workspace instructions`,
+              saved: 'pinned',
+              tip: 'Startup rules stay anchored cleanly so the model follows your architecture from turn 1 onward.'
+            });
+          }
+          rows.push(effectiveMode === 'autopilot'
+            ? {
+                age: 'auto',
+                action: 'Hands-free Auto mode active \u2014 enforcing all safety, cache, and read-limit guards automatically',
+                saved: 'enforcing',
+                tip: 'Advisory guards upgrade to automatic enforcement in Auto mode without prompting on routine guardrails.'
+              }
+            : {
+                age: 'now',
+                action: 'Auto-guards armed \u2014 trimming noisy CLI logs with FTS5 indexing and shielding warm caches',
+                saved: 'ready',
+                tip: 'All enabled background guards run locally inside your IDE & CLI hooks in under 15 ms.'
+              });
         }
-        rows.push({
-          age: 'now',
-          action: 'Auto-guards armed (FTS5 CLI compressor & PrefixCacheShield)',
-          saved: 'ready'
-        });
-      }
-      setTxt('tsGuardsSummary', activeInterventionCount > 0
-        ? `${activeInterventionCount} auto-intervention${activeInterventionCount === 1 ? '' : 's'} \u00B7 ${guardLabel}`
-        : `${liveGuardTotal > 0 ? guardLabel : 'Guards'} armed`);
+        if (effectiveMode === 'autopilot') {
+          setTxt('tsGuardsSummary', activeInterventionCount > 0
+            ? `Auto-enforcing \u00B7 ${activeInterventionCount} active \u00B7 ${guardLabel}`
+            : `Auto-enforcing \u00B7 ${liveGuardTotal > 0 ? guardLabel : 'Guards'}`);
+          setTip('tsGuardsSummary', liveGuardTotal > 0
+            ? `Hands-free Auto mode is actively enforcing ${liveGuardTotal} safety and token-efficiency guards (${activeInterventionCount} active in this chat).`
+            : 'Hands-free Auto mode automatically enforces safety, cache, and read-limit guards.');
+        } else {
+          setTxt('tsGuardsSummary', activeInterventionCount > 0
+            ? `${activeInterventionCount} auto-intervention${activeInterventionCount === 1 ? '' : 's'} \u00B7 ${guardLabel}`
+            : `${liveGuardTotal > 0 ? guardLabel : 'Guards'} armed`);
+          setTip('tsGuardsSummary', liveGuardTotal > 0
+            ? `${liveGuardTotal} safety & token-efficiency guards are enabled right now (${activeInterventionCount} active in this chat).`
+            : 'Background guards watch for log dumps, repeat file reads, and cache-busting changes.');
+        }
 
-      tsLedgerList.innerHTML = rows.slice(0, 4).map(r => `
-        <li class="ts-ledger-row">
-          <span class="ts-ledger-age">${escAttr(r.age)}</span>
-          <span>${escAttr(r.action)}</span>
-          <span class="ts-ledger-saved">${escAttr(r.saved)}</span>
-        </li>
-      `).join('');
+        tsLedgerList.innerHTML = rows.slice(0, 4).map(r => `
+          <li class="ts-ledger-row" title="${escAttr(r.tip || '')}">
+            <span class="ts-ledger-age">${escAttr(r.age)}</span>
+            <span>${escAttr(r.action)}</span>
+            <span class="ts-ledger-saved">${escAttr(r.saved)}</span>
+          </li>
+        `).join('');
+      }
     }
 
-    // Live guard roster (dropdown body of Auto-guard activity)
+    // Live guard roster (dropdown body of Automated Activity)
     {
       const guardListEl = document.getElementById('tsGuardList');
       const guardHeadEl = document.getElementById('tsGuardListHead');
@@ -11816,14 +12464,35 @@
           guardListEl.hidden = true;
           guardHeadEl.hidden = true;
           guardListEl.innerHTML = '';
+          setTxt('tsGuardRosterHint', 'Details');
         } else {
           const rank = (g) => (g.tripped ? 0 : (g.mode === 'guard' ? 1 : 2));
           const sorted = liveGuards.slice().sort((a, b) => rank(a) - rank(b) || String(a.id).localeCompare(String(b.id)));
           const trippedN = sorted.filter((g) => g.tripped).length;
-          guardHeadEl.textContent = `Live guards (${sorted.length}${trippedN ? ` \u00B7 ${trippedN} tripped` : ''})`;
+          if (effectiveMode === 'off') {
+            guardHeadEl.textContent = `Guards paused (${sorted.length} configured)`;
+            setTxt('tsGuardRosterHint', 'Paused');
+          } else if (effectiveMode === 'autopilot') {
+            guardHeadEl.textContent = `Auto-enforced guards (${sorted.length}${trippedN ? ` \u00B7 ${trippedN} tripped` : ''})`;
+            setTxt('tsGuardRosterHint', trippedN ? `${sorted.length} \u00B7 ${trippedN} tripped` : `${sorted.length} enforcing`);
+          } else {
+            guardHeadEl.textContent = `Live guards (${sorted.length}${trippedN ? ` \u00B7 ${trippedN} tripped` : ''})`;
+            setTxt('tsGuardRosterHint', trippedN ? `${sorted.length} \u00B7 ${trippedN} tripped` : `${sorted.length} armed`);
+          }
           guardListEl.innerHTML = sorted.map((g) => {
-            const state = g.tripped ? 'tripped' : (g.mode === 'guard' ? 'blocks' : 'advises');
-            return `<li class="ts-ledger-row" data-mode="${escAttr(g.mode)}" data-tripped="${g.tripped ? 'true' : 'false'}">` +
+            const state = effectiveMode === 'off'
+              ? 'paused'
+              : (g.tripped ? 'tripped' : (g.mode === 'guard' ? 'blocks' : (effectiveMode === 'autopilot' ? 'enforces' : 'advises')));
+            const tip = state === 'paused'
+              ? `${g.id}: ${g.name} — paused while Mode is Off (Watch only).`
+              : (state === 'tripped'
+                ? `${g.id}: ${g.name} — tripped in this chat; review the flagged step before continuing.`
+                : (state === 'blocks'
+                  ? `${g.id}: ${g.name} — actively blocks unsafe or wasteful actions automatically.`
+                  : (state === 'enforces'
+                    ? `${g.id}: ${g.name} — promoted from advisory to active enforcement while Auto mode is on.`
+                    : `${g.id}: ${g.name} — monitors silently and shows advice when triggered.`)));
+            return `<li class="ts-ledger-row" data-mode="${escAttr(g.mode)}" data-tripped="${g.tripped ? 'true' : 'false'}" data-effective-state="${escAttr(state)}" title="${escAttr(tip)}">` +
               `<span class="ts-ledger-age">${escAttr(g.id)}</span>` +
               `<span>${escAttr(g.name)}</span>` +
               `<span class="ts-ledger-saved">${state}</span></li>`;
@@ -11834,7 +12503,7 @@
       }
     }
 
-    // Core Impact KPI, 5h Sprint Pacing, 72x18 SVG Sparkline & Primary ActionPill
+    // Core Impact KPI, Entire-Session Digest, Retention Grade & 72x18 Sparkline
     const sessionSaved = Math.max(
       0,
       Number(
@@ -11890,11 +12559,100 @@
       const sprintPctRaw = raw.quota?.sprint5h?.usedPct ?? raw.quota?.fiveHourPct;
       if (sprintPctRaw != null && Number.isFinite(Number(sprintPctRaw))) {
         const estPrefix = raw.quota?.sprint5h?.source === 'estimate' ? '~' : '';
-        tsSprintMeta.textContent = `\u00B7 5h: ${estPrefix}${Math.min(100, Math.round(Number(sprintPctRaw)))}%`;
+        tsSprintMeta.textContent = `\u00B7 5h quota: ${estPrefix}${Math.min(100, Math.round(Number(sprintPctRaw)))}%`;
         tsSprintMeta.hidden = false;
       } else {
         tsSprintMeta.hidden = true;
         tsSprintMeta.textContent = '';
+      }
+    }
+
+    // Entire-session summary & milestones (Card 4: SESSION OVERVIEW)
+    {
+      const tl = raw.sessionTimeline || null;
+      const tlTurns = Array.isArray(tl?.turns) ? tl.turns : [];
+      const totalTurns = Math.max(0, Number(tl?.totalTurns) || tlTurns.length || 0);
+      const goodTurns = Number(kpis.goodCount) || 0;
+      const badTurns = Number(kpis.badCount) || 0;
+      const markers = Array.isArray(tl?.markers) ? tl.markers : [];
+      const compactN = markers.filter(m => m && m.type === 'COMPACT').length;
+      const switchN = markers.filter(m => m && m.type === 'MODEL_SWITCH').length;
+      const ckptN = markers.filter(m => m && m.type === 'CHECKPOINT').length;
+
+      if (totalTurns > 0) {
+        const turnTag = badTurns > 0
+          ? `${totalTurns} turn${totalTurns === 1 ? '' : 's'} \u00B7 ${badTurns} heavy`
+          : (goodTurns > 0 ? `${totalTurns} turn${totalTurns === 1 ? '' : 's'} \u00B7 ${goodTurns} lean` : `${totalTurns} turn${totalTurns === 1 ? '' : 's'}`);
+        setTxt('tsSessionTurnsMeta', turnTag);
+        setTip('tsSessionTurnsMeta', `${totalTurns} total turns tracked in this session (${goodTurns} lean turns, ${badTurns} turns with output spikes or repeat reads).`);
+      } else {
+        setTxt('tsSessionTurnsMeta', total > 0 ? 'Active chat' : 'Session start');
+        setTip('tsSessionTurnsMeta', 'Turn count updates automatically as your conversation progresses.');
+      }
+
+      const paceParts = [];
+      if (burnRate > 0) paceParts.push(`+${formatTokens(burnRate)}/turn avg`);
+      if (compactN > 0) paceParts.push(`${compactN}\u00D7 compacted`);
+      if (ckptN > 0) paceParts.push(`${ckptN} checkpoint${ckptN === 1 ? '' : 's'}`);
+      if (switchN > 0) paceParts.push(`${switchN} switch${switchN === 1 ? '' : 'es'}`);
+      setTxt('tsSessionPaceMeta', paceParts.length > 0 ? paceParts.join(' \u00B7 ') : (total > 0 ? 'Steady growth' : 'Waiting for turns'));
+      setTip('tsSessionPaceMeta', paceParts.length > 0
+        ? `Session milestones and average per-turn token growth (${paceParts.join(', ')}).`
+        : 'Shows average tokens added per turn plus compactions and checkpoints.');
+
+      const digestParts = [];
+      if (totalTurns > 0) {
+        digestParts.push(`${totalTurns} turn${totalTurns === 1 ? '' : 's'} so far`);
+      } else if (total > 0) {
+        digestParts.push(`Currently holding ${formatTokens(total)} across your session`);
+      } else {
+        digestParts.push('Fresh session ready');
+      }
+      if (compactN > 0) digestParts.push(`compacted ${compactN} time${compactN === 1 ? '' : 's'} cleanly`);
+      if (sessionSaved > 0) digestParts.push(`saved ${formatTokens(sessionSaved)} from noise & caching`);
+      else if (staleT >= 20000) digestParts.push(`${formatTokens(staleT)} of older turns can be compacted later`);
+      else digestParts.push('keeping early instructions sharp in view');
+      setTxt('tsSessionDigest', digestParts.join(' \u2014 ') + '.');
+
+      const ret = cache.prefixRetention || raw.coachState?.prefixRetention || null;
+      const retEl = document.getElementById('tsRetentionMeta');
+      if (retEl) {
+        if (ret && ret.measured && Number.isFinite(Number(ret.retentionIndexPct))) {
+          retEl.textContent = `\u00B7 ${ret.retentionIndexPct}% kept (${ret.grade || 'A'})`;
+          retEl.hidden = false;
+          retEl.title = `Session prefix-cache retention grade ${ret.grade}: ${ret.retentionIndexPct}% of eligible history tokens were reused without cold rebuilds.`;
+        } else {
+          retEl.hidden = true;
+          retEl.textContent = '';
+        }
+      }
+
+      const extraRow = document.getElementById('tsSessionExtraRow');
+      const extraTxtEl = document.getElementById('tsSessionExtraText');
+      if (extraRow && extraTxtEl) {
+        const extraBits = [];
+        const workersN = Array.isArray(raw.swarmTopology?.workers) ? raw.swarmTopology.workers.length : 0;
+        const worktreesN = Array.isArray(raw.swarmTopology?.worktrees) ? raw.swarmTopology.worktrees.length : 0;
+        if (workersN > 0 || worktreesN > 1) {
+          extraBits.push(`${workersN} helper agent${workersN === 1 ? '' : 's'}${worktreesN > 1 ? ` across ${worktreesN} worktrees` : ''}`);
+        }
+        if (shardedSpecCount >= 2) {
+          extraBits.push(`${shardedSpecCount} goal updates`);
+        }
+        if (rslActiveCount > 0) {
+          extraBits.push(`${rslActiveCount} learned rule${rslActiveCount === 1 ? '' : 's'}`);
+        }
+        if (shieldEnabled) {
+          extraBits.push('Read firewall on');
+        }
+        if (extraBits.length > 0) {
+          extraRow.hidden = false;
+          extraTxtEl.textContent = extraBits.join(' \u00B7 ');
+          extraRow.title = 'Extra workspace safeguards and multi-agent tools active during this session.';
+        } else {
+          extraRow.hidden = true;
+          extraTxtEl.textContent = '';
+        }
       }
     }
 
@@ -11923,6 +12681,7 @@
       const sparkStroke = isCrisis ? 'var(--status-critical)' : (isWarn ? 'var(--status-warning)' : 'var(--text-secondary)');
       tsSparklinePath.setAttribute('stroke', sparkStroke);
       tsSparklineDot.setAttribute('fill', isCrisis ? 'var(--status-critical)' : (isWarn ? 'var(--status-warning)' : 'var(--text-primary)'));
+      setTxt('tsSparklineTip', `Context growth trend over recent turns (peak ${formatTokens(peak)}). Left = earlier, right = newest.`);
     }
 
     const tsBtnCleanPrimary = document.getElementById('tsBtnCleanPrimary');
@@ -11931,16 +12690,21 @@
         tsBtnCleanPrimary.disabled = false;
         tsBtnCleanPrimary.dataset.ctaState = 'crisis';
         setTxt('tsBtnCleanLabel', `Purge Clutter Now \u00B7 Reclaim ${formatTokens(staleT)} (Copy /compact)`);
+        tsBtnCleanPrimary.title = `Memory is past safe capacity. Click to copy /compact and reclaim ${formatTokens(staleT)} of clutter right away.`;
       } else if (staleT > 500) {
         tsBtnCleanPrimary.disabled = false;
         tsBtnCleanPrimary.dataset.ctaState = isWarm ? 'guarded' : 'ready';
         setTxt('tsBtnCleanLabel', isWarm
           ? `Hold Cache (${ttlMm}:${ttlSs}) or Copy /compact (${formatTokens(staleT)})`
           : `Reclaim ${formatTokens(staleT)} Clutter (Copy /compact)`);
+        tsBtnCleanPrimary.title = isWarm
+          ? `Prompt cache is warm for ${ttlMm}:${ttlSs}. Wait until it cools to keep your discount, or click to copy /compact anyway.`
+          : `Click to copy /compact and clear ${formatTokens(staleT)} of older clutter while preserving rules and active code.`;
       } else {
         tsBtnCleanPrimary.disabled = false;
         tsBtnCleanPrimary.dataset.ctaState = 'guarded';
         setTxt('tsBtnCleanLabel', 'Copy /compact Command (Memory Clean)');
+        tsBtnCleanPrimary.title = 'Memory is already clean. Click anytime to copy the /compact command.';
       }
     }
     setTxt('tsCompactReclaim', `${formatTokens(staleT)} reclaimable clutter \u00B7 Active working set protected`);
@@ -12339,9 +13103,14 @@
 
   document.querySelectorAll('#taRouterSwitch button').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const mode = btn.dataset.mode || 'coach';
-      document.querySelectorAll('#taRouterSwitch button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+      const mode = normalizeHorizonUiMode(btn.dataset.taMode || btn.dataset.mode || 'coach');
+      document.querySelectorAll('#taRouterSwitch button').forEach(b => b.classList.toggle('active', normalizeHorizonUiMode(b.dataset.taMode || b.dataset.mode) === mode));
       setRouterModeActiveUI(mode);
+      if (currentRenderedState && typeof currentRenderedState === 'object') {
+        currentRenderedState.routerMode = mode;
+        currentRenderedState.flightMode = mode === 'autopilot' ? 'AUTO_PILOT' : (mode === 'off' ? 'OFF' : 'COACH');
+        try { renderArgonTufteSurfaces(currentRenderedState); } catch {}
+      }
       try {
         await fetch('/api/router/mode', {
           method: 'POST',

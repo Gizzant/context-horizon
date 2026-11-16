@@ -182,9 +182,28 @@ export function installPlugin(options = {}) {
 
     // Write dynamically resolved hooks.json so both global and workspace installs work across Windows/macOS/Linux
     const resolvedHooks = buildHooksConfig(targetPluginDir, { leanHooks, fullHooks });
+    const installedHooksPath = path.join(targetPluginDir, 'hooks.json');
+    let existingEnabled = true;
+    if (fs.existsSync(installedHooksPath)) {
+      try {
+        const prev = JSON.parse(fs.readFileSync(installedHooksPath, 'utf8'));
+        if (typeof prev?.['horizon-flightcheck-lifecycle']?.enabled === 'boolean') {
+          existingEnabled = prev['horizon-flightcheck-lifecycle'].enabled;
+        }
+      } catch {
+        // Ignore corrupt prior hooks.json
+      }
+    }
+    const hooksOut = {
+      ...resolvedHooks,
+      'horizon-flightcheck-lifecycle': {
+        enabled: existingEnabled,
+        ...resolvedHooks.hooks
+      }
+    };
     atomicWriteFileSync(
-      path.join(targetPluginDir, 'hooks.json'),
-      JSON.stringify(resolvedHooks, null, 2) + '\n',
+      installedHooksPath,
+      JSON.stringify(hooksOut, null, 2) + '\n',
       { encoding: 'utf8' }
     );
   }

@@ -729,6 +729,50 @@ export function deriveClaudeCodeVerdictAndActions(state = {}, grid, metrics, opt
     });
   }
 
+  const rslData = options.rsl || state.rsl || null;
+  if (rslData && Number(rslData.clashCount || 0) > 0) {
+    if (verdict.severity === 'healthy') {
+      verdict = {
+        severity: 'warn',
+        badge: 'RULE CLASH',
+        headline: `${rslData.clashCount} Conflicting Learned Rule${rslData.clashCount === 1 ? '' : 's'}`,
+        detail: 'Quarantined RSL heuristic conflict needs review before applying automatically'
+      };
+    }
+    actions.push({
+      id: 'rsl-clash',
+      severity: 'warn',
+      title: `Resolve ${rslData.clashCount} RSL rule clash${rslData.clashCount === 1 ? '' : 'es'}`,
+      instruction: 'Run `npx ah rsl status` to inspect and resolve conflicting workspace heuristics.',
+      commandHint: 'npx ah rsl status',
+      reclaimTokens: 0
+    });
+  }
+
+  const shardedSpec = options.shardedSpec || state.shardedSpec || null;
+  if (shardedSpec && shardedSpec.sharded) {
+    actions.push({
+      id: 'sharded-spec',
+      severity: 'warn',
+      title: `Consolidate ${Number(shardedSpec.count || 2)} sharded specification files`,
+      instruction: 'Run `npx ah handoff --consolidate` so split constraints stay anchored in Turn 0.',
+      commandHint: 'npx ah handoff --consolidate',
+      reclaimTokens: 0
+    });
+  }
+
+  const shieldData = options.shield || state.shield || null;
+  if (shieldData && (shieldData.quarantined || shieldData.alert)) {
+    actions.push({
+      id: 'shield-firewall',
+      severity: 'warn',
+      title: 'Prefix-cache Shield held a mutation',
+      instruction: 'Inspect queued prefix updates with `npx ah doctor` before modifying rules mid-chat.',
+      commandHint: 'npx ah doctor',
+      reclaimTokens: 0
+    });
+  }
+
   if (actions.length === 0) {
     actions.push({
       id: 'keep-coding',
@@ -1441,15 +1485,16 @@ export function renderStatusLine(state = {}, options = {}) {
       const rslTok = layoutTier !== 'compact-80' && rslData ? formatRslStatusSegment(rslData) : '';
       const rslStr = rslTok ? ` · ${rslTok}` : '';
 
+      const prefix = options.legacyPrefix ? 'AH' : 'HB';
       let p = '';
       let a = '';
       if (layoutTier === 'compact-80') {
-        p = `AH ${g.bracketedBar} ${tokStr} C:${metrics.cacheHitPct}% ${ttlStr} ${pill}${loopStr} ${savedStr}`;
-        a = `AH ${g.ansiCodeBar} ${tokStr} C:${metrics.cacheHitPct}% ${ttlStr} ${pill}${loopStr} ${savedStr}`;
+        p = `${prefix} ${g.bracketedBar} ${tokStr} C:${metrics.cacheHitPct}% ${ttlStr} ${pill}${loopStr} ${savedStr}`;
+        a = `${prefix} ${g.ansiCodeBar} ${tokStr} C:${metrics.cacheHitPct}% ${ttlStr} ${pill}${loopStr} ${savedStr}`;
       } else {
         const shortModel = g.modelId.replace(/^claude-/, '');
-        p = `AH ${g.bracketedBar} ${shortModel} ${tokStr} (${g.utilizationPct}%) · Cache ${metrics.cacheHitPct}% (${ttlStr})${retStr} · ${pill}${loopStr} · Saved ${savedStr}${swarmStr}${rslStr}`;
-        a = `AH ${g.ansiCodeBar} ${shortModel} ${tokStr} (${g.utilizationPct}%) · Cache ${metrics.cacheHitPct}% (${ttlStr})${retStr} · ${pill}${loopStr} · Saved ${savedStr}${swarmStr}${rslStr}`;
+        p = `${prefix} ${g.bracketedBar} ${shortModel} ${tokStr} (${g.utilizationPct}%) · Cache ${metrics.cacheHitPct}% (${ttlStr})${retStr} · ${pill}${loopStr} · Saved ${savedStr}${swarmStr}${rslStr}`;
+        a = `${prefix} ${g.ansiCodeBar} ${shortModel} ${tokStr} (${g.utilizationPct}%) · Cache ${metrics.cacheHitPct}% (${ttlStr})${retStr} · ${pill}${loopStr} · Saved ${savedStr}${swarmStr}${rslStr}`;
       }
 
       chosenGrid = g;

@@ -209,9 +209,9 @@ export function shrinkRollingRequestsPerTurn(rollingMedianRpt, sampleSize, optio
         .filter((v) => Number.isFinite(v) && v > 0)
         .slice(-ROLLING_OUTPUT_WINDOW)
     : [];
-  let turnsAgree = false;
-  if (recentCounts.length >= 2) {
-    const sortedCounts = [...recentCounts].sort((a, b) => a - b);
+  const computeAgreeingStats = (slice) => {
+    if (!Array.isArray(slice) || slice.length < 2) return null;
+    const sortedCounts = [...slice].sort((a, b) => a - b);
     const mid = Math.floor(sortedCounts.length / 2);
     const medR =
       sortedCounts.length % 2 === 1
@@ -220,8 +220,11 @@ export function shrinkRollingRequestsPerTurn(rollingMedianRpt, sampleSize, optio
     const minR = sortedCounts[0];
     const maxR = sortedCounts[sortedCounts.length - 1];
     const relativeSpread = medR > 0 ? (maxR - minR) / medR : Infinity;
-    turnsAgree = relativeSpread <= maxSpread;
-  }
+    return { agreed: relativeSpread <= maxSpread, median: medR, length: slice.length };
+  };
+
+  const fullStats = computeAgreeingStats(recentCounts);
+  const turnsAgree = Boolean(fullStats?.agreed);
 
   const effectiveMinTrustedTurns = turnsAgree
     ? Math.max(2, Number((minTrustedTurns / 2).toFixed(4)))
@@ -238,6 +241,7 @@ export function shrinkRollingRequestsPerTurn(rollingMedianRpt, sampleSize, optio
       minTrustedTurns,
       effectiveMinTrustedTurns,
       turnsAgree: false,
+      trailingRegimeDetected: false,
       priorRequestsPerTurn,
       effectiveSmoothingK: effectiveMinTrustedTurns,
       isPlaceholderShrinkagePrior,
@@ -245,6 +249,48 @@ export function shrinkRollingRequestsPerTurn(rollingMedianRpt, sampleSize, optio
       source: hasLocalPrior ? 'local_transcript_rpt_prior' : 'placeholder_rpt_prior_2.0'
     };
   }
+
+  // Detect a stabilized trailing regime shift (e.g. [2,2,2,1,1] setup -> Q&A) without unlocking early growth extrapolation
+  let trailingStats = null;
+  if (!turnsAgree && recentCounts.length >= 4) {
+    for (let k = recentCounts.length - 1; k >= 2; k--) {
+      const candidate = computeAgreeingStats(recentCounts.slice(-k));
+      if (candidate?.agreed) {
+        trailingStats = candidate;
+        break;
+      }
+    }
+  }
+  if (trailingStats && Math.abs(trailingStats.median - rawMedian) > 1e-6) {
+    const trailingMed = Number(trailingStats.median.toFixed(4));
+    const isStepDown = trailingMed < rawMedian;
+    const agreedHorizon = Math.max(2, Number((minTrustedTurns / 2).toFixed(4)));
+    const wTrail = isStepDown ? 1 : Math.min(1, trailingStats.length / agreedHorizon);
+    const expectedTrail = isStepDown
+      ? Math.max(1, trailingMed)
+      : Math.max(1, Number((wTrail * trailingMed + (1 - wTrail) * priorRequestsPerTurn).toFixed(4)));
+    const effectiveSmoothTrail = isStepDown
+      ? Math.max(0, effectiveMinTrustedTurns - Math.min(effectiveMinTrustedTurns, count))
+      : Math.max(0, agreedHorizon - Math.min(agreedHorizon, trailingStats.length));
+    return {
+      expectedRequestsPerTurn: expectedTrail,
+      rawRollingMedianRequestsPerTurn: Number(rawMedian.toFixed(4)),
+      sampleSize: count,
+      shrinkageWeight: Number(wTrail.toFixed(4)),
+      minTrustedTurns,
+      effectiveMinTrustedTurns,
+      turnsAgree: false,
+      trailingRegimeDetected: true,
+      trailingRegimeLength: trailingStats.length,
+      trailingRegimeMedian: trailingMed,
+      priorRequestsPerTurn,
+      effectiveSmoothingK: Number(effectiveSmoothTrail.toFixed(4)),
+      isPlaceholderShrinkagePrior,
+      shrinkagePriorProvenance,
+      source: isStepDown ? 'stop_hook_trailing_regime_rpt' : 'stop_hook_trailing_regime_shrunk_rpt'
+    };
+  }
+
   const weight = Math.min(1, count / effectiveMinTrustedTurns);
   const blended = Math.max(
     1,
@@ -258,6 +304,7 @@ export function shrinkRollingRequestsPerTurn(rollingMedianRpt, sampleSize, optio
     minTrustedTurns,
     effectiveMinTrustedTurns,
     turnsAgree,
+    trailingRegimeDetected: false,
     priorRequestsPerTurn,
     effectiveSmoothingK: Number(
       Math.max(0, effectiveMinTrustedTurns - Math.min(effectiveMinTrustedTurns, count)).toFixed(4)

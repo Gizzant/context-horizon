@@ -10,7 +10,7 @@ import {
   recordStepOutcome,
   buildContrastiveDigest
 } from '../src/core/rsl_triage.mjs';
-import { distillContrastiveDigest } from '../src/core/rsl_distiller.mjs';
+import { distillContrastiveDigest, buildGlobPatterns } from '../src/core/rsl_distiller.mjs';
 import {
   readRslLedger,
   getRslSummary,
@@ -335,13 +335,15 @@ describe('Dual-Platform Highbeam RSL Engine (Antigravity + Claude Code)', () => 
 
       const summary = getRslSummary(ws, { homeDir: mockHome });
       assert.ok(summary.activeRules >= 1);
+      assert.ok(summary.candidateRules >= 1);
       assert.equal(summary.claudeMemoryAudit.triggered, true);
       assert.ok(summary.claudeMemoryAudit.maxLines > 200);
 
-      // Verify simultaneous valid .agents/rules/rsl-*.md AND .claude/rules/rsl-*.md
+      // Verify simultaneous valid .agents/rules/rsl-*.md AND .claude/rules/rsl-*.md (excluding staged candidate)
       const agFiles = fs.readdirSync(path.join(ws, '.agents', 'rules')).filter((f) => f.startsWith('rsl-'));
       const ccFiles = fs.readdirSync(path.join(ws, '.claude', 'rules')).filter((f) => f.startsWith('rsl-'));
       assert.ok(agFiles.length >= 1);
+      assert.equal(agFiles.some((f) => f.startsWith('rsl-user-correction-')), false);
       assert.deepEqual(agFiles.sort(), ccFiles.sort());
 
       const firstFile = agFiles[0];
@@ -577,5 +579,123 @@ describe('Dual-Platform Highbeam RSL Engine (Antigravity + Claude Code)', () => 
     const rootHooks = JSON.parse(fs.readFileSync(path.resolve('hooks.json'), 'utf8'));
     const check = validateAntigravityHooksSchema(rootHooks);
     assert.equal(check.valid, true, check.errors.join('; '));
+  });
+
+  test('6. RSL hygiene guards: candidate graduation, XML/casual filtering, and ephemeral/out-of-workspace glob rejection', () => {
+    const ws = makeTmpWorkspace('ctxtop-rsl-hygiene-');
+    const mockHome = makeTmpWorkspace('ctxtop-rsl-hygiene-home-');
+    const slug = ws.replace(/[:\\/]+/g, '-').replace(/^-+/, '');
+    const projDir = path.join(mockHome, '.claude', 'projects', slug);
+    fs.mkdirSync(projDir, { recursive: true });
+    fs.mkdirSync(path.join(ws, 'src'), { recursive: true });
+
+    try {
+      // A. Negative regression: XML wrapper text, casual chat, and ephemeral brain/external paths must yield 0 rules & 0 candidates
+      const noiseTranscript = path.join(projDir, 'cc-noise-1.jsonl');
+      const brainFile = 'C:/Users/dev-user/.gemini/antigravity/brain/abc123/task.md';
+      fs.writeFileSync(
+        noiseTranscript,
+        [
+          JSON.stringify({
+            type: 'user',
+            message: {
+              content:
+                '<USER_REQUEST>Please add dark mode</USER_REQUEST>\n<ADDITIONAL_METADATA>\nnever break layout\n</ADDITIONAL_METADATA>'
+            }
+          }),
+          JSON.stringify({
+            type: 'user',
+            message: { content: 'i dont see publish button' }
+          }),
+          JSON.stringify({
+            type: 'assistant',
+            message: { content: [{ type: 'tool_use', id: 'tu_n1', name: 'Read', input: { file_path: brainFile } }] }
+          }),
+          JSON.stringify({
+            type: 'user',
+            message: { content: [{ type: 'tool_result', tool_use_id: 'tu_n1', is_error: true, content: 'ENOENT' }] }
+          }),
+          JSON.stringify({
+            type: 'assistant',
+            message: { content: [{ type: 'tool_use', id: 'tu_n2', name: 'Write', input: { file_path: brainFile } }] }
+          }),
+          JSON.stringify({
+            type: 'user',
+            message: { content: [{ type: 'tool_result', tool_use_id: 'tu_n2', is_error: false, content: 'ok' }] }
+          })
+        ].join('\n') + '\n',
+        'utf8'
+      );
+
+      const noiseStop = handleClaudeRslHook(
+        { hook_event_name: 'Stop', session_id: 'cc-noise-1', cwd: ws, transcript_path: noiseTranscript, stop_hook_active: false },
+        { homeDir: mockHome }
+      );
+      assert.equal(noiseStop.digest.userCorrections.length, 0);
+      assert.equal(noiseStop.digest.contrastivePairs.length, 0);
+      const noiseSummary = getRslSummary(ws, { homeDir: mockHome });
+      assert.equal(noiseSummary.activeRules, 0);
+      assert.equal(noiseSummary.candidateRules, 0);
+
+      // B. Glob safety: ephemeral and out-of-workspace drive paths never emit C:/**
+      assert.deepEqual(buildGlobPatterns(brainFile, ws), { globs: '', paths: [] });
+      assert.deepEqual(buildGlobPatterns('C:/other/unrelated/secret.ts', ws), { globs: '', paths: [] });
+      assert.deepEqual(buildGlobPatterns(path.join(ws, 'src', 'query.ts'), ws), {
+        globs: '*.ts, src/**',
+        paths: ['*.ts', 'src/**']
+      });
+
+      // C. XML-stripped genuine directive stages as candidate on Session 1, does not auto-promote in same session, graduates on Session 2
+      const directiveTranscript = path.join(projDir, 'cc-cand-1.jsonl');
+      fs.writeFileSync(
+        directiveTranscript,
+        JSON.stringify({
+          type: 'user',
+          message: {
+            content:
+              '<USER_REQUEST>\nNever log raw JWT tokens in auth responses.\n</USER_REQUEST>\n<ADDITIONAL_METADATA>workspace: test</ADDITIONAL_METADATA>'
+          }
+        }) + '\n',
+        'utf8'
+      );
+
+      const stop1 = handleClaudeRslHook(
+        { hook_event_name: 'Stop', session_id: 'cc-cand-1', cwd: ws, transcript_path: directiveTranscript, stop_hook_active: false },
+        { homeDir: mockHome }
+      );
+      assert.equal(stop1.digest.userCorrections.length, 1);
+      assert.doesNotMatch(stop1.digest.userCorrections[0].text, /USER_REQUEST|ADDITIONAL_METADATA/);
+      const sum1 = getRslSummary(ws, { homeDir: mockHome });
+      assert.equal(sum1.candidateRules, 1);
+      assert.equal(sum1.activeRules, 0);
+      assert.equal(fs.existsSync(path.join(ws, '.agents', 'rules')), false);
+
+      // Repeating within same session keeps item staged as candidate
+      handleClaudeRslHook(
+        { hook_event_name: 'Stop', session_id: 'cc-cand-1', cwd: ws, transcript_path: directiveTranscript, stop_hook_active: false },
+        { homeDir: mockHome }
+      );
+      const sumSame = getRslSummary(ws, { homeDir: mockHome });
+      assert.equal(sumSame.candidateRules, 1);
+      assert.equal(sumSame.activeRules, 0);
+
+      // Second distinct session promotes candidate -> active dual rules
+      const directiveTranscript2 = path.join(projDir, 'cc-cand-2.jsonl');
+      fs.copyFileSync(directiveTranscript, directiveTranscript2);
+      handleClaudeRslHook(
+        { hook_event_name: 'Stop', session_id: 'cc-cand-2', cwd: ws, transcript_path: directiveTranscript2, stop_hook_active: false },
+        { homeDir: mockHome }
+      );
+      const sum2 = getRslSummary(ws, { homeDir: mockHome });
+      assert.equal(sum2.candidateRules, 0);
+      assert.equal(sum2.activeRules, 1);
+      const agFiles = fs.readdirSync(path.join(ws, '.agents', 'rules')).filter((f) => f.startsWith('rsl-'));
+      const ccFiles = fs.readdirSync(path.join(ws, '.claude', 'rules')).filter((f) => f.startsWith('rsl-'));
+      assert.equal(agFiles.length, 1);
+      assert.deepEqual(agFiles, ccFiles);
+    } finally {
+      cleanupDir(ws);
+      cleanupDir(mockHome);
+    }
   });
 });

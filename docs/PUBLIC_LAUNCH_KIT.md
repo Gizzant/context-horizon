@@ -123,3 +123,29 @@ node src/cli/doctor.mjs --gc-cursor --vscdb "/path/to/Cursor/User/globalStorage/
 
 - **Live Interactive Demo:** https://gizzant.github.io/attention-horizon-antigravity/
 - **GitHub Repo (MIT, 0 runtime dependencies):** https://github.com/Gizzant/attention-horizon-antigravity
+
+---
+
+## 5. Production Billing & `npm` Launch Preflight Checklist
+
+1. **Ed25519 Key Rotation (`--keygen`)**:
+   ```bash
+   # Generate a persistent keypair outside the repository (never commit .pem files)
+   node scripts/generate_pro_license.mjs --keygen --out-private ~/.ctxtop/keys/highbeam_pro_ed25519.pem --json
+   # Wire the SPKI public key into DEFAULT_PRO_PUBLIC_KEY_PEM (src/core/pro_license.mjs)
+   # Sign an offline license key using the persistent private key:
+   node scripts/generate_pro_license.mjs --private-key-file ~/.ctxtop/keys/highbeam_pro_ed25519.pem --email dev@example.com --tier pro --days 365
+   ```
+2. **Polar.sh Cloudflare Worker Secrets (`packages/pro/workers/polar_webhook_worker.mjs`)**:
+   ```bash
+   wrangler secret put CTXTOP_ED25519_PRIVATE_KEY_PEM
+   wrangler secret put CTXTOP_POLAR_WEBHOOK_SECRET
+   ```
+3. **Sync, Checksums & Tarball Verification**:
+   ```bash
+   node scripts/build_webview_html.mjs --check
+   node scripts/sync_mirrors.mjs
+   node scripts/generate_checksums.mjs
+   node bin/ctxtop.mjs verify --json
+   npm pack --dry-run --json
+   ```

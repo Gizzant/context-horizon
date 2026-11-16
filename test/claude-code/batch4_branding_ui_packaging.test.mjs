@@ -122,7 +122,7 @@ test('ISS-014a: bin/cli.mjs and bin/ah-statusline.mjs resolve symlinks via realp
         timeout: 10000
       });
       assert.equal(statusRun.status, 0);
-      assert.match(stripAnsi(statusRun.stdout), /^AH \[/);
+      assert.match(stripAnsi(statusRun.stdout), /^HB \[/);
     }
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });

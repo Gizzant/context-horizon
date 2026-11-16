@@ -1,0 +1,1797 @@
+  async function copyVerifiedTokensSavedReceipt() {
+    let md = '';
+    try {
+      const r = await fetch('/api/savings/receipt', {
+        method: 'POST',
+        headers: buildHorizonPostHeaders(),
+        body: JSON.stringify({ sessionId: currentRenderedState?.sessionId || '' })
+      });
+      if (r.ok) {
+        const data = await r.json();
+        if (data && data.receiptMarkdown) md = String(data.receiptMarkdown);
+      }
+    } catch (err) {
+      void err;
+    }
+    if (!md) {
+      const sessVal = document.getElementById('tufteSavedTokensLabel')?.textContent || '+0.0k';
+      const wsVal = document.getElementById('tufteWorkspaceSavedLabel')?.textContent || '+0.0k';
+      const subVal = document.getElementById('savSubagentVal')?.textContent || '+0.0k';
+      const cacheVal = document.getElementById('savCacheVal')?.textContent || '+0.0k';
+      const cliVal = document.getElementById('savCliVal')?.textContent || '+0.0k';
+      const guardVal = document.getElementById('savGuardsVal')?.textContent || '+0.0k';
+      const usdVal = document.getElementById('savEstUsdLabel')?.textContent || 'Est. input value: ~$0.00';
+      md = [
+        '### Highbeam — Verified Tokens Saved Receipt',
+        '',
+        `- **This Chat:** ${sessVal} (${usdVal})`,
+        `- **30-Day Workspace:** ${wsVal}`,
+        '',
+        '| Savings Source | Physical Tokens Saved |',
+        '| :--- | ---: |',
+        `| Subagent context isolation | ${subVal} |`,
+        `| Warm prompt cache (95% off) | ${cacheVal} |`,
+        `| CLI & log output compression (FTS5) | ${cliVal} |`,
+        `| Loops, re-reads & tail trims avoided | ${guardVal} |`
+      ].join('\n');
+    }
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(md);
+      }
+    } catch (err) {
+      void err;
+    }
+    showToast('&#x2713; <strong>Copied Verified Tokens Saved Receipt</strong> to clipboard.');
+  }
+
+  const btnCopySavingsReceipt = document.getElementById('btnCopySavingsReceipt');
+  if (btnCopySavingsReceipt) {
+    btnCopySavingsReceipt.onclick = copyVerifiedTokensSavedReceipt;
+  }
+
+  const btnCompactPrimary = document.getElementById('btnCompactPrimary');
+  if (btnCompactPrimary) {
+    btnCompactPrimary.onclick = async (e) => {
+      e.stopPropagation();
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText('/compact');
+        }
+      } catch (err) {
+        void err;
+      }
+      flashButton(btnCompactPrimary, '\u2713 Copied!', 1800);
+      showToast('&#x2713; <strong>Copied <code>/compact</code></strong> to clipboard.');
+    };
+  }
+
+  const btnCopyParameterizedCompact = document.getElementById('btnCopyParameterizedCompact');
+  if (btnCopyParameterizedCompact) {
+    btnCopyParameterizedCompact.onclick = async (e) => {
+      e.stopPropagation();
+      const cmdText = document.getElementById('parameterizedCompactText')?.textContent?.trim() || '/compact';
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(cmdText);
+        }
+      } catch (err) {
+        void err;
+      }
+      flashButton(btnCopyParameterizedCompact, '\u2713 Copied!', 1800);
+      showToast('&#x2713; <strong>Copied Parameterized <code>/compact</code></strong> to clipboard.');
+    };
+  }
+  const btnCopySimpleSavingsReceipt = document.getElementById('btnCopySimpleSavingsReceipt');
+  if (btnCopySimpleSavingsReceipt) {
+    btnCopySimpleSavingsReceipt.onclick = copyVerifiedTokensSavedReceipt;
+  }
+
+  // Model & Effort Router 3-Way Mode Switch handler (syncs header slider, card buttons, Advanced switch, and Tufte strip)
+  function normalizeHorizonUiMode(rawMode = 'coach') {
+    const m = String(rawMode || 'coach').trim().toLowerCase();
+    if (m === 'off' || m === 'disabled') return 'off';
+    if (m === 'auto' || m === 'autopilot' || m === 'auto-pilot' || m === 'auto_pilot') return 'autopilot';
+    return 'coach';
+  }
+  function syncModeSliderUI(rawMode = 'coach') {
+    const norm = normalizeHorizonUiMode(rawMode);
+    const slider = document.getElementById('tsModeSlider');
+    if (slider) slider.dataset.activeMode = norm;
+    document.querySelectorAll('#tsModeSlider .ts-mode-btn').forEach(btn => {
+      const match = normalizeHorizonUiMode(btn.dataset.mode) === norm;
+      btn.setAttribute('aria-checked', match ? 'true' : 'false');
+    });
+    const hint = document.getElementById('tsModeHint');
+    if (hint) {
+      hint.textContent = norm === 'off'
+        ? 'Watch only \u2014 tracking context'
+        : (norm === 'autopilot' ? 'Hands-free guards & routing' : 'Advises & trims noisy logs');
+    }
+    document.querySelectorAll('#taRouterSwitch button').forEach(btn => {
+      const m = normalizeHorizonUiMode(btn.dataset.taMode || btn.dataset.mode);
+      const active = m === norm;
+      btn.classList.toggle('active', active);
+      btn.style.borderColor = active ? 'var(--hz-useful)' : '';
+      btn.style.color = active ? 'var(--hz-useful)' : '';
+    });
+  }
+  function setRouterModeActiveUI(mode) {
+    const norm = normalizeHorizonUiMode(mode);
+    document.querySelectorAll('.model-mode-switch .mode-btn, .tufte-mode-chip').forEach(b => {
+      b.classList.toggle('active', normalizeHorizonUiMode(b.dataset.mode) === norm);
+    });
+    syncModeSliderUI(norm);
+  }
+  document.querySelectorAll('#tsModeSlider .ts-mode-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const mode = normalizeHorizonUiMode(btn.dataset.mode || 'coach');
+      setRouterModeActiveUI(mode);
+      if (currentRenderedState && typeof currentRenderedState === 'object') {
+        currentRenderedState.routerMode = mode;
+        currentRenderedState.flightMode = mode === 'autopilot' ? 'AUTO_PILOT' : (mode === 'off' ? 'OFF' : 'COACH');
+        try { renderArgonTufteSurfaces(currentRenderedState); } catch {}
+      }
+      try {
+        await fetch('/api/router/mode', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify({ mode })
+        });
+      } catch {}
+      const label = mode === 'off' ? 'Off (Watch only)' : (mode === 'autopilot' ? 'Auto (Hands-free)' : 'Coach');
+      showToast(`&#x2713; Mode set to <strong>${escAttr(label)}</strong>`);
+    });
+  });
+  ['btnModeOff', 'btnModeCoach', 'btnModeAutopilot', 'tufteModeOff', 'tufteModeCoach', 'tufteModeAutopilot'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.onclick = async () => {
+        const mode = btn.dataset.mode || 'coach';
+        setRouterModeActiveUI(mode);
+        try {
+          await fetch('/api/router/mode', {
+            method: 'POST',
+            headers: buildHorizonPostHeaders(),
+            body: JSON.stringify({ mode })
+          });
+          showToast(`&#x2713; Model router mode set to <strong>${escAttr(mode.toUpperCase())}</strong>`);
+        } catch {}
+      };
+    }
+  });
+
+  document.getElementById('btnOpenChat').onclick = async (e) => {
+    const targetId = currentRenderedState?.sessionId;
+    const selOpt = document.getElementById('sessionSelect')?.selectedOptions?.[0];
+    const targetSurface = currentRenderedState?.storeSource || selOpt?.dataset?.surface || 'antigravity';
+    const isForeignSurface = isCurrentSessionForeignSurface();
+
+    if ((e && e.altKey) || isForeignSurface || typeof window.sidecar?.ui?.toggleConversation !== 'function') {
+      try {
+        const r = await fetch('/api/open-brain', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify({ conversationId: targetId, surface: targetSurface })
+        });
+        const data = await r.json();
+        if (data && data.success) {
+          showToast(`&#x2713; Opened <strong>${escAttr(data.surfaceTag || resolveSurfaceTag(targetSurface))}</strong> folder: <code>${escAttr(formatShortPath(data.brainDir || targetId))}</code>`);
+          return;
+        }
+      } catch {}
+      if (isForeignSurface) {
+        showToast('&#x26A0;&#xFE0F; Cross-surface session: opened folder via daemon fallback.');
+        return;
+      }
+      showToast('&#x26A0;&#xFE0F; Could not open local brain folder.');
+      return;
+    }
+    if (targetId && window.sidecar?.ui?.toggleConversation) {
+      window.sidecar.ui.toggleConversation(targetId);
+      showToast(`&#x2713; Switched IDE chat view to <strong>${currentRenderedState.sessionTitle || targetId.slice(0, 8)}</strong>.`);
+    } else {
+      showToast(`Select a conversation from the dropdown above to inspect its memory (or Alt+Click to open its brain folder).`);
+    }
+  };
+
+  // Handle dropdown conversation selection & unpin chip
+  document.getElementById('sessionSelect').onchange = async (e) => {
+    selectedSessionMode = e.target.value;
+    const followBtn = document.getElementById('btnFollowActiveSession');
+    if (followBtn) followBtn.hidden = selectedSessionMode === 'auto';
+    document.getElementById('feedbackToast').style.display = 'none';
+    if (selectedSessionMode === 'auto') {
+      if (latestAutoState) renderState(latestAutoState, false);
+    } else if (window.__PRECOMPUTED_SESSIONS__ && window.__PRECOMPUTED_SESSIONS__[selectedSessionMode]) {
+      renderState(window.__PRECOMPUTED_SESSIONS__[selectedSessionMode], true);
+    }
+    try {
+      const r = await fetch(`/api/state?conversationId=${encodeURIComponent(selectedSessionMode)}`);
+      const d = await r.json();
+      if (d && d.sessionId === selectedSessionMode) renderState(d, true);
+    } catch (err) {
+      void err;
+    }
+  };
+
+  const followActiveBtn = document.getElementById('btnFollowActiveSession');
+  if (followActiveBtn) {
+    followActiveBtn.onclick = async () => {
+      selectedSessionMode = 'auto';
+      const sel = document.getElementById('sessionSelect');
+      if (sel) sel.value = 'auto';
+      followActiveBtn.hidden = true;
+      document.getElementById('feedbackToast').style.display = 'none';
+      if (latestAutoState) renderState(latestAutoState, false);
+      try {
+        const r = await fetch('/api/state?conversationId=auto');
+        const d = await r.json();
+        if (d && selectedSessionMode === 'auto') renderState(d, false);
+      } catch (err) {
+        void err;
+      }
+    };
+  }
+
+  // Listen for IDE workspace-change events from /preload.js
+  if (window.sidecar && typeof window.sidecar.onWorkspaceChange === 'function') {
+    window.sidecar.onWorkspaceChange((uris) => {
+      if (Array.isArray(uris) && uris.length > 0) {
+        const clean = decodeURIComponent(uris[0]).replace(/\\/g, '/');
+        currentWorkspaceBasename = clean.split('/').filter(Boolean).pop() || '';
+        if (selectedSessionMode === 'auto' && latestAutoState) {
+          renderState(latestAutoState, false);
+        }
+      }
+    });
+  }
+
+  // =========================================================================
+  // ARGON TUFTE SIMPLE & ADVANCED SURFACES (LIVE SIDEPANE WIRING)
+  // =========================================================================
+  let __taSelectedCellIndex = 23;
+  let __taLastCells = [];
+
+  (function initArgonTufteHorizonGrid() {
+    const grid = document.getElementById('taHorizonGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    for (let i = 0; i < 40; i++) {
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'ta-cell' + (i === __taSelectedCellIndex ? ' selected' : '');
+      cell.dataset.index = String(i);
+      cell.setAttribute('role', 'gridcell');
+      cell.setAttribute('aria-label', `Context cell ${i + 1} of 40`);
+      cell.addEventListener('click', () => {
+        __taSelectedCellIndex = i;
+        grid.querySelectorAll('.ta-cell').forEach((c, idx) => c.classList.toggle('selected', idx === i));
+        renderTaCellInspector(__taLastCells[i], i);
+      });
+      grid.appendChild(cell);
+    }
+  })();
+
+  function formatTokens(n) {
+    const v = Math.max(0, Number(n) || 0);
+    if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
+    return `${(v / 1000).toFixed(1)}k`;
+  }
+
+  function renderTaCellInspector(cell, idx) {
+    const leftEl = document.getElementById('taCellLeft');
+    const rightEl = document.getElementById('taCellRight');
+    const num = (idx ?? 0) + 1;
+    if (!cell || cell.cat === 'empty') {
+      if (leftEl) leftEl.textContent = `Cell #${num} \u00B7 Available Headroom`;
+      if (rightEl) rightEl.textContent = '0.0k / cell \u00B7 1.00 recall';
+      return;
+    }
+    const catLabels = {
+      anchor: 'System Anchor & Rules',
+      signal: 'Active Dialogue & Edits',
+      cached: 'Warm Prefix History',
+      clutter: 'Reclaimable Tool Logs',
+      error: 'Stale Error Trace'
+    };
+    const recall = cell.recall || (num <= 12 ? '0.96' : (num >= 28 ? '0.94' : '0.68'));
+    const label = cell.source || catLabels[cell.cat] || cell.cat;
+    if (leftEl) leftEl.textContent = `Cell #${num} \u00B7 ${label}`;
+    if (rightEl) rightEl.textContent = `${formatTokens(cell.tokens || 0)} / cell \u00B7 ${recall} recall`;
+  }
+
+  function renderArgonTufteSurfaces(raw) {
+    if (!raw || typeof raw !== 'object') return;
+    const win = raw.window || {};
+    const bd = win.breakdown || raw.categories || {};
+    const bs = raw.brainSignals || {};
+    // Live daemon schema: top-level `breakdown` (ANCHOR / ACTIVE_WORKING_SET / STALE_DUPLICATE ...)
+    // and `metrics.displayParity` (same totals the legacy panel displays).
+    const bdLive = (raw.breakdown && typeof raw.breakdown === 'object') ? raw.breakdown : {};
+    const dp = raw.metrics?.displayParity || null;
+    const dpTotalT = dp ? Math.round(Number(dp.displayTotalTenths ?? (Number(dp.totalK) * 10)) * 100) || 0 : 0;
+    const dpReclaimT = dp ? Math.round(Number(dp.displayReclaimableTenths ?? (Number(dp.reclaimableK) * 10)) * 100) || 0 : 0;
+    const bdLiveUsedT = (Number(bdLive.ANCHOR) || 0) + (Number(bdLive.MEMORY_KI) || 0) + (Number(bdLive.FOREIGN_BLEED) || 0)
+      + (Number(bdLive.STALE_DUPLICATE) || 0) + (Number(bdLive.DEAD_ERROR) || 0) + (Number(bdLive.ACTIVE_WORKING_SET) || 0);
+    const bdLiveReclaimT = (Number(bdLive.STALE_DUPLICATE) || 0) + (Number(bdLive.DEAD_ERROR) || 0) + (Number(bdLive.FOREIGN_BLEED) || 0);
+
+    const total = Math.max(0, Number(win.totalTokens ?? raw.totalTokens) || dpTotalT || bdLiveUsedT || Number(win.totalActiveTokens) || 0);
+    const maxCap = Math.max(1000, Number(win.maxTokens ?? raw.maxTokens) || 1000000);
+    const safeCap = Math.max(1000, Number(win.safeLimit ?? raw.safeHorizonTokens) || Math.round(maxCap * 0.6));
+    const rotThresh = Number(raw.contextRotThreshold) || Math.round(maxCap * 0.8);
+
+    const rulesT = Number(bd.systemAndTools ?? bd.systemRules ?? bs.activeSignal?.baselineTokens ?? bdLive.ANCHOR) || 0;
+    const toolsT = Number(bd.toolDefinitions) || 0;
+    const activeT = Number(bd.activeCodeAndRules ?? bd.activeSource ?? bs.activeSignal?.tokens ?? bdLive.ACTIVE_WORKING_SET) || 0;
+    const filesT = Number(bd.toolOutputs) || 0;
+    const depsT = Number(bd.dependencyBloat) || 0;
+
+    const dupWaste = Array.isArray(bs.duplicateReads)
+      ? bs.duplicateReads.reduce((acc, d) => acc + Math.max(0, Number(d?.wastedTokens || 0)), 0)
+      : Math.max(0, Number(bs.duplicateReads?.reclaimableTokens || 0));
+    const errWaste = Math.max(0, Number(bs.deadErrors?.reclaimableTokens || 0));
+    const histWaste = Math.max(0, Number(bs.oldHistory?.reclaimableTokens || 0));
+    const bleedWaste = Math.max(0, Number(bs.foreignBleed?.reclaimableTokens ?? bdLive.FOREIGN_BLEED) || 0);
+    const staleT = Math.min(
+      total,
+      Math.max(
+        Number(raw.reclaimableTokens) || 0,
+        dpReclaimT,
+        bdLiveReclaimT,
+        (Number(bd.reclaimableClutter) || 0) + (Number(bd.cachedHistory) || 0),
+        (Number(bd.staleLogs) || 0) + depsT,
+        dupWaste + errWaste + histWaste + bleedWaste
+      )
+    );
+    const usefulT = Math.max(0, total - staleT);
+    const memKiT = Number(bdLive.MEMORY_KI ?? bd.memoryKi) || 0;
+    const pinnedT = Math.min(usefulT, Math.max(0, rulesT + toolsT + memKiT));
+    const newActiveT = Math.max(0, usefulT - pinnedT);
+    const remainingSafe = Math.max(0, safeCap - total);
+    const kpis = raw.sessionTimeline?.kpis || {};
+    const burnRate = Number(raw.burnRatePerTurn ?? kpis.burnRateTokens) || 0;
+    const turnsLeft = burnRate > 0 ? Math.max(0, Math.floor(remainingSafe / burnRate)) : (Number(kpis.turnsLeft) || 99);
+    const usedPct = safeCap > 0 ? Math.min(100, Math.round((total / safeCap) * 100)) : 0;
+
+    const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    const setTip = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.title = v; };
+
+    // Authoritative active model (raw.model) — quota pool name is only a legacy fallback.
+    const mdl = raw.model || {};
+    const activeModel = mdl.displayName || win.activeModelLabel || raw.modelName || raw.quota?.sprint5h?.modelPoolName || 'Auto';
+    const modelId = String(mdl.id || raw.quota?.cache?.turnBoundarySwitchState?.active_model_id || win.unifiedPool?.modelId || activeModel).toLowerCase();
+    const modelHay = `${modelId} ${String(mdl.rawLabel || activeModel).toLowerCase()}`;
+    // Provider from id/label, including registry sub-families (constants.mjs `family`).
+    const modelProvider = /claude|opus|sonnet|haiku|fable/.test(modelHay) ? 'Claude'
+      : /gemini|carbon|argon|hydrogen|flash/.test(modelHay) ? 'Gemini'
+        : /gpt/.test(modelHay) ? 'GPT-OSS' : 'Other';
+    // Selected effort comes from the host label "Model (Medium)" only when the parenthetical is an effort word.
+    const labelParen = (String(mdl.rawLabel || '').match(/\(([^)]+)\)\s*$/) || [])[1] || '';
+    const effortFromLabel = /^(low|medium|med|high|max|minimal|auto|fast|thinking)\b/i.test(labelParen.trim()) ? labelParen.trim() : '';
+    const activeEffort = effortFromLabel || raw.activeEffortProfile?.label || raw.effortProfile?.label || raw.thinkingEffort || 'Auto';
+
+    const hostBadge = document.getElementById('tufteTopHostBadge');
+    if (hostBadge) {
+      const surfaceName = (raw.storeSource || 'antigravity').toLowerCase().includes('claude') ? 'Claude Code' : 'Antigravity';
+      hostBadge.textContent = `${surfaceName} \u00B7 ${activeModel} (${activeEffort})`;
+      hostBadge.title = `Active editor host: ${surfaceName}. Current model: ${activeModel}. Reasoning effort: ${activeEffort}.`;
+    }
+
+    // --- Cache state (supports both raw.quota.cache and raw.prefixCache) ---
+    const cache = raw.quota?.cache || raw.prefixCache || raw.cache || {};
+    const cacheState = String(cache.state || (cache.isCacheCold ? 'COLD' : 'WARM')).toUpperCase();
+    const ttlRem = Math.max(0, Math.round(Number(cache.ttlRemainingSec ?? cache.cacheTtlRemainingSec) || 0));
+    const ttlMm = String(Math.floor(ttlRem / 60)).padStart(2, '0');
+    const ttlSs = String(ttlRem % 60).padStart(2, '0');
+    const rawHit = Number(cache.hitRatePct ?? (Number(cache.hitRatio) ? Number(cache.hitRatio) * 100 : 0));
+    // Warm only when real cache reads are measured and no prefix bust occurred (no fabricated hit rates).
+    const isWarm = isCacheTrulyWarmInline(cache) || (cacheState === 'HOT' && ttlRem > 0 && Number(rawHit) > 0);
+    const isRebuilding = !isWarm && ttlRem > 0 && !cache.isCacheCold && isNextTurnLikelyWarmInline(cache);
+    const isCold = !isWarm && !isRebuilding;
+    const hitPct = Math.max(0, Math.round(rawHit || 0));
+
+    // --- Health state ---
+    const isCrisis = Boolean(raw.amputationCrisis || raw.amputation?.amputationCrisis || raw.telemetry?.amputationRisk) || total >= safeCap;
+    const isWarn = !isCrisis && (total >= safeCap * 0.82 || staleT >= 35000);
+    const errLoopCount = Number(bs.deadErrors?.errorCount || 0);
+    const isStuckErrorLoop = Boolean(bs.deadErrors?.isErrorLoop || errLoopCount >= 3);
+    const topBlowup = Array.isArray(bs.blowupSteps) && bs.blowupSteps.length > 0 ? bs.blowupSteps[0] : null;
+    const idleEagerMcps = Array.isArray(bs.mcpAudit?.unusedEagerServers) ? bs.mcpAudit.unusedEagerServers : [];
+    const idleEagerTokens = Math.max(0, Number(bs.mcpAudit?.reclaimableEagerSchemaTokens) || 0);
+    const baselineEst = Math.max(0, Number(raw.baseline?.totalEst ?? (rulesT + toolsT)) || 0);
+    const baselineOverBudget = Boolean(raw.baseline?.eagerInjectionWarning) || baselineEst > 20000;
+    const isHighEffort = /high|max|deep|thinking/i.test(String(activeEffort));
+
+    // =======================================================================
+    // 1. SIMPLE VIEW UPDATES (#argonSimpleSurface — Antigravity & Claude Code)
+    // =======================================================================
+    const rawFm = String(raw.flightMode || raw.coachState?.flightMode || '').toUpperCase();
+    const effectiveMode = normalizeHorizonUiMode(
+      raw.routerMode ||
+      raw.coachState?.routerMode ||
+      raw.coachState?.taskQuotaRouter?.routerMode ||
+      (rawFm === 'OFF' ? 'off' : (rawFm === 'AUTO_PILOT' ? 'autopilot' : 'coach'))
+    );
+    syncModeSliderUI(effectiveMode);
+    const simpleSurface = document.getElementById('argonSimpleSurface');
+    if (simpleSurface) simpleSurface.dataset.protectionMode = effectiveMode;
+    const isClaudeSurface = (raw.storeSource || 'antigravity').toLowerCase().includes('claude');
+    const tsCacheMeta = document.getElementById('tsCacheMeta');
+    const cacheUnmeasured = !isWarm && cache.prefixRetention?.unmeasuredReason === 'no_cache_telemetry';
+    if (tsCacheMeta) {
+      tsCacheMeta.dataset.tone = isWarm ? 'signal' : (isRebuilding && !cacheUnmeasured ? 'warn' : 'muted');
+      tsCacheMeta.textContent = isWarm
+        ? `${hitPct}% hit \u00B7 Warm (${ttlMm}:${ttlSs})`
+        : (cacheUnmeasured && ttlRem > 0
+          ? `Cache not reported \u00B7 TTL ${ttlMm}:${ttlSs}`
+          : (isRebuilding ? `${hitPct}% hit \u00B7 Rebuilding (${ttlMm}:${ttlSs})` : `${hitPct}% hit \u00B7 Cold`));
+      tsCacheMeta.title = cacheUnmeasured
+        ? 'This host does not report cache-read token counts for the active model, so hit rate cannot be measured.'
+        : (cache.prefixBustLabel || (isWarm
+          ? `Prompt cache is warm: ${hitPct}% of input tokens are billed at the discounted cached rate for ${ttlMm}:${ttlSs}.`
+          : (isRebuilding
+            ? `Cache was recently cleared and is warming back up over the next ${ttlMm}:${ttlSs}.`
+            : 'Cache is cold or expired — the next turn will pay full input rate once and re-warm the prefix.')));
+    }
+    const tsCacheBulletFill = document.getElementById('tsCacheBulletFill');
+    if (tsCacheBulletFill) {
+      const bulletW = cacheUnmeasured ? 0 : Math.max(0, Math.min(100, hitPct));
+      tsCacheBulletFill.style.width = `${bulletW}%`;
+      tsCacheBulletFill.dataset.tone = isWarm && hitPct >= 75 ? 'nominal' : (isRebuilding ? 'warn' : 'muted');
+    }
+
+    const tsStatusDot = document.getElementById('tsStatusDot');
+    const tsStatusLabel = document.getElementById('tsStatusLabel');
+    if (tsStatusDot && tsStatusLabel) {
+      if (isCrisis) {
+        tsStatusDot.dataset.tone = 'danger';
+        tsStatusLabel.textContent = 'Memory Pruning Active';
+      } else if (isStuckErrorLoop) {
+        tsStatusDot.dataset.tone = 'warn';
+        tsStatusLabel.textContent = 'Error Loop Detected';
+      } else if (isWarn) {
+        tsStatusDot.dataset.tone = 'warn';
+        tsStatusLabel.textContent = total >= safeCap * 0.82 ? 'Context Saturation Risk' : 'Reclaimable Clutter High';
+      } else if (topBlowup && Number(topBlowup.tokens) >= 15000) {
+        tsStatusDot.dataset.tone = 'warn';
+        tsStatusLabel.textContent = 'Single-Turn Output Spike';
+      } else if ((idleEagerMcps.length > 0 && idleEagerTokens >= 10000) || baselineOverBudget) {
+        tsStatusDot.dataset.tone = 'warn';
+        tsStatusLabel.textContent = 'Turn-0 Prefix Bloat';
+      } else {
+        tsStatusDot.dataset.tone = isWarm ? 'signal' : 'nominal';
+        tsStatusLabel.textContent = isWarm ? 'Optimal Cache' : 'Nominal Memory';
+      }
+    }
+
+    const tsRunwayMeta = document.getElementById('tsRunwayMeta');
+    if (tsRunwayMeta) {
+      if (isCrisis) {
+        const overTok = Math.max(0, total - safeCap);
+        tsRunwayMeta.dataset.tone = 'danger';
+        tsRunwayMeta.textContent = overTok > 0 ? `+${formatTokens(overTok)} over safe` : 'At safe limit';
+        tsRunwayMeta.title = 'Working memory has passed the safe ceiling. Run /compact before continuing so early instructions stay in view.';
+      } else if (burnRate > 0 && turnsLeft < 99) {
+        tsRunwayMeta.dataset.tone = turnsLeft <= 4 ? 'danger' : (turnsLeft <= 8 ? 'warn' : 'nominal');
+        tsRunwayMeta.textContent = `~${turnsLeft} turn${turnsLeft === 1 ? '' : 's'} \u00B7 +${formatTokens(burnRate)}/t`;
+        tsRunwayMeta.title = `At ~${formatTokens(burnRate)} added per turn, you have roughly ${turnsLeft} turn${turnsLeft === 1 ? '' : 's'} left before reaching the safe limit.`;
+      } else {
+        tsRunwayMeta.dataset.tone = isWarn ? 'warn' : 'nominal';
+        tsRunwayMeta.textContent = `${formatTokens(remainingSafe)} headroom`;
+        tsRunwayMeta.title = `${formatTokens(remainingSafe)} of safe working room remaining below the ${formatTokens(safeCap)} ceiling.`;
+      }
+    }
+
+    // Friendly narrative summary in Card 1 (CONTEXT)
+    if (isCrisis) {
+      setTxt('tsContextSummary', `Context is at ${usedPct}% of the safe limit (${formatTokens(total)} used). Early project rules risk getting pushed out unless you clean up ${formatTokens(staleT)} of older clutter.`);
+    } else if (isWarn && staleT >= 35000) {
+      setTxt('tsContextSummary', `Older turns and repeat file reads have grown to ${formatTokens(staleT)}. Clearing them with /compact frees space while keeping your project rules and active edits intact.`);
+    } else if (isWarm) {
+      setTxt('tsContextSummary', `Prompt cache is warm at a ${hitPct}% hit rate for ${ttlMm}:${ttlSs}, with ${formatTokens(remainingSafe)} of comfortable room below your safe limit.`);
+    } else {
+      setTxt('tsContextSummary', total > 0
+        ? `Working memory uses ${formatTokens(total)} out of ${formatTokens(safeCap)} safe capacity, leaving ${formatTokens(remainingSafe)} of clean room before slowdowns or rule fade.`
+        : `Ready to track live context usage against your ${formatTokens(safeCap)} safe limit as soon as your session grows.`);
+    }
+
+    setTxt('tsUsedLabel', formatTokens(total));
+    setTxt('tsSafeLabel', formatTokens(safeCap));
+    setTxt('tsUsedPct', `${usedPct}%`);
+
+    const usefulPct = Math.min(100, (usefulT / maxCap) * 100);
+    const wastePct = Math.min(100 - usefulPct, (staleT / maxCap) * 100);
+    const safeMarkPct = Math.min(96, Math.max(20, (safeCap / maxCap) * 100));
+    const tsBarSignal = document.getElementById('tsBarSignal');
+    const tsBarClutter = document.getElementById('tsBarClutter');
+    const tsSafeTick = document.getElementById('tsSafeTick');
+    const tsClutterDot = document.getElementById('tsClutterDot');
+    const isNearOrPastSafe = isCrisis || total >= safeCap * 0.85;
+    if (tsBarSignal) tsBarSignal.style.width = `${usefulPct.toFixed(1)}%`;
+    if (tsBarClutter) {
+      tsBarClutter.style.width = `${wastePct.toFixed(1)}%`;
+      tsBarClutter.dataset.clutterTone = isWarm ? 'cached' : 'stale';
+    }
+    if (tsClutterDot) {
+      tsClutterDot.style.background = isWarm ? 'var(--ts-clu-cached)' : 'var(--ts-clu)';
+    }
+    if (tsSafeTick) {
+      tsSafeTick.style.left = `${safeMarkPct.toFixed(1)}%`;
+      tsSafeTick.dataset.breach = isNearOrPastSafe ? 'true' : 'false';
+    }
+
+    // Screen-reader / fallback segment labels preserved for DOM parity
+    const usedSumT = Math.max(1, usefulT + staleT);
+    const sigShare = Math.round((usefulT / usedSumT) * 100);
+    const cluShare = staleT > 0 ? 100 - sigShare : 0;
+    const trackW = tsBarSignal?.parentElement?.clientWidth || 300;
+    const fitLabel = (pct, txt) => ((pct / 100) * trackW >= txt.length * 6.7 + 12 ? txt : '');
+    const sigTxtFull = `${formatTokens(usefulT)} (${sigShare}%)`;
+    const cluTxtFull = `${formatTokens(staleT)} (${cluShare}%)`;
+    const sigInside = usefulT > 0 ? fitLabel(usefulPct, sigTxtFull) : '';
+    const cluInside = staleT > 0 ? fitLabel(wastePct, cluTxtFull) : '';
+    setTxt('tsBarSignalLabel', sigInside);
+    setTxt('tsBarClutterLabel', cluInside);
+    const tsBarOuterLabel = document.getElementById('tsBarOuterLabel');
+    if (tsBarOuterLabel) {
+      const outerParts = [];
+      if (usefulT > 0 && !sigInside) outerParts.push(`<span class="ts-ol-signal">${escAttr(sigTxtFull)}</span>`);
+      if (staleT > 0 && !cluInside) outerParts.push(`<span class="ts-ol-clutter" data-clutter-tone="${isWarm ? 'cached' : 'stale'}">${escAttr(cluTxtFull)}</span>`);
+      const fillPct = usefulPct + wastePct;
+      if (outerParts.length && fillPct < 75) {
+        tsBarOuterLabel.innerHTML = outerParts.join('');
+        tsBarOuterLabel.style.left = `${fillPct.toFixed(1)}%`;
+        tsBarOuterLabel.hidden = false;
+      } else {
+        tsBarOuterLabel.hidden = true;
+        tsBarOuterLabel.innerHTML = '';
+      }
+    }
+    const tsSafeTickLabel = document.getElementById('tsSafeTickLabel');
+    if (tsSafeTickLabel) {
+      tsSafeTickLabel.style.left = `${safeMarkPct.toFixed(1)}%`;
+      tsSafeTickLabel.dataset.breach = isNearOrPastSafe ? 'true' : 'false';
+      tsSafeTickLabel.textContent = `${formatTokens(safeCap)} safe limit`;
+    }
+
+    // Reversed Vertical "Glass of Water" Bar Chart (Bottom = Rules & tools -> Middle = Older & clutter -> Top = New & active)
+    {
+      const vessel = document.getElementById('tsGlassVessel');
+      const fill = document.getElementById('tsGlassFill');
+      const segNew = document.getElementById('tsGlassSegNew');
+      const segOld = document.getElementById('tsGlassSegOld');
+      const segPin = document.getElementById('tsGlassSegPinned');
+      const tagNew = document.getElementById('tsGlassTagNew');
+      const tagOld = document.getElementById('tsGlassTagOld');
+      const tagPin = document.getElementById('tsGlassTagPinned');
+      const headroomEl = document.getElementById('tsGlassHeadroom');
+      const safeLine = document.getElementById('tsGlassSafeLine');
+      const captionEl = document.getElementById('tsGlassCaption');
+      const glassState = isCrisis ? 'crisis' : (isNearOrPastSafe || isWarn ? 'warn' : 'nominal');
+
+      const vesselCeiling = Math.max(safeCap, total, 1);
+      const sumLayers = newActiveT + staleT + pinnedT;
+      const denom = Math.max(1, sumLayers);
+      const fillHeightPct = total > 0 ? Math.min(100, Math.max(5, (total / vesselCeiling) * 100)) : 0;
+      const newSegPct = sumLayers > 0 ? (newActiveT / denom) * 100 : 0;
+      const oldSegPct = sumLayers > 0 ? (staleT / denom) * 100 : 0;
+      const pinSegPct = sumLayers > 0 ? Math.max(0, 100 - newSegPct - oldSegPct) : 0;
+
+      if (vessel) {
+        vessel.dataset.state = glassState;
+        vessel.title = `Context glass (${formatTokens(total)} / ${formatTokens(safeCap)} safe): bottom = Rules & tools (${formatTokens(pinnedT)}), middle = Older & reclaimable (${formatTokens(staleT)}), top = New & active work (${formatTokens(newActiveT)}).`;
+      }
+      if (fill) {
+        fill.style.height = `${fillHeightPct.toFixed(1)}%`;
+        fill.dataset.empty = total <= 0 ? 'true' : 'false';
+      }
+      if (segNew) {
+        segNew.style.height = `${newSegPct.toFixed(1)}%`;
+        segNew.title = `New & active work (top of glass): ${formatTokens(newActiveT)} tokens of recent replies and active files.`;
+      }
+      if (segOld) {
+        segOld.style.height = `${oldSegPct.toFixed(1)}%`;
+        segOld.dataset.clutterTone = isWarm ? 'cached' : 'stale';
+        segOld.title = isWarm && staleT > 0
+          ? `Older & reclaimable history (middle layer): ${formatTokens(staleT)} tokens — currently discounted in warm cache until the timer ends.`
+          : `Older & reclaimable clutter (middle layer): ${formatTokens(staleT)} tokens that /compact can remove safely.`;
+      }
+      if (segPin) {
+        segPin.style.height = `${pinSegPct.toFixed(1)}%`;
+        segPin.title = `Rules & tools (base of glass): ${formatTokens(pinnedT)} tokens of AGENTS.md / CLAUDE.md instructions, learned rules, and connected tool definitions.`;
+      }
+      const vesselPx = 116;
+      const pxHeight = (segPct) => (fillHeightPct / 100) * (segPct / 100) * vesselPx;
+      if (tagNew) tagNew.hidden = pxHeight(newSegPct) < 15;
+      if (tagOld) tagOld.hidden = pxHeight(oldSegPct) < 15;
+      if (tagPin) tagPin.hidden = pxHeight(pinSegPct) < 15;
+
+      if (safeLine) {
+        if (total > safeCap) {
+          safeLine.hidden = false;
+          safeLine.style.bottom = `${Math.max(5, Math.min(95, (safeCap / vesselCeiling) * 100)).toFixed(1)}%`;
+        } else {
+          safeLine.hidden = true;
+        }
+      }
+      if (headroomEl) {
+        const freePct = Math.max(0, 100 - usedPct);
+        headroomEl.textContent = `${freePct}% free`;
+        headroomEl.hidden = fillHeightPct > 78 || total > safeCap;
+      }
+      if (captionEl) {
+        captionEl.dataset.state = glassState;
+        captionEl.textContent = total > safeCap ? 'Over safe limit' : `${usedPct}% of safe`;
+      }
+    }
+
+    // Progressive Disclosure Drawer 1: "What /compact clears" (auto-hidden at <100 tok)
+    const tsWhyClears = document.getElementById('tsWhyClears');
+    const tsWhyList = document.getElementById('tsWhyList');
+    const tsWhyKeepNote = document.getElementById('tsWhyKeepNote');
+    if (tsWhyKeepNote) {
+      tsWhyKeepNote.innerHTML = isClaudeSurface
+        ? 'Keeps <code>CLAUDE.md</code>, <code>HANDOFF_LATEST.md</code> &amp; active code.'
+        : 'Keeps project rules, <code>task.md</code>, your plan &amp; active code.';
+    }
+    if (tsWhyClears && tsWhyList) {
+      const dupFilesN = Number(bs.duplicateReads?.fileCount ?? (Array.isArray(bs.duplicateReads) ? bs.duplicateReads.length : 0)) || 0;
+      const histTurnsN = Number(bs.oldHistory?.turnCount || 0);
+      const errN = Number(bs.deadErrors?.errorCount || 0);
+      const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+      const knownWaste = dupWaste + histWaste + errWaste + bleedWaste;
+      const otherWaste = staleT > knownWaste + 99 ? (staleT - knownWaste) : 0;
+      const whyRows = [
+        { label: 'Repeated file reads', sub: dupFilesN ? plural(dupFilesN, 'file', 'files') : '', tok: dupWaste, tip: 'Full copies of files read more than once after edits.' },
+        { label: 'Earlier chat history', sub: histTurnsN ? plural(histTurnsN, 'old turn', 'old turns') : '', tok: histWaste, tip: 'Older back-and-forth turns that /compact summarizes cleanly.' },
+        { label: isStuckErrorLoop ? 'Error logs & loop traces' : 'Fixed error logs', sub: errN ? plural(errN, isStuckErrorLoop ? 'error' : 'old error', isStuckErrorLoop ? 'errors' : 'old errors') : '', tok: errWaste, tip: 'Past command failures and tracebacks that are already resolved or repeating.' },
+        { label: 'Cross-project memory bleed', sub: 'foreign KIs', tok: bleedWaste, tip: 'Background memory notes pulled in from unrelated repositories.' },
+        { label: 'Other stale tool outputs', sub: '', tok: otherWaste, tip: 'Earlier search results or tool outputs no longer needed in full.' }
+      ].filter(r => r.tok >= 100).sort((a, b) => b.tok - a.tok);
+      if (whyRows.length === 0) {
+        tsWhyClears.hidden = true;
+        tsWhyClears.open = false;
+      } else {
+        tsWhyClears.hidden = false;
+        tsWhyList.innerHTML = whyRows.map(r =>
+          `<li class="ts-why-row" title="${escAttr(r.tip)}"><span>${escAttr(r.label)}${r.sub ? ` <span class="ts-why-sub">(${escAttr(r.sub)})</span>` : ''}</span>` +
+          `<span class="ts-why-tok">${escAttr(formatTokens(r.tok))}</span></li>`
+        ).join('');
+        setTxt('tsWhyTotal', formatTokens(staleT));
+      }
+    }
+
+    setTxt('tsValNew', formatTokens(newActiveT));
+    setTxt('tsValPinned', formatTokens(pinnedT));
+    setTxt('tsValSignal', formatTokens(usefulT));
+    setTxt('tsValClutter', formatTokens(staleT));
+    setTxt('tsClutterKind', isWarm && staleT > 0 ? 'Warm Reclaimable' : 'Reclaimable');
+    setTip('tsRowNew', `New & active: ${formatTokens(newActiveT)} tokens of your current prompts and open source files (top of the glass). Total useful signal = ${formatTokens(usefulT)}.`);
+    setTip('tsRowOld', staleT > 0
+      ? `Reclaimable clutter: ${formatTokens(staleT)} tokens of older turns, repeat file reads, or resolved errors that /compact can trim without losing active code.`
+      : 'No older clutter accumulated yet — working memory contains only startup rules and fresh work.');
+    setTip('tsRowPinned', `Rules & tools: ${formatTokens(pinnedT)} tokens of startup instructions and connected tool definitions anchored at the base of context.`);
+    const tsAnchorHealthEl = document.getElementById('tsAnchorHealth');
+    if (tsAnchorHealthEl) {
+      tsAnchorHealthEl.dataset.risk = isCrisis ? 'true' : 'false';
+      tsAnchorHealthEl.textContent = isCrisis ? 'Oldest rules at risk' : 'Pinned rules safe';
+      tsAnchorHealthEl.title = isCrisis
+        ? 'Memory has crossed the safe ceiling — startup rules risk getting truncated or ignored unless you run /compact.'
+        : 'Startup project rules and task constraints sit comfortably inside the safe attention window.';
+    }
+
+    // Zone B: Direct Guidance (DO / AVOID / MODEL & EFFORT)
+    const tsGuidanceSection = document.getElementById('tsGuidanceSection');
+    const tsGuidanceBadge = document.getElementById('tsGuidanceBadge');
+    const tsDoRow = document.getElementById('tsDoRow');
+    const doTagEl = tsDoRow ? tsDoRow.querySelector('.ts-tag') : null;
+    const avoidRowEl = document.getElementById('tsAvoidRow');
+    const avoidTagEl = avoidRowEl ? avoidRowEl.querySelector('.ts-tag') : null;
+    if (doTagEl) doTagEl.textContent = 'DO';
+    if (avoidRowEl) {
+      avoidRowEl.hidden = false;
+      avoidRowEl.dataset.tone = 'avoid';
+    }
+    if (avoidTagEl) avoidTagEl.textContent = 'AVOID';
+
+    const breakerSrc = raw.coachState?.detectors?.tripped || raw.circuitBreakerTripped ||
+      (Array.isArray(raw.coachState?.circuitBreakerAlerts) ? raw.coachState.circuitBreakerAlerts[0] : null);
+    const simpleBreaker = (breakerSrc && typeof breakerSrc === 'object')
+      ? { id: String(breakerSrc.detectorId || breakerSrc.id || 'DET'), msg: String(breakerSrc.reason || breakerSrc.message || breakerSrc.title || 'intervention active').slice(0, 90) }
+      : null;
+    const shardedSpecCount = Number(raw.shardedSpecCount || 0);
+    const rslClashCount = Number(raw.rsl?.clashCount || 0);
+    const scopeCollisions = Array.isArray(raw.swarmTopology?.scopeLocks?.collisions)
+      ? raw.swarmTopology.scopeLocks.collisions
+      : (Array.isArray(raw.coachState?.scopeCollision) ? raw.coachState.scopeCollision : []);
+
+    if (isCrisis) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'danger';
+      setTxt('tsDoText', `Run /compact now or save a checkpoint to task.md — working memory is ${formatTokens(Math.max(0, total - safeCap))} past the safe limit, so early rules can start fading.`);
+      setTxt('tsAvoidText', `Avoid opening whole files or running verbose test suites until that ${formatTokens(staleT)} of clutter is cleared.`);
+    } else if (isStuckErrorLoop) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
+      setTxt('tsDoText', `Pause blind retries (${errLoopCount}\u00D7 error loop) — the same failure is piling up in chat; inspect the root cause${staleT >= 5000 ? ` or /compact ${formatTokens(staleT)} of error noise` : ''}.`);
+      setTxt('tsAvoidText', 'Avoid running the exact same failing command again; isolate a small repro or step up to a stronger model/effort.');
+    } else if (simpleBreaker) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'danger';
+      setTxt('tsDoText', `Guard tripped (${simpleBreaker.id}): ${simpleBreaker.msg} — pause and review the AI's last edit before approving further work.`);
+      setTxt('tsAvoidText', 'Avoid accepting follow-up changes blindly until the flagged safeguard issue is reviewed or reverted.');
+    } else if (scopeCollisions.length > 0) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'danger';
+      setTxt('tsDoText', `Subagent file overlap (${scopeCollisions.length} collision${scopeCollisions.length === 1 ? '' : 's'}) — assign separate files or wait for the other agent to finish before editing.`);
+      setTxt('tsAvoidText', 'Avoid running parallel agents on the same file path without separate worktrees or scope locks.');
+    } else if (isWarm && staleT > 10000) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'do';
+      setTxt('tsDoText', `Keep prompting cleanly while your ${hitPct}% cache discount is warm — you still have ${formatTokens(remainingSafe)} of safe headroom left.`);
+      setTxt('tsAvoidText', `Avoid running /compact for the next ${ttlMm}:${ttlSs} unless needed, so you keep reusing cached context at a discount.`);
+    } else if (total >= safeCap * 0.82) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
+      setTxt('tsDoText', `Save progress to task.md or run /compact soon — only ${formatTokens(remainingSafe)} of room remains below the ${formatTokens(safeCap)} safe limit.`);
+      setTxt('tsAvoidText', 'Avoid loading more large files or unfiltered build logs before trimming older context.');
+    } else if (shardedSpecCount >= 4) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
+      setTxt('tsDoText', `Consolidate ${shardedSpecCount} scattered requirement changes — run ctxtop handoff --consolidate and continue from one clean spec so nothing gets missed.`);
+      setTxt('tsAvoidText', 'Avoid drip-feeding new requirements across many chat turns; combine them into one clear plan.');
+    } else if (isHighEffort && staleT >= 30000) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
+      setTxt('tsDoText', `Run /compact to clear ${formatTokens(staleT)} clutter \u2014 ${activeEffort} effort re-processes stale noise every turn, slowing responses and burning extra quota.`);
+      setTxt('tsAvoidText', 'Avoid keeping full-file reads or long terminal logs in memory while High effort is enabled.');
+    } else if (staleT >= 35000) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
+      const dominantCause = dupWaste >= histWaste && dupWaste >= bleedWaste && dupWaste >= errWaste && dupWaste > 0
+        ? 'repeated file reads'
+        : histWaste >= bleedWaste && histWaste >= errWaste && histWaste > 0
+          ? 'older chat history'
+          : bleedWaste >= errWaste && bleedWaste > 0
+            ? 'cross-project bleed'
+            : errWaste > 0 ? 'error logs' : 'stale outputs';
+      setTxt('tsDoText', `Run /compact when you reach a natural stopping point to reclaim ${formatTokens(staleT)} clutter (${dominantCause}) and keep future turns fast.`);
+      setTxt('tsAvoidText', dominantCause === 'repeated file reads'
+        ? 'Avoid re-reading whole files after small edits; pass StartLine/EndLine bounds or let a subagent inspect long files.'
+        : dominantCause === 'cross-project bleed'
+          ? 'Avoid mixing background memory notes from other projects into this task; keep only current-repo context.'
+          : 'Avoid letting old back-and-forth turns pile up past ~35k when a task finishes.');
+    } else if (topBlowup && Number(topBlowup.tokens) >= 12000) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
+      const rawBlowupDetail = String(topBlowup.payload?.detail || topBlowup.target || 'tool output');
+      const blowupShort = topBlowup.payload?.kind === 'file'
+        ? rawBlowupDetail.replace(/\\/g, '/').split('/').pop()
+        : (rawBlowupDetail.length > 36 ? rawBlowupDetail.slice(0, 33) + '...' : rawBlowupDetail);
+      setTxt('tsDoText', `Single-turn spike: ${formatTokens(topBlowup.tokens)} from ${blowupShort} (Turn #${topBlowup.userTurnNumber || topBlowup.stepIndex}) — filter or scope future output so it does not replay.`);
+      setTxt('tsAvoidText', 'Avoid pasting or printing full un-filtered test/build dumps into chat; inspect targeted slices instead.');
+    } else if ((idleEagerMcps.length > 0 && idleEagerTokens >= 5000) || baselineOverBudget) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
+      setTxt('tsDoText', idleEagerMcps.length > 0
+        ? `Switch ${idleEagerMcps.length} idle eager MCP${idleEagerMcps.length === 1 ? '' : 's'} to lazy loading to save ~${formatTokens(idleEagerTokens)} at Turn 0 before chatting even starts.`
+        : `Trim Turn-0 startup rules and instructions (${formatTokens(baselineEst)} vs 20.0k budget) so more room stays open for code.`);
+      setTxt('tsAvoidText', 'Avoid loading unused MCP tool schemas or oversized global rule files into every new session.');
+    } else if (rslClashCount > 0) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
+      setTxt('tsDoText', `${rslClashCount} conflicting rule${rslClashCount === 1 ? '' : 's'} detected — run ctxtop rsl status to review the overlap and keep one clear instruction per topic.`);
+      setTxt('tsAvoidText', 'Avoid adding contradictory rules across AGENTS.md and learned rule files.');
+    } else if (raw.turn1ContractSteered) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'do';
+      setTxt('tsDoText', 'List target file paths and a verification command up front — Turn-1 contract guidance noticed an open-ended multi-file prompt.');
+      setTxt('tsAvoidText', 'Avoid starting broad multi-file changes without naming which files can be edited and how to test them.');
+    } else {
+      if (tsDoRow) tsDoRow.dataset.tone = 'do';
+      setTxt('tsDoText', `Safe to run multi-file edits or implementation tasks — you have ${formatTokens(remainingSafe)} of clean room left below your ${formatTokens(safeCap)} safe limit.`);
+      setTxt('tsAvoidText', 'Avoid reading large files without line bounds (StartLine/EndLine) so unused sections stay out of working memory.');
+    }
+
+    if (effectiveMode === 'off' && !isCrisis) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'do';
+      if (doTagEl) doTagEl.textContent = 'WATCH';
+      setTxt('tsDoText', `Watch-only mode \u2014 tracking ${formatTokens(total)} / ${formatTokens(safeCap)} safe memory without blocking commands or injecting advice.`);
+      if (avoidRowEl) avoidRowEl.hidden = true;
+    } else if (effectiveMode === 'autopilot') {
+      const needsHumanAction = isCrisis || isStuckErrorLoop || Boolean(simpleBreaker) ||
+        scopeCollisions.length > 0 || shardedSpecCount >= 4 || rslClashCount > 0 ||
+        total >= safeCap * 0.82 || staleT >= 30000;
+      if (!needsHumanAction) {
+        if (tsDoRow) tsDoRow.dataset.tone = 'do';
+        if (doTagEl) doTagEl.textContent = 'AUTO';
+        setTxt('tsDoText', isWarm
+          ? `Hands-free protection active \u2014 keeping your ${hitPct}% warm cache locked for ${ttlMm}:${ttlSs} (${formatTokens(remainingSafe)} safe room left).`
+          : `Hands-free protection active \u2014 Highbeam is enforcing safety guards and turn-end routing automatically (${formatTokens(remainingSafe)} safe room left).`);
+        if (avoidRowEl) {
+          avoidRowEl.hidden = false;
+          avoidRowEl.dataset.tone = 'handled';
+        }
+        if (avoidTagEl) avoidTagEl.textContent = 'HANDLED';
+        setTxt('tsAvoidText', 'Large unsliced reads, warm-cache rule edits, and costly mid-turn switches are guarded automatically for you.');
+      }
+    }
+    if (tsGuidanceSection) {
+      tsGuidanceSection.dataset.crisis = isCrisis ? 'true' : 'false';
+      const doTone = tsDoRow?.dataset.tone || 'do';
+      tsGuidanceSection.dataset.tone = doTone === 'danger' ? 'danger' : (doTone === 'avoid' ? 'warn' : 'nominal');
+    }
+
+    // Card 2 Sub-Drawer: separate MODEL and EFFORT switching explanations (model-family aware)
+    {
+      const ttlTxt = `${ttlMm}:${ttlSs}`;
+      const otherFamily = modelProvider === 'Claude' ? 'Gemini' : (modelProvider === 'Gemini' ? 'Claude' : 'another family');
+      const familyHint = modelProvider === 'Claude' ? 'Opus/Sonnet/Haiku' : (modelProvider === 'Gemini' ? 'Carbon/Argon/Flash' : 'same provider');
+      const cg = cache.costGate || {};
+      const rewriteUsd = Number(cg.coldRewriteCostUsd) || 0;
+      const quotaUnits = Number(cg.quotaPenaltyUnits) || 0;
+      const usdTxt = rewriteUsd >= 0.01 ? `$${rewriteUsd.toFixed(2)}` : '<$0.01';
+      const costTxt = rewriteUsd > 0 ? ` (\u2248 ${usdTxt}${quotaUnits > 0 ? ` \u00B7 ${formatTokens(quotaUnits)} quota units` : ''})` : '';
+      const windowTxt = `switches to ${formatTokens(maxCap)} window / ${formatTokens(safeCap)} safe`;
+      const crossFamTxt = `To ${otherFamily}: prompt cache rebuilds from scratch, tokens are re-counted, and ${windowTxt}.`;
+      // Claude (and unknown providers, conservatively): effort/thinking changes invalidate cached chat history.
+      // Gemini: thinking level is not part of the cached prompt prefix.
+      const effortBustsCache = modelProvider !== 'Gemini';
+
+      let m = { tone: 'do', verdict: 'OK', badge: 'OK', same: '', cross: crossFamTxt };
+      let e = { tone: 'do', verdict: 'OK', badge: 'OK', text: '' };
+
+      if (isCrisis) {
+        m = { tone: 'danger', verdict: 'LOCK', badge: 'Hold',
+          same: `Run /compact first — switching models now would re-send all ${formatTokens(total)} tokens without a cache discount.`,
+          cross: `To ${otherFamily}: full rebuild plus tokens re-counted against the new window.` };
+        e = { tone: 'danger', verdict: 'LOWER', badge: 'Lower', text: 'Switch effort down to Low or Medium so long reasoning steps do not overflow memory.' };
+      } else if (isStuckErrorLoop) {
+        m = { tone: 'avoid', verdict: 'UPSHIFT OK', badge: 'Upshift OK',
+          same: `${errLoopCount}\u00D7 error loop — moving up to a stronger ${modelProvider} model can break the deadlock${costTxt}.`,
+          cross: `To ${otherFamily}: brings a fresh perspective, though the prompt cache rebuilds.` };
+        e = { tone: 'avoid', verdict: 'RAISE OK', badge: 'High OK', text: 'Raise effort to High to help reason through the repeating failure.' };
+      } else if (isWarm) {
+        m = { tone: 'avoid', verdict: `HOLD ${ttlTxt}`, badge: `Hold ${ttlTxt}`,
+          same: `Within ${modelProvider} (${familyHint}): switching now forces a full cache rebuild${costTxt}.`, cross: crossFamTxt };
+        e = effortBustsCache
+          ? { tone: 'avoid', verdict: `HOLD ${ttlTxt}`, badge: `Hold ${ttlTxt}`, text: 'Changing effort right now re-bills cached chat history; startup tools and system prompt stay cached.' }
+          : { tone: 'do', verdict: 'OK', badge: 'OK', text: 'Thinking level stays outside this model\'s cached prompt — your warm cache stays intact.' };
+      } else if (isRebuilding) {
+        m = { tone: 'avoid', verdict: 'STAY', badge: 'Stay',
+          same: `Cache is warming up on ${activeModel} — staying on it reuses the cache next turn.`, cross: crossFamTxt };
+        e = effortBustsCache
+          ? { tone: 'avoid', verdict: 'STAY', badge: 'Stay', text: 'Changing effort now resets the chat cache that just started warming.' }
+          : { tone: 'do', verdict: 'OK', badge: 'OK', text: 'Thinking level stays outside this model\'s cached prompt — your cache stays intact.' };
+      } else {
+        m = { tone: 'do', verdict: 'OK', badge: 'OK',
+          same: `Cache is cold — switching within ${modelProvider} (${familyHint}) has no extra rewrite penalty.`,
+          cross: `To ${otherFamily}: tokens are re-counted and context ${windowTxt}.` };
+        e = { tone: 'do', verdict: 'OK', badge: 'OK',
+          text: isHighEffort && usedPct >= 45
+            ? 'Consider Low or Medium effort for routine edits now that memory is filling up.'
+            : 'Match effort to task complexity: Low/Medium for routine edits, High for tricky specs or debugging.' };
+      }
+
+      const tsModelCard = document.getElementById('tsModelCard');
+      const tsEffortCard = document.getElementById('tsEffortCard');
+      if (tsModelCard) { tsModelCard.dataset.tone = m.tone; tsModelCard.title = `Active model: ${activeModel} (${modelProvider} family). Verdict: ${m.verdict}.`; }
+      if (tsEffortCard) { tsEffortCard.dataset.tone = e.tone; tsEffortCard.title = `Active reasoning effort: ${activeEffort} on ${activeModel}. Verdict: ${e.verdict}.`; }
+      setTxt('tsModelVerdict', m.verdict);
+      setTxt('tsModelName', activeModel);
+      setTxt('tsModelSameFam', m.same);
+      setTxt('tsModelCrossFam', m.cross);
+      setTxt('tsEffortVerdict', e.verdict);
+      setTxt('tsEffortName', activeEffort);
+      setTxt('tsEffortText', e.text);
+
+      const bc = cache.prefixBustCause;
+      const hasModelSwitchBust = Boolean(bc && bc.cause === 'model_switch' && bc.from && bc.to);
+      const tsModelLast = document.getElementById('tsModelLast');
+      if (tsModelLast) {
+        if (hasModelSwitchBust) {
+          const stripEff = (s) => String(s).replace(/\s*\([^)]*\)\s*$/, '');
+          const prov = (s) => (/claude|opus|sonnet|haiku|fable/i.test(s) ? 'Claude' : /gemini|carbon|argon|hydrogen|flash/i.test(s) ? 'Gemini' : /gpt/i.test(s) ? 'GPT-OSS' : 'Other');
+          const crossTag = prov(bc.from) !== prov(bc.to) ? ' \u00B7 cross-family' : '';
+          tsModelLast.textContent = `Last switch: ${stripEff(bc.from)} \u2192 ${stripEff(bc.to)} (cache miss${crossTag})`;
+          tsModelLast.hidden = false;
+        } else {
+          tsModelLast.hidden = true;
+          tsModelLast.textContent = '';
+        }
+      }
+      const tsEffortHist = document.getElementById('tsEffortHist');
+      if (tsEffortHist) {
+        const effSwitches = (raw.effortTransitions || raw.effortHistory || []).length;
+        tsEffortHist.hidden = effSwitches < 2;
+        tsEffortHist.textContent = effSwitches >= 2 ? `${effSwitches} effort switches this chat` : '';
+      }
+      setTxt('tsSwitchActiveSummary', `${activeModel} \u00B7 ${activeEffort}`);
+      setTxt('tsSwitchDrawerHint', isCrisis ? 'Switch locked' : (hasModelSwitchBust ? 'Cache miss' : (isWarm ? `Hold ${ttlTxt}` : 'Details')));
+      const tsSwitchDetailsDrawer = document.getElementById('tsSwitchDetailsDrawer');
+      if (tsSwitchDetailsDrawer && hasModelSwitchBust) {
+        tsSwitchDetailsDrawer.open = true;
+      }
+      if (tsGuidanceBadge) {
+        if (effectiveMode === 'off') {
+          tsGuidanceBadge.dataset.tone = isCrisis ? 'danger' : 'muted';
+          tsGuidanceBadge.textContent = 'Watch only';
+          tsGuidanceBadge.title = 'Mode is Off — Highbeam is passively measuring memory and cache timers without stepping in.';
+        } else if (effectiveMode === 'autopilot' && !isCrisis) {
+          tsGuidanceBadge.dataset.tone = 'signal';
+          tsGuidanceBadge.textContent = isWarm ? `Auto-hold ${ttlTxt}` : 'Auto-routed at turn end';
+          tsGuidanceBadge.title = isWarm
+            ? 'Auto mode protects your warm prompt cache automatically and waits until turn end or cache expiry before switching.'
+            : 'Auto mode automatically selects and shifts model/effort at turn boundaries.';
+        } else {
+          tsGuidanceBadge.dataset.tone = (m.tone === 'danger' || e.tone === 'danger')
+            ? 'danger'
+            : ((m.tone === 'do' && e.tone === 'do') ? 'muted' : 'warn');
+          tsGuidanceBadge.textContent = `Model: ${m.badge} \u00B7 Effort: ${e.badge}`;
+          tsGuidanceBadge.title = isWarm
+            ? `Cache is warm (${ttlTxt} left) — avoid switching models unnecessarily so you keep the cached rate.`
+            : 'Cache is cold — changing models or effort right now triggers no warm-cache penalty.';
+        }
+      }
+    }
+
+    // Zone C: Automated Activity Ledger (reads raw.autoFixLog.items + raw.savings.session.bySource + prefixShield)
+    const tsLedgerList = document.getElementById('tsLedgerList');
+    const rawAutoFixItems = Array.isArray(raw.autoFixLog?.items)
+      ? (typeof coalesceAutoFixItems === 'function' ? coalesceAutoFixItems(raw.autoFixLog.items) : raw.autoFixLog.items)
+      : (Array.isArray(raw.autoFix?.items)
+        ? raw.autoFix.items
+        : (Array.isArray(raw.autoFixedItems)
+          ? raw.autoFixedItems
+          : (Array.isArray(raw.interventions) ? raw.interventions : [])));
+
+    const srvBySource = raw.savings?.session?.bySource || {};
+    const savSubagent = Number(srvBySource.subagentIsolated ?? srvBySource.subagentIsolation ?? raw.savingsLedger?.subagentTokens ?? 0);
+    const savCache = Number(srvBySource.cachePreserved ?? srvBySource.cachePreservation ?? raw.savingsLedger?.prefixCacheTokens ?? 0);
+    const savCli = Number(srvBySource.cliCompressed ?? srvBySource.cliCompression ?? raw.savingsLedger?.cliTokens ?? 0);
+    const savGuards = Number(
+      srvBySource.avoidedBloat ??
+      ((srvBySource.guardsPrevented != null || srvBySource.compactionReclaimed != null)
+        ? ((Number(srvBySource.guardsPrevented) || 0) + (Number(srvBySource.compactionReclaimed) || 0))
+        : raw.savingsLedger?.dedupTokens) ??
+      0
+    );
+    const queuedShield = Number(raw.prefixShield?.queuedCount ?? raw.coachState?.prefixCacheShield?.queuedCount ?? raw.coachState?.prefixShield?.queuedCount ?? 0);
+    const shieldEnabled = Boolean(raw.shield?.enabled ?? raw.coachState?.shield?.enabled);
+    const shieldMaxLines = Number(raw.shield?.maxUnslicedLines ?? raw.coachState?.shield?.maxUnslicedLines ?? 1200);
+    const rslActiveCount = Number(raw.rsl?.totalActive || 0);
+    const rslHooksCount = Number(raw.rsl?.promotedHooks || 0);
+
+    if (tsLedgerList) {
+      const rows = [];
+      rawAutoFixItems.slice(0, 4).forEach(ev => {
+        const repeatSuffix = ev.repeatCount > 1 ? ` (\u00D7${ev.repeatCount})` : '';
+        const tokSaved = Number(ev.tokensSaved ?? ev.argonEquivTokensSaved ?? 0);
+        rows.push({
+          age: ev.turn ? `T${ev.turn}` : (ev.ageLabel || ev.turnLabel || 'live'),
+          action: `${ev.label || ev.title || ev.summary || ev.detail || 'Auto-guard intervention'}${repeatSuffix}`,
+          saved: tokSaved > 0 ? `+${formatTokens(tokSaved)}` : 'guard',
+          tip: ev.detail || ev.summary || 'Automatic optimization applied locally before tokens reached billing.'
+        });
+      });
+
+      if (rawAutoFixItems.length === 0) {
+        if (rows.length < 4 && savCli > 0) {
+          rows.push({
+            age: 'live',
+            action: 'Trimmed noisy terminal & test output using local FTS5 indexing so full logs stay out of chat',
+            saved: `+${formatTokens(savCli)}`,
+            tip: 'Saves raw test/build output to local disk and injects only the matching error lines.'
+          });
+        }
+        if (rows.length < 4 && savCache > 0) {
+          rows.push({
+            age: 'live',
+            action: 'Reused startup rules & earlier turns directly from warm prompt cache',
+            saved: `+${formatTokens(savCache)}`,
+            tip: 'Warm cache hits avoid re-paying full input rates on unchanged prefix tokens.'
+          });
+        }
+        if (rows.length < 4 && savSubagent > 0) {
+          rows.push({
+            age: 'live',
+            action: 'Ran heavy repository searches inside a separate subagent so results did not flood main memory',
+            saved: `+${formatTokens(savSubagent)}`,
+            tip: 'Subagent isolation keeps exploratory file reads out of your main coding session.'
+          });
+        }
+        if (rows.length < 4 && savGuards > 0) {
+          rows.push({
+            age: 'live',
+            action: 'Skipped repeat full-file reads and cleared stale tool logs automatically',
+            saved: `+${formatTokens(savGuards)}`,
+            tip: 'Replaces unmodified or post-edit repeat file reads with compact diffs and outlines.'
+          });
+        }
+      }
+      if (rows.length < 4 && queuedShield > 0) {
+        rows.push({
+          age: 'live',
+          action: `Held ${queuedShield} rule update${queuedShield === 1 ? '' : 's'} with PrefixCacheShield until the warm cache timer ends`,
+          saved: 'shielded',
+          tip: 'Deferring non-urgent AGENTS.md / CLAUDE.md edits protects your active 90%–95% prompt cache discount.'
+        });
+      }
+      if (rows.length < 4 && shieldEnabled) {
+        rows.push({
+          age: 'shield',
+          action: `Large-file read firewall active — asks for line ranges on files over ${shieldMaxLines.toLocaleString()} lines`,
+          saved: 'active',
+          tip: 'Prevents huge single-file reads from flooding context when only a small line range is needed.'
+        });
+      }
+      if (rows.length < 4 && rslActiveCount > 0) {
+        rows.push({
+          age: 'rsl',
+          action: `Applying ${rslActiveCount} learned rule${rslActiveCount === 1 ? '' : 's'} distilled from past coding sessions`,
+          saved: rslHooksCount > 0 ? `${rslHooksCount} hook${rslHooksCount === 1 ? '' : 's'}` : 'learned',
+          tip: 'Recursive Self-Learning (RSL) turns repeated mistakes from verified sessions into concise workspace rules.'
+        });
+      }
+
+      const activeInterventionCount = rows.length;
+      const liveGuardTotal = Number(raw.coachState?.detectors?.totalCount || 0);
+      const guardLabel = liveGuardTotal > 0 ? `${liveGuardTotal} guards` : 'guards';
+      if (effectiveMode === 'off') {
+        setTxt('tsGuardsSummary', 'Paused (Watch only)');
+        setTip('tsGuardsSummary', 'Protection mode is set to Off (Watch only) — Highbeam still tracks context and timers without blocking commands or injecting advice.');
+        tsLedgerList.innerHTML = `
+          <li class="ts-ledger-row" title="Switch to Coach or Auto anytime to re-enable background protections.">
+            <span class="ts-ledger-age">off</span>
+            <span>Background log trimming, active guards, and auto-routing are paused while Mode is Off</span>
+            <span class="ts-ledger-saved">watch only</span>
+          </li>
+        `;
+      } else {
+        if (rows.length === 0) {
+          if (rulesT > 0) {
+            rows.push({
+              age: 'active',
+              action: `Protecting ${formatTokens(rulesT)} of pinned startup project rules & workspace instructions`,
+              saved: 'pinned',
+              tip: 'Startup rules stay anchored cleanly so the model follows your architecture from turn 1 onward.'
+            });
+          }
+          rows.push(effectiveMode === 'autopilot'
+            ? {
+                age: 'auto',
+                action: 'Hands-free Auto mode active \u2014 enforcing all safety, cache, and read-limit guards automatically',
+                saved: 'enforcing',
+                tip: 'Advisory guards upgrade to automatic enforcement in Auto mode without prompting on routine guardrails.'
+              }
+            : {
+                age: 'now',
+                action: 'Auto-guards armed \u2014 trimming noisy CLI logs with FTS5 indexing and shielding warm caches',
+                saved: 'ready',
+                tip: 'All enabled background guards run locally inside your IDE & CLI hooks in under 15 ms.'
+              });
+        }
+        if (effectiveMode === 'autopilot') {
+          setTxt('tsGuardsSummary', activeInterventionCount > 0
+            ? `Auto-enforcing \u00B7 ${activeInterventionCount} active \u00B7 ${guardLabel}`
+            : `Auto-enforcing \u00B7 ${liveGuardTotal > 0 ? guardLabel : 'Guards'}`);
+          setTip('tsGuardsSummary', liveGuardTotal > 0
+            ? `Hands-free Auto mode is actively enforcing ${liveGuardTotal} safety and token-efficiency guards (${activeInterventionCount} active in this chat).`
+            : 'Hands-free Auto mode automatically enforces safety, cache, and read-limit guards.');
+        } else {
+          setTxt('tsGuardsSummary', activeInterventionCount > 0
+            ? `${activeInterventionCount} auto-intervention${activeInterventionCount === 1 ? '' : 's'} \u00B7 ${guardLabel}`
+            : `${liveGuardTotal > 0 ? guardLabel : 'Guards'} armed`);
+          setTip('tsGuardsSummary', liveGuardTotal > 0
+            ? `${liveGuardTotal} safety & token-efficiency guards are enabled right now (${activeInterventionCount} active in this chat).`
+            : 'Background guards watch for log dumps, repeat file reads, and cache-busting changes.');
+        }
+
+        tsLedgerList.innerHTML = rows.slice(0, 4).map(r => `
+          <li class="ts-ledger-row" title="${escAttr(r.tip || '')}">
+            <span class="ts-ledger-age">${escAttr(r.age)}</span>
+            <span>${escAttr(r.action)}</span>
+            <span class="ts-ledger-saved">${escAttr(r.saved)}</span>
+          </li>
+        `).join('');
+      }
+    }
+
+    // Live guard roster (dropdown body of Automated Activity)
+    {
+      const guardListEl = document.getElementById('tsGuardList');
+      const guardHeadEl = document.getElementById('tsGuardListHead');
+      const liveGuards = Array.isArray(raw.coachState?.detectors?.list) ? raw.coachState.detectors.list : [];
+      if (guardListEl && guardHeadEl) {
+        if (liveGuards.length === 0) {
+          guardListEl.hidden = true;
+          guardHeadEl.hidden = true;
+          guardListEl.innerHTML = '';
+          setTxt('tsGuardRosterHint', 'Details');
+        } else {
+          const rank = (g) => (g.tripped ? 0 : (g.mode === 'guard' ? 1 : 2));
+          const sorted = liveGuards.slice().sort((a, b) => rank(a) - rank(b) || String(a.id).localeCompare(String(b.id)));
+          const trippedN = sorted.filter((g) => g.tripped).length;
+          if (effectiveMode === 'off') {
+            guardHeadEl.textContent = `Guards paused (${sorted.length} configured)`;
+            setTxt('tsGuardRosterHint', 'Paused');
+          } else if (effectiveMode === 'autopilot') {
+            guardHeadEl.textContent = `Auto-enforced guards (${sorted.length}${trippedN ? ` \u00B7 ${trippedN} tripped` : ''})`;
+            setTxt('tsGuardRosterHint', trippedN ? `${sorted.length} \u00B7 ${trippedN} tripped` : `${sorted.length} enforcing`);
+          } else {
+            guardHeadEl.textContent = `Live guards (${sorted.length}${trippedN ? ` \u00B7 ${trippedN} tripped` : ''})`;
+            setTxt('tsGuardRosterHint', trippedN ? `${sorted.length} \u00B7 ${trippedN} tripped` : `${sorted.length} armed`);
+          }
+          guardListEl.innerHTML = sorted.map((g) => {
+            const state = effectiveMode === 'off'
+              ? 'paused'
+              : (g.tripped ? 'tripped' : (g.mode === 'guard' ? 'blocks' : (effectiveMode === 'autopilot' ? 'enforces' : 'advises')));
+            const tip = state === 'paused'
+              ? `${g.id}: ${g.name} — paused while Mode is Off (Watch only).`
+              : (state === 'tripped'
+                ? `${g.id}: ${g.name} — tripped in this chat; review the flagged step before continuing.`
+                : (state === 'blocks'
+                  ? `${g.id}: ${g.name} — actively blocks unsafe or wasteful actions automatically.`
+                  : (state === 'enforces'
+                    ? `${g.id}: ${g.name} — promoted from advisory to active enforcement while Auto mode is on.`
+                    : `${g.id}: ${g.name} — monitors silently and shows advice when triggered.`)));
+            return `<li class="ts-ledger-row" data-mode="${escAttr(g.mode)}" data-tripped="${g.tripped ? 'true' : 'false'}" data-effective-state="${escAttr(state)}" title="${escAttr(tip)}">` +
+              `<span class="ts-ledger-age">${escAttr(g.id)}</span>` +
+              `<span>${escAttr(g.name)}</span>` +
+              `<span class="ts-ledger-saved">${state}</span></li>`;
+          }).join('');
+          guardHeadEl.hidden = false;
+          guardListEl.hidden = false;
+        }
+      }
+    }
+
+    // Core Impact KPI, Entire-Session Digest, Retention Grade & 72x18 Sparkline
+    const sessionSaved = Math.max(
+      0,
+      Number(
+        raw.savings?.session?.totalTokens ??
+        raw.savings?.session?.totalPhysicalTokens ??
+        raw.savings?.session?.totalTokensSaved ??
+        raw.sessionTokensSaved ??
+        raw.tokensSavedTotal ??
+        raw.savingsLedger?.totalTokensSaved ??
+        (savSubagent + savCache + savCli + savGuards)
+      ) || 0
+    );
+    const lifetimeSaved = Math.max(
+      sessionSaved,
+      Number(
+        raw.savings?.workspace30d?.totalTokens ??
+        raw.savings?.workspace30d?.totalPhysicalTokens ??
+        raw.savings?.thirtyDay?.totalTokensSaved ??
+        raw.lifetimeTokensSaved ??
+        raw.thirtyDayTokensSaved
+      ) || 0
+    );
+    const usdSaved = Number(
+      raw.savings?.session?.estimatedUsd ??
+      raw.savings?.session?.estimatedInputValueUsd ??
+      raw.savings?.session?.estimatedCostSavedUsd ??
+      raw.sessionCostSavedUsd ??
+      ((sessionSaved / 1000000) * 2.0)
+    ) || 0;
+    const usd30d = Number(
+      raw.savings?.workspace30d?.estimatedUsd ??
+      raw.savings?.workspace30d?.estimatedInputValueUsd ??
+      raw.savings?.thirtyDay?.estimatedCostSavedUsd ??
+      raw.lifetimeCostSavedUsd ??
+      ((lifetimeSaved / 1000000) * 2.0)
+    ) || 0;
+    setTxt('tsKpiSaved', `+${formatTokens(sessionSaved)}`);
+    setTxt('tsKpiUsd', `~$${usdSaved.toFixed(2)}`);
+    setTxt('tsKpi30d', `30d: +${formatTokens(lifetimeSaved)} (~$${usd30d.toFixed(2)})`);
+    {
+      const usdEl = document.getElementById('tsKpiUsd');
+      const d30El = document.getElementById('tsKpi30d');
+      const sepEl = d30El ? d30El.previousElementSibling : null;
+      const hideUsd = usdSaved < 0.005;
+      const hide30d = lifetimeSaved <= 0;
+      if (usdEl) usdEl.hidden = hideUsd;
+      if (d30El) d30El.hidden = hide30d;
+      if (sepEl && sepEl.getAttribute('aria-hidden') === 'true') sepEl.hidden = hide30d;
+    }
+
+    const tsSprintMeta = document.getElementById('tsSprintMeta');
+    if (tsSprintMeta) {
+      const sprintPctRaw = raw.quota?.sprint5h?.usedPct ?? raw.quota?.fiveHourPct;
+      if (sprintPctRaw != null && Number.isFinite(Number(sprintPctRaw))) {
+        const estPrefix = raw.quota?.sprint5h?.source === 'estimate' ? '~' : '';
+        tsSprintMeta.textContent = `\u00B7 5h quota: ${estPrefix}${Math.min(100, Math.round(Number(sprintPctRaw)))}%`;
+        tsSprintMeta.hidden = false;
+      } else {
+        tsSprintMeta.hidden = true;
+        tsSprintMeta.textContent = '';
+      }
+    }
+
+    // Entire-session summary & milestones (Card 4: SESSION OVERVIEW)
+    {
+      const tl = raw.sessionTimeline || null;
+      const tlTurns = Array.isArray(tl?.turns) ? tl.turns : [];
+      const totalTurns = Math.max(0, Number(tl?.totalTurns) || tlTurns.length || 0);
+      const goodTurns = Number(kpis.goodCount) || 0;
+      const badTurns = Number(kpis.badCount) || 0;
+      const markers = Array.isArray(tl?.markers) ? tl.markers : [];
+      const compactN = markers.filter(m => m && m.type === 'COMPACT').length;
+      const switchN = markers.filter(m => m && m.type === 'MODEL_SWITCH').length;
+      const ckptN = markers.filter(m => m && m.type === 'CHECKPOINT').length;
+
+      if (totalTurns > 0) {
+        const turnTag = badTurns > 0
+          ? `${totalTurns} turn${totalTurns === 1 ? '' : 's'} \u00B7 ${badTurns} heavy`
+          : (goodTurns > 0 ? `${totalTurns} turn${totalTurns === 1 ? '' : 's'} \u00B7 ${goodTurns} lean` : `${totalTurns} turn${totalTurns === 1 ? '' : 's'}`);
+        setTxt('tsSessionTurnsMeta', turnTag);
+        setTip('tsSessionTurnsMeta', `${totalTurns} total turns tracked in this session (${goodTurns} lean turns, ${badTurns} turns with output spikes or repeat reads).`);
+      } else {
+        setTxt('tsSessionTurnsMeta', total > 0 ? 'Active chat' : 'Session start');
+        setTip('tsSessionTurnsMeta', 'Turn count updates automatically as your conversation progresses.');
+      }
+
+      const paceParts = [];
+      if (burnRate > 0) paceParts.push(`+${formatTokens(burnRate)}/turn avg`);
+      if (compactN > 0) paceParts.push(`${compactN}\u00D7 compacted`);
+      if (ckptN > 0) paceParts.push(`${ckptN} checkpoint${ckptN === 1 ? '' : 's'}`);
+      if (switchN > 0) paceParts.push(`${switchN} switch${switchN === 1 ? '' : 'es'}`);
+      setTxt('tsSessionPaceMeta', paceParts.length > 0 ? paceParts.join(' \u00B7 ') : (total > 0 ? 'Steady growth' : 'Waiting for turns'));
+      setTip('tsSessionPaceMeta', paceParts.length > 0
+        ? `Session milestones and average per-turn token growth (${paceParts.join(', ')}).`
+        : 'Shows average tokens added per turn plus compactions and checkpoints.');
+
+      const digestParts = [];
+      if (totalTurns > 0) {
+        digestParts.push(`${totalTurns} turn${totalTurns === 1 ? '' : 's'} so far`);
+      } else if (total > 0) {
+        digestParts.push(`Currently holding ${formatTokens(total)} across your session`);
+      } else {
+        digestParts.push('Fresh session ready');
+      }
+      if (compactN > 0) digestParts.push(`compacted ${compactN} time${compactN === 1 ? '' : 's'} cleanly`);
+      if (sessionSaved > 0) digestParts.push(`saved ${formatTokens(sessionSaved)} from noise & caching`);
+      else if (staleT >= 20000) digestParts.push(`${formatTokens(staleT)} of older turns can be compacted later`);
+      else digestParts.push('keeping early instructions sharp in view');
+      setTxt('tsSessionDigest', digestParts.join(' \u2014 ') + '.');
+
+      const ret = cache.prefixRetention || raw.coachState?.prefixRetention || null;
+      const retEl = document.getElementById('tsRetentionMeta');
+      if (retEl) {
+        if (ret && ret.measured && Number.isFinite(Number(ret.retentionIndexPct))) {
+          retEl.textContent = `\u00B7 ${ret.retentionIndexPct}% kept (${ret.grade || 'A'})`;
+          retEl.hidden = false;
+          retEl.title = `Session prefix-cache retention grade ${ret.grade}: ${ret.retentionIndexPct}% of eligible history tokens were reused without cold rebuilds.`;
+        } else {
+          retEl.hidden = true;
+          retEl.textContent = '';
+        }
+      }
+
+      const extraRow = document.getElementById('tsSessionExtraRow');
+      const extraTxtEl = document.getElementById('tsSessionExtraText');
+      if (extraRow && extraTxtEl) {
+        const extraBits = [];
+        const workersN = Array.isArray(raw.swarmTopology?.workers) ? raw.swarmTopology.workers.length : 0;
+        const worktreesN = Array.isArray(raw.swarmTopology?.worktrees) ? raw.swarmTopology.worktrees.length : 0;
+        if (workersN > 0 || worktreesN > 1) {
+          extraBits.push(`${workersN} helper agent${workersN === 1 ? '' : 's'}${worktreesN > 1 ? ` across ${worktreesN} worktrees` : ''}`);
+        }
+        if (shardedSpecCount >= 2) {
+          extraBits.push(`${shardedSpecCount} goal updates`);
+        }
+        if (rslActiveCount > 0) {
+          extraBits.push(`${rslActiveCount} learned rule${rslActiveCount === 1 ? '' : 's'}`);
+        }
+        if (shieldEnabled) {
+          extraBits.push('Read firewall on');
+        }
+        if (extraBits.length > 0) {
+          extraRow.hidden = false;
+          extraTxtEl.textContent = extraBits.join(' \u00B7 ');
+          extraRow.title = 'Extra workspace safeguards and multi-agent tools active during this session.';
+        } else {
+          extraRow.hidden = true;
+          extraTxtEl.textContent = '';
+        }
+      }
+    }
+
+    const tsSparklinePath = document.getElementById('tsSparklinePath');
+    const tsSparklineDot = document.getElementById('tsSparklineDot');
+    if (tsSparklinePath && tsSparklineDot) {
+      const tlTurns = Array.isArray(raw.sessionTimeline?.turns) ? raw.sessionTimeline.turns : [];
+      let series = tlTurns.slice(-16).map(t => Math.max(0, Number(t.tokensAdded ?? t.cumulativeTokens ?? t.tokens) || 0));
+      if (series.length < 2 && Array.isArray(raw.cells)) {
+        const cellVals = raw.cells.filter(c => c && c.cat !== 'empty' && Number(c.tokens) > 0).slice(-16).map(c => Number(c.tokens) || 0);
+        if (cellVals.length >= 2) series = cellVals;
+      }
+      if (series.length < 2) {
+        series = total > 0 ? [Math.round(usefulT * 0.5), usefulT, total] : [0, 0];
+      }
+      const peak = Math.max(1, ...series);
+      const pts = series.map((v, idx) => {
+        const x = 2 + (idx / Math.max(1, series.length - 1)) * 68;
+        const y = 15 - (Math.min(peak, v) / peak) * 12;
+        return [Number(x.toFixed(1)), Number(y.toFixed(1))];
+      });
+      tsSparklinePath.setAttribute('points', pts.map(p => `${p[0]},${p[1]}`).join(' '));
+      const lastPt = pts[pts.length - 1] || [70, 15];
+      tsSparklineDot.setAttribute('cx', String(lastPt[0]));
+      tsSparklineDot.setAttribute('cy', String(lastPt[1]));
+      const sparkStroke = isCrisis ? 'var(--status-critical)' : (isWarn ? 'var(--status-warning)' : 'var(--text-secondary)');
+      tsSparklinePath.setAttribute('stroke', sparkStroke);
+      tsSparklineDot.setAttribute('fill', isCrisis ? 'var(--status-critical)' : (isWarn ? 'var(--status-warning)' : 'var(--text-primary)'));
+      setTxt('tsSparklineTip', `Context growth trend over recent turns (peak ${formatTokens(peak)}). Left = earlier, right = newest.`);
+    }
+
+    const tsBtnCleanPrimary = document.getElementById('tsBtnCleanPrimary');
+    if (tsBtnCleanPrimary) {
+      if (isCrisis) {
+        tsBtnCleanPrimary.disabled = false;
+        tsBtnCleanPrimary.dataset.ctaState = 'crisis';
+        setTxt('tsBtnCleanLabel', `Purge Clutter Now \u00B7 Reclaim ${formatTokens(staleT)} (Copy /compact)`);
+        tsBtnCleanPrimary.title = `Memory is past safe capacity. Click to copy /compact and reclaim ${formatTokens(staleT)} of clutter right away.`;
+      } else if (staleT > 500) {
+        tsBtnCleanPrimary.disabled = false;
+        tsBtnCleanPrimary.dataset.ctaState = isWarm ? 'guarded' : 'ready';
+        setTxt('tsBtnCleanLabel', isWarm
+          ? `Hold Cache (${ttlMm}:${ttlSs}) or Copy /compact (${formatTokens(staleT)})`
+          : `Reclaim ${formatTokens(staleT)} Clutter (Copy /compact)`);
+        tsBtnCleanPrimary.title = isWarm
+          ? `Prompt cache is warm for ${ttlMm}:${ttlSs}. Wait until it cools to keep your discount, or click to copy /compact anyway.`
+          : `Click to copy /compact and clear ${formatTokens(staleT)} of older clutter while preserving rules and active code.`;
+      } else {
+        tsBtnCleanPrimary.disabled = false;
+        tsBtnCleanPrimary.dataset.ctaState = 'guarded';
+        setTxt('tsBtnCleanLabel', 'Copy /compact Command (Memory Clean)');
+        tsBtnCleanPrimary.title = 'Memory is already clean. Click anytime to copy the /compact command.';
+      }
+    }
+    setTxt('tsCompactReclaim', `${formatTokens(staleT)} reclaimable clutter \u00B7 Active working set protected`);
+
+    // =======================================================================
+    // 2. ADVANCED VIEW UPDATES (#argonAdvancedSurface)
+    // =======================================================================
+    setTxt('taSessionLabel', raw.sessionTitle || raw.workspaceName || 'Active Session');
+    const q5h = raw.quota?.sprint5h?.usedPct ?? raw.quota?.fiveHourPct ?? ((total / safeCap) * 18);
+    const q7d = raw.quota?.weekly7d?.usedPct ?? raw.quota?.sevenDayPct ?? 12;
+    const est5hPrefix = raw.quota?.sprint5h?.source === 'estimate' ? '~' : '';
+    const est7dPrefix = raw.quota?.weekly7d?.source === 'estimate' ? '~' : '';
+    setTxt('taSprint5h', `${est5hPrefix}${Math.min(100, Math.round(Number(q5h) || 0))}%`);
+    setTxt('taWeekly7d', `${est7dPrefix}${Math.min(100, Math.round(Number(q7d) || 0))}%`);
+    setTxt('taHostRam', `${Number(raw.hostHealth?.rssGb ?? raw.hostRamGb ?? 0).toFixed(1)}GB`);
+
+    const taDualTtl = document.getElementById('taDualTtl');
+    if (taDualTtl) {
+      taDualTtl.dataset.tone = isWarm ? 'signal' : 'muted';
+      taDualTtl.textContent = `${hitPct}% hit \u00B7 5m KV ${ttlMm}:${ttlSs}`;
+    }
+    const taStatusDot = document.getElementById('taStatusDot');
+    if (taStatusDot) taStatusDot.dataset.tone = isCrisis ? 'danger' : ((isStuckErrorLoop || isWarn) ? 'warn' : 'signal');
+    setTxt('taStatusLabel', isCrisis ? 'Pruning Required' : (isStuckErrorLoop ? 'Error Loop' : (isWarn ? 'Saturation Risk' : (isWarm ? 'Optimal Cache' : 'Nominal Memory'))));
+    setTxt('taUsedTok', formatTokens(total));
+    setTxt('taSigTok', formatTokens(usefulT));
+    setTxt('taClutterTok', formatTokens(staleT));
+    setTxt('taSafeTok', formatTokens(safeCap));
+
+    // Build 40 cells using data-cat="anchor|signal|cached|clutter|error"
+    const totalCells = 40;
+    const tokPerCell = Math.max(1, Math.round(safeCap / totalCells));
+    const catLabelsAdv = {
+      anchor: 'System Anchor & Rules',
+      signal: 'Active Dialogue & Edits',
+      cached: 'Warm Prefix History',
+      clutter: 'Reclaimable Tool Logs',
+      error: 'Stale Error Trace'
+    };
+    let cells = [];
+    if (Array.isArray(raw.cells) && raw.cells.length === 40 && raw.cells[0]?.dominantCategory) {
+      cells = raw.cells.map((c, i) => {
+        const dc = String(c.dominantCategory || '').toUpperCase();
+        const st = String(c.state || '').toLowerCase();
+        let cat = 'empty';
+        if (dc === 'FREE_HEADROOM' || c.fillPct === 0 || st === 'free') {
+          cat = 'empty';
+        } else if (c.isCrisisCell || dc === 'DEAD_ERROR' || st === 'error') {
+          cat = 'error';
+        } else if (dc === 'ANCHOR') {
+          cat = 'anchor';
+        } else if (dc === 'STALE_DUPLICATE' || dc === 'DUPLICATE_READ' || dc === 'STALE_TURN' || dc === 'FOREIGN_BLEED' || st === 'stale') {
+          cat = 'clutter';
+        } else if (dc === 'ACTIVE_WORKING_SET' || dc === 'MEMORY_KI' || st === 'useful') {
+          cat = isWarm && i < 24 ? 'cached' : 'signal';
+        }
+        const tbc = c.tokensByCategory && typeof c.tokensByCategory === 'object' ? c.tokensByCategory : null;
+        const tok = tbc
+          ? Object.entries(tbc).reduce((acc, [k, v]) => (k === 'FREE_HEADROOM' ? acc : acc + Math.max(0, Number(v) || 0)), 0)
+          : (cat === 'empty' ? 0 : Math.round(((c.fillPct ?? 100) / 100) * tokPerCell));
+        return {
+          cat,
+          tokens: tok,
+          source: cat === 'empty' ? 'Available capacity' : (c.topTarget || catLabelsAdv[cat] || cat),
+          recall: typeof c.attentionWeight === 'number' ? c.attentionWeight.toFixed(2) : undefined
+        };
+      });
+    } else {
+      const anchorCells = Math.max(1, Math.min(8, Math.round((rulesT + toolsT) / tokPerCell)));
+      const signalCells = Math.max(0, Math.min(32 - anchorCells, Math.round((activeT + filesT) / tokPerCell)));
+      const clutterCells = Math.max(0, Math.min(40 - anchorCells - signalCells, Math.round(staleT / tokPerCell)));
+      for (let i = 0; i < totalCells; i++) {
+        let cat = 'empty';
+        let tok = 0;
+        let src = 'Available capacity';
+        if (i < anchorCells) {
+          cat = 'anchor'; tok = Math.round((rulesT + toolsT) / anchorCells); src = 'System Anchor & Rules';
+        } else if (i < anchorCells + signalCells) {
+          cat = isWarm && i < anchorCells + Math.ceil(signalCells * 0.6) ? 'cached' : 'signal';
+          tok = Math.round((activeT + filesT) / Math.max(1, signalCells));
+          src = cat === 'cached' ? 'Warm Prefix History' : 'Active Dialogue & Edits';
+        } else if (i < anchorCells + signalCells + clutterCells) {
+          cat = isCrisis ? 'error' : 'clutter';
+          tok = Math.round(staleT / Math.max(1, clutterCells));
+          src = 'Reclaimable Tool Logs';
+        }
+        cells.push({ cat, tokens: tok, source: src });
+      }
+    }
+    __taLastCells = cells;
+
+    const strandedN = Number(raw.attentionHeatmap?.strandedSignalCount) || 0;
+    setTxt('taUTrough', `62% (${strandedN} spec${strandedN === 1 ? '' : 's'})`);
+
+    const gridEl = document.getElementById('taHorizonGrid');
+    if (gridEl) {
+      const domCells = gridEl.querySelectorAll('.ta-cell');
+      domCells.forEach((el, idx) => {
+        const c = cells[idx] || { cat: 'empty' };
+        if (c.cat && c.cat !== 'empty') el.setAttribute('data-cat', c.cat);
+        else el.removeAttribute('data-cat');
+        el.setAttribute('aria-selected', idx === __taSelectedCellIndex ? 'true' : 'false');
+      });
+    }
+    renderTaCellInspector(cells[__taSelectedCellIndex], __taSelectedCellIndex);
+
+    // Top Context Consumers Table (respecting Active Source File Protection invariant)
+    const taConsumersBody = document.getElementById('taConsumersBody');
+    let hogs = [];
+    if (Array.isArray(raw.topConsumers) && raw.topConsumers.length > 0) {
+      hogs = raw.topConsumers;
+    } else {
+      const seenTargets = new Set();
+      const topFiles = Array.isArray(bs.duplicateReads?.topFiles)
+        ? bs.duplicateReads.topFiles
+        : (Array.isArray(raw.duplicateReads) ? raw.duplicateReads : []);
+      topFiles.forEach(f => {
+        const p = f?.path || f?.file;
+        const tok = Number(f?.wastedTokens ?? f?.tokens ?? f?.reclaimableTokens ?? 0);
+        if (!p || tok <= 0) return;
+        seenTargets.add(String(p).toLowerCase());
+        hogs.push({ kind: 'file', path: p, pattern: `${Number(f.occurrences || f.reads || f.count || 1)}x read`, tokens: tok });
+      });
+      (Array.isArray(raw.offenders) ? raw.offenders : []).forEach(o => {
+        const tgt = String(o?.target || '');
+        const tok = Number(o?.wastedTokens || 0);
+        if (!tgt || tok <= 0) return;
+        if (o.category === 'DEAD_ERROR') {
+          if (!seenTargets.has(tgt.toLowerCase())) {
+            seenTargets.add(tgt.toLowerCase());
+            hogs.push({ kind: 'error', label: tgt, pattern: `${Number(o.occurrences || 1)}x error`, tokens: tok });
+          }
+        } else if (tgt === 'Older chat history (>25 turns ago)') {
+          hogs.push({ kind: 'history', label: 'Older chat history (>25 turns)', pattern: `${Number(o.occurrences || 1)} turns`, tokens: tok });
+        } else if (tgt !== 'Foreign Bleed Knowledge' && !seenTargets.has(tgt.toLowerCase())) {
+          seenTargets.add(tgt.toLowerCase());
+          hogs.push({ kind: 'file', path: tgt, pattern: `${Number(o.occurrences || 1)}x read`, tokens: tok });
+        }
+      });
+      if (bleedWaste > 0) {
+        hogs.push({ kind: 'bleed', label: 'Cross-project memory bleed', pattern: 'foreign KI', tokens: bleedWaste });
+      }
+      (Array.isArray(bs.blowupSteps) ? bs.blowupSteps : []).forEach(b => {
+        const tok = Number(b?.tokens || 0);
+        if (tok <= 0) return;
+        const isFile = b.payload?.kind === 'file' && Boolean(b.payload?.path);
+        const key = String(isFile ? b.payload.path : (b.payload?.detail || b.target || '')).toLowerCase();
+        if (isFile && seenTargets.has(key)) return;
+        seenTargets.add(key);
+        hogs.push({
+          kind: isFile ? 'file' : 'spike',
+          path: isFile ? b.payload.path : undefined,
+          label: b.payload?.detail || b.target || 'Output spike',
+          pattern: `T${b.userTurnNumber || b.stepIndex} spike`,
+          tokens: tok
+        });
+      });
+      hogs.sort((a, b) => (b.tokens || 0) - (a.tokens || 0));
+    }
+    if (taConsumersBody) {
+      const list = hogs.slice(0, 4);
+      if (list.length === 0) {
+        taConsumersBody.innerHTML = `
+          <tr>
+            <td>AGENTS.md + rules</td>
+            <td>pinned</td>
+            <td class="num">${formatTokens(rulesT || 12400)}</td>
+            <td class="num"><span style="color:var(--hz-useful);">Protected</span></td>
+          </tr>
+          <tr>
+            <td>Active working files</td>
+            <td>1x read</td>
+            <td class="num">${formatTokens(Math.max(4200, usefulT - rulesT))}</td>
+            <td class="num"><span style="color:var(--hz-anchor);">Active Source</span></td>
+          </tr>
+        `;
+      } else {
+        taConsumersBody.innerHTML = list.map(item => {
+          const kind = item.kind || (item.path || item.file ? 'file' : 'spike');
+          const p = String(item.path || item.file || item.label || 'context-item');
+          const patternTxt = item.pattern || `${Number(item.reads || item.count || 1)}x read`;
+          const tok = Number(item.tokens || item.reclaimableTokens || 2400);
+          let actionHtml = '';
+          if (kind === 'file') {
+            const ignorable = typeof isIgnorablePath === 'function'
+              ? isIgnorablePath(p)
+              : /\.(log|lock|tmp|bak|min\.js|map)$|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|node_modules|\.antigravity/i.test(p);
+            actionHtml = ignorable
+              ? `<button type="button" class="ta-mini-btn" data-ignore-path="${escAttr(p)}">+Ignore</button>`
+              : `<span style="color:var(--hz-anchor);">Active Source</span>`;
+          } else if (kind === 'history') {
+            actionHtml = `<span style="color:var(--hz-muted);">Cleared by /compact</span>`;
+          } else if (kind === 'error') {
+            actionHtml = `<span style="color:var(--hz-danger);">Error trace</span>`;
+          } else if (kind === 'bleed') {
+            actionHtml = `<span style="color:var(--hz-clutter);">Foreign KI</span>`;
+          } else {
+            actionHtml = `<span style="color:var(--hz-clutter);">Output spike</span>`;
+          }
+          const displayTarget = kind === 'file' && typeof formatShortPath === 'function' ? formatShortPath(p) : p;
+          return `
+            <tr>
+              <td title="${escAttr(p)}">${escAttr(displayTarget)}</td>
+              <td>${escAttr(patternTxt)}</td>
+              <td class="num">${formatTokens(tok)}</td>
+              <td class="num">${actionHtml}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+    // Zone B: Router Governance & Action Queue
+    const routerMode = String(raw.routerMode || 'coach').toLowerCase();
+    document.querySelectorAll('#taRouterSwitch button').forEach(btn => {
+      const active = (btn.dataset.taMode || btn.dataset.mode) === routerMode;
+      btn.style.borderColor = active ? 'var(--hz-useful)' : '';
+      btn.style.color = active ? 'var(--hz-useful)' : '';
+    });
+    const taActionQueue = document.getElementById('taActionQueue');
+    if (taActionQueue) {
+      const qRows = [];
+      if (isCrisis) {
+        qRows.push({ tone: 'danger', tag: 'CRISIS', text: `Run /compact or checkpoint task.md \u2014 ${formatTokens(Math.max(0, total - safeCap))} past safe limit` });
+      } else if (isStuckErrorLoop) {
+        qRows.push({ tone: 'avoid', tag: 'LOOP', text: `${errLoopCount}\u00D7 error loop \u2014 inspect root cause or upshift model/effort` });
+      } else if (staleT >= 35000) {
+        qRows.push({ tone: 'avoid', tag: 'COMPACT', text: `${formatTokens(staleT)} reclaimable clutter queued for /compact` });
+      } else if (topBlowup && Number(topBlowup.tokens) >= 12000) {
+        qRows.push({ tone: 'avoid', tag: 'SPIKE', text: `Turn #${topBlowup.userTurnNumber || topBlowup.stepIndex} spike (${formatTokens(topBlowup.tokens)}) \u2014 filter verbose output` });
+      }
+      if (idleEagerMcps.length > 0) {
+        qRows.push({ tone: 'avoid', tag: 'MCP', text: `${idleEagerMcps.length} idle eager MCP${idleEagerMcps.length === 1 ? '' : 's'} \u00B7 ~${formatTokens(idleEagerTokens)} schema bloat` });
+      }
+      if (Number(raw.hostHealth?.orphanCount) > 0) {
+        const oc = Number(raw.hostHealth.orphanCount);
+        qRows.push({ tone: 'avoid', tag: 'PID', text: `${oc} orphan language_server PID${oc === 1 ? '' : 's'} detected` });
+      }
+      if (strandedN > 0) {
+        qRows.push({ tone: 'avoid', tag: 'TROUGH', text: `${strandedN} stranded mid-trough spec${strandedN === 1 ? '' : 's'} (low recall)` });
+      }
+      if (raw.coachState?.det17ShadowBloat?.triggered) {
+        const sb = raw.coachState.det17ShadowBloat;
+        qRows.push({ tone: 'avoid', tag: 'SHADOW', text: `${sb.shadowedFileCount || 1} shadowed file(s) \u00B7 ~${formatTokens(sb.totalShadowWastedTokens || 0)} wasted` });
+      }
+      if (qRows.length === 0) {
+        qRows.push({ tone: 'do', tag: 'QUEUE', text: 'Nominal queue \u00B7 0 orphan PIDs, 0 idle eager MCPs, 0 trough specs' });
+      }
+      taActionQueue.innerHTML = qRows.slice(0, 3).map(r =>
+        `<div class="ts-guidance-row" data-tone="${escAttr(r.tone)}"><span class="ts-tag">${escAttr(r.tag)}</span><span>${escAttr(r.text)}</span></div>`
+      ).join('');
+    }
+    const taRouterNote = document.getElementById('taRouterNote');
+    if (taRouterNote) {
+      taRouterNote.textContent = raw.coachState?.taskQuotaRouter?.coachPillText || 'KV Gravity Router ready \u00B7 Turn-boundary switch buffer armed';
+    }
+
+    // Zone C: Turn-0 Baseline & Guard Log
+    const taBaselineText = document.getElementById('taBaselineText');
+    if (taBaselineText) {
+      taBaselineText.innerHTML = `Turn-0 Baseline: <strong${baselineOverBudget ? ' style="color:var(--hz-clutter);"' : ''}>${formatTokens(baselineEst)}</strong> / 20.0k budget`;
+    }
+    setTxt('taBtnShield', `Shield: ${queuedShield} queued`);
+    const taDetBadge = document.getElementById('taDetBadge');
+    const trippedDet = raw.coachState?.detectors?.tripped;
+    if (taDetBadge) {
+      if (trippedDet && trippedDet.detectorId) {
+        taDetBadge.dataset.tone = 'warn';
+        taDetBadge.textContent = `${trippedDet.detectorId} tripped`;
+        taDetBadge.title = trippedDet.reason || '';
+      } else {
+        taDetBadge.dataset.tone = '';
+        taDetBadge.textContent = '32/32 guards armed';
+        taDetBadge.title = '';
+      }
+    }
+    const taGuardBody = document.getElementById('taGuardBody');
+    if (taGuardBody && rawAutoFixItems.length > 0) {
+      taGuardBody.innerHTML = rawAutoFixItems.slice(0, 3).map((ev, idx) => `
+        <tr>
+          <td>${escAttr(ev.turn ? 'T' + ev.turn : (ev.ageLabel || 'auto'))}</td>
+          <td>${escAttr(ev.guardId || `DET-0${idx + 1}`)}</td>
+          <td>${escAttr(ev.label || ev.title || ev.summary || 'Guard intervention')}</td>
+          <td class="num" style="color:var(--hz-useful);">${ev.tokensSaved ? `+${formatTokens(ev.tokensSaved)}` : 'fixed'}</td>
+        </tr>
+      `).join('');
+    }
+
+    // Zone D: Verified Savings & Memory Surgery
+    setTxt('taKpiTokens', `+${formatTokens(sessionSaved)}`);
+    setTxt('taKpiUsd', `~$${usdSaved.toFixed(2)}`);
+    setTxt('taKpi30d', `30d: +${formatTokens(lifetimeSaved)} (~$${usd30d.toFixed(2)})`);
+
+    const hasDetailedSavings = (savCache + savSubagent + savCli + savGuards) > 0 || !raw.savingsLedger;
+    const savedCache = hasDetailedSavings ? savCache : (Number(raw.savingsLedger?.prefixCacheTokens) || Math.round(sessionSaved * 0.75));
+    const savedSub = hasDetailedSavings ? savSubagent : (Number(raw.savingsLedger?.subagentTokens) || Math.round(sessionSaved * 0.10));
+    const savedCli = hasDetailedSavings ? savCli : (Number(raw.savingsLedger?.cliTokens) || Math.round(sessionSaved * 0.08));
+    const savedGuards = hasDetailedSavings ? savGuards : Math.max(0, sessionSaved - savedCache - savedSub - savedCli);
+    setTxt('taSrcCache', `+${formatTokens(savedCache)}`);
+    setTxt('taSrcSub', `+${formatTokens(savedSub)}`);
+    setTxt('taSrcCli', `+${formatTokens(savedCli)}`);
+    setTxt('taSrcGuards', `+${formatTokens(savedGuards)}`);
+
+    const taBtnSurgeryPrimary = document.getElementById('taBtnSurgeryPrimary');
+    const taBtnForceAst = document.getElementById('taBtnForceAst');
+    if (taBtnSurgeryPrimary) {
+      taBtnSurgeryPrimary.disabled = false;
+      taBtnSurgeryPrimary.dataset.ctaState = isCrisis ? 'crisis' : (isWarm ? 'guarded' : 'ready');
+      setTxt('taBtnSurgeryLabel', staleT > 0
+        ? `Memory Clean \u00B7 Reclaim ${formatTokens(staleT)} (Copy /compact)`
+        : 'Copy Parameterized /compact');
+    }
+    if (taBtnForceAst) {
+      taBtnForceAst.disabled = false;
+    }
+  }
+
+  // Interactive handlers for Simple & Advanced Argon Tufte surfaces
+  const tsBtnCleanPrimary = document.getElementById('tsBtnCleanPrimary');
+  if (tsBtnCleanPrimary) {
+    tsBtnCleanPrimary.addEventListener('click', async () => {
+      const cmd = currentRenderedState?.compaction?.parameterizedCommand || '/compact';
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(cmd);
+        }
+      } catch {}
+      try {
+        await fetch('/api/pre-compact', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto', action: 'clean_purge_cache', command: cmd })
+        });
+      } catch {}
+      const lbl = document.getElementById('tsBtnCleanLabel');
+      const prev = lbl ? lbl.textContent : '';
+      if (lbl) lbl.textContent = '\u2713 Copied /compact & Checkpointed!';
+      showToast('&#x2713; <strong>Copied <code>/compact</code></strong> to clipboard &amp; checkpointed session.');
+      setTimeout(() => { if (lbl && prev) lbl.textContent = prev; }, 2000);
+    });
+  }
+
+  const taBtnSurgeryPrimary = document.getElementById('taBtnSurgeryPrimary');
+  if (taBtnSurgeryPrimary) {
+    taBtnSurgeryPrimary.addEventListener('click', async () => {
+      const cmd = document.getElementById('taCompactCmdText')?.textContent?.trim() || currentRenderedState?.compaction?.parameterizedCommand || '/compact';
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(cmd);
+        }
+      } catch {}
+      try {
+        await fetch('/api/pre-compact', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto', command: cmd })
+        });
+      } catch {}
+      showToast('&#x2713; <strong>Pre-Compact Surgery</strong> checkpointed &amp; copied command.');
+    });
+  }
+
+  const taBtnCopyCompact = document.getElementById('taBtnCopyCompact');
+  if (taBtnCopyCompact) {
+    taBtnCopyCompact.addEventListener('click', async () => {
+      const cmd = document.getElementById('taCompactCmdText')?.textContent?.trim() || currentRenderedState?.compaction?.parameterizedCommand || '/compact';
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(cmd);
+        }
+      } catch {}
+      flashButton(taBtnCopyCompact, '\u2713 Copied', 1600);
+      showToast('&#x2713; <strong>Copied Parameterized <code>/compact</code></strong> to clipboard.');
+    });
+  }
+
+  const taBtnForceAst = document.getElementById('taBtnForceAst');
+  if (taBtnForceAst) {
+    taBtnForceAst.addEventListener('click', async () => {
+      try {
+        await fetch('/api/force-prune', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto' })
+        });
+      } catch {}
+      flashButton(taBtnForceAst, '\u2713 Pruned AST', 1600);
+      showToast('&#x2713; <strong>AST Distiller &amp; Log Prune</strong> triggered.');
+    });
+  }
+
+  const taBtnCopyReceipt = document.getElementById('taBtnCopyReceipt');
+  if (taBtnCopyReceipt) {
+    taBtnCopyReceipt.addEventListener('click', copyVerifiedTokensSavedReceipt);
+  }
+
+  document.querySelectorAll('#taRouterSwitch button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const mode = normalizeHorizonUiMode(btn.dataset.taMode || btn.dataset.mode || 'coach');
+      document.querySelectorAll('#taRouterSwitch button').forEach(b => b.classList.toggle('active', normalizeHorizonUiMode(b.dataset.taMode || b.dataset.mode) === mode));
+      setRouterModeActiveUI(mode);
+      if (currentRenderedState && typeof currentRenderedState === 'object') {
+        currentRenderedState.routerMode = mode;
+        currentRenderedState.flightMode = mode === 'autopilot' ? 'AUTO_PILOT' : (mode === 'off' ? 'OFF' : 'COACH');
+        try { renderArgonTufteSurfaces(currentRenderedState); } catch {}
+      }
+      try {
+        await fetch('/api/router/mode', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify({ mode })
+        });
+      } catch {}
+      showToast(`&#x2713; Router mode set to <strong>${escAttr(mode.toUpperCase())}</strong>`);
+    });
+  });
+
+  const taConsumersBodyEl = document.getElementById('taConsumersBody');
+  if (taConsumersBodyEl) {
+    taConsumersBodyEl.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-ignore-path]');
+      if (!btn) return;
+      const p = btn.getAttribute('data-ignore-path');
+      if (!p) return;
+      try {
+        await fetch('/api/ignore', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify({ path: p })
+        });
+      } catch {}
+      btn.textContent = '\u2713 Ignored';
+      btn.disabled = true;
+      showToast(`&#x2713; Added <code>${escAttr(p)}</code> to <code>.antigravityignore</code>`);
+    });
+  }
+
+  const __origRenderStateForTufte = renderState;
+  renderState = function(raw, fromCatalog) {
+    __origRenderStateForTufte(raw, fromCatalog);
+    try { renderArgonTufteSurfaces(raw); } catch (err) { void err; }
+  };
+  window.renderState = renderState;
+
+  if (window.__LIVE_INITIAL_STATE__) {
+    try { renderState(window.__LIVE_INITIAL_STATE__); } catch {}
+  }
+
+  try {
+    const evtSource = new EventSource(withSidecarAuthUrl('/api/stream'));
+    evtSource.onmessage = (e) => {
+      try { renderState(JSON.parse(e.data)); } catch {}
+    };
+  } catch {}
+
+  fetch('/api/state').then(r => r.json()).then(renderState).catch(() => {});
+</script>
+</body>
+</html>

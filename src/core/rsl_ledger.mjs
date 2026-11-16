@@ -676,8 +676,9 @@ export function ingestDistilledHeuristics(workspaceRoot, distilledReport = {}, s
     }
   }
 
-  // 2. Ingest newly distilled heuristics (initialized at importance: 2)
+  // 2. Ingest newly distilled heuristics (initialized at importance: 2, or staged as candidate for 1-turn user corrections)
   const incoming = Array.isArray(distilledReport?.heuristics) ? distilledReport.heuristics : [];
+  const stagedCandidates = [];
   for (const h of incoming) {
     const slug = toKebabSlug(h.slug);
     if (!slug) continue;
@@ -687,13 +688,48 @@ export function ingestDistilledHeuristics(workspaceRoot, distilledReport = {}, s
       continue;
     }
 
+    if (existing && existing.status === 'candidate') {
+      const sameSession = Boolean(
+        existing.lastSessionId &&
+        sessionContext.sessionId &&
+        existing.lastSessionId === sessionContext.sessionId
+      );
+      if (!sameSession) {
+        existing.confirmations = Number(existing.confirmations || 1) + 1;
+        existing.lastSessionId = sessionContext.sessionId || existing.lastSessionId || null;
+        existing.updatedAt = new Date().toISOString();
+      }
+      if (existing.confirmations >= 2 || options.promoteCandidatesImmediately === true) {
+        const clashReport = existing.carrier !== 'skill_workflow'
+          ? auditWorkspaceRuleClashes(baseRoot, existing)
+          : { candidateClashes: [] };
+        if (clashReport.candidateClashes.length > 0 && options.allowClashingRules !== true) {
+          existing.status = 'quarantined_conflict';
+          existing.promotedHook = false;
+          existing.quarantinedConflict = clashReport.candidateClashes[0];
+          quarantined.push(slug);
+          continue;
+        }
+        existing.status = 'active';
+        existing.importance = Math.max(RSL_CONSTANTS.INITIAL_IMPORTANCE, Number(existing.importance || 0));
+        compileHeuristicDualTargets(baseRoot, existing, options);
+        added.push(slug);
+      } else {
+        stagedCandidates.push(slug);
+      }
+      continue;
+    }
+
+    const stageOnly = h.initialStatus === 'candidate' && options.promoteCandidatesImmediately !== true;
     const item = {
       slug,
       carrier: h.carrier || 'rule_model_decision',
       importance: RSL_CONSTANTS.INITIAL_IMPORTANCE,
-      status: 'active',
-      promotedHook: h.carrier === 'pre_tool_hook',
-      violationCount: h.carrier === 'pre_tool_hook' ? RSL_CONSTANTS.REPEAT_VIOLATION_THRESHOLD : 0,
+      status: stageOnly ? 'candidate' : 'active',
+      confirmations: 1,
+      lastSessionId: sessionContext.sessionId || null,
+      promotedHook: stageOnly ? false : h.carrier === 'pre_tool_hook',
+      violationCount: stageOnly ? 0 : (h.carrier === 'pre_tool_hook' ? RSL_CONSTANTS.REPEAT_VIOLATION_THRESHOLD : 0),
       cleanUses: 0,
       sourcePlatform: sessionContext.platform || 'antigravity',
       description: h.description || '',
@@ -710,6 +746,12 @@ export function ingestDistilledHeuristics(workspaceRoot, distilledReport = {}, s
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+
+    if (stageOnly) {
+      ledger.items[slug] = item;
+      stagedCandidates.push(slug);
+      continue;
+    }
 
     const isRuleCandidate = item.carrier !== 'skill_workflow';
     const clashReport = isRuleCandidate
@@ -741,6 +783,7 @@ export function ingestDistilledHeuristics(workspaceRoot, distilledReport = {}, s
     pruned,
     promoted: Array.from(new Set(promoted)),
     added,
+    candidates: stagedCandidates,
     quarantined
   };
 }
@@ -911,7 +954,9 @@ export function getRslSummary(workspaceRoot = process.cwd(), options = {}) {
   const ledger = readRslLedger(baseRoot);
   const allItems = Object.values(ledger.items || {});
   const activeItems = allItems.filter((it) => it && it.status === 'active');
+  const candidateItems = allItems.filter((it) => it && it.status === 'candidate');
   const activeRules = activeItems.filter((it) => it.carrier !== 'skill_workflow').length;
+  const candidateRules = candidateItems.filter((it) => it.carrier !== 'skill_workflow').length;
   const activeSkills = activeItems.filter((it) => it.carrier === 'skill_workflow').length;
   const promotedHooks = activeItems.filter(
     (it) =>
@@ -949,6 +994,7 @@ export function getRslSummary(workspaceRoot = process.cwd(), options = {}) {
     workspaceRoot: baseRoot,
     ledgerPath: getRslLedgerPath(baseRoot),
     activeRules,
+    candidateRules,
     activeSkills,
     promotedHooks,
     totalActive: activeItems.length,
