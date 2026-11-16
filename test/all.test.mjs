@@ -76,4 +76,5 @@ import './pre_push_bug_sweep.test.mjs';
 import './simple_view_clarity_and_safeguards.test.mjs';
 import './simple_view_truth_audit.test.mjs';
 import './nov2026_model_awareness.test.mjs';
+import './advanced_view_truth_audit.test.mjs';
 

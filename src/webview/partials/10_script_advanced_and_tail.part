@@ -1,0 +1,1168 @@
+    // =======================================================================
+    // 2. ADVANCED VIEW UPDATES (#argonAdvancedSurface)
+    // =======================================================================
+    setTxt('taSessionLabel', raw.sessionTitle || raw.workspaceName || 'Active Session');
+    const wlBadgeEl = document.getElementById('taWorkloadBadge');
+    if (wlBadgeEl) {
+      const wlRaw = String(raw.workloadMode || '').trim();
+      if (wlRaw && total > 0) {
+        wlBadgeEl.hidden = false;
+        wlBadgeEl.textContent = wlRaw.replace(/_/g, '-');
+      } else {
+        wlBadgeEl.hidden = true;
+        wlBadgeEl.textContent = '';
+      }
+    }
+    const confPillEl = document.getElementById('taConfidenceBadge');
+    if (confPillEl) {
+      const parseConf = String(raw.parseHealth?.confidence || raw.confidence || 'HIGH').toUpperCase();
+      if (parseConf === 'LOW' || parseConf === 'DEGRADED') {
+        confPillEl.hidden = false;
+        confPillEl.dataset.tone = parseConf === 'LOW' ? 'danger' : 'warn';
+        confPillEl.textContent = `Parse: ${parseConf}`;
+        const malformedN = Number(raw.parseHealth?.malformedLines || 0);
+        confPillEl.title = `Transcript confidence ${parseConf} (tier: ${raw.logTierUsed || 'auto'}, malformed lines: ${malformedN}).`;
+      } else {
+        confPillEl.hidden = true;
+        confPillEl.textContent = '';
+      }
+    }
+
+    const q5hRaw = raw.quota?.sprint5h?.usedPct ?? raw.quota?.fiveHourPct;
+    const q7dRaw = raw.quota?.weekly7d?.usedPct ?? raw.quota?.sevenDayPct;
+    const est5hPrefix = raw.quota?.sprint5h?.source === 'estimate' ? '~' : '';
+    const est7dPrefix = raw.quota?.weekly7d?.source === 'estimate' ? '~' : '';
+    setTxt('taSprint5h', (q5hRaw != null && !Number.isNaN(Number(q5hRaw)))
+      ? `${est5hPrefix}${Math.min(100, Math.round(Number(q5hRaw)))}%`
+      : '\u2014');
+    const resetLbl = String(raw.quota?.sprint5h?.resetLabel || '').trim();
+    setTxt('taSprintReset', resetLbl ? `(${resetLbl})` : '');
+    setTxt('taWeekly7d', (q7dRaw != null && !Number.isNaN(Number(q7dRaw)))
+      ? `${est7dPrefix}${Math.min(100, Math.round(Number(q7dRaw)))}%`
+      : '\u2014');
+    const hostRssGb = Number(raw.hostHealth?.rssGb ?? raw.hostRamGb ?? 0);
+    const orphanCount = Number(raw.hostHealth?.orphanCount ?? (Array.isArray(raw.hostHealth?.orphans) ? raw.hostHealth.orphans.length : 0)) || 0;
+    const taHostRamEl = document.getElementById('taHostRam');
+    if (taHostRamEl) {
+      taHostRamEl.textContent = `${hostRssGb.toFixed(1)}GB`;
+      taHostRamEl.style.color = (hostRssGb >= 4.0 || orphanCount > 0) ? 'var(--status-critical, #f87171)' : 'var(--hz-fg)';
+    }
+
+    const billingSec = Math.max(0, Math.floor(Number(cache.billingBlockRemainingSec ?? cache.billingTtlSec ?? 0)));
+    const billingMm = String(Math.floor(billingSec / 60)).padStart(2, '0');
+    const billingSs = String(billingSec % 60).padStart(2, '0');
+    const retObjAdv = cache.prefixRetention || raw.coachState?.prefixRetention || null;
+    const retSuffixAdv = (retObjAdv && retObjAdv.measured && Number.isFinite(Number(retObjAdv.retentionIndexPct)))
+      ? ` \u00B7 ${retObjAdv.retentionIndexPct}% kept (${retObjAdv.grade || 'A'})`
+      : '';
+    const taDualTtl = document.getElementById('taDualTtl');
+    if (taDualTtl) {
+      if (cacheUnmeasured) {
+        taDualTtl.dataset.tone = 'muted';
+        taDualTtl.textContent = ttlRem > 0 ? `Cache unmeasured \u00B7 TTL ${ttlMm}:${ttlSs}` : 'Cache unmeasured';
+      } else if (isWarm) {
+        taDualTtl.dataset.tone = ttlRem <= 45 ? 'warn' : 'signal';
+        const billTag = billingSec > 0 ? ` \u00B7 1h ${billingMm}:${billingSs}` : '';
+        taDualTtl.textContent = `${hitPct}% hit \u00B7 5m KV ${ttlMm}:${ttlSs}${billTag}${retSuffixAdv}`;
+      } else if (isRebuilding) {
+        taDualTtl.dataset.tone = 'warn';
+        taDualTtl.textContent = `${hitPct}% hit \u00B7 Rebuilding ${ttlMm}:${ttlSs}${retSuffixAdv}`;
+      } else {
+        taDualTtl.dataset.tone = 'muted';
+        taDualTtl.textContent = `${hitPct}% hit \u00B7 5m KV 00:00 \u00B7 Cold${retSuffixAdv}`;
+      }
+    }
+
+    const taStatusDot = document.getElementById('taStatusDot');
+    const taStatusTone = (isOverSafe || isRuleRiskOnly || simpleBreaker || scopeCollisions.length > 0)
+      ? 'danger'
+      : ((isStuckErrorLoop || isWarn || (isRebuilding && !cacheUnmeasured)) ? 'warn' : 'signal');
+    if (taStatusDot) taStatusDot.dataset.tone = taStatusTone;
+    const taStatusText = isOverSafe
+      ? 'Over Safe Ceiling'
+      : (isRuleRiskOnly
+        ? 'Rule Truncation Risk'
+        : (simpleBreaker
+          ? `${simpleBreaker.id} Tripped`
+          : (scopeCollisions.length > 0
+            ? 'Scope Collision'
+            : (isStuckErrorLoop
+              ? 'Error Loop'
+              : (isWarn
+                ? 'Saturation Risk'
+                : ((isRebuilding && !cacheUnmeasured) ? 'Cache Rebuilding' : (isWarm ? 'Optimal Cache' : 'Nominal Memory')))))));
+    setTxt('taStatusLabel', taStatusText);
+    {
+      const hdrDot = document.getElementById('statusDot');
+      if (hdrDot && document.body?.dataset?.viewMode === 'advanced') {
+        hdrDot.className = taStatusTone === 'danger' ? 'dot danger' : (taStatusTone === 'warn' ? 'dot warn' : 'dot');
+        hdrDot.dataset.riskBand = taStatusTone === 'danger' ? 'RED' : (taStatusTone === 'warn' ? 'AMBER' : 'GREEN');
+        hdrDot.title = taStatusText;
+      }
+    }
+
+    // Mathematical 0.1k / 0.1M parity with Simple View (taSigTok + taClutterTok === taUsedTok)
+    setTxt('taUsedTok', formatTokens(dispTotalT));
+    setTxt('taSigTok', formatTokens(dispUsefulT));
+    setTxt('taPinTok', formatTokens(dispPinnedT));
+    setTxt('taClutterTok', formatTokens(dispStaleT));
+    setTxt('taSafeTok', formatTokens(safeCap));
+    setTxt('taMaxTok', `\u00B7 ${formatTokens(maxCap)} max`);
+
+    const overSafeTok = Math.max(0, total - safeCap);
+    setTxt('taRunwayMeta', isOverSafe
+      ? (overSafeTok >= 100 ? `+${formatTokens(overSafeTok)} over safe` : 'At safe ceiling')
+      : (isRuleRiskOnly
+        ? `${formatTokens(remainingSafe)} headroom \u00B7 rules at risk`
+        : (burnRate > 0 && turnsLeft < 99
+          ? `~${turnsLeft} turn${turnsLeft === 1 ? '' : 's'} \u00B7 +${formatTokens(burnRate)}/t`
+          : `${formatTokens(remainingSafe)} safe headroom`)));
+    {
+      const bcAdv = cache.prefixBustCause;
+      const prefixTxt = (bcAdv && bcAdv.cause)
+        ? `Prefix bust (${bcAdv.cause})${bcAdv.from && bcAdv.to ? `: ${bcAdv.from} \u2192 ${bcAdv.to}` : ''}`
+        : (cache.prefixBustDetected
+          ? 'Prefix invalidated \u2014 cold rebuild'
+          : `Anchor ${formatTokens(dispPinnedT)} + working ${formatTokens(dispNewActiveT)}`);
+      setTxt('taPrefixForensics', prefixTxt);
+    }
+
+    // Build 40 cells using data-cat="anchor|signal|cached|clutter|error" scaled across maxCap
+    const totalCells = 40;
+    const tokPerCell = Math.max(1, Number(win.cellSizeTokens) || Math.round(maxCap / totalCells));
+    __taCellCapacity = tokPerCell;
+    const safeCellIdx = Math.min(totalCells - 1, Math.max(0, Math.round((safeCap / maxCap) * totalCells) - 1));
+    const catLabelsAdv = {
+      anchor: 'System Anchor & Rules',
+      signal: 'Active Dialogue & Edits',
+      cached: 'Warm Prefix History',
+      clutter: 'Reclaimable Tool Logs',
+      error: 'Stale Error Trace'
+    };
+    let cells = [];
+    if (Array.isArray(raw.cells) && raw.cells.length === 40 && (raw.cells[0]?.dominantCategory || raw.cells[0]?.category || raw.cells[0]?.state)) {
+      cells = raw.cells.map((c, i) => {
+        const dc = String(c.dominantCategory || c.category || '').toUpperCase();
+        const st = String(c.state || '').toLowerCase();
+        let cat = 'empty';
+        if (dc === 'FREE_HEADROOM' || c.fillPct === 0 || st === 'free') {
+          cat = 'empty';
+        } else if (c.isCrisisCell || dc === 'DEAD_ERROR' || dc === 'LEGACY_POISON' || st === 'error') {
+          cat = 'error';
+        } else if (dc === 'ANCHOR') {
+          cat = 'anchor';
+        } else if (dc === 'STALE_DUPLICATE' || dc === 'DUPLICATE_READ' || dc === 'STALE_TURN' || dc === 'FOREIGN_BLEED' || dc === 'DIRTY_SNAP' || dc === 'MEMORY_BLEED' || st === 'stale') {
+          cat = 'clutter';
+        } else if (dc === 'ACTIVE_WORKING_SET' || dc === 'MEMORY_KI' || st === 'useful') {
+          cat = isWarm && i < 24 ? 'cached' : 'signal';
+        }
+        const tbc = c.tokensByCategory && typeof c.tokensByCategory === 'object' ? c.tokensByCategory : null;
+        const tok = tbc
+          ? Object.entries(tbc).reduce((acc, [k, v]) => (k === 'FREE_HEADROOM' ? acc : acc + Math.max(0, Number(v) || 0)), 0)
+          : (cat === 'empty' ? 0 : Math.round(((c.fillPct ?? 100) / 100) * tokPerCell));
+        return {
+          cat,
+          tokens: tok,
+          source: cat === 'empty' ? 'Available capacity' : (c.topTarget || c.targetPath || c.filePath || c.label || catLabelsAdv[cat] || cat),
+          recall: typeof c.attentionWeight === 'number' ? c.attentionWeight.toFixed(2) : undefined,
+          turn: c.turnIndex ?? c.stepIndex ?? null
+        };
+      });
+    } else {
+      const anchorRaw = total > 0 ? (rulesT + toolsT + memKiT) : 0;
+      const anchorCells = anchorRaw > 0 ? Math.max(1, Math.min(8, Math.round(anchorRaw / tokPerCell))) : 0;
+      const activeRaw = total > 0 ? Math.max(0, usefulT - anchorRaw) : 0;
+      let signalCells = activeRaw > 0 ? Math.max(1, Math.min(32 - anchorCells, Math.round(activeRaw / tokPerCell))) : 0;
+      const clutterCells = (total > 0 && staleT > 0) ? Math.max(1, Math.min(40 - anchorCells - signalCells, Math.round(staleT / tokPerCell))) : 0;
+      if (total > 0 && anchorCells + signalCells + clutterCells === 0) {
+        signalCells = 1;
+      }
+      for (let i = 0; i < totalCells; i++) {
+        let cat = 'empty';
+        let tok = 0;
+        let src = 'Available capacity';
+        if (i < anchorCells) {
+          cat = 'anchor'; tok = Math.round(anchorRaw / Math.max(1, anchorCells)); src = 'System Anchor & Rules';
+        } else if (i < anchorCells + signalCells) {
+          cat = isWarm && i < anchorCells + Math.ceil(signalCells * 0.6) ? 'cached' : 'signal';
+          tok = Math.round(activeRaw / Math.max(1, signalCells));
+          src = cat === 'cached' ? 'Warm Prefix History' : 'Active Dialogue & Edits';
+        } else if (i < anchorCells + signalCells + clutterCells) {
+          cat = (errWaste > 0 || isCrisis) ? 'error' : 'clutter';
+          tok = Math.round(staleT / Math.max(1, clutterCells));
+          src = cat === 'error' ? 'Stale Error Trace' : 'Reclaimable Tool Logs';
+        }
+        cells.push({ cat, tokens: tok, source: src });
+      }
+    }
+    __taLastCells = cells;
+    setTxt('taGridScaleMeta', `Safe @ Cell #${safeCellIdx + 1} \u00B7 ${formatTokens(tokPerCell)}/cell`);
+
+    const riskyTroughCells = Array.isArray(raw.topRiskyCells)
+      ? raw.topRiskyCells.filter(c => c && (c.inTrough || c.riskReason === 'TROUGH_STRANDED_SPEC'))
+      : [];
+    const strandedN = Number(
+      raw.attentionHeatmap?.strandedSignalCount ??
+      raw.coachState?.uShapedAttention?.middleTroughRiskCount ??
+      riskyTroughCells.length
+    ) || 0;
+    const uPrimPct = Math.round(Number(raw.uCurve?.primacyPct ?? raw.coachState?.uShapedAttention?.healthScore ?? 96));
+    const uTroughPct = Math.round(Number(raw.uCurve?.troughPct || 62));
+    const uRecPct = Math.round(Number(raw.uCurve?.recencyPct || 94));
+    setTxt('taUPrimacy', `${uPrimPct}% recall`);
+    setTxt('taUTrough', `${uTroughPct}% (${strandedN} spec${strandedN === 1 ? '' : 's'})`);
+    setTxt('taURecency', `${uRecPct}% recall`);
+    const taUTroughEl = document.getElementById('taUTrough');
+    if (taUTroughEl) {
+      taUTroughEl.style.color = strandedN > 0 ? 'var(--hz-clutter, var(--status-warning))' : 'var(--hz-fg)';
+    }
+
+    const gridEl = document.getElementById('taHorizonGrid');
+    if (gridEl) {
+      const domCells = gridEl.querySelectorAll('.ta-cell');
+      domCells.forEach((el, idx) => {
+        const c = cells[idx] || { cat: 'empty' };
+        if (c.cat && c.cat !== 'empty') el.setAttribute('data-cat', c.cat);
+        else el.removeAttribute('data-cat');
+        el.toggleAttribute('data-safe-boundary', idx === safeCellIdx);
+        el.setAttribute('aria-selected', idx === __taSelectedCellIndex ? 'true' : 'false');
+        el.classList.toggle('selected', idx === __taSelectedCellIndex);
+        el.title = c.cat === 'empty'
+          ? `Cell #${idx + 1}: Available Headroom (0.0k)`
+          : `Cell #${idx + 1}: ${c.source || catLabelsAdv[c.cat] || c.cat} (${formatTokens(c.tokens || 0)})`;
+      });
+    }
+    renderTaCellInspector(cells[__taSelectedCellIndex], __taSelectedCellIndex);
+
+    // Top Context Consumers Table + Overflow Drawer (respecting Active Source File Protection invariant)
+    const taConsumersBody = document.getElementById('taConsumersBody');
+    const taMoreConsumersDrawer = document.getElementById('taMoreConsumersDrawer');
+    const taMoreConsumersBody = document.getElementById('taMoreConsumersBody');
+    let hogs = [];
+    if (Array.isArray(raw.topConsumers) && raw.topConsumers.length > 0) {
+      hogs = raw.topConsumers.slice();
+    } else {
+      const seenTargets = new Set();
+      const topFiles = Array.isArray(bs.duplicateReads?.topFiles)
+        ? bs.duplicateReads.topFiles
+        : (Array.isArray(raw.duplicateReads) ? raw.duplicateReads : []);
+      topFiles.forEach(f => {
+        const p = f?.path || f?.file;
+        const tok = Number(f?.wastedTokens ?? f?.tokens ?? f?.reclaimableTokens ?? 0);
+        if (!p || tok <= 0) return;
+        seenTargets.add(String(p).toLowerCase());
+        hogs.push({ kind: 'file', path: p, pattern: `${Number(f.occurrences || f.reads || f.count || 1)}x read`, tokens: tok });
+      });
+      (Array.isArray(raw.offenders) ? raw.offenders : []).forEach(o => {
+        const tgt = String(o?.target || '');
+        const tok = Number(o?.wastedTokens ?? o?.tokens ?? 0);
+        if (!tgt || tok <= 0) return;
+        if (o.category === 'DEAD_ERROR') {
+          if (!seenTargets.has(tgt.toLowerCase())) {
+            seenTargets.add(tgt.toLowerCase());
+            hogs.push({ kind: 'error', label: tgt, pattern: `${Number(o.occurrences || 1)}x error`, tokens: tok });
+          }
+        } else if (o.category === 'FOREIGN_BLEED' || tgt === 'Foreign Bleed Knowledge') {
+          if (!seenTargets.has('__foreign_bleed__')) {
+            seenTargets.add('__foreign_bleed__');
+            hogs.push({
+              kind: 'bleed',
+              label: tgt === 'Foreign Bleed Knowledge' ? 'Cross-project memory bleed' : tgt,
+              pattern: o.occurrences ? `${Number(o.occurrences)}x foreign` : 'foreign KI',
+              tokens: tok
+            });
+          }
+        } else if (tgt === 'Older chat history (>25 turns ago)') {
+          hogs.push({ kind: 'history', label: 'Older chat history (>25 turns)', pattern: `${Number(o.occurrences || 1)} turns`, tokens: tok });
+        } else if (!seenTargets.has(tgt.toLowerCase())) {
+          seenTargets.add(tgt.toLowerCase());
+          hogs.push({ kind: 'file', path: tgt, pattern: `${Number(o.occurrences || 1)}x read`, tokens: tok });
+        }
+      });
+      if (bleedWaste > 0 && !seenTargets.has('__foreign_bleed__')) {
+        hogs.push({ kind: 'bleed', label: 'Cross-project memory bleed', pattern: 'foreign KI', tokens: bleedWaste });
+      }
+      (Array.isArray(bs.blowupSteps) ? bs.blowupSteps : []).forEach(b => {
+        const tok = Number(b?.tokens || 0);
+        if (tok <= 0) return;
+        const isFile = b.payload?.kind === 'file' && Boolean(b.payload?.path);
+        const key = String(isFile ? b.payload.path : (b.payload?.detail || b.target || '')).toLowerCase();
+        if (isFile && seenTargets.has(key)) return;
+        seenTargets.add(key);
+        hogs.push({
+          kind: isFile ? 'file' : 'spike',
+          path: isFile ? b.payload.path : undefined,
+          label: b.payload?.detail || b.target || 'Output spike',
+          pattern: `T${b.userTurnNumber || b.stepIndex} spike`,
+          tokens: tok
+        });
+      });
+      hogs.sort((a, b) => (b.tokens || 0) - (a.tokens || 0));
+    }
+    const renderConsumerRowHtml = (item) => {
+      const kind = item.kind || (item.path || item.file ? 'file' : 'spike');
+      const p = String(item.path || item.file || item.label || 'context-item');
+      const patternTxt = item.pattern || `${Number(item.reads || item.count || 1)}x read`;
+      const tok = Math.max(0, Number(item.tokens ?? item.reclaimableTokens) || 0);
+      let actionHtml = '';
+      if (kind === 'file') {
+        const ignorable = typeof isIgnorablePath === 'function'
+          ? isIgnorablePath(p)
+          : /\.(log|lock|tmp|bak|min\.js|map)$|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|node_modules|\.antigravity/i.test(p);
+        actionHtml = ignorable
+          ? `<button type="button" class="ta-mini-btn" data-ignore-path="${escAttr(p)}">+Ignore</button>`
+          : `<span style="color:var(--hz-anchor);">Active Source</span>`;
+      } else if (kind === 'history') {
+        actionHtml = `<span style="color:var(--hz-muted);">Cleared by /compact</span>`;
+      } else if (kind === 'error') {
+        actionHtml = `<span style="color:var(--hz-danger);">Error trace</span>`;
+      } else if (kind === 'bleed') {
+        actionHtml = `<span style="color:var(--hz-clutter);">Foreign KI</span>`;
+      } else {
+        actionHtml = `<span style="color:var(--hz-clutter);">Output spike</span>`;
+      }
+      const displayTarget = kind === 'file' && typeof formatShortPath === 'function' ? formatShortPath(p) : p;
+      return `
+        <tr>
+          <td title="${escAttr(p)}">${escAttr(displayTarget)}</td>
+          <td>${escAttr(patternTxt)}</td>
+          <td class="num">${formatTokens(tok)}</td>
+          <td class="num">${actionHtml}</td>
+        </tr>
+      `;
+    };
+    if (taConsumersBody) {
+      if (hogs.length === 0) {
+        const anchorRowLabel = isClaudeSurface ? 'CLAUDE.md + rules & tools' : 'AGENTS.md + rules & tools';
+        const staleRowHtml = dispStaleT >= 100
+          ? `<tr><td>Reclaimable logs &amp; turns</td><td>stale</td><td class="num">${formatTokens(dispStaleT)}</td><td class="num"><span style="color:var(--hz-muted);">Cleared by /compact</span></td></tr>`
+          : '';
+        taConsumersBody.innerHTML = `
+          <tr>
+            <td>${anchorRowLabel}</td>
+            <td>pinned</td>
+            <td class="num">${formatTokens(dispPinnedT)}</td>
+            <td class="num"><span style="color:var(--hz-useful);">Protected</span></td>
+          </tr>
+          <tr>
+            <td>Active working files</td>
+            <td>1x read</td>
+            <td class="num">${formatTokens(dispNewActiveT)}</td>
+            <td class="num"><span style="color:var(--hz-anchor);">Active Source</span></td>
+          </tr>
+          ${staleRowHtml}
+        `;
+        if (taMoreConsumersDrawer) {
+          taMoreConsumersDrawer.hidden = true;
+          taMoreConsumersDrawer.open = false;
+        }
+        if (taMoreConsumersBody) taMoreConsumersBody.innerHTML = '';
+      } else {
+        taConsumersBody.innerHTML = hogs.slice(0, 4).map(renderConsumerRowHtml).join('');
+        if (taMoreConsumersDrawer && taMoreConsumersBody) {
+          const rest = hogs.slice(4);
+          if (rest.length > 0) {
+            taMoreConsumersDrawer.hidden = false;
+            setTxt('taMoreConsumersSummary', `${rest.length} more context consumer${rest.length === 1 ? '' : 's'}`);
+            taMoreConsumersBody.innerHTML = rest.map(renderConsumerRowHtml).join('');
+          } else {
+            taMoreConsumersDrawer.hidden = true;
+            taMoreConsumersDrawer.open = false;
+            taMoreConsumersBody.innerHTML = '';
+          }
+        }
+      }
+    }
+
+    // Zone B: Router Governance, Action Queue + Overflow, Reap/Unlock & KV Economics
+    document.querySelectorAll('#taRouterSwitch button').forEach(btn => {
+      const m = btn.dataset.taMode || btn.dataset.mode;
+      const active = m === effectiveMode;
+      if (m === 'autopilot') {
+        btn.textContent = (active && autoShadowFlag) ? 'Auto-Pilot (Preview)' : 'Auto-Pilot';
+      }
+      const activeColor = (active && m === 'autopilot' && autoShadowFlag) ? 'var(--hz-clutter)' : 'var(--hz-useful)';
+      btn.style.borderColor = active ? activeColor : '';
+      btn.style.color = active ? activeColor : '';
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    const taActionQueue = document.getElementById('taActionQueue');
+    const taQueueOverflowDrawer = document.getElementById('taQueueOverflowDrawer');
+    const taActionQueueOverflow = document.getElementById('taActionQueueOverflow');
+    if (taActionQueue) {
+      const qRows = [];
+      if (isOverSafe) {
+        qRows.push({ tone: 'danger', tag: 'CRISIS', text: `Run /compact or checkpoint \u2014 +${formatTokens(Math.max(0, total - safeCap))} past safe limit` });
+      } else if (isRuleRiskOnly) {
+        qRows.push({ tone: 'danger', tag: 'CRISIS', text: 'Pinned rules at truncation risk \u2014 run /compact or pin invariants to task.md' });
+      }
+      if (simpleBreaker) {
+        const copyCmd = breakerSrc?.revertAction || breakerSrc?.worktreeCommand || '';
+        const copyLabel = breakerSrc?.revertAction ? 'Copy Revert' : (breakerSrc?.worktreeCommand ? 'Copy Worktree' : '');
+        qRows.push({ tone: 'danger', tag: simpleBreaker.id, text: simpleBreaker.msg, copyCmd, copyLabel });
+      }
+      if (scopeCollisions.length > 0) {
+        const colPaths = scopeCollisions.map(c => c?.file || c?.path || c?.target || (Array.isArray(c?.overlappingPaths) ? c.overlappingPaths[0] : '')).filter(Boolean).slice(0, 2);
+        const colWorktree = scopeCollisions[0]?.worktreeCommand || '';
+        qRows.push({
+          tone: 'danger',
+          tag: 'SWARM',
+          text: `${scopeCollisions.length} agent file collision${scopeCollisions.length === 1 ? '' : 's'}${colPaths.length ? ` (${colPaths.join(', ')})` : ''} \u2014 isolate with git worktree`,
+          copyCmd: colWorktree,
+          copyLabel: colWorktree ? 'Copy Worktree' : ''
+        });
+      }
+      if (isStuckErrorLoop) {
+        qRows.push({ tone: 'avoid', tag: 'LOOP', text: `${errLoopCount}\u00D7 error loop \u2014 inspect root cause or upshift model/effort` });
+      } else if (!isCrisis && staleT >= 35000) {
+        qRows.push({ tone: 'avoid', tag: 'COMPACT', text: `${formatTokens(dispStaleT)} reclaimable clutter queued for /compact${isWarm ? ` (hold ${ttlMm}:${ttlSs} warm KV)` : ''}` });
+      } else if (topBlowup && Number(topBlowup.tokens) >= 12000) {
+        qRows.push({ tone: 'avoid', tag: 'SPIKE', text: `Turn #${topBlowup.userTurnNumber || topBlowup.stepIndex} spike (${formatTokens(topBlowup.tokens)}) \u2014 filter verbose output` });
+      }
+      if (idleEagerMcps.length > 0) {
+        const mcpNames = idleEagerMcps.map(m => m?.name || m?.server || m?.id).filter(Boolean).slice(0, 3);
+        const mcpSuffix = mcpNames.length > 0 ? ` (${mcpNames.join(', ')})` : '';
+        qRows.push({ tone: 'avoid', tag: 'MCP', text: `${idleEagerMcps.length} idle eager MCP${idleEagerMcps.length === 1 ? '' : 's'}${mcpSuffix} \u00B7 ~${formatTokens(idleEagerTokens)} schema bloat` });
+      }
+      if (orphanCount > 0) {
+        qRows.push({ tone: 'avoid', tag: 'PID', text: `${orphanCount} orphan language_server PID${orphanCount === 1 ? '' : 's'} detected` });
+      }
+      if (strandedN > 0) {
+        const strandedList = Array.isArray(raw.attentionHeatmap?.strandedSignals) && raw.attentionHeatmap.strandedSignals.length > 0
+          ? raw.attentionHeatmap.strandedSignals.map(s => s?.topTarget || s?.label || `Cell #${Number(s?.cellIndex || 0) + 1}`).filter(Boolean).slice(0, 2)
+          : riskyTroughCells.map(c => c?.topTarget || `Cell #${Number(c?.cellIndex || 0) + 1}`).filter(Boolean).slice(0, 2);
+        const strandedSuffix = strandedList.length > 0 ? ` [${strandedList.join(', ')}]` : '';
+        qRows.push({ tone: 'avoid', tag: 'TROUGH', text: `${strandedN} stranded mid-trough spec${strandedN === 1 ? '' : 's'}${strandedSuffix} (low recall)` });
+      }
+      if (raw.coachState?.det17ShadowBloat?.triggered) {
+        const sb = raw.coachState.det17ShadowBloat;
+        qRows.push({ tone: 'avoid', tag: 'SHADOW', text: `${sb.shadowedFileCount || 1} shadowed file(s) \u00B7 ~${formatTokens(sb.totalShadowWastedTokens || 0)} wasted` });
+      }
+      if (qRows.length === 0) {
+        qRows.push({ tone: 'do', tag: 'QUEUE', text: 'Nominal queue \u00B7 0 orphan PIDs, 0 idle eager MCPs, 0 trough specs' });
+      }
+      const renderQueueRowHtml = (r) => {
+        const copyBtnHtml = r.copyCmd
+          ? `<button type="button" class="ta-mini-btn" style="flex-shrink:0;" data-ta-copy="${escAttr(r.copyCmd)}">${escAttr(r.copyLabel || 'Copy')}</button>`
+          : '';
+        return `<div class="ts-guidance-row" data-tone="${escAttr(r.tone)}"><span class="ts-tag">${escAttr(r.tag)}</span><div class="ta-action-row-inline"><span style="min-width:0;overflow-wrap:anywhere;">${escAttr(r.text)}</span>${copyBtnHtml}</div></div>`;
+      };
+      taActionQueue.innerHTML = qRows.slice(0, 4).map(renderQueueRowHtml).join('');
+      if (taQueueOverflowDrawer && taActionQueueOverflow) {
+        const extraQueue = qRows.slice(4);
+        if (extraQueue.length > 0) {
+          taQueueOverflowDrawer.hidden = false;
+          setTxt('taQueueOverflowSummary', `${extraQueue.length} additional diagnostic item${extraQueue.length === 1 ? '' : 's'}`);
+          taActionQueueOverflow.innerHTML = extraQueue.map(renderQueueRowHtml).join('');
+        } else {
+          taQueueOverflowDrawer.hidden = true;
+          taQueueOverflowDrawer.open = false;
+          taActionQueueOverflow.innerHTML = '';
+        }
+      }
+    }
+    const taRouterNote = document.getElementById('taRouterNote');
+    if (taRouterNote) {
+      taRouterNote.textContent = raw.coachState?.taskQuotaRouter?.coachPillText ||
+        (effectiveMode === 'off'
+          ? 'KV Gravity Router paused \u00B7 passive telemetry only'
+          : (isWarm
+            ? `KV Gravity Hold (${effectiveMode.toUpperCase()}): ${ttlMm}:${ttlSs} warm window \u00B7 switch queued for turn boundary`
+            : `KV Gravity Router (${effectiveMode.toUpperCase()}) \u00B7 Turn-boundary switch buffer armed`));
+    }
+    const taBtnReapEl = document.getElementById('taBtnReapOrphans');
+    if (taBtnReapEl) {
+      taBtnReapEl.hidden = orphanCount <= 0;
+      taBtnReapEl.disabled = orphanCount <= 0;
+      if (orphanCount > 0) taBtnReapEl.textContent = `Reap ${orphanCount} PID${orphanCount === 1 ? '' : 's'}`;
+    }
+    const taBtnUnlockEl = document.getElementById('taBtnUnlockHysteresis');
+    const isHystLocked = Boolean(raw.coachState?.hysteresisLock?.locked || raw.coachState?.hysteresisLocked || raw.effortGovernor?.hysteresisLocked);
+    if (taBtnUnlockEl) {
+      taBtnUnlockEl.hidden = !isHystLocked;
+      taBtnUnlockEl.disabled = !isHystLocked;
+    }
+    {
+      const burnMult = Number(raw.effortGovernor?.burnMultiplier ?? mdl.burnMultiplier ?? 0);
+      const multTxt = burnMult > 0 ? ` (${burnMult}x burn)` : '';
+      const poolDesc = mdl.isClamped1MModel && Number(mdl.nativeCeilingTokens || 0) > maxCap
+        ? `${formatTokens(maxCap)} IDE cap / ${formatTokens(mdl.nativeCeilingTokens)} native`
+        : formatTokens(maxCap);
+      const rateIn = Number(mdl.inputPricePerMillionUsd || 0);
+      const rateTxt = rateIn > 0 ? ` \u00B7 $${rateIn.toFixed(2)}/1M in` : '';
+      const cidTag = mdl.canonicalId && String(mdl.canonicalId).toLowerCase() !== String(activeModel).toLowerCase()
+        ? ` [${mdl.canonicalId}]`
+        : '';
+      setTxt('taEconModelLine', `${activeModel}${cidTag} \u00B7 Effort: ${activeEffort}${multTxt} \u00B7 Pool: ${poolDesc}${rateTxt}`);
+
+      const normEconId = modelId.replace(/\s+/g, '-');
+      let effKvRule = '';
+      if (modelProvider === 'Gemini') {
+        effKvRule = 'Thinking change: outside cached prefix (safe)';
+      } else if (/sonnet[-_. ]?5[-_. ]?5|opus[-_. ]?5[-_. ]?5/.test(normEconId)) {
+        effKvRule = 'Effort change: keeps prefix (99.3% read)';
+      } else if (/sonnet[-_. ]?4[-_. ]?6|opus[-_. ]?4[-_. ]?6/.test(normEconId)) {
+        effKvRule = 'Effort change: busts whole prefix (EF1_46)';
+      } else if (modelProvider === 'Claude') {
+        effKvRule = 'Effort change: unverified (hold while warm)';
+      } else {
+        effKvRule = 'Effort change: unverified for host model';
+      }
+      const cgAdv = cache.costGate || {};
+      const advRewriteUsd = Number(cgAdv.coldRewriteCostUsd) || 0;
+      const rewriteTxt = isWarm
+        ? (advRewriteUsd > 0 ? `Switch rewrite: ~$${advRewriteUsd.toFixed(2)}` : 'Mid-turn switch breaks warm KV')
+        : 'Cache cold ($0 switch rewrite)';
+      setTxt('taEconCacheLine', `${effKvRule} \u00B7 ${rewriteTxt}`);
+    }
+
+    // Zone C: Turn-0 Baseline, Guard Log, Detector Roster & RSL Drawer
+    const blRules = Number(raw.baseline?.rulesTokens ?? rulesT) || 0;
+    const blSkills = Number(raw.baseline?.skillsTokens ?? memKiT) || 0;
+    const blMcp = Number(raw.baseline?.mcpTokens ?? toolsT) || 0;
+    const hasBlParts = raw.baseline?.rulesTokens != null || raw.baseline?.skillsTokens != null || raw.baseline?.mcpTokens != null;
+    const advBaselineEst = Math.max(0, Number(raw.baseline?.totalEst ?? (hasBlParts ? (blRules + blSkills + blMcp) : baselineEst)) || 0);
+    const advBaselineOver = Boolean(raw.baseline?.eagerInjectionWarning) || advBaselineEst > 20000;
+    const taBaselineText = document.getElementById('taBaselineText');
+    if (taBaselineText) {
+      const partTxt = ` (Rules ${formatTokens(blRules)} \u00B7 MCP/Tools ${formatTokens(blMcp)}${blSkills > 0 ? ` \u00B7 KI ${formatTokens(blSkills)}` : ''})`;
+      taBaselineText.innerHTML = `Turn-0 Baseline: <strong${advBaselineOver ? ' style="color:var(--hz-clutter);"' : ''}>${formatTokens(advBaselineEst)}</strong> / 20.0k budget<span style="color:var(--hz-muted);">${partTxt}</span>`;
+    }
+    const taBtnShieldEl = document.getElementById('taBtnShield');
+    if (taBtnShieldEl) {
+      taBtnShieldEl.disabled = queuedShield <= 0;
+      taBtnShieldEl.textContent = queuedShield > 0
+        ? (isWarm ? `Shield: ${queuedShield} fenced` : `Flush ${queuedShield} Delta${queuedShield === 1 ? '' : 's'}`)
+        : 'Shield: 0 queued';
+    }
+
+    // Merge real guard interventions & alerts (zero stale session bleed, zero fabricated DET-01..03)
+    const mergedGuardRows = [];
+    const seenGuardKey = new Set();
+    const pushGuardEvent = (age, guardId, desc, impact, tone, tip = '') => {
+      const code = String(guardId || 'GUARD').trim();
+      const text = String(desc || 'Guard intervention').trim();
+      const key = `${code}|${text.toLowerCase()}`;
+      if (seenGuardKey.has(key)) return;
+      seenGuardKey.add(key);
+      mergedGuardRows.push({ age: String(age || 'live'), code, desc: text, impact: String(impact || 'fixed'), tone: tone || 'var(--hz-useful)', tip });
+    };
+    const breakerAlertsArr = [
+      ...(Array.isArray(raw.coachState?.circuitBreakerAlerts) ? raw.coachState.circuitBreakerAlerts : []),
+      ...(Array.isArray(raw.coachState?.breakerEvents) ? raw.coachState.breakerEvents : [])
+    ];
+    breakerAlertsArr.forEach(ev => {
+      if (!ev || typeof ev !== 'object') return;
+      const code = ev.detectorId || ev.guardId || ev.ruleId || ev.id || 'GUARD';
+      const desc = plainText(ev.message || ev.summary || ev.reason || ev.name || 'Breaker triggered');
+      const imp = ev.tokensSaved ? `+${formatTokens(ev.tokensSaved)}` : (ev.guidance?.kind === 'info' ? 'handled' : 'tripped');
+      const tone = ev.tokensSaved ? 'var(--hz-useful)' : (ev.severity === 'CRITICAL' ? 'var(--hz-danger)' : 'var(--hz-clutter)');
+      pushGuardEvent(ev.turn ? `T${ev.turn}` : (ev.age || 'live'), code, desc, imp, tone, ev.guidance?.nextStep || '');
+    });
+    rawAutoFixItems.forEach(ev => {
+      if (!ev || typeof ev !== 'object') return;
+      const code = ev.detectorId || ev.guardId || ev.code || ev.category || 'GUARD';
+      const desc = ev.label || ev.title || ev.summary || 'Automated intervention';
+      const imp = ev.tokensSaved ? `+${formatTokens(ev.tokensSaved)}` : 'fixed';
+      pushGuardEvent(ev.turn ? `T${ev.turn}` : (ev.ageLabel || 'auto'), code, desc, imp, 'var(--hz-useful)');
+    });
+    if (effectiveMode === 'autopilot' && autoShadowFlag && Array.isArray(raw.shadowAuto?.recentWouldHave)) {
+      raw.shadowAuto.recentWouldHave.slice(0, 2).forEach(c => {
+        if (!c || typeof c !== 'object') return;
+        const code = c.detectorId || 'AUTO';
+        const desc = `Preview: ${c.detail || String(c.category || 'correction').replace(/_/g, ' ').toLowerCase()}`;
+        const imp = c.missedUsd > 0 ? `~$${Number(c.missedUsd).toFixed(2)}` : 'preview';
+        pushGuardEvent('sim', code, desc, imp, 'var(--hz-clutter)');
+      });
+    }
+
+    const taDetBadge = document.getElementById('taDetBadge');
+    const trippedDet = raw.coachState?.detectors?.tripped;
+    const detTotal = Number(raw.coachState?.detectors?.totalCount) || 32;
+    const detArmed = Number(raw.coachState?.detectors?.armedCount ?? detTotal) || detTotal;
+    if (taDetBadge) {
+      if (effectiveMode === 'off') {
+        taDetBadge.dataset.tone = 'muted';
+        taDetBadge.textContent = 'Guards paused';
+        taDetBadge.title = 'Watch-only mode \u2014 click to inspect detector policy list';
+      } else if (trippedDet && trippedDet.detectorId) {
+        taDetBadge.dataset.tone = 'warn';
+        taDetBadge.textContent = `${trippedDet.detectorId} tripped`;
+        taDetBadge.title = trippedDet.reason || 'Click to inspect full detector roster';
+      } else {
+        taDetBadge.dataset.tone = '';
+        taDetBadge.textContent = mergedGuardRows.length > 0
+          ? `${detArmed}/${detTotal} armed \u00B7 ${mergedGuardRows.length} logged`
+          : `${detArmed}/${detTotal} guards armed`;
+        taDetBadge.title = 'Click to inspect full detector roster';
+      }
+    }
+    const taGuardBody = document.getElementById('taGuardBody');
+    if (taGuardBody) {
+      if (mergedGuardRows.length > 0) {
+        taGuardBody.innerHTML = mergedGuardRows.slice(0, 4).map(r => `
+          <tr>
+            <td>${escAttr(r.age)}</td>
+            <td>${escAttr(r.code)}</td>
+            <td title="${escAttr(r.tip || r.desc)}">${escAttr(r.desc)}</td>
+            <td class="num" style="color:${r.tone};">${escAttr(r.impact)}</td>
+          </tr>
+        `).join('');
+      } else if (effectiveMode === 'off') {
+        taGuardBody.innerHTML = '<tr><td>off</td><td>DET-01..32</td><td>Guards paused (watch-only telemetry mode)</td><td class="num" style="color:var(--hz-muted);">paused</td></tr>';
+      } else {
+        taGuardBody.innerHTML = '<tr><td>now</td><td>DET-01..32</td><td>FTS5 compressor, PrefixCacheShield &amp; 3-strike breakers armed</td><td class="num" style="color:var(--hz-muted);">armed</td></tr>';
+      }
+    }
+
+    // Detector roster drawer (#taGuardRosterDrawer)
+    {
+      const rosterDrawer = document.getElementById('taGuardRosterDrawer');
+      const rosterBody = document.getElementById('taGuardRosterBody');
+      const liveGuards = Array.isArray(raw.coachState?.detectors?.list) ? raw.coachState.detectors.list : [];
+      if (rosterBody) {
+        if (liveGuards.length === 0) {
+          setTxt('taGuardRosterMeta', effectiveMode === 'off' ? 'Paused' : `${detArmed}/${detTotal} armed`);
+          rosterBody.innerHTML = `<tr><td colspan="4" style="color:var(--hz-muted);">All ${detTotal} built-in detectors loaded (connect live daemon stream for per-detector status).</td></tr>`;
+        } else {
+          const rank = (g) => (g.tripped ? 0 : (g.mode === 'guard' ? 1 : 2));
+          const sorted = liveGuards.slice().sort((a, b) => rank(a) - rank(b) || String(a.id).localeCompare(String(b.id)));
+          const trippedN = sorted.filter(g => g.tripped).length;
+          const isEnforcedAuto = effectiveMode === 'autopilot' && !autoShadowFlag;
+          setTxt('taGuardRosterMeta', effectiveMode === 'off'
+            ? 'Paused'
+            : (trippedN > 0 ? `${sorted.length} \u00B7 ${trippedN} tripped` : (effectiveMode === 'autopilot' && autoShadowFlag ? `${sorted.length} preview` : (isEnforcedAuto ? `${sorted.length} enforcing` : `${sorted.length} armed`))));
+          rosterBody.innerHTML = sorted.map(g => {
+            const st = effectiveMode === 'off'
+              ? 'paused'
+              : (g.tripped ? 'tripped' : (g.mode === 'guard' ? 'blocks' : (isEnforcedAuto ? 'enforces' : 'advises')));
+            const toneColor = st === 'tripped'
+              ? 'var(--status-warning, #fbbf24)'
+              : (st === 'paused' ? 'var(--hz-muted)' : ((st === 'blocks' || st === 'enforces') ? 'var(--accent-focus, #38BDF8)' : 'var(--hz-fg-secondary)'));
+            const gDesc = g.title || g.name || g.id;
+            const gTip = `${g.id}: ${gDesc}${g.summary ? ` \u2014 ${g.summary}` : ''}`;
+            return `<tr title="${escAttr(gTip)}"><td>${escAttr(g.id)}</td><td>${escAttr(gDesc)}</td><td>${escAttr(g.mode || 'advisory')}</td><td class="num" style="color:${toneColor};">${escAttr(st)}</td></tr>`;
+          }).join('');
+          if (rosterDrawer && trippedN > 0 && effectiveMode !== 'off') {
+            rosterDrawer.open = true;
+          }
+        }
+      }
+    }
+
+    // RSL Learned rules drawer (#taRslDrawer)
+    {
+      const rslDrawer = document.getElementById('taRslDrawer');
+      const rslList = document.getElementById('taRslList');
+      const uiRules = Array.isArray(raw.rsl?.uiRules) ? raw.rsl.uiRules : [];
+      const lrCount = Math.max(rslActiveCount, uiRules.length);
+      if (rslDrawer && rslList) {
+        if (lrCount <= 0 && shardedSpecCount <= 0 && rslClashCount <= 0) {
+          rslDrawer.hidden = true;
+          rslDrawer.open = false;
+          rslList.innerHTML = '';
+        } else {
+          rslDrawer.hidden = false;
+          setTxt('taRslSummary', lrCount > 0 ? `Learned rules (RSL: ${lrCount} active)` : 'Workspace RSL & spec shards');
+          const metaParts = [];
+          if (rslHooksCount > 0) metaParts.push(`${rslHooksCount} hook${rslHooksCount === 1 ? '' : 's'}`);
+          if (rslClashCount > 0) metaParts.push(`${rslClashCount} clash${rslClashCount === 1 ? '' : 'es'}`);
+          if (shardedSpecCount >= 2) metaParts.push(`${shardedSpecCount} shards`);
+          setTxt('taRslMeta', metaParts.length > 0 ? metaParts.join(' \u00B7 ') : (effectiveMode === 'off' ? 'Paused' : 'Active'));
+          let rslHtml = '';
+          if (rslClashCount > 0) {
+            rslHtml += `<li class="ts-ledger-row" data-effective-state="paused"><span class="ts-ledger-age">CLASH</span><span>${rslClashCount} conflicting project rule${rslClashCount === 1 ? '' : 's'} \u2014 run <code>ctxtop rsl status</code></span><span class="ts-ledger-saved" style="color:var(--status-warning);">review</span></li>`;
+          }
+          if (shardedSpecCount >= 2) {
+            rslHtml += `<li class="ts-ledger-row"><span class="ts-ledger-age">SPEC</span><span>${shardedSpecCount} spec shards loaded across session</span><span class="ts-ledger-saved">${shardedSpecCount >= 4 ? 'consolidate' : 'tracked'}</span></li>`;
+          }
+          if (uiRules.length > 0) {
+            rslHtml += uiRules.map(r => {
+              const kind = ['hook', 'skill', 'rule'].includes(r.kind) ? r.kind : 'rule';
+              const st = kind === 'hook' ? (effectiveMode === 'off' ? 'paused' : 'blocks') : 'active';
+              return `<li class="ts-ledger-row" data-kind="${escAttr(kind)}" data-effective-state="${st}" title="${escAttr(r.detail || r.title || '')}"><span class="ts-ledger-age">${escAttr(kind)}</span><span>${escAttr(r.title || 'Learned rule')}${r.detail ? ` <span class="ts-why-sub">\u2014 ${escAttr(r.detail)}</span>` : ''}</span><span class="ts-ledger-saved">${st}</span></li>`;
+            }).join('');
+          } else if (lrCount > 0) {
+            rslHtml += `<li class="ts-ledger-row"><span class="ts-ledger-age">RSL</span><span>${lrCount} active learned rule(s) \u2014 run <code>ctxtop rsl status</code> to inspect</span><span class="ts-ledger-saved">${lrCount}</span></li>`;
+          }
+          rslList.innerHTML = rslHtml;
+        }
+      }
+    }
+
+    // Zone D: Session Trajectory & Swarm Topology
+    {
+      const advTl = raw.sessionTimeline || null;
+      const advTurns = Array.isArray(advTl?.turns) ? advTl.turns : [];
+      const advMarkers = Array.isArray(advTl?.markers) ? advTl.markers : [];
+      const advTotalTurns = Math.max(0, Number(advTl?.totalTurns ?? win.turnCount) || advTurns.length || 0);
+      const advGood = Number(kpis.goodCount) || 0;
+      const advBad = Number(kpis.badCount) || 0;
+      const advCompacts = advMarkers.filter(m => m && m.type === 'COMPACT').length;
+      const advCkpts = advMarkers.filter(m => m && m.type === 'CHECKPOINT').length;
+      const advSwitches = advMarkers.filter(m => m && m.type === 'MODEL_SWITCH').length;
+      const swarmWorkers = Array.isArray(raw.swarmTopology?.workers) ? raw.swarmTopology.workers : [];
+      const swarmWorktrees = Array.isArray(raw.swarmTopology?.worktrees) ? raw.swarmTopology.worktrees : [];
+
+      setTxt('taTrajectoryMeta', advTotalTurns > 0
+        ? `${advTotalTurns} turn${advTotalTurns === 1 ? '' : 's'}${burnRate > 0 ? ` \u00B7 +${formatTokens(burnRate)}/t` : ''}`
+        : (total > 0 ? 'Active session' : '0 turns \u00B7 waiting'));
+      const trajParts = [];
+      if (advTotalTurns > 0) trajParts.push(`${advGood} lean / ${advBad} heavy`);
+      if (advCompacts > 0) trajParts.push(`${advCompacts}\u00D7 compact`);
+      if (advCkpts > 0) trajParts.push(`${advCkpts} ckpt`);
+      if (advSwitches > 0) trajParts.push(`${advSwitches} switch`);
+      if (swarmWorkers.length > 0 || swarmWorktrees.length > 1) {
+        trajParts.push(`${swarmWorkers.length} worker${swarmWorkers.length === 1 ? '' : 's'}${swarmWorktrees.length > 1 ? ` @ ${swarmWorktrees.length} worktrees` : ''}`);
+      } else {
+        trajParts.push('Solo agent');
+      }
+      setTxt('taTrajSummary', trajParts.join(' \u00B7 '));
+
+      const sparkPathEl = document.getElementById('taSparklinePath');
+      if (sparkPathEl) {
+        const series = advTurns.map(t => Math.max(0, Number(t.cumulativeTokens ?? t.cumulative ?? t.totalTokens ?? t.deltaTokens ?? 0)));
+        if (series.length >= 2) {
+          const minV = Math.min(...series);
+          const spanV = Math.max(1, Math.max(...series) - minV);
+          const pts = series.map((v, i) => {
+            const x = ((i / (series.length - 1)) * 92 + 2).toFixed(1);
+            const y = (18 - ((v - minV) / spanV) * 15).toFixed(1);
+            return `${x},${y}`;
+          }).join(' ');
+          sparkPathEl.setAttribute('points', pts);
+        } else if (series.length === 1 || total > 0) {
+          sparkPathEl.setAttribute('points', '2,12 94,12');
+        } else {
+          sparkPathEl.setAttribute('points', '0,18 96,18');
+        }
+      }
+
+      const tsDrawer = document.getElementById('taTimelineSwarmDrawer');
+      const swarmBlock = document.getElementById('taSwarmBlock');
+      const turnTable = document.getElementById('taTurnTable');
+      const turnBody = document.getElementById('taTurnTableBody');
+      const hasSwarm = swarmWorkers.length > 0 || swarmWorktrees.length > 1 || scopeCollisions.length > 0;
+      const hasTurns = advTurns.length > 0;
+      if (tsDrawer) {
+        if (!hasSwarm && !hasTurns) {
+          tsDrawer.hidden = true;
+          tsDrawer.open = false;
+          if (swarmBlock) { swarmBlock.hidden = true; swarmBlock.innerHTML = ''; }
+          if (turnTable) turnTable.hidden = true;
+          if (turnBody) turnBody.innerHTML = '';
+        } else {
+          tsDrawer.hidden = false;
+          setTxt('taTimelineSwarmLabel', hasSwarm && hasTurns ? 'Turn deltas & swarm workers' : (hasSwarm ? 'Swarm workers & scope locks' : 'Turn-by-turn growth log'));
+          setTxt('taTimelineSwarmHint', hasSwarm ? `${swarmWorkers.length} workers` : `${advTurns.length} turns`);
+          if (swarmBlock) {
+            if (hasSwarm) {
+              swarmBlock.hidden = false;
+              const wLines = swarmWorkers.slice(0, 6).map(w => {
+                const loc = w.worktree || w.branch ? ` @ ${w.worktree || w.branch}` : '';
+                const tok = w.totalTokens != null ? ` (${formatTokens(w.totalTokens)})` : '';
+                return `<div><strong>${escAttr(w.agentId || w.role || 'worker')}</strong> [${escAttr(w.state || 'active')}${w.state === 'waiting' ? ' $0' : ''}]${escAttr(tok)}${escAttr(loc)}</div>`;
+              }).join('');
+              const cLines = scopeCollisions.map(c => `<div style="color:var(--status-critical);">Collision: ${escAttr(c?.file || c?.path || (Array.isArray(c?.overlappingPaths) ? c.overlappingPaths.join(', ') : '') || 'shared file')}</div>`).join('');
+              swarmBlock.innerHTML = `${wLines || `<div>${swarmWorktrees.length} git worktrees tracked</div>`}${cLines}`;
+            } else {
+              swarmBlock.hidden = true;
+              swarmBlock.innerHTML = '';
+            }
+          }
+          if (turnTable && turnBody) {
+            if (hasTurns) {
+              turnTable.hidden = false;
+              const recentTurns = advTurns.slice(-8);
+              turnBody.innerHTML = recentTurns.map(t => {
+                const tNum = Number(t.turn ?? t.userTurnNumber ?? 0);
+                const dTok = Number(t.deltaTokens ?? t.delta ?? 0);
+                const cumTok = Number(t.cumulativeTokens ?? t.cumulative ?? 0);
+                const mk = advMarkers.filter(m => m && Number(m.turn) === tNum).map(m => m.type).join(',');
+                const sigTxt = [t.practice === 'bad' ? 'heavy' : (t.practice === 'good' ? 'lean' : ''), mk, t.reason || ''].filter(Boolean).join(' \u00B7 ') || 'turn';
+                const toneC = t.practice === 'bad' ? 'var(--hz-clutter)' : 'var(--hz-fg-secondary)';
+                return `<tr><td>T${tNum}</td><td>+${formatTokens(dTok)}</td><td>${formatTokens(cumTok)}</td><td style="color:${toneC};" title="${escAttr(sigTxt)}">${escAttr(sigTxt)}</td></tr>`;
+              }).join('');
+            } else {
+              turnTable.hidden = true;
+              turnBody.innerHTML = '';
+            }
+          }
+        }
+      }
+    }
+
+    // Zone E: Verified Savings (strictly measured attribution, zero fabricated splits) & Surgery
+    setTxt('taKpiTokens', `+${formatTokens(sessionSaved)}`);
+    setTxt('taKpiUsd', usdSaved > 0 ? `~$${usdSaved.toFixed(2)}` : '$0.00');
+    setTxt('taKpi30d', `30d: +${formatTokens(lifetimeSaved)} (~$${usd30d.toFixed(2)})`);
+
+    const savedCache = Math.max(0, savCache || Number(raw.savingsLedger?.prefixCacheTokens) || 0);
+    const savedSub = Math.max(0, savSubagent || Number(raw.savingsLedger?.subagentTokens) || 0);
+    const savedCli = Math.max(0, savCli || Number(raw.savingsLedger?.cliTokens) || 0);
+    const savedGuards = Math.max(0, savGuards || ((Number(raw.savingsLedger?.dedupTokens) || 0) + (Number(raw.savingsLedger?.compactionTokens) || 0)));
+    setTxt('taSrcCache', `+${formatTokens(savedCache)}`);
+    setTxt('taSrcSub', `+${formatTokens(savedSub)}`);
+    setTxt('taSrcCli', `+${formatTokens(savedCli)}`);
+    setTxt('taSrcGuards', `+${formatTokens(savedGuards)}`);
+
+    const taGitDriftWarn = document.getElementById('taGitDriftWarn');
+    const hasDriftWarn = Boolean(raw.compaction?.preCompactionWarning || raw.handoffAudit?.preCompactionWarning);
+    if (taGitDriftWarn) {
+      if (hasDriftWarn) {
+        taGitDriftWarn.hidden = false;
+        taGitDriftWarn.textContent = raw.compaction?.preCompactionWarningMessage ||
+          raw.handoffAudit?.preCompactionWarningMessage ||
+          'Uncommitted workspace changes detected while task.md is stale \u2014 sync task.md before compacting.';
+      } else {
+        taGitDriftWarn.hidden = true;
+        taGitDriftWarn.textContent = '';
+      }
+    }
+
+    const activeFilesList = Array.isArray(bs.activeFiles)
+      ? bs.activeFiles
+      : (Array.isArray(raw.brainSignals?.activeFiles) ? raw.brainSignals.activeFiles : []);
+    const fallbackPreserve = isClaudeSurface
+      ? 'CLAUDE.md invariants and .claude/cache/HANDOFF_LATEST.md state.'
+      : 'AGENTS.md invariants and task.md checklist.';
+    const rawParamCmd = String(raw.compaction?.parameterizedCommand || '').trim();
+    const defaultClause = activeFilesList.length > 0
+      ? `Focus on preserving: active files (${activeFilesList.slice(0, 3).map(f => typeof formatShortPath === 'function' ? formatShortPath(f) : f).join(', ')}); ${fallbackPreserve}`
+      : `Focus on preserving: ${fallbackPreserve}`;
+    const focusClause = rawParamCmd
+      ? rawParamCmd.replace(/^\/compact\s*/i, '').trim() || defaultClause
+      : defaultClause;
+    const fullSlashCmd = `/compact ${focusClause}`;
+
+    const taBtnCopyCompactEl = document.getElementById('taBtnCopyCompact');
+    const taCompactHintEl = document.getElementById('taCompactHint');
+    if (taCompactHintEl) {
+      taCompactHintEl.innerHTML = isClaudeSurface
+        ? 'Run in Claude Code CLI to compact while preserving active context:'
+        : 'Type <code>/compact</code> in chat (slash commands must be typed, not pasted), then paste focus args:';
+    }
+    setTxt('taCompactCmdText', isClaudeSurface ? fullSlashCmd : focusClause);
+    if (taBtnCopyCompactEl) {
+      taBtnCopyCompactEl.textContent = isClaudeSurface ? 'Copy /compact' : 'Copy Focus Args';
+      taBtnCopyCompactEl.title = isClaudeSurface
+        ? 'Copy spec-preserving /compact command to clipboard'
+        : 'Copy focus arguments to paste right after typing /compact';
+    }
+
+    const taBtnSurgeryPrimary = document.getElementById('taBtnSurgeryPrimary');
+    const taBtnForceAst = document.getElementById('taBtnForceAst');
+    if (taBtnSurgeryPrimary) {
+      taBtnSurgeryPrimary.disabled = false;
+      taBtnSurgeryPrimary.dataset.ctaState = isCrisis ? 'crisis' : (isWarm ? 'guarded' : 'ready');
+      setTxt('taBtnSurgeryLabel', dispStaleT >= 100
+        ? (isClaudeSurface
+          ? `Checkpoint & Copy /compact \u00B7 ~${formatTokens(dispStaleT)} reclaimable`
+          : `Checkpoint & Copy Focus Args \u00B7 ~${formatTokens(dispStaleT)} reclaimable`)
+        : (isClaudeSurface ? 'Checkpoint Session & Copy /compact' : 'Checkpoint Session & Copy Focus Args'));
+    }
+    if (taBtnForceAst) {
+      taBtnForceAst.disabled = false;
+    }
+  }
+
+  // Interactive handlers for Simple & Advanced Argon Tufte surfaces
+  const taBtnSurgeryPrimary = document.getElementById('taBtnSurgeryPrimary');
+  if (taBtnSurgeryPrimary) {
+    taBtnSurgeryPrimary.addEventListener('click', async () => {
+      const cmd = document.getElementById('taCompactCmdText')?.textContent?.trim() || currentRenderedState?.compaction?.parameterizedCommand || 'Focus on preserving AGENTS.md invariants and task.md checklist.';
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(cmd);
+        }
+      } catch (err) {
+        void err;
+      }
+      let checkpointed = false;
+      try {
+        const res = await fetch('/api/pre-compact', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto', command: cmd })
+        });
+        if (res && res.ok) {
+          const data = typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
+          checkpointed = Boolean(data?.success ?? data?.ok ?? true);
+          if (data?.state) applyGlobalStateFromDaemon(data.state);
+        }
+      } catch (err) {
+        void err;
+      }
+      const isClaudeTxt = (currentRenderedState?.storeSource || '').toLowerCase().includes('claude');
+      const copiedLabel = isClaudeTxt ? '<code>/compact</code> command' : 'focus args (type <code>/compact</code> in chat, then paste)';
+      showToast(checkpointed
+        ? `&#x2713; <strong>Pre-Compact Checkpoint</strong> saved &amp; copied ${copiedLabel}.`
+        : `&#x2713; <strong>Copied</strong> ${copiedLabel}.`);
+    });
+  }
+
+  const taBtnCopyCompact = document.getElementById('taBtnCopyCompact');
+  if (taBtnCopyCompact) {
+    taBtnCopyCompact.addEventListener('click', async () => {
+      const cmd = document.getElementById('taCompactCmdText')?.textContent?.trim() || currentRenderedState?.compaction?.parameterizedCommand || 'Focus on preserving AGENTS.md invariants and task.md checklist.';
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(cmd);
+        }
+      } catch (err) {
+        void err;
+      }
+      flashButton(taBtnCopyCompact, '\u2713 Copied', 1600);
+      const isClaudeTxt = (currentRenderedState?.storeSource || '').toLowerCase().includes('claude');
+      showToast(isClaudeTxt
+        ? '&#x2713; <strong>Copied Parameterized <code>/compact</code></strong> to clipboard.'
+        : '&#x2713; <strong>Copied Focus Args</strong> \u2014 type <code>/compact</code> in chat, then paste.');
+    });
+  }
+
+  const taBtnForceAst = document.getElementById('taBtnForceAst');
+  if (taBtnForceAst) {
+    taBtnForceAst.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/force-prune', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto' })
+        });
+        const pruneData = res && typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
+        if (res && res.ok) {
+          const estTok = Number(pruneData.savedTokens ?? pruneData.estimatedTokensReclaimed ?? 0);
+          flashButton(taBtnForceAst, estTok > 0 ? `\u2713 ${formatTokens(estTok)} staged` : '\u2713 Scanned', 1600);
+          showToast(estTok > 0
+            ? `&#x2713; Dry-run prune preview: ~<strong>${formatTokens(estTok)}</strong> reclaimable (read-only analysis).`
+            : '&#x2713; Dry-run prune preview complete (0 reclaimable steps).');
+          return;
+        }
+      } catch (err) {
+        void err;
+      }
+      showToast('&#x26A0;&#xFE0F; Unable to run prune preview right now.');
+    });
+  }
+
+  const taBtnShieldClickEl = document.getElementById('taBtnShield');
+  if (taBtnShieldClickEl) {
+    taBtnShieldClickEl.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/shield/flush', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto' })
+        });
+        const data = res && typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
+        if (res && res.ok) {
+          if (data?.deferred) {
+            showToast(`&#x1F6E1;&#xFE0F; Warm cache fence active (${Number(data.queuedCount || 0)} queued edits deferred).`);
+            return;
+          }
+          if (data?.state) applyGlobalStateFromDaemon(data.state);
+          showToast('&#x2713; Flushed queued Turn-0 Shield edits.');
+          return;
+        }
+      } catch (err) {
+        void err;
+      }
+      showToast('&#x26A0;&#xFE0F; Unable to flush PrefixCacheShield queue.');
+    });
+  }
+
+  const taBtnReapOrphansEl = document.getElementById('taBtnReapOrphans');
+  if (taBtnReapOrphansEl) {
+    taBtnReapOrphansEl.addEventListener('click', async () => {
+      const orphans = Array.isArray(currentRenderedState?.hostHealth?.orphans) ? currentRenderedState.hostHealth.orphans : [];
+      const pids = orphans.map(o => Number(o?.pid)).filter(n => Number.isFinite(n) && n > 0);
+      try {
+        const res = await fetch('/api/host/reap', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify(pids.length > 0 ? { pids } : {})
+        });
+        const data = res && typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
+        if (res && res.ok) {
+          if (data?.state) applyGlobalStateFromDaemon(data.state);
+          showToast('&#x2713; Reaped idle orphan host processes.');
+          return;
+        }
+      } catch (err) {
+        void err;
+      }
+      showToast('&#x26A0;&#xFE0F; Unable to reap orphan processes right now.');
+    });
+  }
+
+  const taBtnUnlockHysteresisEl = document.getElementById('taBtnUnlockHysteresis');
+  if (taBtnUnlockHysteresisEl) {
+    taBtnUnlockHysteresisEl.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/router/unlock-hysteresis', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto' })
+        });
+        const data = res && typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
+        if (res && res.ok) {
+          if (data?.state) applyGlobalStateFromDaemon(data.state);
+          showToast('&#x2713; Hysteresis lock released for next turn boundary.');
+          return;
+        }
+      } catch (err) {
+        void err;
+      }
+      showToast('&#x26A0;&#xFE0F; Unable to unlock router tier right now.');
+    });
+  }
+
+  async function handlePdfReceiptExport(e) {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    try {
+      const res = await fetch('/api/receipt/export?format=pdf');
+      if (res.status === 402) {
+        openShadowAutoBanner(currentRenderedState);
+        showToast('PDF receipt export requires Highbeam Pro or an active 14-day trial.');
+        return;
+      }
+      if (!res.ok) {
+        showToast('&#x26A0;&#xFE0F; Unable to export PDF savings receipt.');
+        return;
+      }
+      const blob = typeof res.blob === 'function' ? await res.blob() : null;
+      if (blob && typeof URL?.createObjectURL === 'function') {
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objUrl;
+        a.download = 'highbeam-savings-receipt.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => {
+          try { URL.revokeObjectURL(objUrl); } catch (err) { void err; }
+        }, 1000);
+      }
+      showToast('&#x2713; Downloaded PDF savings receipt.');
+    } catch (err) {
+      void err;
+      showToast('&#x26A0;&#xFE0F; Unable to export PDF savings receipt.');
+    }
+  }
+  const btnExportPdfReceiptEl = document.getElementById('btnExportPdfReceipt');
+  if (btnExportPdfReceiptEl) btnExportPdfReceiptEl.addEventListener('click', handlePdfReceiptExport);
+  const taBtnPdfReceiptEl = document.getElementById('taBtnPdfReceipt');
+  if (taBtnPdfReceiptEl) taBtnPdfReceiptEl.addEventListener('click', handlePdfReceiptExport);
+
+  const taBtnCopyReceipt = document.getElementById('taBtnCopyReceipt');
+  if (taBtnCopyReceipt) {
+    taBtnCopyReceipt.addEventListener('click', copyVerifiedTokensSavedReceipt);
+  }
+
+  const taDetBadgeClickEl = document.getElementById('taDetBadge');
+  if (taDetBadgeClickEl) {
+    taDetBadgeClickEl.addEventListener('click', () => {
+      const dr = document.getElementById('taGuardRosterDrawer');
+      if (dr) dr.open = !dr.open;
+    });
+  }
+
+  document.querySelectorAll('#taRouterSwitch button').forEach(btn => {
+    btn.addEventListener('click', () => handleUserModeChange(btn.dataset.taMode || btn.dataset.mode || 'coach'));
+  });
+
+  const handleTaConsumerIgnoreClick = async (e) => {
+    const btn = e.target.closest('button[data-ignore-path]');
+    if (!btn) return;
+    const p = btn.getAttribute('data-ignore-path');
+    if (!p) return;
+    let igData = {};
+    try {
+      const res = await fetch('/api/ignore', {
+        method: 'POST',
+        headers: buildHorizonPostHeaders(),
+        body: JSON.stringify({ path: p, workspacePath: currentRenderedState?.workspace?.canonicalPath || undefined })
+      });
+      igData = res && typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
+      if (res && res.ok) {
+        btn.textContent = '\u2713 Ignored';
+        btn.disabled = true;
+        showToast(`&#x2713; Added <code>${escAttr(p)}</code> to <code>.antigravityignore</code>`);
+        return;
+      }
+      showToast(`&#x26A0;&#xFE0F; ${escAttr(igData?.error || 'Cannot ignore active source file.')}`);
+      return;
+    } catch (err) {
+      void err;
+    }
+    showToast('&#x26A0;&#xFE0F; Unable to update <code>.antigravityignore</code> right now.');
+  };
+  const taConsumersBodyEl = document.getElementById('taConsumersBody');
+  if (taConsumersBodyEl) taConsumersBodyEl.addEventListener('click', handleTaConsumerIgnoreClick);
+  const taMoreConsumersBodyEl = document.getElementById('taMoreConsumersBody');
+  if (taMoreConsumersBodyEl) taMoreConsumersBodyEl.addEventListener('click', handleTaConsumerIgnoreClick);
+
+  const advSurfaceEl = document.getElementById('argonAdvancedSurface');
+  if (advSurfaceEl) {
+    advSurfaceEl.addEventListener('click', async (e) => {
+      const copyBtn = e.target.closest('button[data-ta-copy]');
+      if (!copyBtn) return;
+      const val = copyBtn.getAttribute('data-ta-copy') || '';
+      if (!val) return;
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(val);
+        }
+      } catch (err) {
+        void err;
+      }
+      flashButton(copyBtn, '\u2713 Copied', 1600);
+      showToast('&#x2713; Copied remediation command to clipboard.');
+    });
+  }
+
+  const __origRenderStateForTufte = renderState;
+  renderState = function(raw, fromCatalog) {
+    __origRenderStateForTufte(raw, fromCatalog);
+    // Paint Simple from what the panel actually decided to show (original may swap `raw` for the
+    // selected conversation / workspace match), not from the unswapped incoming payload.
+    let view = currentRenderedState || raw;
+    const globalSrc = (raw && raw.routerMode !== undefined)
+      ? raw
+      : (latestAutoState && latestAutoState.routerMode !== undefined ? latestAutoState : null);
+    if (
+      view && globalSrc && view !== globalSrc && typeof view === 'object' &&
+      Date.now() >= __modeSelectionPendingUntil &&
+      __HZ_GLOBAL_STATE_KEYS.some(k => globalSrc[k] !== undefined && view[k] !== globalSrc[k])
+    ) {
+      view = Object.assign({}, view);
+      for (const k of __HZ_GLOBAL_STATE_KEYS) {
+        if (globalSrc[k] !== undefined) view[k] = globalSrc[k];
+      }
+      currentRenderedState = view;
+    }
+    try { renderArgonTufteSurfaces(view); } catch (err) { void err; }
+  };
+  window.renderState = renderState;
+
+  if (window.__LIVE_INITIAL_STATE__) {
+    try { renderState(window.__LIVE_INITIAL_STATE__); } catch (err) { void err; }
+  }
+
+  connectHorizonStream(selectedSessionMode);
+
+  fetch(selectedSessionMode !== 'auto'
+    ? `/api/state?conversationId=${encodeURIComponent(selectedSessionMode)}`
+    : '/api/state'
+  )
+    .then(r => (r && r.ok ? r.json() : null))
+    .then(d => {
+      if (d && (selectedSessionMode === 'auto' || d.sessionId === selectedSessionMode)) {
+        if (d.sessionId && typeof __liveSessionCache === 'object') __liveSessionCache[d.sessionId] = d;
+        renderState(d, selectedSessionMode !== 'auto');
+      }
+    })
+    .catch(err => { void err; });
+</script>
+</body>
+</html>

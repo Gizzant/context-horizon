@@ -362,8 +362,11 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
   const swarmSummary = computeSwarmSummary(state, { nowMs: options.nowMs || Date.now() });
   const headroomTokens = Math.max(0, grid.zoomTier.ceilingTokens - grid.totalInputTokens);
 
-  const rawOffenders = Array.isArray(options.offenders) && options.offenders.length > 0
-    ? options.offenders.slice(0, 4).map((o) => {
+  const offenderSource = (Array.isArray(options.offenders) && options.offenders.length > 0)
+    ? options.offenders
+    : (Array.isArray(state.offenders) && state.offenders.length > 0 ? state.offenders : null);
+  const rawOffenders = offenderSource
+    ? offenderSource.slice(0, 4).map((o) => {
         const name = String(o.name || o.target || o.path || 'Context Item');
         const tokens = Math.max(0, Number(o.tokens ?? o.wastedTokens ?? 0));
         const occ = Number(o.occurrences || 0);
@@ -1432,7 +1435,7 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
     <details class="adv-accordion" id="advBreakersAccordion">
       <summary>
         <span>3. 6 Core Auditable Guards (32 rules) &amp; Thinking Drift</span>
-        <span>${escapeHtml(summarizeCoreAuditableGuards(options.breakerVerdict?.triggered ? options.breakerVerdict.detectorId : null).label)}</span>
+        <span>${escapeHtml(summarizeCoreAuditableGuards((options.breakerVerdict?.triggered ? options.breakerVerdict.detectorId : null) || state.coachState?.detectors?.tripped?.detectorId || state.circuitBreakerTripped?.detectorId || null).label)}</span>
       </summary>
       <div class="adv-body">
         <div class="adv-row"><span>Flight Mode</span><strong>${escapeHtml(metrics.flightMode)}</strong></div>

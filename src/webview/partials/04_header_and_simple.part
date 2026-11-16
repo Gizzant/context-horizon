@@ -1,4 +1,4 @@
-<body data-view-mode="simple">
+﻿<body data-view-mode="simple">
 
 <div class="wrap">
   <!-- 1. Header -->
@@ -130,7 +130,7 @@
         <div class="ts-glass-col">
           <div id="tsGlassVessel" class="ts-glass-vessel" role="img" aria-label="Vertical context fill gauge from pinned rules at bottom to new active work on top" data-state="nominal" data-tip title="Fills bottom-to-top up to your safe limit: pinned Rules & tools sit at the base, Older & reclaimable clutter in the middle, and New & active work on top. Empty space is free headroom.">
             <span id="tsGlassHeadroom" class="ts-glass-headroom-label">100% free</span>
-            <div id="tsGlassSafeLine" class="ts-glass-safe-line" hidden title="Safe limit line — context above this dashed line risks slowing down or forgetting early rules."></div>
+            <div id="tsGlassSafeLine" class="ts-glass-safe-line" hidden title="Safe limit line â€” context above this dashed line risks slowing down or forgetting early rules."></div>
             <div id="tsGlassFill" class="ts-glass-fill" data-empty="true" style="height:0%">
               <div id="tsGlassSegNew" class="ts-glass-seg ts-glass-seg-new" style="height:0%" title="New & active work (recent chat & current files): 0.0k"><span id="tsGlassTagNew" class="ts-glass-seg-tag" hidden>NEW</span></div>
               <div id="tsGlassSegOld" class="ts-glass-seg ts-glass-seg-old" data-clutter-tone="stale" style="height:0%" title="Older & reclaimable clutter (old turns, repeat reads & fixed errors): 0.0k"><span id="tsGlassTagOld" class="ts-glass-seg-tag" hidden>OLD</span></div>
@@ -142,9 +142,9 @@
       </div>
 
       <div class="ts-remediation">
-        <button type="button" id="tsBtnCleanPrimary" class="ts-cta-btn" data-cta-state="guarded" title="Copies a tailored /compact command to your clipboard so you can paste it into chat to clear out older clutter while preserving rules and active files.">
-          <span id="tsBtnCleanLabel">Copy /compact Command (Memory Clean)</span>
-        </button>
+        <div id="tsBtnCleanPrimary" class="ts-cta-btn" role="status" data-cta-state="guarded" title="Type /compact in your chat box and press Enter to clear out older clutter while preserving rules and active files.">
+          <span id="tsBtnCleanLabel">Memory is clean &middot; no /compact needed</span>
+        </div>
         <div class="ts-compact-caption">
           <span id="tsCompactReclaim" title="How many tokens of older history, duplicate reads, or old errors can be reclaimed without touching your active code.">0.0k reclaimable clutter &middot; Active working set protected</span>
           <span id="tsCompactInstruction" title="Paste the copied /compact command into your AI chat box and press Enter.">Type <code>/compact</code> in chat &amp; press Enter</span>
@@ -209,7 +209,7 @@
       <ul id="tsLedgerList" class="ts-ledger" role="list">
         <li class="ts-ledger-row" title="Highbeam watches tool outputs and rule writes locally so noisy logs and premature rule edits do not bloat memory or break warm caches.">
           <span class="ts-ledger-age">now</span>
-          <span>Guards armed — trimming long command output and protecting your warm prompt cache</span>
+          <span>Guards armed â€” trimming long command output and protecting your warm prompt cache</span>
           <span class="ts-ledger-saved">ready</span>
         </li>
       </ul>
@@ -251,7 +251,7 @@
         </div>
 
         <!-- Row 2: Prompt Cache Hit Rate, Retention & TTL -> 1D BulletBar -->
-        <div class="ts-metric-row" title="Warm prompt cache reuses earlier conversation turns at a 90%–95% discount until the timer runs out or the start of the chat changes. Target line sits at 80%.">
+        <div class="ts-metric-row" title="Warm prompt cache reuses earlier conversation turns at a 90%â€“95% discount until the timer runs out or the start of the chat changes. Target line sits at 80%.">
           <div class="ts-metric-main">
             <span class="ts-metric-label">Prompt cache</span>
             <span id="tsCacheMeta" class="ts-meta" data-tone="muted">0% hit &middot; Cold</span>

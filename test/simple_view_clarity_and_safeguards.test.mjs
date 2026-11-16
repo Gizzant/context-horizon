@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Simple View clarity pass: learned-rules drawer, plain-English safeguards (31 active guards),
  * BUG-14 safeguard lifecycle fixes, and a readability / zero-jargon gate.
  */
@@ -104,7 +104,7 @@ const SAMPLE_LEDGER_ITEMS = [
   }
 ];
 
-// Flesch–Kincaid grade level (heuristic syllable counter), code-like fragments removed.
+// Fleschâ€“Kincaid grade level (heuristic syllable counter), code-like fragments removed.
 function syllables(word) {
   const w = word.toLowerCase().replace(/[^a-z]/g, '');
   if (!w) return 0;
@@ -144,14 +144,8 @@ describe('Simple View: learned rules drawer', () => {
       assert.doesNotMatch(txt('tsLearnedRulesList'), /Enforce user artifact guidance/);
       assert.equal(EMOJI_RE.test(txt('tsLearnedRulesList')), false);
 
-      const row = d.querySelector('#tsLedgerList [data-action="learned-rules"]');
-      assert.ok(row, 'ledger row for learned rules is clickable');
-      assert.match(row.textContent, /Applying 5 learned rules/);
+      assert.equal(d.querySelector('#tsLedgerList [data-action="learned-rules"]'), null, 'learned rules appear once (drawer only), not duplicated in the ledger');
       assert.equal(drawer.open, false);
-      row.click();
-      assert.equal(drawer.open, true, 'clicking the row opens the drawer');
-      row.click();
-      assert.equal(drawer.open, false, 'clicking again closes it');
 
       const extra = d.getElementById('tsSessionExtraRow');
       assert.equal(extra.dataset.clickable, 'true');

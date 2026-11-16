@@ -285,7 +285,11 @@
       const sl = document.createElement('div');
       sl.className = 'swarm-topology-note' + (collisions.length > 0 ? ' collision' : '');
       sl.textContent = 'Scope locks: ' + leaseCount + ' active' + (collisions.length > 0
-        ? ' \u00b7 DET-20 overlap: ' + collisions.map((c) => c.trajectories.join(' \u2194 ') + ' [' + c.overlappingPaths.join(', ') + ']').join('; ')
+        ? ' \u00b7 DET-20 overlap: ' + collisions.map((c) => {
+          const trajs = Array.isArray(c?.trajectories) ? c.trajectories : (Array.isArray(c?.agents) ? c.agents : ['agents']);
+          const paths = Array.isArray(c?.overlappingPaths) ? c.overlappingPaths : [c?.file || c?.path || c?.target || 'shared file'];
+          return trajs.join(' \u2194 ') + ' [' + paths.join(', ') + ']';
+        }).join('; ')
         : '');
       frag.appendChild(sl);
     }

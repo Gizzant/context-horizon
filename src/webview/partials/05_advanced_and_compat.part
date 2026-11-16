@@ -3,39 +3,57 @@
        ========================================================================= -->
   <div id="argonAdvancedSurface" aria-label="Highbeam Advanced Telemetry Workbench">
     <div class="ta-subhud">
-      <span id="taSessionLabel">Active Session</span>
+      <div class="ta-subhud-left">
+        <span id="taSessionLabel">Active Session</span>
+        <span id="taWorkloadBadge" class="ta-pill" hidden title="Classified workload pattern for this session"></span>
+        <span id="taConfidenceBadge" class="ta-pill" data-tone="warn" hidden title="Parser confidence for host telemetry logs"></span>
+      </div>
       <span>
-        5h: <strong id="taSprint5h" style="color:var(--hz-fg);">0%</strong> &middot;
-        7d: <strong id="taWeekly7d" style="color:var(--hz-fg);">0%</strong> &middot;
+        5h: <strong id="taSprint5h" style="color:var(--hz-fg);">&#x2014;</strong><span id="taSprintReset" style="color:var(--hz-muted);margin-left:2px;"></span> &middot;
+        7d: <strong id="taWeekly7d" style="color:var(--hz-fg);">&#x2014;</strong> &middot;
         RAM: <strong id="taHostRam" style="color:var(--hz-fg);">0.0GB</strong>
       </span>
     </div>
 
-    <!-- Zone A: Chrono-Positional Physics -->
+    <!-- Zone A: Chrono-Positional Physics & Consumers -->
     <section class="ts-zone">
       <div class="ts-head">
         <h2 class="ts-overline">Zone A &middot; Chrono-Positional Physics</h2>
-        <span id="taDualTtl" class="ts-meta" data-tone="muted">0% hit &middot; 5m KV 00:00</span>
+        <span id="taDualTtl" class="ts-meta" data-tone="muted">0% hit &middot; Cold</span>
       </div>
       <div class="ts-status-row">
         <div class="ts-status-badge">
           <span id="taStatusDot" class="ts-dot" data-tone="signal"></span>
-          <span id="taStatusLabel">Optimal Cache</span>
+          <span id="taStatusLabel">Nominal Memory</span>
         </div>
-        <div style="font-size:11px;">
+        <div style="font-size:11px;text-align:right;">
           <strong id="taUsedTok">0.0k</strong>
-          <span style="color:var(--hz-muted);">(<span id="taSigTok" style="color:var(--hz-useful);">0.0k</span> sig + <span id="taClutterTok" style="color:var(--hz-clutter);">0.0k</span> recl) / <span id="taSafeTok">179.0k</span></span>
+          <span style="color:var(--hz-muted);">(<span id="taSigTok" style="color:var(--hz-useful);">0.0k</span> sig [<span id="taPinTok">0.0k</span> pin] + <span id="taClutterTok" style="color:var(--hz-clutter);">0.0k</span> recl) / <span id="taSafeTok">179.0k</span> <span id="taMaxTok">&middot; 256.0k max</span></span>
         </div>
+      </div>
+      <div id="taRunwayStrip" class="ta-inspector">
+        <span id="taRunwayMeta">179.0k safe headroom</span>
+        <span id="taPrefixForensics" style="color:var(--hz-muted);">Anchor + active working set</span>
       </div>
       <div id="taHorizonGrid" class="ta-cell-grid" role="listbox" aria-label="40-cell chronological context window"></div>
+      <div class="ta-grid-legend">
+        <span class="ta-legend-items">
+          <span class="ta-legend-item"><i class="ta-legend-dot" style="background:#14B8A6;"></i>Anchor</span>
+          <span class="ta-legend-item"><i class="ta-legend-dot" style="background:#10B981;"></i>Signal</span>
+          <span class="ta-legend-item"><i class="ta-legend-dot" style="background:#38BDF8;"></i>Warm KV</span>
+          <span class="ta-legend-item"><i class="ta-legend-dot" style="background:#F59E0B;"></i>Clutter</span>
+          <span class="ta-legend-item"><i class="ta-legend-dot" style="background:#EF4444;"></i>Error</span>
+        </span>
+        <span id="taGridScaleMeta">Safe @ Cell #28 &middot; 6.4k/cell</span>
+      </div>
       <div id="taCellInspector" class="ta-inspector">
         <span id="taCellLeft">Cell #1 &middot; System Anchor &amp; Rules</span>
-        <span id="taCellRight">6.4k / cell &middot; 1.00 recall</span>
+        <span id="taCellRight">0.0k / cell &middot; unused</span>
       </div>
       <div class="ta-ucurve">
-        <div><span style="color:var(--hz-muted);">Primacy (0–30%)</span><br><strong id="taUPrimacy" style="color:var(--hz-useful);">96% recall</strong></div>
-        <div><span style="color:var(--hz-muted);">Mid Trough (30–70%)</span><br><strong id="taUTrough" style="color:var(--hz-fg);">62% (0 specs)</strong></div>
-        <div><span style="color:var(--hz-muted);">Recency (70–100%)</span><br><strong id="taURecency" style="color:var(--hz-useful);">94% recall</strong></div>
+        <div><span style="color:var(--hz-muted);">Primacy (0&#x2013;30%)</span><br><strong id="taUPrimacy" style="color:var(--hz-useful);">96% recall</strong></div>
+        <div><span style="color:var(--hz-muted);">Mid Trough (30&#x2013;70%)</span><br><strong id="taUTrough" style="color:var(--hz-fg);">62% (0 specs)</strong></div>
+        <div><span style="color:var(--hz-muted);">Recency (70&#x2013;100%)</span><br><strong id="taURecency" style="color:var(--hz-useful);">94% recall</strong></div>
       </div>
       <table class="ta-table" aria-label="Top context token consumers">
         <thead>
@@ -50,12 +68,18 @@
           <tr><td colspan="4" style="color:var(--hz-muted);">Zero duplicate reads or dead error traces in active window.</td></tr>
         </tbody>
       </table>
+      <details id="taMoreConsumersDrawer" class="ts-drawer" hidden>
+        <summary><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span><span id="taMoreConsumersSummary">More consumers</span></span><span class="ts-kpi-sub">Expand</span></summary>
+        <table class="ta-table" aria-label="Additional context consumers">
+          <tbody id="taMoreConsumersBody"></tbody>
+        </table>
+      </details>
     </section>
 
-    <!-- Zone B: Action Queue & Router Governance -->
+    <!-- Zone B: Action Queue, Router Governance & KV Economics -->
     <section class="ts-zone">
       <div class="ts-head">
-        <h2 class="ts-overline">Zone B &middot; Action Queue &amp; Router Governance</h2>
+        <h2 class="ts-overline">Zone B &middot; Router Governance &amp; Action Queue</h2>
         <div id="taRouterSwitch" style="display:inline-flex;gap:3px;">
           <button type="button" class="ta-mini-btn" data-ta-mode="off">Off</button>
           <button type="button" class="ta-mini-btn" data-ta-mode="coach" style="border-color:var(--hz-useful);color:var(--hz-useful);">Coach</button>
@@ -68,16 +92,30 @@
           <span>Nominal queue &middot; 0 orphan PIDs, 0 idle eager MCPs, 0 trough specs</span>
         </div>
       </div>
-      <div id="taRouterNote" class="ta-inspector" style="color:var(--hz-fg-secondary);">
-        KV Gravity Router ready &middot; Turn-boundary switch buffer armed
+      <details id="taQueueOverflowDrawer" class="ts-drawer" hidden>
+        <summary><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span><span id="taQueueOverflowSummary">More queued diagnostics</span></span><span class="ts-kpi-sub">Expand</span></summary>
+        <div id="taActionQueueOverflow" class="ts-guidance-list"></div>
+      </details>
+      <div class="ta-inspector">
+        <span id="taRouterNote" style="color:var(--hz-fg-secondary);flex:1 1 auto;min-width:0;overflow-wrap:anywhere;">
+          KV Gravity Router ready &middot; Turn-boundary switch buffer armed
+        </span>
+        <div style="display:inline-flex;gap:4px;flex-shrink:0;">
+          <button type="button" id="taBtnReapOrphans" class="ta-mini-btn" hidden>Reap PIDs</button>
+          <button type="button" id="taBtnUnlockHysteresis" class="ta-mini-btn" hidden>Unlock Tier</button>
+        </div>
+      </div>
+      <div id="taModelEconStrip" class="ta-econ-strip">
+        <div id="taEconModelLine">Model: Auto &middot; Effort: Auto</div>
+        <div id="taEconCacheLine" style="color:var(--hz-muted);">Effort KV rule &amp; switch break-even</div>
       </div>
     </section>
 
-    <!-- Zone C: Turn-0 Baseline & DET-01..32 Guard Log -->
+    <!-- Zone C: Turn-0 Baseline & DET-01..32 Guard Log + Rosters -->
     <section class="ts-zone">
       <div class="ts-head">
         <h2 class="ts-overline">Zone C &middot; Turn-0 Baseline &amp; DET-01..32 Log</h2>
-        <span id="taDetBadge" class="ts-meta">32/32 guards armed</span>
+        <span id="taDetBadge" class="ts-meta" style="cursor:pointer;" title="Click to toggle full DET-01..32 detector roster">32/32 guards armed</span>
       </div>
       <div class="ta-inspector">
         <span id="taBaselineText">Turn-0 Baseline: <strong>0.0k</strong> / 20.0k budget</span>
@@ -96,24 +134,74 @@
           <tr><td>now</td><td>DET-01..32</td><td>FTS5 compressor &amp; 3-strike breakers armed</td><td class="num" style="color:var(--hz-muted);">armed</td></tr>
         </tbody>
       </table>
+      <details id="taGuardRosterDrawer" class="ts-drawer">
+        <summary title="Inspect every DET-01..32 guard, mode policy (blocks vs advises), and live trigger state."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Detector roster (DET-01..32)</span><span id="taGuardRosterMeta" class="ts-kpi-sub">Details</span></summary>
+        <div class="ts-guard-list">
+          <table class="ta-table" aria-label="Full DET detector policy and state roster">
+            <thead>
+              <tr>
+                <th style="width:18%;">ID</th>
+                <th style="width:50%;">Detector</th>
+                <th style="width:16%;">Policy</th>
+                <th class="num" style="width:16%;">State</th>
+              </tr>
+            </thead>
+            <tbody id="taGuardRosterBody"></tbody>
+          </table>
+        </div>
+      </details>
+      <details id="taRslDrawer" class="ts-drawer" hidden>
+        <summary title="Inspect Reflexive Session Learning (RSL) hooks, recovery skills, and project rules loaded in workspace."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span><span id="taRslSummary">Learned rules (RSL)</span></span><span id="taRslMeta" class="ts-kpi-sub">Details</span></summary>
+        <ul id="taRslList" class="ts-ledger ts-guard-list" role="list"></ul>
+      </details>
     </section>
 
-    <!-- Zone D: Verified Savings & Memory Surgery -->
+    <!-- Zone D: Session Trajectory & Swarm Topology -->
+    <section class="ts-zone">
+      <div class="ts-head">
+        <h2 class="ts-overline">Zone D &middot; Session Trajectory &amp; Swarm Topology</h2>
+        <span id="taTrajectoryMeta" class="ts-meta">0 turns &middot; waiting</span>
+      </div>
+      <div class="ta-traj-row">
+        <svg id="taTurnSparkline" width="96" height="20" viewBox="0 0 96 20" aria-label="Per-turn token growth sparkline" style="flex-shrink:0;">
+          <polyline id="taSparklinePath" fill="none" stroke="var(--accent-focus, #38BDF8)" stroke-width="1.5" points="0,18 96,18"/>
+        </svg>
+        <span id="taTrajSummary" style="font-size:10.5px;color:var(--hz-fg-secondary);min-width:0;overflow-wrap:anywhere;">Session start &middot; 0 compactions &middot; Solo agent</span>
+      </div>
+      <details id="taTimelineSwarmDrawer" class="ts-drawer" hidden>
+        <summary><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span><span id="taTimelineSwarmLabel">Turn deltas &amp; swarm workers</span></span><span id="taTimelineSwarmHint" class="ts-kpi-sub">Expand</span></summary>
+        <div id="taSwarmBlock" class="ta-econ-strip" style="margin-top:6px;" hidden></div>
+        <table class="ta-table" id="taTurnTable" hidden style="margin-top:6px;">
+          <thead>
+            <tr>
+              <th style="width:14%;">Turn</th>
+              <th style="width:20%;">Delta</th>
+              <th style="width:22%;">Total</th>
+              <th style="width:44%;">Signal / Event</th>
+            </tr>
+          </thead>
+          <tbody id="taTurnTableBody"></tbody>
+        </table>
+      </details>
+    </section>
+
+    <!-- Zone E: Verified Savings & Pre-Compact Surgery -->
     <section class="ts-zone-last">
       <div class="ts-head">
-        <h2 class="ts-overline">Zone D &middot; Verified Savings &amp; Memory Surgery</h2>
+        <h2 class="ts-overline">Zone E &middot; Verified Savings &amp; Pre-Compact Surgery</h2>
         <div style="display:inline-flex;gap:4px;">
-          <button type="button" id="taBtnCopyCompact" class="ta-mini-btn">Copy /compact</button>
+          <button type="button" id="taBtnCopyCompact" class="ta-mini-btn" title="Copy focus preservation clause to append after /compact">Copy Focus Args</button>
           <button type="button" id="taBtnCopyReceipt" class="ta-mini-btn">Copy Receipt</button>
+          <button type="button" id="taBtnPdfReceipt" class="ta-mini-btn" title="Download PDF 1.4 verified savings receipt">PDF</button>
         </div>
       </div>
       <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
         <div>
-          <span id="taKpiTokens" class="ts-kpi-num">0.0k</span>
+          <span id="taKpiTokens" class="ts-kpi-num">+0.0k</span>
           <span style="font-size:11px;color:var(--hz-muted);margin-left:4px;">saved</span>
           <span id="taKpiUsd" style="font-size:11.5px;color:var(--hz-useful);margin-left:5px;font-weight:600;">$0.00</span>
         </div>
-        <span id="taKpi30d" class="ts-meta">30d: 0.0k ($0.00)</span>
+        <span id="taKpi30d" class="ts-meta">30d: +0.0k ($0.00)</span>
       </div>
       <div class="ta-source-grid">
         <div><span style="color:var(--hz-muted);">Warm KV</span><br><strong id="taSrcCache">+0.0k</strong></div>
@@ -121,11 +209,16 @@
         <div><span style="color:var(--hz-muted);">FTS5 CLI</span><br><strong id="taSrcCli">+0.0k</strong></div>
         <div><span style="color:var(--hz-muted);">Guards</span><br><strong id="taSrcGuards">+0.0k</strong></div>
       </div>
+      <div id="taGitDriftWarn" class="ta-drift-warn" hidden></div>
+      <div class="ta-compact-box">
+        <div id="taCompactHint" style="color:var(--hz-muted);">Type <code>/compact</code> in chat (slash commands must be typed, not pasted), then paste focus args:</div>
+        <div id="taCompactCmdText" class="mono" style="color:var(--hz-fg);user-select:all;overflow-wrap:anywhere;">Focus on preserving: AGENTS.md invariants and task.md checklist.</div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr auto;gap:6px;">
         <button type="button" id="taBtnSurgeryPrimary" class="ts-cta-btn" data-cta-state="disabled" disabled>
-          <span id="taBtnSurgeryLabel">Memory Clean &middot; 0.0k Reclaimable</span>
+          <span id="taBtnSurgeryLabel">Checkpoint Session &amp; Copy Focus Args</span>
         </button>
-        <button type="button" id="taBtnForceAst" class="ta-mini-btn" style="padding:0 10px;border-color:var(--hz-clutter);color:var(--hz-clutter);" disabled>Fold AST</button>
+        <button type="button" id="taBtnForceAst" class="ta-mini-btn" style="padding:0 10px;border-color:var(--hz-clutter);color:var(--hz-clutter);" disabled title="Run read-only dry-run prune analysis on session transcript">Dry-Run Prune</button>
       </div>
     </section>
   </div>
@@ -487,7 +580,7 @@
                   <span class="compact-instruction-sub mono">Type <kbd class="cmd-kbd">/compact</kbd> in the chat box and press <kbd>Enter</kbd></span>
                 </div>
                 <span class="compact-reclaim mono" id="compactReclaim">reclaims ~0k</span>
-                <button type="button" class="mini-btn m3-action-btn mono" id="btnCompactPrimary" title="Copy /compact command to clipboard"><span class="simple-emoji-decor" aria-hidden="true">&#x1F4CB; </span>Copy /compact</button>
+                <button type="button" class="m3-action-btn mono compact-text-btn" id="btnCompactPrimary" data-severity="ok" title="Copy /compact command to clipboard">Copy /compact</button>
               </div>
             </div>
 

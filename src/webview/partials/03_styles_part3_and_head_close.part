@@ -965,6 +965,9 @@
     body[data-view-mode="advanced"] #argonAdvancedSurface {
       display: flex;
     }
+    body[data-view-mode="advanced"] #tsModeBar {
+      display: none;
+    }
 
     /* 4-Card Section Foundation (90% Calm Monochrome + 1px Hairlines, Zero Nested Cards) */
     [data-tip] { cursor: help; }
@@ -1356,6 +1359,21 @@
       color: #FFFFFF;
       border-color: var(--status-critical);
     }
+    /* Simple view: text-only Copy /compact; color encodes urgency */
+    #tsBtnCleanPrimary.ts-cta-btn {
+      width: auto;
+      min-height: 0;
+      padding: 2px 0;
+      background: none;
+      border: none;
+      justify-content: flex-start;
+      text-align: left;
+      cursor: default;
+      user-select: text;
+      color: var(--status-ok, #4ade80);
+    }
+    #tsBtnCleanPrimary.ts-cta-btn[data-severity="warn"] { color: var(--status-warning, #fbbf24); }
+    #tsBtnCleanPrimary.ts-cta-btn[data-severity="danger"] { color: var(--status-critical, #f87171); }
     .ts-cta-btn:disabled,
     .ts-cta-btn[data-cta-state="disabled"] {
       background: transparent;
@@ -1632,6 +1650,44 @@
     }
 
     /* Advanced Forensic Surface inside horizon_panel.html */
+    .ts-zone {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--hz-border, var(--hairline));
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+    .ts-zone-last {
+      padding: 8px 0 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+    .ts-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+    .ts-overline {
+      margin: 0;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted, var(--hz-muted));
+    }
+    .ts-kpi-num {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--hz-fg, var(--text-primary));
+    }
     .ta-subhud {
       display: flex;
       align-items: center;
@@ -1642,6 +1698,35 @@
       font-size: 11px;
       color: var(--hz-fg-secondary);
       flex-wrap: wrap;
+    }
+    .ta-subhud-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+    .ta-pill {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 3px;
+      border: 1px solid var(--hz-border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    .ta-pill[hidden] { display: none !important; }
+    .ta-pill[data-tone="warn"] {
+      color: var(--status-warning);
+      border-color: rgba(242, 153, 0, 0.45);
+      background: rgba(242, 153, 0, 0.10);
+    }
+    .ta-pill[data-tone="danger"] {
+      color: var(--status-critical);
+      border-color: rgba(217, 48, 37, 0.50);
+      background: rgba(217, 48, 37, 0.12);
     }
     .ta-cell-grid {
       display: grid;
@@ -1661,6 +1746,10 @@
       height: 100%;
       cursor: pointer;
       background: rgba(255, 255, 255, 0.04);
+      position: relative;
+    }
+    .ta-cell[data-safe-boundary="true"] {
+      box-shadow: inset -2px 0 0 rgba(242, 153, 0, 0.9);
     }
     .ta-cell[data-cat="anchor"] { background: #14B8A6; }
     .ta-cell[data-cat="signal"] { background: #10B981; }
@@ -1671,6 +1760,33 @@
       outline: 1.5px solid var(--hz-fg);
       outline-offset: -1.5px;
       z-index: 2;
+    }
+    .ta-grid-legend {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: var(--hz-muted, var(--text-muted));
+    }
+    .ta-legend-items {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .ta-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .ta-legend-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 1px;
     }
     .ta-inspector {
       display: flex;
@@ -1685,6 +1801,64 @@
       border-radius: 3px;
       font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
       font-size: 10.5px;
+    }
+    .ta-econ-strip {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 4px 7px;
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid var(--hz-border);
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      line-height: 1.35;
+      color: var(--hz-fg-secondary, var(--text-secondary));
+      overflow-wrap: anywhere;
+    }
+    .ta-action-row-inline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      width: 100%;
+      min-width: 0;
+    }
+    .ta-compact-box {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 5px 7px;
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid var(--hz-border);
+      border-radius: 3px;
+      font-size: 10px;
+    }
+    .ta-drift-warn {
+      padding: 5px 7px;
+      border-radius: 3px;
+      border: 1px solid rgba(242, 153, 0, 0.45);
+      border-left: 2.5px solid var(--status-warning);
+      background: rgba(242, 153, 0, 0.08);
+      font-size: 10.5px;
+      color: var(--text-primary);
+      line-height: 1.35;
+    }
+    .ta-drift-warn[hidden] { display: none !important; }
+    .ta-traj-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 7px;
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid var(--hz-border);
+      border-radius: 3px;
+      min-width: 0;
+    }
+    [data-theme="light"] .ta-econ-strip,
+    [data-theme="light"] .ta-compact-box,
+    [data-theme="light"] .ta-traj-row {
+      background: var(--hz-card);
     }
     .ta-ucurve {
       display: grid;

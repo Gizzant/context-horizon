@@ -647,6 +647,10 @@
       }
     }
 
+    const compactCopyBtn = document.getElementById('btnCompactPrimary');
+    if (compactCopyBtn) {
+      compactCopyBtn.dataset.severity = isOverLimit ? 'danger' : (isNeedsCleanup && compactionRelevant) ? 'warn' : 'ok';
+    }
     if (isOverLimit) {
       badge.className = 'badge danger';
       actionCard.className = 'action-card danger';

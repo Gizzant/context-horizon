@@ -481,8 +481,24 @@
   // =========================================================================
   // ARGON TUFTE SIMPLE & ADVANCED SURFACES (LIVE SIDEPANE WIRING)
   // =========================================================================
-  let __taSelectedCellIndex = 23;
+  let __taSelectedCellIndex = 0;
   let __taLastCells = [];
+  let __taCellCapacity = 6400;
+
+  function selectTaCell(idx, moveFocus = false) {
+    const grid = document.getElementById('taHorizonGrid');
+    const next = Math.max(0, Math.min(39, Number(idx) || 0));
+    __taSelectedCellIndex = next;
+    if (grid) {
+      grid.querySelectorAll('.ta-cell').forEach((c, cIdx) => {
+        const isSel = cIdx === next;
+        c.classList.toggle('selected', isSel);
+        c.setAttribute('aria-selected', isSel ? 'true' : 'false');
+        if (isSel && moveFocus && typeof c.focus === 'function') c.focus();
+      });
+    }
+    renderTaCellInspector(__taLastCells[next], next);
+  }
 
   (function initArgonTufteHorizonGrid() {
     const grid = document.getElementById('taHorizonGrid');
@@ -495,10 +511,13 @@
       cell.dataset.index = String(i);
       cell.setAttribute('role', 'gridcell');
       cell.setAttribute('aria-label', `Context cell ${i + 1} of 40`);
-      cell.addEventListener('click', () => {
-        __taSelectedCellIndex = i;
-        grid.querySelectorAll('.ta-cell').forEach((c, idx) => c.classList.toggle('selected', idx === i));
-        renderTaCellInspector(__taLastCells[i], i);
+      cell.setAttribute('aria-selected', i === __taSelectedCellIndex ? 'true' : 'false');
+      cell.addEventListener('click', () => selectTaCell(i, false));
+      cell.addEventListener('keydown', (ev) => {
+        if (ev.key === 'ArrowRight' && i < 39) { ev.preventDefault(); selectTaCell(i + 1, true); }
+        else if (ev.key === 'ArrowLeft' && i > 0) { ev.preventDefault(); selectTaCell(i - 1, true); }
+        else if (ev.key === 'Home') { ev.preventDefault(); selectTaCell(0, true); }
+        else if (ev.key === 'End') { ev.preventDefault(); selectTaCell(39, true); }
       });
       grid.appendChild(cell);
     }
@@ -516,7 +535,7 @@
     const num = (idx ?? 0) + 1;
     if (!cell || cell.cat === 'empty') {
       if (leftEl) leftEl.textContent = `Cell #${num} \u00B7 Available Headroom`;
-      if (rightEl) rightEl.textContent = '0.0k / cell \u00B7 1.00 recall';
+      if (rightEl) rightEl.textContent = '0.0k / cell \u00B7 unused';
       return;
     }
     const catLabels = {
@@ -528,7 +547,9 @@
     };
     const recall = cell.recall || (num <= 12 ? '0.96' : (num >= 28 ? '0.94' : '0.68'));
     const label = cell.source || catLabels[cell.cat] || cell.cat;
-    if (leftEl) leftEl.textContent = `Cell #${num} \u00B7 ${label}`;
+    const hasTurn = cell.turn !== null && cell.turn !== undefined && cell.turn !== '' && Number.isFinite(Number(cell.turn));
+    const turnTag = hasTurn ? ` (T${Number(cell.turn)})` : '';
+    if (leftEl) leftEl.textContent = `Cell #${num} \u00B7 ${label}${turnTag}`;
     if (rightEl) rightEl.textContent = `${formatTokens(cell.tokens || 0)} / cell \u00B7 ${recall} recall`;
   }
 
@@ -1384,16 +1405,6 @@
           tip: 'Prevents huge single-file reads from flooding context when only a small line range is needed.'
         });
       }
-      if (rows.length < 4 && rslActiveCount > 0) {
-        rows.push({
-          age: 'rsl',
-          action: `Applying ${rslActiveCount} learned rule${rslActiveCount === 1 ? '' : 's'} from your past coding sessions`,
-          saved: rslHooksCount > 0 ? `${rslHooksCount} auto-check${rslHooksCount === 1 ? '' : 's'}` : 'view',
-          tip: 'Click to see the learned rules. Highbeam turns repeated mistakes from past sessions into short project rules.',
-          click: 'learned-rules'
-        });
-      }
-
       const activeInterventionCount = realInterventionCount;
       const liveGuardTotal = Number(raw.coachState?.detectors?.totalCount || 0);
       const guardLabel = liveGuardTotal > 0 ? `${liveGuardTotal} guards` : 'guards';
@@ -1842,617 +1853,32 @@
 
     const tsBtnCleanPrimary = document.getElementById('tsBtnCleanPrimary');
     if (tsBtnCleanPrimary) {
+      tsBtnCleanPrimary.dataset.severity = isCrisis ? 'danger' : (dispStaleT >= 100 ? 'warn' : 'ok');
       if (isCrisis) {
         tsBtnCleanPrimary.disabled = false;
         tsBtnCleanPrimary.dataset.ctaState = 'crisis';
         setTxt('tsBtnCleanLabel', dispStaleT >= 100
-          ? `Purge Clutter Now \u00B7 Reclaim ${formatTokens(dispStaleT)} (Copy /compact)`
-          : 'Summarize & Compact Now (Copy /compact)');
+          ? `Reclaim ${formatTokens(dispStaleT)} clutter now \u00B7 type /compact in chat`
+          : 'Summarize now \u00B7 type /compact in chat');
         tsBtnCleanPrimary.title = dispStaleT >= 100
-          ? `Memory is at risk or over the safe limit. Click to copy /compact and reclaim ${formatTokens(dispStaleT)} of clutter right away.`
-          : 'Memory is at risk or over the safe limit. Click to copy /compact and summarize earlier turns.';
+          ? `Memory is at risk or over the safe limit. Type /compact in your chat box and press Enter to reclaim ${formatTokens(dispStaleT)} of clutter right away.`
+          : 'Memory is at risk or over the safe limit. Type /compact in your chat box and press Enter to summarize earlier turns.';
       } else if (dispStaleT >= 100) {
         tsBtnCleanPrimary.disabled = false;
         tsBtnCleanPrimary.dataset.ctaState = isWarm ? 'guarded' : 'ready';
         setTxt('tsBtnCleanLabel', isWarm
-          ? `Hold Cache (${ttlMm}:${ttlSs}) or Copy /compact (${formatTokens(dispStaleT)})`
-          : `Reclaim ${formatTokens(dispStaleT)} Clutter (Copy /compact)`);
+          ? `Hold cache (${ttlMm}:${ttlSs}) or type /compact to reclaim ${formatTokens(dispStaleT)}`
+          : `Reclaim ${formatTokens(dispStaleT)} clutter \u00B7 type /compact in chat`);
         tsBtnCleanPrimary.title = isWarm
-          ? `Prompt cache is warm for ${ttlMm}:${ttlSs}. Wait until it cools to keep your discount, or click to copy /compact anyway.`
-          : `Click to copy /compact and clear ${formatTokens(dispStaleT)} of older clutter while preserving rules and active code.`;
+          ? `Prompt cache is warm for ${ttlMm}:${ttlSs}. Wait until it cools to keep your discount, or type /compact in chat anyway.`
+          : `Type /compact in your chat box and press Enter to clear ${formatTokens(dispStaleT)} of older clutter while preserving rules and active code.`;
       } else {
         tsBtnCleanPrimary.disabled = false;
         tsBtnCleanPrimary.dataset.ctaState = 'guarded';
-        setTxt('tsBtnCleanLabel', 'Copy /compact Command (Memory Clean)');
-        tsBtnCleanPrimary.title = 'Memory is already clean. Click anytime to copy the /compact command.';
+        setTxt('tsBtnCleanLabel', 'Memory is clean \u00B7 no /compact needed');
+        tsBtnCleanPrimary.title = 'Memory is already clean. You can still type /compact in chat anytime.';
       }
     }
     setTxt('tsCompactReclaim', dispStaleT >= 100
       ? `${formatTokens(dispStaleT)} reclaimable clutter \u00B7 Active working set protected`
       : '0.0k reclaimable clutter \u00B7 Active working set clean');
-
-    // =======================================================================
-    // 2. ADVANCED VIEW UPDATES (#argonAdvancedSurface)
-    // =======================================================================
-    setTxt('taSessionLabel', raw.sessionTitle || raw.workspaceName || 'Active Session');
-    const q5hRaw = raw.quota?.sprint5h?.usedPct ?? raw.quota?.fiveHourPct;
-    const q7dRaw = raw.quota?.weekly7d?.usedPct ?? raw.quota?.sevenDayPct;
-    const est5hPrefix = raw.quota?.sprint5h?.source === 'estimate' ? '~' : '';
-    const est7dPrefix = raw.quota?.weekly7d?.source === 'estimate' ? '~' : '';
-    setTxt('taSprint5h', (q5hRaw != null && !Number.isNaN(Number(q5hRaw)))
-      ? `${est5hPrefix}${Math.min(100, Math.round(Number(q5hRaw)))}%`
-      : '\u2014');
-    setTxt('taWeekly7d', (q7dRaw != null && !Number.isNaN(Number(q7dRaw)))
-      ? `${est7dPrefix}${Math.min(100, Math.round(Number(q7dRaw)))}%`
-      : '\u2014');
-    setTxt('taHostRam', `${Number(raw.hostHealth?.rssGb ?? raw.hostRamGb ?? 0).toFixed(1)}GB`);
-
-    const taDualTtl = document.getElementById('taDualTtl');
-    if (taDualTtl) {
-      taDualTtl.dataset.tone = isWarm ? 'signal' : 'muted';
-      taDualTtl.textContent = `${hitPct}% hit \u00B7 5m KV ${ttlMm}:${ttlSs}`;
-    }
-    const taStatusDot = document.getElementById('taStatusDot');
-    if (taStatusDot) taStatusDot.dataset.tone = isCrisis ? 'danger' : ((isStuckErrorLoop || isWarn) ? 'warn' : 'signal');
-    setTxt('taStatusLabel', isCrisis ? 'Pruning Required' : (isStuckErrorLoop ? 'Error Loop' : (isWarn ? 'Saturation Risk' : (isWarm ? 'Optimal Cache' : 'Nominal Memory'))));
-    setTxt('taUsedTok', formatTokens(total));
-    setTxt('taSigTok', formatTokens(usefulT));
-    setTxt('taClutterTok', formatTokens(staleT));
-    setTxt('taSafeTok', formatTokens(safeCap));
-
-    // Build 40 cells using data-cat="anchor|signal|cached|clutter|error"
-    const totalCells = 40;
-    const tokPerCell = Math.max(1, Math.round(safeCap / totalCells));
-    const catLabelsAdv = {
-      anchor: 'System Anchor & Rules',
-      signal: 'Active Dialogue & Edits',
-      cached: 'Warm Prefix History',
-      clutter: 'Reclaimable Tool Logs',
-      error: 'Stale Error Trace'
-    };
-    let cells = [];
-    if (Array.isArray(raw.cells) && raw.cells.length === 40 && raw.cells[0]?.dominantCategory) {
-      cells = raw.cells.map((c, i) => {
-        const dc = String(c.dominantCategory || '').toUpperCase();
-        const st = String(c.state || '').toLowerCase();
-        let cat = 'empty';
-        if (dc === 'FREE_HEADROOM' || c.fillPct === 0 || st === 'free') {
-          cat = 'empty';
-        } else if (c.isCrisisCell || dc === 'DEAD_ERROR' || st === 'error') {
-          cat = 'error';
-        } else if (dc === 'ANCHOR') {
-          cat = 'anchor';
-        } else if (dc === 'STALE_DUPLICATE' || dc === 'DUPLICATE_READ' || dc === 'STALE_TURN' || dc === 'FOREIGN_BLEED' || st === 'stale') {
-          cat = 'clutter';
-        } else if (dc === 'ACTIVE_WORKING_SET' || dc === 'MEMORY_KI' || st === 'useful') {
-          cat = isWarm && i < 24 ? 'cached' : 'signal';
-        }
-        const tbc = c.tokensByCategory && typeof c.tokensByCategory === 'object' ? c.tokensByCategory : null;
-        const tok = tbc
-          ? Object.entries(tbc).reduce((acc, [k, v]) => (k === 'FREE_HEADROOM' ? acc : acc + Math.max(0, Number(v) || 0)), 0)
-          : (cat === 'empty' ? 0 : Math.round(((c.fillPct ?? 100) / 100) * tokPerCell));
-        return {
-          cat,
-          tokens: tok,
-          source: cat === 'empty' ? 'Available capacity' : (c.topTarget || catLabelsAdv[cat] || cat),
-          recall: typeof c.attentionWeight === 'number' ? c.attentionWeight.toFixed(2) : undefined
-        };
-      });
-    } else {
-      const anchorCells = Math.max(1, Math.min(8, Math.round((rulesT + toolsT) / tokPerCell)));
-      const signalCells = Math.max(0, Math.min(32 - anchorCells, Math.round((activeT + filesT) / tokPerCell)));
-      const clutterCells = Math.max(0, Math.min(40 - anchorCells - signalCells, Math.round(staleT / tokPerCell)));
-      for (let i = 0; i < totalCells; i++) {
-        let cat = 'empty';
-        let tok = 0;
-        let src = 'Available capacity';
-        if (i < anchorCells) {
-          cat = 'anchor'; tok = Math.round((rulesT + toolsT) / anchorCells); src = 'System Anchor & Rules';
-        } else if (i < anchorCells + signalCells) {
-          cat = isWarm && i < anchorCells + Math.ceil(signalCells * 0.6) ? 'cached' : 'signal';
-          tok = Math.round((activeT + filesT) / Math.max(1, signalCells));
-          src = cat === 'cached' ? 'Warm Prefix History' : 'Active Dialogue & Edits';
-        } else if (i < anchorCells + signalCells + clutterCells) {
-          cat = isCrisis ? 'error' : 'clutter';
-          tok = Math.round(staleT / Math.max(1, clutterCells));
-          src = 'Reclaimable Tool Logs';
-        }
-        cells.push({ cat, tokens: tok, source: src });
-      }
-    }
-    __taLastCells = cells;
-
-    const strandedN = Number(raw.attentionHeatmap?.strandedSignalCount) || 0;
-    setTxt('taUTrough', `62% (${strandedN} spec${strandedN === 1 ? '' : 's'})`);
-
-    const gridEl = document.getElementById('taHorizonGrid');
-    if (gridEl) {
-      const domCells = gridEl.querySelectorAll('.ta-cell');
-      domCells.forEach((el, idx) => {
-        const c = cells[idx] || { cat: 'empty' };
-        if (c.cat && c.cat !== 'empty') el.setAttribute('data-cat', c.cat);
-        else el.removeAttribute('data-cat');
-        el.setAttribute('aria-selected', idx === __taSelectedCellIndex ? 'true' : 'false');
-      });
-    }
-    renderTaCellInspector(cells[__taSelectedCellIndex], __taSelectedCellIndex);
-
-    // Top Context Consumers Table (respecting Active Source File Protection invariant)
-    const taConsumersBody = document.getElementById('taConsumersBody');
-    let hogs = [];
-    if (Array.isArray(raw.topConsumers) && raw.topConsumers.length > 0) {
-      hogs = raw.topConsumers;
-    } else {
-      const seenTargets = new Set();
-      const topFiles = Array.isArray(bs.duplicateReads?.topFiles)
-        ? bs.duplicateReads.topFiles
-        : (Array.isArray(raw.duplicateReads) ? raw.duplicateReads : []);
-      topFiles.forEach(f => {
-        const p = f?.path || f?.file;
-        const tok = Number(f?.wastedTokens ?? f?.tokens ?? f?.reclaimableTokens ?? 0);
-        if (!p || tok <= 0) return;
-        seenTargets.add(String(p).toLowerCase());
-        hogs.push({ kind: 'file', path: p, pattern: `${Number(f.occurrences || f.reads || f.count || 1)}x read`, tokens: tok });
-      });
-      (Array.isArray(raw.offenders) ? raw.offenders : []).forEach(o => {
-        const tgt = String(o?.target || '');
-        const tok = Number(o?.wastedTokens || 0);
-        if (!tgt || tok <= 0) return;
-        if (o.category === 'DEAD_ERROR') {
-          if (!seenTargets.has(tgt.toLowerCase())) {
-            seenTargets.add(tgt.toLowerCase());
-            hogs.push({ kind: 'error', label: tgt, pattern: `${Number(o.occurrences || 1)}x error`, tokens: tok });
-          }
-        } else if (tgt === 'Older chat history (>25 turns ago)') {
-          hogs.push({ kind: 'history', label: 'Older chat history (>25 turns)', pattern: `${Number(o.occurrences || 1)} turns`, tokens: tok });
-        } else if (tgt !== 'Foreign Bleed Knowledge' && !seenTargets.has(tgt.toLowerCase())) {
-          seenTargets.add(tgt.toLowerCase());
-          hogs.push({ kind: 'file', path: tgt, pattern: `${Number(o.occurrences || 1)}x read`, tokens: tok });
-        }
-      });
-      if (bleedWaste > 0) {
-        hogs.push({ kind: 'bleed', label: 'Cross-project memory bleed', pattern: 'foreign KI', tokens: bleedWaste });
-      }
-      (Array.isArray(bs.blowupSteps) ? bs.blowupSteps : []).forEach(b => {
-        const tok = Number(b?.tokens || 0);
-        if (tok <= 0) return;
-        const isFile = b.payload?.kind === 'file' && Boolean(b.payload?.path);
-        const key = String(isFile ? b.payload.path : (b.payload?.detail || b.target || '')).toLowerCase();
-        if (isFile && seenTargets.has(key)) return;
-        seenTargets.add(key);
-        hogs.push({
-          kind: isFile ? 'file' : 'spike',
-          path: isFile ? b.payload.path : undefined,
-          label: b.payload?.detail || b.target || 'Output spike',
-          pattern: `T${b.userTurnNumber || b.stepIndex} spike`,
-          tokens: tok
-        });
-      });
-      hogs.sort((a, b) => (b.tokens || 0) - (a.tokens || 0));
-    }
-    if (taConsumersBody) {
-      const list = hogs.slice(0, 4);
-      if (list.length === 0) {
-        taConsumersBody.innerHTML = `
-          <tr>
-            <td>AGENTS.md + rules</td>
-            <td>pinned</td>
-            <td class="num">${formatTokens(rulesT)}</td>
-            <td class="num"><span style="color:var(--hz-useful);">Protected</span></td>
-          </tr>
-          <tr>
-            <td>Active working files</td>
-            <td>1x read</td>
-            <td class="num">${formatTokens(Math.max(0, usefulT - rulesT))}</td>
-            <td class="num"><span style="color:var(--hz-anchor);">Active Source</span></td>
-          </tr>
-        `;
-      } else {
-        taConsumersBody.innerHTML = list.map(item => {
-          const kind = item.kind || (item.path || item.file ? 'file' : 'spike');
-          const p = String(item.path || item.file || item.label || 'context-item');
-          const patternTxt = item.pattern || `${Number(item.reads || item.count || 1)}x read`;
-          const tok = Math.max(0, Number(item.tokens ?? item.reclaimableTokens) || 0);
-          let actionHtml = '';
-          if (kind === 'file') {
-            const ignorable = typeof isIgnorablePath === 'function'
-              ? isIgnorablePath(p)
-              : /\.(log|lock|tmp|bak|min\.js|map)$|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|node_modules|\.antigravity/i.test(p);
-            actionHtml = ignorable
-              ? `<button type="button" class="ta-mini-btn" data-ignore-path="${escAttr(p)}">+Ignore</button>`
-              : `<span style="color:var(--hz-anchor);">Active Source</span>`;
-          } else if (kind === 'history') {
-            actionHtml = `<span style="color:var(--hz-muted);">Cleared by /compact</span>`;
-          } else if (kind === 'error') {
-            actionHtml = `<span style="color:var(--hz-danger);">Error trace</span>`;
-          } else if (kind === 'bleed') {
-            actionHtml = `<span style="color:var(--hz-clutter);">Foreign KI</span>`;
-          } else {
-            actionHtml = `<span style="color:var(--hz-clutter);">Output spike</span>`;
-          }
-          const displayTarget = kind === 'file' && typeof formatShortPath === 'function' ? formatShortPath(p) : p;
-          return `
-            <tr>
-              <td title="${escAttr(p)}">${escAttr(displayTarget)}</td>
-              <td>${escAttr(patternTxt)}</td>
-              <td class="num">${formatTokens(tok)}</td>
-              <td class="num">${actionHtml}</td>
-            </tr>
-          `;
-        }).join('');
-      }
-    }
-
-    // Zone B: Router Governance & Action Queue
-    const routerMode = String(raw.routerMode || 'coach').toLowerCase();
-    document.querySelectorAll('#taRouterSwitch button').forEach(btn => {
-      const active = (btn.dataset.taMode || btn.dataset.mode) === routerMode;
-      btn.style.borderColor = active ? 'var(--hz-useful)' : '';
-      btn.style.color = active ? 'var(--hz-useful)' : '';
-    });
-    const taActionQueue = document.getElementById('taActionQueue');
-    if (taActionQueue) {
-      const qRows = [];
-      if (isCrisis) {
-        qRows.push({ tone: 'danger', tag: 'CRISIS', text: `Run /compact or checkpoint task.md \u2014 ${formatTokens(Math.max(0, total - safeCap))} past safe limit` });
-      } else if (isStuckErrorLoop) {
-        qRows.push({ tone: 'avoid', tag: 'LOOP', text: `${errLoopCount}\u00D7 error loop \u2014 inspect root cause or upshift model/effort` });
-      } else if (staleT >= 35000) {
-        qRows.push({ tone: 'avoid', tag: 'COMPACT', text: `${formatTokens(staleT)} reclaimable clutter queued for /compact` });
-      } else if (topBlowup && Number(topBlowup.tokens) >= 12000) {
-        qRows.push({ tone: 'avoid', tag: 'SPIKE', text: `Turn #${topBlowup.userTurnNumber || topBlowup.stepIndex} spike (${formatTokens(topBlowup.tokens)}) \u2014 filter verbose output` });
-      }
-      if (idleEagerMcps.length > 0) {
-        qRows.push({ tone: 'avoid', tag: 'MCP', text: `${idleEagerMcps.length} idle eager MCP${idleEagerMcps.length === 1 ? '' : 's'} \u00B7 ~${formatTokens(idleEagerTokens)} schema bloat` });
-      }
-      if (Number(raw.hostHealth?.orphanCount) > 0) {
-        const oc = Number(raw.hostHealth.orphanCount);
-        qRows.push({ tone: 'avoid', tag: 'PID', text: `${oc} orphan language_server PID${oc === 1 ? '' : 's'} detected` });
-      }
-      if (strandedN > 0) {
-        qRows.push({ tone: 'avoid', tag: 'TROUGH', text: `${strandedN} stranded mid-trough spec${strandedN === 1 ? '' : 's'} (low recall)` });
-      }
-      if (raw.coachState?.det17ShadowBloat?.triggered) {
-        const sb = raw.coachState.det17ShadowBloat;
-        qRows.push({ tone: 'avoid', tag: 'SHADOW', text: `${sb.shadowedFileCount || 1} shadowed file(s) \u00B7 ~${formatTokens(sb.totalShadowWastedTokens || 0)} wasted` });
-      }
-      if (qRows.length === 0) {
-        qRows.push({ tone: 'do', tag: 'QUEUE', text: 'Nominal queue \u00B7 0 orphan PIDs, 0 idle eager MCPs, 0 trough specs' });
-      }
-      taActionQueue.innerHTML = qRows.slice(0, 3).map(r =>
-        `<div class="ts-guidance-row" data-tone="${escAttr(r.tone)}"><span class="ts-tag">${escAttr(r.tag)}</span><span>${escAttr(r.text)}</span></div>`
-      ).join('');
-    }
-    const taRouterNote = document.getElementById('taRouterNote');
-    if (taRouterNote) {
-      taRouterNote.textContent = raw.coachState?.taskQuotaRouter?.coachPillText || 'KV Gravity Router ready \u00B7 Turn-boundary switch buffer armed';
-    }
-
-    // Zone C: Turn-0 Baseline & Guard Log
-    const taBaselineText = document.getElementById('taBaselineText');
-    if (taBaselineText) {
-      taBaselineText.innerHTML = `Turn-0 Baseline: <strong${baselineOverBudget ? ' style="color:var(--hz-clutter);"' : ''}>${formatTokens(baselineEst)}</strong> / 20.0k budget`;
-    }
-    const taBtnShieldEl = document.getElementById('taBtnShield');
-    if (taBtnShieldEl) {
-      taBtnShieldEl.textContent = `Shield: ${queuedShield} queued`;
-      taBtnShieldEl.disabled = queuedShield <= 0;
-    }
-    const taDetBadge = document.getElementById('taDetBadge');
-    const trippedDet = raw.coachState?.detectors?.tripped;
-    const detTotal = Number(raw.coachState?.detectors?.totalCount) || 32;
-    const detArmed = Number(raw.coachState?.detectors?.armedCount ?? detTotal) || detTotal;
-    if (taDetBadge) {
-      if (effectiveMode === 'off') {
-        taDetBadge.dataset.tone = 'muted';
-        taDetBadge.textContent = 'Guards paused';
-        taDetBadge.title = 'Watch-only mode';
-      } else if (trippedDet && trippedDet.detectorId) {
-        taDetBadge.dataset.tone = 'warn';
-        taDetBadge.textContent = `${trippedDet.detectorId} tripped`;
-        taDetBadge.title = trippedDet.reason || '';
-      } else {
-        taDetBadge.dataset.tone = '';
-        taDetBadge.textContent = `${detArmed}/${detTotal} guards armed`;
-        taDetBadge.title = '';
-      }
-    }
-    const taGuardBody = document.getElementById('taGuardBody');
-    if (taGuardBody && rawAutoFixItems.length > 0) {
-      taGuardBody.innerHTML = rawAutoFixItems.slice(0, 3).map((ev, idx) => `
-        <tr>
-          <td>${escAttr(ev.turn ? 'T' + ev.turn : (ev.ageLabel || 'auto'))}</td>
-          <td>${escAttr(ev.guardId || `DET-0${idx + 1}`)}</td>
-          <td>${escAttr(ev.label || ev.title || ev.summary || 'Guard intervention')}</td>
-          <td class="num" style="color:var(--hz-useful);">${ev.tokensSaved ? `+${formatTokens(ev.tokensSaved)}` : 'fixed'}</td>
-        </tr>
-      `).join('');
-    }
-
-    // Zone D: Verified Savings & Memory Surgery
-    setTxt('taKpiTokens', `+${formatTokens(sessionSaved)}`);
-    setTxt('taKpiUsd', `~$${usdSaved.toFixed(2)}`);
-    setTxt('taKpi30d', `30d: +${formatTokens(lifetimeSaved)} (~$${usd30d.toFixed(2)})`);
-
-    const hasDetailedSavings = (savCache + savSubagent + savCli + savGuards) > 0 || !raw.savingsLedger;
-    const savedCache = hasDetailedSavings ? savCache : (Number(raw.savingsLedger?.prefixCacheTokens) || Math.round(sessionSaved * 0.75));
-    const savedSub = hasDetailedSavings ? savSubagent : (Number(raw.savingsLedger?.subagentTokens) || Math.round(sessionSaved * 0.10));
-    const savedCli = hasDetailedSavings ? savCli : (Number(raw.savingsLedger?.cliTokens) || Math.round(sessionSaved * 0.08));
-    const savedGuards = hasDetailedSavings ? savGuards : Math.max(0, sessionSaved - savedCache - savedSub - savedCli);
-    setTxt('taSrcCache', `+${formatTokens(savedCache)}`);
-    setTxt('taSrcSub', `+${formatTokens(savedSub)}`);
-    setTxt('taSrcCli', `+${formatTokens(savedCli)}`);
-    setTxt('taSrcGuards', `+${formatTokens(savedGuards)}`);
-
-    const taBtnSurgeryPrimary = document.getElementById('taBtnSurgeryPrimary');
-    const taBtnForceAst = document.getElementById('taBtnForceAst');
-    if (taBtnSurgeryPrimary) {
-      taBtnSurgeryPrimary.disabled = false;
-      taBtnSurgeryPrimary.dataset.ctaState = isCrisis ? 'crisis' : (isWarm ? 'guarded' : 'ready');
-      setTxt('taBtnSurgeryLabel', staleT > 0
-        ? `Memory Clean \u00B7 Reclaim ${formatTokens(staleT)} (Copy /compact)`
-        : 'Copy Parameterized /compact');
-    }
-    if (taBtnForceAst) {
-      taBtnForceAst.disabled = false;
-    }
-  }
-
-  // Interactive handlers for Simple & Advanced Argon Tufte surfaces
-  const tsBtnCleanPrimary = document.getElementById('tsBtnCleanPrimary');
-  if (tsBtnCleanPrimary) {
-    tsBtnCleanPrimary.addEventListener('click', async () => {
-      const cmd = currentRenderedState?.compaction?.parameterizedCommand ||
-        document.getElementById('parameterizedCompactText')?.textContent?.trim() ||
-        '/compact';
-      try {
-        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-          await navigator.clipboard.writeText(cmd);
-        }
-      } catch (err) {
-        void err;
-      }
-      let checkpointed = false;
-      try {
-        const res = await fetch('/api/pre-compact', {
-          method: 'POST',
-          headers: buildHorizonPostHeaders(),
-          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto', action: 'clean_purge_cache', command: cmd })
-        });
-        if (res && res.ok) {
-          const data = typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
-          checkpointed = Boolean(data?.success ?? data?.ok ?? true);
-          if (data?.state) applyGlobalStateFromDaemon(data.state);
-        }
-      } catch (err) {
-        void err;
-      }
-      const lbl = document.getElementById('tsBtnCleanLabel');
-      const prev = lbl ? lbl.textContent : '';
-      if (lbl) lbl.textContent = checkpointed ? '\u2713 Copied /compact & Checkpointed!' : '\u2713 Copied /compact!';
-      showToast(checkpointed
-        ? '&#x2713; <strong>Copied <code>/compact</code></strong> to clipboard &amp; checkpointed session.'
-        : '&#x2713; <strong>Copied <code>/compact</code></strong> to clipboard.');
-      setTimeout(() => { if (lbl && prev) lbl.textContent = prev; }, 2000);
-    });
-  }
-
-  const taBtnSurgeryPrimary = document.getElementById('taBtnSurgeryPrimary');
-  if (taBtnSurgeryPrimary) {
-    taBtnSurgeryPrimary.addEventListener('click', async () => {
-      const cmd = document.getElementById('taCompactCmdText')?.textContent?.trim() || currentRenderedState?.compaction?.parameterizedCommand || '/compact';
-      try {
-        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-          await navigator.clipboard.writeText(cmd);
-        }
-      } catch (err) {
-        void err;
-      }
-      let checkpointed = false;
-      try {
-        const res = await fetch('/api/pre-compact', {
-          method: 'POST',
-          headers: buildHorizonPostHeaders(),
-          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto', command: cmd })
-        });
-        if (res && res.ok) {
-          const data = typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
-          checkpointed = Boolean(data?.success ?? data?.ok ?? true);
-          if (data?.state) applyGlobalStateFromDaemon(data.state);
-        }
-      } catch (err) {
-        void err;
-      }
-      showToast(checkpointed
-        ? '&#x2713; <strong>Pre-Compact Surgery</strong> checkpointed &amp; copied command.'
-        : '&#x2713; <strong>Copied <code>/compact</code></strong> command to clipboard.');
-    });
-  }
-
-  const taBtnCopyCompact = document.getElementById('taBtnCopyCompact');
-  if (taBtnCopyCompact) {
-    taBtnCopyCompact.addEventListener('click', async () => {
-      const cmd = document.getElementById('taCompactCmdText')?.textContent?.trim() || currentRenderedState?.compaction?.parameterizedCommand || '/compact';
-      try {
-        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-          await navigator.clipboard.writeText(cmd);
-        }
-      } catch (err) {
-        void err;
-      }
-      flashButton(taBtnCopyCompact, '\u2713 Copied', 1600);
-      showToast('&#x2713; <strong>Copied Parameterized <code>/compact</code></strong> to clipboard.');
-    });
-  }
-
-  const taBtnForceAst = document.getElementById('taBtnForceAst');
-  if (taBtnForceAst) {
-    taBtnForceAst.addEventListener('click', async () => {
-      try {
-        const res = await fetch('/api/force-prune', {
-          method: 'POST',
-          headers: buildHorizonPostHeaders(),
-          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto' })
-        });
-        const pruneData = res && typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
-        if (res && res.ok) {
-          const estTok = Number(pruneData.savedTokens ?? pruneData.estimatedTokensReclaimed ?? 0);
-          flashButton(taBtnForceAst, estTok > 0 ? `\u2713 ${formatTokens(estTok)} staged` : '\u2713 Scanned', 1600);
-          showToast(estTok > 0
-            ? `&#x2713; Dry-run prune preview: ~<strong>${formatTokens(estTok)}</strong> reclaimable (read-only analysis).`
-            : '&#x2713; Dry-run prune preview complete (0 reclaimable steps).');
-          return;
-        }
-      } catch (err) {
-        void err;
-      }
-      showToast('&#x26A0;&#xFE0F; Unable to run prune preview right now.');
-    });
-  }
-
-  const taBtnShieldClickEl = document.getElementById('taBtnShield');
-  if (taBtnShieldClickEl) {
-    taBtnShieldClickEl.addEventListener('click', async () => {
-      try {
-        const res = await fetch('/api/shield/flush', {
-          method: 'POST',
-          headers: buildHorizonPostHeaders(),
-          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto' })
-        });
-        const data = res && typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
-        if (res && res.ok) {
-          if (data?.deferred) {
-            showToast(`&#x1F6E1;&#xFE0F; Warm cache fence active (${Number(data.queuedCount || 0)} queued edits deferred).`);
-            return;
-          }
-          if (data?.state) applyGlobalStateFromDaemon(data.state);
-          showToast('&#x2713; Flushed queued Turn-0 Shield edits.');
-          return;
-        }
-      } catch (err) {
-        void err;
-      }
-      showToast('&#x26A0;&#xFE0F; Unable to flush PrefixCacheShield queue.');
-    });
-  }
-
-  const btnExportPdfReceiptEl = document.getElementById('btnExportPdfReceipt');
-  if (btnExportPdfReceiptEl) {
-    btnExportPdfReceiptEl.addEventListener('click', async (e) => {
-      e.preventDefault();
-      try {
-        const res = await fetch('/api/receipt/export?format=pdf');
-        if (res.status === 402) {
-          openShadowAutoBanner(currentRenderedState);
-          showToast('PDF receipt export requires Highbeam Pro or an active 14-day trial.');
-          return;
-        }
-        if (!res.ok) {
-          showToast('&#x26A0;&#xFE0F; Unable to export PDF savings receipt.');
-          return;
-        }
-        const blob = typeof res.blob === 'function' ? await res.blob() : null;
-        if (blob && typeof URL?.createObjectURL === 'function') {
-          const objUrl = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = objUrl;
-          a.download = 'highbeam-savings-receipt.pdf';
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          setTimeout(() => {
-            try { URL.revokeObjectURL(objUrl); } catch (err) { void err; }
-          }, 1000);
-        }
-        showToast('&#x2713; Downloaded PDF savings receipt.');
-      } catch (err) {
-        void err;
-        showToast('&#x26A0;&#xFE0F; Unable to export PDF savings receipt.');
-      }
-    });
-  }
-
-  const taBtnCopyReceipt = document.getElementById('taBtnCopyReceipt');
-  if (taBtnCopyReceipt) {
-    taBtnCopyReceipt.addEventListener('click', copyVerifiedTokensSavedReceipt);
-  }
-
-  document.querySelectorAll('#taRouterSwitch button').forEach(btn => {
-    btn.addEventListener('click', () => handleUserModeChange(btn.dataset.taMode || btn.dataset.mode || 'coach'));
-  });
-
-  const taConsumersBodyEl = document.getElementById('taConsumersBody');
-  if (taConsumersBodyEl) {
-    taConsumersBodyEl.addEventListener('click', async (e) => {
-      const btn = e.target.closest('button[data-ignore-path]');
-      if (!btn) return;
-      const p = btn.getAttribute('data-ignore-path');
-      if (!p) return;
-      let igData = {};
-      try {
-        const res = await fetch('/api/ignore', {
-          method: 'POST',
-          headers: buildHorizonPostHeaders(),
-          body: JSON.stringify({ path: p, workspacePath: currentRenderedState?.workspace?.canonicalPath || undefined })
-        });
-        igData = res && typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
-        if (res && res.ok) {
-          btn.textContent = '\u2713 Ignored';
-          btn.disabled = true;
-          showToast(`&#x2713; Added <code>${escAttr(p)}</code> to <code>.antigravityignore</code>`);
-          return;
-        }
-        showToast(`&#x26A0;&#xFE0F; ${escAttr(igData?.error || 'Cannot ignore active source file.')}`);
-        return;
-      } catch (err) {
-        void err;
-      }
-      showToast('&#x26A0;&#xFE0F; Unable to update <code>.antigravityignore</code> right now.');
-    });
-  }
-
-  const __origRenderStateForTufte = renderState;
-  renderState = function(raw, fromCatalog) {
-    __origRenderStateForTufte(raw, fromCatalog);
-    // Paint Simple from what the panel actually decided to show (original may swap `raw` for the
-    // selected conversation / workspace match), not from the unswapped incoming payload.
-    let view = currentRenderedState || raw;
-    const globalSrc = (raw && raw.routerMode !== undefined)
-      ? raw
-      : (latestAutoState && latestAutoState.routerMode !== undefined ? latestAutoState : null);
-    if (
-      view && globalSrc && view !== globalSrc && typeof view === 'object' &&
-      Date.now() >= __modeSelectionPendingUntil &&
-      __HZ_GLOBAL_STATE_KEYS.some(k => globalSrc[k] !== undefined && view[k] !== globalSrc[k])
-    ) {
-      view = Object.assign({}, view);
-      for (const k of __HZ_GLOBAL_STATE_KEYS) {
-        if (globalSrc[k] !== undefined) view[k] = globalSrc[k];
-      }
-      currentRenderedState = view;
-    }
-    try { renderArgonTufteSurfaces(view); } catch (err) { void err; }
-  };
-  window.renderState = renderState;
-
-  if (window.__LIVE_INITIAL_STATE__) {
-    try { renderState(window.__LIVE_INITIAL_STATE__); } catch (err) { void err; }
-  }
-
-  connectHorizonStream(selectedSessionMode);
-
-  fetch(selectedSessionMode !== 'auto'
-    ? `/api/state?conversationId=${encodeURIComponent(selectedSessionMode)}`
-    : '/api/state'
-  )
-    .then(r => (r && r.ok ? r.json() : null))
-    .then(d => {
-      if (d && (selectedSessionMode === 'auto' || d.sessionId === selectedSessionMode)) {
-        if (d.sessionId && typeof __liveSessionCache === 'object') __liveSessionCache[d.sessionId] = d;
-        renderState(d, selectedSessionMode !== 'auto');
-      }
-    })
-    .catch(err => { void err; });
-</script>
-</body>
-</html>

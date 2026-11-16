@@ -878,6 +878,21 @@
     padding: 3px 8px;
     font-size: 10.5px;
   }
+  /* Text-only Copy /compact: color encodes urgency of compacting */
+  .compact-text-btn {
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 2px 4px;
+    cursor: pointer;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    color: #4ade80;
+  }
+  .compact-text-btn[data-severity="warn"] { color: #fbbf24; }
+  .compact-text-btn[data-severity="danger"] { color: #f87171; }
+  .compact-text-btn:hover { filter: brightness(1.25); }
   .m3-reset-btn {
     font-size: 10px;
     line-height: 1;
@@ -4260,6 +4275,9 @@
     body[data-view-mode="advanced"] #argonAdvancedSurface {
       display: flex;
     }
+    body[data-view-mode="advanced"] #tsModeBar {
+      display: none;
+    }
 
     /* 4-Card Section Foundation (90% Calm Monochrome + 1px Hairlines, Zero Nested Cards) */
     [data-tip] { cursor: help; }
@@ -4651,6 +4669,21 @@
       color: #FFFFFF;
       border-color: var(--status-critical);
     }
+    /* Simple view: text-only Copy /compact; color encodes urgency */
+    #tsBtnCleanPrimary.ts-cta-btn {
+      width: auto;
+      min-height: 0;
+      padding: 2px 0;
+      background: none;
+      border: none;
+      justify-content: flex-start;
+      text-align: left;
+      cursor: default;
+      user-select: text;
+      color: var(--status-ok, #4ade80);
+    }
+    #tsBtnCleanPrimary.ts-cta-btn[data-severity="warn"] { color: var(--status-warning, #fbbf24); }
+    #tsBtnCleanPrimary.ts-cta-btn[data-severity="danger"] { color: var(--status-critical, #f87171); }
     .ts-cta-btn:disabled,
     .ts-cta-btn[data-cta-state="disabled"] {
       background: transparent;
@@ -4927,6 +4960,44 @@
     }
 
     /* Advanced Forensic Surface inside horizon_panel.html */
+    .ts-zone {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--hz-border, var(--hairline));
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+    .ts-zone-last {
+      padding: 8px 0 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+    .ts-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+    .ts-overline {
+      margin: 0;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted, var(--hz-muted));
+    }
+    .ts-kpi-num {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--hz-fg, var(--text-primary));
+    }
     .ta-subhud {
       display: flex;
       align-items: center;
@@ -4937,6 +5008,35 @@
       font-size: 11px;
       color: var(--hz-fg-secondary);
       flex-wrap: wrap;
+    }
+    .ta-subhud-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+    .ta-pill {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 3px;
+      border: 1px solid var(--hz-border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    .ta-pill[hidden] { display: none !important; }
+    .ta-pill[data-tone="warn"] {
+      color: var(--status-warning);
+      border-color: rgba(242, 153, 0, 0.45);
+      background: rgba(242, 153, 0, 0.10);
+    }
+    .ta-pill[data-tone="danger"] {
+      color: var(--status-critical);
+      border-color: rgba(217, 48, 37, 0.50);
+      background: rgba(217, 48, 37, 0.12);
     }
     .ta-cell-grid {
       display: grid;
@@ -4956,6 +5056,10 @@
       height: 100%;
       cursor: pointer;
       background: rgba(255, 255, 255, 0.04);
+      position: relative;
+    }
+    .ta-cell[data-safe-boundary="true"] {
+      box-shadow: inset -2px 0 0 rgba(242, 153, 0, 0.9);
     }
     .ta-cell[data-cat="anchor"] { background: #14B8A6; }
     .ta-cell[data-cat="signal"] { background: #10B981; }
@@ -4966,6 +5070,33 @@
       outline: 1.5px solid var(--hz-fg);
       outline-offset: -1.5px;
       z-index: 2;
+    }
+    .ta-grid-legend {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 4px 8px;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: var(--hz-muted, var(--text-muted));
+    }
+    .ta-legend-items {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .ta-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .ta-legend-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 1px;
     }
     .ta-inspector {
       display: flex;
@@ -4980,6 +5111,64 @@
       border-radius: 3px;
       font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
       font-size: 10.5px;
+    }
+    .ta-econ-strip {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 4px 7px;
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid var(--hz-border);
+      border-radius: 3px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      line-height: 1.35;
+      color: var(--hz-fg-secondary, var(--text-secondary));
+      overflow-wrap: anywhere;
+    }
+    .ta-action-row-inline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      width: 100%;
+      min-width: 0;
+    }
+    .ta-compact-box {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 5px 7px;
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid var(--hz-border);
+      border-radius: 3px;
+      font-size: 10px;
+    }
+    .ta-drift-warn {
+      padding: 5px 7px;
+      border-radius: 3px;
+      border: 1px solid rgba(242, 153, 0, 0.45);
+      border-left: 2.5px solid var(--status-warning);
+      background: rgba(242, 153, 0, 0.08);
+      font-size: 10.5px;
+      color: var(--text-primary);
+      line-height: 1.35;
+    }
+    .ta-drift-warn[hidden] { display: none !important; }
+    .ta-traj-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 7px;
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid var(--hz-border);
+      border-radius: 3px;
+      min-width: 0;
+    }
+    [data-theme="light"] .ta-econ-strip,
+    [data-theme="light"] .ta-compact-box,
+    [data-theme="light"] .ta-traj-row {
+      background: var(--hz-card);
     }
     .ta-ucurve {
       display: grid;
@@ -5141,7 +5330,7 @@
     }
 </style>
 </head>
-<body data-view-mode="simple">
+﻿<body data-view-mode="simple">
 
 <div class="wrap">
   <!-- 1. Header -->
@@ -5273,7 +5462,7 @@
         <div class="ts-glass-col">
           <div id="tsGlassVessel" class="ts-glass-vessel" role="img" aria-label="Vertical context fill gauge from pinned rules at bottom to new active work on top" data-state="nominal" data-tip title="Fills bottom-to-top up to your safe limit: pinned Rules & tools sit at the base, Older & reclaimable clutter in the middle, and New & active work on top. Empty space is free headroom.">
             <span id="tsGlassHeadroom" class="ts-glass-headroom-label">100% free</span>
-            <div id="tsGlassSafeLine" class="ts-glass-safe-line" hidden title="Safe limit line — context above this dashed line risks slowing down or forgetting early rules."></div>
+            <div id="tsGlassSafeLine" class="ts-glass-safe-line" hidden title="Safe limit line â€” context above this dashed line risks slowing down or forgetting early rules."></div>
             <div id="tsGlassFill" class="ts-glass-fill" data-empty="true" style="height:0%">
               <div id="tsGlassSegNew" class="ts-glass-seg ts-glass-seg-new" style="height:0%" title="New & active work (recent chat & current files): 0.0k"><span id="tsGlassTagNew" class="ts-glass-seg-tag" hidden>NEW</span></div>
               <div id="tsGlassSegOld" class="ts-glass-seg ts-glass-seg-old" data-clutter-tone="stale" style="height:0%" title="Older & reclaimable clutter (old turns, repeat reads & fixed errors): 0.0k"><span id="tsGlassTagOld" class="ts-glass-seg-tag" hidden>OLD</span></div>
@@ -5285,9 +5474,9 @@
       </div>
 
       <div class="ts-remediation">
-        <button type="button" id="tsBtnCleanPrimary" class="ts-cta-btn" data-cta-state="guarded" title="Copies a tailored /compact command to your clipboard so you can paste it into chat to clear out older clutter while preserving rules and active files.">
-          <span id="tsBtnCleanLabel">Copy /compact Command (Memory Clean)</span>
-        </button>
+        <div id="tsBtnCleanPrimary" class="ts-cta-btn" role="status" data-cta-state="guarded" title="Type /compact in your chat box and press Enter to clear out older clutter while preserving rules and active files.">
+          <span id="tsBtnCleanLabel">Memory is clean &middot; no /compact needed</span>
+        </div>
         <div class="ts-compact-caption">
           <span id="tsCompactReclaim" title="How many tokens of older history, duplicate reads, or old errors can be reclaimed without touching your active code.">0.0k reclaimable clutter &middot; Active working set protected</span>
           <span id="tsCompactInstruction" title="Paste the copied /compact command into your AI chat box and press Enter.">Type <code>/compact</code> in chat &amp; press Enter</span>
@@ -5352,7 +5541,7 @@
       <ul id="tsLedgerList" class="ts-ledger" role="list">
         <li class="ts-ledger-row" title="Highbeam watches tool outputs and rule writes locally so noisy logs and premature rule edits do not bloat memory or break warm caches.">
           <span class="ts-ledger-age">now</span>
-          <span>Guards armed — trimming long command output and protecting your warm prompt cache</span>
+          <span>Guards armed â€” trimming long command output and protecting your warm prompt cache</span>
           <span class="ts-ledger-saved">ready</span>
         </li>
       </ul>
@@ -5394,7 +5583,7 @@
         </div>
 
         <!-- Row 2: Prompt Cache Hit Rate, Retention & TTL -> 1D BulletBar -->
-        <div class="ts-metric-row" title="Warm prompt cache reuses earlier conversation turns at a 90%–95% discount until the timer runs out or the start of the chat changes. Target line sits at 80%.">
+        <div class="ts-metric-row" title="Warm prompt cache reuses earlier conversation turns at a 90%â€“95% discount until the timer runs out or the start of the chat changes. Target line sits at 80%.">
           <div class="ts-metric-main">
             <span class="ts-metric-label">Prompt cache</span>
             <span id="tsCacheMeta" class="ts-meta" data-tone="muted">0% hit &middot; Cold</span>
@@ -5443,39 +5632,57 @@
        ========================================================================= -->
   <div id="argonAdvancedSurface" aria-label="Highbeam Advanced Telemetry Workbench">
     <div class="ta-subhud">
-      <span id="taSessionLabel">Active Session</span>
+      <div class="ta-subhud-left">
+        <span id="taSessionLabel">Active Session</span>
+        <span id="taWorkloadBadge" class="ta-pill" hidden title="Classified workload pattern for this session"></span>
+        <span id="taConfidenceBadge" class="ta-pill" data-tone="warn" hidden title="Parser confidence for host telemetry logs"></span>
+      </div>
       <span>
-        5h: <strong id="taSprint5h" style="color:var(--hz-fg);">0%</strong> &middot;
-        7d: <strong id="taWeekly7d" style="color:var(--hz-fg);">0%</strong> &middot;
+        5h: <strong id="taSprint5h" style="color:var(--hz-fg);">&#x2014;</strong><span id="taSprintReset" style="color:var(--hz-muted);margin-left:2px;"></span> &middot;
+        7d: <strong id="taWeekly7d" style="color:var(--hz-fg);">&#x2014;</strong> &middot;
         RAM: <strong id="taHostRam" style="color:var(--hz-fg);">0.0GB</strong>
       </span>
     </div>
 
-    <!-- Zone A: Chrono-Positional Physics -->
+    <!-- Zone A: Chrono-Positional Physics & Consumers -->
     <section class="ts-zone">
       <div class="ts-head">
         <h2 class="ts-overline">Zone A &middot; Chrono-Positional Physics</h2>
-        <span id="taDualTtl" class="ts-meta" data-tone="muted">0% hit &middot; 5m KV 00:00</span>
+        <span id="taDualTtl" class="ts-meta" data-tone="muted">0% hit &middot; Cold</span>
       </div>
       <div class="ts-status-row">
         <div class="ts-status-badge">
           <span id="taStatusDot" class="ts-dot" data-tone="signal"></span>
-          <span id="taStatusLabel">Optimal Cache</span>
+          <span id="taStatusLabel">Nominal Memory</span>
         </div>
-        <div style="font-size:11px;">
+        <div style="font-size:11px;text-align:right;">
           <strong id="taUsedTok">0.0k</strong>
-          <span style="color:var(--hz-muted);">(<span id="taSigTok" style="color:var(--hz-useful);">0.0k</span> sig + <span id="taClutterTok" style="color:var(--hz-clutter);">0.0k</span> recl) / <span id="taSafeTok">179.0k</span></span>
+          <span style="color:var(--hz-muted);">(<span id="taSigTok" style="color:var(--hz-useful);">0.0k</span> sig [<span id="taPinTok">0.0k</span> pin] + <span id="taClutterTok" style="color:var(--hz-clutter);">0.0k</span> recl) / <span id="taSafeTok">179.0k</span> <span id="taMaxTok">&middot; 256.0k max</span></span>
         </div>
+      </div>
+      <div id="taRunwayStrip" class="ta-inspector">
+        <span id="taRunwayMeta">179.0k safe headroom</span>
+        <span id="taPrefixForensics" style="color:var(--hz-muted);">Anchor + active working set</span>
       </div>
       <div id="taHorizonGrid" class="ta-cell-grid" role="listbox" aria-label="40-cell chronological context window"></div>
+      <div class="ta-grid-legend">
+        <span class="ta-legend-items">
+          <span class="ta-legend-item"><i class="ta-legend-dot" style="background:#14B8A6;"></i>Anchor</span>
+          <span class="ta-legend-item"><i class="ta-legend-dot" style="background:#10B981;"></i>Signal</span>
+          <span class="ta-legend-item"><i class="ta-legend-dot" style="background:#38BDF8;"></i>Warm KV</span>
+          <span class="ta-legend-item"><i class="ta-legend-dot" style="background:#F59E0B;"></i>Clutter</span>
+          <span class="ta-legend-item"><i class="ta-legend-dot" style="background:#EF4444;"></i>Error</span>
+        </span>
+        <span id="taGridScaleMeta">Safe @ Cell #28 &middot; 6.4k/cell</span>
+      </div>
       <div id="taCellInspector" class="ta-inspector">
         <span id="taCellLeft">Cell #1 &middot; System Anchor &amp; Rules</span>
-        <span id="taCellRight">6.4k / cell &middot; 1.00 recall</span>
+        <span id="taCellRight">0.0k / cell &middot; unused</span>
       </div>
       <div class="ta-ucurve">
-        <div><span style="color:var(--hz-muted);">Primacy (0–30%)</span><br><strong id="taUPrimacy" style="color:var(--hz-useful);">96% recall</strong></div>
-        <div><span style="color:var(--hz-muted);">Mid Trough (30–70%)</span><br><strong id="taUTrough" style="color:var(--hz-fg);">62% (0 specs)</strong></div>
-        <div><span style="color:var(--hz-muted);">Recency (70–100%)</span><br><strong id="taURecency" style="color:var(--hz-useful);">94% recall</strong></div>
+        <div><span style="color:var(--hz-muted);">Primacy (0&#x2013;30%)</span><br><strong id="taUPrimacy" style="color:var(--hz-useful);">96% recall</strong></div>
+        <div><span style="color:var(--hz-muted);">Mid Trough (30&#x2013;70%)</span><br><strong id="taUTrough" style="color:var(--hz-fg);">62% (0 specs)</strong></div>
+        <div><span style="color:var(--hz-muted);">Recency (70&#x2013;100%)</span><br><strong id="taURecency" style="color:var(--hz-useful);">94% recall</strong></div>
       </div>
       <table class="ta-table" aria-label="Top context token consumers">
         <thead>
@@ -5490,12 +5697,18 @@
           <tr><td colspan="4" style="color:var(--hz-muted);">Zero duplicate reads or dead error traces in active window.</td></tr>
         </tbody>
       </table>
+      <details id="taMoreConsumersDrawer" class="ts-drawer" hidden>
+        <summary><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span><span id="taMoreConsumersSummary">More consumers</span></span><span class="ts-kpi-sub">Expand</span></summary>
+        <table class="ta-table" aria-label="Additional context consumers">
+          <tbody id="taMoreConsumersBody"></tbody>
+        </table>
+      </details>
     </section>
 
-    <!-- Zone B: Action Queue & Router Governance -->
+    <!-- Zone B: Action Queue, Router Governance & KV Economics -->
     <section class="ts-zone">
       <div class="ts-head">
-        <h2 class="ts-overline">Zone B &middot; Action Queue &amp; Router Governance</h2>
+        <h2 class="ts-overline">Zone B &middot; Router Governance &amp; Action Queue</h2>
         <div id="taRouterSwitch" style="display:inline-flex;gap:3px;">
           <button type="button" class="ta-mini-btn" data-ta-mode="off">Off</button>
           <button type="button" class="ta-mini-btn" data-ta-mode="coach" style="border-color:var(--hz-useful);color:var(--hz-useful);">Coach</button>
@@ -5508,16 +5721,30 @@
           <span>Nominal queue &middot; 0 orphan PIDs, 0 idle eager MCPs, 0 trough specs</span>
         </div>
       </div>
-      <div id="taRouterNote" class="ta-inspector" style="color:var(--hz-fg-secondary);">
-        KV Gravity Router ready &middot; Turn-boundary switch buffer armed
+      <details id="taQueueOverflowDrawer" class="ts-drawer" hidden>
+        <summary><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span><span id="taQueueOverflowSummary">More queued diagnostics</span></span><span class="ts-kpi-sub">Expand</span></summary>
+        <div id="taActionQueueOverflow" class="ts-guidance-list"></div>
+      </details>
+      <div class="ta-inspector">
+        <span id="taRouterNote" style="color:var(--hz-fg-secondary);flex:1 1 auto;min-width:0;overflow-wrap:anywhere;">
+          KV Gravity Router ready &middot; Turn-boundary switch buffer armed
+        </span>
+        <div style="display:inline-flex;gap:4px;flex-shrink:0;">
+          <button type="button" id="taBtnReapOrphans" class="ta-mini-btn" hidden>Reap PIDs</button>
+          <button type="button" id="taBtnUnlockHysteresis" class="ta-mini-btn" hidden>Unlock Tier</button>
+        </div>
+      </div>
+      <div id="taModelEconStrip" class="ta-econ-strip">
+        <div id="taEconModelLine">Model: Auto &middot; Effort: Auto</div>
+        <div id="taEconCacheLine" style="color:var(--hz-muted);">Effort KV rule &amp; switch break-even</div>
       </div>
     </section>
 
-    <!-- Zone C: Turn-0 Baseline & DET-01..32 Guard Log -->
+    <!-- Zone C: Turn-0 Baseline & DET-01..32 Guard Log + Rosters -->
     <section class="ts-zone">
       <div class="ts-head">
         <h2 class="ts-overline">Zone C &middot; Turn-0 Baseline &amp; DET-01..32 Log</h2>
-        <span id="taDetBadge" class="ts-meta">32/32 guards armed</span>
+        <span id="taDetBadge" class="ts-meta" style="cursor:pointer;" title="Click to toggle full DET-01..32 detector roster">32/32 guards armed</span>
       </div>
       <div class="ta-inspector">
         <span id="taBaselineText">Turn-0 Baseline: <strong>0.0k</strong> / 20.0k budget</span>
@@ -5536,24 +5763,74 @@
           <tr><td>now</td><td>DET-01..32</td><td>FTS5 compressor &amp; 3-strike breakers armed</td><td class="num" style="color:var(--hz-muted);">armed</td></tr>
         </tbody>
       </table>
+      <details id="taGuardRosterDrawer" class="ts-drawer">
+        <summary title="Inspect every DET-01..32 guard, mode policy (blocks vs advises), and live trigger state."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Detector roster (DET-01..32)</span><span id="taGuardRosterMeta" class="ts-kpi-sub">Details</span></summary>
+        <div class="ts-guard-list">
+          <table class="ta-table" aria-label="Full DET detector policy and state roster">
+            <thead>
+              <tr>
+                <th style="width:18%;">ID</th>
+                <th style="width:50%;">Detector</th>
+                <th style="width:16%;">Policy</th>
+                <th class="num" style="width:16%;">State</th>
+              </tr>
+            </thead>
+            <tbody id="taGuardRosterBody"></tbody>
+          </table>
+        </div>
+      </details>
+      <details id="taRslDrawer" class="ts-drawer" hidden>
+        <summary title="Inspect Reflexive Session Learning (RSL) hooks, recovery skills, and project rules loaded in workspace."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span><span id="taRslSummary">Learned rules (RSL)</span></span><span id="taRslMeta" class="ts-kpi-sub">Details</span></summary>
+        <ul id="taRslList" class="ts-ledger ts-guard-list" role="list"></ul>
+      </details>
     </section>
 
-    <!-- Zone D: Verified Savings & Memory Surgery -->
+    <!-- Zone D: Session Trajectory & Swarm Topology -->
+    <section class="ts-zone">
+      <div class="ts-head">
+        <h2 class="ts-overline">Zone D &middot; Session Trajectory &amp; Swarm Topology</h2>
+        <span id="taTrajectoryMeta" class="ts-meta">0 turns &middot; waiting</span>
+      </div>
+      <div class="ta-traj-row">
+        <svg id="taTurnSparkline" width="96" height="20" viewBox="0 0 96 20" aria-label="Per-turn token growth sparkline" style="flex-shrink:0;">
+          <polyline id="taSparklinePath" fill="none" stroke="var(--accent-focus, #38BDF8)" stroke-width="1.5" points="0,18 96,18"/>
+        </svg>
+        <span id="taTrajSummary" style="font-size:10.5px;color:var(--hz-fg-secondary);min-width:0;overflow-wrap:anywhere;">Session start &middot; 0 compactions &middot; Solo agent</span>
+      </div>
+      <details id="taTimelineSwarmDrawer" class="ts-drawer" hidden>
+        <summary><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span><span id="taTimelineSwarmLabel">Turn deltas &amp; swarm workers</span></span><span id="taTimelineSwarmHint" class="ts-kpi-sub">Expand</span></summary>
+        <div id="taSwarmBlock" class="ta-econ-strip" style="margin-top:6px;" hidden></div>
+        <table class="ta-table" id="taTurnTable" hidden style="margin-top:6px;">
+          <thead>
+            <tr>
+              <th style="width:14%;">Turn</th>
+              <th style="width:20%;">Delta</th>
+              <th style="width:22%;">Total</th>
+              <th style="width:44%;">Signal / Event</th>
+            </tr>
+          </thead>
+          <tbody id="taTurnTableBody"></tbody>
+        </table>
+      </details>
+    </section>
+
+    <!-- Zone E: Verified Savings & Pre-Compact Surgery -->
     <section class="ts-zone-last">
       <div class="ts-head">
-        <h2 class="ts-overline">Zone D &middot; Verified Savings &amp; Memory Surgery</h2>
+        <h2 class="ts-overline">Zone E &middot; Verified Savings &amp; Pre-Compact Surgery</h2>
         <div style="display:inline-flex;gap:4px;">
-          <button type="button" id="taBtnCopyCompact" class="ta-mini-btn">Copy /compact</button>
+          <button type="button" id="taBtnCopyCompact" class="ta-mini-btn" title="Copy focus preservation clause to append after /compact">Copy Focus Args</button>
           <button type="button" id="taBtnCopyReceipt" class="ta-mini-btn">Copy Receipt</button>
+          <button type="button" id="taBtnPdfReceipt" class="ta-mini-btn" title="Download PDF 1.4 verified savings receipt">PDF</button>
         </div>
       </div>
       <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
         <div>
-          <span id="taKpiTokens" class="ts-kpi-num">0.0k</span>
+          <span id="taKpiTokens" class="ts-kpi-num">+0.0k</span>
           <span style="font-size:11px;color:var(--hz-muted);margin-left:4px;">saved</span>
           <span id="taKpiUsd" style="font-size:11.5px;color:var(--hz-useful);margin-left:5px;font-weight:600;">$0.00</span>
         </div>
-        <span id="taKpi30d" class="ts-meta">30d: 0.0k ($0.00)</span>
+        <span id="taKpi30d" class="ts-meta">30d: +0.0k ($0.00)</span>
       </div>
       <div class="ta-source-grid">
         <div><span style="color:var(--hz-muted);">Warm KV</span><br><strong id="taSrcCache">+0.0k</strong></div>
@@ -5561,11 +5838,16 @@
         <div><span style="color:var(--hz-muted);">FTS5 CLI</span><br><strong id="taSrcCli">+0.0k</strong></div>
         <div><span style="color:var(--hz-muted);">Guards</span><br><strong id="taSrcGuards">+0.0k</strong></div>
       </div>
+      <div id="taGitDriftWarn" class="ta-drift-warn" hidden></div>
+      <div class="ta-compact-box">
+        <div id="taCompactHint" style="color:var(--hz-muted);">Type <code>/compact</code> in chat (slash commands must be typed, not pasted), then paste focus args:</div>
+        <div id="taCompactCmdText" class="mono" style="color:var(--hz-fg);user-select:all;overflow-wrap:anywhere;">Focus on preserving: AGENTS.md invariants and task.md checklist.</div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr auto;gap:6px;">
         <button type="button" id="taBtnSurgeryPrimary" class="ts-cta-btn" data-cta-state="disabled" disabled>
-          <span id="taBtnSurgeryLabel">Memory Clean &middot; 0.0k Reclaimable</span>
+          <span id="taBtnSurgeryLabel">Checkpoint Session &amp; Copy Focus Args</span>
         </button>
-        <button type="button" id="taBtnForceAst" class="ta-mini-btn" style="padding:0 10px;border-color:var(--hz-clutter);color:var(--hz-clutter);" disabled>Fold AST</button>
+        <button type="button" id="taBtnForceAst" class="ta-mini-btn" style="padding:0 10px;border-color:var(--hz-clutter);color:var(--hz-clutter);" disabled title="Run read-only dry-run prune analysis on session transcript">Dry-Run Prune</button>
       </div>
     </section>
   </div>
@@ -5927,7 +6209,7 @@
                   <span class="compact-instruction-sub mono">Type <kbd class="cmd-kbd">/compact</kbd> in the chat box and press <kbd>Enter</kbd></span>
                 </div>
                 <span class="compact-reclaim mono" id="compactReclaim">reclaims ~0k</span>
-                <button type="button" class="mini-btn m3-action-btn mono" id="btnCompactPrimary" title="Copy /compact command to clipboard"><span class="simple-emoji-decor" aria-hidden="true">&#x1F4CB; </span>Copy /compact</button>
+                <button type="button" class="m3-action-btn mono compact-text-btn" id="btnCompactPrimary" data-severity="ok" title="Copy /compact command to clipboard">Copy /compact</button>
               </div>
             </div>
 
@@ -6546,7 +6828,11 @@
       const sl = document.createElement('div');
       sl.className = 'swarm-topology-note' + (collisions.length > 0 ? ' collision' : '');
       sl.textContent = 'Scope locks: ' + leaseCount + ' active' + (collisions.length > 0
-        ? ' \u00b7 DET-20 overlap: ' + collisions.map((c) => c.trajectories.join(' \u2194 ') + ' [' + c.overlappingPaths.join(', ') + ']').join('; ')
+        ? ' \u00b7 DET-20 overlap: ' + collisions.map((c) => {
+          const trajs = Array.isArray(c?.trajectories) ? c.trajectories : (Array.isArray(c?.agents) ? c.agents : ['agents']);
+          const paths = Array.isArray(c?.overlappingPaths) ? c.overlappingPaths : [c?.file || c?.path || c?.target || 'shared file'];
+          return trajs.join(' \u2194 ') + ' [' + paths.join(', ') + ']';
+        }).join('; ')
         : '');
       frag.appendChild(sl);
     }
@@ -8661,6 +8947,10 @@
       }
     }
 
+    const compactCopyBtn = document.getElementById('btnCompactPrimary');
+    if (compactCopyBtn) {
+      compactCopyBtn.dataset.severity = isOverLimit ? 'danger' : (isNeedsCleanup && compactionRelevant) ? 'warn' : 'ok';
+    }
     if (isOverLimit) {
       badge.className = 'badge danger';
       actionCard.className = 'action-card danger';
@@ -12093,8 +12383,24 @@
   // =========================================================================
   // ARGON TUFTE SIMPLE & ADVANCED SURFACES (LIVE SIDEPANE WIRING)
   // =========================================================================
-  let __taSelectedCellIndex = 23;
+  let __taSelectedCellIndex = 0;
   let __taLastCells = [];
+  let __taCellCapacity = 6400;
+
+  function selectTaCell(idx, moveFocus = false) {
+    const grid = document.getElementById('taHorizonGrid');
+    const next = Math.max(0, Math.min(39, Number(idx) || 0));
+    __taSelectedCellIndex = next;
+    if (grid) {
+      grid.querySelectorAll('.ta-cell').forEach((c, cIdx) => {
+        const isSel = cIdx === next;
+        c.classList.toggle('selected', isSel);
+        c.setAttribute('aria-selected', isSel ? 'true' : 'false');
+        if (isSel && moveFocus && typeof c.focus === 'function') c.focus();
+      });
+    }
+    renderTaCellInspector(__taLastCells[next], next);
+  }
 
   (function initArgonTufteHorizonGrid() {
     const grid = document.getElementById('taHorizonGrid');
@@ -12107,10 +12413,13 @@
       cell.dataset.index = String(i);
       cell.setAttribute('role', 'gridcell');
       cell.setAttribute('aria-label', `Context cell ${i + 1} of 40`);
-      cell.addEventListener('click', () => {
-        __taSelectedCellIndex = i;
-        grid.querySelectorAll('.ta-cell').forEach((c, idx) => c.classList.toggle('selected', idx === i));
-        renderTaCellInspector(__taLastCells[i], i);
+      cell.setAttribute('aria-selected', i === __taSelectedCellIndex ? 'true' : 'false');
+      cell.addEventListener('click', () => selectTaCell(i, false));
+      cell.addEventListener('keydown', (ev) => {
+        if (ev.key === 'ArrowRight' && i < 39) { ev.preventDefault(); selectTaCell(i + 1, true); }
+        else if (ev.key === 'ArrowLeft' && i > 0) { ev.preventDefault(); selectTaCell(i - 1, true); }
+        else if (ev.key === 'Home') { ev.preventDefault(); selectTaCell(0, true); }
+        else if (ev.key === 'End') { ev.preventDefault(); selectTaCell(39, true); }
       });
       grid.appendChild(cell);
     }
@@ -12128,7 +12437,7 @@
     const num = (idx ?? 0) + 1;
     if (!cell || cell.cat === 'empty') {
       if (leftEl) leftEl.textContent = `Cell #${num} \u00B7 Available Headroom`;
-      if (rightEl) rightEl.textContent = '0.0k / cell \u00B7 1.00 recall';
+      if (rightEl) rightEl.textContent = '0.0k / cell \u00B7 unused';
       return;
     }
     const catLabels = {
@@ -12140,7 +12449,9 @@
     };
     const recall = cell.recall || (num <= 12 ? '0.96' : (num >= 28 ? '0.94' : '0.68'));
     const label = cell.source || catLabels[cell.cat] || cell.cat;
-    if (leftEl) leftEl.textContent = `Cell #${num} \u00B7 ${label}`;
+    const hasTurn = cell.turn !== null && cell.turn !== undefined && cell.turn !== '' && Number.isFinite(Number(cell.turn));
+    const turnTag = hasTurn ? ` (T${Number(cell.turn)})` : '';
+    if (leftEl) leftEl.textContent = `Cell #${num} \u00B7 ${label}${turnTag}`;
     if (rightEl) rightEl.textContent = `${formatTokens(cell.tokens || 0)} / cell \u00B7 ${recall} recall`;
   }
 
@@ -12996,16 +13307,6 @@
           tip: 'Prevents huge single-file reads from flooding context when only a small line range is needed.'
         });
       }
-      if (rows.length < 4 && rslActiveCount > 0) {
-        rows.push({
-          age: 'rsl',
-          action: `Applying ${rslActiveCount} learned rule${rslActiveCount === 1 ? '' : 's'} from your past coding sessions`,
-          saved: rslHooksCount > 0 ? `${rslHooksCount} auto-check${rslHooksCount === 1 ? '' : 's'}` : 'view',
-          tip: 'Click to see the learned rules. Highbeam turns repeated mistakes from past sessions into short project rules.',
-          click: 'learned-rules'
-        });
-      }
-
       const activeInterventionCount = realInterventionCount;
       const liveGuardTotal = Number(raw.coachState?.detectors?.totalCount || 0);
       const guardLabel = liveGuardTotal > 0 ? `${liveGuardTotal} guards` : 'guards';
@@ -13454,29 +13755,30 @@
 
     const tsBtnCleanPrimary = document.getElementById('tsBtnCleanPrimary');
     if (tsBtnCleanPrimary) {
+      tsBtnCleanPrimary.dataset.severity = isCrisis ? 'danger' : (dispStaleT >= 100 ? 'warn' : 'ok');
       if (isCrisis) {
         tsBtnCleanPrimary.disabled = false;
         tsBtnCleanPrimary.dataset.ctaState = 'crisis';
         setTxt('tsBtnCleanLabel', dispStaleT >= 100
-          ? `Purge Clutter Now \u00B7 Reclaim ${formatTokens(dispStaleT)} (Copy /compact)`
-          : 'Summarize & Compact Now (Copy /compact)');
+          ? `Reclaim ${formatTokens(dispStaleT)} clutter now \u00B7 type /compact in chat`
+          : 'Summarize now \u00B7 type /compact in chat');
         tsBtnCleanPrimary.title = dispStaleT >= 100
-          ? `Memory is at risk or over the safe limit. Click to copy /compact and reclaim ${formatTokens(dispStaleT)} of clutter right away.`
-          : 'Memory is at risk or over the safe limit. Click to copy /compact and summarize earlier turns.';
+          ? `Memory is at risk or over the safe limit. Type /compact in your chat box and press Enter to reclaim ${formatTokens(dispStaleT)} of clutter right away.`
+          : 'Memory is at risk or over the safe limit. Type /compact in your chat box and press Enter to summarize earlier turns.';
       } else if (dispStaleT >= 100) {
         tsBtnCleanPrimary.disabled = false;
         tsBtnCleanPrimary.dataset.ctaState = isWarm ? 'guarded' : 'ready';
         setTxt('tsBtnCleanLabel', isWarm
-          ? `Hold Cache (${ttlMm}:${ttlSs}) or Copy /compact (${formatTokens(dispStaleT)})`
-          : `Reclaim ${formatTokens(dispStaleT)} Clutter (Copy /compact)`);
+          ? `Hold cache (${ttlMm}:${ttlSs}) or type /compact to reclaim ${formatTokens(dispStaleT)}`
+          : `Reclaim ${formatTokens(dispStaleT)} clutter \u00B7 type /compact in chat`);
         tsBtnCleanPrimary.title = isWarm
-          ? `Prompt cache is warm for ${ttlMm}:${ttlSs}. Wait until it cools to keep your discount, or click to copy /compact anyway.`
-          : `Click to copy /compact and clear ${formatTokens(dispStaleT)} of older clutter while preserving rules and active code.`;
+          ? `Prompt cache is warm for ${ttlMm}:${ttlSs}. Wait until it cools to keep your discount, or type /compact in chat anyway.`
+          : `Type /compact in your chat box and press Enter to clear ${formatTokens(dispStaleT)} of older clutter while preserving rules and active code.`;
       } else {
         tsBtnCleanPrimary.disabled = false;
         tsBtnCleanPrimary.dataset.ctaState = 'guarded';
-        setTxt('tsBtnCleanLabel', 'Copy /compact Command (Memory Clean)');
-        tsBtnCleanPrimary.title = 'Memory is already clean. Click anytime to copy the /compact command.';
+        setTxt('tsBtnCleanLabel', 'Memory is clean \u00B7 no /compact needed');
+        tsBtnCleanPrimary.title = 'Memory is already clean. You can still type /compact in chat anytime.';
       }
     }
     setTxt('tsCompactReclaim', dispStaleT >= 100
@@ -13487,6 +13789,32 @@
     // 2. ADVANCED VIEW UPDATES (#argonAdvancedSurface)
     // =======================================================================
     setTxt('taSessionLabel', raw.sessionTitle || raw.workspaceName || 'Active Session');
+    const wlBadgeEl = document.getElementById('taWorkloadBadge');
+    if (wlBadgeEl) {
+      const wlRaw = String(raw.workloadMode || '').trim();
+      if (wlRaw && total > 0) {
+        wlBadgeEl.hidden = false;
+        wlBadgeEl.textContent = wlRaw.replace(/_/g, '-');
+      } else {
+        wlBadgeEl.hidden = true;
+        wlBadgeEl.textContent = '';
+      }
+    }
+    const confPillEl = document.getElementById('taConfidenceBadge');
+    if (confPillEl) {
+      const parseConf = String(raw.parseHealth?.confidence || raw.confidence || 'HIGH').toUpperCase();
+      if (parseConf === 'LOW' || parseConf === 'DEGRADED') {
+        confPillEl.hidden = false;
+        confPillEl.dataset.tone = parseConf === 'LOW' ? 'danger' : 'warn';
+        confPillEl.textContent = `Parse: ${parseConf}`;
+        const malformedN = Number(raw.parseHealth?.malformedLines || 0);
+        confPillEl.title = `Transcript confidence ${parseConf} (tier: ${raw.logTierUsed || 'auto'}, malformed lines: ${malformedN}).`;
+      } else {
+        confPillEl.hidden = true;
+        confPillEl.textContent = '';
+      }
+    }
+
     const q5hRaw = raw.quota?.sprint5h?.usedPct ?? raw.quota?.fiveHourPct;
     const q7dRaw = raw.quota?.weekly7d?.usedPct ?? raw.quota?.sevenDayPct;
     const est5hPrefix = raw.quota?.sprint5h?.source === 'estimate' ? '~' : '';
@@ -13494,27 +13822,103 @@
     setTxt('taSprint5h', (q5hRaw != null && !Number.isNaN(Number(q5hRaw)))
       ? `${est5hPrefix}${Math.min(100, Math.round(Number(q5hRaw)))}%`
       : '\u2014');
+    const resetLbl = String(raw.quota?.sprint5h?.resetLabel || '').trim();
+    setTxt('taSprintReset', resetLbl ? `(${resetLbl})` : '');
     setTxt('taWeekly7d', (q7dRaw != null && !Number.isNaN(Number(q7dRaw)))
       ? `${est7dPrefix}${Math.min(100, Math.round(Number(q7dRaw)))}%`
       : '\u2014');
-    setTxt('taHostRam', `${Number(raw.hostHealth?.rssGb ?? raw.hostRamGb ?? 0).toFixed(1)}GB`);
+    const hostRssGb = Number(raw.hostHealth?.rssGb ?? raw.hostRamGb ?? 0);
+    const orphanCount = Number(raw.hostHealth?.orphanCount ?? (Array.isArray(raw.hostHealth?.orphans) ? raw.hostHealth.orphans.length : 0)) || 0;
+    const taHostRamEl = document.getElementById('taHostRam');
+    if (taHostRamEl) {
+      taHostRamEl.textContent = `${hostRssGb.toFixed(1)}GB`;
+      taHostRamEl.style.color = (hostRssGb >= 4.0 || orphanCount > 0) ? 'var(--status-critical, #f87171)' : 'var(--hz-fg)';
+    }
 
+    const billingSec = Math.max(0, Math.floor(Number(cache.billingBlockRemainingSec ?? cache.billingTtlSec ?? 0)));
+    const billingMm = String(Math.floor(billingSec / 60)).padStart(2, '0');
+    const billingSs = String(billingSec % 60).padStart(2, '0');
+    const retObjAdv = cache.prefixRetention || raw.coachState?.prefixRetention || null;
+    const retSuffixAdv = (retObjAdv && retObjAdv.measured && Number.isFinite(Number(retObjAdv.retentionIndexPct)))
+      ? ` \u00B7 ${retObjAdv.retentionIndexPct}% kept (${retObjAdv.grade || 'A'})`
+      : '';
     const taDualTtl = document.getElementById('taDualTtl');
     if (taDualTtl) {
-      taDualTtl.dataset.tone = isWarm ? 'signal' : 'muted';
-      taDualTtl.textContent = `${hitPct}% hit \u00B7 5m KV ${ttlMm}:${ttlSs}`;
+      if (cacheUnmeasured) {
+        taDualTtl.dataset.tone = 'muted';
+        taDualTtl.textContent = ttlRem > 0 ? `Cache unmeasured \u00B7 TTL ${ttlMm}:${ttlSs}` : 'Cache unmeasured';
+      } else if (isWarm) {
+        taDualTtl.dataset.tone = ttlRem <= 45 ? 'warn' : 'signal';
+        const billTag = billingSec > 0 ? ` \u00B7 1h ${billingMm}:${billingSs}` : '';
+        taDualTtl.textContent = `${hitPct}% hit \u00B7 5m KV ${ttlMm}:${ttlSs}${billTag}${retSuffixAdv}`;
+      } else if (isRebuilding) {
+        taDualTtl.dataset.tone = 'warn';
+        taDualTtl.textContent = `${hitPct}% hit \u00B7 Rebuilding ${ttlMm}:${ttlSs}${retSuffixAdv}`;
+      } else {
+        taDualTtl.dataset.tone = 'muted';
+        taDualTtl.textContent = `${hitPct}% hit \u00B7 5m KV 00:00 \u00B7 Cold${retSuffixAdv}`;
+      }
     }
-    const taStatusDot = document.getElementById('taStatusDot');
-    if (taStatusDot) taStatusDot.dataset.tone = isCrisis ? 'danger' : ((isStuckErrorLoop || isWarn) ? 'warn' : 'signal');
-    setTxt('taStatusLabel', isCrisis ? 'Pruning Required' : (isStuckErrorLoop ? 'Error Loop' : (isWarn ? 'Saturation Risk' : (isWarm ? 'Optimal Cache' : 'Nominal Memory'))));
-    setTxt('taUsedTok', formatTokens(total));
-    setTxt('taSigTok', formatTokens(usefulT));
-    setTxt('taClutterTok', formatTokens(staleT));
-    setTxt('taSafeTok', formatTokens(safeCap));
 
-    // Build 40 cells using data-cat="anchor|signal|cached|clutter|error"
+    const taStatusDot = document.getElementById('taStatusDot');
+    const taStatusTone = (isOverSafe || isRuleRiskOnly || simpleBreaker || scopeCollisions.length > 0)
+      ? 'danger'
+      : ((isStuckErrorLoop || isWarn || (isRebuilding && !cacheUnmeasured)) ? 'warn' : 'signal');
+    if (taStatusDot) taStatusDot.dataset.tone = taStatusTone;
+    const taStatusText = isOverSafe
+      ? 'Over Safe Ceiling'
+      : (isRuleRiskOnly
+        ? 'Rule Truncation Risk'
+        : (simpleBreaker
+          ? `${simpleBreaker.id} Tripped`
+          : (scopeCollisions.length > 0
+            ? 'Scope Collision'
+            : (isStuckErrorLoop
+              ? 'Error Loop'
+              : (isWarn
+                ? 'Saturation Risk'
+                : ((isRebuilding && !cacheUnmeasured) ? 'Cache Rebuilding' : (isWarm ? 'Optimal Cache' : 'Nominal Memory')))))));
+    setTxt('taStatusLabel', taStatusText);
+    {
+      const hdrDot = document.getElementById('statusDot');
+      if (hdrDot && document.body?.dataset?.viewMode === 'advanced') {
+        hdrDot.className = taStatusTone === 'danger' ? 'dot danger' : (taStatusTone === 'warn' ? 'dot warn' : 'dot');
+        hdrDot.dataset.riskBand = taStatusTone === 'danger' ? 'RED' : (taStatusTone === 'warn' ? 'AMBER' : 'GREEN');
+        hdrDot.title = taStatusText;
+      }
+    }
+
+    // Mathematical 0.1k / 0.1M parity with Simple View (taSigTok + taClutterTok === taUsedTok)
+    setTxt('taUsedTok', formatTokens(dispTotalT));
+    setTxt('taSigTok', formatTokens(dispUsefulT));
+    setTxt('taPinTok', formatTokens(dispPinnedT));
+    setTxt('taClutterTok', formatTokens(dispStaleT));
+    setTxt('taSafeTok', formatTokens(safeCap));
+    setTxt('taMaxTok', `\u00B7 ${formatTokens(maxCap)} max`);
+
+    const overSafeTok = Math.max(0, total - safeCap);
+    setTxt('taRunwayMeta', isOverSafe
+      ? (overSafeTok >= 100 ? `+${formatTokens(overSafeTok)} over safe` : 'At safe ceiling')
+      : (isRuleRiskOnly
+        ? `${formatTokens(remainingSafe)} headroom \u00B7 rules at risk`
+        : (burnRate > 0 && turnsLeft < 99
+          ? `~${turnsLeft} turn${turnsLeft === 1 ? '' : 's'} \u00B7 +${formatTokens(burnRate)}/t`
+          : `${formatTokens(remainingSafe)} safe headroom`)));
+    {
+      const bcAdv = cache.prefixBustCause;
+      const prefixTxt = (bcAdv && bcAdv.cause)
+        ? `Prefix bust (${bcAdv.cause})${bcAdv.from && bcAdv.to ? `: ${bcAdv.from} \u2192 ${bcAdv.to}` : ''}`
+        : (cache.prefixBustDetected
+          ? 'Prefix invalidated \u2014 cold rebuild'
+          : `Anchor ${formatTokens(dispPinnedT)} + working ${formatTokens(dispNewActiveT)}`);
+      setTxt('taPrefixForensics', prefixTxt);
+    }
+
+    // Build 40 cells using data-cat="anchor|signal|cached|clutter|error" scaled across maxCap
     const totalCells = 40;
-    const tokPerCell = Math.max(1, Math.round(safeCap / totalCells));
+    const tokPerCell = Math.max(1, Number(win.cellSizeTokens) || Math.round(maxCap / totalCells));
+    __taCellCapacity = tokPerCell;
+    const safeCellIdx = Math.min(totalCells - 1, Math.max(0, Math.round((safeCap / maxCap) * totalCells) - 1));
     const catLabelsAdv = {
       anchor: 'System Anchor & Rules',
       signal: 'Active Dialogue & Edits',
@@ -13523,18 +13927,18 @@
       error: 'Stale Error Trace'
     };
     let cells = [];
-    if (Array.isArray(raw.cells) && raw.cells.length === 40 && raw.cells[0]?.dominantCategory) {
+    if (Array.isArray(raw.cells) && raw.cells.length === 40 && (raw.cells[0]?.dominantCategory || raw.cells[0]?.category || raw.cells[0]?.state)) {
       cells = raw.cells.map((c, i) => {
-        const dc = String(c.dominantCategory || '').toUpperCase();
+        const dc = String(c.dominantCategory || c.category || '').toUpperCase();
         const st = String(c.state || '').toLowerCase();
         let cat = 'empty';
         if (dc === 'FREE_HEADROOM' || c.fillPct === 0 || st === 'free') {
           cat = 'empty';
-        } else if (c.isCrisisCell || dc === 'DEAD_ERROR' || st === 'error') {
+        } else if (c.isCrisisCell || dc === 'DEAD_ERROR' || dc === 'LEGACY_POISON' || st === 'error') {
           cat = 'error';
         } else if (dc === 'ANCHOR') {
           cat = 'anchor';
-        } else if (dc === 'STALE_DUPLICATE' || dc === 'DUPLICATE_READ' || dc === 'STALE_TURN' || dc === 'FOREIGN_BLEED' || st === 'stale') {
+        } else if (dc === 'STALE_DUPLICATE' || dc === 'DUPLICATE_READ' || dc === 'STALE_TURN' || dc === 'FOREIGN_BLEED' || dc === 'DIRTY_SNAP' || dc === 'MEMORY_BLEED' || st === 'stale') {
           cat = 'clutter';
         } else if (dc === 'ACTIVE_WORKING_SET' || dc === 'MEMORY_KI' || st === 'useful') {
           cat = isWarm && i < 24 ? 'cached' : 'signal';
@@ -13546,36 +13950,59 @@
         return {
           cat,
           tokens: tok,
-          source: cat === 'empty' ? 'Available capacity' : (c.topTarget || catLabelsAdv[cat] || cat),
-          recall: typeof c.attentionWeight === 'number' ? c.attentionWeight.toFixed(2) : undefined
+          source: cat === 'empty' ? 'Available capacity' : (c.topTarget || c.targetPath || c.filePath || c.label || catLabelsAdv[cat] || cat),
+          recall: typeof c.attentionWeight === 'number' ? c.attentionWeight.toFixed(2) : undefined,
+          turn: c.turnIndex ?? c.stepIndex ?? null
         };
       });
     } else {
-      const anchorCells = Math.max(1, Math.min(8, Math.round((rulesT + toolsT) / tokPerCell)));
-      const signalCells = Math.max(0, Math.min(32 - anchorCells, Math.round((activeT + filesT) / tokPerCell)));
-      const clutterCells = Math.max(0, Math.min(40 - anchorCells - signalCells, Math.round(staleT / tokPerCell)));
+      const anchorRaw = total > 0 ? (rulesT + toolsT + memKiT) : 0;
+      const anchorCells = anchorRaw > 0 ? Math.max(1, Math.min(8, Math.round(anchorRaw / tokPerCell))) : 0;
+      const activeRaw = total > 0 ? Math.max(0, usefulT - anchorRaw) : 0;
+      let signalCells = activeRaw > 0 ? Math.max(1, Math.min(32 - anchorCells, Math.round(activeRaw / tokPerCell))) : 0;
+      const clutterCells = (total > 0 && staleT > 0) ? Math.max(1, Math.min(40 - anchorCells - signalCells, Math.round(staleT / tokPerCell))) : 0;
+      if (total > 0 && anchorCells + signalCells + clutterCells === 0) {
+        signalCells = 1;
+      }
       for (let i = 0; i < totalCells; i++) {
         let cat = 'empty';
         let tok = 0;
         let src = 'Available capacity';
         if (i < anchorCells) {
-          cat = 'anchor'; tok = Math.round((rulesT + toolsT) / anchorCells); src = 'System Anchor & Rules';
+          cat = 'anchor'; tok = Math.round(anchorRaw / Math.max(1, anchorCells)); src = 'System Anchor & Rules';
         } else if (i < anchorCells + signalCells) {
           cat = isWarm && i < anchorCells + Math.ceil(signalCells * 0.6) ? 'cached' : 'signal';
-          tok = Math.round((activeT + filesT) / Math.max(1, signalCells));
+          tok = Math.round(activeRaw / Math.max(1, signalCells));
           src = cat === 'cached' ? 'Warm Prefix History' : 'Active Dialogue & Edits';
         } else if (i < anchorCells + signalCells + clutterCells) {
-          cat = isCrisis ? 'error' : 'clutter';
+          cat = (errWaste > 0 || isCrisis) ? 'error' : 'clutter';
           tok = Math.round(staleT / Math.max(1, clutterCells));
-          src = 'Reclaimable Tool Logs';
+          src = cat === 'error' ? 'Stale Error Trace' : 'Reclaimable Tool Logs';
         }
         cells.push({ cat, tokens: tok, source: src });
       }
     }
     __taLastCells = cells;
+    setTxt('taGridScaleMeta', `Safe @ Cell #${safeCellIdx + 1} \u00B7 ${formatTokens(tokPerCell)}/cell`);
 
-    const strandedN = Number(raw.attentionHeatmap?.strandedSignalCount) || 0;
-    setTxt('taUTrough', `62% (${strandedN} spec${strandedN === 1 ? '' : 's'})`);
+    const riskyTroughCells = Array.isArray(raw.topRiskyCells)
+      ? raw.topRiskyCells.filter(c => c && (c.inTrough || c.riskReason === 'TROUGH_STRANDED_SPEC'))
+      : [];
+    const strandedN = Number(
+      raw.attentionHeatmap?.strandedSignalCount ??
+      raw.coachState?.uShapedAttention?.middleTroughRiskCount ??
+      riskyTroughCells.length
+    ) || 0;
+    const uPrimPct = Math.round(Number(raw.uCurve?.primacyPct ?? raw.coachState?.uShapedAttention?.healthScore ?? 96));
+    const uTroughPct = Math.round(Number(raw.uCurve?.troughPct || 62));
+    const uRecPct = Math.round(Number(raw.uCurve?.recencyPct || 94));
+    setTxt('taUPrimacy', `${uPrimPct}% recall`);
+    setTxt('taUTrough', `${uTroughPct}% (${strandedN} spec${strandedN === 1 ? '' : 's'})`);
+    setTxt('taURecency', `${uRecPct}% recall`);
+    const taUTroughEl = document.getElementById('taUTrough');
+    if (taUTroughEl) {
+      taUTroughEl.style.color = strandedN > 0 ? 'var(--hz-clutter, var(--status-warning))' : 'var(--hz-fg)';
+    }
 
     const gridEl = document.getElementById('taHorizonGrid');
     if (gridEl) {
@@ -13584,16 +14011,23 @@
         const c = cells[idx] || { cat: 'empty' };
         if (c.cat && c.cat !== 'empty') el.setAttribute('data-cat', c.cat);
         else el.removeAttribute('data-cat');
+        el.toggleAttribute('data-safe-boundary', idx === safeCellIdx);
         el.setAttribute('aria-selected', idx === __taSelectedCellIndex ? 'true' : 'false');
+        el.classList.toggle('selected', idx === __taSelectedCellIndex);
+        el.title = c.cat === 'empty'
+          ? `Cell #${idx + 1}: Available Headroom (0.0k)`
+          : `Cell #${idx + 1}: ${c.source || catLabelsAdv[c.cat] || c.cat} (${formatTokens(c.tokens || 0)})`;
       });
     }
     renderTaCellInspector(cells[__taSelectedCellIndex], __taSelectedCellIndex);
 
-    // Top Context Consumers Table (respecting Active Source File Protection invariant)
+    // Top Context Consumers Table + Overflow Drawer (respecting Active Source File Protection invariant)
     const taConsumersBody = document.getElementById('taConsumersBody');
+    const taMoreConsumersDrawer = document.getElementById('taMoreConsumersDrawer');
+    const taMoreConsumersBody = document.getElementById('taMoreConsumersBody');
     let hogs = [];
     if (Array.isArray(raw.topConsumers) && raw.topConsumers.length > 0) {
-      hogs = raw.topConsumers;
+      hogs = raw.topConsumers.slice();
     } else {
       const seenTargets = new Set();
       const topFiles = Array.isArray(bs.duplicateReads?.topFiles)
@@ -13608,21 +14042,31 @@
       });
       (Array.isArray(raw.offenders) ? raw.offenders : []).forEach(o => {
         const tgt = String(o?.target || '');
-        const tok = Number(o?.wastedTokens || 0);
+        const tok = Number(o?.wastedTokens ?? o?.tokens ?? 0);
         if (!tgt || tok <= 0) return;
         if (o.category === 'DEAD_ERROR') {
           if (!seenTargets.has(tgt.toLowerCase())) {
             seenTargets.add(tgt.toLowerCase());
             hogs.push({ kind: 'error', label: tgt, pattern: `${Number(o.occurrences || 1)}x error`, tokens: tok });
           }
+        } else if (o.category === 'FOREIGN_BLEED' || tgt === 'Foreign Bleed Knowledge') {
+          if (!seenTargets.has('__foreign_bleed__')) {
+            seenTargets.add('__foreign_bleed__');
+            hogs.push({
+              kind: 'bleed',
+              label: tgt === 'Foreign Bleed Knowledge' ? 'Cross-project memory bleed' : tgt,
+              pattern: o.occurrences ? `${Number(o.occurrences)}x foreign` : 'foreign KI',
+              tokens: tok
+            });
+          }
         } else if (tgt === 'Older chat history (>25 turns ago)') {
           hogs.push({ kind: 'history', label: 'Older chat history (>25 turns)', pattern: `${Number(o.occurrences || 1)} turns`, tokens: tok });
-        } else if (tgt !== 'Foreign Bleed Knowledge' && !seenTargets.has(tgt.toLowerCase())) {
+        } else if (!seenTargets.has(tgt.toLowerCase())) {
           seenTargets.add(tgt.toLowerCase());
           hogs.push({ kind: 'file', path: tgt, pattern: `${Number(o.occurrences || 1)}x read`, tokens: tok });
         }
       });
-      if (bleedWaste > 0) {
+      if (bleedWaste > 0 && !seenTargets.has('__foreign_bleed__')) {
         hogs.push({ kind: 'bleed', label: 'Cross-project memory bleed', pattern: 'foreign KI', tokens: bleedWaste });
       }
       (Array.isArray(bs.blowupSteps) ? bs.blowupSteps : []).forEach(b => {
@@ -13642,87 +14086,140 @@
       });
       hogs.sort((a, b) => (b.tokens || 0) - (a.tokens || 0));
     }
+    const renderConsumerRowHtml = (item) => {
+      const kind = item.kind || (item.path || item.file ? 'file' : 'spike');
+      const p = String(item.path || item.file || item.label || 'context-item');
+      const patternTxt = item.pattern || `${Number(item.reads || item.count || 1)}x read`;
+      const tok = Math.max(0, Number(item.tokens ?? item.reclaimableTokens) || 0);
+      let actionHtml = '';
+      if (kind === 'file') {
+        const ignorable = typeof isIgnorablePath === 'function'
+          ? isIgnorablePath(p)
+          : /\.(log|lock|tmp|bak|min\.js|map)$|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|node_modules|\.antigravity/i.test(p);
+        actionHtml = ignorable
+          ? `<button type="button" class="ta-mini-btn" data-ignore-path="${escAttr(p)}">+Ignore</button>`
+          : `<span style="color:var(--hz-anchor);">Active Source</span>`;
+      } else if (kind === 'history') {
+        actionHtml = `<span style="color:var(--hz-muted);">Cleared by /compact</span>`;
+      } else if (kind === 'error') {
+        actionHtml = `<span style="color:var(--hz-danger);">Error trace</span>`;
+      } else if (kind === 'bleed') {
+        actionHtml = `<span style="color:var(--hz-clutter);">Foreign KI</span>`;
+      } else {
+        actionHtml = `<span style="color:var(--hz-clutter);">Output spike</span>`;
+      }
+      const displayTarget = kind === 'file' && typeof formatShortPath === 'function' ? formatShortPath(p) : p;
+      return `
+        <tr>
+          <td title="${escAttr(p)}">${escAttr(displayTarget)}</td>
+          <td>${escAttr(patternTxt)}</td>
+          <td class="num">${formatTokens(tok)}</td>
+          <td class="num">${actionHtml}</td>
+        </tr>
+      `;
+    };
     if (taConsumersBody) {
-      const list = hogs.slice(0, 4);
-      if (list.length === 0) {
+      if (hogs.length === 0) {
+        const anchorRowLabel = isClaudeSurface ? 'CLAUDE.md + rules & tools' : 'AGENTS.md + rules & tools';
+        const staleRowHtml = dispStaleT >= 100
+          ? `<tr><td>Reclaimable logs &amp; turns</td><td>stale</td><td class="num">${formatTokens(dispStaleT)}</td><td class="num"><span style="color:var(--hz-muted);">Cleared by /compact</span></td></tr>`
+          : '';
         taConsumersBody.innerHTML = `
           <tr>
-            <td>AGENTS.md + rules</td>
+            <td>${anchorRowLabel}</td>
             <td>pinned</td>
-            <td class="num">${formatTokens(rulesT)}</td>
+            <td class="num">${formatTokens(dispPinnedT)}</td>
             <td class="num"><span style="color:var(--hz-useful);">Protected</span></td>
           </tr>
           <tr>
             <td>Active working files</td>
             <td>1x read</td>
-            <td class="num">${formatTokens(Math.max(0, usefulT - rulesT))}</td>
+            <td class="num">${formatTokens(dispNewActiveT)}</td>
             <td class="num"><span style="color:var(--hz-anchor);">Active Source</span></td>
           </tr>
+          ${staleRowHtml}
         `;
+        if (taMoreConsumersDrawer) {
+          taMoreConsumersDrawer.hidden = true;
+          taMoreConsumersDrawer.open = false;
+        }
+        if (taMoreConsumersBody) taMoreConsumersBody.innerHTML = '';
       } else {
-        taConsumersBody.innerHTML = list.map(item => {
-          const kind = item.kind || (item.path || item.file ? 'file' : 'spike');
-          const p = String(item.path || item.file || item.label || 'context-item');
-          const patternTxt = item.pattern || `${Number(item.reads || item.count || 1)}x read`;
-          const tok = Math.max(0, Number(item.tokens ?? item.reclaimableTokens) || 0);
-          let actionHtml = '';
-          if (kind === 'file') {
-            const ignorable = typeof isIgnorablePath === 'function'
-              ? isIgnorablePath(p)
-              : /\.(log|lock|tmp|bak|min\.js|map)$|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|node_modules|\.antigravity/i.test(p);
-            actionHtml = ignorable
-              ? `<button type="button" class="ta-mini-btn" data-ignore-path="${escAttr(p)}">+Ignore</button>`
-              : `<span style="color:var(--hz-anchor);">Active Source</span>`;
-          } else if (kind === 'history') {
-            actionHtml = `<span style="color:var(--hz-muted);">Cleared by /compact</span>`;
-          } else if (kind === 'error') {
-            actionHtml = `<span style="color:var(--hz-danger);">Error trace</span>`;
-          } else if (kind === 'bleed') {
-            actionHtml = `<span style="color:var(--hz-clutter);">Foreign KI</span>`;
+        taConsumersBody.innerHTML = hogs.slice(0, 4).map(renderConsumerRowHtml).join('');
+        if (taMoreConsumersDrawer && taMoreConsumersBody) {
+          const rest = hogs.slice(4);
+          if (rest.length > 0) {
+            taMoreConsumersDrawer.hidden = false;
+            setTxt('taMoreConsumersSummary', `${rest.length} more context consumer${rest.length === 1 ? '' : 's'}`);
+            taMoreConsumersBody.innerHTML = rest.map(renderConsumerRowHtml).join('');
           } else {
-            actionHtml = `<span style="color:var(--hz-clutter);">Output spike</span>`;
+            taMoreConsumersDrawer.hidden = true;
+            taMoreConsumersDrawer.open = false;
+            taMoreConsumersBody.innerHTML = '';
           }
-          const displayTarget = kind === 'file' && typeof formatShortPath === 'function' ? formatShortPath(p) : p;
-          return `
-            <tr>
-              <td title="${escAttr(p)}">${escAttr(displayTarget)}</td>
-              <td>${escAttr(patternTxt)}</td>
-              <td class="num">${formatTokens(tok)}</td>
-              <td class="num">${actionHtml}</td>
-            </tr>
-          `;
-        }).join('');
+        }
       }
     }
 
-    // Zone B: Router Governance & Action Queue
-    const routerMode = String(raw.routerMode || 'coach').toLowerCase();
+    // Zone B: Router Governance, Action Queue + Overflow, Reap/Unlock & KV Economics
     document.querySelectorAll('#taRouterSwitch button').forEach(btn => {
-      const active = (btn.dataset.taMode || btn.dataset.mode) === routerMode;
-      btn.style.borderColor = active ? 'var(--hz-useful)' : '';
-      btn.style.color = active ? 'var(--hz-useful)' : '';
+      const m = btn.dataset.taMode || btn.dataset.mode;
+      const active = m === effectiveMode;
+      if (m === 'autopilot') {
+        btn.textContent = (active && autoShadowFlag) ? 'Auto-Pilot (Preview)' : 'Auto-Pilot';
+      }
+      const activeColor = (active && m === 'autopilot' && autoShadowFlag) ? 'var(--hz-clutter)' : 'var(--hz-useful)';
+      btn.style.borderColor = active ? activeColor : '';
+      btn.style.color = active ? activeColor : '';
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
     const taActionQueue = document.getElementById('taActionQueue');
+    const taQueueOverflowDrawer = document.getElementById('taQueueOverflowDrawer');
+    const taActionQueueOverflow = document.getElementById('taActionQueueOverflow');
     if (taActionQueue) {
       const qRows = [];
-      if (isCrisis) {
-        qRows.push({ tone: 'danger', tag: 'CRISIS', text: `Run /compact or checkpoint task.md \u2014 ${formatTokens(Math.max(0, total - safeCap))} past safe limit` });
-      } else if (isStuckErrorLoop) {
+      if (isOverSafe) {
+        qRows.push({ tone: 'danger', tag: 'CRISIS', text: `Run /compact or checkpoint \u2014 +${formatTokens(Math.max(0, total - safeCap))} past safe limit` });
+      } else if (isRuleRiskOnly) {
+        qRows.push({ tone: 'danger', tag: 'CRISIS', text: 'Pinned rules at truncation risk \u2014 run /compact or pin invariants to task.md' });
+      }
+      if (simpleBreaker) {
+        const copyCmd = breakerSrc?.revertAction || breakerSrc?.worktreeCommand || '';
+        const copyLabel = breakerSrc?.revertAction ? 'Copy Revert' : (breakerSrc?.worktreeCommand ? 'Copy Worktree' : '');
+        qRows.push({ tone: 'danger', tag: simpleBreaker.id, text: simpleBreaker.msg, copyCmd, copyLabel });
+      }
+      if (scopeCollisions.length > 0) {
+        const colPaths = scopeCollisions.map(c => c?.file || c?.path || c?.target || (Array.isArray(c?.overlappingPaths) ? c.overlappingPaths[0] : '')).filter(Boolean).slice(0, 2);
+        const colWorktree = scopeCollisions[0]?.worktreeCommand || '';
+        qRows.push({
+          tone: 'danger',
+          tag: 'SWARM',
+          text: `${scopeCollisions.length} agent file collision${scopeCollisions.length === 1 ? '' : 's'}${colPaths.length ? ` (${colPaths.join(', ')})` : ''} \u2014 isolate with git worktree`,
+          copyCmd: colWorktree,
+          copyLabel: colWorktree ? 'Copy Worktree' : ''
+        });
+      }
+      if (isStuckErrorLoop) {
         qRows.push({ tone: 'avoid', tag: 'LOOP', text: `${errLoopCount}\u00D7 error loop \u2014 inspect root cause or upshift model/effort` });
-      } else if (staleT >= 35000) {
-        qRows.push({ tone: 'avoid', tag: 'COMPACT', text: `${formatTokens(staleT)} reclaimable clutter queued for /compact` });
+      } else if (!isCrisis && staleT >= 35000) {
+        qRows.push({ tone: 'avoid', tag: 'COMPACT', text: `${formatTokens(dispStaleT)} reclaimable clutter queued for /compact${isWarm ? ` (hold ${ttlMm}:${ttlSs} warm KV)` : ''}` });
       } else if (topBlowup && Number(topBlowup.tokens) >= 12000) {
         qRows.push({ tone: 'avoid', tag: 'SPIKE', text: `Turn #${topBlowup.userTurnNumber || topBlowup.stepIndex} spike (${formatTokens(topBlowup.tokens)}) \u2014 filter verbose output` });
       }
       if (idleEagerMcps.length > 0) {
-        qRows.push({ tone: 'avoid', tag: 'MCP', text: `${idleEagerMcps.length} idle eager MCP${idleEagerMcps.length === 1 ? '' : 's'} \u00B7 ~${formatTokens(idleEagerTokens)} schema bloat` });
+        const mcpNames = idleEagerMcps.map(m => m?.name || m?.server || m?.id).filter(Boolean).slice(0, 3);
+        const mcpSuffix = mcpNames.length > 0 ? ` (${mcpNames.join(', ')})` : '';
+        qRows.push({ tone: 'avoid', tag: 'MCP', text: `${idleEagerMcps.length} idle eager MCP${idleEagerMcps.length === 1 ? '' : 's'}${mcpSuffix} \u00B7 ~${formatTokens(idleEagerTokens)} schema bloat` });
       }
-      if (Number(raw.hostHealth?.orphanCount) > 0) {
-        const oc = Number(raw.hostHealth.orphanCount);
-        qRows.push({ tone: 'avoid', tag: 'PID', text: `${oc} orphan language_server PID${oc === 1 ? '' : 's'} detected` });
+      if (orphanCount > 0) {
+        qRows.push({ tone: 'avoid', tag: 'PID', text: `${orphanCount} orphan language_server PID${orphanCount === 1 ? '' : 's'} detected` });
       }
       if (strandedN > 0) {
-        qRows.push({ tone: 'avoid', tag: 'TROUGH', text: `${strandedN} stranded mid-trough spec${strandedN === 1 ? '' : 's'} (low recall)` });
+        const strandedList = Array.isArray(raw.attentionHeatmap?.strandedSignals) && raw.attentionHeatmap.strandedSignals.length > 0
+          ? raw.attentionHeatmap.strandedSignals.map(s => s?.topTarget || s?.label || `Cell #${Number(s?.cellIndex || 0) + 1}`).filter(Boolean).slice(0, 2)
+          : riskyTroughCells.map(c => c?.topTarget || `Cell #${Number(c?.cellIndex || 0) + 1}`).filter(Boolean).slice(0, 2);
+        const strandedSuffix = strandedList.length > 0 ? ` [${strandedList.join(', ')}]` : '';
+        qRows.push({ tone: 'avoid', tag: 'TROUGH', text: `${strandedN} stranded mid-trough spec${strandedN === 1 ? '' : 's'}${strandedSuffix} (low recall)` });
       }
       if (raw.coachState?.det17ShadowBloat?.triggered) {
         const sb = raw.coachState.det17ShadowBloat;
@@ -13731,25 +14228,141 @@
       if (qRows.length === 0) {
         qRows.push({ tone: 'do', tag: 'QUEUE', text: 'Nominal queue \u00B7 0 orphan PIDs, 0 idle eager MCPs, 0 trough specs' });
       }
-      taActionQueue.innerHTML = qRows.slice(0, 3).map(r =>
-        `<div class="ts-guidance-row" data-tone="${escAttr(r.tone)}"><span class="ts-tag">${escAttr(r.tag)}</span><span>${escAttr(r.text)}</span></div>`
-      ).join('');
+      const renderQueueRowHtml = (r) => {
+        const copyBtnHtml = r.copyCmd
+          ? `<button type="button" class="ta-mini-btn" style="flex-shrink:0;" data-ta-copy="${escAttr(r.copyCmd)}">${escAttr(r.copyLabel || 'Copy')}</button>`
+          : '';
+        return `<div class="ts-guidance-row" data-tone="${escAttr(r.tone)}"><span class="ts-tag">${escAttr(r.tag)}</span><div class="ta-action-row-inline"><span style="min-width:0;overflow-wrap:anywhere;">${escAttr(r.text)}</span>${copyBtnHtml}</div></div>`;
+      };
+      taActionQueue.innerHTML = qRows.slice(0, 4).map(renderQueueRowHtml).join('');
+      if (taQueueOverflowDrawer && taActionQueueOverflow) {
+        const extraQueue = qRows.slice(4);
+        if (extraQueue.length > 0) {
+          taQueueOverflowDrawer.hidden = false;
+          setTxt('taQueueOverflowSummary', `${extraQueue.length} additional diagnostic item${extraQueue.length === 1 ? '' : 's'}`);
+          taActionQueueOverflow.innerHTML = extraQueue.map(renderQueueRowHtml).join('');
+        } else {
+          taQueueOverflowDrawer.hidden = true;
+          taQueueOverflowDrawer.open = false;
+          taActionQueueOverflow.innerHTML = '';
+        }
+      }
     }
     const taRouterNote = document.getElementById('taRouterNote');
     if (taRouterNote) {
-      taRouterNote.textContent = raw.coachState?.taskQuotaRouter?.coachPillText || 'KV Gravity Router ready \u00B7 Turn-boundary switch buffer armed';
+      taRouterNote.textContent = raw.coachState?.taskQuotaRouter?.coachPillText ||
+        (effectiveMode === 'off'
+          ? 'KV Gravity Router paused \u00B7 passive telemetry only'
+          : (isWarm
+            ? `KV Gravity Hold (${effectiveMode.toUpperCase()}): ${ttlMm}:${ttlSs} warm window \u00B7 switch queued for turn boundary`
+            : `KV Gravity Router (${effectiveMode.toUpperCase()}) \u00B7 Turn-boundary switch buffer armed`));
+    }
+    const taBtnReapEl = document.getElementById('taBtnReapOrphans');
+    if (taBtnReapEl) {
+      taBtnReapEl.hidden = orphanCount <= 0;
+      taBtnReapEl.disabled = orphanCount <= 0;
+      if (orphanCount > 0) taBtnReapEl.textContent = `Reap ${orphanCount} PID${orphanCount === 1 ? '' : 's'}`;
+    }
+    const taBtnUnlockEl = document.getElementById('taBtnUnlockHysteresis');
+    const isHystLocked = Boolean(raw.coachState?.hysteresisLock?.locked || raw.coachState?.hysteresisLocked || raw.effortGovernor?.hysteresisLocked);
+    if (taBtnUnlockEl) {
+      taBtnUnlockEl.hidden = !isHystLocked;
+      taBtnUnlockEl.disabled = !isHystLocked;
+    }
+    {
+      const burnMult = Number(raw.effortGovernor?.burnMultiplier ?? mdl.burnMultiplier ?? 0);
+      const multTxt = burnMult > 0 ? ` (${burnMult}x burn)` : '';
+      const poolDesc = mdl.isClamped1MModel && Number(mdl.nativeCeilingTokens || 0) > maxCap
+        ? `${formatTokens(maxCap)} IDE cap / ${formatTokens(mdl.nativeCeilingTokens)} native`
+        : formatTokens(maxCap);
+      const rateIn = Number(mdl.inputPricePerMillionUsd || 0);
+      const rateTxt = rateIn > 0 ? ` \u00B7 $${rateIn.toFixed(2)}/1M in` : '';
+      const cidTag = mdl.canonicalId && String(mdl.canonicalId).toLowerCase() !== String(activeModel).toLowerCase()
+        ? ` [${mdl.canonicalId}]`
+        : '';
+      setTxt('taEconModelLine', `${activeModel}${cidTag} \u00B7 Effort: ${activeEffort}${multTxt} \u00B7 Pool: ${poolDesc}${rateTxt}`);
+
+      const normEconId = modelId.replace(/\s+/g, '-');
+      let effKvRule = '';
+      if (modelProvider === 'Gemini') {
+        effKvRule = 'Thinking change: outside cached prefix (safe)';
+      } else if (/sonnet[-_. ]?5[-_. ]?5|opus[-_. ]?5[-_. ]?5/.test(normEconId)) {
+        effKvRule = 'Effort change: keeps prefix (99.3% read)';
+      } else if (/sonnet[-_. ]?4[-_. ]?6|opus[-_. ]?4[-_. ]?6/.test(normEconId)) {
+        effKvRule = 'Effort change: busts whole prefix (EF1_46)';
+      } else if (modelProvider === 'Claude') {
+        effKvRule = 'Effort change: unverified (hold while warm)';
+      } else {
+        effKvRule = 'Effort change: unverified for host model';
+      }
+      const cgAdv = cache.costGate || {};
+      const advRewriteUsd = Number(cgAdv.coldRewriteCostUsd) || 0;
+      const rewriteTxt = isWarm
+        ? (advRewriteUsd > 0 ? `Switch rewrite: ~$${advRewriteUsd.toFixed(2)}` : 'Mid-turn switch breaks warm KV')
+        : 'Cache cold ($0 switch rewrite)';
+      setTxt('taEconCacheLine', `${effKvRule} \u00B7 ${rewriteTxt}`);
     }
 
-    // Zone C: Turn-0 Baseline & Guard Log
+    // Zone C: Turn-0 Baseline, Guard Log, Detector Roster & RSL Drawer
+    const blRules = Number(raw.baseline?.rulesTokens ?? rulesT) || 0;
+    const blSkills = Number(raw.baseline?.skillsTokens ?? memKiT) || 0;
+    const blMcp = Number(raw.baseline?.mcpTokens ?? toolsT) || 0;
+    const hasBlParts = raw.baseline?.rulesTokens != null || raw.baseline?.skillsTokens != null || raw.baseline?.mcpTokens != null;
+    const advBaselineEst = Math.max(0, Number(raw.baseline?.totalEst ?? (hasBlParts ? (blRules + blSkills + blMcp) : baselineEst)) || 0);
+    const advBaselineOver = Boolean(raw.baseline?.eagerInjectionWarning) || advBaselineEst > 20000;
     const taBaselineText = document.getElementById('taBaselineText');
     if (taBaselineText) {
-      taBaselineText.innerHTML = `Turn-0 Baseline: <strong${baselineOverBudget ? ' style="color:var(--hz-clutter);"' : ''}>${formatTokens(baselineEst)}</strong> / 20.0k budget`;
+      const partTxt = ` (Rules ${formatTokens(blRules)} \u00B7 MCP/Tools ${formatTokens(blMcp)}${blSkills > 0 ? ` \u00B7 KI ${formatTokens(blSkills)}` : ''})`;
+      taBaselineText.innerHTML = `Turn-0 Baseline: <strong${advBaselineOver ? ' style="color:var(--hz-clutter);"' : ''}>${formatTokens(advBaselineEst)}</strong> / 20.0k budget<span style="color:var(--hz-muted);">${partTxt}</span>`;
     }
     const taBtnShieldEl = document.getElementById('taBtnShield');
     if (taBtnShieldEl) {
-      taBtnShieldEl.textContent = `Shield: ${queuedShield} queued`;
       taBtnShieldEl.disabled = queuedShield <= 0;
+      taBtnShieldEl.textContent = queuedShield > 0
+        ? (isWarm ? `Shield: ${queuedShield} fenced` : `Flush ${queuedShield} Delta${queuedShield === 1 ? '' : 's'}`)
+        : 'Shield: 0 queued';
     }
+
+    // Merge real guard interventions & alerts (zero stale session bleed, zero fabricated DET-01..03)
+    const mergedGuardRows = [];
+    const seenGuardKey = new Set();
+    const pushGuardEvent = (age, guardId, desc, impact, tone, tip = '') => {
+      const code = String(guardId || 'GUARD').trim();
+      const text = String(desc || 'Guard intervention').trim();
+      const key = `${code}|${text.toLowerCase()}`;
+      if (seenGuardKey.has(key)) return;
+      seenGuardKey.add(key);
+      mergedGuardRows.push({ age: String(age || 'live'), code, desc: text, impact: String(impact || 'fixed'), tone: tone || 'var(--hz-useful)', tip });
+    };
+    const breakerAlertsArr = [
+      ...(Array.isArray(raw.coachState?.circuitBreakerAlerts) ? raw.coachState.circuitBreakerAlerts : []),
+      ...(Array.isArray(raw.coachState?.breakerEvents) ? raw.coachState.breakerEvents : [])
+    ];
+    breakerAlertsArr.forEach(ev => {
+      if (!ev || typeof ev !== 'object') return;
+      const code = ev.detectorId || ev.guardId || ev.ruleId || ev.id || 'GUARD';
+      const desc = plainText(ev.message || ev.summary || ev.reason || ev.name || 'Breaker triggered');
+      const imp = ev.tokensSaved ? `+${formatTokens(ev.tokensSaved)}` : (ev.guidance?.kind === 'info' ? 'handled' : 'tripped');
+      const tone = ev.tokensSaved ? 'var(--hz-useful)' : (ev.severity === 'CRITICAL' ? 'var(--hz-danger)' : 'var(--hz-clutter)');
+      pushGuardEvent(ev.turn ? `T${ev.turn}` : (ev.age || 'live'), code, desc, imp, tone, ev.guidance?.nextStep || '');
+    });
+    rawAutoFixItems.forEach(ev => {
+      if (!ev || typeof ev !== 'object') return;
+      const code = ev.detectorId || ev.guardId || ev.code || ev.category || 'GUARD';
+      const desc = ev.label || ev.title || ev.summary || 'Automated intervention';
+      const imp = ev.tokensSaved ? `+${formatTokens(ev.tokensSaved)}` : 'fixed';
+      pushGuardEvent(ev.turn ? `T${ev.turn}` : (ev.ageLabel || 'auto'), code, desc, imp, 'var(--hz-useful)');
+    });
+    if (effectiveMode === 'autopilot' && autoShadowFlag && Array.isArray(raw.shadowAuto?.recentWouldHave)) {
+      raw.shadowAuto.recentWouldHave.slice(0, 2).forEach(c => {
+        if (!c || typeof c !== 'object') return;
+        const code = c.detectorId || 'AUTO';
+        const desc = `Preview: ${c.detail || String(c.category || 'correction').replace(/_/g, ' ').toLowerCase()}`;
+        const imp = c.missedUsd > 0 ? `~$${Number(c.missedUsd).toFixed(2)}` : 'preview';
+        pushGuardEvent('sim', code, desc, imp, 'var(--hz-clutter)');
+      });
+    }
+
     const taDetBadge = document.getElementById('taDetBadge');
     const trippedDet = raw.coachState?.detectors?.tripped;
     const detTotal = Number(raw.coachState?.detectors?.totalCount) || 32;
@@ -13758,52 +14371,282 @@
       if (effectiveMode === 'off') {
         taDetBadge.dataset.tone = 'muted';
         taDetBadge.textContent = 'Guards paused';
-        taDetBadge.title = 'Watch-only mode';
+        taDetBadge.title = 'Watch-only mode \u2014 click to inspect detector policy list';
       } else if (trippedDet && trippedDet.detectorId) {
         taDetBadge.dataset.tone = 'warn';
         taDetBadge.textContent = `${trippedDet.detectorId} tripped`;
-        taDetBadge.title = trippedDet.reason || '';
+        taDetBadge.title = trippedDet.reason || 'Click to inspect full detector roster';
       } else {
         taDetBadge.dataset.tone = '';
-        taDetBadge.textContent = `${detArmed}/${detTotal} guards armed`;
-        taDetBadge.title = '';
+        taDetBadge.textContent = mergedGuardRows.length > 0
+          ? `${detArmed}/${detTotal} armed \u00B7 ${mergedGuardRows.length} logged`
+          : `${detArmed}/${detTotal} guards armed`;
+        taDetBadge.title = 'Click to inspect full detector roster';
       }
     }
     const taGuardBody = document.getElementById('taGuardBody');
-    if (taGuardBody && rawAutoFixItems.length > 0) {
-      taGuardBody.innerHTML = rawAutoFixItems.slice(0, 3).map((ev, idx) => `
-        <tr>
-          <td>${escAttr(ev.turn ? 'T' + ev.turn : (ev.ageLabel || 'auto'))}</td>
-          <td>${escAttr(ev.guardId || `DET-0${idx + 1}`)}</td>
-          <td>${escAttr(ev.label || ev.title || ev.summary || 'Guard intervention')}</td>
-          <td class="num" style="color:var(--hz-useful);">${ev.tokensSaved ? `+${formatTokens(ev.tokensSaved)}` : 'fixed'}</td>
-        </tr>
-      `).join('');
+    if (taGuardBody) {
+      if (mergedGuardRows.length > 0) {
+        taGuardBody.innerHTML = mergedGuardRows.slice(0, 4).map(r => `
+          <tr>
+            <td>${escAttr(r.age)}</td>
+            <td>${escAttr(r.code)}</td>
+            <td title="${escAttr(r.tip || r.desc)}">${escAttr(r.desc)}</td>
+            <td class="num" style="color:${r.tone};">${escAttr(r.impact)}</td>
+          </tr>
+        `).join('');
+      } else if (effectiveMode === 'off') {
+        taGuardBody.innerHTML = '<tr><td>off</td><td>DET-01..32</td><td>Guards paused (watch-only telemetry mode)</td><td class="num" style="color:var(--hz-muted);">paused</td></tr>';
+      } else {
+        taGuardBody.innerHTML = '<tr><td>now</td><td>DET-01..32</td><td>FTS5 compressor, PrefixCacheShield &amp; 3-strike breakers armed</td><td class="num" style="color:var(--hz-muted);">armed</td></tr>';
+      }
     }
 
-    // Zone D: Verified Savings & Memory Surgery
+    // Detector roster drawer (#taGuardRosterDrawer)
+    {
+      const rosterDrawer = document.getElementById('taGuardRosterDrawer');
+      const rosterBody = document.getElementById('taGuardRosterBody');
+      const liveGuards = Array.isArray(raw.coachState?.detectors?.list) ? raw.coachState.detectors.list : [];
+      if (rosterBody) {
+        if (liveGuards.length === 0) {
+          setTxt('taGuardRosterMeta', effectiveMode === 'off' ? 'Paused' : `${detArmed}/${detTotal} armed`);
+          rosterBody.innerHTML = `<tr><td colspan="4" style="color:var(--hz-muted);">All ${detTotal} built-in detectors loaded (connect live daemon stream for per-detector status).</td></tr>`;
+        } else {
+          const rank = (g) => (g.tripped ? 0 : (g.mode === 'guard' ? 1 : 2));
+          const sorted = liveGuards.slice().sort((a, b) => rank(a) - rank(b) || String(a.id).localeCompare(String(b.id)));
+          const trippedN = sorted.filter(g => g.tripped).length;
+          const isEnforcedAuto = effectiveMode === 'autopilot' && !autoShadowFlag;
+          setTxt('taGuardRosterMeta', effectiveMode === 'off'
+            ? 'Paused'
+            : (trippedN > 0 ? `${sorted.length} \u00B7 ${trippedN} tripped` : (effectiveMode === 'autopilot' && autoShadowFlag ? `${sorted.length} preview` : (isEnforcedAuto ? `${sorted.length} enforcing` : `${sorted.length} armed`))));
+          rosterBody.innerHTML = sorted.map(g => {
+            const st = effectiveMode === 'off'
+              ? 'paused'
+              : (g.tripped ? 'tripped' : (g.mode === 'guard' ? 'blocks' : (isEnforcedAuto ? 'enforces' : 'advises')));
+            const toneColor = st === 'tripped'
+              ? 'var(--status-warning, #fbbf24)'
+              : (st === 'paused' ? 'var(--hz-muted)' : ((st === 'blocks' || st === 'enforces') ? 'var(--accent-focus, #38BDF8)' : 'var(--hz-fg-secondary)'));
+            const gDesc = g.title || g.name || g.id;
+            const gTip = `${g.id}: ${gDesc}${g.summary ? ` \u2014 ${g.summary}` : ''}`;
+            return `<tr title="${escAttr(gTip)}"><td>${escAttr(g.id)}</td><td>${escAttr(gDesc)}</td><td>${escAttr(g.mode || 'advisory')}</td><td class="num" style="color:${toneColor};">${escAttr(st)}</td></tr>`;
+          }).join('');
+          if (rosterDrawer && trippedN > 0 && effectiveMode !== 'off') {
+            rosterDrawer.open = true;
+          }
+        }
+      }
+    }
+
+    // RSL Learned rules drawer (#taRslDrawer)
+    {
+      const rslDrawer = document.getElementById('taRslDrawer');
+      const rslList = document.getElementById('taRslList');
+      const uiRules = Array.isArray(raw.rsl?.uiRules) ? raw.rsl.uiRules : [];
+      const lrCount = Math.max(rslActiveCount, uiRules.length);
+      if (rslDrawer && rslList) {
+        if (lrCount <= 0 && shardedSpecCount <= 0 && rslClashCount <= 0) {
+          rslDrawer.hidden = true;
+          rslDrawer.open = false;
+          rslList.innerHTML = '';
+        } else {
+          rslDrawer.hidden = false;
+          setTxt('taRslSummary', lrCount > 0 ? `Learned rules (RSL: ${lrCount} active)` : 'Workspace RSL & spec shards');
+          const metaParts = [];
+          if (rslHooksCount > 0) metaParts.push(`${rslHooksCount} hook${rslHooksCount === 1 ? '' : 's'}`);
+          if (rslClashCount > 0) metaParts.push(`${rslClashCount} clash${rslClashCount === 1 ? '' : 'es'}`);
+          if (shardedSpecCount >= 2) metaParts.push(`${shardedSpecCount} shards`);
+          setTxt('taRslMeta', metaParts.length > 0 ? metaParts.join(' \u00B7 ') : (effectiveMode === 'off' ? 'Paused' : 'Active'));
+          let rslHtml = '';
+          if (rslClashCount > 0) {
+            rslHtml += `<li class="ts-ledger-row" data-effective-state="paused"><span class="ts-ledger-age">CLASH</span><span>${rslClashCount} conflicting project rule${rslClashCount === 1 ? '' : 's'} \u2014 run <code>ctxtop rsl status</code></span><span class="ts-ledger-saved" style="color:var(--status-warning);">review</span></li>`;
+          }
+          if (shardedSpecCount >= 2) {
+            rslHtml += `<li class="ts-ledger-row"><span class="ts-ledger-age">SPEC</span><span>${shardedSpecCount} spec shards loaded across session</span><span class="ts-ledger-saved">${shardedSpecCount >= 4 ? 'consolidate' : 'tracked'}</span></li>`;
+          }
+          if (uiRules.length > 0) {
+            rslHtml += uiRules.map(r => {
+              const kind = ['hook', 'skill', 'rule'].includes(r.kind) ? r.kind : 'rule';
+              const st = kind === 'hook' ? (effectiveMode === 'off' ? 'paused' : 'blocks') : 'active';
+              return `<li class="ts-ledger-row" data-kind="${escAttr(kind)}" data-effective-state="${st}" title="${escAttr(r.detail || r.title || '')}"><span class="ts-ledger-age">${escAttr(kind)}</span><span>${escAttr(r.title || 'Learned rule')}${r.detail ? ` <span class="ts-why-sub">\u2014 ${escAttr(r.detail)}</span>` : ''}</span><span class="ts-ledger-saved">${st}</span></li>`;
+            }).join('');
+          } else if (lrCount > 0) {
+            rslHtml += `<li class="ts-ledger-row"><span class="ts-ledger-age">RSL</span><span>${lrCount} active learned rule(s) \u2014 run <code>ctxtop rsl status</code> to inspect</span><span class="ts-ledger-saved">${lrCount}</span></li>`;
+          }
+          rslList.innerHTML = rslHtml;
+        }
+      }
+    }
+
+    // Zone D: Session Trajectory & Swarm Topology
+    {
+      const advTl = raw.sessionTimeline || null;
+      const advTurns = Array.isArray(advTl?.turns) ? advTl.turns : [];
+      const advMarkers = Array.isArray(advTl?.markers) ? advTl.markers : [];
+      const advTotalTurns = Math.max(0, Number(advTl?.totalTurns ?? win.turnCount) || advTurns.length || 0);
+      const advGood = Number(kpis.goodCount) || 0;
+      const advBad = Number(kpis.badCount) || 0;
+      const advCompacts = advMarkers.filter(m => m && m.type === 'COMPACT').length;
+      const advCkpts = advMarkers.filter(m => m && m.type === 'CHECKPOINT').length;
+      const advSwitches = advMarkers.filter(m => m && m.type === 'MODEL_SWITCH').length;
+      const swarmWorkers = Array.isArray(raw.swarmTopology?.workers) ? raw.swarmTopology.workers : [];
+      const swarmWorktrees = Array.isArray(raw.swarmTopology?.worktrees) ? raw.swarmTopology.worktrees : [];
+
+      setTxt('taTrajectoryMeta', advTotalTurns > 0
+        ? `${advTotalTurns} turn${advTotalTurns === 1 ? '' : 's'}${burnRate > 0 ? ` \u00B7 +${formatTokens(burnRate)}/t` : ''}`
+        : (total > 0 ? 'Active session' : '0 turns \u00B7 waiting'));
+      const trajParts = [];
+      if (advTotalTurns > 0) trajParts.push(`${advGood} lean / ${advBad} heavy`);
+      if (advCompacts > 0) trajParts.push(`${advCompacts}\u00D7 compact`);
+      if (advCkpts > 0) trajParts.push(`${advCkpts} ckpt`);
+      if (advSwitches > 0) trajParts.push(`${advSwitches} switch`);
+      if (swarmWorkers.length > 0 || swarmWorktrees.length > 1) {
+        trajParts.push(`${swarmWorkers.length} worker${swarmWorkers.length === 1 ? '' : 's'}${swarmWorktrees.length > 1 ? ` @ ${swarmWorktrees.length} worktrees` : ''}`);
+      } else {
+        trajParts.push('Solo agent');
+      }
+      setTxt('taTrajSummary', trajParts.join(' \u00B7 '));
+
+      const sparkPathEl = document.getElementById('taSparklinePath');
+      if (sparkPathEl) {
+        const series = advTurns.map(t => Math.max(0, Number(t.cumulativeTokens ?? t.cumulative ?? t.totalTokens ?? t.deltaTokens ?? 0)));
+        if (series.length >= 2) {
+          const minV = Math.min(...series);
+          const spanV = Math.max(1, Math.max(...series) - minV);
+          const pts = series.map((v, i) => {
+            const x = ((i / (series.length - 1)) * 92 + 2).toFixed(1);
+            const y = (18 - ((v - minV) / spanV) * 15).toFixed(1);
+            return `${x},${y}`;
+          }).join(' ');
+          sparkPathEl.setAttribute('points', pts);
+        } else if (series.length === 1 || total > 0) {
+          sparkPathEl.setAttribute('points', '2,12 94,12');
+        } else {
+          sparkPathEl.setAttribute('points', '0,18 96,18');
+        }
+      }
+
+      const tsDrawer = document.getElementById('taTimelineSwarmDrawer');
+      const swarmBlock = document.getElementById('taSwarmBlock');
+      const turnTable = document.getElementById('taTurnTable');
+      const turnBody = document.getElementById('taTurnTableBody');
+      const hasSwarm = swarmWorkers.length > 0 || swarmWorktrees.length > 1 || scopeCollisions.length > 0;
+      const hasTurns = advTurns.length > 0;
+      if (tsDrawer) {
+        if (!hasSwarm && !hasTurns) {
+          tsDrawer.hidden = true;
+          tsDrawer.open = false;
+          if (swarmBlock) { swarmBlock.hidden = true; swarmBlock.innerHTML = ''; }
+          if (turnTable) turnTable.hidden = true;
+          if (turnBody) turnBody.innerHTML = '';
+        } else {
+          tsDrawer.hidden = false;
+          setTxt('taTimelineSwarmLabel', hasSwarm && hasTurns ? 'Turn deltas & swarm workers' : (hasSwarm ? 'Swarm workers & scope locks' : 'Turn-by-turn growth log'));
+          setTxt('taTimelineSwarmHint', hasSwarm ? `${swarmWorkers.length} workers` : `${advTurns.length} turns`);
+          if (swarmBlock) {
+            if (hasSwarm) {
+              swarmBlock.hidden = false;
+              const wLines = swarmWorkers.slice(0, 6).map(w => {
+                const loc = w.worktree || w.branch ? ` @ ${w.worktree || w.branch}` : '';
+                const tok = w.totalTokens != null ? ` (${formatTokens(w.totalTokens)})` : '';
+                return `<div><strong>${escAttr(w.agentId || w.role || 'worker')}</strong> [${escAttr(w.state || 'active')}${w.state === 'waiting' ? ' $0' : ''}]${escAttr(tok)}${escAttr(loc)}</div>`;
+              }).join('');
+              const cLines = scopeCollisions.map(c => `<div style="color:var(--status-critical);">Collision: ${escAttr(c?.file || c?.path || (Array.isArray(c?.overlappingPaths) ? c.overlappingPaths.join(', ') : '') || 'shared file')}</div>`).join('');
+              swarmBlock.innerHTML = `${wLines || `<div>${swarmWorktrees.length} git worktrees tracked</div>`}${cLines}`;
+            } else {
+              swarmBlock.hidden = true;
+              swarmBlock.innerHTML = '';
+            }
+          }
+          if (turnTable && turnBody) {
+            if (hasTurns) {
+              turnTable.hidden = false;
+              const recentTurns = advTurns.slice(-8);
+              turnBody.innerHTML = recentTurns.map(t => {
+                const tNum = Number(t.turn ?? t.userTurnNumber ?? 0);
+                const dTok = Number(t.deltaTokens ?? t.delta ?? 0);
+                const cumTok = Number(t.cumulativeTokens ?? t.cumulative ?? 0);
+                const mk = advMarkers.filter(m => m && Number(m.turn) === tNum).map(m => m.type).join(',');
+                const sigTxt = [t.practice === 'bad' ? 'heavy' : (t.practice === 'good' ? 'lean' : ''), mk, t.reason || ''].filter(Boolean).join(' \u00B7 ') || 'turn';
+                const toneC = t.practice === 'bad' ? 'var(--hz-clutter)' : 'var(--hz-fg-secondary)';
+                return `<tr><td>T${tNum}</td><td>+${formatTokens(dTok)}</td><td>${formatTokens(cumTok)}</td><td style="color:${toneC};" title="${escAttr(sigTxt)}">${escAttr(sigTxt)}</td></tr>`;
+              }).join('');
+            } else {
+              turnTable.hidden = true;
+              turnBody.innerHTML = '';
+            }
+          }
+        }
+      }
+    }
+
+    // Zone E: Verified Savings (strictly measured attribution, zero fabricated splits) & Surgery
     setTxt('taKpiTokens', `+${formatTokens(sessionSaved)}`);
-    setTxt('taKpiUsd', `~$${usdSaved.toFixed(2)}`);
+    setTxt('taKpiUsd', usdSaved > 0 ? `~$${usdSaved.toFixed(2)}` : '$0.00');
     setTxt('taKpi30d', `30d: +${formatTokens(lifetimeSaved)} (~$${usd30d.toFixed(2)})`);
 
-    const hasDetailedSavings = (savCache + savSubagent + savCli + savGuards) > 0 || !raw.savingsLedger;
-    const savedCache = hasDetailedSavings ? savCache : (Number(raw.savingsLedger?.prefixCacheTokens) || Math.round(sessionSaved * 0.75));
-    const savedSub = hasDetailedSavings ? savSubagent : (Number(raw.savingsLedger?.subagentTokens) || Math.round(sessionSaved * 0.10));
-    const savedCli = hasDetailedSavings ? savCli : (Number(raw.savingsLedger?.cliTokens) || Math.round(sessionSaved * 0.08));
-    const savedGuards = hasDetailedSavings ? savGuards : Math.max(0, sessionSaved - savedCache - savedSub - savedCli);
+    const savedCache = Math.max(0, savCache || Number(raw.savingsLedger?.prefixCacheTokens) || 0);
+    const savedSub = Math.max(0, savSubagent || Number(raw.savingsLedger?.subagentTokens) || 0);
+    const savedCli = Math.max(0, savCli || Number(raw.savingsLedger?.cliTokens) || 0);
+    const savedGuards = Math.max(0, savGuards || ((Number(raw.savingsLedger?.dedupTokens) || 0) + (Number(raw.savingsLedger?.compactionTokens) || 0)));
     setTxt('taSrcCache', `+${formatTokens(savedCache)}`);
     setTxt('taSrcSub', `+${formatTokens(savedSub)}`);
     setTxt('taSrcCli', `+${formatTokens(savedCli)}`);
     setTxt('taSrcGuards', `+${formatTokens(savedGuards)}`);
+
+    const taGitDriftWarn = document.getElementById('taGitDriftWarn');
+    const hasDriftWarn = Boolean(raw.compaction?.preCompactionWarning || raw.handoffAudit?.preCompactionWarning);
+    if (taGitDriftWarn) {
+      if (hasDriftWarn) {
+        taGitDriftWarn.hidden = false;
+        taGitDriftWarn.textContent = raw.compaction?.preCompactionWarningMessage ||
+          raw.handoffAudit?.preCompactionWarningMessage ||
+          'Uncommitted workspace changes detected while task.md is stale \u2014 sync task.md before compacting.';
+      } else {
+        taGitDriftWarn.hidden = true;
+        taGitDriftWarn.textContent = '';
+      }
+    }
+
+    const activeFilesList = Array.isArray(bs.activeFiles)
+      ? bs.activeFiles
+      : (Array.isArray(raw.brainSignals?.activeFiles) ? raw.brainSignals.activeFiles : []);
+    const fallbackPreserve = isClaudeSurface
+      ? 'CLAUDE.md invariants and .claude/cache/HANDOFF_LATEST.md state.'
+      : 'AGENTS.md invariants and task.md checklist.';
+    const rawParamCmd = String(raw.compaction?.parameterizedCommand || '').trim();
+    const defaultClause = activeFilesList.length > 0
+      ? `Focus on preserving: active files (${activeFilesList.slice(0, 3).map(f => typeof formatShortPath === 'function' ? formatShortPath(f) : f).join(', ')}); ${fallbackPreserve}`
+      : `Focus on preserving: ${fallbackPreserve}`;
+    const focusClause = rawParamCmd
+      ? rawParamCmd.replace(/^\/compact\s*/i, '').trim() || defaultClause
+      : defaultClause;
+    const fullSlashCmd = `/compact ${focusClause}`;
+
+    const taBtnCopyCompactEl = document.getElementById('taBtnCopyCompact');
+    const taCompactHintEl = document.getElementById('taCompactHint');
+    if (taCompactHintEl) {
+      taCompactHintEl.innerHTML = isClaudeSurface
+        ? 'Run in Claude Code CLI to compact while preserving active context:'
+        : 'Type <code>/compact</code> in chat (slash commands must be typed, not pasted), then paste focus args:';
+    }
+    setTxt('taCompactCmdText', isClaudeSurface ? fullSlashCmd : focusClause);
+    if (taBtnCopyCompactEl) {
+      taBtnCopyCompactEl.textContent = isClaudeSurface ? 'Copy /compact' : 'Copy Focus Args';
+      taBtnCopyCompactEl.title = isClaudeSurface
+        ? 'Copy spec-preserving /compact command to clipboard'
+        : 'Copy focus arguments to paste right after typing /compact';
+    }
 
     const taBtnSurgeryPrimary = document.getElementById('taBtnSurgeryPrimary');
     const taBtnForceAst = document.getElementById('taBtnForceAst');
     if (taBtnSurgeryPrimary) {
       taBtnSurgeryPrimary.disabled = false;
       taBtnSurgeryPrimary.dataset.ctaState = isCrisis ? 'crisis' : (isWarm ? 'guarded' : 'ready');
-      setTxt('taBtnSurgeryLabel', staleT > 0
-        ? `Memory Clean \u00B7 Reclaim ${formatTokens(staleT)} (Copy /compact)`
-        : 'Copy Parameterized /compact');
+      setTxt('taBtnSurgeryLabel', dispStaleT >= 100
+        ? (isClaudeSurface
+          ? `Checkpoint & Copy /compact \u00B7 ~${formatTokens(dispStaleT)} reclaimable`
+          : `Checkpoint & Copy Focus Args \u00B7 ~${formatTokens(dispStaleT)} reclaimable`)
+        : (isClaudeSurface ? 'Checkpoint Session & Copy /compact' : 'Checkpoint Session & Copy Focus Args'));
     }
     if (taBtnForceAst) {
       taBtnForceAst.disabled = false;
@@ -13811,48 +14654,10 @@
   }
 
   // Interactive handlers for Simple & Advanced Argon Tufte surfaces
-  const tsBtnCleanPrimary = document.getElementById('tsBtnCleanPrimary');
-  if (tsBtnCleanPrimary) {
-    tsBtnCleanPrimary.addEventListener('click', async () => {
-      const cmd = currentRenderedState?.compaction?.parameterizedCommand ||
-        document.getElementById('parameterizedCompactText')?.textContent?.trim() ||
-        '/compact';
-      try {
-        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-          await navigator.clipboard.writeText(cmd);
-        }
-      } catch (err) {
-        void err;
-      }
-      let checkpointed = false;
-      try {
-        const res = await fetch('/api/pre-compact', {
-          method: 'POST',
-          headers: buildHorizonPostHeaders(),
-          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto', action: 'clean_purge_cache', command: cmd })
-        });
-        if (res && res.ok) {
-          const data = typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
-          checkpointed = Boolean(data?.success ?? data?.ok ?? true);
-          if (data?.state) applyGlobalStateFromDaemon(data.state);
-        }
-      } catch (err) {
-        void err;
-      }
-      const lbl = document.getElementById('tsBtnCleanLabel');
-      const prev = lbl ? lbl.textContent : '';
-      if (lbl) lbl.textContent = checkpointed ? '\u2713 Copied /compact & Checkpointed!' : '\u2713 Copied /compact!';
-      showToast(checkpointed
-        ? '&#x2713; <strong>Copied <code>/compact</code></strong> to clipboard &amp; checkpointed session.'
-        : '&#x2713; <strong>Copied <code>/compact</code></strong> to clipboard.');
-      setTimeout(() => { if (lbl && prev) lbl.textContent = prev; }, 2000);
-    });
-  }
-
   const taBtnSurgeryPrimary = document.getElementById('taBtnSurgeryPrimary');
   if (taBtnSurgeryPrimary) {
     taBtnSurgeryPrimary.addEventListener('click', async () => {
-      const cmd = document.getElementById('taCompactCmdText')?.textContent?.trim() || currentRenderedState?.compaction?.parameterizedCommand || '/compact';
+      const cmd = document.getElementById('taCompactCmdText')?.textContent?.trim() || currentRenderedState?.compaction?.parameterizedCommand || 'Focus on preserving AGENTS.md invariants and task.md checklist.';
       try {
         if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
           await navigator.clipboard.writeText(cmd);
@@ -13875,16 +14680,18 @@
       } catch (err) {
         void err;
       }
+      const isClaudeTxt = (currentRenderedState?.storeSource || '').toLowerCase().includes('claude');
+      const copiedLabel = isClaudeTxt ? '<code>/compact</code> command' : 'focus args (type <code>/compact</code> in chat, then paste)';
       showToast(checkpointed
-        ? '&#x2713; <strong>Pre-Compact Surgery</strong> checkpointed &amp; copied command.'
-        : '&#x2713; <strong>Copied <code>/compact</code></strong> command to clipboard.');
+        ? `&#x2713; <strong>Pre-Compact Checkpoint</strong> saved &amp; copied ${copiedLabel}.`
+        : `&#x2713; <strong>Copied</strong> ${copiedLabel}.`);
     });
   }
 
   const taBtnCopyCompact = document.getElementById('taBtnCopyCompact');
   if (taBtnCopyCompact) {
     taBtnCopyCompact.addEventListener('click', async () => {
-      const cmd = document.getElementById('taCompactCmdText')?.textContent?.trim() || currentRenderedState?.compaction?.parameterizedCommand || '/compact';
+      const cmd = document.getElementById('taCompactCmdText')?.textContent?.trim() || currentRenderedState?.compaction?.parameterizedCommand || 'Focus on preserving AGENTS.md invariants and task.md checklist.';
       try {
         if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
           await navigator.clipboard.writeText(cmd);
@@ -13893,7 +14700,10 @@
         void err;
       }
       flashButton(taBtnCopyCompact, '\u2713 Copied', 1600);
-      showToast('&#x2713; <strong>Copied Parameterized <code>/compact</code></strong> to clipboard.');
+      const isClaudeTxt = (currentRenderedState?.storeSource || '').toLowerCase().includes('claude');
+      showToast(isClaudeTxt
+        ? '&#x2713; <strong>Copied Parameterized <code>/compact</code></strong> to clipboard.'
+        : '&#x2713; <strong>Copied Focus Args</strong> \u2014 type <code>/compact</code> in chat, then paste.');
     });
   }
 
@@ -13948,78 +14758,153 @@
     });
   }
 
-  const btnExportPdfReceiptEl = document.getElementById('btnExportPdfReceipt');
-  if (btnExportPdfReceiptEl) {
-    btnExportPdfReceiptEl.addEventListener('click', async (e) => {
-      e.preventDefault();
+  const taBtnReapOrphansEl = document.getElementById('taBtnReapOrphans');
+  if (taBtnReapOrphansEl) {
+    taBtnReapOrphansEl.addEventListener('click', async () => {
+      const orphans = Array.isArray(currentRenderedState?.hostHealth?.orphans) ? currentRenderedState.hostHealth.orphans : [];
+      const pids = orphans.map(o => Number(o?.pid)).filter(n => Number.isFinite(n) && n > 0);
       try {
-        const res = await fetch('/api/receipt/export?format=pdf');
-        if (res.status === 402) {
-          openShadowAutoBanner(currentRenderedState);
-          showToast('PDF receipt export requires Highbeam Pro or an active 14-day trial.');
+        const res = await fetch('/api/host/reap', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify(pids.length > 0 ? { pids } : {})
+        });
+        const data = res && typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
+        if (res && res.ok) {
+          if (data?.state) applyGlobalStateFromDaemon(data.state);
+          showToast('&#x2713; Reaped idle orphan host processes.');
           return;
         }
-        if (!res.ok) {
-          showToast('&#x26A0;&#xFE0F; Unable to export PDF savings receipt.');
-          return;
-        }
-        const blob = typeof res.blob === 'function' ? await res.blob() : null;
-        if (blob && typeof URL?.createObjectURL === 'function') {
-          const objUrl = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = objUrl;
-          a.download = 'highbeam-savings-receipt.pdf';
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          setTimeout(() => {
-            try { URL.revokeObjectURL(objUrl); } catch (err) { void err; }
-          }, 1000);
-        }
-        showToast('&#x2713; Downloaded PDF savings receipt.');
       } catch (err) {
         void err;
-        showToast('&#x26A0;&#xFE0F; Unable to export PDF savings receipt.');
       }
+      showToast('&#x26A0;&#xFE0F; Unable to reap orphan processes right now.');
     });
   }
+
+  const taBtnUnlockHysteresisEl = document.getElementById('taBtnUnlockHysteresis');
+  if (taBtnUnlockHysteresisEl) {
+    taBtnUnlockHysteresisEl.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/router/unlock-hysteresis', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto' })
+        });
+        const data = res && typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
+        if (res && res.ok) {
+          if (data?.state) applyGlobalStateFromDaemon(data.state);
+          showToast('&#x2713; Hysteresis lock released for next turn boundary.');
+          return;
+        }
+      } catch (err) {
+        void err;
+      }
+      showToast('&#x26A0;&#xFE0F; Unable to unlock router tier right now.');
+    });
+  }
+
+  async function handlePdfReceiptExport(e) {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    try {
+      const res = await fetch('/api/receipt/export?format=pdf');
+      if (res.status === 402) {
+        openShadowAutoBanner(currentRenderedState);
+        showToast('PDF receipt export requires Highbeam Pro or an active 14-day trial.');
+        return;
+      }
+      if (!res.ok) {
+        showToast('&#x26A0;&#xFE0F; Unable to export PDF savings receipt.');
+        return;
+      }
+      const blob = typeof res.blob === 'function' ? await res.blob() : null;
+      if (blob && typeof URL?.createObjectURL === 'function') {
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objUrl;
+        a.download = 'highbeam-savings-receipt.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => {
+          try { URL.revokeObjectURL(objUrl); } catch (err) { void err; }
+        }, 1000);
+      }
+      showToast('&#x2713; Downloaded PDF savings receipt.');
+    } catch (err) {
+      void err;
+      showToast('&#x26A0;&#xFE0F; Unable to export PDF savings receipt.');
+    }
+  }
+  const btnExportPdfReceiptEl = document.getElementById('btnExportPdfReceipt');
+  if (btnExportPdfReceiptEl) btnExportPdfReceiptEl.addEventListener('click', handlePdfReceiptExport);
+  const taBtnPdfReceiptEl = document.getElementById('taBtnPdfReceipt');
+  if (taBtnPdfReceiptEl) taBtnPdfReceiptEl.addEventListener('click', handlePdfReceiptExport);
 
   const taBtnCopyReceipt = document.getElementById('taBtnCopyReceipt');
   if (taBtnCopyReceipt) {
     taBtnCopyReceipt.addEventListener('click', copyVerifiedTokensSavedReceipt);
   }
 
+  const taDetBadgeClickEl = document.getElementById('taDetBadge');
+  if (taDetBadgeClickEl) {
+    taDetBadgeClickEl.addEventListener('click', () => {
+      const dr = document.getElementById('taGuardRosterDrawer');
+      if (dr) dr.open = !dr.open;
+    });
+  }
+
   document.querySelectorAll('#taRouterSwitch button').forEach(btn => {
     btn.addEventListener('click', () => handleUserModeChange(btn.dataset.taMode || btn.dataset.mode || 'coach'));
   });
 
-  const taConsumersBodyEl = document.getElementById('taConsumersBody');
-  if (taConsumersBodyEl) {
-    taConsumersBodyEl.addEventListener('click', async (e) => {
-      const btn = e.target.closest('button[data-ignore-path]');
-      if (!btn) return;
-      const p = btn.getAttribute('data-ignore-path');
-      if (!p) return;
-      let igData = {};
-      try {
-        const res = await fetch('/api/ignore', {
-          method: 'POST',
-          headers: buildHorizonPostHeaders(),
-          body: JSON.stringify({ path: p, workspacePath: currentRenderedState?.workspace?.canonicalPath || undefined })
-        });
-        igData = res && typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
-        if (res && res.ok) {
-          btn.textContent = '\u2713 Ignored';
-          btn.disabled = true;
-          showToast(`&#x2713; Added <code>${escAttr(p)}</code> to <code>.antigravityignore</code>`);
-          return;
-        }
-        showToast(`&#x26A0;&#xFE0F; ${escAttr(igData?.error || 'Cannot ignore active source file.')}`);
+  const handleTaConsumerIgnoreClick = async (e) => {
+    const btn = e.target.closest('button[data-ignore-path]');
+    if (!btn) return;
+    const p = btn.getAttribute('data-ignore-path');
+    if (!p) return;
+    let igData = {};
+    try {
+      const res = await fetch('/api/ignore', {
+        method: 'POST',
+        headers: buildHorizonPostHeaders(),
+        body: JSON.stringify({ path: p, workspacePath: currentRenderedState?.workspace?.canonicalPath || undefined })
+      });
+      igData = res && typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
+      if (res && res.ok) {
+        btn.textContent = '\u2713 Ignored';
+        btn.disabled = true;
+        showToast(`&#x2713; Added <code>${escAttr(p)}</code> to <code>.antigravityignore</code>`);
         return;
+      }
+      showToast(`&#x26A0;&#xFE0F; ${escAttr(igData?.error || 'Cannot ignore active source file.')}`);
+      return;
+    } catch (err) {
+      void err;
+    }
+    showToast('&#x26A0;&#xFE0F; Unable to update <code>.antigravityignore</code> right now.');
+  };
+  const taConsumersBodyEl = document.getElementById('taConsumersBody');
+  if (taConsumersBodyEl) taConsumersBodyEl.addEventListener('click', handleTaConsumerIgnoreClick);
+  const taMoreConsumersBodyEl = document.getElementById('taMoreConsumersBody');
+  if (taMoreConsumersBodyEl) taMoreConsumersBodyEl.addEventListener('click', handleTaConsumerIgnoreClick);
+
+  const advSurfaceEl = document.getElementById('argonAdvancedSurface');
+  if (advSurfaceEl) {
+    advSurfaceEl.addEventListener('click', async (e) => {
+      const copyBtn = e.target.closest('button[data-ta-copy]');
+      if (!copyBtn) return;
+      const val = copyBtn.getAttribute('data-ta-copy') || '';
+      if (!val) return;
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(val);
+        }
       } catch (err) {
         void err;
       }
-      showToast('&#x26A0;&#xFE0F; Unable to update <code>.antigravityignore</code> right now.');
+      flashButton(copyBtn, '\u2713 Copied', 1600);
+      showToast('&#x2713; Copied remediation command to clipboard.');
     });
   }
 

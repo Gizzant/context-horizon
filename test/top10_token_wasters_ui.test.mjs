@@ -466,7 +466,8 @@ describe('Top 10 Token Wasters — classifyHorizon + Horizon Panel UI Verificati
       assert.match(d.getElementById('tsWhyKeepNote').textContent, /CLAUDE\.md.*HANDOFF_LATEST\.md/);
       primaryBtn.click();
       await new Promise((r) => setTimeout(r, 20));
-      assert.equal(copied[copied.length - 1], '/compact Focus on preserving: src/webview/horizon_panel.html');
+      assert.equal(copied.length, 0, 'Simple view /compact line is informational text only; it must not copy (pasted /compact does not run, must be typed)');
+      assert.notEqual(primaryBtn.tagName, 'BUTTON');
 
       const badgeCs = win.getComputedStyle(d.getElementById('tufteTopHostBadge'));
       assert.equal(badgeCs.textOverflow, 'ellipsis');

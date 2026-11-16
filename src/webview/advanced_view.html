@@ -1317,7 +1317,7 @@
         // Top Bar & Sub-HUD
         const isClaude = state.storeSource === 'claude-code' || state.surface === 'claude-code';
         const surfaceLabel = isClaude ? 'Claude Code' : 'Antigravity';
-        const modelName = state.quota?.sprint5h?.modelPoolName || state.model?.displayName || state.effortProfile?.label || 'Auto';
+        const modelName = state.model?.displayName || state.window?.activeModelLabel || state.quota?.sprint5h?.modelPoolName || state.effortProfile?.label || 'Auto';
         const mult = Number(state.effortGovernor?.burnMultiplier ?? state.model?.burnMultiplier ?? 0);
         hostModelBadge.textContent = mult > 0
           ? `${surfaceLabel} \u00B7 ${modelName} (${mult}x)`
@@ -1335,14 +1335,18 @@
           sessionSelect.innerHTML = opts.join('');
         }
 
-        const sprintPct = Math.round(Number(state.quota?.sprint5h?.usedPct || 0));
-        const weeklyPct = Math.round(Number(state.quota?.weekly7d?.usedPct || 0));
+        const rawSprintPct = state.quota?.sprint5h?.usedPct ?? state.quota?.fiveHourPct;
+        const rawWeeklyPct = state.quota?.weekly7d?.usedPct ?? state.quota?.sevenDayPct;
         const rssGb = Number(state.hostHealth?.rssGb || 0);
         const orphanCount = Number(state.hostHealth?.orphanCount || state.hostHealth?.orphans?.length || 0);
 
-        sprint5hVal.textContent = `${sprintPct}%`;
+        sprint5hVal.textContent = (rawSprintPct != null && Number.isFinite(Number(rawSprintPct)))
+          ? `${Math.min(100, Math.round(Number(rawSprintPct)))}%`
+          : '\u2014';
         sprintResetVal.textContent = state.quota?.sprint5h?.resetLabel ? `(${state.quota.sprint5h.resetLabel})` : '';
-        weekly7dVal.textContent = `${weeklyPct}%`;
+        weekly7dVal.textContent = (rawWeeklyPct != null && Number.isFinite(Number(rawWeeklyPct)))
+          ? `${Math.min(100, Math.round(Number(rawWeeklyPct)))}%`
+          : '\u2014';
         hostRamVal.textContent = `${rssGb.toFixed(1)}GB`;
         hostRamVal.style.color = (rssGb >= 4.0 || orphanCount > 0) ? 'var(--hz-danger)' : 'var(--hz-fg)';
         btnReapOrphans.hidden = orphanCount <= 0;
@@ -1351,20 +1355,21 @@
         // Context Math & Cache Coherence
         const maxTokens = Math.max(1000, Number(state.window?.maxTokens || 256000));
         const safeLimit = Math.max(1000, Number(state.window?.safeLimit || Math.round(maxTokens * 0.70)));
-        const rawUsed = Math.max(0, Number(state.window?.totalActiveTokens ?? state.tokens?.total ?? 0));
+        const rawUsed = Math.max(0, Number(state.window?.totalTokens ?? state.totalTokens ?? state.window?.totalActiveTokens ?? state.tokens?.total ?? 0));
 
         const bd = state.breakdown || {};
         const bdClutter =
-          Math.max(0, Number(bd.DUPLICATE_READ || 0)) +
+          Math.max(0, Number(bd.DUPLICATE_READ || 0), Number(bd.STALE_DUPLICATE || 0)) +
           Math.max(0, Number(bd.STALE_TURN || 0)) +
           Math.max(0, Number(bd.DEAD_ERROR || 0)) +
           Math.max(0, Number(bd.DIRTY_SNAP || 0)) +
           Math.max(0, Number(bd.LEGACY_POISON || 0)) +
-          Math.max(0, Number(bd.MEMORY_BLEED || 0));
+          Math.max(0, Number(bd.MEMORY_BLEED || 0), Number(bd.FOREIGN_BLEED || 0));
         const bs = state.brainSignals || {};
         const bsClutter =
           Math.max(0, Number(bs.duplicateReads?.reclaimableTokens ?? bs.duplicateReads?.totalWastedTokens ?? 0)) +
           Math.max(0, Number(bs.deadErrors?.reclaimableTokens ?? bs.deadErrors?.totalTokens ?? 0)) +
+          Math.max(0, Number(bs.foreignBleed?.reclaimableTokens ?? 0)) +
           Math.max(0, Number(bs.oldHistory?.reclaimableTokens ?? 0));
         const rawClutter = Math.min(rawUsed, Math.max(bdClutter, bsClutter));
 
@@ -1376,7 +1381,7 @@
 
         const cache = state.quota?.cache || state.cache || {};
         const kvTtlSec = Math.max(0, Math.floor(Number(cache.ttlRemainingSec ?? cache.cacheTtlRemainingSec ?? 0)));
-        const billingTtlSec = Math.max(0, Math.floor(Number(cache.billingTtlSec ?? (kvTtlSec > 0 ? 3300 + kvTtlSec : 0))));
+        const billingTtlSec = Math.max(0, Math.floor(Number(cache.billingBlockRemainingSec ?? cache.billingTtlSec ?? (kvTtlSec > 0 ? 3300 + kvTtlSec : 0))));
         const cacheReadTokens = Math.max(0, Number(cache.cacheReadTokens || 0));
         const hitPct = Math.max(0, Number(cache.hitRatePct ?? cache.hitPercent ?? 0));
         const isCacheTrulyWarm = kvTtlSec > 0 && cacheReadTokens > 0 && hitPct > 0 && !cache.isCacheCold;
@@ -1457,15 +1462,22 @@
           ? `KV Gravity Hold: ${fmtTenthsK(roundTenthsK(cacheReadTokens))} warm prefix \u00B7 Mid-session switch pays full cold prefill`
           : `KV Gravity Router (${activeMode.toUpperCase()}) \u00B7 Safe to switch model/effort while cache is cold`;
 
-        // Zone C: Turn-0 Baseline, Shield & DET-01..32 Log
+        // Zone C: Turn-0 Baseline, Shield & DET-01..32 Log (strictly measured; no fabricated splits)
         const bl = state.baseline || {};
-        const rulesK = roundTenthsK(bl.rulesTokens ?? (Number(bs.activeSignal?.baselineTokens || 0) * 0.45));
-        const skillsK = roundTenthsK(bl.skillsTokens ?? (Number(bs.activeSignal?.baselineTokens || 0) * 0.20));
-        const mcpK = roundTenthsK(bl.mcpTokens ?? (Number(bs.activeSignal?.baselineTokens || 0) * 0.35));
-        const baseTotalK = Number((rulesK + skillsK + mcpK).toFixed(1));
-        baselineSummary.innerHTML =
-          `Turn-0 Baseline: <strong style="color:var(--hz-fg);">${fmtTenthsK(baseTotalK)}</strong> / 20.0k budget ` +
-          `(Rules ${fmtTenthsK(rulesK)} &middot; Skills ${fmtTenthsK(skillsK)} &middot; MCP ${fmtTenthsK(mcpK)})`;
+        const hasBlBreakdown = bl.rulesTokens != null || bl.skillsTokens != null || bl.mcpTokens != null;
+        if (hasBlBreakdown) {
+          const rulesK = roundTenthsK(bl.rulesTokens ?? 0);
+          const skillsK = roundTenthsK(bl.skillsTokens ?? 0);
+          const mcpK = roundTenthsK(bl.mcpTokens ?? 0);
+          const baseTotalK = bl.totalEst != null ? roundTenthsK(bl.totalEst) : Number((rulesK + skillsK + mcpK).toFixed(1));
+          baselineSummary.innerHTML =
+            `Turn-0 Baseline: <strong style="color:var(--hz-fg);">${fmtTenthsK(baseTotalK)}</strong> / 20.0k budget ` +
+            `(Rules ${fmtTenthsK(rulesK)} &middot; Skills ${fmtTenthsK(skillsK)} &middot; MCP ${fmtTenthsK(mcpK)})`;
+        } else {
+          const baseTotalK = roundTenthsK(bl.totalEst ?? bs.activeSignal?.baselineTokens ?? bd.ANCHOR ?? 0);
+          baselineSummary.innerHTML =
+            `Turn-0 Baseline: <strong style="color:var(--hz-fg);">${fmtTenthsK(baseTotalK)}</strong> / 20.0k budget (total unsplit)`;
+        }
 
         const stagedCount = Number(state.prefixShield?.queuedCount ?? state.coachState?.prefixShield?.queuedCount ?? 0);
         btnFlushShield.disabled = stagedCount <= 0;
@@ -1473,8 +1485,12 @@
           ? (isCacheTrulyWarm ? `Shield: ${stagedCount} fenced` : `Flush ${stagedCount} Delta${stagedCount === 1 ? '' : 's'}`)
           : 'Shield: 0 queued';
 
+        const totalDetCount = Number(state.coachState?.detectors?.totalCount) || 32;
+        const armedDetCount = Number(state.coachState?.detectors?.armedCount ?? totalDetCount) || totalDetCount;
         const trippedCount = Array.isArray(state.coachState?.breakerEvents) ? state.coachState.breakerEvents.length : 0;
-        detArmedBadge.textContent = trippedCount > 0 ? `32 armed \u00B7 ${trippedCount} fired` : '32/32 guards armed';
+        detArmedBadge.textContent = activeMode === 'off'
+          ? 'Guards paused'
+          : (trippedCount > 0 ? `${armedDetCount} armed \u00B7 ${trippedCount} fired` : `${armedDetCount}/${totalDetCount} guards armed`);
         renderGuardLedger(state);
 
         // Zone D: Multi-Source Savings Matrix & Dual Surgical Execution Bar

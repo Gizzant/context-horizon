@@ -166,7 +166,8 @@ describe('Simple view Next action: breakers, sharded spec, rule clashes & honest
       assert.equal(d.getElementById('tsGlassSafeLine').hidden, true);
       assert.match(txt('tsDoText'), /Two AI agents are working on the same file \(1 overlap\)/);
       assert.match(txt('tsLedgerList'), /Large-file read limit active.*1,200 lines/);
-      assert.match(txt('tsLedgerList'), /Applying 3 learned rules/);
+      assert.doesNotMatch(txt('tsLedgerList'), /learned rule/, 'learned rules live in their own drawer, not duplicated in the ledger');
+      assert.match(txt('tsLearnedRulesSummary'), /Applying 3 learned rules/);
       assert.equal(txt('tsSessionTurnsMeta'), '12 turns · 2 heavy');
       assert.match(txt('tsSessionPaceMeta'), /\+5\.0k\/turn avg · 1× compacted · 1 checkpoint/);
       assert.match(txt('tsRetentionMeta'), /94% kept \(A\)/);

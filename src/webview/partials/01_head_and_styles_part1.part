@@ -878,6 +878,21 @@
     padding: 3px 8px;
     font-size: 10.5px;
   }
+  /* Text-only Copy /compact: color encodes urgency of compacting */
+  .compact-text-btn {
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 2px 4px;
+    cursor: pointer;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    color: #4ade80;
+  }
+  .compact-text-btn[data-severity="warn"] { color: #fbbf24; }
+  .compact-text-btn[data-severity="danger"] { color: #f87171; }
+  .compact-text-btn:hover { filter: brightness(1.25); }
   .m3-reset-btn {
     font-size: 10px;
     line-height: 1;

@@ -1303,10 +1303,19 @@ export function renderAdvancedViewPane(state = {}, options = {}) {
 
   // Section 3: Circuit Breakers (DET-01..32), Thinking Drift & Prefix Retention
   const activeBreakerId =
-    options.breakerVerdict?.detectorId || options.breakerVerdict?.ruleId || null;
+    options.breakerVerdict?.detectorId ||
+    options.breakerVerdict?.ruleId ||
+    state.coachState?.detectors?.tripped?.detectorId ||
+    state.circuitBreakerTripped?.detectorId ||
+    null;
+  const activeBreakerReason =
+    options.breakerVerdict?.reason ||
+    state.coachState?.detectors?.tripped?.reason ||
+    state.circuitBreakerTripped?.reason ||
+    'active';
   const sec3Lines = [
     `[Section 3] Circuit Breakers (DET-01..32), Thinking Drift & Retention`,
-    `Flight Mode: ${metrics.flightMode} | Active Trigger: ${activeBreakerId ? `${activeBreakerId} (${options.breakerVerdict?.reason || 'active'})` : 'None (32 guards nominal)'}`,
+    `Flight Mode: ${metrics.flightMode} | Active Trigger: ${activeBreakerId ? `${activeBreakerId} (${activeBreakerReason})` : 'None (32 guards nominal)'}`,
     `Prefix Retention: ${formatRetentionLabel(state.prefixRetention)}`,
     `Thinking Drift (DET-30): ${formatDriftLabel(state.thinkingDrift)}`,
     `Haiku 100k 5x Cliff (DET-12): ${state.cliffTriggered ? 'EXCEEDED (5x step-up)' : state.preCliffWarningTriggered ? 'PRE-CLIFF WARNING (>= 90k)' : 'Nominal'}`
@@ -1329,7 +1338,7 @@ export function renderAdvancedViewPane(state = {}, options = {}) {
   // Section 5: PreCompact State Baton & Session Forensics
   const sec5Lines = [
     `[Section 5] PreCompact State Baton & Claude Code Forensics`,
-    `Session ID: ${state.sessionId || 'default'} | Completed Turns: ${Number(state.turnsCompleted || 0)}`,
+    `Session ID: ${state.sessionId || 'default'} | Completed Turns: ${Number(state.turnsCompleted ?? state.window?.turnCount ?? state.sessionTimeline?.totalTurns ?? 0)}`,
     `Zoom Tier : ${grid.zoomTier.label} (${grid.zoomTier.tokensPerCell.toLocaleString('en-US')} tok/cell)`,
     `State Baton: Auto-flushed on PreCompact to .claude/cache/HANDOFF_LATEST.md`,
     `CLI Tools : npx ctxtop statusline | npx ctxtop radar | npx ctxtop inspect | npx ctxtop doctor`
@@ -1351,7 +1360,7 @@ export function renderAdvancedViewPane(state = {}, options = {}) {
     {
       sectionNumber: 3,
       id: 'circuit-breakers-drift',
-      title: 'Circuit Breakers (DET-01..21), Thinking Drift & Retention',
+      title: 'Circuit Breakers (DET-01..32), Thinking Drift & Retention',
       lines: sec3Lines
     },
     {
