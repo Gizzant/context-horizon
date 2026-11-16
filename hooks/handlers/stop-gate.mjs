@@ -5,6 +5,7 @@
  */
 
 import { loadHorizonConfig, resolveDetectorOverride } from '../../src/core-isomorphic/config/horizonConfig.mjs';
+import { resolveEffectiveAutoFlightMode } from '../../src/core/pro_license.mjs';
 import { isSilentOrOffMode } from '../../src/core-isomorphic/coach/cacheGravityRouter.mjs';
 import { evaluateSmartCompactSuggestion } from '../../src/core-isomorphic/coach/smartCompactAdvisor.mjs';
 import { computeActiveToolsetHash } from '../../src/core-isomorphic/coach/resumeToolsetAuditor.mjs';
@@ -40,7 +41,14 @@ export function runStopGateHook(event = {}, options = {}) {
   const sessionId = event.session_id || event.sessionId || 'default';
   const cwdOptions = event.cwd && !options.cwd ? { ...options, cwd: event.cwd } : options;
   const horizonConfig = options.horizonConfig || loadHorizonConfig(cwdOptions);
-  const effectiveMode = options.mode || event.mode || horizonConfig?.flightMode || 'COACH';
+  const rawEffectiveMode = options.mode || event.mode || horizonConfig?.flightMode || 'COACH';
+  const modeGate = resolveEffectiveAutoFlightMode(rawEffectiveMode, {
+    licensePath: options.licensePath || event.licensePath,
+    homeDir: options.homeDir || event.homeDir,
+    nowMs: options.nowMs,
+    strict: Boolean(options.strict ?? event.strict)
+  });
+  const effectiveMode = modeGate.effectiveFlightMode;
   const stopHookActive = Boolean(event.stop_hook_active ?? event.stopHookActive);
   const isSessionEnd =
     String(options.phase || event.phase || '').toLowerCase() === 'end' ||
@@ -332,14 +340,14 @@ export function runStopGateHook(event = {}, options = {}) {
     stopPass?.decision === 'block' ||
     isSilentOrOffMode(effectiveMode) ||
     stopHookActive
-      ? { shouldSuggest: false, suppressedReason: 'blocked_or_silent', detectorStatus: 'unverified', message: null }
+      ? { shouldSuggest: false, suppressedReason: 'blocked_or_silent', detectorStatus: 'verified', message: null }
       : evaluateSmartCompactSuggestion(
           {
             enabled:
               event.smartCompactBoundarySuggest ??
               options.smartCompactBoundarySuggest ??
               horizonConfig?.thresholds?.smartCompactBoundarySuggest ??
-              false,
+              true,
             detectorState: midDebugActive
               ? 'mid_debug'
               : boundaryReached
@@ -347,6 +355,9 @@ export function runStopGateHook(event = {}, options = {}) {
                 : (event.detectorState || 'other'),
             boundaryDetected: boundaryReached,
             openFailure: Boolean(breakerSnap?.taskBoundaryState?.openFailure),
+            ...(event.boundary_detected === undefined && event.boundaryDetected === undefined
+              ? { editsSinceBoundary: Number(breakerSnap?.taskBoundaryState?.editsSinceBoundary || 0) }
+              : {}),
             consecutiveFailures: Number(breakerSnap?.consecutiveFailures || 0),
             turnsSinceLastCompact: effectiveTurnsSinceLastCompact,
             modelId: currentModelId,
@@ -371,11 +382,12 @@ export function runStopGateHook(event = {}, options = {}) {
         );
 
   if (shouldPersistState && det14.decision !== 'block') {
-    const nextTurnsSinceCompact =
-      typeof breakerSnap?.turnsSinceLastCompact === 'number' &&
-      Number.isFinite(breakerSnap.turnsSinceLastCompact)
-        ? breakerSnap.turnsSinceLastCompact + 1
-        : null;
+    const nextTurnsSinceCompact = smartCompactSuggestion.shouldSuggest
+      ? 1
+      : (typeof breakerSnap?.turnsSinceLastCompact === 'number' &&
+          Number.isFinite(breakerSnap.turnsSinceLastCompact)
+            ? breakerSnap.turnsSinceLastCompact + 1
+            : null);
     const toolsetHash =
       event.cwd || cwdOptions.cwd || event.tools || event.mcp_servers || options.cliArgs || event.cliArgs
         ? computeActiveToolsetHash(event, cwdOptions)

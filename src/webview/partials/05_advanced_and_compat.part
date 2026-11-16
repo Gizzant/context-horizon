@@ -696,8 +696,6 @@
     </div>
   </details>
 
-  <div class="feedback-toast" id="feedbackToast"></div>
-
   <!-- Inert Legacy Summary Container (Hidden via CSS; preserved for backward-compatible gate hooks) -->
   <section class="health-summary-card advanced-only" id="sessionHealthSummary">
     <div class="health-summary-header section-box-header">
@@ -738,23 +736,6 @@
       </div>
     </div>
   </section>
-
-  <!-- Host Runtime Watchdog Bar (Critical Alert in Simple View + Full Status in Advanced View) -->
-  <div class="host-watchdog-bar mono" id="hostWatchdogBar" hidden>
-    <div class="section-box-header">
-      <div class="section-box-title-group">
-        <span class="section-box-icon" aria-hidden="true">&#x1F5A5;&#xFE0F;</span>
-        <h2 class="section-box-title">Host Runtime Health</h2>
-      </div>
-      <div class="section-box-meta-group">
-        <span class="summary-status-pill warn mono" id="hostWatchdogStatusPill">Active</span>
-      </div>
-    </div>
-    <div class="host-watchdog-body">
-      <span id="hostWatchdogText">Host RAM: 0.0 GB &middot; Orphans: 0</span>
-      <button class="mini-btn" id="btnReapOrphans" hidden data-reap-label="[Reap Orphans]" title="[Reap Orphans] Lists detached language_server / MCP orphan processes and asks before terminating them">Clean up orphans…</button>
-    </div>
-  </div>
 
   <!-- Zone 4 & 5: Unified Session Activity, Canonical +Saved Pill & Git Auto-Guard Rail -->
   <section class="flight-recorder simple-only" id="simpleFlightRecorder" aria-label="Session activity and verified tokens saved">
@@ -818,4 +799,22 @@
 
   <div class="footer-meta mono" id="footerMeta">Live updates active</div>
   </div><!-- /#legacyCompatSurface -->
+
+  <!-- Visible Toast & Critical Host Runtime Watchdog Bar (outside .legacy-compat-surface) -->
+  <div class="host-watchdog-bar mono" id="hostWatchdogBar" hidden>
+    <div class="section-box-header">
+      <div class="section-box-title-group">
+        <span class="section-box-icon" aria-hidden="true">&#x1F5A5;&#xFE0F;</span>
+        <h2 class="section-box-title">Host Runtime Health</h2>
+      </div>
+      <div class="section-box-meta-group">
+        <span class="summary-status-pill warn mono" id="hostWatchdogStatusPill">Active</span>
+      </div>
+    </div>
+    <div class="host-watchdog-body">
+      <span id="hostWatchdogText">Host RAM: 0.0 GB &middot; Orphans: 0</span>
+      <button class="mini-btn" id="btnReapOrphans" hidden data-reap-label="[Reap Orphans]" title="[Reap Orphans] Lists detached language_server / MCP orphan processes and asks before terminating them">Clean up orphans…</button>
+    </div>
+  </div>
+  <div class="feedback-toast" id="feedbackToast"></div>
 </div>

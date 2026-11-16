@@ -469,9 +469,9 @@ test('Item 4: pending_downshift recorded on DET-08 hold, surfaced once on Sessio
 test('Item 5: task-boundary /compact suggestion defaults OFF, respects ROI/mid-debug/4-turn cooldown, and PreCompact stays clean', () => {
   const ws = makeTempDir('ctxtop-item5-');
   try {
-    // 5.1 Default config has smartCompactBoundarySuggest === false
+    // 5.1 Default config has smartCompactBoundarySuggest === true (verified via H7 organic audit)
     const cfg = loadHorizonConfig({ cwd: ws.cwd, homeDir: ws.homeDir });
-    assert.equal(cfg.thresholds.smartCompactBoundarySuggest, false);
+    assert.equal(cfg.thresholds.smartCompactBoundarySuggest, true);
 
     // 5.2 Negative ROI at ~49k (v1, 12 reqs) vs positive ROI at ~139k (v2, 21 reqs)
     const roi49k = computeCompactionHorizonNetSaving({
@@ -489,15 +489,27 @@ test('Item 5: task-boundary /compact suggestion defaults OFF, respects ROI/mid-d
     assert.equal(roi139k.positive, true);
     assert.ok(roi139k.netSavingUSD > 0.4, `Expected positive net saving at 139k, got ${roi139k.netSavingUSD}`);
 
-    // Disabled by default even on positive ROI boundary
-    const defaultOff = evaluateSmartCompactSuggestion({
+    // Enabled by default on positive ROI boundary; can still be suppressed explicitly with enabled: false
+    const defaultOn = evaluateSmartCompactSuggestion({
       boundaryDetected: true,
       detectorState: 'task_boundary',
       modelId: 'claude-sonnet-4-6',
       preCompactTokens: 139_174,
       expectedRemainingRequests: 21
     });
-    assert.equal(defaultOff.shouldSuggest, false);
+    assert.equal(defaultOn.shouldSuggest, true);
+    assert.equal(defaultOn.detectorStatus, 'verified');
+
+    const explicitOff = evaluateSmartCompactSuggestion({
+      enabled: false,
+      boundaryDetected: true,
+      detectorState: 'task_boundary',
+      modelId: 'claude-sonnet-4-6',
+      preCompactTokens: 139_174,
+      expectedRemainingRequests: 21
+    });
+    assert.equal(explicitOff.shouldSuggest, false);
+    assert.equal(explicitOff.suppressedReason, 'disabled');
 
     // Suppressed during mid_debug and <4 turns post-compact
     const midDebug = evaluateSmartCompactSuggestion({
@@ -524,11 +536,11 @@ test('Item 5: task-boundary /compact suggestion defaults OFF, respects ROI/mid-d
     assert.equal(cooldown.shouldSuggest, false);
     assert.equal(cooldown.suppressedReason, 'post_compact_cooldown');
 
-    // Fires via PostToolUse -> Stop when enabled, >=4 turns since compact, boundary passed, ROI positive
+    // Fires via PostToolUse -> Stop by default (>=4 turns since compact, boundary passed, ROI positive)
     const hookOpts = { cwd: ws.cwd, homeDir: ws.homeDir, persistState: true };
     fs.writeFileSync(
       path.join(ws.cwd, '.attention-horizon.json'),
-      JSON.stringify({ flightMode: 'COACH', smartCompactBoundarySuggest: true }),
+      JSON.stringify({ flightMode: 'COACH' }),
       'utf8'
     );
     writeBreakerStateSnapshot('sess-b', new CircuitBreakerEngine({ turnsSinceLastCompact: 5 }).exportStateSnapshot(), hookOpts);
@@ -549,7 +561,7 @@ test('Item 5: task-boundary /compact suggestion defaults OFF, respects ROI/mid-d
       hookOpts
     );
     assert.equal(stopRes.smartCompactSuggestion.shouldSuggest, true);
-    assert.match(stopRes.stdoutJson.systemMessage, /unverified/);
+    assert.match(stopRes.stdoutJson.systemMessage, /\(verified detector\)/);
     assert.match(stopRes.stdoutJson.systemMessage, /2-minute/);
     assert.match(stopRes.stdoutJson.systemMessage, /\$/);
 
@@ -559,6 +571,55 @@ test('Item 5: task-boundary /compact suggestion defaults OFF, respects ROI/mid-d
       hookOpts
     );
     assert.equal(preCompact.stdout, '');
+
+    // 5.5 Trailing code edit clears boundaryDetected / turnBoundaryReached, while doc/artifact edits do not
+    const passBoundary = evaluateTaskBoundaryTurn(
+      { toolName: 'Bash', command: 'node --test test/a.test.mjs', exitCode: 0 },
+      { openFailure: false, editsSinceBoundary: 1 }
+    );
+    assert.equal(passBoundary.boundaryDetected, true);
+    assert.equal(passBoundary.editsSinceBoundary, 0);
+
+    const docEditAfterPass = evaluateTaskBoundaryTurn(
+      { toolName: 'Edit', filePath: 'task.md' },
+      { openFailure: passBoundary.openFailure, editsSinceBoundary: passBoundary.editsSinceBoundary }
+    );
+    assert.equal(docEditAfterPass.editsSinceBoundary, 0);
+
+    const codeEditAfterPass = evaluateTaskBoundaryTurn(
+      { toolName: 'Edit', filePath: 'src/app.mjs' },
+      { openFailure: docEditAfterPass.openFailure, editsSinceBoundary: docEditAfterPass.editsSinceBoundary }
+    );
+    assert.equal(codeEditAfterPass.editsSinceBoundary, 1);
+
+    const suppressedUnverified = evaluateSmartCompactSuggestion({
+      enabled: true,
+      boundaryDetected: false,
+      detectorState: 'other',
+      editsSinceBoundary: codeEditAfterPass.editsSinceBoundary,
+      modelId: 'claude-sonnet-4-6',
+      preCompactTokens: 139_174,
+      expectedRemainingRequests: 21
+    });
+    assert.equal(suppressedUnverified.shouldSuggest, false);
+    assert.equal(suppressedUnverified.suppressedReason, 'unverified_edits');
+
+    // Hook persistence clears turnBoundaryReached when a trailing code edit happens in the same turn
+    runPostToolUseHook({ session_id: 'sess-c', cwd: ws.cwd, tool_name: 'Edit', tool_input: { file_path: 'src/b.mjs' } }, hookOpts);
+    runPostToolUseHook(
+      { session_id: 'sess-c', cwd: ws.cwd, tool_name: 'Bash', tool_input: { command: 'node --test test/b.test.mjs' }, exit_code: 0 },
+      hookOpts
+    );
+    assert.equal(readBreakerStateSnapshot('sess-c', hookOpts).turnBoundaryReached, true);
+
+    runPostToolUseHook({ session_id: 'sess-c', cwd: ws.cwd, tool_name: 'Edit', tool_input: { file_path: 'src/b.mjs' } }, hookOpts);
+    assert.equal(readBreakerStateSnapshot('sess-c', hookOpts).turnBoundaryReached, false);
+
+    runPostToolUseHook(
+      { session_id: 'sess-c', cwd: ws.cwd, tool_name: 'Bash', tool_input: { command: 'node --test test/b.test.mjs' }, exit_code: 0 },
+      hookOpts
+    );
+    assert.equal(readBreakerStateSnapshot('sess-c', hookOpts).turnBoundaryReached, true);
   } finally {
     ws.cleanup();
   }

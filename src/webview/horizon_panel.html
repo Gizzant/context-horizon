@@ -4100,6 +4100,58 @@
       border-bottom: 1px solid var(--hairline) !important;
     }
 
+    /* Compact Active Conversation Switcher Bar */
+    .ts-conv-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      margin: 4px 0 6px 0;
+      background: var(--bg-surface);
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      min-width: 0;
+    }
+    .ts-conv-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .ts-conv-select {
+      flex: 1 1 auto;
+      min-width: 0;
+      max-width: 100%;
+      padding: 2px 6px;
+      border-radius: 5px;
+      border: 1px solid var(--hairline);
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-variant-numeric: tabular-nums;
+      text-overflow: ellipsis;
+      cursor: pointer;
+    }
+    .ts-conv-btn {
+      flex-shrink: 0;
+      padding: 2px 7px;
+      border-radius: 5px;
+      border: 1px solid var(--hairline);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .ts-conv-btn:hover { color: var(--text-primary); border-color: var(--text-muted); }
+    .ts-conv-btn[hidden] { display: none !important; }
+    [data-theme="light"] .ts-conv-btn { background: rgba(15, 23, 42, 0.05); }
+
     /* 3-Way Protection Mode Segmented Slider Bar (Off | Coach | Auto) */
     .ts-mode-bar {
       display: flex;
@@ -4848,6 +4900,17 @@
     #tsAvoidRow[hidden] { display: none; }
     .ts-guard-list .ts-ledger-row[data-effective-state="enforces"] .ts-ledger-saved { color: var(--accent-focus); font-weight: 600; }
     .ts-guard-list .ts-ledger-row[data-effective-state="paused"] .ts-ledger-saved { color: var(--text-muted); font-weight: 400; font-style: italic; }
+    .ts-ledger-row[data-clickable="true"] { cursor: pointer; }
+    .ts-ledger-row[data-clickable="true"]:hover { color: var(--text-primary); }
+    .ts-ledger-row[data-clickable="true"]:hover .ts-ledger-saved { text-decoration: underline; text-underline-offset: 2px; }
+    .ts-ledger-row[data-clickable="true"]:focus-visible,
+    #tsSessionExtraRow[data-clickable="true"]:focus-visible { outline: 1.5px solid var(--accent-focus); outline-offset: 2px; border-radius: 2px; }
+    #tsSessionExtraRow[data-clickable="true"] { cursor: pointer; }
+    #tsSessionExtraRow[data-clickable="true"]:hover .ts-kpi-sub { color: var(--text-primary); }
+    #tsLearnedRulesList .ts-ledger-row { grid-template-columns: 40px minmax(0, 1fr) auto; }
+    #tsLearnedRulesList .ts-ledger-row[data-effective-state="blocks"] .ts-ledger-saved { color: var(--accent-focus); font-weight: 600; }
+    #tsLearnedRulesList .ts-ledger-row[data-effective-state="paused"] .ts-ledger-saved { color: var(--text-muted); font-weight: 400; font-style: italic; }
+    #tsLearnedRulesDrawer[hidden] { display: none; }
 
     [data-theme="light"] .ta-cell:not([data-cat]) { background: var(--hz-free); }
     [data-theme="light"] .ta-inspector,
@@ -5063,6 +5126,19 @@
       color: #FFFFFF;
     }
     .ts-shadow-btn[hidden] { display: none !important; }
+    .feedback-toast {
+      position: fixed;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      z-index: 80;
+      background: rgba(15, 22, 35, 0.96) !important;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    }
+    [data-theme="light"] .feedback-toast {
+      background: rgba(246, 248, 250, 0.98) !important;
+      color: #1f2328 !important;
+    }
 </style>
 </head>
 <body data-view-mode="simple">
@@ -5089,6 +5165,15 @@
       <span class="tufte-top-host-badge" id="tufteTopHostBadge">Antigravity &middot; Auto</span>
       <button class="icon-btn" onclick="window.location.reload()" title="Reload panel" aria-label="Reload panel"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.35-3.6"/><path d="M13.5 2.5v3h-3"/></svg></button>
     </div>
+  </div>
+
+  <div id="tsConversationBar" class="ts-conv-bar" role="region" aria-label="Active conversation">
+    <span class="ts-conv-label">Chat</span>
+    <select id="tsSessionSelect" class="ts-conv-select" aria-label="Select conversation to inspect" title="Follows your active conversation automatically, or pick any recent conversation to inspect its context.">
+      <option value="auto">Auto (Following active chat)</option>
+    </select>
+    <button type="button" id="tsBtnFollowActive" class="ts-conv-btn" hidden title="Pinned to a specific chat. Click to return to automatic active-chat tracking.">Auto</button>
+    <button type="button" id="tsBtnJumpChat" class="ts-conv-btn" hidden title="Switch IDE chat pane to this conversation (Alt+Click opens local brain folder).">Open</button>
   </div>
 
   <div id="tsModeBar" class="ts-mode-bar" role="region" aria-label="Protection mode">
@@ -5126,11 +5211,11 @@
         <span class="ts-card-title" data-tip title="How full your AI's working memory is right now compared to the safe limit where it stays accurate and remembers early project rules.">CONTEXT</span>
         <div class="ts-status-badge" role="status" aria-live="polite" data-tip title="Current memory and prompt-cache health. Green or neutral means you have room to work cleanly; amber or red means it is time to compact or slow down.">
           <span id="tsStatusDot" class="ts-dot" data-tone="nominal"></span>
-          <span id="tsStatusLabel">Nominal Memory</span>
+          <span id="tsStatusLabel">Healthy</span>
         </div>
       </div>
 
-      <p id="tsContextSummary" class="ts-explain" data-tip title="A plain-English snapshot of what is inside your AI's working memory right now and how much room remains before older rules risk getting crowded out.">Working memory has plenty of room for edits and multi-file tasks without losing earlier instructions.</p>
+      <p id="tsContextSummary" class="ts-explain" data-tip title="A quick look at what is in your AI's working memory now, and how much room is left before older rules get crowded out.">Working memory has plenty of room for edits and multi-file tasks without losing earlier instructions.</p>
 
       <div class="ts-context-split">
         <div class="ts-context-info">
@@ -5192,7 +5277,7 @@
             <div id="tsGlassFill" class="ts-glass-fill" data-empty="true" style="height:0%">
               <div id="tsGlassSegNew" class="ts-glass-seg ts-glass-seg-new" style="height:0%" title="New & active work (recent chat & current files): 0.0k"><span id="tsGlassTagNew" class="ts-glass-seg-tag" hidden>NEW</span></div>
               <div id="tsGlassSegOld" class="ts-glass-seg ts-glass-seg-old" data-clutter-tone="stale" style="height:0%" title="Older & reclaimable clutter (old turns, repeat reads & fixed errors): 0.0k"><span id="tsGlassTagOld" class="ts-glass-seg-tag" hidden>OLD</span></div>
-              <div id="tsGlassSegPinned" class="ts-glass-seg ts-glass-seg-pinned" style="height:0%" title="Rules & tools (AGENTS.md / CLAUDE.md, MCP schemas): 0.0k"><span id="tsGlassTagPinned" class="ts-glass-seg-tag" hidden>BASE</span></div>
+              <div id="tsGlassSegPinned" class="ts-glass-seg ts-glass-seg-pinned" style="height:0%" title="Rules & tools (AGENTS.md / CLAUDE.md, MCP tool lists): 0.0k"><span id="tsGlassTagPinned" class="ts-glass-seg-tag" hidden>BASE</span></div>
             </div>
           </div>
           <span id="tsGlassCaption" class="ts-glass-caption" data-state="nominal" data-tip title="Percentage of the safe working memory limit currently filled.">0% of safe</span>
@@ -5260,20 +5345,26 @@
     <!-- CARD 3: AUTOMATED ACTIVITY -->
     <section id="tsActivitySection" class="ts-card" aria-label="Automated activity">
       <div class="ts-card-head">
-        <span class="ts-card-title" data-tip title="Automatic protections Highbeam is running behind the scenes: trimming noisy test logs, deduplicating repeat reads, protecting warm caches, and applying learned session rules.">AUTOMATED ACTIVITY</span>
+        <span class="ts-card-title" data-tip title="What Highbeam does in the background: it trims long test logs, skips repeat file reads, protects your warm cache, and applies learned rules.">AUTOMATED ACTIVITY</span>
         <span id="tsGuardsSummary" class="ts-kpi-sub" data-tip title="Number of background interventions active in this chat and how many safety/efficiency guards are currently armed.">Guards armed</span>
       </div>
 
       <ul id="tsLedgerList" class="ts-ledger" role="list">
         <li class="ts-ledger-row" title="Highbeam watches tool outputs and rule writes locally so noisy logs and premature rule edits do not bloat memory or break warm caches.">
           <span class="ts-ledger-age">now</span>
-          <span>Auto-guards armed — trimming noisy command output (FTS5) and shielding warm prompt caches</span>
+          <span>Guards armed — trimming long command output and protecting your warm prompt cache</span>
           <span class="ts-ledger-saved">ready</span>
         </li>
       </ul>
 
+      <details id="tsLearnedRulesDrawer" class="ts-drawer" hidden>
+        <summary title="Click to see the project rules and recovery steps Highbeam learned from your earlier coding sessions."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span><span id="tsLearnedRulesSummary">Applying learned rules</span></span><span id="tsLearnedRulesHint" class="ts-kpi-sub">Details</span></summary>
+        <div id="tsLearnedRulesHead" class="ts-guard-head" hidden>Learned project rules</div>
+        <ul id="tsLearnedRulesList" class="ts-ledger ts-guard-list" role="list" hidden></ul>
+      </details>
+
       <details id="tsActivityDrawer" class="ts-drawer">
-        <summary title="Click to view every active guard rule, whether it is tripped right now, blocks bad actions automatically, or advises you softly."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Active safety &amp; efficiency guards</span><span id="tsGuardRosterHint" class="ts-kpi-sub">Details</span></summary>
+        <summary title="Click to see every guard, whether it needs attention now, and whether it blocks bad actions or only gives advice."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Active safety &amp; efficiency guards</span><span id="tsGuardRosterHint" class="ts-kpi-sub">Details</span></summary>
         <div id="tsGuardListHead" class="ts-guard-head" hidden>Live guards</div>
         <ul id="tsGuardList" class="ts-ledger ts-guard-list" role="list" hidden></ul>
       </details>
@@ -5286,7 +5377,7 @@
         <span id="tsSessionTurnsMeta" class="ts-kpi-sub" data-tip title="Total turns recorded in this conversation so far, along with how many stayed lean vs. triggered a spike or warning.">Session start</span>
       </div>
 
-      <p id="tsSessionDigest" class="ts-explain" data-tip title="A plain-English summary of how this whole conversation is progressing, including compactions, checkpoints, and cache reuse.">Tracking your session from Turn 1 &mdash; watching context growth, prompt cache reuse, and token savings.</p>
+      <p id="tsSessionDigest" class="ts-explain" data-tip title="A short summary of how this chat is going, including /compact runs, checkpoints, and cache use.">Tracking your session from Turn 1 &mdash; watching context growth, prompt cache reuse, and token savings.</p>
 
       <div class="ts-metric-list" role="region" aria-label="Entire session metrics">
         <!-- Row 1: Entire Session Pace & Velocity Sparkline -->
@@ -5303,7 +5394,7 @@
         </div>
 
         <!-- Row 2: Prompt Cache Hit Rate, Retention & TTL -> 1D BulletBar -->
-        <div class="ts-metric-row" title="Warm prompt cache reuses earlier conversation turns at a 90%–95% discount until the timer runs out or the prefix changes. Target line sits at 80%.">
+        <div class="ts-metric-row" title="Warm prompt cache reuses earlier conversation turns at a 90%–95% discount until the timer runs out or the start of the chat changes. Target line sits at 80%.">
           <div class="ts-metric-main">
             <span class="ts-metric-label">Prompt cache</span>
             <span id="tsCacheMeta" class="ts-meta" data-tone="muted">0% hit &middot; Cold</span>
@@ -5337,7 +5428,7 @@
         </div>
 
         <!-- Row 5 (Conditional): Option A Shadow Auto Preview for Free / Expired Trial -->
-        <div id="tsShadowAutoRow" class="ts-metric-row" hidden title="Verified counterfactual incidents that Auto mode would have handled automatically.">
+        <div id="tsShadowAutoRow" class="ts-metric-row" hidden title="Problems that Auto mode would have fixed for you if it were turned on.">
           <div class="ts-metric-main">
             <span class="ts-metric-label">Auto preview</span>
             <span id="tsShadowAutoMeta" class="ts-kpi-sub"></span>
@@ -6045,8 +6136,6 @@
     </div>
   </details>
 
-  <div class="feedback-toast" id="feedbackToast"></div>
-
   <!-- Inert Legacy Summary Container (Hidden via CSS; preserved for backward-compatible gate hooks) -->
   <section class="health-summary-card advanced-only" id="sessionHealthSummary">
     <div class="health-summary-header section-box-header">
@@ -6087,23 +6176,6 @@
       </div>
     </div>
   </section>
-
-  <!-- Host Runtime Watchdog Bar (Critical Alert in Simple View + Full Status in Advanced View) -->
-  <div class="host-watchdog-bar mono" id="hostWatchdogBar" hidden>
-    <div class="section-box-header">
-      <div class="section-box-title-group">
-        <span class="section-box-icon" aria-hidden="true">&#x1F5A5;&#xFE0F;</span>
-        <h2 class="section-box-title">Host Runtime Health</h2>
-      </div>
-      <div class="section-box-meta-group">
-        <span class="summary-status-pill warn mono" id="hostWatchdogStatusPill">Active</span>
-      </div>
-    </div>
-    <div class="host-watchdog-body">
-      <span id="hostWatchdogText">Host RAM: 0.0 GB &middot; Orphans: 0</span>
-      <button class="mini-btn" id="btnReapOrphans" hidden data-reap-label="[Reap Orphans]" title="[Reap Orphans] Lists detached language_server / MCP orphan processes and asks before terminating them">Clean up orphans…</button>
-    </div>
-  </div>
 
   <!-- Zone 4 & 5: Unified Session Activity, Canonical +Saved Pill & Git Auto-Guard Rail -->
   <section class="flight-recorder simple-only" id="simpleFlightRecorder" aria-label="Session activity and verified tokens saved">
@@ -6167,6 +6239,24 @@
 
   <div class="footer-meta mono" id="footerMeta">Live updates active</div>
   </div><!-- /#legacyCompatSurface -->
+
+  <!-- Visible Toast & Critical Host Runtime Watchdog Bar (outside .legacy-compat-surface) -->
+  <div class="host-watchdog-bar mono" id="hostWatchdogBar" hidden>
+    <div class="section-box-header">
+      <div class="section-box-title-group">
+        <span class="section-box-icon" aria-hidden="true">&#x1F5A5;&#xFE0F;</span>
+        <h2 class="section-box-title">Host Runtime Health</h2>
+      </div>
+      <div class="section-box-meta-group">
+        <span class="summary-status-pill warn mono" id="hostWatchdogStatusPill">Active</span>
+      </div>
+    </div>
+    <div class="host-watchdog-body">
+      <span id="hostWatchdogText">Host RAM: 0.0 GB &middot; Orphans: 0</span>
+      <button class="mini-btn" id="btnReapOrphans" hidden data-reap-label="[Reap Orphans]" title="[Reap Orphans] Lists detached language_server / MCP orphan processes and asks before terminating them">Clean up orphans…</button>
+    </div>
+  </div>
+  <div class="feedback-toast" id="feedbackToast"></div>
 </div>
 
 <script id="precomputedCatalogScript">
@@ -6176,8 +6266,18 @@
 <script>
   let currentRenderedState = null;
   // Temporary diagnostic (?debug=1): confirms whether banner dimming is in-panel or host-side.
-  let selectedSessionMode = 'auto';
+  const __initialConvParam = (() => {
+    try {
+      return window.sidecar?.conversationId || new URLSearchParams(window.location.search || '').get('conversationId') || '';
+    } catch (err) {
+      void err;
+      return '';
+    }
+  })();
+  let selectedSessionMode = (__initialConvParam && __initialConvParam !== 'auto') ? __initialConvParam : 'auto';
   let latestAutoState = null;
+  const __liveSessionCache = Object.create(null);
+  let __wsSwitchFetchInFlight = '';
   let initialHostSurface = window.sidecar?.surface || null;
   let currentWorkspaceBasename = '';
   let userForcedShowDeferred = false;
@@ -6851,6 +6951,8 @@
 
   function populateSessionDropdown(activeId, recentSessions = [], liveTok = {}) {
     const sel = document.getElementById('sessionSelect');
+    const tsSel = document.getElementById('tsSessionSelect');
+    if (!sel && !tsSel) return;
     const catalog = window.__PRECOMPUTED_SESSIONS__ || {};
     // Live value wins; next is SQLite gen_metadata liveTokens; catalog snapshot is fallback
     const tokensFor = (sid, sEntry = null) => {
@@ -6875,7 +6977,6 @@
     const autoMeta = sessions.find(s => s.sessionId === autoId);
     const autoTok = tokensFor(autoId, autoMeta);
     const autoSurfaceTag = autoMeta?.surfaceTag || autoState?.surfaceTag || resolveSurfaceTag(autoMeta?.surface || autoState?.storeSource || autoState?.logFilePath);
-    const routeLabel = formatEffortRouteLabel(autoState);
     const fallbackTitle = stripTokPrefix(autoState?.sessionTitle || 'Active Conversation');
     const autoTitle = autoMeta
       ? `${autoSurfaceTag} [${autoTok ? fmtK(autoTok) : '?'}] ${stripTokPrefix(autoMeta.title)}`
@@ -6893,16 +6994,31 @@
       html += `<option value="${s.sessionId}" data-surface="${escAttr(sSurface)}">${sTag} [${prefix}] ${stripTokPrefix(s.title)}</option>`;
     }
 
+    if (selectedSessionMode !== 'auto' && !sessions.some(s => s.sessionId === selectedSessionMode)) {
+      const pinTok = tokensFor(selectedSessionMode, null);
+      const pinPrefix = pinTok ? fmtK(pinTok) : 'pinned';
+      const pinTitle = stripTokPrefix(
+        (currentRenderedState?.sessionId === selectedSessionMode && currentRenderedState?.sessionTitle)
+          || __liveSessionCache[selectedSessionMode]?.sessionTitle
+          || selectedSessionMode.slice(0, 12)
+      );
+      html += `<option value="${escAttr(selectedSessionMode)}" data-surface="antigravity">[AG] [${pinPrefix}] ${escAttr(pinTitle)}</option>`;
+    }
+
     // Skip DOM rewrite when nothing changed so an open dropdown is not collapsed by the live refresh
     const sig = html + '|' + selectedSessionMode;
-    if (sel.dataset.sig === sig) return;
-    sel.dataset.sig = sig;
-    sel.innerHTML = html;
-    if (selectedSessionMode !== 'auto' && sessions.some(s => s.sessionId === selectedSessionMode)) {
-      sel.value = selectedSessionMode;
-    } else {
-      sel.value = 'auto';
+    const targetValue = selectedSessionMode !== 'auto' ? selectedSessionMode : 'auto';
+    for (const targetSel of [sel, tsSel]) {
+      if (!targetSel) continue;
+      if (targetSel.dataset.sig === sig) continue;
+      targetSel.dataset.sig = sig;
+      targetSel.innerHTML = html;
+      targetSel.value = targetValue;
     }
+    const tsFollowBtn = document.getElementById('tsBtnFollowActive');
+    if (tsFollowBtn) tsFollowBtn.hidden = selectedSessionMode === 'auto';
+    const tsJumpBtn = document.getElementById('tsBtnJumpChat');
+    if (tsJumpBtn) tsJumpBtn.hidden = !(typeof window.sidecar?.ui?.toggleConversation === 'function');
   }
 
   // Tooling tip dismissal persists in localStorage (falls back to in-memory if storage is blocked)
@@ -7401,26 +7517,51 @@
         return;
       }
     }
+    if (raw.sessionId) {
+      __liveSessionCache[raw.sessionId] = raw;
+    }
     if (!fromCatalog) {
-      // Keep the cached auto state fresh: the daemon pins the active conversation, so a pinned
-      // stream state for the same session (or any state while following 'auto') must replace it.
-      // Otherwise cached re-renders (workspace change / Follow active) resurrect pre-/compact totals.
-      if (!latestAutoState || selectedSessionMode === 'auto' || raw.sessionId === latestAutoState.sessionId) {
+      if (!latestAutoState || selectedSessionMode === 'auto' || (!raw.pinnedConversationId && raw.sessionId === latestAutoState.sessionId)) {
         latestAutoState = raw;
         if (!initialHostSurface && raw.storeSource) initialHostSurface = raw.storeSource;
       }
       if (selectedSessionMode !== 'auto') {
-        const catMatch = (window.__PRECOMPUTED_SESSIONS__ || {})[selectedSessionMode];
-        if (catMatch && raw.sessionId !== selectedSessionMode) {
-          raw = catMatch;
+        if (raw.sessionId !== selectedSessionMode) {
+          const cachedSel = __liveSessionCache[selectedSessionMode] || (window.__PRECOMPUTED_SESSIONS__ || {})[selectedSessionMode];
+          if (cachedSel) {
+            raw = cachedSel;
+          } else {
+            return;
+          }
         }
-      } else if (currentWorkspaceBasename && raw.workspace?.canonicalPath) {
+      } else if (!raw.pinnedConversationId && currentWorkspaceBasename && raw.workspace?.canonicalPath) {
         const rawWs = String(raw.workspace.canonicalPath).replace(/\\/g, '/').split('/').filter(Boolean).pop();
         if (rawWs && rawWs.toLowerCase() !== currentWorkspaceBasename.toLowerCase()) {
-          const matchByWs = Object.values(window.__PRECOMPUTED_SESSIONS__ || {}).find(
+          const matchByWs = Object.values(__liveSessionCache).find(
+            s => String(s?.workspace?.canonicalPath || s?.workspaceName || '').toLowerCase().includes(currentWorkspaceBasename.toLowerCase())
+          ) || Object.values(window.__PRECOMPUTED_SESSIONS__ || {}).find(
             s => (s.workspaceName || '').toLowerCase() === currentWorkspaceBasename.toLowerCase()
           );
-          if (matchByWs) raw = matchByWs;
+          if (matchByWs) {
+            raw = matchByWs;
+          } else {
+            const recentWs = (raw.recentSessions || []).find(
+              s => String(s.workspace || '').toLowerCase() === currentWorkspaceBasename.toLowerCase()
+            );
+            if (recentWs && recentWs.sessionId && recentWs.sessionId !== raw.sessionId && __wsSwitchFetchInFlight !== recentWs.sessionId) {
+              __wsSwitchFetchInFlight = recentWs.sessionId;
+              fetch(`/api/state?conversationId=${encodeURIComponent(recentWs.sessionId)}`)
+                .then(r => (r && r.ok ? r.json() : null))
+                .then(d => {
+                  __wsSwitchFetchInFlight = '';
+                  if (d && d.sessionId) {
+                    __liveSessionCache[d.sessionId] = d;
+                    if (selectedSessionMode === 'auto') renderState(d, true);
+                  }
+                })
+                .catch(err => { void err; __wsSwitchFetchInFlight = ''; });
+            }
+          }
         }
       }
     }
@@ -7497,18 +7638,21 @@
     }
     populateSessionDropdown(raw.sessionId, raw.recentSessions, liveTok);
 
-    // Keep selected option label in #sessionSelect and top #activeConversationTitle synchronized with live state
+    // Keep selected option label in #tsSessionSelect / #sessionSelect and top #activeConversationTitle synchronized with live state
     const selEl = document.getElementById('sessionSelect');
-    if (selEl && selEl.selectedOptions && selEl.selectedOptions[0]) {
-      const activeOpt = selEl.selectedOptions[0];
-      const liveTag = raw.surfaceTag || resolveSurfaceTag(raw.storeSource || raw.logFilePath || activeOpt.dataset?.surface);
-      const liveTitle = stripTokPrefix(raw.sessionTitle || activeOpt.textContent || 'Conversation');
-      activeOpt.textContent = `${liveTag} [${fmtK(totalTokens)}] ${liveTitle}`;
+    const tsSelEl = document.getElementById('tsSessionSelect');
+    for (const activeSel of [selEl, tsSelEl]) {
+      if (activeSel && activeSel.selectedOptions && activeSel.selectedOptions[0]) {
+        const activeOpt = activeSel.selectedOptions[0];
+        const liveTag = raw.surfaceTag || resolveSurfaceTag(raw.storeSource || raw.logFilePath || activeOpt.dataset?.surface);
+        const liveTitle = stripTokPrefix(raw.sessionTitle || activeOpt.textContent || 'Conversation');
+        activeOpt.textContent = `${liveTag} [${fmtK(totalTokens)}] ${liveTitle}`;
+      }
     }
 
     const activeTitleEl = document.getElementById('activeConversationTitle');
     if (activeTitleEl) {
-      const selOpt = selEl?.selectedOptions?.[0];
+      const selOpt = tsSelEl?.selectedOptions?.[0] || selEl?.selectedOptions?.[0];
       const rawTitleCandidate = raw.sessionTitle
         || (selOpt && selOpt.value !== 'auto' ? selOpt.textContent : '')
         || 'Active Conversation';
@@ -7524,6 +7668,10 @@
     const followBtnEl = document.getElementById('btnFollowActiveSession');
     if (followBtnEl) {
       followBtnEl.hidden = selectedSessionMode === 'auto';
+    }
+    const tsFollowBtnEl = document.getElementById('tsBtnFollowActive');
+    if (tsFollowBtnEl) {
+      tsFollowBtnEl.hidden = selectedSessionMode === 'auto';
     }
 
     const modelPillEl = document.getElementById('sessionModelPill');
@@ -11613,6 +11761,39 @@
     banner.hidden = false;
   }
 
+  const __HZ_GLOBAL_STATE_KEYS = ['routerMode', 'flightMode', 'enforcedRouterMode', 'enforcedFlightMode',
+    'autoEnforced', 'autoShadow', 'proEntitlement', 'shadowAuto'];
+
+  function applyGlobalStateFromDaemon(nextState) {
+    if (!nextState || typeof nextState !== 'object') return;
+    if (latestAutoState && typeof latestAutoState === 'object') {
+      if (selectedSessionMode === 'auto' || latestAutoState.sessionId === nextState.sessionId) {
+        const mergedAuto = Object.assign({}, latestAutoState);
+        for (const k of __HZ_GLOBAL_STATE_KEYS) {
+          if (nextState[k] !== undefined) mergedAuto[k] = nextState[k];
+        }
+        latestAutoState = mergedAuto;
+      }
+    }
+    if (selectedSessionMode !== 'auto' && currentRenderedState && typeof currentRenderedState === 'object' && currentRenderedState.sessionId !== nextState.sessionId) {
+      const overlay = Object.assign({}, currentRenderedState);
+      for (const k of __HZ_GLOBAL_STATE_KEYS) {
+        if (nextState[k] !== undefined) overlay[k] = nextState[k];
+      }
+      currentRenderedState = overlay;
+      if (typeof __liveSessionCache === 'object' && __liveSessionCache && overlay.sessionId) {
+        __liveSessionCache[overlay.sessionId] = overlay;
+      }
+      try { renderArgonTufteSurfaces(currentRenderedState); } catch (err) { void err; }
+      return;
+    }
+    currentRenderedState = nextState;
+    if (typeof __liveSessionCache === 'object' && __liveSessionCache && nextState.sessionId) {
+      __liveSessionCache[nextState.sessionId] = nextState;
+    }
+    try { renderArgonTufteSurfaces(currentRenderedState); } catch (err) { void err; }
+  }
+
   document.getElementById('tsShadowBtnDismiss')?.addEventListener('click', () => {
     const banner = document.getElementById('tsShadowAutoBanner');
     if (banner) banner.hidden = true;
@@ -11631,22 +11812,22 @@
         const modeRes = await fetch('/api/router/mode', {
           method: 'POST',
           headers: buildHorizonPostHeaders(),
-          body: JSON.stringify({ mode: 'autopilot' })
+          body: JSON.stringify({ mode: 'autopilot', conversationId: selectedSessionMode !== 'auto' ? selectedSessionMode : undefined })
         });
         const modeJson = modeRes && typeof modeRes.json === 'function' ? await modeRes.json() : {};
         if (modeJson.state) {
-          currentRenderedState = modeJson.state;
-          try { renderArgonTufteSurfaces(currentRenderedState); } catch {}
+          applyGlobalStateFromDaemon(modeJson.state);
         }
         const banner = document.getElementById('tsShadowAutoBanner');
         if (banner) banner.hidden = true;
         setRouterModeActiveUI('autopilot');
         showToast('&#x2713; 14-day Auto trial started');
       } else if (statusEl) {
-        statusEl.textContent = actJson.reason || '14-day trial already expired — enter a Pro license key.';
+        statusEl.textContent = actJson.reason || '14-day trial already expired \u2014 enter a Pro license key.';
         statusEl.hidden = false;
       }
-    } catch {
+    } catch (err) {
+      void err;
       if (statusEl) {
         statusEl.textContent = 'Unable to activate local trial.';
         statusEl.hidden = false;
@@ -11676,12 +11857,11 @@
         const modeRes = await fetch('/api/router/mode', {
           method: 'POST',
           headers: buildHorizonPostHeaders(),
-          body: JSON.stringify({ mode: 'autopilot' })
+          body: JSON.stringify({ mode: 'autopilot', conversationId: selectedSessionMode !== 'auto' ? selectedSessionMode : undefined })
         });
         const modeJson = modeRes && typeof modeRes.json === 'function' ? await modeRes.json() : {};
         if (modeJson.state) {
-          currentRenderedState = modeJson.state;
-          try { renderArgonTufteSurfaces(currentRenderedState); } catch {}
+          applyGlobalStateFromDaemon(modeJson.state);
         }
         const banner = document.getElementById('tsShadowAutoBanner');
         if (banner) banner.hidden = true;
@@ -11691,7 +11871,8 @@
         statusEl.textContent = `License rejected (${actJson.reason || 'INVALID_KEY'}).`;
         statusEl.hidden = false;
       }
-    } catch {
+    } catch (err) {
+      void err;
       if (statusEl) {
         statusEl.textContent = 'Unable to verify license key.';
         statusEl.hidden = false;
@@ -11699,72 +11880,74 @@
     }
   });
 
-  document.querySelectorAll('#tsModeSlider .ts-mode-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const mode = normalizeHorizonUiMode(btn.dataset.mode || 'coach');
-      const ent = currentRenderedState?.proEntitlement;
-      // Selection is never stepped down: unentitled users stay on Auto in shadow (preview) mode.
-      const optimisticShadow = mode === 'autopilot' && Boolean(ent && ent.entitled === false);
-      __modeSelectionPendingUntil = Date.now() + 3000;
+  async function handleUserModeChange(rawMode) {
+    const mode = normalizeHorizonUiMode(rawMode || 'coach');
+    const banner = document.getElementById('tsShadowAutoBanner');
+    const ent = currentRenderedState?.proEntitlement;
+    // Selection is never stepped down: unentitled users stay on Auto in shadow (preview) mode.
+    const optimisticShadow = mode === 'autopilot' && Boolean(ent && ent.entitled === false);
+    __modeSelectionPendingUntil = Date.now() + 3000;
 
-      setRouterModeActiveUI(mode);
-      if (currentRenderedState && typeof currentRenderedState === 'object') {
-        currentRenderedState.routerMode = mode;
-        currentRenderedState.flightMode = mode === 'autopilot' ? 'AUTO_PILOT' : (mode === 'off' ? 'OFF' : 'COACH');
-        currentRenderedState.autoShadow = optimisticShadow;
-        currentRenderedState.autoEnforced = mode === 'autopilot' && !optimisticShadow;
-        try { renderArgonTufteSurfaces(currentRenderedState); } catch {}
+    setRouterModeActiveUI(mode);
+    if (currentRenderedState && typeof currentRenderedState === 'object') {
+      currentRenderedState.routerMode = mode;
+      currentRenderedState.flightMode = mode === 'autopilot' ? 'AUTO_PILOT' : (mode === 'off' ? 'OFF' : 'COACH');
+      currentRenderedState.autoShadow = optimisticShadow;
+      currentRenderedState.autoEnforced = mode === 'autopilot' && !optimisticShadow;
+      try { renderArgonTufteSurfaces(currentRenderedState); } catch (err) { void err; }
+    }
+    if (optimisticShadow) {
+      openShadowAutoBanner(currentRenderedState);
+    } else if (mode !== 'autopilot' && banner) {
+      banner.hidden = true;
+    }
+
+    let modeResp = null;
+    try {
+      const res = await fetch('/api/router/mode', {
+        method: 'POST',
+        headers: buildHorizonPostHeaders(),
+        body: JSON.stringify({
+          mode,
+          conversationId: selectedSessionMode !== 'auto' ? selectedSessionMode : undefined
+        })
+      });
+      if (res && typeof res.json === 'function') {
+        modeResp = await res.json();
       }
-      if (optimisticShadow) openShadowAutoBanner(currentRenderedState);
-      let modeResp = null;
-      try {
-        const res = await fetch('/api/router/mode', {
-          method: 'POST',
-          headers: buildHorizonPostHeaders(),
-          body: JSON.stringify({ mode })
-        });
-        if (res && typeof res.json === 'function') {
-          modeResp = await res.json();
-        }
-      } catch {}
-      __modeSelectionPendingUntil = 0;
-      if (modeResp?.state && typeof modeResp.state === 'object') {
-        currentRenderedState = modeResp.state;
-        try { renderArgonTufteSurfaces(currentRenderedState); } catch {}
-      }
-      if (modeResp?.autoShadow) {
-        openShadowAutoBanner(currentRenderedState);
-        showToast('Auto preview &mdash; showing what it would fix. Start the 14-day trial or unlock Pro to apply corrections.');
-        return;
-      }
-      if (mode === 'autopilot' && modeResp && modeResp.autoShadow === false) {
-        if (banner) banner.hidden = true;
-      }
-      const label = mode === 'off' ? 'Off (Watch only)' : (mode === 'autopilot' ? 'Auto (Hands-free)' : 'Coach');
-      showToast(`&#x2713; Mode set to <strong>${escAttr(label)}</strong>`);
-    });
+    } catch (err) {
+      void err;
+    }
+    __modeSelectionPendingUntil = 0;
+    if (modeResp?.state && typeof modeResp.state === 'object') {
+      applyGlobalStateFromDaemon(modeResp.state);
+    }
+    if (modeResp?.autoShadow) {
+      openShadowAutoBanner(currentRenderedState);
+      showToast('Auto preview &mdash; showing what it would fix. Start the 14-day trial or unlock Pro to apply corrections.');
+      return;
+    }
+    if (mode === 'autopilot' && modeResp && modeResp.autoShadow === false && banner) {
+      banner.hidden = true;
+    }
+    const label = mode === 'off' ? 'Off (Watch only)' : (mode === 'autopilot' ? 'Auto (Hands-free)' : 'Coach');
+    showToast(`&#x2713; Mode set to <strong>${escAttr(label)}</strong>`);
+  }
+
+  document.querySelectorAll('#tsModeSlider .ts-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleUserModeChange(btn.dataset.mode || 'coach'));
   });
   ['btnModeOff', 'btnModeCoach', 'btnModeAutopilot', 'tufteModeOff', 'tufteModeCoach', 'tufteModeAutopilot'].forEach(id => {
     const btn = document.getElementById(id);
     if (btn) {
-      btn.onclick = async () => {
-        const mode = btn.dataset.mode || 'coach';
-        setRouterModeActiveUI(mode);
-        try {
-          await fetch('/api/router/mode', {
-            method: 'POST',
-            headers: buildHorizonPostHeaders(),
-            body: JSON.stringify({ mode })
-          });
-          showToast(`&#x2713; Model router mode set to <strong>${escAttr(mode.toUpperCase())}</strong>`);
-        } catch {}
-      };
+      btn.onclick = () => handleUserModeChange(btn.dataset.mode || 'coach');
     }
   });
 
-  document.getElementById('btnOpenChat').onclick = async (e) => {
+  async function handleOpenChatOrFolder(e) {
     const targetId = currentRenderedState?.sessionId;
-    const selOpt = document.getElementById('sessionSelect')?.selectedOptions?.[0];
+    const selOpt = document.getElementById('tsSessionSelect')?.selectedOptions?.[0]
+      || document.getElementById('sessionSelect')?.selectedOptions?.[0];
     const targetSurface = currentRenderedState?.storeSource || selOpt?.dataset?.surface || 'antigravity';
     const isForeignSurface = isCurrentSessionForeignSurface();
 
@@ -11780,7 +11963,9 @@
           showToast(`&#x2713; Opened <strong>${escAttr(data.surfaceTag || resolveSurfaceTag(targetSurface))}</strong> folder: <code>${escAttr(formatShortPath(data.brainDir || targetId))}</code>`);
           return;
         }
-      } catch {}
+      } catch (err) {
+        void err;
+      }
       if (isForeignSurface) {
         showToast('&#x26A0;&#xFE0F; Cross-surface session: opened folder via daemon fallback.');
         return;
@@ -11790,50 +11975,96 @@
     }
     if (targetId && window.sidecar?.ui?.toggleConversation) {
       window.sidecar.ui.toggleConversation(targetId);
-      showToast(`&#x2713; Switched IDE chat view to <strong>${currentRenderedState.sessionTitle || targetId.slice(0, 8)}</strong>.`);
+      showToast(`&#x2713; Switched IDE chat view to <strong>${escAttr(currentRenderedState.sessionTitle || targetId.slice(0, 8))}</strong>.`);
     } else {
-      showToast(`Select a conversation from the dropdown above to inspect its memory (or Alt+Click to open its brain folder).`);
+      showToast('Select a conversation from the dropdown above to inspect its memory (or Alt+Click to open its brain folder).');
     }
-  };
+  }
 
-  // Handle dropdown conversation selection & unpin chip
-  document.getElementById('sessionSelect').onchange = async (e) => {
-    selectedSessionMode = e.target.value;
-    const followBtn = document.getElementById('btnFollowActiveSession');
-    if (followBtn) followBtn.hidden = selectedSessionMode === 'auto';
-    document.getElementById('feedbackToast').style.display = 'none';
-    if (selectedSessionMode === 'auto') {
-      if (latestAutoState) renderState(latestAutoState, false);
-    } else if (window.__PRECOMPUTED_SESSIONS__ && window.__PRECOMPUTED_SESSIONS__[selectedSessionMode]) {
-      renderState(window.__PRECOMPUTED_SESSIONS__[selectedSessionMode], true);
+  const btnOpenChatEl = document.getElementById('btnOpenChat');
+  if (btnOpenChatEl) btnOpenChatEl.onclick = handleOpenChatOrFolder;
+  const tsBtnJumpChatEl = document.getElementById('tsBtnJumpChat');
+  if (tsBtnJumpChatEl) tsBtnJumpChatEl.addEventListener('click', handleOpenChatOrFolder);
+
+  let __activeEvtSource = null;
+  function connectHorizonStream(convMode) {
+    if (__activeEvtSource && typeof __activeEvtSource.close === 'function') {
+      try { __activeEvtSource.close(); } catch (err) { void err; }
     }
+    __activeEvtSource = null;
+    if (typeof EventSource !== 'function') return;
     try {
-      const r = await fetch(`/api/state?conversationId=${encodeURIComponent(selectedSessionMode)}`);
-      const d = await r.json();
-      if (d && d.sessionId === selectedSessionMode) renderState(d, true);
+      const streamUrl = (convMode && convMode !== 'auto')
+        ? `/api/stream?conversationId=${encodeURIComponent(convMode)}`
+        : '/api/stream';
+      const es = new EventSource(withSidecarAuthUrl(streamUrl));
+      es.onmessage = (ev) => {
+        try {
+          const payload = JSON.parse(ev.data);
+          renderState(payload, Boolean(convMode && convMode !== 'auto'));
+        } catch (err) {
+          void err;
+        }
+      };
+      __activeEvtSource = es;
     } catch (err) {
       void err;
     }
-  };
+  }
+
+  async function selectConversationMode(nextMode) {
+    const modeVal = (nextMode && typeof nextMode === 'string') ? nextMode : 'auto';
+    selectedSessionMode = modeVal;
+    const isPinned = selectedSessionMode !== 'auto';
+    const sel = document.getElementById('sessionSelect');
+    const tsSel = document.getElementById('tsSessionSelect');
+    if (sel) sel.value = selectedSessionMode;
+    if (tsSel) tsSel.value = selectedSessionMode;
+    const followBtn = document.getElementById('btnFollowActiveSession');
+    if (followBtn) followBtn.hidden = !isPinned;
+    const tsFollowBtn = document.getElementById('tsBtnFollowActive');
+    if (tsFollowBtn) tsFollowBtn.hidden = !isPinned;
+    const toastEl = document.getElementById('feedbackToast');
+    if (toastEl) toastEl.style.display = 'none';
+
+    if (!isPinned) {
+      if (latestAutoState) renderState(latestAutoState, false);
+    } else {
+      const cached = (typeof __liveSessionCache === 'object' && __liveSessionCache[selectedSessionMode])
+        || (window.__PRECOMPUTED_SESSIONS__ && window.__PRECOMPUTED_SESSIONS__[selectedSessionMode]);
+      if (cached) renderState(cached, true);
+    }
+
+    connectHorizonStream(selectedSessionMode);
+    try {
+      const r = await fetch(`/api/state?conversationId=${encodeURIComponent(selectedSessionMode)}`);
+      const d = r && typeof r.json === 'function' ? await r.json() : null;
+      if (d && (selectedSessionMode === 'auto' || d.sessionId === selectedSessionMode)) {
+        if (d.sessionId && typeof __liveSessionCache === 'object') __liveSessionCache[d.sessionId] = d;
+        renderState(d, selectedSessionMode !== 'auto');
+      }
+    } catch (err) {
+      void err;
+    }
+  }
+
+  // Handle dropdown conversation selection & unpin chip across both views
+  const sessionSelEl = document.getElementById('sessionSelect');
+  if (sessionSelEl) sessionSelEl.onchange = (e) => selectConversationMode(e.target.value);
+  const tsSessionSelEl = document.getElementById('tsSessionSelect');
+  if (tsSessionSelEl) tsSessionSelEl.onchange = (e) => selectConversationMode(e.target.value);
 
   const followActiveBtn = document.getElementById('btnFollowActiveSession');
-  if (followActiveBtn) {
-    followActiveBtn.onclick = async () => {
-      selectedSessionMode = 'auto';
-      const sel = document.getElementById('sessionSelect');
-      if (sel) sel.value = 'auto';
-      followActiveBtn.hidden = true;
-      document.getElementById('feedbackToast').style.display = 'none';
-      if (latestAutoState) renderState(latestAutoState, false);
-      try {
-        const r = await fetch('/api/state?conversationId=auto');
-        const d = await r.json();
-        if (d && selectedSessionMode === 'auto') renderState(d, false);
-      } catch (err) {
-        void err;
-      }
-    };
-  }
+  if (followActiveBtn) followActiveBtn.onclick = () => selectConversationMode('auto');
+  const tsFollowBtnEl = document.getElementById('tsBtnFollowActive');
+  if (tsFollowBtnEl) tsFollowBtnEl.onclick = () => selectConversationMode('auto');
+
+  window.addEventListener('message', (ev) => {
+    const msg = ev && ev.data;
+    if (msg && (msg.type === 'conversation-change' || msg.type === 'sidecar:conversation-change') && typeof msg.conversationId === 'string' && msg.conversationId) {
+      selectConversationMode(msg.conversationId);
+    }
+  });
 
   // Listen for IDE workspace-change events from /preload.js
   if (window.sidecar && typeof window.sidecar.onWorkspaceChange === 'function') {
@@ -11841,8 +12072,12 @@
       if (Array.isArray(uris) && uris.length > 0) {
         const clean = decodeURIComponent(uris[0]).replace(/\\/g, '/');
         currentWorkspaceBasename = clean.split('/').filter(Boolean).pop() || '';
-        if (selectedSessionMode === 'auto' && latestAutoState) {
-          renderState(latestAutoState, false);
+        if (selectedSessionMode === 'auto' && !currentRenderedState?.pinnedConversationId) {
+          if (latestAutoState) renderState(latestAutoState, false);
+          fetch('/api/state?conversationId=auto')
+            .then(r => (r && r.ok ? r.json() : null))
+            .then(d => { if (d && selectedSessionMode === 'auto' && !currentRenderedState?.pinnedConversationId) renderState(d, false); })
+            .catch(err => { void err; });
         }
       }
     });
@@ -11975,7 +12210,9 @@
     const hostBadge = document.getElementById('tufteTopHostBadge');
     if (hostBadge) {
       const surfaceName = (raw.storeSource || 'antigravity').toLowerCase().includes('claude') ? 'Claude Code' : 'Antigravity';
-      hostBadge.textContent = `${surfaceName} \u00B7 ${activeModel} (${activeEffort})`;
+      const hasTrailingParen = /\([^)]*\)\s*$/.test(String(activeModel).trim());
+      const omitEffort = hasTrailingParen || (activeModel === 'Auto' && activeEffort === 'Auto');
+      hostBadge.textContent = omitEffort ? `${surfaceName} \u00B7 ${activeModel}` : `${surfaceName} \u00B7 ${activeModel} (${activeEffort})`;
       hostBadge.title = `Active editor host: ${surfaceName}. Current model: ${activeModel}. Reasoning effort: ${activeEffort}.`;
     }
 
@@ -12055,7 +12292,7 @@
           ? `Prompt cache is warm: ${hitPct}% of input tokens are billed at the discounted cached rate for ${ttlMm}:${ttlSs}.`
           : (isRebuilding
             ? `Cache was recently cleared and is warming back up over the next ${ttlMm}:${ttlSs}.`
-            : 'Cache is cold or expired — the next turn will pay full input rate once and re-warm the prefix.')));
+            : 'Cache is cold or expired — the next turn pays the full input rate once, then the cache warms up again.')));
     }
     const tsCacheBulletFill = document.getElementById('tsCacheBulletFill');
     if (tsCacheBulletFill) {
@@ -12069,22 +12306,22 @@
     if (tsStatusDot && tsStatusLabel) {
       if (isCrisis) {
         tsStatusDot.dataset.tone = 'danger';
-        tsStatusLabel.textContent = 'Memory Pruning Active';
+        tsStatusLabel.textContent = 'Over Safe Limit';
       } else if (isStuckErrorLoop) {
         tsStatusDot.dataset.tone = 'warn';
-        tsStatusLabel.textContent = 'Error Loop Detected';
+        tsStatusLabel.textContent = 'Repeating Error';
       } else if (isWarn) {
         tsStatusDot.dataset.tone = 'warn';
-        tsStatusLabel.textContent = total >= safeCap * 0.82 ? 'Context Saturation Risk' : 'Reclaimable Clutter High';
+        tsStatusLabel.textContent = total >= safeCap * 0.82 ? 'Near Safe Limit' : 'Old Clutter High';
       } else if (topBlowup && Number(topBlowup.tokens) >= 15000) {
         tsStatusDot.dataset.tone = 'warn';
-        tsStatusLabel.textContent = 'Single-Turn Output Spike';
+        tsStatusLabel.textContent = 'Large Command Output';
       } else if ((idleEagerMcps.length > 0 && idleEagerTokens >= 10000) || baselineOverBudget) {
         tsStatusDot.dataset.tone = 'warn';
-        tsStatusLabel.textContent = 'Turn-0 Prefix Bloat';
+        tsStatusLabel.textContent = 'Heavy Startup Setup';
       } else {
         tsStatusDot.dataset.tone = isWarm ? 'signal' : 'nominal';
-        tsStatusLabel.textContent = isWarm ? 'Optimal Cache' : 'Nominal Memory';
+        tsStatusLabel.textContent = isWarm ? 'Cache Warm' : 'Healthy';
       }
     }
 
@@ -12112,7 +12349,7 @@
     } else if (isWarn && staleT >= 35000) {
       setTxt('tsContextSummary', `Older turns and repeat file reads have grown to ${formatTokens(staleT)}. Clearing them with /compact frees space while keeping your project rules and active edits intact.`);
     } else if (isWarm) {
-      setTxt('tsContextSummary', `Prompt cache is warm at a ${hitPct}% hit rate for ${ttlMm}:${ttlSs}, with ${formatTokens(remainingSafe)} of comfortable room below your safe limit.`);
+      setTxt('tsContextSummary', `Your prompt cache is warm: ${hitPct}% of your input is billed at the cheaper cached rate for ${ttlMm}:${ttlSs}. You have ${formatTokens(remainingSafe)} of room left below your safe limit.`);
     } else {
       setTxt('tsContextSummary', total > 0
         ? `Working memory uses ${formatTokens(total)} out of ${formatTokens(safeCap)} safe capacity, leaving ${formatTokens(remainingSafe)} of clean room before slowdowns or rule fade.`
@@ -12269,7 +12506,7 @@
         { label: 'Repeated file reads', sub: dupFilesN ? plural(dupFilesN, 'file', 'files') : '', tok: dupWaste, tip: 'Full copies of files read more than once after edits.' },
         { label: 'Earlier chat history', sub: histTurnsN ? plural(histTurnsN, 'old turn', 'old turns') : '', tok: histWaste, tip: 'Older back-and-forth turns that /compact summarizes cleanly.' },
         { label: isStuckErrorLoop ? 'Error logs & loop traces' : 'Fixed error logs', sub: errN ? plural(errN, isStuckErrorLoop ? 'error' : 'old error', isStuckErrorLoop ? 'errors' : 'old errors') : '', tok: errWaste, tip: 'Past command failures and tracebacks that are already resolved or repeating.' },
-        { label: 'Cross-project memory bleed', sub: 'foreign KIs', tok: bleedWaste, tip: 'Background memory notes pulled in from unrelated repositories.' },
+        { label: 'Notes from other projects', sub: 'other repos', tok: bleedWaste, tip: 'Background memory notes pulled in from unrelated repositories.' },
         { label: 'Other stale tool outputs', sub: '', tok: otherWaste, tip: 'Earlier search results or tool outputs no longer needed in full.' }
       ].filter(r => r.tok >= 100).sort((a, b) => b.tok - a.tok);
       if (whyRows.length === 0) {
@@ -12289,11 +12526,11 @@
     setTxt('tsValPinned', formatTokens(pinnedT));
     setTxt('tsValSignal', formatTokens(usefulT));
     setTxt('tsValClutter', formatTokens(staleT));
-    setTxt('tsClutterKind', isWarm && staleT > 0 ? 'Warm Reclaimable' : 'Reclaimable');
+    setTxt('tsClutterKind', isWarm && staleT > 0 ? 'Cached Old Turns' : 'Reclaimable');
     setTip('tsRowNew', `New & active: ${formatTokens(newActiveT)} tokens of your current prompts and open source files (top of the glass). Total useful signal = ${formatTokens(usefulT)}.`);
     setTip('tsRowOld', staleT > 0
       ? `Reclaimable clutter: ${formatTokens(staleT)} tokens of older turns, repeat file reads, or resolved errors that /compact can trim without losing active code.`
-      : 'No older clutter accumulated yet — working memory contains only startup rules and fresh work.');
+      : 'No old clutter yet — working memory holds only startup rules and fresh work.');
     setTip('tsRowPinned', `Rules & tools: ${formatTokens(pinnedT)} tokens of startup instructions and connected tool definitions anchored at the base of context.`);
     const tsAnchorHealthEl = document.getElementById('tsAnchorHealth');
     if (tsAnchorHealthEl) {
@@ -12312,6 +12549,7 @@
     const avoidRowEl = document.getElementById('tsAvoidRow');
     const avoidTagEl = avoidRowEl ? avoidRowEl.querySelector('.ts-tag') : null;
     if (doTagEl) doTagEl.textContent = 'DO';
+    if (tsDoRow) tsDoRow.title = 'Recommended best next step for your current session state.';
     if (avoidRowEl) {
       avoidRowEl.hidden = false;
       avoidRowEl.dataset.tone = 'avoid';
@@ -12320,8 +12558,23 @@
 
     const breakerSrc = raw.coachState?.detectors?.tripped || raw.circuitBreakerTripped ||
       (Array.isArray(raw.coachState?.circuitBreakerAlerts) ? raw.coachState.circuitBreakerAlerts[0] : null);
-    const simpleBreaker = (breakerSrc && typeof breakerSrc === 'object')
-      ? { id: String(breakerSrc.detectorId || breakerSrc.id || 'DET'), msg: String(breakerSrc.reason || breakerSrc.message || breakerSrc.title || 'intervention active').slice(0, 90) }
+    // Plain-text helper: drops emoji, shortens full file paths to the file name, never cuts words in half.
+    const plainText = (s) => String(s || '')
+      .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, '')
+      .replace(/(?:[A-Za-z]:)?[\\/](?:[^\s\\/:;,)]+[\\/])+([^\s\\/:;,)]+)/g, '$1')
+      .replace(/\s+/g, ' ')
+      .replace(/[.\s]+$/, '')
+      .trim();
+    const breakerGuide = (breakerSrc && typeof breakerSrc === 'object' && breakerSrc.guidance && typeof breakerSrc.guidance === 'object')
+      ? breakerSrc.guidance
+      : null;
+    // Informational safeguards (handled automatically) never raise a red alarm.
+    const simpleBreaker = (breakerSrc && typeof breakerSrc === 'object' && !(breakerGuide && breakerGuide.kind === 'info'))
+      ? {
+          id: String(breakerSrc.detectorId || breakerSrc.id || 'DET'),
+          guide: breakerGuide,
+          msg: plainText(breakerSrc.reason || breakerSrc.message || breakerSrc.title || 'a safeguard needs your attention')
+        }
       : null;
     const shardedSpecCount = Number(raw.shardedSpecCount || 0);
     const rslClashCount = Number(raw.rsl?.clashCount || 0);
@@ -12336,15 +12589,22 @@
     } else if (isStuckErrorLoop) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
       setTxt('tsDoText', `Pause blind retries (${errLoopCount}\u00D7 error loop) — the same failure is piling up in chat; inspect the root cause${staleT >= 5000 ? ` or /compact ${formatTokens(staleT)} of error noise` : ''}.`);
-      setTxt('tsAvoidText', 'Avoid running the exact same failing command again; isolate a small repro or step up to a stronger model/effort.');
+      setTxt('tsAvoidText', 'Avoid running the exact same failing command again. Try a smaller test case, or switch to a stronger model or higher effort.');
     } else if (simpleBreaker) {
       if (tsDoRow) tsDoRow.dataset.tone = 'danger';
-      setTxt('tsDoText', `Guard tripped (${simpleBreaker.id}): ${simpleBreaker.msg} — pause and review the AI's last edit before approving further work.`);
-      setTxt('tsAvoidText', 'Avoid accepting follow-up changes blindly until the flagged safeguard issue is reviewed or reverted.');
+      if (simpleBreaker.guide) {
+        const bg = simpleBreaker.guide;
+        setTxt('tsDoText', `${plainText(bg.issue)}. ${plainText(bg.doText)}.`);
+        setTxt('tsAvoidText', `${plainText(bg.avoidText)}.`);
+        if (tsDoRow) tsDoRow.title = `${plainText(bg.title)} (${simpleBreaker.id})`;
+      } else {
+        setTxt('tsDoText', `A safeguard (${simpleBreaker.id}) flagged your last step: ${simpleBreaker.msg}. Review the AI's last edit before approving more work.`);
+        setTxt('tsAvoidText', 'Avoid approving follow-up changes until you have checked what was flagged.');
+      }
     } else if (scopeCollisions.length > 0) {
       if (tsDoRow) tsDoRow.dataset.tone = 'danger';
-      setTxt('tsDoText', `Subagent file overlap (${scopeCollisions.length} collision${scopeCollisions.length === 1 ? '' : 's'}) — assign separate files or wait for the other agent to finish before editing.`);
-      setTxt('tsAvoidText', 'Avoid running parallel agents on the same file path without separate worktrees or scope locks.');
+      setTxt('tsDoText', `Two AI agents are working on the same file (${scopeCollisions.length} overlap${scopeCollisions.length === 1 ? '' : 's'}) — give each its own files, or wait for one to finish before editing.`);
+      setTxt('tsAvoidText', 'Avoid running parallel agents on the same file without separate branches or file locks.');
     } else if (isWarm && staleT > 10000) {
       if (tsDoRow) tsDoRow.dataset.tone = 'do';
       setTxt('tsDoText', `Keep prompting cleanly while your ${hitPct}% cache discount is warm — you still have ${formatTokens(remainingSafe)} of safe headroom left.`);
@@ -12355,8 +12615,8 @@
       setTxt('tsAvoidText', 'Avoid loading more large files or unfiltered build logs before trimming older context.');
     } else if (shardedSpecCount >= 4) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `Consolidate ${shardedSpecCount} scattered requirement changes — run ctxtop handoff --consolidate and continue from one clean spec so nothing gets missed.`);
-      setTxt('tsAvoidText', 'Avoid drip-feeding new requirements across many chat turns; combine them into one clear plan.');
+      setTxt('tsDoText', `Your requirements changed ${shardedSpecCount} times across this chat — run ctxtop handoff --consolidate to merge them into one clear spec so nothing gets missed.`);
+      setTxt('tsAvoidText', 'Avoid adding new requirements one message at a time. Combine them into one clear plan.');
     } else if (isHighEffort && staleT >= 30000) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
       setTxt('tsDoText', `Run /compact to clear ${formatTokens(staleT)} clutter \u2014 ${activeEffort} effort re-processes stale noise every turn, slowing responses and burning extra quota.`);
@@ -12368,12 +12628,12 @@
         : histWaste >= bleedWaste && histWaste >= errWaste && histWaste > 0
           ? 'older chat history'
           : bleedWaste >= errWaste && bleedWaste > 0
-            ? 'cross-project bleed'
+            ? 'notes from other projects'
             : errWaste > 0 ? 'error logs' : 'stale outputs';
       setTxt('tsDoText', `Run /compact when you reach a natural stopping point to reclaim ${formatTokens(staleT)} clutter (${dominantCause}) and keep future turns fast.`);
       setTxt('tsAvoidText', dominantCause === 'repeated file reads'
-        ? 'Avoid re-reading whole files after small edits; pass StartLine/EndLine bounds or let a subagent inspect long files.'
-        : dominantCause === 'cross-project bleed'
+        ? 'Avoid re-reading whole files after small edits. Use line ranges (StartLine and EndLine) or let a helper agent inspect long files.'
+        : dominantCause === 'notes from other projects'
           ? 'Avoid mixing background memory notes from other projects into this task; keep only current-repo context.'
           : 'Avoid letting old back-and-forth turns pile up past ~35k when a task finishes.');
     } else if (topBlowup && Number(topBlowup.tokens) >= 12000) {
@@ -12382,22 +12642,30 @@
       const blowupShort = topBlowup.payload?.kind === 'file'
         ? rawBlowupDetail.replace(/\\/g, '/').split('/').pop()
         : (rawBlowupDetail.length > 36 ? rawBlowupDetail.slice(0, 33) + '...' : rawBlowupDetail);
-      setTxt('tsDoText', `Single-turn spike: ${formatTokens(topBlowup.tokens)} from ${blowupShort} (Turn #${topBlowup.userTurnNumber || topBlowup.stepIndex}) — filter or scope future output so it does not replay.`);
-      setTxt('tsAvoidText', 'Avoid pasting or printing full un-filtered test/build dumps into chat; inspect targeted slices instead.');
+      setTxt('tsDoText', `Large output: ${formatTokens(topBlowup.tokens)} from ${blowupShort} (Turn #${topBlowup.userTurnNumber || topBlowup.stepIndex}) — ask for only the lines you need next time so it does not stay in chat.`);
+      setTxt('tsAvoidText', 'Avoid printing full test or build logs into chat. Look at small, targeted slices instead.');
     } else if ((idleEagerMcps.length > 0 && idleEagerTokens >= 5000) || baselineOverBudget) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
       setTxt('tsDoText', idleEagerMcps.length > 0
-        ? `Switch ${idleEagerMcps.length} idle eager MCP${idleEagerMcps.length === 1 ? '' : 's'} to lazy loading to save ~${formatTokens(idleEagerTokens)} at Turn 0 before chatting even starts.`
-        : `Trim Turn-0 startup rules and instructions (${formatTokens(baselineEst)} vs 20.0k budget) so more room stays open for code.`);
-      setTxt('tsAvoidText', 'Avoid loading unused MCP tool schemas or oversized global rule files into every new session.');
+        ? `Set ${idleEagerMcps.length} unused MCP server${idleEagerMcps.length === 1 ? '' : 's'} to load on demand to save about ${formatTokens(idleEagerTokens)} at the start of every chat.`
+        : `Trim your startup rules and instructions (${formatTokens(baselineEst)} vs 20.0k budget) so more room stays open for code.`);
+      setTxt('tsAvoidText', 'Avoid loading unused MCP tool lists or oversized global rule files into every new chat.');
     } else if (rslClashCount > 0) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
       setTxt('tsDoText', `${rslClashCount} conflicting rule${rslClashCount === 1 ? '' : 's'} detected — run ctxtop rsl status to review the overlap and keep one clear instruction per topic.`);
-      setTxt('tsAvoidText', 'Avoid adding contradictory rules across AGENTS.md and learned rule files.');
+      setTxt('tsAvoidText', 'Avoid adding rules that disagree with each other in AGENTS.md and your learned rules.');
     } else if (raw.turn1ContractSteered) {
       if (tsDoRow) tsDoRow.dataset.tone = 'do';
-      setTxt('tsDoText', 'List target file paths and a verification command up front — Turn-1 contract guidance noticed an open-ended multi-file prompt.');
+      setTxt('tsDoText', 'Name the files that may change and how to test them — your first prompt asked for broad changes across many files.');
       setTxt('tsAvoidText', 'Avoid starting broad multi-file changes without naming which files can be edited and how to test them.');
+    } else if (raw.coachState?.smartCompactSuggestion?.shouldSuggest) {
+      const sc = raw.coachState.smartCompactSuggestion;
+      const savedUsdTxt = Number(sc.estimatedNetSavingsUsd) > 0
+        ? ` (saves ~$${Number(sc.estimatedNetSavingsUsd).toFixed(2)} net over the next ${sc.horizonTurns || 6} turns)`
+        : '';
+      if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
+      setTxt('tsDoText', `Task complete — run /compact now before starting your next task${savedUsdTxt} while ${formatTokens(staleT || sc.reclaimableTokens || 0)} of finished work can be cleanly summarized.`);
+      setTxt('tsAvoidText', 'Avoid carrying completed-task file reads and test logs into an unrelated next task.');
     } else {
       if (tsDoRow) tsDoRow.dataset.tone = 'do';
       setTxt('tsDoText', `Safe to run multi-file edits or implementation tasks — you have ${formatTokens(remainingSafe)} of clean room left below your ${formatTokens(safeCap)} safe limit.`);
@@ -12412,13 +12680,14 @@
     } else if (effectiveMode === 'autopilot') {
       const needsHumanAction = isCrisis || isStuckErrorLoop || Boolean(simpleBreaker) ||
         scopeCollisions.length > 0 || shardedSpecCount >= 4 || rslClashCount > 0 ||
-        total >= safeCap * 0.82 || staleT >= 30000;
+        total >= safeCap * 0.82 || staleT >= 30000 ||
+        Boolean(raw.coachState?.smartCompactSuggestion?.shouldSuggest);
       if (!needsHumanAction) {
         if (tsDoRow) tsDoRow.dataset.tone = 'do';
         if (doTagEl) doTagEl.textContent = 'AUTO';
         setTxt('tsDoText', isWarm
           ? `Hands-free protection active \u2014 keeping your ${hitPct}% warm cache locked for ${ttlMm}:${ttlSs} (${formatTokens(remainingSafe)} safe room left).`
-          : `Hands-free protection active \u2014 Highbeam is enforcing safety guards and turn-end routing automatically (${formatTokens(remainingSafe)} safe room left).`);
+          : `Auto mode is on \u2014 Highbeam applies the safety guards and picks the model at turn end for you (${formatTokens(remainingSafe)} safe room left).`);
         if (avoidRowEl) {
           avoidRowEl.hidden = false;
           avoidRowEl.dataset.tone = 'handled';
@@ -12533,7 +12802,7 @@
           tsGuidanceBadge.textContent = isWarm ? `Auto-hold ${ttlTxt}` : 'Auto-routed at turn end';
           tsGuidanceBadge.title = isWarm
             ? 'Auto mode protects your warm prompt cache automatically and waits until turn end or cache expiry before switching.'
-            : 'Auto mode automatically selects and shifts model/effort at turn boundaries.';
+            : 'Auto mode picks the model and effort for you at the end of each turn.';
         } else {
           tsGuidanceBadge.dataset.tone = (m.tone === 'danger' || e.tone === 'danger')
             ? 'danger'
@@ -12590,7 +12859,7 @@
         if (rows.length < 4 && savCli > 0) {
           rows.push({
             age: 'live',
-            action: 'Trimmed noisy terminal & test output using local FTS5 indexing so full logs stay out of chat',
+            action: 'Trimmed long terminal and test output so full logs stay out of chat',
             saved: `+${formatTokens(savCli)}`,
             tip: 'Saves raw test/build output to local disk and injects only the matching error lines.'
           });
@@ -12598,7 +12867,7 @@
         if (rows.length < 4 && savCache > 0) {
           rows.push({
             age: 'live',
-            action: 'Reused startup rules & earlier turns directly from warm prompt cache',
+            action: 'Reused startup rules and earlier turns from your warm prompt cache',
             saved: `+${formatTokens(savCache)}`,
             tip: 'Warm cache hits avoid re-paying full input rates on unchanged prefix tokens.'
           });
@@ -12606,9 +12875,9 @@
         if (rows.length < 4 && savSubagent > 0) {
           rows.push({
             age: 'live',
-            action: 'Ran heavy repository searches inside a separate subagent so results did not flood main memory',
+            action: 'Ran big project searches in a helper agent so results stayed out of your main chat',
             saved: `+${formatTokens(savSubagent)}`,
-            tip: 'Subagent isolation keeps exploratory file reads out of your main coding session.'
+            tip: 'Helper agents keep exploratory file reads out of your main coding session.'
           });
         }
         if (rows.length < 4 && savGuards > 0) {
@@ -12623,7 +12892,7 @@
       if (rows.length < 4 && queuedShield > 0) {
         rows.push({
           age: 'live',
-          action: `Held ${queuedShield} rule update${queuedShield === 1 ? '' : 's'} with PrefixCacheShield until the warm cache timer ends`,
+          action: `Held ${queuedShield} rule update${queuedShield === 1 ? '' : 's'} until your warm cache timer ends`,
           saved: 'shielded',
           tip: 'Deferring non-urgent AGENTS.md / CLAUDE.md edits protects your active 90%–95% prompt cache discount.'
         });
@@ -12631,7 +12900,7 @@
       if (rows.length < 4 && shieldEnabled) {
         rows.push({
           age: 'shield',
-          action: `Large-file read firewall active — asks for line ranges on files over ${shieldMaxLines.toLocaleString()} lines`,
+          action: `Large-file read limit active — asks the AI for line ranges on files over ${shieldMaxLines.toLocaleString()} lines`,
           saved: 'active',
           tip: 'Prevents huge single-file reads from flooding context when only a small line range is needed.'
         });
@@ -12639,9 +12908,10 @@
       if (rows.length < 4 && rslActiveCount > 0) {
         rows.push({
           age: 'rsl',
-          action: `Applying ${rslActiveCount} learned rule${rslActiveCount === 1 ? '' : 's'} distilled from past coding sessions`,
-          saved: rslHooksCount > 0 ? `${rslHooksCount} hook${rslHooksCount === 1 ? '' : 's'}` : 'learned',
-          tip: 'Recursive Self-Learning (RSL) turns repeated mistakes from verified sessions into concise workspace rules.'
+          action: `Applying ${rslActiveCount} learned rule${rslActiveCount === 1 ? '' : 's'} from your past coding sessions`,
+          saved: rslHooksCount > 0 ? `${rslHooksCount} auto-check${rslHooksCount === 1 ? '' : 's'}` : 'view',
+          tip: 'Click to see the learned rules. Highbeam turns repeated mistakes from past sessions into short project rules.',
+          click: 'learned-rules'
         });
       }
 
@@ -12671,13 +12941,13 @@
           rows.push(effectiveMode === 'autopilot' && !autoShadowFlag
             ? {
                 age: 'auto',
-                action: 'Hands-free Auto mode active \u2014 enforcing all safety, cache, and read-limit guards automatically',
+                action: 'Auto mode is on \u2014 safety, cache, and file-read guards are applied for you',
                 saved: 'enforcing',
-                tip: 'Advisory guards upgrade to automatic enforcement in Auto mode without prompting on routine guardrails.'
+                tip: 'In Auto mode, guards that normally only advise start blocking on their own.'
               }
             : {
                 age: 'now',
-                action: 'Auto-guards armed \u2014 trimming noisy CLI logs with FTS5 indexing and shielding warm caches',
+                action: 'Guards armed \u2014 trimming long command output and protecting your warm prompt cache',
                 saved: 'ready',
                 tip: 'All enabled background guards run locally inside your IDE & CLI hooks in under 15 ms.'
               });
@@ -12696,7 +12966,7 @@
             : `Auto-enforcing \u00B7 ${liveGuardTotal > 0 ? guardLabel : 'Guards'}`);
           setTip('tsGuardsSummary', liveGuardTotal > 0
             ? `Hands-free Auto mode is actively enforcing ${liveGuardTotal} safety and token-efficiency guards (${activeInterventionCount} active in this chat).`
-            : 'Hands-free Auto mode automatically enforces safety, cache, and read-limit guards.');
+            : 'Auto mode applies the safety, cache, and file-read guards for you.');
         } else {
           setTxt('tsGuardsSummary', activeInterventionCount > 0
             ? `${activeInterventionCount} auto-intervention${activeInterventionCount === 1 ? '' : 's'} \u00B7 ${guardLabel}`
@@ -12740,7 +13010,7 @@
         }
 
         tsLedgerList.innerHTML = ledgerRows.slice(0, 4).map(r => `
-          <li class="ts-ledger-row" title="${escAttr(r.tip || '')}">
+          <li class="ts-ledger-row" title="${escAttr(r.tip || '')}"${r.click ? ` data-clickable="true" data-action="${escAttr(r.click)}" role="button" tabindex="0"` : ''}>
             <span class="ts-ledger-age">${escAttr(r.age)}</span>
             <span>${escAttr(r.action)}</span>
             <span class="ts-ledger-saved">${escAttr(r.saved)}</span>
@@ -12767,6 +13037,9 @@
           if (effectiveMode === 'off') {
             guardHeadEl.textContent = `Guards paused (${sorted.length} configured)`;
             setTxt('tsGuardRosterHint', 'Paused');
+          } else if (effectiveMode === 'autopilot' && autoShadowFlag) {
+            guardHeadEl.textContent = `Auto preview guards (${sorted.length}${trippedN ? ` \u00B7 ${trippedN} tripped` : ' \u00B7 advising'})`;
+            setTxt('tsGuardRosterHint', trippedN ? `${sorted.length} \u00B7 ${trippedN} tripped` : `${sorted.length} preview`);
           } else if (effectiveMode === 'autopilot') {
             guardHeadEl.textContent = `Auto-enforced guards (${sorted.length}${trippedN ? ` \u00B7 ${trippedN} tripped` : ''})`;
             setTxt('tsGuardRosterHint', trippedN ? `${sorted.length} \u00B7 ${trippedN} tripped` : `${sorted.length} enforcing`);
@@ -12774,27 +13047,98 @@
             guardHeadEl.textContent = `Live guards (${sorted.length}${trippedN ? ` \u00B7 ${trippedN} tripped` : ''})`;
             setTxt('tsGuardRosterHint', trippedN ? `${sorted.length} \u00B7 ${trippedN} tripped` : `${sorted.length} armed`);
           }
+          const isEnforcedAuto = effectiveMode === 'autopilot' && !autoShadowFlag;
           guardListEl.innerHTML = sorted.map((g) => {
             const state = effectiveMode === 'off'
               ? 'paused'
-              : (g.tripped ? 'tripped' : (g.mode === 'guard' ? 'blocks' : (effectiveMode === 'autopilot' ? 'enforces' : 'advises')));
-            const tip = state === 'paused'
-              ? `${g.id}: ${g.name} — paused while Mode is Off (Watch only).`
+              : (g.tripped ? 'tripped' : (g.mode === 'guard' ? 'blocks' : (isEnforcedAuto ? 'enforces' : 'advises')));
+            const gTitle = g.title || g.name;
+            const gSummary = g.summary ? ` ${String(g.summary).replace(/\s+/g, ' ')}` : '';
+            const gInfo = g.actionKind === 'info';
+            const stateNote = state === 'paused'
+              ? 'Paused while Mode is Off (Watch only).'
               : (state === 'tripped'
-                ? `${g.id}: ${g.name} — tripped in this chat; review the flagged step before continuing.`
+                ? (gInfo ? 'Handled automatically in this chat — no action needed.' : 'Triggered in this chat — see Direct Guidance above.')
                 : (state === 'blocks'
-                  ? `${g.id}: ${g.name} — actively blocks unsafe or wasteful actions automatically.`
+                  ? 'Blocks unsafe or wasteful actions automatically.'
                   : (state === 'enforces'
-                    ? `${g.id}: ${g.name} — promoted from advisory to active enforcement while Auto mode is on.`
-                    : `${g.id}: ${g.name} — monitors silently and shows advice when triggered.`)));
+                    ? 'Runs automatically because Auto mode is on.'
+                    : (effectiveMode === 'autopilot' && autoShadowFlag
+                      ? 'Auto preview: shows advice until a trial or Pro unlocks enforcement.'
+                      : 'Watches quietly and shows advice when triggered.'))));
+            const tip = `${g.id}: ${gTitle}.${gSummary} ${stateNote}`;
             return `<li class="ts-ledger-row" data-mode="${escAttr(g.mode)}" data-tripped="${g.tripped ? 'true' : 'false'}" data-effective-state="${escAttr(state)}" title="${escAttr(tip)}">` +
               `<span class="ts-ledger-age">${escAttr(g.id)}</span>` +
-              `<span>${escAttr(g.name)}</span>` +
+              `<span>${escAttr(g.title || g.name)}</span>` +
               `<span class="ts-ledger-saved">${state}</span></li>`;
           }).join('');
           guardHeadEl.hidden = false;
           guardListEl.hidden = false;
         }
+      }
+    }
+
+    // Learned rules roster (dropdown body for the "Applying N learned rules" row)
+    {
+      const drawerEl = document.getElementById('tsLearnedRulesDrawer');
+      const lrList = document.getElementById('tsLearnedRulesList');
+      const lrHead = document.getElementById('tsLearnedRulesHead');
+      if (drawerEl && lrList && lrHead) {
+        const uiRules = Array.isArray(raw.rsl?.uiRules) ? raw.rsl.uiRules : [];
+        const lrCount = Math.max(rslActiveCount, uiRules.length);
+        if (lrCount <= 0) {
+          drawerEl.hidden = true;
+          drawerEl.open = false;
+          lrList.hidden = true;
+          lrHead.hidden = true;
+          lrList.innerHTML = '';
+        } else {
+          drawerEl.hidden = false;
+          setTxt('tsLearnedRulesSummary', `Applying ${lrCount} learned rule${lrCount === 1 ? '' : 's'}`);
+          setTxt('tsLearnedRulesHint', effectiveMode === 'off'
+            ? 'Paused'
+            : (rslHooksCount > 0 ? `${rslHooksCount} auto-check${rslHooksCount === 1 ? '' : 's'}` : 'Details'));
+          lrHead.textContent = (uiRules.length > 0 && uiRules.length < lrCount)
+            ? `Learned project rules (showing ${uiRules.length} of ${lrCount})`
+            : 'Learned project rules';
+          const kindTip = {
+            hook: 'Automatic check: Highbeam can stop a matching action before it runs.',
+            skill: 'Step-by-step recovery steps the AI can follow when the same problem comes back.',
+            rule: 'A project rule the AI is asked to follow.'
+          };
+          lrList.innerHTML = uiRules.length === 0
+            ? `<li class="ts-ledger-row" title="Highbeam knows about these rules, but this view does not have their details yet."><span class="ts-ledger-age">info</span><span>Rule details are not available yet. Run <code>ctxtop rsl status</code> to list them.</span><span class="ts-ledger-saved">${lrCount}</span></li>`
+            : uiRules.map((r) => {
+              const kind = ['hook', 'skill', 'rule'].includes(r.kind) ? r.kind : 'rule';
+              const state = effectiveMode === 'off' ? 'paused' : (kind === 'hook' ? 'blocks' : 'active');
+              const tip = `${kindTip[kind]}${r.detail ? ` ${r.detail}` : ''}`;
+              return `<li class="ts-ledger-row" data-kind="${escAttr(kind)}" data-effective-state="${state}" title="${escAttr(tip)}">` +
+                `<span class="ts-ledger-age">${escAttr(kind)}</span>` +
+                `<span>${escAttr(r.title || 'Learned rule')}${r.detail ? ` <span class="ts-why-sub">— ${escAttr(r.detail)}</span>` : ''}</span>` +
+                `<span class="ts-ledger-saved">${state}</span></li>`;
+            }).join('');
+          lrHead.hidden = false;
+          lrList.hidden = false;
+        }
+        const toggleLearnedRules = () => {
+          const dr = document.getElementById('tsLearnedRulesDrawer');
+          if (!dr || dr.hidden) return;
+          dr.open = !dr.open;
+          if (dr.open && typeof dr.scrollIntoView === 'function') dr.scrollIntoView({ block: 'nearest' });
+        };
+        [document.getElementById('tsLedgerList'), document.getElementById('tsSessionExtraRow')].forEach((host) => {
+          if (!host || host.dataset.rulesBound === '1') return;
+          host.dataset.rulesBound = '1';
+          host.addEventListener('click', (ev) => {
+            if (ev.target && ev.target.closest && ev.target.closest('[data-action="learned-rules"]')) toggleLearnedRules();
+          });
+          host.addEventListener('keydown', (ev) => {
+            if ((ev.key === 'Enter' || ev.key === ' ') && ev.target && ev.target.closest && ev.target.closest('[data-action="learned-rules"]')) {
+              ev.preventDefault();
+              toggleLearnedRules();
+            }
+          });
+        });
       }
     }
 
@@ -12882,7 +13226,7 @@
         setTip('tsSessionTurnsMeta', `${totalTurns} total turns tracked in this session (${goodTurns} lean turns, ${badTurns} turns with output spikes or repeat reads).`);
       } else {
         setTxt('tsSessionTurnsMeta', total > 0 ? 'Active chat' : 'Session start');
-        setTip('tsSessionTurnsMeta', 'Turn count updates automatically as your conversation progresses.');
+        setTip('tsSessionTurnsMeta', 'The turn count grows as your chat goes on.');
       }
 
       const paceParts = [];
@@ -12938,12 +13282,24 @@
           extraBits.push(`${rslActiveCount} learned rule${rslActiveCount === 1 ? '' : 's'}`);
         }
         if (shieldEnabled) {
-          extraBits.push('Read firewall on');
+          extraBits.push('Large-file limit on');
         }
         if (extraBits.length > 0) {
           extraRow.hidden = false;
           extraTxtEl.textContent = extraBits.join(' \u00B7 ');
-          extraRow.title = 'Extra workspace safeguards and multi-agent tools active during this session.';
+          extraRow.title = rslActiveCount > 0
+            ? 'Extra safeguards active in this session. Click to see your learned rules.'
+            : 'Extra safeguards and multi-agent tools active during this session.';
+          extraRow.dataset.clickable = rslActiveCount > 0 ? 'true' : 'false';
+          if (rslActiveCount > 0) {
+            extraRow.dataset.action = 'learned-rules';
+            extraRow.setAttribute('role', 'button');
+            extraRow.tabIndex = 0;
+          } else {
+            delete extraRow.dataset.action;
+            extraRow.removeAttribute('role');
+            extraRow.removeAttribute('tabindex');
+          }
         } else {
           extraRow.hidden = true;
           extraTxtEl.textContent = '';
@@ -13023,12 +13379,16 @@
     // 2. ADVANCED VIEW UPDATES (#argonAdvancedSurface)
     // =======================================================================
     setTxt('taSessionLabel', raw.sessionTitle || raw.workspaceName || 'Active Session');
-    const q5h = raw.quota?.sprint5h?.usedPct ?? raw.quota?.fiveHourPct ?? ((total / safeCap) * 18);
-    const q7d = raw.quota?.weekly7d?.usedPct ?? raw.quota?.sevenDayPct ?? 12;
+    const q5hRaw = raw.quota?.sprint5h?.usedPct ?? raw.quota?.fiveHourPct;
+    const q7dRaw = raw.quota?.weekly7d?.usedPct ?? raw.quota?.sevenDayPct;
     const est5hPrefix = raw.quota?.sprint5h?.source === 'estimate' ? '~' : '';
     const est7dPrefix = raw.quota?.weekly7d?.source === 'estimate' ? '~' : '';
-    setTxt('taSprint5h', `${est5hPrefix}${Math.min(100, Math.round(Number(q5h) || 0))}%`);
-    setTxt('taWeekly7d', `${est7dPrefix}${Math.min(100, Math.round(Number(q7d) || 0))}%`);
+    setTxt('taSprint5h', (q5hRaw != null && !Number.isNaN(Number(q5hRaw)))
+      ? `${est5hPrefix}${Math.min(100, Math.round(Number(q5hRaw)))}%`
+      : '\u2014');
+    setTxt('taWeekly7d', (q7dRaw != null && !Number.isNaN(Number(q7dRaw)))
+      ? `${est7dPrefix}${Math.min(100, Math.round(Number(q7dRaw)))}%`
+      : '\u2014');
     setTxt('taHostRam', `${Number(raw.hostHealth?.rssGb ?? raw.hostRamGb ?? 0).toFixed(1)}GB`);
 
     const taDualTtl = document.getElementById('taDualTtl');
@@ -13181,13 +13541,13 @@
           <tr>
             <td>AGENTS.md + rules</td>
             <td>pinned</td>
-            <td class="num">${formatTokens(rulesT || 12400)}</td>
+            <td class="num">${formatTokens(rulesT)}</td>
             <td class="num"><span style="color:var(--hz-useful);">Protected</span></td>
           </tr>
           <tr>
             <td>Active working files</td>
             <td>1x read</td>
-            <td class="num">${formatTokens(Math.max(4200, usefulT - rulesT))}</td>
+            <td class="num">${formatTokens(Math.max(0, usefulT - rulesT))}</td>
             <td class="num"><span style="color:var(--hz-anchor);">Active Source</span></td>
           </tr>
         `;
@@ -13196,7 +13556,7 @@
           const kind = item.kind || (item.path || item.file ? 'file' : 'spike');
           const p = String(item.path || item.file || item.label || 'context-item');
           const patternTxt = item.pattern || `${Number(item.reads || item.count || 1)}x read`;
-          const tok = Number(item.tokens || item.reclaimableTokens || 2400);
+          const tok = Math.max(0, Number(item.tokens ?? item.reclaimableTokens) || 0);
           let actionHtml = '';
           if (kind === 'file') {
             const ignorable = typeof isIgnorablePath === 'function'
@@ -13277,17 +13637,27 @@
     if (taBaselineText) {
       taBaselineText.innerHTML = `Turn-0 Baseline: <strong${baselineOverBudget ? ' style="color:var(--hz-clutter);"' : ''}>${formatTokens(baselineEst)}</strong> / 20.0k budget`;
     }
-    setTxt('taBtnShield', `Shield: ${queuedShield} queued`);
+    const taBtnShieldEl = document.getElementById('taBtnShield');
+    if (taBtnShieldEl) {
+      taBtnShieldEl.textContent = `Shield: ${queuedShield} queued`;
+      taBtnShieldEl.disabled = queuedShield <= 0;
+    }
     const taDetBadge = document.getElementById('taDetBadge');
     const trippedDet = raw.coachState?.detectors?.tripped;
+    const detTotal = Number(raw.coachState?.detectors?.totalCount) || 32;
+    const detArmed = Number(raw.coachState?.detectors?.armedCount ?? detTotal) || detTotal;
     if (taDetBadge) {
-      if (trippedDet && trippedDet.detectorId) {
+      if (effectiveMode === 'off') {
+        taDetBadge.dataset.tone = 'muted';
+        taDetBadge.textContent = 'Guards paused';
+        taDetBadge.title = 'Watch-only mode';
+      } else if (trippedDet && trippedDet.detectorId) {
         taDetBadge.dataset.tone = 'warn';
         taDetBadge.textContent = `${trippedDet.detectorId} tripped`;
         taDetBadge.title = trippedDet.reason || '';
       } else {
         taDetBadge.dataset.tone = '';
-        taDetBadge.textContent = '32/32 guards armed';
+        taDetBadge.textContent = `${detArmed}/${detTotal} guards armed`;
         taDetBadge.title = '';
       }
     }
@@ -13341,18 +13711,30 @@
         if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
           await navigator.clipboard.writeText(cmd);
         }
-      } catch {}
+      } catch (err) {
+        void err;
+      }
+      let checkpointed = false;
       try {
-        await fetch('/api/pre-compact', {
+        const res = await fetch('/api/pre-compact', {
           method: 'POST',
           headers: buildHorizonPostHeaders(),
           body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto', action: 'clean_purge_cache', command: cmd })
         });
-      } catch {}
+        if (res && res.ok) {
+          const data = typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
+          checkpointed = Boolean(data?.success ?? data?.ok ?? true);
+          if (data?.state) applyGlobalStateFromDaemon(data.state);
+        }
+      } catch (err) {
+        void err;
+      }
       const lbl = document.getElementById('tsBtnCleanLabel');
       const prev = lbl ? lbl.textContent : '';
-      if (lbl) lbl.textContent = '\u2713 Copied /compact & Checkpointed!';
-      showToast('&#x2713; <strong>Copied <code>/compact</code></strong> to clipboard &amp; checkpointed session.');
+      if (lbl) lbl.textContent = checkpointed ? '\u2713 Copied /compact & Checkpointed!' : '\u2713 Copied /compact!';
+      showToast(checkpointed
+        ? '&#x2713; <strong>Copied <code>/compact</code></strong> to clipboard &amp; checkpointed session.'
+        : '&#x2713; <strong>Copied <code>/compact</code></strong> to clipboard.');
       setTimeout(() => { if (lbl && prev) lbl.textContent = prev; }, 2000);
     });
   }
@@ -13365,15 +13747,27 @@
         if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
           await navigator.clipboard.writeText(cmd);
         }
-      } catch {}
+      } catch (err) {
+        void err;
+      }
+      let checkpointed = false;
       try {
-        await fetch('/api/pre-compact', {
+        const res = await fetch('/api/pre-compact', {
           method: 'POST',
           headers: buildHorizonPostHeaders(),
           body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto', command: cmd })
         });
-      } catch {}
-      showToast('&#x2713; <strong>Pre-Compact Surgery</strong> checkpointed &amp; copied command.');
+        if (res && res.ok) {
+          const data = typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
+          checkpointed = Boolean(data?.success ?? data?.ok ?? true);
+          if (data?.state) applyGlobalStateFromDaemon(data.state);
+        }
+      } catch (err) {
+        void err;
+      }
+      showToast(checkpointed
+        ? '&#x2713; <strong>Pre-Compact Surgery</strong> checkpointed &amp; copied command.'
+        : '&#x2713; <strong>Copied <code>/compact</code></strong> command to clipboard.');
     });
   }
 
@@ -13385,7 +13779,9 @@
         if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
           await navigator.clipboard.writeText(cmd);
         }
-      } catch {}
+      } catch (err) {
+        void err;
+      }
       flashButton(taBtnCopyCompact, '\u2713 Copied', 1600);
       showToast('&#x2713; <strong>Copied Parameterized <code>/compact</code></strong> to clipboard.');
     });
@@ -13395,14 +13791,86 @@
   if (taBtnForceAst) {
     taBtnForceAst.addEventListener('click', async () => {
       try {
-        await fetch('/api/force-prune', {
+        const res = await fetch('/api/force-prune', {
           method: 'POST',
           headers: buildHorizonPostHeaders(),
           body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto' })
         });
-      } catch {}
-      flashButton(taBtnForceAst, '\u2713 Pruned AST', 1600);
-      showToast('&#x2713; <strong>AST Distiller &amp; Log Prune</strong> triggered.');
+        const pruneData = res && typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
+        if (res && res.ok) {
+          const estTok = Number(pruneData.savedTokens ?? pruneData.estimatedTokensReclaimed ?? 0);
+          flashButton(taBtnForceAst, estTok > 0 ? `\u2713 ${formatTokens(estTok)} staged` : '\u2713 Scanned', 1600);
+          showToast(estTok > 0
+            ? `&#x2713; Dry-run prune preview: ~<strong>${formatTokens(estTok)}</strong> reclaimable (read-only analysis).`
+            : '&#x2713; Dry-run prune preview complete (0 reclaimable steps).');
+          return;
+        }
+      } catch (err) {
+        void err;
+      }
+      showToast('&#x26A0;&#xFE0F; Unable to run prune preview right now.');
+    });
+  }
+
+  const taBtnShieldClickEl = document.getElementById('taBtnShield');
+  if (taBtnShieldClickEl) {
+    taBtnShieldClickEl.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/shield/flush', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto' })
+        });
+        const data = res && typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
+        if (res && res.ok) {
+          if (data?.deferred) {
+            showToast(`&#x1F6E1;&#xFE0F; Warm cache fence active (${Number(data.queuedCount || 0)} queued edits deferred).`);
+            return;
+          }
+          if (data?.state) applyGlobalStateFromDaemon(data.state);
+          showToast('&#x2713; Flushed queued Turn-0 Shield edits.');
+          return;
+        }
+      } catch (err) {
+        void err;
+      }
+      showToast('&#x26A0;&#xFE0F; Unable to flush PrefixCacheShield queue.');
+    });
+  }
+
+  const btnExportPdfReceiptEl = document.getElementById('btnExportPdfReceipt');
+  if (btnExportPdfReceiptEl) {
+    btnExportPdfReceiptEl.addEventListener('click', async (e) => {
+      e.preventDefault();
+      try {
+        const res = await fetch('/api/receipt/export?format=pdf');
+        if (res.status === 402) {
+          openShadowAutoBanner(currentRenderedState);
+          showToast('PDF receipt export requires Highbeam Pro or an active 14-day trial.');
+          return;
+        }
+        if (!res.ok) {
+          showToast('&#x26A0;&#xFE0F; Unable to export PDF savings receipt.');
+          return;
+        }
+        const blob = typeof res.blob === 'function' ? await res.blob() : null;
+        if (blob && typeof URL?.createObjectURL === 'function') {
+          const objUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = objUrl;
+          a.download = 'highbeam-savings-receipt.pdf';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => {
+            try { URL.revokeObjectURL(objUrl); } catch (err) { void err; }
+          }, 1000);
+        }
+        showToast('&#x2713; Downloaded PDF savings receipt.');
+      } catch (err) {
+        void err;
+        showToast('&#x26A0;&#xFE0F; Unable to export PDF savings receipt.');
+      }
     });
   }
 
@@ -13412,24 +13880,7 @@
   }
 
   document.querySelectorAll('#taRouterSwitch button').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const mode = normalizeHorizonUiMode(btn.dataset.taMode || btn.dataset.mode || 'coach');
-      document.querySelectorAll('#taRouterSwitch button').forEach(b => b.classList.toggle('active', normalizeHorizonUiMode(b.dataset.taMode || b.dataset.mode) === mode));
-      setRouterModeActiveUI(mode);
-      if (currentRenderedState && typeof currentRenderedState === 'object') {
-        currentRenderedState.routerMode = mode;
-        currentRenderedState.flightMode = mode === 'autopilot' ? 'AUTO_PILOT' : (mode === 'off' ? 'OFF' : 'COACH');
-        try { renderArgonTufteSurfaces(currentRenderedState); } catch {}
-      }
-      try {
-        await fetch('/api/router/mode', {
-          method: 'POST',
-          headers: buildHorizonPostHeaders(),
-          body: JSON.stringify({ mode })
-        });
-      } catch {}
-      showToast(`&#x2713; Router mode set to <strong>${escAttr(mode.toUpperCase())}</strong>`);
-    });
+    btn.addEventListener('click', () => handleUserModeChange(btn.dataset.taMode || btn.dataset.mode || 'coach'));
   });
 
   const taConsumersBodyEl = document.getElementById('taConsumersBody');
@@ -13439,24 +13890,30 @@
       if (!btn) return;
       const p = btn.getAttribute('data-ignore-path');
       if (!p) return;
+      let igData = {};
       try {
-        await fetch('/api/ignore', {
+        const res = await fetch('/api/ignore', {
           method: 'POST',
           headers: buildHorizonPostHeaders(),
-          body: JSON.stringify({ path: p })
+          body: JSON.stringify({ path: p, workspacePath: currentRenderedState?.workspace?.canonicalPath || undefined })
         });
-      } catch {}
-      btn.textContent = '\u2713 Ignored';
-      btn.disabled = true;
-      showToast(`&#x2713; Added <code>${escAttr(p)}</code> to <code>.antigravityignore</code>`);
+        igData = res && typeof res.json === 'function' ? await res.json().catch(() => ({})) : {};
+        if (res && res.ok) {
+          btn.textContent = '\u2713 Ignored';
+          btn.disabled = true;
+          showToast(`&#x2713; Added <code>${escAttr(p)}</code> to <code>.antigravityignore</code>`);
+          return;
+        }
+        showToast(`&#x26A0;&#xFE0F; ${escAttr(igData?.error || 'Cannot ignore active source file.')}`);
+        return;
+      } catch (err) {
+        void err;
+      }
+      showToast('&#x26A0;&#xFE0F; Unable to update <code>.antigravityignore</code> right now.');
     });
   }
 
   const __origRenderStateForTufte = renderState;
-  // Daemon/global fields that must survive a catalog swap (they describe the host mode + license,
-  // not the selected conversation). Without this overlay a precomputed catalog entry would reset the slider.
-  const __HZ_GLOBAL_STATE_KEYS = ['routerMode', 'flightMode', 'enforcedRouterMode', 'enforcedFlightMode',
-    'autoEnforced', 'autoShadow', 'proEntitlement', 'shadowAuto'];
   renderState = function(raw, fromCatalog) {
     __origRenderStateForTufte(raw, fromCatalog);
     // Paint Simple from what the panel actually decided to show (original may swap `raw` for the
@@ -13481,17 +13938,23 @@
   window.renderState = renderState;
 
   if (window.__LIVE_INITIAL_STATE__) {
-    try { renderState(window.__LIVE_INITIAL_STATE__); } catch {}
+    try { renderState(window.__LIVE_INITIAL_STATE__); } catch (err) { void err; }
   }
 
-  try {
-    const evtSource = new EventSource(withSidecarAuthUrl('/api/stream'));
-    evtSource.onmessage = (e) => {
-      try { renderState(JSON.parse(e.data)); } catch {}
-    };
-  } catch {}
+  connectHorizonStream(selectedSessionMode);
 
-  fetch('/api/state').then(r => r.json()).then(renderState).catch(() => {});
+  fetch(selectedSessionMode !== 'auto'
+    ? `/api/state?conversationId=${encodeURIComponent(selectedSessionMode)}`
+    : '/api/state'
+  )
+    .then(r => (r && r.ok ? r.json() : null))
+    .then(d => {
+      if (d && (selectedSessionMode === 'auto' || d.sessionId === selectedSessionMode)) {
+        if (d.sessionId && typeof __liveSessionCache === 'object') __liveSessionCache[d.sessionId] = d;
+        renderState(d, selectedSessionMode !== 'auto');
+      }
+    })
+    .catch(err => { void err; });
 </script>
 </body>
 </html>

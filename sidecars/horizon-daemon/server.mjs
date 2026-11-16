@@ -4,7 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { getHomeDir, getDaemonPortFile, ensureSupportedNodeVersion } from '../../src/core/paths.mjs';
+import { getHomeDir, getDaemonPortFile, ensureSupportedNodeVersion, isIgnorablePath } from '../../src/core/paths.mjs';
 import { resolveSurfaceTag, resolveModelCeiling } from '../../src/core/constants.mjs';
 import { runCLI } from '../../src/cli/horizon_hud.mjs';
 import { buildCostRadarFromState } from '../../src/cli/cost_radar.mjs';
@@ -60,8 +60,19 @@ import {
   resolveEffectiveAutoFlightMode
 } from '../../src/core/pro_license.mjs';
 import { getShadowAutoSummary } from '../../src/core/shadow_auto_ledger.mjs';
+import {
+  evaluateTaskBoundaryTurn,
+  evaluateSmartCompactSuggestion
+} from '../../src/core-isomorphic/coach/smartCompactAdvisor.mjs';
 import { generateCorporateExpenseReceipt } from '../../src/core-isomorphic/ui/pdfReceiptGenerator.mjs';
 import { DETECTOR_CATALOG } from '../../src/core-isomorphic/catalog/detectorCatalog.mjs';
+import {
+  getAlertGuidance,
+  getGuardSummary,
+  canonicalGuardIdForAlert,
+  filterFreshAlerts,
+  SAFEGUARD_GUIDE
+} from '../../src/core-isomorphic/catalog/safeguardGuide.mjs';
 import { ProgressiveCheckpointer } from '../../src/core/coach/progressive_checkpointer.mjs';
 import { atomicWriteFileSync } from '../../src/core/atomic_io.mjs';
 import { MicroIpcServer } from '../../src/engine-node/ipc/server.mjs';
@@ -131,7 +142,12 @@ const EXPLICIT_PORT = parseInt(
 const DEFAULT_PORT_START = 62935;
 const DEFAULT_PORT_MAX = 62945;
 const BIND_HOST = '127.0.0.1';
-const clients = new Set();
+const clients = new Map();
+
+function getDaemonEntitlementOptions() {
+  const useDevBypass = process.env.CTXTOP_PRO_DEV === '1' || isDemoMode;
+  return { strict: !useDevBypass };
+}
 
 const defaultCacheDir = path.join(getHomeDir(), '.gemini', 'antigravity', 'cache', 'agy-horizon');
 const runtimeDir = path.join(getHomeDir(), '.gemini', 'runtime');
@@ -383,7 +399,8 @@ function buildCoachState(state, targetConvId) {
     const diskRouterMode = configuredFlightMode === 'AUTO_PILOT'
       ? 'autopilot'
       : (configuredFlightMode === 'OFF' ? 'off' : 'coach');
-    const proEntitlement = getProEntitlementStatus();
+    const entOpts = getDaemonEntitlementOptions();
+    const proEntitlement = getProEntitlementStatus(entOpts);
     const shadowAuto = getShadowAutoSummary({
       workspacePath: wsDir,
       sessionId: sessionKey,
@@ -395,7 +412,7 @@ function buildCoachState(state, targetConvId) {
       ? 'AUTO_PILOT'
       : (rawRouterMode === 'off' ? 'OFF' : (configuredFlightMode === 'SILENT' ? 'SILENT' : 'COACH'));
     // ENFORCED mode (what hooks/actuators may DO): Auto only when Pro / trial entitlement is present.
-    const modeGate = resolveEffectiveAutoFlightMode(rawFlightMode);
+    const modeGate = resolveEffectiveAutoFlightMode(rawFlightMode, entOpts);
     const effectiveFlightMode = modeGate.effectiveFlightMode;
     const autoShadow = Boolean(modeGate.steppedDown);
     const effectiveRouterMode = effectiveFlightMode === 'AUTO_PILOT'
@@ -512,26 +529,126 @@ function buildCoachState(state, targetConvId) {
     const stagedLearnings = reflectorQueue.listItems();
     const promptAdvisory = promptDecomposerCoach.evaluate(livePrompt);
 
-    const combinedAlerts = [...circuitBreakers.activeAlerts];
-    if (scopeCollisionAlert) combinedAlerts.push(scopeCollisionAlert);
+    // Only surface breaker alerts that are still fresh: after the last /compact and no more than one user message ago.
+    const freshBreakerAlerts = filterFreshAlerts(circuitBreakers.activeAlerts, state?.steps);
+    const withGuidance = (a) => ({
+      ...a,
+      guidance: getAlertGuidance({ ...a, filePath: a.filePath || (Array.isArray(a.overlappingPaths) ? a.overlappingPaths[0] : '') })
+    });
+    const combinedAlerts = freshBreakerAlerts.map(withGuidance);
+    if (scopeCollisionAlert) combinedAlerts.push(withGuidance(scopeCollisionAlert));
     const thinkingDrift = state?.quota?.thinkingDrift || null;
     const det30Mode = String(horizonCfg?.detectors?.['DET-30'] || 'default').toLowerCase();
     if (thinkingDrift?.loop?.triggered && det30Mode !== 'off') {
-      combinedAlerts.push({
+      combinedAlerts.push(withGuidance({
         detectorId: 'DET-30',
         name: 'thinking-drift-loop',
         severity: thinkingDrift.loop.severity === 'critical' ? 'CRITICAL' : 'WARN',
         message: thinkingDrift.loop.message
-      });
+      }));
     }
-    const primaryTripped = combinedAlerts.length > 0 ? combinedAlerts[combinedAlerts.length - 1] : null;
-    const trippedIds = new Set(combinedAlerts.map((a) => a.detectorId));
+    const actionableAlerts = combinedAlerts.filter((a) => a.guidance?.kind !== 'info');
+    const primaryTripped = actionableAlerts.length > 0 ? actionableAlerts[actionableAlerts.length - 1] : null;
+    const trippedIds = new Set(combinedAlerts.map((a) => canonicalGuardIdForAlert(a)));
     const cfgDetectors = horizonCfg?.detectors || {};
-    const guardList = Object.values(DETECTOR_CATALOG).map((meta) => {
+    const guardList = Object.values(DETECTOR_CATALOG).filter((meta) => !meta.aliasOf).map((meta) => {
       const cfgMode = String(cfgDetectors[meta.id] || 'default').toLowerCase();
       const mode = cfgMode === 'default' ? String(meta.defaultMode || 'advisory') : cfgMode;
-      return { id: meta.id, name: meta.name, mode, severity: meta.severity || 'WARN', tripped: trippedIds.has(meta.id) };
+      const guideSummary = getGuardSummary(meta.id);
+      return {
+        id: meta.id,
+        name: meta.name,
+        title: guideSummary?.title || meta.name,
+        summary: guideSummary?.summary || meta.description,
+        actionKind: SAFEGUARD_GUIDE[meta.id]?.kind || 'action',
+        mode,
+        severity: meta.severity || 'WARN',
+        tripped: trippedIds.has(meta.id)
+      };
     }).filter((g) => g.mode !== 'off');
+
+    let smartCompactSuggestion = {
+      shouldSuggest: false,
+      suppressedReason: 'no_task_boundary',
+      detectorStatus: 'verified',
+      message: null
+    };
+    try {
+      const steps = Array.isArray(state?.steps) ? state.steps : [];
+      let boundaryState = { openFailure: false, editsSinceBoundary: 0 };
+      let boundaryReached = false;
+      let lastCompactUserTurn = -999;
+      let userTurnIdx = 0;
+      for (let i = 0; i < steps.length; i++) {
+        const st = steps[i] || {};
+        if (st.type === 'USER_INPUT' || st.source === 'USER_EXPLICIT') {
+          userTurnIdx += 1;
+          if (/^\/compact\b/i.test(String(st.content || '').trim())) {
+            lastCompactUserTurn = userTurnIdx;
+            boundaryState = { openFailure: false, editsSinceBoundary: 0 };
+            boundaryReached = false;
+          }
+        }
+        if (st.type === 'CHECKPOINT' && /compact/i.test(String(st.content || ''))) {
+          lastCompactUserTurn = userTurnIdx;
+          boundaryState = { openFailure: false, editsSinceBoundary: 0 };
+          boundaryReached = false;
+        }
+        const calls = Array.isArray(st.toolCalls) ? st.toolCalls : [];
+        const nextSt = steps[i + 1] || null;
+        const nextHasCalls = Array.isArray(nextSt?.toolCalls) && nextSt.toolCalls.length > 0;
+        const isPairedNext = Boolean(
+          nextSt && !nextHasCalls && nextSt.type !== 'USER_INPUT' && nextSt.source !== 'USER_EXPLICIT'
+        );
+        const stepExit = isPairedNext && typeof nextSt.exitCode === 'number'
+          ? nextSt.exitCode
+          : (typeof st.exitCode === 'number'
+            ? st.exitCode
+            : ((st.status === 'ERROR' || (isPairedNext && nextSt.status === 'ERROR')) ? 1 : 0));
+        const stepFailed = Boolean(
+          st.status === 'ERROR' || (isPairedNext && nextSt.status === 'ERROR') || stepExit !== 0
+        );
+        for (const c of calls) {
+          const tName = String(c?.name || c?.tool || '');
+          const args = c?.args || c?.arguments || {};
+          const cmd = String(args.CommandLine || args.command || args.cmd || '');
+          const fPath = String(args.Path || args.path || args.TargetFile || args.file_path || '');
+          const evalRes = evaluateTaskBoundaryTurn({
+            toolName: tName,
+            command: cmd,
+            filePath: fPath,
+            failed: stepFailed,
+            exitCode: stepExit
+          }, boundaryState);
+          boundaryState = {
+            openFailure: evalRes.openFailure,
+            editsSinceBoundary: evalRes.editsSinceBoundary
+          };
+          if (evalRes.detectorState === 'mid_debug' || evalRes.editsSinceBoundary > 0) {
+            boundaryReached = false;
+          } else if (evalRes.boundaryDetected) {
+            boundaryReached = true;
+          }
+        }
+      }
+      const turnsSinceCompact = lastCompactUserTurn > 0 ? Math.max(0, userTurnIdx - lastCompactUserTurn) : null;
+      smartCompactSuggestion = evaluateSmartCompactSuggestion(
+        {
+          enabled: horizonCfg?.thresholds?.smartCompactBoundarySuggest ?? true,
+          detectorState: boundaryState.openFailure ? 'mid_debug' : (boundaryReached ? 'task_boundary' : 'other'),
+          boundaryDetected: boundaryReached,
+          openFailure: boundaryState.openFailure,
+          editsSinceBoundary: boundaryState.editsSinceBoundary,
+          turnsSinceLastCompact: turnsSinceCompact,
+          modelId: state?.model?.id || state?.activeModel || 'claude-sonnet-4-6',
+          preCompactTokens: totalActive,
+          turnsCompleted: Math.max(userTurnIdx, session.turnCount || 0)
+        },
+        { cwd: wsDir, horizonConfig: horizonCfg }
+      );
+    } catch (err) {
+      recordDaemonDiagnostic('buildCoachState:smartCompactAdvisor', err);
+    }
 
     return {
       prefixCacheShield: shieldStatus,
@@ -544,6 +661,8 @@ function buildCoachState(state, targetConvId) {
               detectorId: primaryTripped.detectorId,
               reason: primaryTripped.message || primaryTripped.name,
               severity: primaryTripped.severity || 'WARN',
+              guidance: primaryTripped.guidance || null,
+              filePath: primaryTripped.filePath || null,
               revertAction: primaryTripped.revertAction || null,
               worktreeCommand: primaryTripped.worktreeCommand || null
             }
@@ -673,6 +792,7 @@ function buildCoachState(state, targetConvId) {
       autoShadowCorrections: autoShadow && Array.isArray(shadowAuto?.recentIncidents)
         ? shadowAuto.recentIncidents
         : [],
+      smartCompactSuggestion,
       taskQuotaRouter: taskRoute
     };
   } catch (err) {
@@ -737,7 +857,13 @@ async function refreshLiveState(force = false, explicitConvId = null) {
   const now = Date.now();
   const htmlMtimeMs = getHtmlMtimeMs();
   const targetConvId = explicitConvId || pinnedConversationId || process.env.ANTIGRAVITY_CONVERSATION_ID || null;
-  if (!force && !explicitConvId && cachedLiveState && (now - lastEvalMs) < 1000) {
+  if (
+    !force &&
+    !explicitConvId &&
+    cachedLiveState &&
+    (!targetConvId || cachedLiveState.sessionId === targetConvId) &&
+    (now - lastEvalMs) < 1000
+  ) {
     if (cachedLiveState) {
       cachedLiveState.uiMtimeMs = htmlMtimeMs;
       try {
@@ -800,6 +926,32 @@ async function refreshLiveState(force = false, explicitConvId = null) {
     }
   } catch (err) {
     recordDaemonDiagnostic('refreshLiveState:runCLI', err);
+  }
+
+  if (targetConvId) {
+    const cleanEmptyState = {
+      sessionId: targetConvId,
+      sessionTitle: 'New Conversation',
+      storeSource: 'antigravity',
+      isEmptySession: true,
+      pinnedConversationId: explicitConvId || pinnedConversationId || null,
+      window: { totalActiveTokens: 0, maxTokens: 256000, safeLimit: 179000, turnCount: 0, stepCount: 0 },
+      metrics: { signalPurityPct: 100, sludgeTokens: 0, bloatTokens: 0 },
+      breakdown: {},
+      brainSignals: {},
+      cells: [],
+      recentSessions: Array.isArray(cachedLiveState?.recentSessions) ? cachedLiveState.recentSessions : [],
+      uiMtimeMs: htmlMtimeMs
+    };
+    try {
+      cleanEmptyState.coachState = buildCoachState(cleanEmptyState, targetConvId);
+    } catch (err) {
+      recordDaemonDiagnostic('refreshLiveState:emptyTargetCoachState', err);
+    }
+    if (!explicitConvId || explicitConvId === pinnedConversationId) {
+      cachedLiveState = cleanEmptyState;
+    }
+    return cleanEmptyState;
   }
 
   if (fs.existsSync(stateFile)) {
@@ -1098,9 +1250,7 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === '/simple' || url.pathname === '/simple.html') {
     const qConv = url.searchParams.get('conversationId');
-    if (qConv && qConv !== 'auto') {
-      pinnedConversationId = qConv;
-    }
+    pinnedConversationId = (qConv && qConv !== 'auto') ? qConv : null;
     const initState = await refreshLiveState(false, pinnedConversationId);
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
@@ -1137,9 +1287,7 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === '/advanced' || url.pathname === '/advanced.html') {
     const qConv = url.searchParams.get('conversationId');
-    if (qConv && qConv !== 'auto') {
-      pinnedConversationId = qConv;
-    }
+    pinnedConversationId = (qConv && qConv !== 'auto') ? qConv : null;
     const initState = await refreshLiveState(false, pinnedConversationId);
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
@@ -1176,9 +1324,7 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === '/' || url.pathname === '/index.html' || url.pathname === '/widget' || url.pathname === '/widget.html') {
     const qConv = url.searchParams.get('conversationId');
-    if (qConv && qConv !== 'auto') {
-      pinnedConversationId = qConv;
-    }
+    pinnedConversationId = (qConv && qConv !== 'auto') ? qConv : null;
     const initState = await refreshLiveState(false, pinnedConversationId);
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
@@ -1261,14 +1407,17 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    const qStreamConv = url.searchParams.get('conversationId');
+    const clientConvId = (qStreamConv && qStreamConv !== 'auto') ? qStreamConv : null;
+
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive'
     });
 
-    clients.add(res);
-    const current = await refreshLiveState(true);
+    clients.set(res, { conversationId: clientConvId });
+    const current = await refreshLiveState(true, clientConvId);
     if (current) {
       res.write(`data: ${JSON.stringify(current)}\n\n`);
     }
@@ -1943,12 +2092,13 @@ const server = http.createServer(async (req, res) => {
 
     let requestedMode = body.mode || 'coach';
     let autoShadow = false;
+    const entOpts = getDaemonEntitlementOptions();
     let proCheck = null;
 
     if (wantsAuto) {
       // Read-only entitlement check: selecting Auto NEVER provisions a trial. The 14-day trial is
       // explicit (banner button -> POST /api/license/activate {trial:true}, license key, or CLI).
-      proCheck = getProEntitlementStatus({ strict: true });
+      proCheck = getProEntitlementStatus(entOpts);
       autoShadow = !proCheck.entitled;   // keep the selection on Auto; enforcement is gated
     }
 
@@ -1956,7 +2106,7 @@ const server = http.createServer(async (req, res) => {
     const selectedRes = modelSelectorActuator.normalizeMode(requestedMode);
     selectedRouterMode = selectedRes;
     const persistRes = setHorizonFlightMode(selectedRes, { cwd: wsDir });
-    const enforcedGate = resolveEffectiveAutoFlightMode(persistRes.flightMode);
+    const enforcedGate = resolveEffectiveAutoFlightMode(persistRes.flightMode, entOpts);
     const enforcedRouter = enforcedGate.effectiveFlightMode === 'AUTO_PILOT'
       ? 'autopilot'
       : (enforcedGate.effectiveFlightMode === 'OFF' ? 'off' : 'coach');
@@ -1978,7 +2128,7 @@ const server = http.createServer(async (req, res) => {
         reverseTrialStarted: false,
         steppedDownToCoach: false,
         ...(autoShadow ? { requiresPro: true } : {}),
-        proEntitlement: nextState?.proEntitlement || proCheck || getProEntitlementStatus(),
+        proEntitlement: nextState?.proEntitlement || proCheck || getProEntitlementStatus(entOpts),
         shadowAuto: nextState?.shadowAuto || null,
         state: nextState
       })
@@ -2054,6 +2204,132 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Route: POST /api/pre-compact (Progressive pre-compaction snapshot & optional command receipt)
+  if (url.pathname === '/api/pre-compact' && req.method === 'POST') {
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = bodyStr ? parseJsonBodyOrSend400(bodyStr, res, 'POST /api/pre-compact') : {};
+    if (body === null) return;
+    const targetConvId = (body.conversationId && body.conversationId !== 'auto')
+      ? String(body.conversationId)
+      : (pinnedConversationId || cachedLiveState?.sessionId || 'default');
+    const wsDir = body.workspacePath || cachedLiveState?.workspace?.canonicalPath || process.cwd();
+    const ckptRes = progressiveCheckpointer.evaluateAndSnapshot({
+      sessionId: targetConvId,
+      totalTokens: Number(cachedLiveState?.window?.totalActiveTokens || 0),
+      maxTokens: Number(cachedLiveState?.window?.maxTokens || 256000),
+      taskMdContent: getCachedTaskMdContent(wsDir),
+      agentsMdContent: cachedLiveState?.agentsMdContent || '',
+      userConstraints: cachedLiveState?.userConstraints || [],
+      forceSnapshot: true,
+      writeToDisk: !isDemoMode
+    });
+    const nextState = await refreshLiveState(true, targetConvId === 'default' ? null : targetConvId);
+    broadcastState(nextState);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      success: true,
+      ok: true,
+      checkpointed: Boolean(ckptRes?.snapshotted),
+      action: body.action || 'pre_compact',
+      checkpoint: ckptRes?.checkpoint || ckptRes?.latestCheckpoint || null,
+      state: nextState
+    }));
+    return;
+  }
+
+  // Route: POST /api/force-prune (Read-only host analysis + staged AST/tail trim preview)
+  if (url.pathname === '/api/force-prune' && req.method === 'POST') {
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = bodyStr ? parseJsonBodyOrSend400(bodyStr, res, 'POST /api/force-prune') : {};
+    if (body === null) return;
+    const reqConvId = body.conversationId && body.conversationId !== 'auto'
+      ? String(body.conversationId)
+      : (pinnedConversationId || cachedLiveState?.sessionId || null);
+    const sessionInfo = findSessionDirectory(reqConvId);
+    let pruneRes = {
+      success: true,
+      prunedSteps: 0,
+      savedTokens: 0,
+      stagedOnly: true,
+      hostTranscriptMutated: false
+    };
+    if (sessionInfo && sessionInfo.sessionDir && fs.existsSync(sessionInfo.sessionDir)) {
+      try {
+        const dryRes = pruneSessionTranscript(sessionInfo.sessionDir, {
+          dryRun: true,
+          forceHotCache: true,
+          cacheDir: defaultCacheDir
+        });
+        pruneRes = {
+          ...dryRes,
+          success: true,
+          stagedOnly: true,
+          hostTranscriptMutated: false
+        };
+      } catch (err) {
+        recordDaemonDiagnostic('POST /api/force-prune:prune', err);
+      }
+    }
+    const nextState = await refreshLiveState(true, reqConvId);
+    broadcastState(nextState);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ...pruneRes, state: nextState }));
+    return;
+  }
+
+  // Route: POST /api/ignore (Append ignorable non-source file to .antigravityignore)
+  if (url.pathname === '/api/ignore' && req.method === 'POST') {
+    const bodyStr = await readRequestBody(req, res);
+    if (bodyStr === null) return;
+    const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/ignore');
+    if (body === null) return;
+    const rawPath = String(body.path || '').replace(/[\r\n]+/g, '').trim();
+    if (!rawPath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Missing file path' }));
+      return;
+    }
+    if (!isIgnorablePath(rawPath)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: false,
+        error: 'Active source code files cannot be added to .antigravityignore'
+      }));
+      return;
+    }
+    const wsDir = body.workspacePath || cachedLiveState?.workspace?.canonicalPath || process.cwd();
+    const ignoreFile = path.join(wsDir, '.antigravityignore');
+    let existing = '';
+    if (fs.existsSync(ignoreFile)) {
+      try {
+        existing = fs.readFileSync(ignoreFile, 'utf8');
+      } catch (err) {
+        recordDaemonDiagnostic('POST /api/ignore:read', err);
+      }
+    }
+    const existingLines = existing.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const alreadyPresent = existingLines.includes(rawPath);
+    if (!alreadyPresent) {
+      const nextText = existing && !existing.endsWith('\n')
+        ? `${existing}\n${rawPath}\n`
+        : `${existing}${rawPath}\n`;
+      atomicWriteFileSync(ignoreFile, nextText, { encoding: 'utf8' });
+    }
+    const nextState = await refreshLiveState(true, pinnedConversationId);
+    broadcastState(nextState);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      success: true,
+      alreadyPresent,
+      ignoredPath: rawPath,
+      ignoreFile,
+      state: nextState
+    }));
+    return;
+  }
+
   res.writeHead(404);
   res.end('Not Found');
   } catch (err) {
@@ -2064,7 +2340,10 @@ const server = http.createServer(async (req, res) => {
 function broadcastState(state) {
   if (!state || clients.size === 0) return;
   const payload = `data: ${JSON.stringify(state)}\n\n`;
-  for (const client of clients) {
+  for (const [client, meta] of clients.entries()) {
+    if (meta?.conversationId && state.sessionId && meta.conversationId !== state.sessionId) {
+      continue;
+    }
     try {
       client.write(payload);
     } catch (err) {
@@ -2077,8 +2356,34 @@ function broadcastState(state) {
 setInterval(async () => {
   if (clients.size > 0) {
     try {
-      const state = await refreshLiveState(true);
-      broadcastState(state);
+      const defaultState = await refreshLiveState(true);
+      broadcastState(defaultState);
+      const pinnedTargets = new Set();
+      for (const [, meta] of clients.entries()) {
+        if (meta?.conversationId && meta.conversationId !== defaultState?.sessionId) {
+          pinnedTargets.add(meta.conversationId);
+        }
+      }
+      for (const convId of pinnedTargets) {
+        try {
+          const pinState = await refreshLiveState(true, convId);
+          if (pinState) {
+            const payload = `data: ${JSON.stringify(pinState)}\n\n`;
+            for (const [client, meta] of clients.entries()) {
+              if (meta?.conversationId === convId) {
+                try {
+                  client.write(payload);
+                } catch (err) {
+                  clients.delete(client);
+                  recordDaemonDiagnostic('sseBroadcastInterval:pinnedWrite', err);
+                }
+              }
+            }
+          }
+        } catch (err) {
+          recordDaemonDiagnostic('sseBroadcastInterval:pinnedRefresh', err);
+        }
+      }
     } catch (err) {
       recordDaemonDiagnostic('sseBroadcastInterval', err);
     }

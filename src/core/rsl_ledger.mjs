@@ -19,6 +19,7 @@ import { atomicWriteFileSync } from './atomic_io.mjs';
 import { RSL_CONSTANTS } from './constants.mjs';
 import { auditClaudeAutoMemory } from './shield_manager.mjs';
 import { toKebabSlug } from './rsl_distiller.mjs';
+import { humanizeLearnedRule } from '../core-isomorphic/catalog/safeguardGuide.mjs';
 import {
   extractRuleDirectives,
   doRuleScopesOverlap,
@@ -1018,6 +1019,11 @@ export function getRslSummary(workspaceRoot = process.cwd(), options = {}) {
     ruleBudgetPct: budget.pct,
     claudeMemoryAudit,
     topHeuristics,
+    uiRules: activeItems
+      .slice()
+      .sort((a, b) => Number(b.importance || 0) - Number(a.importance || 0))
+      .slice(0, 12)
+      .map((it) => humanizeLearnedRule(it)),
     items: options.includeAll ? allItems : activeItems
   };
 }

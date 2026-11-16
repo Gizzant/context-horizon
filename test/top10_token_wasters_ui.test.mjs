@@ -97,7 +97,7 @@ describe('Top 10 Token Wasters — classifyHorizon + Horizon Panel UI Verificati
         ];
         const st = makeColdCache(classifyHorizon(steps, { sessionId: 's1-reread', modelId: 'claude-opus-5.5', useNativeCeiling: true, canonicalWorkspace: ws }));
         win.renderState(st);
-        assert.equal(txt('tsStatusLabel'), 'Reclaimable Clutter High');
+        assert.equal(txt('tsStatusLabel'), 'Old Clutter High');
         assert.equal(txt('tsUsedLabel'), '81.0k');
         assert.equal(txt('tsValClutter'), '53.0k');
         assert.equal(txt('tsValSignal'), '28.0k');
@@ -135,7 +135,7 @@ describe('Top 10 Token Wasters — classifyHorizon + Horizon Panel UI Verificati
         };
         win.renderState(st);
         assert.equal(txt('tsCacheMeta'), '88% hit · Warm (03:30)');
-        assert.equal(txt('tsClutterKind'), 'Warm Reclaimable');
+        assert.equal(txt('tsClutterKind'), 'Cached Old Turns');
         assert.equal(txt('tsModelVerdict'), 'HOLD 03:30');
         assert.equal(txt('tsEffortVerdict'), 'HOLD 03:30');
         assert.equal(d.getElementById('tsBtnCleanPrimary').dataset.ctaState, 'guarded');
@@ -156,7 +156,7 @@ describe('Top 10 Token Wasters — classifyHorizon + Horizon Panel UI Verificati
         ];
         const st = makeColdCache(classifyHorizon(steps, { sessionId: 's3-err', modelId: 'claude-opus-5.5', useNativeCeiling: true, canonicalWorkspace: ws }));
         win.renderState(st);
-        assert.equal(txt('tsStatusLabel'), 'Error Loop Detected');
+        assert.equal(txt('tsStatusLabel'), 'Repeating Error');
         assert.match(txt('tsDoText'), /Pause blind retries \(4× error loop\)/);
         assert.equal(txt('tsModelVerdict'), 'UPSHIFT OK');
         assert.equal(txt('tsEffortVerdict'), 'RAISE OK');
@@ -189,9 +189,9 @@ describe('Top 10 Token Wasters — classifyHorizon + Horizon Panel UI Verificati
           workspace30d: { totalPhysicalTokens: 14200 }
         };
         win.renderState(st);
-        assert.equal(txt('tsStatusLabel'), 'Single-Turn Output Spike');
+        assert.equal(txt('tsStatusLabel'), 'Large Command Output');
         assert.match(txt('tsDoText'), /28\.0k from npm test --verbose \(Turn #3\)/);
-        assert.match(txt('tsLedgerList'), /FTS5[\s\S]*\+14\.2k/);
+        assert.match(txt('tsLedgerList'), /Trimmed long terminal[\s\S]*\+14\.2k/);
         assert.match(d.getElementById('taConsumersBody').textContent, /npm test --verbose[\s\S]*T3 spike[\s\S]*28\.0k[\s\S]*Output spike/);
       }
 
@@ -239,7 +239,7 @@ describe('Top 10 Token Wasters — classifyHorizon + Horizon Panel UI Verificati
         win.renderState(st);
         assert.equal(txt('tsValClutter'), '19.0k');
         assert.equal(d.getElementById('tsWhyClears').hidden, false);
-        assert.match(txt('tsWhyList'), /Cross-project memory bleed \(foreign KIs\)[\s\S]*19\.0k/);
+        assert.match(txt('tsWhyList'), /Notes from other projects \(other repos\)[\s\S]*19\.0k/);
         assert.equal(txt('tsWhyTotal'), '19.0k');
         assert.match(d.getElementById('taConsumersBody').textContent, /Foreign KI/);
       }
@@ -261,8 +261,8 @@ describe('Top 10 Token Wasters — classifyHorizon + Horizon Panel UI Verificati
           reclaimableEagerSchemaTokens: 31700
         };
         win.renderState(st);
-        assert.equal(txt('tsStatusLabel'), 'Turn-0 Prefix Bloat');
-        assert.match(txt('tsDoText'), /Switch 2 idle eager MCPs to lazy loading to save ~31\.7k at Turn 0/);
+        assert.equal(txt('tsStatusLabel'), 'Heavy Startup Setup');
+        assert.match(txt('tsDoText'), /Set 2 unused MCP servers to load on demand to save about 31\.7k/);
         assert.match(txt('taBaselineText'), /32\.4k \/ 20\.0k budget/);
         assert.match(txt('taActionQueue'), /2 idle eager MCPs.*~31\.7k/);
       }
@@ -335,7 +335,7 @@ describe('Top 10 Token Wasters — classifyHorizon + Horizon Panel UI Verificati
           }
         };
         win.renderState(st9b);
-        assert.equal(txt('tsStatusLabel'), 'Memory Pruning Active');
+        assert.equal(txt('tsStatusLabel'), 'Over Safe Limit');
         assert.equal(txt('tsAnchorHealth'), 'Oldest rules at risk');
         assert.equal(txt('tsModelVerdict'), 'LOCK');
         assert.equal(txt('tsEffortVerdict'), 'LOWER');
@@ -361,7 +361,7 @@ describe('Top 10 Token Wasters — classifyHorizon + Horizon Panel UI Verificati
           workspace30d: { totalPhysicalTokens: 42000 }
         };
         win.renderState(st);
-        assert.match(txt('tsLedgerList'), /subagent[\s\S]*\+42\.0k/i);
+        assert.match(txt('tsLedgerList'), /helper agent[\s\S]*\+42\.0k/i);
         assert.equal(txt('taHostRam'), '3.8GB');
         assert.equal(txt('taUTrough'), '62% (2 specs)');
         assert.equal(txt('taSrcSub'), '+42.0k');
@@ -389,7 +389,7 @@ describe('Top 10 Token Wasters — classifyHorizon + Horizon Panel UI Verificati
         assert.equal(txt('tsValClutter'), '0.0k');
         assert.equal(d.getElementById('tsWhyClears').hidden, true);
         assert.equal(d.getElementById('tsWhyClears').open, false);
-        assert.equal(txt('tsStatusLabel'), 'Nominal Memory');
+        assert.equal(txt('tsStatusLabel'), 'Healthy');
         assert.equal(txt('taDetBadge'), '32/32 guards armed');
         assert.match(txt('taActionQueue'), /Nominal queue · 0 orphan PIDs, 0 idle eager MCPs, 0 trough specs/);
       }

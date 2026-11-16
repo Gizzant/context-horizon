@@ -61,12 +61,19 @@ describe('v4.0 RC Remediation & @ctxtop/mcp Regression Suite', () => {
     assert.match(gitattrs, /\*\s+text=auto\s+eol=lf/);
     assert.match(gitattrs, /\*\.mjs\s+text\s+eol=lf/);
 
+    const homeDir = process.env.USERPROFILE || process.env.HOME || os.homedir();
+    const hasLegacyAgyHorizon = fs.existsSync(
+      path.join(homeDir, '.gemini', 'config', 'plugins', 'agy-horizon')
+    );
+    const expectedTargets = hasLegacyAgyHorizon ? 8 : 6;
+    const minExpectedPairs = hasLegacyAgyHorizon ? 774 : 530;
+
     const parity = syncAndVerifyMirrors({ verifyOnly: true });
     assert.equal(parity.parityOk, true);
-    assert.equal(parity.targets, 8);
+    assert.equal(parity.targets, expectedTargets);
     assert.ok(
-      parity.verifiedFilePairs >= 774,
-      `Expected >= 774 mirrored file pairs, got ${parity.verifiedFilePairs}`
+      parity.verifiedFilePairs >= minExpectedPairs,
+      `Expected >= ${minExpectedPairs} mirrored file pairs, got ${parity.verifiedFilePairs}`
     );
   });
 

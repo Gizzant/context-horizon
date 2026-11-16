@@ -611,6 +611,57 @@ export function discoverCursorSessions(homeDir = getHomeDir(), DatabaseSyncClass
 }
 
 /**
+ * Collects child subagent conversation IDs (`parent_conversation_id != ''`) from Antigravity
+ * `conversation_summaries.db` stores strictly in read-only mode so `auto` session discovery
+ * and top-level conversation dropdowns are never hijacked by background subagents.
+ */
+export function collectChildSubagentIds(homeDir = getHomeDir(), DatabaseSyncClass = null) {
+  const childIds = new Set();
+  const DatabaseSync = DatabaseSyncClass || getSqliteDatabaseSync();
+  if (!DatabaseSync) return childIds;
+  const surfaces = getAntigravitySurfaces(homeDir, { includeMissing: true });
+  for (const surface of surfaces) {
+    if (!fs.existsSync(surface.summariesDbPath)) continue;
+    let db = null;
+    try {
+      db = new DatabaseSync(surface.summariesDbPath, SQLITE_OPEN_READONLY_OPTIONS);
+      const rows = db.prepare(
+        "SELECT conversation_id FROM conversation_summaries WHERE parent_conversation_id IS NOT NULL AND parent_conversation_id != ''"
+      ).all();
+      for (const r of rows) {
+        if (r?.conversation_id) childIds.add(String(r.conversation_id));
+      }
+    } catch (err) {
+      void err;
+    } finally {
+      try { if (db && typeof db.close === 'function') db.close(); } catch (err) { void err; }
+    }
+  }
+  return childIds;
+}
+
+function isLikelySubagentBrainDir(sessionDir) {
+  try {
+    const compactPath = path.join(sessionDir, '.system_generated', 'logs', 'transcript.jsonl');
+    if (!fs.existsSync(compactPath)) return false;
+    const fd = fs.openSync(compactPath, 'r');
+    try {
+      const buf = Buffer.alloc(16384);
+      const bytesRead = fs.readSync(fd, buf, 0, buf.length, 0);
+      if (bytesRead <= 0) return false;
+      const head = buf.toString('utf8', 0, bytesRead);
+      if (head.includes('"USER_EXPLICIT"') || head.includes('"USER_INPUT"')) return false;
+      return head.includes('parentConversationId') || head.includes('BROWSER_HOST_FACTS');
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch (err) {
+    void err;
+    return false;
+  }
+}
+
+/**
  * Finds the active session directory across Antigravity ([App], [IDE], [CLI]) by default.
  * Cross-host Claude Code ([Claude]) and Cursor ([Cursor]) discovery is strictly gated behind
  * `options.harness === 'claude' | 'cursor' | 'all'` or `options.includeCrossHost === true`.
@@ -628,7 +679,7 @@ export function findSessionDirectory(sessionId, homeDir = getHomeDir(), options 
     opts.includeCrossHost === true;
 
   const stores = includeAntigravity ? getBrainStores(homeDir) : [];
-  if (sessionId) {
+  if (sessionId && sessionId !== 'auto') {
     if (fs.existsSync(sessionId)) {
       const isVscdb = sessionId.toLowerCase().endsWith('.vscdb') || fs.existsSync(path.join(sessionId, 'state.vscdb'));
       const isJsonl = sessionId.toLowerCase().endsWith('.jsonl');
@@ -675,33 +726,45 @@ export function findSessionDirectory(sessionId, homeDir = getHomeDir(), options 
       const cursorMatch = discoverCursorSessions(homeDir, null, opts).find(s => s.sessionId === sessionId);
       if (cursorMatch) return cursorMatch;
     }
+    return null;
   }
 
   // Fallback to most recently active session based on real transcript log mtime across enabled harnesses
+  const childSubagentIds = includeAntigravity ? collectChildSubagentIds(homeDir) : new Set();
   let latest = null;
+  let latestEmpty = null;
   for (const store of stores) {
     try {
       const entries = fs.readdirSync(store.path);
       for (const name of entries) {
+        if (childSubagentIds.has(name)) continue;
         const full = path.join(store.path, name);
         try {
           const stat = fs.statSync(full);
           if (stat.isDirectory()) {
+            if (isLikelySubagentBrainDir(full)) continue;
+            const hasLogs = Boolean(resolveSessionLogs(full));
             const realMtime = getRealSessionMtimeMs(full);
-            if (!latest || realMtime > latest.mtimeMs) {
-              latest = {
-                storeName: store.name,
-                surfaceTag: store.surfaceTag || resolveSurfaceTag(store.name),
-                sessionDir: full,
-                sessionId: name,
-                mtimeMs: realMtime
-              };
+            const cand = {
+              storeName: store.name,
+              surfaceTag: store.surfaceTag || resolveSurfaceTag(store.name),
+              sessionDir: full,
+              sessionId: name,
+              mtimeMs: realMtime
+            };
+            if (hasLogs) {
+              if (!latest || realMtime > latest.mtimeMs) {
+                latest = cand;
+              }
+            } else if (!latestEmpty || realMtime > latestEmpty.mtimeMs) {
+              latestEmpty = cand;
             }
           }
-        } catch {}
+        } catch (err) { void err; }
       }
-    } catch {}
+    } catch (err) { void err; }
   }
+  if (!latest) latest = latestEmpty;
 
   if (includeClaude) {
     for (const claudeSess of discoverClaudeCodeSessions(homeDir, opts)) {
@@ -1410,6 +1473,7 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
     const DatabaseSync = getDatabaseSyncClass();
     const surfaces = getAntigravitySurfaces(homeDir, { includeMissing: true });
     const discoveredMap = new Map();
+    const childSubagentIds = new Set();
 
     const upsertDiscoveredSession = (sid, candidate) => {
       if (!sid || !candidate) return;
@@ -1457,6 +1521,14 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
           }
         } catch {}
       }
+      try {
+        const childRows = dbInstance.prepare(
+          "SELECT conversation_id FROM conversation_summaries WHERE parent_conversation_id IS NOT NULL AND parent_conversation_id != ''"
+        ).all();
+        for (const cr of childRows) {
+          if (cr?.conversation_id) childSubagentIds.add(String(cr.conversation_id));
+        }
+      } catch (err) { void err; }
       try {
         const recentRows = dbInstance.prepare('SELECT conversation_id, title, step_count, workspace_uris, last_modified_time FROM conversation_summaries WHERE parent_conversation_id = \'\' ORDER BY last_modified_time DESC LIMIT 12').all();
         for (const r of recentRows) {
@@ -1522,6 +1594,7 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
               if (targetEntry) topDbCandidates.push(targetEntry);
             }
             for (const { sid, fullDbPath, mtimeMs } of topDbCandidates) {
+              if (childSubagentIds.has(sid) && sid !== sessionId) continue;
               const genMeta = readSessionGenMetadataSync(fullDbPath, DatabaseSync);
               if (sessionId && sid === sessionId && genMeta && !sessionGenMetadata) {
                 sessionGenMetadata = genMeta;
@@ -1564,7 +1637,9 @@ export async function reconcileWorkspaceAndKIs(sessionId, homeDir = getHomeDir()
               .filter(d => d.isDirectory());
             for (const dirent of brainEntries.slice(0, 20)) {
               const sid = dirent.name;
+              if (childSubagentIds.has(sid) && sid !== sessionId) continue;
               const sessBrainDir = path.join(surface.brainDir, sid);
+              if (sid !== sessionId && isLikelySubagentBrainDir(sessBrainDir)) continue;
               const logsDir = path.join(sessBrainDir, '.system_generated', 'logs');
               const fullJsonl = path.join(logsDir, 'transcript_full.jsonl');
               const compactJsonl = path.join(logsDir, 'transcript.jsonl');

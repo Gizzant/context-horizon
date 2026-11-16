@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { readLiveStateSnapshot } from '../../src/core-isomorphic/telemetry/telemetryBridge.mjs';
 import { loadHorizonConfig } from '../../src/core-isomorphic/config/horizonConfig.mjs';
+import { resolveEffectiveAutoFlightMode } from '../../src/core/pro_license.mjs';
 import {
   evaluateShardedSpecDrift,
   evaluateTurn1ContractGate
@@ -88,12 +89,18 @@ export function runUserPromptSubmitHook(event = {}, options = {}) {
   const cwdOptions = event.cwd && !options.cwd ? { ...options, cwd: event.cwd } : options;
   const horizonConfig = options.horizonConfig || loadHorizonConfig(cwdOptions);
   const liveState = options.telemetryState || readLiveStateSnapshot(sessionId, cwdOptions);
-  const effectiveMode =
+  const rawMode =
     event.mode ||
     options.mode ||
     liveState?.flightMode ||
     horizonConfig?.flightMode ||
     'COACH';
+  const effectiveMode = resolveEffectiveAutoFlightMode(rawMode, {
+    licensePath: options.licensePath || event.licensePath,
+    homeDir: options.homeDir || event.homeDir,
+    nowMs: options.nowMs,
+    strict: Boolean(options.strict ?? event.strict)
+  }).effectiveFlightMode;
 
   const shouldPersistState =
     !options.engine &&

@@ -754,6 +754,7 @@ export async function runCLI(options = {}) {
     return { output: text, state };
   }
 
+  const passedSessionId = stdinData?.session_id || stdinData?.conversation_id || null;
   let sessionInfo = null;
   if (sessionDirOverride) {
     const lowerOverride = String(sessionDirOverride).toLowerCase();
@@ -766,18 +767,28 @@ export async function runCLI(options = {}) {
       sessionId: path.basename(sessionDirOverride).replace(/\.(jsonl|vscdb)$/i, '')
     };
   } else {
-    const passedSessionId = stdinData?.session_id || stdinData?.conversation_id;
     sessionInfo = findSessionDirectory(passedSessionId);
+    if (!sessionInfo && passedSessionId) {
+      sessionInfo = {
+        storeName: 'antigravity',
+        sessionDir: '',
+        sessionId: String(passedSessionId)
+      };
+    }
   }
 
-  if (!sessionInfo || !fs.existsSync(sessionInfo.sessionDir)) {
+  if (!sessionInfo || (!passedSessionId && !sessionInfo.dbPath && !fs.existsSync(sessionInfo.sessionDir))) {
     const fallbackText = '\x1b[38;5;244m[ - ] No Antigravity session active\x1b[0m';
     if (!options.silent) console.log(fallbackText);
     return { output: fallbackText, state: null };
   }
 
-  const parsed = parseTranscriptIncremental(sessionInfo.sessionDir, cacheDirOverride);
-  if (!parsed.steps || parsed.steps.length === 0) {
+  const hasReadableLogDir = Boolean(sessionInfo.sessionDir && fs.existsSync(sessionInfo.sessionDir));
+  const parsed = hasReadableLogDir
+    ? parseTranscriptIncremental(sessionInfo.sessionDir, cacheDirOverride)
+    : { steps: [], tier: 0, filePath: '', activeEffortProfile: null, effortTransitions: [], rewindDetected: false, genMetadata: null, sessionTitle: '' };
+  const parsedSteps = Array.isArray(parsed?.steps) ? parsed.steps : [];
+  if (parsedSteps.length === 0 && !passedSessionId && !sessionInfo.dbPath && !hasReadableLogDir) {
     const initText = '\x1b[38;5;244m[ ... ] Initialize session to build attention horizon\x1b[0m';
     if (!options.silent) console.log(initText);
     return { output: initText, state: null };
@@ -791,7 +802,7 @@ export async function runCLI(options = {}) {
   const resolvedModel = resolveSessionModel({
     stdinData,
     genMetadata: activeGenMetadata,
-    steps: parsed.steps
+    steps: parsedSteps
   });
   const modelId = resolvedModel.id;
   const loadedSettings = loadSettings(cacheDir);
@@ -806,7 +817,7 @@ export async function runCLI(options = {}) {
     ? win.safeLimit
     : (scaledEffort?.safeLimit || win.safeLimit);
 
-  const state = classifyHorizon(parsed.steps, {
+  const state = classifyHorizon(parsedSteps, {
     sessionId: sessionInfo.sessionId,
     storeSource: sessionInfo.storeName,
     logTierUsed: parsed.tier,
@@ -826,7 +837,8 @@ export async function runCLI(options = {}) {
     activeEffortProfile: scaledEffort,
     effortTransitions: parsed.effortTransitions
   });
-  state.sessionTitle = reconciliation.sessionTitle || parsed.sessionTitle || '';
+  state.sessionTitle = reconciliation.sessionTitle || parsed.sessionTitle || (parsedSteps.length === 0 ? 'New Conversation' : '');
+  state.isEmptySession = parsedSteps.length === 0;
   if (state.model && typeof state.model === 'object') {
     state.model.source = resolvedModel.source;
     state.model.rawLabel = resolvedModel.raw;
@@ -842,17 +854,21 @@ export async function runCLI(options = {}) {
     reconciliation.primaryWorkspace || state.workspace?.canonicalPath || ''
   );
 
-  state.delta = recordAndDelta(cacheDir, sessionInfo.sessionId, state, parsed.steps).delta;
+  state.delta = recordAndDelta(cacheDir, sessionInfo.sessionId, state, parsedSteps).delta;
   try {
     state.hostHealth = await inspectHostProcesses({ force: false });
   } catch {
     state.hostHealth = { rssGb: 0, languageServerCount: 0, orphanCount: 0, orphans: [], status: 'HEALTHY', alertBanner: null, checkedAt: new Date().toISOString() };
   }
-  try {
-    writeJsonAtomicSync(path.join(cacheDir, 'latest.state.json'), state);
-  } catch {}
+  if (parsedSteps.length > 0) {
+    try {
+      writeJsonAtomicSync(path.join(cacheDir, 'latest.state.json'), state);
+    } catch {}
+  }
 
-  const line1 = formatCliStatusLine(state, { columns });
+  const line1 = parsedSteps.length === 0
+    ? '\x1b[38;5;244m[ ... ] Initialize session to build attention horizon\x1b[0m'
+    : formatCliStatusLine(state, { columns });
 
   if (options.emitWidget || (Array.isArray(process.argv) && process.argv.includes('--emit-widget'))) {
     const target = path.resolve(options.out || 'horizon_widget.html');

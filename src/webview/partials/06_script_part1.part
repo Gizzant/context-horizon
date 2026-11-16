@@ -5,8 +5,18 @@
 <script>
   let currentRenderedState = null;
   // Temporary diagnostic (?debug=1): confirms whether banner dimming is in-panel or host-side.
-  let selectedSessionMode = 'auto';
+  const __initialConvParam = (() => {
+    try {
+      return window.sidecar?.conversationId || new URLSearchParams(window.location.search || '').get('conversationId') || '';
+    } catch (err) {
+      void err;
+      return '';
+    }
+  })();
+  let selectedSessionMode = (__initialConvParam && __initialConvParam !== 'auto') ? __initialConvParam : 'auto';
   let latestAutoState = null;
+  const __liveSessionCache = Object.create(null);
+  let __wsSwitchFetchInFlight = '';
   let initialHostSurface = window.sidecar?.surface || null;
   let currentWorkspaceBasename = '';
   let userForcedShowDeferred = false;
@@ -680,6 +690,8 @@
 
   function populateSessionDropdown(activeId, recentSessions = [], liveTok = {}) {
     const sel = document.getElementById('sessionSelect');
+    const tsSel = document.getElementById('tsSessionSelect');
+    if (!sel && !tsSel) return;
     const catalog = window.__PRECOMPUTED_SESSIONS__ || {};
     // Live value wins; next is SQLite gen_metadata liveTokens; catalog snapshot is fallback
     const tokensFor = (sid, sEntry = null) => {
@@ -704,7 +716,6 @@
     const autoMeta = sessions.find(s => s.sessionId === autoId);
     const autoTok = tokensFor(autoId, autoMeta);
     const autoSurfaceTag = autoMeta?.surfaceTag || autoState?.surfaceTag || resolveSurfaceTag(autoMeta?.surface || autoState?.storeSource || autoState?.logFilePath);
-    const routeLabel = formatEffortRouteLabel(autoState);
     const fallbackTitle = stripTokPrefix(autoState?.sessionTitle || 'Active Conversation');
     const autoTitle = autoMeta
       ? `${autoSurfaceTag} [${autoTok ? fmtK(autoTok) : '?'}] ${stripTokPrefix(autoMeta.title)}`
@@ -722,16 +733,31 @@
       html += `<option value="${s.sessionId}" data-surface="${escAttr(sSurface)}">${sTag} [${prefix}] ${stripTokPrefix(s.title)}</option>`;
     }
 
+    if (selectedSessionMode !== 'auto' && !sessions.some(s => s.sessionId === selectedSessionMode)) {
+      const pinTok = tokensFor(selectedSessionMode, null);
+      const pinPrefix = pinTok ? fmtK(pinTok) : 'pinned';
+      const pinTitle = stripTokPrefix(
+        (currentRenderedState?.sessionId === selectedSessionMode && currentRenderedState?.sessionTitle)
+          || __liveSessionCache[selectedSessionMode]?.sessionTitle
+          || selectedSessionMode.slice(0, 12)
+      );
+      html += `<option value="${escAttr(selectedSessionMode)}" data-surface="antigravity">[AG] [${pinPrefix}] ${escAttr(pinTitle)}</option>`;
+    }
+
     // Skip DOM rewrite when nothing changed so an open dropdown is not collapsed by the live refresh
     const sig = html + '|' + selectedSessionMode;
-    if (sel.dataset.sig === sig) return;
-    sel.dataset.sig = sig;
-    sel.innerHTML = html;
-    if (selectedSessionMode !== 'auto' && sessions.some(s => s.sessionId === selectedSessionMode)) {
-      sel.value = selectedSessionMode;
-    } else {
-      sel.value = 'auto';
+    const targetValue = selectedSessionMode !== 'auto' ? selectedSessionMode : 'auto';
+    for (const targetSel of [sel, tsSel]) {
+      if (!targetSel) continue;
+      if (targetSel.dataset.sig === sig) continue;
+      targetSel.dataset.sig = sig;
+      targetSel.innerHTML = html;
+      targetSel.value = targetValue;
     }
+    const tsFollowBtn = document.getElementById('tsBtnFollowActive');
+    if (tsFollowBtn) tsFollowBtn.hidden = selectedSessionMode === 'auto';
+    const tsJumpBtn = document.getElementById('tsBtnJumpChat');
+    if (tsJumpBtn) tsJumpBtn.hidden = !(typeof window.sidecar?.ui?.toggleConversation === 'function');
   }
 
   // Tooling tip dismissal persists in localStorage (falls back to in-memory if storage is blocked)
@@ -1230,26 +1256,51 @@
         return;
       }
     }
+    if (raw.sessionId) {
+      __liveSessionCache[raw.sessionId] = raw;
+    }
     if (!fromCatalog) {
-      // Keep the cached auto state fresh: the daemon pins the active conversation, so a pinned
-      // stream state for the same session (or any state while following 'auto') must replace it.
-      // Otherwise cached re-renders (workspace change / Follow active) resurrect pre-/compact totals.
-      if (!latestAutoState || selectedSessionMode === 'auto' || raw.sessionId === latestAutoState.sessionId) {
+      if (!latestAutoState || selectedSessionMode === 'auto' || (!raw.pinnedConversationId && raw.sessionId === latestAutoState.sessionId)) {
         latestAutoState = raw;
         if (!initialHostSurface && raw.storeSource) initialHostSurface = raw.storeSource;
       }
       if (selectedSessionMode !== 'auto') {
-        const catMatch = (window.__PRECOMPUTED_SESSIONS__ || {})[selectedSessionMode];
-        if (catMatch && raw.sessionId !== selectedSessionMode) {
-          raw = catMatch;
+        if (raw.sessionId !== selectedSessionMode) {
+          const cachedSel = __liveSessionCache[selectedSessionMode] || (window.__PRECOMPUTED_SESSIONS__ || {})[selectedSessionMode];
+          if (cachedSel) {
+            raw = cachedSel;
+          } else {
+            return;
+          }
         }
-      } else if (currentWorkspaceBasename && raw.workspace?.canonicalPath) {
+      } else if (!raw.pinnedConversationId && currentWorkspaceBasename && raw.workspace?.canonicalPath) {
         const rawWs = String(raw.workspace.canonicalPath).replace(/\\/g, '/').split('/').filter(Boolean).pop();
         if (rawWs && rawWs.toLowerCase() !== currentWorkspaceBasename.toLowerCase()) {
-          const matchByWs = Object.values(window.__PRECOMPUTED_SESSIONS__ || {}).find(
+          const matchByWs = Object.values(__liveSessionCache).find(
+            s => String(s?.workspace?.canonicalPath || s?.workspaceName || '').toLowerCase().includes(currentWorkspaceBasename.toLowerCase())
+          ) || Object.values(window.__PRECOMPUTED_SESSIONS__ || {}).find(
             s => (s.workspaceName || '').toLowerCase() === currentWorkspaceBasename.toLowerCase()
           );
-          if (matchByWs) raw = matchByWs;
+          if (matchByWs) {
+            raw = matchByWs;
+          } else {
+            const recentWs = (raw.recentSessions || []).find(
+              s => String(s.workspace || '').toLowerCase() === currentWorkspaceBasename.toLowerCase()
+            );
+            if (recentWs && recentWs.sessionId && recentWs.sessionId !== raw.sessionId && __wsSwitchFetchInFlight !== recentWs.sessionId) {
+              __wsSwitchFetchInFlight = recentWs.sessionId;
+              fetch(`/api/state?conversationId=${encodeURIComponent(recentWs.sessionId)}`)
+                .then(r => (r && r.ok ? r.json() : null))
+                .then(d => {
+                  __wsSwitchFetchInFlight = '';
+                  if (d && d.sessionId) {
+                    __liveSessionCache[d.sessionId] = d;
+                    if (selectedSessionMode === 'auto') renderState(d, true);
+                  }
+                })
+                .catch(err => { void err; __wsSwitchFetchInFlight = ''; });
+            }
+          }
         }
       }
     }
@@ -1326,18 +1377,21 @@
     }
     populateSessionDropdown(raw.sessionId, raw.recentSessions, liveTok);
 
-    // Keep selected option label in #sessionSelect and top #activeConversationTitle synchronized with live state
+    // Keep selected option label in #tsSessionSelect / #sessionSelect and top #activeConversationTitle synchronized with live state
     const selEl = document.getElementById('sessionSelect');
-    if (selEl && selEl.selectedOptions && selEl.selectedOptions[0]) {
-      const activeOpt = selEl.selectedOptions[0];
-      const liveTag = raw.surfaceTag || resolveSurfaceTag(raw.storeSource || raw.logFilePath || activeOpt.dataset?.surface);
-      const liveTitle = stripTokPrefix(raw.sessionTitle || activeOpt.textContent || 'Conversation');
-      activeOpt.textContent = `${liveTag} [${fmtK(totalTokens)}] ${liveTitle}`;
+    const tsSelEl = document.getElementById('tsSessionSelect');
+    for (const activeSel of [selEl, tsSelEl]) {
+      if (activeSel && activeSel.selectedOptions && activeSel.selectedOptions[0]) {
+        const activeOpt = activeSel.selectedOptions[0];
+        const liveTag = raw.surfaceTag || resolveSurfaceTag(raw.storeSource || raw.logFilePath || activeOpt.dataset?.surface);
+        const liveTitle = stripTokPrefix(raw.sessionTitle || activeOpt.textContent || 'Conversation');
+        activeOpt.textContent = `${liveTag} [${fmtK(totalTokens)}] ${liveTitle}`;
+      }
     }
 
     const activeTitleEl = document.getElementById('activeConversationTitle');
     if (activeTitleEl) {
-      const selOpt = selEl?.selectedOptions?.[0];
+      const selOpt = tsSelEl?.selectedOptions?.[0] || selEl?.selectedOptions?.[0];
       const rawTitleCandidate = raw.sessionTitle
         || (selOpt && selOpt.value !== 'auto' ? selOpt.textContent : '')
         || 'Active Conversation';
@@ -1353,6 +1407,10 @@
     const followBtnEl = document.getElementById('btnFollowActiveSession');
     if (followBtnEl) {
       followBtnEl.hidden = selectedSessionMode === 'auto';
+    }
+    const tsFollowBtnEl = document.getElementById('tsBtnFollowActive');
+    if (tsFollowBtnEl) {
+      tsFollowBtnEl.hidden = selectedSessionMode === 'auto';
     }
 
     const modelPillEl = document.getElementById('sessionModelPill');

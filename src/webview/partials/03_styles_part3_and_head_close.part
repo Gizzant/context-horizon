@@ -805,6 +805,58 @@
       border-bottom: 1px solid var(--hairline) !important;
     }
 
+    /* Compact Active Conversation Switcher Bar */
+    .ts-conv-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      margin: 4px 0 6px 0;
+      background: var(--bg-surface);
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      min-width: 0;
+    }
+    .ts-conv-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .ts-conv-select {
+      flex: 1 1 auto;
+      min-width: 0;
+      max-width: 100%;
+      padding: 2px 6px;
+      border-radius: 5px;
+      border: 1px solid var(--hairline);
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-variant-numeric: tabular-nums;
+      text-overflow: ellipsis;
+      cursor: pointer;
+    }
+    .ts-conv-btn {
+      flex-shrink: 0;
+      padding: 2px 7px;
+      border-radius: 5px;
+      border: 1px solid var(--hairline);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .ts-conv-btn:hover { color: var(--text-primary); border-color: var(--text-muted); }
+    .ts-conv-btn[hidden] { display: none !important; }
+    [data-theme="light"] .ts-conv-btn { background: rgba(15, 23, 42, 0.05); }
+
     /* 3-Way Protection Mode Segmented Slider Bar (Off | Coach | Auto) */
     .ts-mode-bar {
       display: flex;
@@ -1553,6 +1605,17 @@
     #tsAvoidRow[hidden] { display: none; }
     .ts-guard-list .ts-ledger-row[data-effective-state="enforces"] .ts-ledger-saved { color: var(--accent-focus); font-weight: 600; }
     .ts-guard-list .ts-ledger-row[data-effective-state="paused"] .ts-ledger-saved { color: var(--text-muted); font-weight: 400; font-style: italic; }
+    .ts-ledger-row[data-clickable="true"] { cursor: pointer; }
+    .ts-ledger-row[data-clickable="true"]:hover { color: var(--text-primary); }
+    .ts-ledger-row[data-clickable="true"]:hover .ts-ledger-saved { text-decoration: underline; text-underline-offset: 2px; }
+    .ts-ledger-row[data-clickable="true"]:focus-visible,
+    #tsSessionExtraRow[data-clickable="true"]:focus-visible { outline: 1.5px solid var(--accent-focus); outline-offset: 2px; border-radius: 2px; }
+    #tsSessionExtraRow[data-clickable="true"] { cursor: pointer; }
+    #tsSessionExtraRow[data-clickable="true"]:hover .ts-kpi-sub { color: var(--text-primary); }
+    #tsLearnedRulesList .ts-ledger-row { grid-template-columns: 40px minmax(0, 1fr) auto; }
+    #tsLearnedRulesList .ts-ledger-row[data-effective-state="blocks"] .ts-ledger-saved { color: var(--accent-focus); font-weight: 600; }
+    #tsLearnedRulesList .ts-ledger-row[data-effective-state="paused"] .ts-ledger-saved { color: var(--text-muted); font-weight: 400; font-style: italic; }
+    #tsLearnedRulesDrawer[hidden] { display: none; }
 
     [data-theme="light"] .ta-cell:not([data-cat]) { background: var(--hz-free); }
     [data-theme="light"] .ta-inspector,
@@ -1768,5 +1831,18 @@
       color: #FFFFFF;
     }
     .ts-shadow-btn[hidden] { display: none !important; }
+    .feedback-toast {
+      position: fixed;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      z-index: 80;
+      background: rgba(15, 22, 35, 0.96) !important;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    }
+    [data-theme="light"] .feedback-toast {
+      background: rgba(246, 248, 250, 0.98) !important;
+      color: #1f2328 !important;
+    }
 </style>
 </head>

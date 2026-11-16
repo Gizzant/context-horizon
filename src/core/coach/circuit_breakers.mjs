@@ -159,7 +159,8 @@ export function inspectErrorMaskingDiff(diffText = '', filePath = '', { newConte
     if (rawLine.startsWith('---') || rawLine.startsWith('+++')) continue;
     if (rawLine.startsWith('-')) {
       const body = rawLine.slice(1);
-      if (catchBlockRegex.test(body)) {
+      // Deleting an already-empty `catch {}` swallow removes a problem; it is not "stripped error handling".
+      if (catchBlockRegex.test(body) && !singleLineEmptyCatchRegex.test(body)) {
         removedTryCatchCount++;
         removedCatchEvidence.push(`Removed error handler: ${body.trim()}`);
       }
@@ -345,6 +346,7 @@ export class CircuitBreakers {
         severity: 'CRITICAL',
         turnIndex,
         retryCount,
+        toolSig,
         escalatedTier: { model: escalatedFrontierModel, effort: 'high' },
         message: `🚨 DET-01 Retry Churn: ${retryCount} consecutive failures detected. Sticky tier escalation engaged.`
       };
@@ -567,6 +569,19 @@ export class CircuitBreakers {
       }
       // Once written/edited, mark it known for subsequent turns
       this.readFiles.add(normPath);
+    }
+
+    // Resolve earlier alerts once a later clean turn supersedes them (keeps the HUD from staying stuck on old warnings).
+    if (triggered.length === 0 && !failed) {
+      if (normPath && isWriteOrEditTool) {
+        const FILE_SCOPED_RESOLVABLE = new Set(['DET-02', 'DET-21', 'DET-23']);
+        this.activeAlerts = this.activeAlerts.filter(
+          (a) => !(FILE_SCOPED_RESOLVABLE.has(a.detectorId) && a.filePath && canonicalizePath(a.filePath) === normPath)
+        );
+      }
+      if (toolSig && !isReadTool && !isSearchTool) {
+        this.activeAlerts = this.activeAlerts.filter((a) => !(a.detectorId === 'DET-01' && a.toolSig === toolSig));
+      }
     }
 
     return {

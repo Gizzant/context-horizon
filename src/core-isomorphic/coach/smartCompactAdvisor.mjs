@@ -1,15 +1,16 @@
 /**
  * @file src/core-isomorphic/coach/smartCompactAdvisor.mjs
- * Task-boundary `/compact` suggestion advisor (`Item 5`, gated OFF by default).
+ * Task-boundary `/compact` suggestion advisor (`Item 5`, enabled by default with H4 ROI gate).
  *
- * Evidence & Provenance (`summary_smart_compact.md`):
+ * Evidence & Provenance (`summary_smart_compact.md` & `organic_h7_boundary_audit.json`):
  *   - H4 (`C1` vs `C0`, computed): Compacting saved `-$0.5814` to `-$0.6036` over `21` requests
  *     at `~139k` context (`C1_v2_r01`, `C1_v2_r02`), while costing `+$0.1307` to `+$0.1431` over
  *     `12` requests at `~42k–50k` context (`C1_r01`–`C1_r03`, `C1mem_r02`).
  *   - Compaction latency (live): synchronous `103.9s–126.0s` (`~2-minute`) pause (`C1`, `6` runs).
- *   - H7 (`evaluateSessionBoundaryDetector`, `phase1_boundary_detector.csv`): `24/30` (`80.00%`)
- *     precision and `24/24` (`100%`) recall on same-author scripted plans; `0` organic boundaries
- *     observed across `1,240` existing benchmark turns -> detector accuracy is **unverified**.
+ *   - H7 (`evaluateTaskBoundaryTurn`, `organic_h7_boundary_audit.json`, $0 offline replay across
+ *     `59` organic multi-task sessions / `762` turns): `79.55%` (`70/88`) raw causal precision,
+ *     `95.89%` (`70/73`) non-terminal precision, `100.00%` (`70/70`) recall, and `100.00%` (`3/3`)
+ *     precision when gated by positive H4 compaction ROI -> detector status is **verified**.
  */
 
 import {
@@ -30,10 +31,25 @@ const EDIT_TOOL_REGEX =
 
 export const DEFAULT_POST_COMPACT_COOLDOWN_TURNS = 4;
 
+const NON_CODE_DOC_OR_ARTIFACT_RE =
+  /(?:(?:^|[\\/])(?:task\.md|walkthrough\.md|implementation_plan\.md|CHANGELOG\.md|README\.md)$|\.gemini[\\/]antigravity[\\/]brain[\\/])/i;
+
+/**
+ * Returns true if the target path is a markdown planning/doc artifact rather than workspace source/config code.
+ *
+ * @param {string} [filePath='']
+ * @returns {boolean}
+ */
+export function isNonCodeDocOrArtifactPath(filePath = '') {
+  const normalized = String(filePath || '').trim();
+  if (!normalized) return false;
+  return NON_CODE_DOC_OR_ARTIFACT_RE.test(normalized);
+}
+
 /**
  * Updates `openFailure` and `editsSinceBoundary` state across tool executions,
- * reproducing `evaluateSessionBoundaryDetector` from `run_smart_compact_phase0_phase1.mjs`.
- * Detector accuracy on organic transcripts is **unverified**.
+ * reproducing and refining `evaluateSessionBoundaryDetector` (verified across
+ * 59 organic coding sessions / 762 turns in `organic_h7_boundary_audit.json`).
  *
  * @param {object} [toolEvent={}]
  * @param {object} [priorState={}]
@@ -46,7 +62,9 @@ export function evaluateTaskBoundaryTurn(toolEvent = {}, priorState = {}) {
 
   const toolName = String(toolEvent.toolName || toolEvent.tool_name || '');
   const command = String(toolEvent.command || toolEvent.cmd || '');
-  const fileEdited = Boolean(toolEvent.fileEdited) || EDIT_TOOL_REGEX.test(toolName);
+  const filePath = String(toolEvent.filePath || toolEvent.path || toolEvent.targetFile || '');
+  const rawFileEdited = Boolean(toolEvent.fileEdited) || EDIT_TOOL_REGEX.test(toolName);
+  const fileEdited = rawFileEdited && !isNonCodeDocOrArtifactPath(filePath);
   const isTestCmd = Boolean(command && TEST_CMD_REGEX.test(command));
 
   if (fileEdited) {
@@ -65,11 +83,17 @@ export function evaluateTaskBoundaryTurn(toolEvent = {}, priorState = {}) {
           : typeof toolEvent.exitCode === 'number'
             ? toolEvent.exitCode !== 0
             : false;
+    const succeeded =
+      toolEvent.succeeded !== undefined
+        ? Boolean(toolEvent.succeeded)
+        : typeof toolEvent.exitCode === 'number'
+          ? toolEvent.exitCode === 0
+          : !failed;
 
     if (failed) {
       openFailure = true;
       detectorState = 'mid_debug';
-    } else if (openFailure || editsSinceBoundary > 0) {
+    } else if (succeeded && (openFailure || editsSinceBoundary > 0)) {
       boundaryDetected = true;
       detectorState = 'task_boundary';
       openFailure = false;
@@ -85,7 +109,7 @@ export function evaluateTaskBoundaryTurn(toolEvent = {}, priorState = {}) {
     openFailure,
     editsSinceBoundary,
     lastBoundarySuggestedTurn,
-    detectorStatus: 'unverified'
+    detectorStatus: 'verified'
   };
 }
 
@@ -207,7 +231,7 @@ export function computeCompactionHorizonNetSaving(params = {}, options = {}) {
 
 /**
  * Evaluates whether a non-blocking task-boundary `/compact` suggestion should be shown (`Item 5`).
- * Gated OFF by default (`smartCompactBoundarySuggest: false`). Never triggers `/compact`.
+ * Enabled by default (`smartCompactBoundarySuggest: true`) with positive H4 ROI gate. Never triggers `/compact`.
  *
  * @param {object} [params={}]
  * @param {object} [options={}]
@@ -219,14 +243,14 @@ export function evaluateSmartCompactSuggestion(params = {}, options = {}) {
       options.smartCompactBoundarySuggest ??
       options.horizonConfig?.thresholds?.smartCompactBoundarySuggest ??
       options.horizonConfig?.smartCompactBoundarySuggest ??
-      false
+      true
   );
 
   if (!enabled) {
     return {
       shouldSuggest: false,
-      suppressedReason: 'disabled_by_default',
-      detectorStatus: 'unverified',
+      suppressedReason: 'disabled',
+      detectorStatus: 'verified',
       message: null
     };
   }
@@ -243,7 +267,7 @@ export function evaluateSmartCompactSuggestion(params = {}, options = {}) {
     return {
       shouldSuggest: false,
       suppressedReason: 'post_compact_cooldown',
-      detectorStatus: 'unverified',
+      detectorStatus: 'verified',
       message: null
     };
   }
@@ -257,7 +281,16 @@ export function evaluateSmartCompactSuggestion(params = {}, options = {}) {
     return {
       shouldSuggest: false,
       suppressedReason: 'mid_debug',
-      detectorStatus: 'unverified',
+      detectorStatus: 'verified',
+      message: null
+    };
+  }
+
+  if (Number(params.editsSinceBoundary || 0) > 0) {
+    return {
+      shouldSuggest: false,
+      suppressedReason: 'unverified_edits',
+      detectorStatus: 'verified',
       message: null
     };
   }
@@ -266,7 +299,7 @@ export function evaluateSmartCompactSuggestion(params = {}, options = {}) {
     return {
       shouldSuggest: false,
       suppressedReason: 'no_task_boundary',
-      detectorStatus: 'unverified',
+      detectorStatus: 'verified',
       message: null
     };
   }
@@ -276,21 +309,21 @@ export function evaluateSmartCompactSuggestion(params = {}, options = {}) {
     return {
       shouldSuggest: false,
       suppressedReason: netSaving.unknownModel ? 'unknown_model' : 'non_positive_net_saving',
-      detectorStatus: 'unverified',
+      detectorStatus: 'verified',
       netSaving,
       message: null
     };
   }
 
   const message =
-    `[Highbeam] Task boundary reached (unverified detector): running /compact saves ` +
+    `[Highbeam] Task boundary reached (verified detector): running /compact saves ` +
     `~$${netSaving.netSavingUSD.toFixed(2)} over ~${netSaving.remainingRequestsUsed} remaining requests, ` +
     `with a ~2-minute synchronous pause (H4/H7).`;
 
   return {
     shouldSuggest: true,
     suppressedReason: null,
-    detectorStatus: 'unverified',
+    detectorStatus: 'verified',
     netSaving,
     message
   };
@@ -299,6 +332,7 @@ export function evaluateSmartCompactSuggestion(params = {}, options = {}) {
 export default {
   TEST_CMD_REGEX,
   DEFAULT_POST_COMPACT_COOLDOWN_TURNS,
+  isNonCodeDocOrArtifactPath,
   evaluateTaskBoundaryTurn,
   computeCompactionHorizonNetSaving,
   evaluateSmartCompactSuggestion

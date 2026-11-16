@@ -243,17 +243,12 @@ export function installPlugin(options = {}) {
     console.log(`  \x1b[38;5;82m✓\x1b[0m Configured CLI statusLine in ${sPath}`);
   }
 
-  const isTestRuntime = Boolean(
-    process.env.NODE_ENV === 'test' ||
-      process.env.NODE_TEST_CONTEXT ||
-      process.execArgv?.includes('--test')
-  );
-  if (!dryRun && (!isTestRuntime || options.provisionReverseTrial === true)) {
+  if (!dryRun && options.provisionReverseTrial === true) {
     const trialProvision = ensureReverseTrialProvisioned({
       homeDir: home,
       ...(options.licensePath ? { licensePath: options.licensePath } : {}),
       ...(options.nowMs !== undefined ? { nowMs: options.nowMs } : {}),
-      ...(options.provisionReverseTrial ? { allowTestHomeWrite: true } : {})
+      allowTestHomeWrite: true
     });
     if (trialProvision.provisioned) {
       console.log(`  \x1b[38;5;51m★\x1b[0m 14-day Highbeam Auto trial activated automatically (expires ${trialProvision.status?.expiresAt || ''})`);

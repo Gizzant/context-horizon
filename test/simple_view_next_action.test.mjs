@@ -63,13 +63,13 @@ describe('Simple view Next action: breakers, sharded spec, rule clashes & honest
       assert.match(txt('tsDoText'), /2 conflicting rules detected .*ctxtop rsl status/);
 
       win.renderState(baseState('sharded', { shardedSpecCount: 5, rsl: { clashCount: 2 } }));
-      assert.match(txt('tsDoText'), /Consolidate 5 scattered requirement changes .*ctxtop handoff --consolidate/);
+      assert.match(txt('tsDoText'), /Your requirements changed 5 times .*ctxtop handoff --consolidate/);
 
       win.renderState(baseState('breaker', {
         shardedSpecCount: 5,
         coachState: { circuitBreakerAlerts: [{ detectorId: 'DET-03', reason: 'Test assertion weakened in parser.test.mjs' }] }
       }));
-      assert.match(txt('tsDoText'), /Guard tripped \(DET-03\): Test assertion weakened/);
+      assert.match(txt('tsDoText'), /A safeguard \(DET-03\) flagged your last step: Test assertion weakened/);
       assert.equal(d.getElementById('tsDoRow').dataset.tone, 'danger');
 
       win.renderState(baseState('guards', { coachState: { detectors: { totalCount: 41 } } }));
@@ -164,14 +164,14 @@ describe('Simple view Next action: breakers, sharded spec, rule clashes & honest
       assert.equal(parseFloat(d.getElementById('tsGlassSegOld').style.height), 30);
       assert.equal(parseFloat(d.getElementById('tsGlassSegPinned').style.height), 20);
       assert.equal(d.getElementById('tsGlassSafeLine').hidden, true);
-      assert.match(txt('tsDoText'), /Subagent file overlap \(1 collision\)/);
-      assert.match(txt('tsLedgerList'), /Large-file read firewall active.*1,200 lines/);
+      assert.match(txt('tsDoText'), /Two AI agents are working on the same file \(1 overlap\)/);
+      assert.match(txt('tsLedgerList'), /Large-file read limit active.*1,200 lines/);
       assert.match(txt('tsLedgerList'), /Applying 3 learned rules/);
       assert.equal(txt('tsSessionTurnsMeta'), '12 turns · 2 heavy');
       assert.match(txt('tsSessionPaceMeta'), /\+5\.0k\/turn avg · 1× compacted · 1 checkpoint/);
       assert.match(txt('tsRetentionMeta'), /94% kept \(A\)/);
       assert.equal(d.getElementById('tsSessionExtraRow').hidden, false);
-      assert.match(txt('tsSessionExtraText'), /1 helper agent across 2 worktrees · 3 goal updates · 3 learned rules · Read firewall on/);
+      assert.match(txt('tsSessionExtraText'), /1 helper agent across 2 worktrees · 3 goal updates · 3 learned rules · Large-file limit on/);
 
       // Tooltips verified across cards, glass segments, and controls
       assert.ok(d.getElementById('tsGlassVessel').title.includes('bottom = Rules & tools'));

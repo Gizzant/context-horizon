@@ -24,6 +24,15 @@
     </div>
   </div>
 
+  <div id="tsConversationBar" class="ts-conv-bar" role="region" aria-label="Active conversation">
+    <span class="ts-conv-label">Chat</span>
+    <select id="tsSessionSelect" class="ts-conv-select" aria-label="Select conversation to inspect" title="Follows your active conversation automatically, or pick any recent conversation to inspect its context.">
+      <option value="auto">Auto (Following active chat)</option>
+    </select>
+    <button type="button" id="tsBtnFollowActive" class="ts-conv-btn" hidden title="Pinned to a specific chat. Click to return to automatic active-chat tracking.">Auto</button>
+    <button type="button" id="tsBtnJumpChat" class="ts-conv-btn" hidden title="Switch IDE chat pane to this conversation (Alt+Click opens local brain folder).">Open</button>
+  </div>
+
   <div id="tsModeBar" class="ts-mode-bar" role="region" aria-label="Protection mode">
     <div class="ts-mode-meta" data-tip title="Choose how actively Highbeam steps in during your coding session: Off = watch only, Coach = trims noisy logs & gives advice, Auto = hands-free guards & routing.">
       <span class="ts-mode-title">Mode</span>
@@ -59,11 +68,11 @@
         <span class="ts-card-title" data-tip title="How full your AI's working memory is right now compared to the safe limit where it stays accurate and remembers early project rules.">CONTEXT</span>
         <div class="ts-status-badge" role="status" aria-live="polite" data-tip title="Current memory and prompt-cache health. Green or neutral means you have room to work cleanly; amber or red means it is time to compact or slow down.">
           <span id="tsStatusDot" class="ts-dot" data-tone="nominal"></span>
-          <span id="tsStatusLabel">Nominal Memory</span>
+          <span id="tsStatusLabel">Healthy</span>
         </div>
       </div>
 
-      <p id="tsContextSummary" class="ts-explain" data-tip title="A plain-English snapshot of what is inside your AI's working memory right now and how much room remains before older rules risk getting crowded out.">Working memory has plenty of room for edits and multi-file tasks without losing earlier instructions.</p>
+      <p id="tsContextSummary" class="ts-explain" data-tip title="A quick look at what is in your AI's working memory now, and how much room is left before older rules get crowded out.">Working memory has plenty of room for edits and multi-file tasks without losing earlier instructions.</p>
 
       <div class="ts-context-split">
         <div class="ts-context-info">
@@ -125,7 +134,7 @@
             <div id="tsGlassFill" class="ts-glass-fill" data-empty="true" style="height:0%">
               <div id="tsGlassSegNew" class="ts-glass-seg ts-glass-seg-new" style="height:0%" title="New & active work (recent chat & current files): 0.0k"><span id="tsGlassTagNew" class="ts-glass-seg-tag" hidden>NEW</span></div>
               <div id="tsGlassSegOld" class="ts-glass-seg ts-glass-seg-old" data-clutter-tone="stale" style="height:0%" title="Older & reclaimable clutter (old turns, repeat reads & fixed errors): 0.0k"><span id="tsGlassTagOld" class="ts-glass-seg-tag" hidden>OLD</span></div>
-              <div id="tsGlassSegPinned" class="ts-glass-seg ts-glass-seg-pinned" style="height:0%" title="Rules & tools (AGENTS.md / CLAUDE.md, MCP schemas): 0.0k"><span id="tsGlassTagPinned" class="ts-glass-seg-tag" hidden>BASE</span></div>
+              <div id="tsGlassSegPinned" class="ts-glass-seg ts-glass-seg-pinned" style="height:0%" title="Rules & tools (AGENTS.md / CLAUDE.md, MCP tool lists): 0.0k"><span id="tsGlassTagPinned" class="ts-glass-seg-tag" hidden>BASE</span></div>
             </div>
           </div>
           <span id="tsGlassCaption" class="ts-glass-caption" data-state="nominal" data-tip title="Percentage of the safe working memory limit currently filled.">0% of safe</span>
@@ -193,20 +202,26 @@
     <!-- CARD 3: AUTOMATED ACTIVITY -->
     <section id="tsActivitySection" class="ts-card" aria-label="Automated activity">
       <div class="ts-card-head">
-        <span class="ts-card-title" data-tip title="Automatic protections Highbeam is running behind the scenes: trimming noisy test logs, deduplicating repeat reads, protecting warm caches, and applying learned session rules.">AUTOMATED ACTIVITY</span>
+        <span class="ts-card-title" data-tip title="What Highbeam does in the background: it trims long test logs, skips repeat file reads, protects your warm cache, and applies learned rules.">AUTOMATED ACTIVITY</span>
         <span id="tsGuardsSummary" class="ts-kpi-sub" data-tip title="Number of background interventions active in this chat and how many safety/efficiency guards are currently armed.">Guards armed</span>
       </div>
 
       <ul id="tsLedgerList" class="ts-ledger" role="list">
         <li class="ts-ledger-row" title="Highbeam watches tool outputs and rule writes locally so noisy logs and premature rule edits do not bloat memory or break warm caches.">
           <span class="ts-ledger-age">now</span>
-          <span>Auto-guards armed — trimming noisy command output (FTS5) and shielding warm prompt caches</span>
+          <span>Guards armed — trimming long command output and protecting your warm prompt cache</span>
           <span class="ts-ledger-saved">ready</span>
         </li>
       </ul>
 
+      <details id="tsLearnedRulesDrawer" class="ts-drawer" hidden>
+        <summary title="Click to see the project rules and recovery steps Highbeam learned from your earlier coding sessions."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span><span id="tsLearnedRulesSummary">Applying learned rules</span></span><span id="tsLearnedRulesHint" class="ts-kpi-sub">Details</span></summary>
+        <div id="tsLearnedRulesHead" class="ts-guard-head" hidden>Learned project rules</div>
+        <ul id="tsLearnedRulesList" class="ts-ledger ts-guard-list" role="list" hidden></ul>
+      </details>
+
       <details id="tsActivityDrawer" class="ts-drawer">
-        <summary title="Click to view every active guard rule, whether it is tripped right now, blocks bad actions automatically, or advises you softly."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Active safety &amp; efficiency guards</span><span id="tsGuardRosterHint" class="ts-kpi-sub">Details</span></summary>
+        <summary title="Click to see every guard, whether it needs attention now, and whether it blocks bad actions or only gives advice."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Active safety &amp; efficiency guards</span><span id="tsGuardRosterHint" class="ts-kpi-sub">Details</span></summary>
         <div id="tsGuardListHead" class="ts-guard-head" hidden>Live guards</div>
         <ul id="tsGuardList" class="ts-ledger ts-guard-list" role="list" hidden></ul>
       </details>
@@ -219,7 +234,7 @@
         <span id="tsSessionTurnsMeta" class="ts-kpi-sub" data-tip title="Total turns recorded in this conversation so far, along with how many stayed lean vs. triggered a spike or warning.">Session start</span>
       </div>
 
-      <p id="tsSessionDigest" class="ts-explain" data-tip title="A plain-English summary of how this whole conversation is progressing, including compactions, checkpoints, and cache reuse.">Tracking your session from Turn 1 &mdash; watching context growth, prompt cache reuse, and token savings.</p>
+      <p id="tsSessionDigest" class="ts-explain" data-tip title="A short summary of how this chat is going, including /compact runs, checkpoints, and cache use.">Tracking your session from Turn 1 &mdash; watching context growth, prompt cache reuse, and token savings.</p>
 
       <div class="ts-metric-list" role="region" aria-label="Entire session metrics">
         <!-- Row 1: Entire Session Pace & Velocity Sparkline -->
@@ -236,7 +251,7 @@
         </div>
 
         <!-- Row 2: Prompt Cache Hit Rate, Retention & TTL -> 1D BulletBar -->
-        <div class="ts-metric-row" title="Warm prompt cache reuses earlier conversation turns at a 90%–95% discount until the timer runs out or the prefix changes. Target line sits at 80%.">
+        <div class="ts-metric-row" title="Warm prompt cache reuses earlier conversation turns at a 90%–95% discount until the timer runs out or the start of the chat changes. Target line sits at 80%.">
           <div class="ts-metric-main">
             <span class="ts-metric-label">Prompt cache</span>
             <span id="tsCacheMeta" class="ts-meta" data-tone="muted">0% hit &middot; Cold</span>
@@ -270,7 +285,7 @@
         </div>
 
         <!-- Row 5 (Conditional): Option A Shadow Auto Preview for Free / Expired Trial -->
-        <div id="tsShadowAutoRow" class="ts-metric-row" hidden title="Verified counterfactual incidents that Auto mode would have handled automatically.">
+        <div id="tsShadowAutoRow" class="ts-metric-row" hidden title="Problems that Auto mode would have fixed for you if it were turned on.">
           <div class="ts-metric-main">
             <span class="ts-metric-label">Auto preview</span>
             <span id="tsShadowAutoMeta" class="ts-kpi-sub"></span>

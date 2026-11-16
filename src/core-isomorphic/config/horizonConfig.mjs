@@ -243,7 +243,7 @@ export const DEFAULT_HORIZON_CONFIG = Object.freeze({
     notableAllowPenaltyUSD: 0.02,
     outputShrinkageMinTurns: 5,
     outputShrinkagePriorTokens: 500,
-    smartCompactBoundarySuggest: false,
+    smartCompactBoundarySuggest: true,
     resumeToolsetWarnMinTokens: 10000
   }
 });

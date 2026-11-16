@@ -14,6 +14,7 @@ import {
   writeBreakerStateSnapshot
 } from '../../src/core-isomorphic/guards/circuitBreakers.mjs';
 import { loadHorizonConfig, resolveDetectorOverride } from '../../src/core-isomorphic/config/horizonConfig.mjs';
+import { resolveEffectiveAutoFlightMode } from '../../src/core/pro_license.mjs';
 import { recordWorkspaceShellOutcome } from '../../src/core-isomorphic/coach/microSkills.mjs';
 import { evaluateTaskBoundaryTurn } from '../../src/core-isomorphic/coach/smartCompactAdvisor.mjs';
 import { recordSavingsReceipt } from '../../src/core-isomorphic/coach/savedQuotaLedger.mjs';
@@ -106,6 +107,13 @@ export function runPostToolUseHook(event = {}, options = {}) {
   const sessionId = event.session_id || event.sessionId || 'default';
   const cwdOptions = event.cwd && !options.cwd ? { ...options, cwd: event.cwd } : options;
   const horizonConfig = options.horizonConfig || loadHorizonConfig(cwdOptions);
+  const rawMode = event.mode || options.mode || horizonConfig.flightMode || 'COACH';
+  const effectiveMode = resolveEffectiveAutoFlightMode(rawMode, {
+    licensePath: options.licensePath || event.licensePath,
+    homeDir: options.homeDir || event.homeDir,
+    nowMs: options.nowMs,
+    strict: Boolean(options.strict ?? event.strict)
+  }).effectiveFlightMode;
 
   const hasExplicitCwd = Boolean(event.cwd || options.cwd);
   let loadedPriorSnap = null;
@@ -127,7 +135,7 @@ export function runPostToolUseHook(event = {}, options = {}) {
     const engine = new CircuitBreakerEngine({
       ...cwdOptions,
       horizonConfig,
-      mode: event.mode || options.mode || horizonConfig.flightMode || 'COACH',
+      mode: effectiveMode,
       initialState: priorSnap
     });
     const toolInput = event.tool_input || event.toolInput || {};
@@ -149,10 +157,18 @@ export function runPostToolUseHook(event = {}, options = {}) {
       // If a test command failed, code edits remain unverified
       engine.codeEditedSinceLastTest = true;
     }
+    const editedPath = String(
+      event.tool_input?.file_path ||
+        event.tool_input?.Path ||
+        event.tool_input?.path ||
+        event.tool_input?.TargetFile ||
+        ''
+    );
     const boundaryEval = evaluateTaskBoundaryTurn(
       {
         toolName,
         command: cmdStr,
+        filePath: editedPath,
         failed,
         exitCode: typeof rawExit === 'number' ? rawExit : (failed ? 1 : 0)
       },
@@ -168,7 +184,9 @@ export function runPostToolUseHook(event = {}, options = {}) {
         ? false
         : boundaryEval.boundaryDetected
           ? true
-          : Boolean(priorSnap?.turnBoundaryReached);
+          : boundaryEval.editsSinceBoundary > 0 && priorSnap?.turnBoundaryReached
+            ? false
+            : Boolean(priorSnap?.turnBoundaryReached);
     const nextTurnMidDebug =
       boundaryEval.detectorState === 'mid_debug'
         ? true
@@ -229,7 +247,7 @@ export function runPostToolUseHook(event = {}, options = {}) {
           webFetchesInTurn: Number(event.webFetchesInTurn || 1),
           options: {
             ...options,
-            mode: event.mode || options.mode || horizonConfig.flightMode,
+            mode: effectiveMode,
             horizonConfig
           }
         });

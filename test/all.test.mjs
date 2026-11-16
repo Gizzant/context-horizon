@@ -72,4 +72,6 @@ import './spec_sharding_and_rule_clash.test.mjs';
 import './simple_view_next_action.test.mjs';
 import './reverse_trial_and_shadow_auto.test.mjs';
 import './free_auto_shadow_mode.test.mjs';
+import './pre_push_bug_sweep.test.mjs';
+import './simple_view_clarity_and_safeguards.test.mjs';
 
