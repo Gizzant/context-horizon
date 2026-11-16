@@ -34,6 +34,7 @@ import {
 } from '../coach/cacheGravityRouter.mjs';
 import { formatRetentionLabel, formatDriftLabel } from '../telemetry/sprintMetrics.mjs';
 import { computeSwarmSummary } from '../telemetry/swarmTopology.mjs';
+import { computeShadowAutoSummary } from '../economics/shadowAutoModel.mjs';
 
 /**
  * Escapes HTML special characters safely.
@@ -227,7 +228,7 @@ function renderAutomatedActivityHtml(log, breakerVerdict, shieldData, rslData) {
 /**
  * Renders Card 4 (`SESSION OVERVIEW` + `#simpleFlightRecorder` Turn Pulse & `#tokensSavedCard`).
  */
-function renderSessionOverviewHtml(tl, metrics, catList) {
+function renderSessionOverviewHtml(tl, metrics, catList, shadowAuto = null, proEntitlement = null) {
   const turns = tl && Array.isArray(tl.turns) ? tl.turns : [];
   const slots = [];
   if (turns.length > 0) {
@@ -308,6 +309,14 @@ function renderSessionOverviewHtml(tl, metrics, catList) {
           <div class="ah-tl-detail" id="timelineDetail">${detail}</div>
         </div>
       </div>
+      ${
+        proEntitlement &&
+        !proEntitlement.entitled &&
+        shadowAuto &&
+        Number(shadowAuto.incidentCount30d || 0) > 0
+          ? `<div class="ah-shadow-auto-row" id="claudeShadowAutoRow" role="note" aria-label="Auto mode counterfactual preview"><div class="ah-shadow-auto-head">${escapeHtml(sanitizeClaudeCopy(shadowAuto.headlineText))}</div><div class="ah-shadow-auto-sub">${escapeHtml(sanitizeClaudeCopy(shadowAuto.sublineText))} &middot; <code>${escapeHtml(shadowAuto.ctaMode === 'upgrade_pro' ? 'npx ctxtop license activate <key>' : 'npx ctxtop license trial')}</code></div></div>`
+          : ''
+      }
     </section>`;
 }
 
@@ -474,6 +483,15 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
 
   const shieldData = options.shield || state.shield || null;
   const rslData = options.rsl || state.rsl || null;
+  const proEntitlement = options.proEntitlement || state.proEntitlement || null;
+  const shadowAuto =
+    options.shadowAuto ||
+    state.shadowAuto ||
+    (proEntitlement ? computeShadowAutoSummary([], { proEntitlement }) : null);
+  const flightBadgeLabel =
+    metrics.flightMode === 'AUTO_PILOT' && proEntitlement?.tier === 'trial'
+      ? `Auto (Trial \u00B7 ${proEntitlement.daysRemaining || 14}d)`
+      : metrics.flightMode;
   const avoidText = metrics.cacheWarm
     ? `Avoid switching models or editing CLAUDE.md/.mcp.json while ${formatTokensCompact(metrics.cachedTokens)} cached prefix reads at 0.10x.`
     : 'Avoid unbounded full-file reads so older instructions and CLAUDE.md rules stay inside the safe limit.';
@@ -1169,6 +1187,9 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
   .ah-action-instr { overflow-wrap: anywhere; }
   .ts-drawer summary { flex-wrap: wrap; min-width: 0; }
   .ah-fr-topbar, .ah-fr-head, .ah-saved-pill { flex-wrap: wrap; white-space: normal; min-width: 0; max-width: 100%; }
+  .ah-shadow-auto-row { margin-top: 6px; padding: 6px 8px; border-radius: 5px; border: 1px solid var(--hairline); border-left: 2px solid var(--accent-focus); background: var(--bg-elevated); display: flex; flex-direction: column; gap: 2px; min-width: 0; max-width: 100%; }
+  .ah-shadow-auto-head { font-size: 10.5px; font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
+  .ah-shadow-auto-sub { font-family: var(--font-mono); font-size: 9.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
@@ -1189,7 +1210,7 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
     <div id="claudeSimpleSurface" aria-label="Highbeam Simple View">
       <div class="ah-pills" id="activeChatPills">
         <span class="ah-pill${amnesiaAtRisk ? ' ah-pill-risk' : ''}" id="simpleAmnesiaPill" title="Memory check: whether your rules and pinned instructions are still inside the AI's working memory.">${amnesiaAtRisk ? 'Memory: anchors at risk' : 'Memory: anchors pinned'}</span>
-        <span class="ah-pill" id="flightModeBadge">${escapeHtml(metrics.flightMode)}</span>
+        <span class="ah-pill" id="flightModeBadge">${escapeHtml(flightBadgeLabel)}</span>
         <span class="ah-pill" id="modelBadge" title="Active model. Switching model or effort mid-session rewrites the prompt cache, so the next turn costs full price.">Model: ${escapeHtml(state.modelLabel || grid.modelId)}</span>
       </div>
 
@@ -1340,7 +1361,7 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
       ${renderAutomatedActivityHtml(options.autoFixLog || state.autoFixLog || null, options.breakerVerdict || null, shieldData, rslData)}
 
       <!-- Card 4: SESSION OVERVIEW & Turn Pulse + Canonical Saved Pill -->
-      ${renderSessionOverviewHtml(tl, metrics, catList)}
+      ${renderSessionOverviewHtml(tl, metrics, catList, shadowAuto, proEntitlement)}
     </div>
   </main>
 

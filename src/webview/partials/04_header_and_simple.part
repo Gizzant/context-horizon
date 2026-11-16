@@ -37,6 +37,18 @@
     </div>
   </div>
 
+  <div id="tsShadowAutoBanner" class="ts-shadow-auto-card" hidden role="region" aria-label="Auto mode status and missed savings">
+    <div id="tsShadowAutoHeadline" class="ts-shadow-auto-title">Try hands-free Auto protection for 14 days</div>
+    <div id="tsShadowAutoSubline" class="ts-shadow-auto-sub">Hands-free cache holds and loop protection start immediately during your 14-day local trial.</div>
+    <div class="ts-shadow-auto-form">
+      <input id="tsShadowKeyInput" type="text" class="ts-shadow-key-input" placeholder="CTXP1.eyJ..." aria-label="Highbeam Pro license key">
+      <button type="button" id="tsShadowBtnActivate" class="ts-shadow-btn ts-shadow-btn-primary">Unlock Pro</button>
+      <button type="button" id="tsShadowBtnTrial" class="ts-shadow-btn">Start 14d Free Trial</button>
+      <button type="button" id="tsShadowBtnDismiss" class="ts-shadow-btn">Keep previewing</button>
+    </div>
+    <div id="tsShadowAutoStatus" class="ts-shadow-auto-sub" hidden></div>
+  </div>
+
   <!-- =========================================================================
        LIVE EDWARD TUFTE "SIMPLE VIEW" SURFACE (4-Card Sketch Layout)
        ========================================================================= -->
@@ -254,6 +266,14 @@
           <div class="ts-metric-main">
             <span class="ts-metric-label">Workspace state</span>
             <span id="tsSessionExtraText" class="ts-kpi-sub"></span>
+          </div>
+        </div>
+
+        <!-- Row 5 (Conditional): Option A Shadow Auto Preview for Free / Expired Trial -->
+        <div id="tsShadowAutoRow" class="ts-metric-row" hidden title="Verified counterfactual incidents that Auto mode would have handled automatically.">
+          <div class="ts-metric-main">
+            <span class="ts-metric-label">Auto preview</span>
+            <span id="tsShadowAutoMeta" class="ts-kpi-sub"></span>
           </div>
         </div>
       </div>

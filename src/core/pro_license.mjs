@@ -211,6 +211,49 @@ export function activateProLicense(licenseKey = '', options = {}) {
 export function activateLocalTrial(options = {}) {
   const licensePath = resolveLicenseFilePath(options);
   const nowMs = Number(options.nowMs || Date.now());
+
+  if (fs.existsSync(licensePath)) {
+    try {
+      const stored = JSON.parse(fs.readFileSync(licensePath, 'utf8'));
+      if (stored?.licenseKey) {
+        const verified = verifyProLicenseKey(stored.licenseKey, options);
+        if (verified.valid) {
+          return {
+            ok: true,
+            tier: verified.payload.tier || 'pro',
+            alreadyLicensed: true,
+            expiresAt: verified.payload.expiresAt || null,
+            licensePath
+          };
+        }
+      }
+      if (stored?.trial && stored?.expiresAt && !options.forceResetTrial) {
+        const prevExpMs = Date.parse(stored.expiresAt);
+        if (Number.isFinite(prevExpMs) && nowMs > prevExpMs) {
+          return {
+            ok: false,
+            alreadyUsed: true,
+            trialExpired: true,
+            reason: 'TRIAL_ALREADY_EXPIRED',
+            expiresAt: stored.expiresAt,
+            licensePath
+          };
+        }
+        if (Number.isFinite(prevExpMs) && nowMs <= prevExpMs) {
+          return {
+            ok: true,
+            tier: 'trial',
+            alreadyActive: true,
+            expiresAt: stored.expiresAt,
+            licensePath
+          };
+        }
+      }
+    } catch (_err) {
+      void _err;
+    }
+  }
+
   const expiresAt = new Date(nowMs + 14 * 86400 * 1000).toISOString();
   fs.mkdirSync(path.dirname(licensePath), { recursive: true });
   const record = {
@@ -315,6 +358,18 @@ export function getProEntitlementStatus(options = {}) {
             pricing: PRO_PRICING_TIERS
           };
         }
+        if (Number.isFinite(expMs) && nowMs > expMs && !isDevOrTest) {
+          return {
+            entitled: false,
+            tier: 'free',
+            source: 'expired_trial',
+            trialExpired: true,
+            trialActivatedAt: stored.activatedAt || null,
+            expiresAt: stored.expiresAt,
+            licensePath,
+            pricing: PRO_PRICING_TIERS
+          };
+        }
       }
     } catch (_err) {
       void _err;
@@ -381,5 +436,112 @@ export function requireProFeature(featureId = 'pro_feature', options = {}) {
     upgradeHint: needsTeamTier
       ? 'Requires Highbeam Team ($299/yr for 5 seats — Commercial License: packages/pro/LICENSE-COMMERCIAL.md) or an active 14-day trial (`npx ctxtop license trial`).'
       : 'Requires Highbeam Pro ($15/mo · $149/yr · $199 LTD — Commercial License: packages/pro/LICENSE-COMMERCIAL.md) or an active 14-day trial (`npx ctxtop license trial`).'
+  };
+}
+
+/**
+ * Provisions a one-time 14-day Reverse Trial for brand-new Free users without
+ * overwriting paid licenses or reviving expired trials.
+ *
+ * @param {object} [options={}]
+ */
+export function ensureReverseTrialProvisioned(options = {}) {
+  const isTestEnv = Boolean(
+    process.env.NODE_ENV === 'test' ||
+      process.env.NODE_TEST_CONTEXT ||
+      process.execArgv?.includes('--test')
+  );
+  if (
+    isTestEnv &&
+    !options.licensePath &&
+    !options.homeDir &&
+    !options.allowTestHomeWrite
+  ) {
+    return {
+      ok: true,
+      provisioned: false,
+      steppedDownToCoach: false,
+      skippedTestEnv: true,
+      status: getProEntitlementStatus(options)
+    };
+  }
+
+  const strictOpts = { ...options, strict: true };
+  const current = getProEntitlementStatus(strictOpts);
+  if (current.entitled) {
+    return {
+      ok: true,
+      provisioned: false,
+      steppedDownToCoach: false,
+      status: current
+    };
+  }
+  if (current.trialExpired || current.source === 'invalid_or_expired_license') {
+    return {
+      ok: false,
+      provisioned: false,
+      steppedDownToCoach: true,
+      reason: current.trialExpired ? 'TRIAL_EXPIRED' : (current.reason || 'PRO_REQUIRED'),
+      status: current
+    };
+  }
+
+  const trialRes = activateLocalTrial(strictOpts);
+  if (!trialRes.ok) {
+    return {
+      ok: false,
+      provisioned: false,
+      steppedDownToCoach: true,
+      reason: trialRes.reason || 'PRO_REQUIRED',
+      status: getProEntitlementStatus(strictOpts)
+    };
+  }
+
+  return {
+    ok: true,
+    provisioned: true,
+    steppedDownToCoach: false,
+    status: getProEntitlementStatus(strictOpts)
+  };
+}
+
+/**
+ * Resolves effective flightMode across Antigravity and Claude Code, stepping
+ * `AUTO_PILOT` down to `COACH` when Pro / Reverse Trial entitlement is absent.
+ *
+ * @param {string} [rawFlightMode='COACH']
+ * @param {object} [options={}]
+ */
+export function resolveEffectiveAutoFlightMode(rawFlightMode = 'COACH', options = {}) {
+  const upper = String(rawFlightMode || 'COACH').trim().toUpperCase();
+  let normalized = 'COACH';
+  if (upper === 'AUTO_PILOT' || upper === 'AUTOPILOT' || upper === 'AUTO' || upper === 'AUTO-PILOT') {
+    normalized = 'AUTO_PILOT';
+  } else if (upper === 'OFF' || upper === 'DISABLED') {
+    normalized = 'OFF';
+  } else if (upper === 'SILENT') {
+    normalized = 'SILENT';
+  }
+
+  if (normalized === 'AUTO_PILOT') {
+    const check = requireProFeature('auto_pilot_locks', options);
+    if (!check.allowed) {
+      return {
+        effectiveFlightMode: 'COACH',
+        steppedDown: true,
+        proStatus: check.status
+      };
+    }
+    return {
+      effectiveFlightMode: 'AUTO_PILOT',
+      steppedDown: false,
+      proStatus: check.status
+    };
+  }
+
+  return {
+    effectiveFlightMode: normalized,
+    steppedDown: false,
+    proStatus: null
   };
 }

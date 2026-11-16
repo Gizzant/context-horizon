@@ -12,6 +12,7 @@ import {
   readBreakerStateSnapshot,
   writeBreakerStateSnapshot
 } from '../../src/core-isomorphic/guards/circuitBreakers.mjs';
+import { recordShadowAutoMiss } from '../../src/core/shadow_auto_ledger.mjs';
 import { isCliEntrypoint, readStdinJsonAsync, exitPassThrough } from './hookIo.mjs';
 
 /**
@@ -46,15 +47,50 @@ export function runPostModelSwitchHook(event = {}, options = {}) {
   }
 
   // Item 4.4: Clear pending_downshift once the model switch actually executes
+  // Option A Shadow Auto: Promote confirmed warm-cache switches into shadow_auto_ledger.jsonl
   const shouldPersistBreaker =
     options.persistState !== false &&
-    Boolean(event.cwd || options.cwd || options.breakerStatePath || options.cliInvocation);
+    Boolean(
+      options.persistState === true ||
+        event.cwd ||
+        options.cwd ||
+        options.breakerStatePath ||
+        options.cliInvocation
+    );
   if (shouldPersistBreaker) {
     try {
       const sessionId = event.session_id || event.sessionId || 'default';
       const cwdOptions = event.cwd && !options.cwd ? { ...options, cwd: event.cwd } : options;
       const snap = readBreakerStateSnapshot(sessionId, cwdOptions);
-      if (snap && (snap.pending_downshift || snap.pendingDownshiftModel || snap.justCompacted)) {
+      if (snap?.pendingShadowSwitchMiss) {
+        const miss = snap.pendingShadowSwitchMiss;
+        recordShadowAutoMiss(
+          {
+            sessionId,
+            workspacePath: event.cwd || options.cwd || '',
+            harness: 'claude-code',
+            effectiveMode: miss.effectiveMode || 'COACH',
+            category: 'WARM_SWITCH_BUST',
+            detectorId: miss.detectorId || 'DET-08',
+            turnKey: miss.turnKey,
+            wastedTokens: miss.wastedTokens,
+            missedUsd: miss.missedUsd,
+            avoidedPrompts: 1,
+            detail: `Model switch ${miss.currentModel} -> ${miss.targetModel} on warm cache`
+          },
+          {
+            ...cwdOptions,
+            ...(event.shadowLedgerPath ? { shadowLedgerPath: event.shadowLedgerPath } : {})
+          }
+        );
+      }
+      if (
+        snap &&
+        (snap.pending_downshift ||
+          snap.pendingDownshiftModel ||
+          snap.justCompacted ||
+          snap.pendingShadowSwitchMiss)
+      ) {
         writeBreakerStateSnapshot(
           sessionId,
           {
@@ -62,6 +98,7 @@ export function runPostModelSwitchHook(event = {}, options = {}) {
             updatedAt: Date.now(),
             pending_downshift: null,
             pendingDownshiftModel: null,
+            pendingShadowSwitchMiss: null,
             justCompacted: false
           },
           cwdOptions

@@ -11,6 +11,7 @@ import { computeTotalPromptTokens } from '../../src/core-isomorphic/config/catal
 import { loadHorizonConfig } from '../../src/core-isomorphic/config/horizonConfig.mjs';
 import { recordInterventionSavings } from '../../src/core-isomorphic/coach/savedQuotaLedger.mjs';
 import { requireProFeature } from '../../src/core/pro_license.mjs';
+import { recordShadowAutoMiss } from '../../src/core/shadow_auto_ledger.mjs';
 import { foldCodeToSignatureStub, computeCompactLineDiff } from '../../src/core/pruner.mjs';
 import {
   evaluateShieldReadGuard,
@@ -454,6 +455,84 @@ export function runPreToolUseHook(event = {}, options = {}) {
 
   if (shouldPersistState) {
     writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
+  }
+
+  // Option A Shadow Auto tracking: silent local log when Coach/Off would have been gated by Auto
+  const SHADOW_DET_RE = /^(DET-04|DET-09|DET-12|DET-16|DET-26|DET-30)$/;
+  let shadowMissDet = null;
+  let shadowMissReason = '';
+  let shadowMissPenaltyUsd = null;
+  if (
+    effectiveMode !== 'AUTO_PILOT' &&
+    verdict.triggered &&
+    verdict.decision !== 'deny' &&
+    SHADOW_DET_RE.test(String(verdict.detectorId || ''))
+  ) {
+    shadowMissDet = String(verdict.detectorId);
+    shadowMissReason = String(verdict.reason || '');
+    shadowMissPenaltyUsd = verdict.estimatedPenaltyUSD ?? verdict.avoidedPenaltyUSD ?? null;
+  } else if (effectiveMode === 'OFF' && !verdict.triggered) {
+    try {
+      const shadowEngine = new CircuitBreakerEngine({
+        ...cwdOptions,
+        horizonConfig,
+        mode: 'AUTO_PILOT',
+        initialState: priorSnapshot ? structuredClone(priorSnapshot) : null
+      });
+      const autoCheck = shadowEngine.evaluatePreToolUse(
+        { ...enrichedEvent, mode: 'AUTO_PILOT' },
+        { ...liveState, flightMode: 'AUTO_PILOT' }
+      );
+      if (
+        autoCheck?.triggered &&
+        (autoCheck.decision === 'deny' || autoCheck.decision === 'defer') &&
+        SHADOW_DET_RE.test(String(autoCheck.detectorId || ''))
+      ) {
+        shadowMissDet = String(autoCheck.detectorId);
+        shadowMissReason = String(autoCheck.reason || '');
+        shadowMissPenaltyUsd = autoCheck.estimatedPenaltyUSD ?? autoCheck.avoidedPenaltyUSD ?? null;
+      }
+    } catch {
+      // Non-fatal Shadow Auto pass
+    }
+  }
+  if (shadowMissDet) {
+    const mappedCategory =
+      shadowMissDet === 'DET-16'
+        ? 'COLD_SWARM_WAKEUP'
+        : shadowMissDet === 'DET-09'
+          ? 'PREFIX_MUTATION_BUST'
+          : 'RUNAWAY_LOOP_TURN';
+    const fallbackUsd = shadowMissDet === 'DET-16' ? 0.55 : shadowMissDet === 'DET-09' ? 0.25 : 0.35;
+    const resolvedMissUsd =
+      Number.isFinite(Number(shadowMissPenaltyUsd)) && Number(shadowMissPenaltyUsd) > 0
+        ? Number(shadowMissPenaltyUsd)
+        : fallbackUsd;
+    recordShadowAutoMiss(
+      {
+        sessionId,
+        workspacePath: event.cwd || options.cwd || '',
+        harness: 'claude-code',
+        effectiveMode,
+        category: mappedCategory,
+        detectorId: shadowMissDet,
+        turnKey:
+          event.tool_use_id ||
+          event.toolUseId ||
+          event.turn_id ||
+          event.turnId ||
+          `${shadowMissDet}:${toolName}`,
+        wastedTokens:
+          computedEventPromptTokens || Number(liveState?.contextWindow?.cachedTokens || 30000),
+        missedUsd: resolvedMissUsd,
+        avoidedPrompts: 1,
+        detail: shadowMissReason.slice(0, 160)
+      },
+      {
+        ...cwdOptions,
+        ...(event.shadowLedgerPath ? { shadowLedgerPath: event.shadowLedgerPath } : {})
+      }
+    );
   }
 
   if (!verdict.triggered) {

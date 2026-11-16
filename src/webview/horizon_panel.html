@@ -4995,6 +4995,74 @@
       .ts-context-split { grid-template-columns: minmax(0, 1fr) 56px; gap: 6px; }
       .ts-glass-vessel { width: 52px; height: 100px; }
     }
+    .ts-shadow-auto-card {
+      box-sizing: border-box;
+      min-width: 0;
+      max-width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px 10px;
+      border: 1px solid var(--hz-border, rgba(148, 163, 184, 0.24));
+      border-left: 2px solid var(--accent-focus, #38BDF8);
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.45);
+      font-size: 11px;
+    }
+    .ts-shadow-auto-card[hidden] { display: none !important; }
+    .ts-shadow-auto-title {
+      font-weight: 600;
+      color: var(--hz-fg, #F1F3F4);
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
+    .ts-shadow-auto-sub {
+      font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+      font-size: 10px;
+      font-variant-numeric: tabular-nums;
+      color: var(--hz-fg-secondary, #9AA0A6);
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .ts-shadow-auto-form {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .ts-shadow-key-input {
+      box-sizing: border-box;
+      flex: 1 1 130px;
+      min-width: 0;
+      max-width: 100%;
+      padding: 4px 7px;
+      border-radius: 4px;
+      border: 1px solid var(--hz-border, rgba(148, 163, 184, 0.25));
+      background: rgba(0, 0, 0, 0.25);
+      color: var(--hz-fg, #F1F3F4);
+      font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+      font-size: 10px;
+    }
+    .ts-shadow-btn {
+      box-sizing: border-box;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--hz-border, rgba(148, 163, 184, 0.28));
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--hz-fg, #F1F3F4);
+      font-size: 10.5px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .ts-shadow-btn-primary {
+      background: var(--accent-focus, #1A73E8);
+      border-color: var(--accent-focus, #1A73E8);
+      color: #FFFFFF;
+    }
+    .ts-shadow-btn[hidden] { display: none !important; }
 </style>
 </head>
 <body data-view-mode="simple">
@@ -5034,6 +5102,18 @@
       <button type="button" role="radio" id="tsModeBtnCoach" class="ts-mode-btn" data-mode="coach" aria-checked="true" title="Coach (Recommended): trims noisy command logs in the background and advises you before risky edits or costly model switches.">Coach</button>
       <button type="button" role="radio" id="tsModeBtnAuto" class="ts-mode-btn" data-mode="autopilot" aria-checked="false" title="Auto (Hands-free): enforces active safety guards, large-file read limits, and turn-boundary model/effort routing automatically.">Auto</button>
     </div>
+  </div>
+
+  <div id="tsShadowAutoBanner" class="ts-shadow-auto-card" hidden role="region" aria-label="Auto mode status and missed savings">
+    <div id="tsShadowAutoHeadline" class="ts-shadow-auto-title">Try hands-free Auto protection for 14 days</div>
+    <div id="tsShadowAutoSubline" class="ts-shadow-auto-sub">Hands-free cache holds and loop protection start immediately during your 14-day local trial.</div>
+    <div class="ts-shadow-auto-form">
+      <input id="tsShadowKeyInput" type="text" class="ts-shadow-key-input" placeholder="CTXP1.eyJ..." aria-label="Highbeam Pro license key">
+      <button type="button" id="tsShadowBtnActivate" class="ts-shadow-btn ts-shadow-btn-primary">Unlock Pro</button>
+      <button type="button" id="tsShadowBtnTrial" class="ts-shadow-btn">Start 14d Free Trial</button>
+      <button type="button" id="tsShadowBtnDismiss" class="ts-shadow-btn">Keep previewing</button>
+    </div>
+    <div id="tsShadowAutoStatus" class="ts-shadow-auto-sub" hidden></div>
   </div>
 
   <!-- =========================================================================
@@ -5253,6 +5333,14 @@
           <div class="ts-metric-main">
             <span class="ts-metric-label">Workspace state</span>
             <span id="tsSessionExtraText" class="ts-kpi-sub"></span>
+          </div>
+        </div>
+
+        <!-- Row 5 (Conditional): Option A Shadow Auto Preview for Free / Expired Trial -->
+        <div id="tsShadowAutoRow" class="ts-metric-row" hidden title="Verified counterfactual incidents that Auto mode would have handled automatically.">
+          <div class="ts-metric-main">
+            <span class="ts-metric-label">Auto preview</span>
+            <span id="tsShadowAutoMeta" class="ts-kpi-sub"></span>
           </div>
         </div>
       </div>
@@ -11463,7 +11551,11 @@
     if (m === 'auto' || m === 'autopilot' || m === 'auto-pilot' || m === 'auto_pilot') return 'autopilot';
     return 'coach';
   }
-  function syncModeSliderUI(rawMode = 'coach') {
+  // Mode-selection race guard: after a slider click, ignore mode echoed back by in-flight SSE / state
+  // payloads until the POST resolves (prevents the slider flipping back a moment after selection).
+  let __modeSelectionPendingUntil = 0;
+  function syncModeSliderUI(rawMode = 'coach', fromState = false) {
+    if (fromState && Date.now() < __modeSelectionPendingUntil) return;
     const norm = normalizeHorizonUiMode(rawMode);
     const slider = document.getElementById('tsModeSlider');
     if (slider) slider.dataset.activeMode = norm;
@@ -11492,22 +11584,162 @@
     });
     syncModeSliderUI(norm);
   }
+  function openShadowAutoBanner(stateObj) {
+    const banner = document.getElementById('tsShadowAutoBanner');
+    if (!banner) return;
+    const shadow = stateObj?.shadowAuto || {};
+    const ent = stateObj?.proEntitlement || {};
+    const headEl = document.getElementById('tsShadowAutoHeadline');
+    const subEl = document.getElementById('tsShadowAutoSubline');
+    const trialBtn = document.getElementById('tsShadowBtnTrial');
+    const statusEl = document.getElementById('tsShadowAutoStatus');
+    if (headEl) {
+      headEl.textContent = shadow.headlineText || (ent.trialExpired
+        ? '14-day Auto trial ended \u2014 Auto is in preview'
+        : 'Auto is previewing \u2014 start a 14-day trial to apply it');
+    }
+    if (subEl) {
+      subEl.textContent = shadow.sublineText || (ent.trialExpired
+        ? 'Auto keeps showing what it would fix. Unlock Highbeam Pro to apply cache holds and loop guards.'
+        : 'Start a 14-day local trial or enter a Pro license key to apply corrections.');
+    }
+    if (trialBtn) {
+      trialBtn.hidden = Boolean(ent.trialExpired);
+    }
+    if (statusEl) {
+      statusEl.hidden = true;
+      statusEl.textContent = '';
+    }
+    banner.hidden = false;
+  }
+
+  document.getElementById('tsShadowBtnDismiss')?.addEventListener('click', () => {
+    const banner = document.getElementById('tsShadowAutoBanner');
+    if (banner) banner.hidden = true;
+  });
+
+  document.getElementById('tsShadowBtnTrial')?.addEventListener('click', async () => {
+    const statusEl = document.getElementById('tsShadowAutoStatus');
+    try {
+      const actRes = await fetch('/api/license/activate', {
+        method: 'POST',
+        headers: buildHorizonPostHeaders(),
+        body: JSON.stringify({ trial: true })
+      });
+      const actJson = actRes && typeof actRes.json === 'function' ? await actRes.json() : {};
+      if (actJson.ok || actJson.success) {
+        const modeRes = await fetch('/api/router/mode', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify({ mode: 'autopilot' })
+        });
+        const modeJson = modeRes && typeof modeRes.json === 'function' ? await modeRes.json() : {};
+        if (modeJson.state) {
+          currentRenderedState = modeJson.state;
+          try { renderArgonTufteSurfaces(currentRenderedState); } catch {}
+        }
+        const banner = document.getElementById('tsShadowAutoBanner');
+        if (banner) banner.hidden = true;
+        setRouterModeActiveUI('autopilot');
+        showToast('&#x2713; 14-day Auto trial started');
+      } else if (statusEl) {
+        statusEl.textContent = actJson.reason || '14-day trial already expired — enter a Pro license key.';
+        statusEl.hidden = false;
+      }
+    } catch {
+      if (statusEl) {
+        statusEl.textContent = 'Unable to activate local trial.';
+        statusEl.hidden = false;
+      }
+    }
+  });
+
+  document.getElementById('tsShadowBtnActivate')?.addEventListener('click', async () => {
+    const inputEl = document.getElementById('tsShadowKeyInput');
+    const statusEl = document.getElementById('tsShadowAutoStatus');
+    const licenseKey = String(inputEl?.value || '').trim();
+    if (!licenseKey) {
+      if (statusEl) {
+        statusEl.textContent = 'Paste your CTXP1 license key first.';
+        statusEl.hidden = false;
+      }
+      return;
+    }
+    try {
+      const actRes = await fetch('/api/license/activate', {
+        method: 'POST',
+        headers: buildHorizonPostHeaders(),
+        body: JSON.stringify({ licenseKey })
+      });
+      const actJson = actRes && typeof actRes.json === 'function' ? await actRes.json() : {};
+      if (actJson.ok || actJson.success) {
+        const modeRes = await fetch('/api/router/mode', {
+          method: 'POST',
+          headers: buildHorizonPostHeaders(),
+          body: JSON.stringify({ mode: 'autopilot' })
+        });
+        const modeJson = modeRes && typeof modeRes.json === 'function' ? await modeRes.json() : {};
+        if (modeJson.state) {
+          currentRenderedState = modeJson.state;
+          try { renderArgonTufteSurfaces(currentRenderedState); } catch {}
+        }
+        const banner = document.getElementById('tsShadowAutoBanner');
+        if (banner) banner.hidden = true;
+        setRouterModeActiveUI('autopilot');
+        showToast('&#x2713; Highbeam Pro unlocked &mdash; Auto active');
+      } else if (statusEl) {
+        statusEl.textContent = `License rejected (${actJson.reason || 'INVALID_KEY'}).`;
+        statusEl.hidden = false;
+      }
+    } catch {
+      if (statusEl) {
+        statusEl.textContent = 'Unable to verify license key.';
+        statusEl.hidden = false;
+      }
+    }
+  });
+
   document.querySelectorAll('#tsModeSlider .ts-mode-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const mode = normalizeHorizonUiMode(btn.dataset.mode || 'coach');
+      const ent = currentRenderedState?.proEntitlement;
+      // Selection is never stepped down: unentitled users stay on Auto in shadow (preview) mode.
+      const optimisticShadow = mode === 'autopilot' && Boolean(ent && ent.entitled === false);
+      __modeSelectionPendingUntil = Date.now() + 3000;
+
       setRouterModeActiveUI(mode);
       if (currentRenderedState && typeof currentRenderedState === 'object') {
         currentRenderedState.routerMode = mode;
         currentRenderedState.flightMode = mode === 'autopilot' ? 'AUTO_PILOT' : (mode === 'off' ? 'OFF' : 'COACH');
+        currentRenderedState.autoShadow = optimisticShadow;
+        currentRenderedState.autoEnforced = mode === 'autopilot' && !optimisticShadow;
         try { renderArgonTufteSurfaces(currentRenderedState); } catch {}
       }
+      if (optimisticShadow) openShadowAutoBanner(currentRenderedState);
+      let modeResp = null;
       try {
-        await fetch('/api/router/mode', {
+        const res = await fetch('/api/router/mode', {
           method: 'POST',
           headers: buildHorizonPostHeaders(),
           body: JSON.stringify({ mode })
         });
+        if (res && typeof res.json === 'function') {
+          modeResp = await res.json();
+        }
       } catch {}
+      __modeSelectionPendingUntil = 0;
+      if (modeResp?.state && typeof modeResp.state === 'object') {
+        currentRenderedState = modeResp.state;
+        try { renderArgonTufteSurfaces(currentRenderedState); } catch {}
+      }
+      if (modeResp?.autoShadow) {
+        openShadowAutoBanner(currentRenderedState);
+        showToast('Auto preview &mdash; showing what it would fix. Start the 14-day trial or unlock Pro to apply corrections.');
+        return;
+      }
+      if (mode === 'autopilot' && modeResp && modeResp.autoShadow === false) {
+        if (banner) banner.hidden = true;
+      }
       const label = mode === 'off' ? 'Off (Watch only)' : (mode === 'autopilot' ? 'Auto (Hands-free)' : 'Coach');
       showToast(`&#x2713; Mode set to <strong>${escAttr(label)}</strong>`);
     });
@@ -11782,9 +12014,31 @@
       raw.coachState?.taskQuotaRouter?.routerMode ||
       (rawFm === 'OFF' ? 'off' : (rawFm === 'AUTO_PILOT' ? 'autopilot' : 'coach'))
     );
-    syncModeSliderUI(effectiveMode);
+    syncModeSliderUI(effectiveMode, true);
+    // Enforcement: Auto is "shadow" (preview) until a trial / license entitles it. Selection never changes.
+    const autoShadowFlag = effectiveMode === 'autopilot' && (
+      raw.autoShadow === true ||
+      raw.coachState?.autoShadow === true ||
+      (raw.autoShadow === undefined && raw.coachState?.autoShadow === undefined && raw.proEntitlement?.entitled === false)
+    );
+    const enforcementValue = effectiveMode === 'autopilot' ? (autoShadowFlag ? 'shadow' : 'enforced') : 'na';
+    const tsSliderEl = document.getElementById('tsModeSlider');
+    if (tsSliderEl) tsSliderEl.dataset.enforcement = enforcementValue;
+    const tsModeHintEl = document.getElementById('tsModeHint');
+    if (tsModeHintEl && effectiveMode === 'autopilot') {
+      if (autoShadowFlag) {
+        tsModeHintEl.textContent = 'Preview \u2014 shows what Auto would fix';
+      } else if (raw.proEntitlement?.tier === 'trial') {
+        tsModeHintEl.textContent = `Hands-free \u00B7 Trial ${raw.proEntitlement.daysRemaining || 14}d left`;
+      }
+    }
     const simpleSurface = document.getElementById('argonSimpleSurface');
-    if (simpleSurface) simpleSurface.dataset.protectionMode = effectiveMode;
+    if (simpleSurface) {
+      simpleSurface.dataset.protectionMode = effectiveMode;
+      simpleSurface.dataset.enforcement = enforcementValue;
+    }
+    const shadowBannerEl = document.getElementById('tsShadowAutoBanner');
+    if (shadowBannerEl && effectiveMode === 'autopilot' && !autoShadowFlag) shadowBannerEl.hidden = true;
     const isClaudeSurface = (raw.storeSource || 'antigravity').toLowerCase().includes('claude');
     const tsCacheMeta = document.getElementById('tsCacheMeta');
     const cacheUnmeasured = !isWarm && cache.prefixRetention?.unmeasuredReason === 'no_cache_telemetry';
@@ -12414,7 +12668,7 @@
               tip: 'Startup rules stay anchored cleanly so the model follows your architecture from turn 1 onward.'
             });
           }
-          rows.push(effectiveMode === 'autopilot'
+          rows.push(effectiveMode === 'autopilot' && !autoShadowFlag
             ? {
                 age: 'auto',
                 action: 'Hands-free Auto mode active \u2014 enforcing all safety, cache, and read-limit guards automatically',
@@ -12428,7 +12682,15 @@
                 tip: 'All enabled background guards run locally inside your IDE & CLI hooks in under 15 ms.'
               });
         }
-        if (effectiveMode === 'autopilot') {
+        const shadowCorrections = autoShadowFlag && Array.isArray(raw.coachState?.autoShadowCorrections)
+          ? raw.coachState.autoShadowCorrections
+          : [];
+        if (effectiveMode === 'autopilot' && autoShadowFlag) {
+          setTxt('tsGuardsSummary', shadowCorrections.length > 0
+            ? `Auto preview \u00B7 would have fixed ${shadowCorrections.length} \u00B7 not applied`
+            : 'Auto preview \u00B7 watching \u00B7 not applied');
+          setTip('tsGuardsSummary', 'Auto is selected but not unlocked (no trial or license). Highbeam advises like Coach and shows what Auto would have corrected and saved. Start the 14-day trial or unlock Pro to apply corrections.');
+        } else if (effectiveMode === 'autopilot') {
           setTxt('tsGuardsSummary', activeInterventionCount > 0
             ? `Auto-enforcing \u00B7 ${activeInterventionCount} active \u00B7 ${guardLabel}`
             : `Auto-enforcing \u00B7 ${liveGuardTotal > 0 ? guardLabel : 'Guards'}`);
@@ -12444,7 +12706,40 @@
             : 'Background guards watch for log dumps, repeat file reads, and cache-busting changes.');
         }
 
-        tsLedgerList.innerHTML = rows.slice(0, 4).map(r => `
+        let ledgerRows = rows;
+        if (autoShadowFlag) {
+          // Shadow Auto (Free): list what Auto WOULD have done (from the recorded shadow ledger) — never claims enforcement.
+          const money = (n) => '\u2248\u0024' + Number(n || 0).toFixed(2);
+          const ageLabel = (ts) => {
+            const mins = Math.max(0, Math.round((Date.now() - Number(ts || 0)) / 60000));
+            return mins < 1 ? 'now' : (mins < 60 ? mins + 'm' : (mins < 1440 ? Math.round(mins / 60) + 'h' : Math.round(mins / 1440) + 'd'));
+          };
+          ledgerRows = shadowCorrections.slice(0, 3).map(c => ({
+            age: ageLabel(c.ts),
+            action: 'Would have: ' + (c.detail || String(c.category || 'correction').replace(/_/g, ' ').toLowerCase()),
+            saved: c.missedUsd > 0 ? money(c.missedUsd) : 'preview',
+            tip: 'Auto is in preview \u2014 this correction was not applied. Start the 14-day trial or unlock Pro to apply it.'
+          }));
+          if (ledgerRows.length === 0) {
+            ledgerRows = [{
+              age: 'preview',
+              action: 'Auto is watching \u2014 corrections it would apply will appear here',
+              saved: 'not applied',
+              tip: 'Highbeam advises like Coach; Auto corrections are previewed until a trial or license is active.'
+            }];
+          }
+          const potentialUsd = Number(raw.shadowAuto?.missedUsd30d || 0);
+          if (potentialUsd > 0) {
+            ledgerRows.push({
+              age: '30d',
+              action: 'Potential savings if Auto were applied (this workspace)',
+              saved: money(potentialUsd),
+              tip: 'Estimated from recorded Auto-preview incidents over the last 30 days.'
+            });
+          }
+        }
+
+        tsLedgerList.innerHTML = ledgerRows.slice(0, 4).map(r => `
           <li class="ts-ledger-row" title="${escAttr(r.tip || '')}">
             <span class="ts-ledger-age">${escAttr(r.age)}</span>
             <span>${escAttr(r.action)}</span>
@@ -12652,6 +12947,21 @@
         } else {
           extraRow.hidden = true;
           extraTxtEl.textContent = '';
+        }
+      }
+
+      const shadowRow = document.getElementById('tsShadowAutoRow');
+      const shadowMeta = document.getElementById('tsShadowAutoMeta');
+      if (shadowRow && shadowMeta) {
+        const sh = raw.shadowAuto || raw.coachState?.shadowAuto || null;
+        const ent = raw.proEntitlement || raw.coachState?.proEntitlement || null;
+        if (ent && ent.entitled === false && sh && Number(sh.incidentCount30d || 0) > 0) {
+          shadowRow.hidden = false;
+          shadowMeta.textContent = `${sh.headlineText} \u00B7 ${sh.sublineText}`;
+          shadowRow.title = sh.ctaLabel || 'Switch to Auto or unlock Highbeam Pro.';
+        } else {
+          shadowRow.hidden = true;
+          shadowMeta.textContent = '';
         }
       }
     }
@@ -13143,9 +13453,30 @@
   }
 
   const __origRenderStateForTufte = renderState;
+  // Daemon/global fields that must survive a catalog swap (they describe the host mode + license,
+  // not the selected conversation). Without this overlay a precomputed catalog entry would reset the slider.
+  const __HZ_GLOBAL_STATE_KEYS = ['routerMode', 'flightMode', 'enforcedRouterMode', 'enforcedFlightMode',
+    'autoEnforced', 'autoShadow', 'proEntitlement', 'shadowAuto'];
   renderState = function(raw, fromCatalog) {
     __origRenderStateForTufte(raw, fromCatalog);
-    try { renderArgonTufteSurfaces(raw); } catch (err) { void err; }
+    // Paint Simple from what the panel actually decided to show (original may swap `raw` for the
+    // selected conversation / workspace match), not from the unswapped incoming payload.
+    let view = currentRenderedState || raw;
+    const globalSrc = (raw && raw.routerMode !== undefined)
+      ? raw
+      : (latestAutoState && latestAutoState.routerMode !== undefined ? latestAutoState : null);
+    if (
+      view && globalSrc && view !== globalSrc && typeof view === 'object' &&
+      Date.now() >= __modeSelectionPendingUntil &&
+      __HZ_GLOBAL_STATE_KEYS.some(k => globalSrc[k] !== undefined && view[k] !== globalSrc[k])
+    ) {
+      view = Object.assign({}, view);
+      for (const k of __HZ_GLOBAL_STATE_KEYS) {
+        if (globalSrc[k] !== undefined) view[k] = globalSrc[k];
+      }
+      currentRenderedState = view;
+    }
+    try { renderArgonTufteSurfaces(view); } catch (err) { void err; }
   };
   window.renderState = renderState;
 

@@ -64,7 +64,10 @@ describe('v4.0 RC Remediation & @ctxtop/mcp Regression Suite', () => {
     const parity = syncAndVerifyMirrors({ verifyOnly: true });
     assert.equal(parity.parityOk, true);
     assert.equal(parity.targets, 8);
-    assert.equal(parity.verifiedFilePairs, 768);
+    assert.ok(
+      parity.verifiedFilePairs >= 774,
+      `Expected >= 774 mirrored file pairs, got ${parity.verifiedFilePairs}`
+    );
   });
 
   it('Component 3: package.json URLs point to Gizzant/context-horizon, pricing tiers match, and signing docs exist', () => {

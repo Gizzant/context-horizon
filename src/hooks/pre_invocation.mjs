@@ -26,6 +26,8 @@ import {
   evaluateTaskAndQuotaRoute
 } from '../core/task_quota_router.mjs';
 import { loadHorizonConfig, resolveDetectorOverride } from '../core/horizon_config.mjs';
+import { resolveEffectiveAutoFlightMode } from '../core/pro_license.mjs';
+import { recordShadowAutoMiss } from '../core/shadow_auto_ledger.mjs';
 import {
   evaluateDet08DestructiveShell,
   evaluateDet09MidSessionRuleMutate,
@@ -213,10 +215,41 @@ export async function handlePreToolUse(inputData = {}) {
     cwd: workspacePath,
     ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {})
   });
-  const flightMode = String(inputData.flightMode || horizonConfig.flightMode || 'COACH').toUpperCase();
+  const rawFlightMode = String(inputData.flightMode || horizonConfig.flightMode || 'COACH').toUpperCase();
+  const resolvedModeInfo = resolveEffectiveAutoFlightMode(rawFlightMode, {
+    licensePath: inputData.licensePath,
+    homeDir: inputData.homeDir,
+    strict: Boolean(inputData.strictProGate)
+  });
+  const flightMode = resolvedModeInfo.effectiveFlightMode;
   const isSilentMode = flightMode === 'SILENT';
   const isOffMode = flightMode === 'OFF';
   const isAutoPilotMode = flightMode === 'AUTO_PILOT';
+  const shadowMissOpts = {
+    cwd: workspacePath,
+    ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {}),
+    ...(inputData.shadowLedgerPath ? { shadowLedgerPath: inputData.shadowLedgerPath } : {})
+  };
+  const logAgToolShadowMiss = (detectorId, category, missedUsd, wastedTokens, detail) => {
+    if (isAutoPilotMode) return;
+    recordShadowAutoMiss(
+      {
+        sessionId: conversationId,
+        workspacePath,
+        harness: 'antigravity',
+        effectiveMode: flightMode,
+        category,
+        detectorId,
+        turnKey: inputData.turnKey || inputData.turn || `${detectorId}:${toolName}`,
+        wastedTokens,
+        missedUsd,
+        avoidedPrompts: 1,
+        autoSelected: rawFlightMode === 'AUTO_PILOT' || rawFlightMode === 'AUTOPILOT',
+        detail
+      },
+      shadowMissOpts
+    );
+  };
 
   const syntheticStep = [{
     toolCalls: [{
@@ -317,6 +350,13 @@ export async function handlePreToolUse(inputData = {}) {
         if (det04.decision === 'deny') {
           return makeBlockPayload({ id: 'DET-04', message: det04.reason });
         }
+        logAgToolShadowMiss(
+          'DET-04',
+          'RUNAWAY_LOOP_TURN',
+          0.35,
+          Number(sidecar.telemetry?.totalInputTokens || 30000),
+          det04.reason
+        );
         if (!isSilentMode && !gateSystemMessage && det04.reason) gateSystemMessage = det04.reason;
       }
     }
@@ -537,6 +577,13 @@ export async function handlePreToolUse(inputData = {}) {
       });
       if (det09) {
         if (isAutoPilotMode || det09Mode === 'block') return makeBlockPayload(det09);
+        logAgToolShadowMiss(
+          'DET-09',
+          'PREFIX_MUTATION_BUST',
+          0.25,
+          Number(inputData.cachedTokens ?? sidecar.telemetry?.cachedTokens ?? sidecar.telemetry?.totalInputTokens ?? 30000),
+          det09.message
+        );
         if (!isSilentMode) gateSystemMessage = det09.message;
       }
     }
@@ -802,6 +849,15 @@ export async function handlePreToolUse(inputData = {}) {
           systemMessage: coldCacheWakeup.message
         };
       }
+      if (!isAutoPilotMode && Number(coldCacheWakeup.incrementalColdPenaltyUsd || 0) >= 0.5) {
+        logAgToolShadowMiss(
+          'DET-16',
+          'COLD_SWARM_WAKEUP',
+          Number(coldCacheWakeup.incrementalColdPenaltyUsd || 0.55),
+          Number(inputData.cachedTokens ?? sidecar.telemetry?.cachedTokens ?? 120000),
+          coldCacheWakeup.message
+        );
+      }
       if (!isSilentMode && !isOffMode) {
         systemMessage = coldCacheWakeup.message;
       }
@@ -922,7 +978,38 @@ export async function handlePreInvocation(inputData = {}) {
     cwd: workspacePath,
     ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {})
   });
-  const flightMode = String(inputData.flightMode || horizonConfig.flightMode || 'COACH').toUpperCase();
+  const rawFlightMode = String(inputData.flightMode || horizonConfig.flightMode || 'COACH').toUpperCase();
+  const resolvedModeInfo = resolveEffectiveAutoFlightMode(rawFlightMode, {
+    licensePath: inputData.licensePath,
+    homeDir: inputData.homeDir,
+    strict: Boolean(inputData.strictProGate)
+  });
+  const flightMode = resolvedModeInfo.effectiveFlightMode;
+  const agPromptShadowOpts = {
+    cwd: workspacePath,
+    ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {}),
+    ...(inputData.shadowLedgerPath ? { shadowLedgerPath: inputData.shadowLedgerPath } : {})
+  };
+  const logAgPromptShadowMiss = (detectorId, category, missedUsd, wastedTokens, detail) => {
+    if (flightMode === 'AUTO_PILOT') return;
+    recordShadowAutoMiss(
+      {
+        sessionId: conversationId,
+        workspacePath,
+        harness: 'antigravity',
+        effectiveMode: flightMode,
+        category,
+        detectorId,
+        turnKey: inputData.turnKey || inputData.turn || `${detectorId}:prompt`,
+        wastedTokens,
+        missedUsd,
+        avoidedPrompts: 1,
+        autoSelected: rawFlightMode === 'AUTO_PILOT' || rawFlightMode === 'AUTOPILOT',
+        detail
+      },
+      agPromptShadowOpts
+    );
+  };
 
   // 1. Control Flags & flightMode Handling (ISS-039)
   if (config.hook_level === 'off' || flightMode === 'OFF') {
@@ -1106,7 +1193,12 @@ export async function handlePreInvocation(inputData = {}) {
         detectorId: 'DET-30',
         defaultMode: 'flightMode'
       });
-      if (det30Res) return det30Res;
+      if (det30Res) {
+        if (det30Res.decision !== 'block' && det30Res.terminationBehavior !== 'terminate') {
+          logAgPromptShadowMiss('DET-30', 'RUNAWAY_LOOP_TURN', 0.35, Number(tokens || 40000), det30Check.reason);
+        }
+        return det30Res;
+      }
     }
   }
 
@@ -1168,7 +1260,18 @@ export async function handlePreInvocation(inputData = {}) {
           detectorId: 'DET-08',
           defaultMode: 'flightMode'
         });
-        if (bustRes) return bustRes;
+        if (bustRes) {
+          if (bustRes.decision !== 'block' && bustRes.terminationBehavior !== 'terminate') {
+            logAgPromptShadowMiss(
+              'DET-08',
+              'WARM_SWITCH_BUST',
+              Number(Math.max(0.03, coldPenaltyUsd - outputDeltaSavingUsd).toFixed(4)),
+              cachedTok,
+              `Warm model switch ${normalizeModelKey(priorActiveModel)} -> ${normalizeModelKey(inputData.modelName)}`
+            );
+          }
+          return bustRes;
+        }
       }
     }
   }

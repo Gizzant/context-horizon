@@ -429,6 +429,12 @@ export function syncPromotedDualHooks(workspaceRoot, ledger, options = {}) {
           .filter(Boolean)
       )
     );
+    const agDir = path.dirname(agHooksPath);
+    const agHookAbs = `${pkgRoot}/src/hooks/antigravity_rsl_hook.mjs`;
+    const relAg = path.relative(agDir, agHookAbs).replace(/\\/g, '/');
+    const agScriptPath =
+      relAg && !relAg.startsWith('..') && !path.isAbsolute(relAg) ? relAg : agHookAbs;
+    const safeAgScript = /\s/.test(agScriptPath) ? `"${agScriptPath}"` : agScriptPath;
     agDoc['ctxtop-rsl-guards'] = {
       enabled: true,
       PreToolUse: [
@@ -437,7 +443,7 @@ export function syncPromotedDualHooks(workspaceRoot, ledger, options = {}) {
           hooks: [
             {
               type: 'command',
-              command: `node "${pkgRoot}/src/hooks/antigravity_rsl_hook.mjs" --event=PreToolUse`,
+              command: `node ${safeAgScript} --event=PreToolUse`,
               timeout: 5
             }
           ]
@@ -488,12 +494,14 @@ export function syncPromotedDualHooks(workspaceRoot, ledger, options = {}) {
       return !cmds.some((c) => CLAUDE_RSL_HOOK_RE.test(c) && c.includes('--event=PreToolUse'));
     });
 
+    const ccHookAbs = `${pkgRoot}/src/hooks/claude_rsl_hook.mjs`;
+    const safeCcScript = /\s/.test(ccHookAbs) ? `"${ccHookAbs}"` : ccHookAbs;
     filteredPre.push({
       matcher: ccMatchers.join('|') || 'Bash|PowerShell|Edit|MultiEdit|Write',
       hooks: [
         {
           type: 'command',
-          command: `node "${pkgRoot}/src/hooks/claude_rsl_hook.mjs" --event=PreToolUse`
+          command: `node ${safeCcScript} --event=PreToolUse`
         }
       ]
     });

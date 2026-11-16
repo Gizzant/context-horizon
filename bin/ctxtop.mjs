@@ -70,6 +70,7 @@ import {
   verifyProLicenseKey,
   PLG_TIER_MATRIX
 } from '../src/core/pro_license.mjs';
+import { getShadowAutoSummary } from '../src/core/shadow_auto_ledger.mjs';
 import { generateTeamFinopsPack } from '../packages/pro/src/team_finops_pack.mjs';
 import {
   computeSwarmSummary,
@@ -1213,6 +1214,19 @@ export function runCli(args = [], options = {}) {
     }
     if (action === 'trial') {
       const trRes = activateLocalTrial(options);
+      if (!trRes.ok) {
+        if (isJson) {
+          return { exitCode: 1, output: JSON.stringify(trRes, null, 2), data: trRes };
+        }
+        return {
+          exitCode: 1,
+          output: `[Highbeam Pro] 14-day trial already expired (${trRes.expiresAt || ''}). Unlock Pro with: npx ctxtop license activate <CTXP1-KEY>`,
+          data: trRes
+        };
+      }
+      if (isJson) {
+        return { exitCode: 0, output: JSON.stringify(trRes, null, 2), data: trRes };
+      }
       return {
         exitCode: 0,
         output: `[Highbeam Pro] Activated 14-day local trial (expires ${trRes.expiresAt}) -> ${trRes.licensePath}`,
@@ -1228,13 +1242,25 @@ export function runCli(args = [], options = {}) {
       };
     }
     const status = getProEntitlementStatus(options);
+    const shadowAuto = getShadowAutoSummary({
+      workspacePath: options.cwd || process.cwd(),
+      proEntitlement: status,
+      ...options
+    });
+    const outData = { ...status, shadowAuto };
     if (isJson) {
-      return { exitCode: 0, output: JSON.stringify(status, null, 2), data: status };
+      return { exitCode: 0, output: JSON.stringify(outData, null, 2), data: outData };
+    }
+    const statusLines = [
+      `[Highbeam Pro] Tier=${status.tier} | Entitled=${status.entitled} | Source=${status.source}`
+    ];
+    if (!status.entitled && shadowAuto.incidentCount30d > 0) {
+      statusLines.push(`  Auto preview (30d): ${shadowAuto.headlineText} — ${shadowAuto.sublineText}`);
     }
     return {
       exitCode: 0,
-      output: `[Highbeam Pro] Tier=${status.tier} | Entitled=${status.entitled} | Source=${status.source}`,
-      data: status
+      output: statusLines.join('\n'),
+      data: outData
     };
   }
 

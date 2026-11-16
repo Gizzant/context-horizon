@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { canonicalizePath } from './paths.mjs';
 import { loadHorizonConfig, filterFindingsByHorizonConfig } from './horizon_config.mjs';
 import { inspectGitArgs } from '../shims/agy_git_guard.mjs';
@@ -48,7 +49,46 @@ export function evaluateDet17ShadowFileBloat(steps = []) {
   };
 }
 
-function inspectSettingsContentHazards(rawContent = '', relLabel = '') {
+function isVerifiedCanonicalRslHookCommand(cmd = '', relLabel = '', options = {}) {
+  if (!options?.scanWorkspace || !options?.wsRoot) return false;
+  if (!/\.agents[\\/]hooks\.json$/i.test(String(relLabel || ''))) return false;
+  const trimmed = String(cmd || '').trim();
+  if (
+    !/^node\s+(?:--no-warnings\s+)?plugins\/agy-horizon-flightcheck\/src\/hooks\/antigravity_rsl_hook\.mjs\s+--event=PreToolUse$/.test(
+      trimmed
+    )
+  ) {
+    return false;
+  }
+  try {
+    const wsScript = path.join(
+      options.wsRoot,
+      '.agents',
+      'plugins',
+      'agy-horizon-flightcheck',
+      'src',
+      'hooks',
+      'antigravity_rsl_hook.mjs'
+    );
+    const canonicalScript = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '..',
+      'hooks',
+      'antigravity_rsl_hook.mjs'
+    );
+    if (!fs.existsSync(wsScript) || !fs.existsSync(canonicalScript)) return false;
+    const hashLf = (filePath) =>
+      crypto
+        .createHash('sha256')
+        .update(fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n'), 'utf8')
+        .digest('hex');
+    return hashLf(wsScript) === hashLf(canonicalScript);
+  } catch {
+    return false;
+  }
+}
+
+function inspectSettingsContentHazards(rawContent = '', relLabel = '', options = {}) {
   const text = String(rawContent || '');
   const hazards = [];
 
@@ -117,7 +157,8 @@ function inspectSettingsContentHazards(rawContent = '', relLabel = '') {
           entry.cmd.includes('[CLI Output Dampener]') &&
           !entry.cmd.includes('child_process') &&
           !/\b(curl|wget|Invoke-WebRequest|iex|spawn|exec)\b/i.test(entry.cmd);
-        if (!isTrustedPluginRootRelHook && !isTrustedHorizonPlugin && !isBenignDampener) {
+        const isVerifiedRslHook = isVerifiedCanonicalRslHookCommand(entry.cmd, relLabel, options);
+        if (!isTrustedPluginRootRelHook && !isTrustedHorizonPlugin && !isBenignDampener && !isVerifiedRslHook) {
           hazards.push('UNTRUSTED_HOOK_OR_MCP_COMMAND');
           break;
         }
@@ -201,7 +242,7 @@ export function evaluateDet18UntrustedWorkspaceSettings(paramsOrSteps = {}, cont
       } catch {
         continue;
       }
-      const hazards = inspectSettingsContentHazards(raw, relFile);
+      const hazards = inspectSettingsContentHazards(raw, relFile, { wsRoot, scanWorkspace: true });
       if (hazards.length > 0) {
         return {
           id: 'DET-18',

@@ -26,6 +26,7 @@ import { loadHorizonConfig, resolveDetectorOverride } from '../../src/core-isomo
 import { CacheGravityRouter } from '../../src/core-isomorphic/coach/cacheGravityRouter.mjs';
 import { recordInterventionSavings } from '../../src/core-isomorphic/coach/savedQuotaLedger.mjs';
 import { requireProFeature } from '../../src/core/pro_license.mjs';
+import { recordShadowAutoMiss } from '../../src/core/shadow_auto_ledger.mjs';
 import { recordPreModelSwitchEvent } from '../../src/utils/modelSwitchTelemetry.mjs';
 import {
   isCliEntrypoint,
@@ -768,16 +769,121 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
       }
     : null;
 
+  const shadowAutoEval =
+    effectiveMode !== 'AUTO_PILOT' &&
+    det08Override !== 'off' &&
+    cacheWarm &&
+    cachedTokens > 0 &&
+    effectiveMode === 'OFF'
+      ? new CacheGravityRouter({
+          ...cwdOptions,
+          ...(historicalSessionApiCalls ? { historicalSessionApiCalls } : {}),
+          mode: 'AUTO_PILOT'
+        }).evaluateModelSwitch({
+          currentModel,
+          targetModel,
+          cachedTokens,
+          uncachedDeltaTokens,
+          uncachedWriteTokens,
+          justCompacted,
+          totalPromptTokens,
+          cacheWarm,
+          cacheTtlTier,
+          turnsCompleted,
+          ...(apiCallsCompleted !== undefined ? { apiCallsCompleted } : {}),
+          ...(requestsPerTurn !== undefined ? { requestsPerTurn } : {}),
+          ...(contextGrowthPerTurn > 0 ? { contextGrowthPerTurn } : {}),
+          ...(contextCeiling !== undefined ? { contextCeiling } : {}),
+          initialPrefixTokens: sessionCal?.initialPrefixTokens,
+          expectedOutputTokens: resolvedExpectedOutputTokens ?? 1500,
+          ...(rawRemainingTurns !== undefined && rawRemainingTurns !== null
+            ? { expectedRemainingTurns: Number(rawRemainingTurns) }
+            : useEmpiricalHorizonPrior
+              ? { useEmpiricalHorizonPrior: true }
+              : {}),
+          autoPilotDecision: resolvedAutoPilotDecision
+        })
+      : null;
+
+  const effectiveShadowVerdict = shadowAutoEval || verdict;
+  const shadowAutoWouldHold = Boolean(
+    effectiveMode !== 'AUTO_PILOT' &&
+      (effectiveShadowVerdict.advisory ||
+        effectiveShadowVerdict.blocked ||
+        effectiveShadowVerdict.decision === 'ask') &&
+      effectiveShadowVerdict.breakEven?.shouldHoldModel &&
+      !effectiveShadowVerdict.belowMinSwitchPenaltyUSD &&
+      !effectiveShadowVerdict.breakEven?.isCapabilityUpshift &&
+      !effectiveShadowVerdict.breakEven?.unknownModel
+  );
+  const rawShadowNetUsd = Number(
+    effectiveShadowVerdict.netExpectedSavingsUSD ??
+      effectiveShadowVerdict.breakEven?.horizonNetSavingsUSD ??
+      NaN
+  );
+  const shadowPenaltyUsd = Number(
+    effectiveShadowVerdict.switchPenaltyUSD ??
+      effectiveShadowVerdict.breakEven?.coldWritePenaltyUSD ??
+      0
+  );
+  const shadowMissedUsd = Number(
+    Math.max(
+      0,
+      Number.isFinite(rawShadowNetUsd) && rawShadowNetUsd < 0 ? -rawShadowNetUsd : shadowPenaltyUsd
+    ).toFixed(4)
+  );
+  const pendingShadowSwitchMiss = shadowAutoWouldHold
+    ? {
+        ts: nowMs,
+        currentModel,
+        targetModel,
+        wastedTokens: cachedTokens,
+        missedUsd: shadowMissedUsd,
+        effectiveMode,
+        turnKey: String(
+          event.turn_id || event.turnId || `${currentModel}->${targetModel}:${cachedTokens}`
+        ),
+        detectorId: 'DET-08'
+      }
+    : null;
+
+  if (shadowAutoWouldHold && options.recordShadowImmediate === true) {
+    recordShadowAutoMiss(
+      {
+        sessionId,
+        workspacePath: event.cwd || options.cwd || '',
+        harness: 'claude-code',
+        effectiveMode,
+        category: 'WARM_SWITCH_BUST',
+        detectorId: 'DET-08',
+        turnKey: pendingShadowSwitchMiss.turnKey,
+        wastedTokens: cachedTokens,
+        missedUsd: shadowMissedUsd,
+        avoidedPrompts: 1,
+        detail: `Model switch ${currentModel} -> ${targetModel} on warm cache`
+      },
+      {
+        ...cwdOptions,
+        ...(event.shadowLedgerPath ? { shadowLedgerPath: event.shadowLedgerPath } : {})
+      }
+    );
+  }
+
   if (shouldPersistBreaker) {
-    if (recordedPendingDownshift) {
+    if (recordedPendingDownshift || pendingShadowSwitchMiss) {
       writeBreakerStateSnapshot(
         sessionId,
         {
           ...(breakerSnap || {}),
           updatedAt: nowMs,
-          pending_downshift: recordedPendingDownshift,
-          pendingDownshiftModel: recordedPendingDownshift.toModel,
-          lastModelId: verdict.breakEven.currentModel,
+          ...(recordedPendingDownshift
+            ? {
+                pending_downshift: recordedPendingDownshift,
+                pendingDownshiftModel: recordedPendingDownshift.toModel
+              }
+            : {}),
+          ...(pendingShadowSwitchMiss ? { pendingShadowSwitchMiss } : {}),
+          lastModelId: verdict.breakEven?.currentModel || currentModel,
           lastContextTokens: cachedTokens
         },
         cwdOptions
@@ -786,7 +892,10 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
       !verdict.blocked &&
       !verdict.advisory &&
       breakerSnap &&
-      (breakerSnap.pending_downshift || breakerSnap.pendingDownshiftModel || breakerSnap.justCompacted)
+      (breakerSnap.pending_downshift ||
+        breakerSnap.pendingDownshiftModel ||
+        breakerSnap.justCompacted ||
+        breakerSnap.pendingShadowSwitchMiss)
     ) {
       writeBreakerStateSnapshot(
         sessionId,
@@ -795,6 +904,7 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
           updatedAt: nowMs,
           pending_downshift: null,
           pendingDownshiftModel: null,
+          pendingShadowSwitchMiss: null,
           justCompacted: false
         },
         cwdOptions

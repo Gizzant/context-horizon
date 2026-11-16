@@ -56,8 +56,10 @@ import {
   getProEntitlementStatus,
   requireProFeature,
   activateProLicense,
-  activateLocalTrial
+  activateLocalTrial,
+  resolveEffectiveAutoFlightMode
 } from '../../src/core/pro_license.mjs';
+import { getShadowAutoSummary } from '../../src/core/shadow_auto_ledger.mjs';
 import { generateCorporateExpenseReceipt } from '../../src/core-isomorphic/ui/pdfReceiptGenerator.mjs';
 import { DETECTOR_CATALOG } from '../../src/core-isomorphic/catalog/detectorCatalog.mjs';
 import { ProgressiveCheckpointer } from '../../src/core/coach/progressive_checkpointer.mjs';
@@ -168,6 +170,10 @@ const uShapedOptimizer = new UShapedAttentionOptimizer({ prefixCacheShield, pref
 const cacheGravityScorer = new CacheGravityScorer();
 const modelSelectorActuator = new ModelSelectorActuator({ cacheGravityScorer });
 let hasExplicitSessionMode = false;
+// User-selected router mode ('off' | 'coach' | 'autopilot'). Independent of license enforcement:
+// `modelSelectorActuator.mode` always carries the ENFORCED mode so no internal path can actuate
+// Auto for an unentitled (Free) user, while the slider keeps showing what the user picked.
+let selectedRouterMode = null;
 const taskMdWatcher = new TaskMdDirectiveWatcher({ cacheGravityScorer, actuator: modelSelectorActuator });
 const hysteresisLock = new HysteresisLock();
 const turnBoundaryQueue = new TurnBoundaryActuationQueue();
@@ -377,16 +383,40 @@ function buildCoachState(state, targetConvId) {
     const diskRouterMode = configuredFlightMode === 'AUTO_PILOT'
       ? 'autopilot'
       : (configuredFlightMode === 'OFF' ? 'off' : 'coach');
-    if (!hasExplicitSessionMode && modelSelectorActuator.mode !== diskRouterMode) {
-      modelSelectorActuator.setMode(diskRouterMode);
-    }
-    const effectiveRouterMode = hasExplicitSessionMode ? modelSelectorActuator.mode : diskRouterMode;
-    const effectiveFlightMode = effectiveRouterMode === 'autopilot'
+    const proEntitlement = getProEntitlementStatus();
+    const shadowAuto = getShadowAutoSummary({
+      workspacePath: wsDir,
+      sessionId: sessionKey,
+      proEntitlement
+    });
+    // SELECTED mode (slider source of truth): explicit click this daemon session, else persisted config.
+    const rawRouterMode = hasExplicitSessionMode && selectedRouterMode ? selectedRouterMode : diskRouterMode;
+    const rawFlightMode = rawRouterMode === 'autopilot'
       ? 'AUTO_PILOT'
-      : (effectiveRouterMode === 'off' ? 'OFF' : (configuredFlightMode === 'SILENT' ? 'SILENT' : 'COACH'));
+      : (rawRouterMode === 'off' ? 'OFF' : (configuredFlightMode === 'SILENT' ? 'SILENT' : 'COACH'));
+    // ENFORCED mode (what hooks/actuators may DO): Auto only when Pro / trial entitlement is present.
+    const modeGate = resolveEffectiveAutoFlightMode(rawFlightMode);
+    const effectiveFlightMode = modeGate.effectiveFlightMode;
+    const autoShadow = Boolean(modeGate.steppedDown);
+    const effectiveRouterMode = effectiveFlightMode === 'AUTO_PILOT'
+      ? 'autopilot'
+      : (effectiveFlightMode === 'OFF' ? 'off' : 'coach');
+    const autoEnforced = rawRouterMode === 'autopilot' && !autoShadow;
+    // The shared actuator always mirrors the enforced mode (never the unentitled selection).
+    if (modelSelectorActuator.mode !== effectiveRouterMode) {
+      modelSelectorActuator.setMode(effectiveRouterMode);
+    }
     if (state && typeof state === 'object') {
-      state.routerMode = effectiveRouterMode;
-      state.flightMode = effectiveFlightMode;
+      state.routerMode = rawRouterMode;
+      state.flightMode = rawFlightMode;
+      state.enforcedRouterMode = effectiveRouterMode;
+      state.enforcedFlightMode = effectiveFlightMode;
+      state.autoEnforced = autoEnforced;
+      state.autoShadow = autoShadow;
+      state.proEntitlement = proEntitlement;
+      state.shadowAuto = shadowAuto;
+      // Back-compat: no longer steps the user's selection down to Coach.
+      state.steppedDownFromAuto = false;
     }
 
     const resolvedEffort = String(
@@ -553,7 +583,9 @@ function buildCoachState(state, targetConvId) {
       promptAdvisory,
       savedQuotaLedger: ledgerSummary,
       savings: unifiedSavings,
-      proEntitlement: getProEntitlementStatus(),
+      proEntitlement,
+      shadowAuto,
+      steppedDownFromAuto: false,
       fts5Compressor: {
         active: true,
         savedTokens: fts5SavedTokens
@@ -632,8 +664,15 @@ function buildCoachState(state, targetConvId) {
           return null;
         }
       })(),
-      routerMode: effectiveRouterMode,
-      flightMode: effectiveFlightMode,
+      routerMode: rawRouterMode,
+      flightMode: rawFlightMode,
+      enforcedRouterMode: effectiveRouterMode,
+      enforcedFlightMode: effectiveFlightMode,
+      autoEnforced,
+      autoShadow,
+      autoShadowCorrections: autoShadow && Array.isArray(shadowAuto?.recentIncidents)
+        ? shadowAuto.recentIncidents
+        : [],
       taskQuotaRouter: taskRoute
     };
   } catch (err) {
@@ -1894,16 +1933,56 @@ const server = http.createServer(async (req, res) => {
     if (bodyStr === null) return;
     const body = parseJsonBodyOrSend400(bodyStr, res, 'POST /api/router/mode');
     if (body === null) return;
-    const mode = body.mode || 'coach';
-    hasExplicitSessionMode = true;
-    const modeRes = modelSelectorActuator.setMode(mode);
+    const rawReqMode = String(body.mode || 'coach').trim().toLowerCase();
+    const wantsAuto =
+      rawReqMode === 'auto' ||
+      rawReqMode === 'autopilot' ||
+      rawReqMode === 'auto-pilot' ||
+      rawReqMode === 'auto_pilot';
     const wsDir = cachedLiveState?.workspace?.canonicalPath || process.cwd();
-    const persistRes = setHorizonFlightMode(modeRes.mode, { cwd: wsDir });
-    cacheTtlWatchdog.setFlightMode(persistRes.flightMode);
+
+    let requestedMode = body.mode || 'coach';
+    let autoShadow = false;
+    let proCheck = null;
+
+    if (wantsAuto) {
+      // Read-only entitlement check: selecting Auto NEVER provisions a trial. The 14-day trial is
+      // explicit (banner button -> POST /api/license/activate {trial:true}, license key, or CLI).
+      proCheck = getProEntitlementStatus({ strict: true });
+      autoShadow = !proCheck.entitled;   // keep the selection on Auto; enforcement is gated
+    }
+
+    hasExplicitSessionMode = true;
+    const selectedRes = modelSelectorActuator.normalizeMode(requestedMode);
+    selectedRouterMode = selectedRes;
+    const persistRes = setHorizonFlightMode(selectedRes, { cwd: wsDir });
+    const enforcedGate = resolveEffectiveAutoFlightMode(persistRes.flightMode);
+    const enforcedRouter = enforcedGate.effectiveFlightMode === 'AUTO_PILOT'
+      ? 'autopilot'
+      : (enforcedGate.effectiveFlightMode === 'OFF' ? 'off' : 'coach');
+    const modeRes = modelSelectorActuator.setMode(enforcedRouter);
+    cacheTtlWatchdog.setFlightMode(enforcedGate.effectiveFlightMode);
     const nextState = await refreshLiveState(true, pinnedConversationId);
     broadcastState(nextState);
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, ...modeRes, flightMode: persistRes.flightMode, state: nextState }));
+    res.end(
+      JSON.stringify({
+        success: true,
+        ...modeRes,
+        mode: selectedRes,
+        routerMode: selectedRes,
+        enforcedRouterMode: enforcedRouter,
+        flightMode: persistRes.flightMode,
+        autoShadow,
+        autoEnforced: selectedRes === 'autopilot' && !autoShadow,
+        reverseTrialStarted: false,
+        steppedDownToCoach: false,
+        ...(autoShadow ? { requiresPro: true } : {}),
+        proEntitlement: nextState?.proEntitlement || proCheck || getProEntitlementStatus(),
+        shadowAuto: nextState?.shadowAuto || null,
+        state: nextState
+      })
+    );
     return;
   }
 

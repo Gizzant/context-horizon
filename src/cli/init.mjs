@@ -12,6 +12,7 @@ import { runPostmortem, printPostmortemSummary } from './postmortem.mjs';
 import { runDoctor, parseDoctorArgs } from './doctor.mjs';
 import { runCostRadar, parseCostRadarArgs } from './cost_radar.mjs';
 import { compressCliOutputFts5, searchToolLogsFts5 } from '../core/fts5_output_compressor.mjs';
+import { ensureReverseTrialProvisioned } from '../core/pro_license.mjs';
 import {
   SWARM_TOOL_MATCHER,
   FULL_TOOL_HOOK_MATCHER,
@@ -240,6 +241,23 @@ export function installPlugin(options = {}) {
       atomicWriteFileSync(sPath, JSON.stringify(settings, null, 2) + '\n', { encoding: 'utf8' });
     }
     console.log(`  \x1b[38;5;82m✓\x1b[0m Configured CLI statusLine in ${sPath}`);
+  }
+
+  const isTestRuntime = Boolean(
+    process.env.NODE_ENV === 'test' ||
+      process.env.NODE_TEST_CONTEXT ||
+      process.execArgv?.includes('--test')
+  );
+  if (!dryRun && (!isTestRuntime || options.provisionReverseTrial === true)) {
+    const trialProvision = ensureReverseTrialProvisioned({
+      homeDir: home,
+      ...(options.licensePath ? { licensePath: options.licensePath } : {}),
+      ...(options.nowMs !== undefined ? { nowMs: options.nowMs } : {}),
+      ...(options.provisionReverseTrial ? { allowTestHomeWrite: true } : {})
+    });
+    if (trialProvision.provisioned) {
+      console.log(`  \x1b[38;5;51m★\x1b[0m 14-day Highbeam Auto trial activated automatically (expires ${trialProvision.status?.expiresAt || ''})`);
+    }
   }
 
   console.log('\n\x1b[1m\x1b[38;5;82m✓ Installation complete in <2 seconds!\x1b[0m');

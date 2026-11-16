@@ -70,4 +70,6 @@ import './claude-code/round2_suite_findings.test.mjs';
 import './rsl_dual_platform.test.mjs';
 import './spec_sharding_and_rule_clash.test.mjs';
 import './simple_view_next_action.test.mjs';
+import './reverse_trial_and_shadow_auto.test.mjs';
+import './free_auto_shadow_mode.test.mjs';
 
