@@ -15,7 +15,10 @@ import {
   getDiagnosticsFilePath,
   readRuntimeDiagnostics
 } from '../utils/nodeIo.mjs';
-import { loadModelCatalog } from '../core-isomorphic/config/catalogLoader.mjs';
+import {
+  isKnownCatalogModel,
+  loadModelCatalog
+} from '../core-isomorphic/config/catalogLoader.mjs';
 import { loadHorizonConfig } from '../core-isomorphic/config/horizonConfig.mjs';
 import { inspectClaudeBinaryCapabilities } from './claudeHookCapabilities.mjs';
 import { readModelSwitchTelemetry } from '../utils/modelSwitchTelemetry.mjs';
@@ -207,6 +210,43 @@ export function runDoctorDiagnostics(options = {}) {
 
   const proseHookCandidates = auditProseRuleHookCandidates(cwd);
   const hookDiagnostics = inspectHookDiagnostics({ ...options, cwd });
+
+  // Item 1.2: Warn cleanly when the configured or active session model has no price catalog entry
+  const candidateModelSources = [
+    options.model,
+    options.activeModel,
+    config?.model,
+    readJsonSafe(path.join(cwd, '.claude', 'settings.local.json'), null, options)?.model,
+    readJsonSafe(path.join(cwd, '.claude', 'settings.json'), null, options)?.model,
+    readJsonSafe(
+      path.join(options.homeDir || os.homedir() || '', '.claude', 'settings.json'),
+      null,
+      options
+    )?.model,
+    options.env?.ANTHROPIC_MODEL,
+    options.env?.CLAUDE_MODEL,
+    globalThis.process?.env?.ANTHROPIC_MODEL,
+    globalThis.process?.env?.CLAUDE_MODEL
+  ].filter((m) => typeof m === 'string' && m.trim().length > 0);
+  const unknownConfiguredModels = Array.from(
+    new Set(
+      candidateModelSources
+        .map((m) => m.trim())
+        .filter((m) => !isKnownCatalogModel(m, { ...options, cwd }))
+    )
+  );
+  const warnings = [];
+  if (unknownConfiguredModels.length > 0) {
+    const warnDetail = `Configured model(s) [${unknownConfiguredModels.join(', ')}] not in price catalog; dollar figures and price-based holds are disabled (unknown model state).`;
+    warnings.push(warnDetail);
+    checks.push({
+      id: 'model_catalog_coverage',
+      status: 'WARN',
+      ok: true,
+      detail: warnDetail
+    });
+  }
+
   const modelSwitchTelemetry = readModelSwitchTelemetry({
     homeDir: options.homeDir,
     telemetryPath: options.telemetryPath
@@ -225,6 +265,7 @@ export function runDoctorDiagnostics(options = {}) {
     ok,
     nodeVersion,
     checks,
+    warnings,
     claudeCapabilities,
     hookDiagnostics,
     modelSwitchTelemetry,

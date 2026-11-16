@@ -13,7 +13,15 @@ import {
   computeRollingMedianFloat
 } from '../../src/utils/sessionCalibration.mjs';
 import { readLiveStateSnapshot } from '../../src/core-isomorphic/telemetry/telemetryBridge.mjs';
-import { computeTotalPromptTokens } from '../../src/core-isomorphic/config/catalogLoader.mjs';
+import {
+  computeTotalPromptTokens,
+  isKnownCatalogModel,
+  normalizeModelId
+} from '../../src/core-isomorphic/config/catalogLoader.mjs';
+import {
+  readBreakerStateSnapshot,
+  writeBreakerStateSnapshot
+} from '../../src/core-isomorphic/guards/circuitBreakers.mjs';
 import { loadHorizonConfig, resolveDetectorOverride } from '../../src/core-isomorphic/config/horizonConfig.mjs';
 import { CacheGravityRouter } from '../../src/core-isomorphic/coach/cacheGravityRouter.mjs';
 import { recordInterventionSavings } from '../../src/core-isomorphic/coach/savedQuotaLedger.mjs';
@@ -334,6 +342,22 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
         det08Override === 'block' ? true : (event.strictBlock ?? options.strictBlock)
     });
 
+  const shouldPersistBreaker =
+    options.persistState !== false &&
+    Boolean(
+      options.persistState === true ||
+        options.cliInvocation ||
+        options.breakerStatePath ||
+        event.persistState ||
+        event.cwd
+    );
+  const breakerSnap = shouldPersistBreaker
+    ? readBreakerStateSnapshot(sessionId, cwdOptions)
+    : null;
+  const justCompacted = Boolean(
+    event.just_compacted ?? event.justCompacted ?? breakerSnap?.justCompacted
+  );
+
   const currentModel =
     event.current_model ||
     event.currentModel ||
@@ -350,13 +374,25 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
     event.requestedModel ||
     event.model ||
     'claude-sonnet-5-5';
-  const cachedTokens = Number(
+  const explicitCachedTokens =
     event.cached_tokens ??
-      event.cachedTokens ??
-      event.context_tokens ??
-      event.contextTokens ??
-      liveState.contextWindow?.cachedTokens ??
-      0
+    event.cachedTokens ??
+    event.context_tokens ??
+    event.contextTokens;
+  const cachedTokens = Number(
+    explicitCachedTokens ??
+      (justCompacted
+        ? (liveState.contextWindow?.cacheReadTokens ?? liveState.contextWindow?.cachedTokens ?? 0)
+        : (liveState.contextWindow?.cachedTokens ?? 0))
+  );
+  const explicitUncachedWrite =
+    event.uncached_write_tokens ?? event.uncachedWriteTokens;
+  const uncachedWriteTokens = Math.max(
+    0,
+    Number(
+      explicitUncachedWrite ??
+        (justCompacted ? (liveState.contextWindow?.cacheCreationTokens ?? 0) : 0)
+    )
   );
   const nowMs = Number.isFinite(Number(options.nowMs)) ? Number(options.nowMs) : Date.now();
   const rawExpiresAt = liveState?.promptCache?.expiresAt;
@@ -376,7 +412,9 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
       ? Boolean(explicitCacheWarm)
       : liveCacheExpired
         ? false
-        : Boolean(liveState.promptCache?.warm);
+        : justCompacted && cachedTokens === 0
+          ? false
+          : Boolean(liveState.promptCache?.warm);
 
   const uncachedDeltaTokens = Number(
     event.uncached_delta_tokens ?? event.uncachedDeltaTokens ?? 0
@@ -394,7 +432,7 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
   const usageSource =
     event.usage || event.context_window?.current_usage || liveState.contextWindow || {};
   const totalPromptTokens = Math.max(
-    cachedTokens + uncachedDeltaTokens,
+    cachedTokens + uncachedDeltaTokens + uncachedWriteTokens,
     computeTotalPromptTokens(event),
     computeTotalPromptTokens(usageSource)
   );
@@ -648,6 +686,8 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
     targetModel,
     cachedTokens,
     uncachedDeltaTokens,
+    uncachedWriteTokens,
+    justCompacted,
     totalPromptTokens,
     cacheWarm,
     cacheTtlTier,
@@ -710,8 +750,61 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
     };
   }
 
+  const isHeldDownshift = Boolean(
+    (verdict.blocked || verdict.advisory) &&
+      verdict.breakEven?.shouldHoldModel &&
+      !verdict.belowMinSwitchPenaltyUSD &&
+      !verdict.breakEven?.isCapabilityUpshift &&
+      !verdict.breakEven?.unknownModel &&
+      verdict.breakEven?.currentModel &&
+      verdict.breakEven?.targetModel &&
+      verdict.breakEven.currentModel !== verdict.breakEven.targetModel
+  );
+  const recordedPendingDownshift = isHeldDownshift
+    ? {
+        fromModel: verdict.breakEven.currentModel,
+        toModel: verdict.breakEven.targetModel,
+        recordedAt: new Date(nowMs).toISOString()
+      }
+    : null;
+
+  if (shouldPersistBreaker) {
+    if (recordedPendingDownshift) {
+      writeBreakerStateSnapshot(
+        sessionId,
+        {
+          ...(breakerSnap || {}),
+          updatedAt: nowMs,
+          pending_downshift: recordedPendingDownshift,
+          pendingDownshiftModel: recordedPendingDownshift.toModel,
+          lastModelId: verdict.breakEven.currentModel,
+          lastContextTokens: cachedTokens
+        },
+        cwdOptions
+      );
+    } else if (
+      !verdict.blocked &&
+      !verdict.advisory &&
+      breakerSnap &&
+      (breakerSnap.pending_downshift || breakerSnap.pendingDownshiftModel || breakerSnap.justCompacted)
+    ) {
+      writeBreakerStateSnapshot(
+        sessionId,
+        {
+          ...breakerSnap,
+          updatedAt: nowMs,
+          pending_downshift: null,
+          pendingDownshiftModel: null,
+          justCompacted: false
+        },
+        cwdOptions
+      );
+    }
+  }
+
   verdict = {
     ...verdict,
+    ...(recordedPendingDownshift ? { pending_downshift: recordedPendingDownshift } : {}),
     turnsCompletedUsed: turnsCompleted,
     apiCallsCompletedUsed: apiCallsCompleted ?? null,
     requestsPerTurnUsed: verdict.breakEven?.requestsPerTurn ?? requestsPerTurn ?? 1,

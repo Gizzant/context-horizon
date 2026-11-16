@@ -175,8 +175,9 @@ describe('Wave 1 Bucket A Guardrails (Item A0 + #1 + #7 + #10)', () => {
     try {
       const hookOpts = { cwd: ws.cwd, homeDir: ws.homeDir, persistState: true };
 
-      // 1. Warm cache (68k tokens on claude-opus-5-5): effort / tools_changed / model downshift blocked in AUTO_PILOT
-      const effortBust = runConfigChangeHook(
+      // 1. Warm cache: effort stays silent on measured cache-preserving Opus 5.5,
+      //    while invalidating models (Opus 4.6) and model downshifts block in AUTO_PILOT.
+      const effort55Silent = runConfigChangeHook(
         {
           session_id: 'sess-a1',
           cwd: ws.cwd,
@@ -185,6 +186,24 @@ describe('Wave 1 Bucket A Guardrails (Item A0 + #1 + #7 + #10)', () => {
           old_value: 'high',
           new_value: 'low',
           model: 'claude-opus-5-5',
+          cached_tokens: 68000,
+          cache_warm: true,
+          ttl_remaining_seconds: 240
+        },
+        hookOpts
+      );
+      assert.equal(effort55Silent.verdict.triggered, false);
+      assert.equal(effort55Silent.stdout, '');
+
+      const effortBust = runConfigChangeHook(
+        {
+          session_id: 'sess-a1',
+          cwd: ws.cwd,
+          mode: 'AUTO_PILOT',
+          setting_key: 'effortLevel',
+          old_value: 'high',
+          new_value: 'low',
+          model: 'claude-opus-4-6',
           cached_tokens: 68000,
           cache_warm: true,
           ttl_remaining_seconds: 240

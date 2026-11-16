@@ -61,17 +61,35 @@ export const MODEL_BREAK_EVEN_RATES = Object.freeze({
 export function resolveNaturalDownshiftPeer(modelId = 'claude-opus-5-5') {
   const norm = normalizeModelId(modelId);
   switch (norm) {
+    case 'claude-mythos-5-2':
+    case 'claude-mythos-5-1':
+    case 'claude-mythos-5':
     case 'claude-fable-5-2':
     case 'claude-fable-5-1':
+    case 'claude-fable-5':
       return 'claude-opus-5-5';
     case 'claude-opus-5-5':
       return 'claude-sonnet-5-5';
+    case 'claude-opus-5':
+      return 'claude-sonnet-5';
+    case 'claude-opus-4-8':
+    case 'claude-opus-4-7':
     case 'claude-opus-4-6':
+    case 'claude-opus-4-5':
+    case 'claude-opus-4-1':
+    case 'claude-opus-4-0':
       return 'claude-sonnet-4-6';
     case 'claude-sonnet-5-5':
+    case 'claude-sonnet-5':
       return 'claude-haiku-5-5';
     case 'claude-sonnet-4-6':
+    case 'claude-sonnet-4-5':
+    case 'claude-sonnet-4-0':
       return 'claude-haiku-4-5';
+    case 'claude-3-7-sonnet':
+    case 'claude-3-5-sonnet':
+    case 'claude-3-5-haiku':
+      return 'claude-3-5-haiku';
     case 'claude-haiku-4-5':
     case 'claude-haiku-5-5':
       return 'claude-haiku-5-5';

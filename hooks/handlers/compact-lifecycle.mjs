@@ -15,6 +15,12 @@ import {
   writeBreakerStateSnapshot
 } from '../../src/core-isomorphic/guards/circuitBreakers.mjs';
 import { loadHorizonConfig, resolveDetectorOverride } from '../../src/core-isomorphic/config/horizonConfig.mjs';
+import { isSilentOrOffMode } from '../../src/core-isomorphic/coach/cacheGravityRouter.mjs';
+import {
+  computeActiveToolsetHash,
+  evaluateResumeToolsetChange
+} from '../../src/core-isomorphic/coach/resumeToolsetAuditor.mjs';
+import { readLiveStateSnapshot } from '../../src/core-isomorphic/telemetry/telemetryBridge.mjs';
 import { loadMicroSkillsRegistry, formatMicroSkillsBatonSnippet } from '../../src/core-isomorphic/coach/microSkills.mjs';
 import { readTextSafe, resolvePath, getCwd } from '../../src/core-isomorphic/utils/runtime.mjs';
 import { inspectClaudeBinaryCapabilities } from '../../src/diagnostics/claudeHookCapabilities.mjs';
@@ -230,6 +236,147 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
         ? snapshotWorkspaceTestHashes({ cwd, sessionId })
         : null;
     const horizonConfig = options.horizonConfig || loadHorizonConfig(cwdOptions);
+    const effectiveMode = event.mode || options.mode || horizonConfig?.flightMode || 'COACH';
+    const sessionStartSource = String(event.source || event.trigger || '').toLowerCase();
+    const shouldPersistState =
+      options.persistState !== false &&
+      Boolean(event.cwd || cwdOptions.cwd || options.breakerStatePath || options.cliInvocation);
+
+    let compactSystemMessage = null;
+    let resumeSystemMessage = null;
+    let resumeToolsetAudit = null;
+    let surfacedPendingDownshift = null;
+    const priorSnap =
+      sessionStartSource === 'compact' || sessionStartSource === 'resume' || shouldPersistState
+        ? readBreakerStateSnapshot(sessionId, cwdOptions)
+        : null;
+    const currentToolsetHash =
+      event.cwd || cwdOptions.cwd || event.tools || event.mcp_servers || options.cliArgs || event.cliArgs
+        ? computeActiveToolsetHash(event, cwdOptions)
+        : null;
+
+    if (sessionStartSource === 'compact') {
+      const explicitPending = event.pending_downshift_model || event.pendingDownshiftModel || null;
+      const pendingRecord =
+        priorSnap?.pending_downshift ||
+        (priorSnap?.pendingDownshiftModel
+          ? {
+              fromModel: priorSnap.lastModelId || null,
+              toModel: priorSnap.pendingDownshiftModel,
+              recordedAt: null
+            }
+          : null) ||
+        (explicitPending ? { fromModel: null, toModel: String(explicitPending), recordedAt: null } : null) ||
+        (Array.isArray(priorSnap?.queuedMutations)
+          ? (() => {
+              const m = priorSnap.queuedMutations.find((x) => x && x.type === 'model' && x.value);
+              return m ? { fromModel: priorSnap.lastModelId || null, toModel: String(m.value), recordedAt: null } : null;
+            })()
+          : null);
+
+      if (shouldPersistState) {
+        writeBreakerStateSnapshot(
+          sessionId,
+          {
+            ...(priorSnap || {}),
+            updatedAt: Date.now(),
+            justCompacted: true,
+            turnsSinceLastCompact: 0,
+            taskBoundaryState: {
+              openFailure: false,
+              editsSinceBoundary: 0,
+              lastBoundarySuggestedTurn: null
+            },
+            ...(currentToolsetHash ? { lastToolsetHash: currentToolsetHash } : {}),
+            pending_downshift: null,
+            pendingDownshiftModel: null,
+            queuedMutations: []
+          },
+          cwdOptions
+        );
+      }
+
+      if (pendingRecord?.toModel && !isSilentOrOffMode(effectiveMode)) {
+        surfacedPendingDownshift = pendingRecord;
+        const pairLabel = pendingRecord.fromModel
+          ? ` (${pendingRecord.fromModel} -> ${pendingRecord.toModel})`
+          : '';
+        // Verified at $0 on claude.exe@2.1.325: SessionStart:compact systemMessage displays
+        // notice to user with 0 tokens injected into post-compaction /v1/messages wire requests.
+        compactSystemMessage =
+          `[Highbeam] Compaction cleared the large warm cache; run /model ${pendingRecord.toModel} ` +
+          `to apply held downshift${pairLabel} without rewriting the pre-compact prefix (H6).`;
+      }
+    } else if (sessionStartSource === 'resume' && currentToolsetHash) {
+      const liveForResume =
+        event.context_tokens !== undefined || priorSnap?.lastContextTokens !== undefined
+          ? null
+          : (options.telemetryState || readLiveStateSnapshot(sessionId, cwdOptions));
+      const resumeContextTokens = Number(
+        event.context_tokens ??
+          event.contextTokens ??
+          event.cached_tokens ??
+          event.cachedTokens ??
+          priorSnap?.lastContextTokens ??
+          liveForResume?.contextWindow?.cachedTokens ??
+          0
+      );
+      const resumeCacheExpired = Boolean(
+        event.prompt_cache_likely_expired ??
+          event.cacheExpired ??
+          liveForResume?.promptCache?.expired
+      );
+      const resumeModelId = String(
+        event.model ||
+          event.modelId ||
+          priorSnap?.lastModelId ||
+          liveForResume?.modelId ||
+          'claude-sonnet-5-5'
+      );
+      resumeToolsetAudit = evaluateResumeToolsetChange(
+        {
+          previousHashRecord: priorSnap?.lastToolsetHash || null,
+          currentHashRecord: currentToolsetHash,
+          contextTokens: resumeContextTokens,
+          cacheExpired: resumeCacheExpired,
+          modelId: resumeModelId,
+          cacheTtlTier: liveForResume?.promptCache?.ttlTier === '1h' ? '1h' : '5m',
+          minContextTokens: Number(horizonConfig?.thresholds?.resumeToolsetWarnMinTokens ?? 10_000)
+        },
+        cwdOptions
+      );
+      if (
+        resumeToolsetAudit.shouldWarn &&
+        resumeToolsetAudit.advisory &&
+        !isSilentOrOffMode(effectiveMode)
+      ) {
+        resumeSystemMessage = resumeToolsetAudit.advisory;
+      }
+      if (shouldPersistState) {
+        writeBreakerStateSnapshot(
+          sessionId,
+          {
+            ...(priorSnap || {}),
+            updatedAt: Date.now(),
+            lastToolsetHash: currentToolsetHash,
+            ...(resumeContextTokens > 0 ? { lastContextTokens: resumeContextTokens } : {}),
+            ...(resumeModelId ? { lastModelId: resumeModelId } : {})
+          },
+          cwdOptions
+        );
+      }
+    } else if (shouldPersistState && currentToolsetHash) {
+      writeBreakerStateSnapshot(
+        sessionId,
+        {
+          ...(priorSnap || {}),
+          updatedAt: Date.now(),
+          lastToolsetHash: currentToolsetHash
+        },
+        cwdOptions
+      );
+    }
+
     let microSkillsBaton = '';
     if (resolveDetectorOverride('micro-skills', horizonConfig) !== 'off') {
       const msReg = loadMicroSkillsRegistry(cwdOptions);
@@ -267,8 +414,15 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
       }
     }
 
-    if (hookSpecificOutput) {
-      const stdoutJson = { hookSpecificOutput };
+    const combinedSystemMessage = [compactSystemMessage, resumeSystemMessage]
+      .filter(Boolean)
+      .join(' | ');
+
+    if (hookSpecificOutput || combinedSystemMessage) {
+      const stdoutJson = {
+        ...(combinedSystemMessage ? { systemMessage: combinedSystemMessage } : {}),
+        ...(hookSpecificOutput ? { hookSpecificOutput } : {})
+      };
       return {
         exitCode: 0,
         stdout: JSON.stringify(stdoutJson),
@@ -283,7 +437,9 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
           thinkingTimeoutAudit,
           testHashSnapshot,
           microSkillsBaton,
-          claudeCapabilities
+          claudeCapabilities,
+          surfacedPendingDownshift,
+          resumeToolsetAudit
         }
       };
     }
@@ -298,7 +454,9 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
         idleDrainAudit,
         thinkingTimeoutAudit,
         testHashSnapshot,
-        claudeCapabilities
+        claudeCapabilities,
+        surfacedPendingDownshift,
+        resumeToolsetAudit
       }
     };
   }
@@ -309,33 +467,43 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
     const pendingModel =
       event.pending_downshift_model ||
       event.pendingDownshiftModel ||
+      snap?.pending_downshift?.toModel ||
       snap?.pendingDownshiftModel ||
       (Array.isArray(snap?.queuedMutations)
         ? snap.queuedMutations.find((m) => m && m.type === 'model')?.value || null
         : null);
 
-    if (pendingModel) {
-      if (snap && (event.cwd || cwdOptions.cwd || cwdOptions.breakerStatePath)) {
-        writeBreakerStateSnapshot(
-          sessionId,
-          {
-            ...snap,
-            updatedAt: Date.now(),
-            pendingDownshiftModel: null,
-            queuedMutations: []
+    if (
+      options.persistState !== false &&
+      Boolean(event.cwd || cwdOptions.cwd || options.breakerStatePath || options.cliInvocation)
+    ) {
+      writeBreakerStateSnapshot(
+        sessionId,
+        {
+          ...(snap || {}),
+          updatedAt: Date.now(),
+          justCompacted: true,
+          turnsSinceLastCompact: 0,
+          taskBoundaryState: {
+            openFailure: false,
+            editsSinceBoundary: 0,
+            lastBoundarySuggestedTurn: null
           },
-          cwdOptions
-        );
-      }
+          pending_downshift: null,
+          pendingDownshiftModel: null,
+          queuedMutations: []
+        },
+        cwdOptions
+      );
+    }
+
+    if (pendingModel) {
       const actuatedMsg =
-        `[Highbeam PostCompact Downshift Ready] Warm prefix compacted — held downshift to ${pendingModel} ` +
-        `can now execute at $0 cold-cache penalty (run /model ${pendingModel}).`;
+        `[Highbeam] Compaction cleared the large warm cache; run /model ${pendingModel} ` +
+        `to apply held downshift without rewriting the pre-compact prefix (H6).`;
+      // PostCompact lacks hookSpecificOutput in Claude Code 2.1.325 (qY); emit systemMessage only.
       const stdoutJson = {
-        systemMessage: actuatedMsg,
-        hookSpecificOutput: {
-          hookEventName: 'PostCompact',
-          additionalContext: actuatedMsg
-        }
+        systemMessage: actuatedMsg
       };
       return {
         exitCode: 0,

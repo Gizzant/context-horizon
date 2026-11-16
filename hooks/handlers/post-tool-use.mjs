@@ -15,6 +15,7 @@ import {
 } from '../../src/core-isomorphic/guards/circuitBreakers.mjs';
 import { loadHorizonConfig, resolveDetectorOverride } from '../../src/core-isomorphic/config/horizonConfig.mjs';
 import { recordWorkspaceShellOutcome } from '../../src/core-isomorphic/coach/microSkills.mjs';
+import { evaluateTaskBoundaryTurn } from '../../src/core-isomorphic/coach/smartCompactAdvisor.mjs';
 import { recordSavingsReceipt } from '../../src/core-isomorphic/coach/savedQuotaLedger.mjs';
 import { readLiveStateSnapshot } from '../../src/core-isomorphic/telemetry/telemetryBridge.mjs';
 import { resolveEffectiveRates, computeTotalPromptTokens } from '../../src/core-isomorphic/config/catalogLoader.mjs';
@@ -123,6 +124,11 @@ export function runPostToolUseHook(event = {}, options = {}) {
     });
     const toolInput = event.tool_input || event.toolInput || {};
     const cmdStr = String(toolInput.command || toolInput.cmd || event.command || '');
+    const rawExit =
+      event.exit_code ??
+      event.exitCode ??
+      event.tool_response?.exit_code ??
+      event.tool_response?.exitCode;
     engine.recordToolOutcome(!failed, toolName);
     if (/^(Bash|PowerShell|pwsh|cmd|sh|run_command|execute_bash)$/i.test(toolName)) {
       engine.recordVerificationOutcome({
@@ -135,21 +141,50 @@ export function runPostToolUseHook(event = {}, options = {}) {
       // If a test command failed, code edits remain unverified
       engine.codeEditedSinceLastTest = true;
     }
+    const boundaryEval = evaluateTaskBoundaryTurn(
+      {
+        toolName,
+        command: cmdStr,
+        failed,
+        exitCode: typeof rawExit === 'number' ? rawExit : (failed ? 1 : 0)
+      },
+      engine.taskBoundaryState
+    );
+    engine.taskBoundaryState = {
+      openFailure: boundaryEval.openFailure,
+      editsSinceBoundary: boundaryEval.editsSinceBoundary,
+      lastBoundarySuggestedTurn: engine.taskBoundaryState?.lastBoundarySuggestedTurn ?? null
+    };
+    const nextTurnBoundaryReached =
+      boundaryEval.detectorState === 'mid_debug'
+        ? false
+        : boundaryEval.boundaryDetected
+          ? true
+          : Boolean(priorSnap?.turnBoundaryReached);
+    const nextTurnMidDebug =
+      boundaryEval.detectorState === 'mid_debug'
+        ? true
+        : boundaryEval.boundaryDetected
+          ? false
+          : Boolean(priorSnap?.turnMidDebug);
     if (Array.isArray(event.active_background_tasks || event.activeBackgroundTasks)) {
       engine.activeBackgroundTasks = (event.active_background_tasks || event.activeBackgroundTasks)
         .filter(Boolean)
         .map((t) => (typeof t === 'string' ? t : String(t?.id || t?.command || 'bg_task')));
     }
-    writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
+    writeBreakerStateSnapshot(
+      sessionId,
+      {
+        ...engine.exportStateSnapshot(),
+        turnBoundaryReached: nextTurnBoundaryReached,
+        turnMidDebug: nextTurnMidDebug
+      },
+      cwdOptions
+    );
 
     // RSI-04 ('micro-skills'): Capture shell failure -> recovery pairs within <= 3 turns
     if (/^(Bash|PowerShell|pwsh|cmd|sh)$/i.test(toolName) && resolveDetectorOverride('micro-skills', horizonConfig) !== 'off') {
       if (cmdStr) {
-        const rawExit =
-          event.exit_code ??
-          event.exitCode ??
-          event.tool_response?.exit_code ??
-          event.tool_response?.exitCode;
         recordWorkspaceShellOutcome(
           {
             command: cmdStr,
@@ -241,18 +276,22 @@ export function runPostToolUseHook(event = {}, options = {}) {
       event.usage || event.context_window?.current_usage || liveState?.contextWindow || {};
     const totalPromptTokens = computeTotalPromptTokens(usageSource);
     const rates = resolveEffectiveRates(modelId, totalPromptTokens, cwdOptions);
+    const computedSavedUSD =
+      rates && !rates.unknownModel && Number.isFinite(rates.inputPer1M)
+        ? Number(((totalSavedTokens / 1_000_000) * rates.inputPer1M).toFixed(6))
+        : 0;
 
     recordSavingsReceipt(
       {
         sessionId,
-        modelId: rates.modelId,
+        modelId: rates.unknownModel ? (rates.rawModelId || modelId) : rates.modelId,
         category: sanitized.offloaded
           ? 'ARTIFACT_OFFLOAD_4K'
           : sanitized.savedTokens > 0
             ? 'LOSSLESS_POST_SANITIZER'
             : bAlphaPost.code || 'BUCKET_B_POST_SHIELD',
         savedTokens: totalSavedTokens,
-        savedUSD: Number(((totalSavedTokens / 1_000_000) * rates.inputPer1M).toFixed(6)),
+        savedUSD: computedSavedUSD,
         detail: `${toolName} output compressed (+${totalSavedTokens} tokens saved)`
       },
       cwdOptions

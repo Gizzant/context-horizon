@@ -5,7 +5,7 @@
  * and absence of `PreEffortChange`).
  *
  * Scans the installed Claude Code binary/bundle in bounded 4 MB chunks with 256-byte overlap,
- * caches results by `(binaryPath, size, mtimeMs)` under `.claude/cache/ah_claude_capabilities.json`,
+ * caches results by `(binaryPath, size, mtimeMs)` under `.attention-horizon/cache/ah_claude_capabilities.json`,
  * and logs a non-fatal runtime diagnostic if the installed binary drops the hook contract.
  */
 
@@ -13,6 +13,7 @@ import { execFileSync } from 'node:child_process';
 import {
   fs,
   path,
+  os,
   readJsonSafe,
   writeJsonAtomic
 } from '../utils/nodeIo.mjs';
@@ -81,6 +82,34 @@ export function resolveClaudeBinaryPath(options = {}) {
       for (const name of names) {
         candidates.push(path.join(dir, name));
       }
+    }
+
+    // Standard local CLI & benchmark runtime locations (no hardcoded usernames)
+    const homeDir = options.homeDir || os.homedir();
+    const tmpDir = os.tmpdir();
+    if (homeDir) {
+      for (const name of names) {
+        candidates.push(path.join(homeDir, '.local', 'bin', name));
+        candidates.push(path.join(homeDir, '.claude', 'local', name));
+        candidates.push(
+          path.join(homeDir, '.claude', 'local', 'node_modules', '@anthropic-ai', 'claude-code', 'bin', name)
+        );
+      }
+    }
+    try {
+      if (tmpDir && fs.existsSync(tmpDir)) {
+        for (const ent of fs.readdirSync(tmpDir)) {
+          if (ent.includes('model-switch-runtime')) {
+            for (const name of names) {
+              candidates.push(
+                path.join(tmpDir, ent, 'cli', 'node_modules', '@anthropic-ai', 'claude-code', 'bin', name)
+              );
+            }
+          }
+        }
+      }
+    } catch {
+      // Ignore temp directory scan errors
     }
   }
 
@@ -229,7 +258,10 @@ export function inspectClaudeBinaryCapabilities(options = {}) {
     };
   }
 
-  const cachePath = options.cachePath || path.join(cwd, '.claude', 'cache', 'ah_claude_capabilities.json');
+  const cacheBaseDir = options.homeDir || cwd;
+  const cachePath =
+    options.cachePath ||
+    path.join(cacheBaseDir, '.attention-horizon', 'cache', 'ah_claude_capabilities.json');
   if (!options.bypassCache) {
     const cached = readJsonSafe(cachePath, null, options);
     if (
@@ -305,7 +337,60 @@ export function inspectClaudeBinaryCapabilities(options = {}) {
   return result;
 }
 
+/**
+ * Extracts all selectable model IDs and official aliases from an installed Claude Code binary
+ * in bounded 4 MB chunks (Item 1.3).
+ *
+ * @param {string} binPath
+ * @returns {{
+ *   found: boolean,
+ *   modelIds: string[],
+ *   aliases: string[],
+ *   allSelectable: string[]
+ * }}
+ */
+export function extractClaudeSelectableModelsFromBinary(binPath) {
+  if (!binPath || !fs.existsSync(binPath)) {
+    return { found: false, modelIds: [], aliases: [], allSelectable: [] };
+  }
+  const modelIds = new Set();
+  const aliases = new Set();
+  const buf = Buffer.allocUnsafe(CHUNK_BYTES);
+  const overlap = 8192;
+  const fd = fs.openSync(binPath, 'r');
+  try {
+    let tail = '';
+    let bytesRead;
+    while ((bytesRead = fs.readSync(fd, buf, 0, CHUNK_BYTES, null)) > 0) {
+      const chunkStr = tail + buf.subarray(0, bytesRead).toString('latin1');
+      if (chunkStr.includes('family:') && chunkStr.includes('display_name:')) {
+        for (const m of chunkStr.matchAll(/\{id:"(claude-[a-z0-9-]+)",family:"(?:haiku|sonnet|opus|fable|mythos)"/g)) {
+          modelIds.add(m[1]);
+        }
+      }
+      const aliasArrMatch = chunkStr.match(/\[("sonnet","opus"[^\]]{0,240})\]/);
+      if (aliasArrMatch) {
+        for (const m of aliasArrMatch[1].matchAll(/"([a-z0-9[\]-]+)"/g)) {
+          aliases.add(m[1]);
+        }
+      }
+      tail = chunkStr.slice(Math.max(0, chunkStr.length - overlap));
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+  const sortedIds = Array.from(modelIds).sort();
+  const sortedAliases = Array.from(aliases).sort();
+  return {
+    found: true,
+    modelIds: sortedIds,
+    aliases: sortedAliases,
+    allSelectable: Array.from(new Set([...sortedIds, ...sortedAliases]))
+  };
+}
+
 export default {
   resolveClaudeBinaryPath,
-  inspectClaudeBinaryCapabilities
+  inspectClaudeBinaryCapabilities,
+  extractClaudeSelectableModelsFromBinary
 };

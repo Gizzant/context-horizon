@@ -348,16 +348,16 @@ test('C1e & Empirical Horizon Prior: rule_v1 default preserved, explicit expecte
   assert.ok(priorNearCompact.expectedRemainingTurns <= 5);
 });
 
-test('C1g: unrecognized non-Anthropic model slugs pass through with a warning instead of defaulting to claude-sonnet-5-5', () => {
+test('C1g: unrecognized model slugs enter explicit unknownModel state with null prices and a zero-$ advisory', () => {
   assert.equal(isKnownCatalogModel('google/gemini-2.5-pro'), false);
   assert.equal(isKnownCatalogModel('gemini-2.5-flash'), false);
   assert.equal(isKnownCatalogModel('openai/gpt-5'), false);
   assert.equal(isKnownCatalogModel('anthropic/claude-opus-4.6'), true);
   assert.equal(isKnownCatalogModel('claude-sonnet-4-6[1m]'), true);
-  // normalizeModelId preserves backwards-compatible fallback for explicit legacy callers
-  assert.equal(normalizeModelId('google/gemini-2.5-pro'), 'claude-sonnet-5-5');
+  assert.equal(normalizeModelId('google/gemini-2.5-pro'), 'unknown');
   const rates = resolveEffectiveRates('google/gemini-2.5-pro', 20000);
-  assert.equal(rates.modelId, 'claude-sonnet-5-5');
+  assert.equal(rates.unknownModel, true);
+  assert.equal(rates.inputPer1M, null);
 
   for (const [fromModel, toModel] of [
     ['google/gemini-2.5-pro', 'claude-sonnet-4-6'],
@@ -380,10 +380,12 @@ test('C1g: unrecognized non-Anthropic model slugs pass through with a warning in
     assert.equal(res.verdict.decision, 'allow');
     assert.equal(res.verdict.blocked, false);
     assert.equal(res.verdict.unknownModel, true);
-    assert.match(res.verdict.warning, /Unrecognized non-Anthropic model/);
+    assert.equal(res.verdict.breakEven.coldWritePenaltyUSD, null);
+    assert.match(res.verdict.warning, /Prices are unknown/);
+    assert.ok(!res.verdict.warning.includes('$'));
     const parsed = JSON.parse(res.stdout);
     assert.equal(parsed.hookSpecificOutput.permissionDecision, 'allow');
-    assert.match(parsed.hookSpecificOutput.additionalContext, /Unrecognized non-Anthropic model/);
+    assert.match(parsed.hookSpecificOutput.additionalContext, /Prices are unknown/);
   }
 
   const router = new CacheGravityRouter({ mode: 'AUTO_PILOT' });
@@ -397,7 +399,8 @@ test('C1g: unrecognized non-Anthropic model slugs pass through with a warning in
   assert.equal(det09.decision, 'allow');
   assert.equal(det09.queued, false);
   assert.equal(det09.unknownModel, true);
-  assert.match(det09.warning, /Unrecognized non-Anthropic model/);
+  assert.match(det09.warning, /Prices are unknown/);
+  assert.ok(!det09.warning.includes('$'));
 });
 
 test('Startup feature-check: inspectClaudeBinaryCapabilities detects valid vs missing PreModelSwitch contracts and warns on SessionStart', () => {

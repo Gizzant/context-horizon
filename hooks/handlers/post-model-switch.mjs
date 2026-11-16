@@ -8,6 +8,10 @@
  */
 
 import { recordPostModelSwitchEvent } from '../../src/utils/modelSwitchTelemetry.mjs';
+import {
+  readBreakerStateSnapshot,
+  writeBreakerStateSnapshot
+} from '../../src/core-isomorphic/guards/circuitBreakers.mjs';
 import { isCliEntrypoint, readStdinJsonAsync, exitPassThrough } from './hookIo.mjs';
 
 /**
@@ -38,6 +42,33 @@ export function runPostModelSwitchHook(event = {}, options = {}) {
       telemetryRecorded = true;
     } catch {
       // Fail-open: never block or inject stdout context on PostModelSwitch telemetry error
+    }
+  }
+
+  // Item 4.4: Clear pending_downshift once the model switch actually executes
+  const shouldPersistBreaker =
+    options.persistState !== false &&
+    Boolean(event.cwd || options.cwd || options.breakerStatePath || options.cliInvocation);
+  if (shouldPersistBreaker) {
+    try {
+      const sessionId = event.session_id || event.sessionId || 'default';
+      const cwdOptions = event.cwd && !options.cwd ? { ...options, cwd: event.cwd } : options;
+      const snap = readBreakerStateSnapshot(sessionId, cwdOptions);
+      if (snap && (snap.pending_downshift || snap.pendingDownshiftModel || snap.justCompacted)) {
+        writeBreakerStateSnapshot(
+          sessionId,
+          {
+            ...snap,
+            updatedAt: Date.now(),
+            pending_downshift: null,
+            pendingDownshiftModel: null,
+            justCompacted: false
+          },
+          cwdOptions
+        );
+      }
+    } catch {
+      // Fail-open on local state cleanup
     }
   }
 

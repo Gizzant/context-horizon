@@ -1,0 +1,305 @@
+/**
+ * @file src/core-isomorphic/coach/smartCompactAdvisor.mjs
+ * Task-boundary `/compact` suggestion advisor (`Item 5`, gated OFF by default).
+ *
+ * Evidence & Provenance (`summary_smart_compact.md`):
+ *   - H4 (`C1` vs `C0`, computed): Compacting saved `-$0.5814` to `-$0.6036` over `21` requests
+ *     at `~139k` context (`C1_v2_r01`, `C1_v2_r02`), while costing `+$0.1307` to `+$0.1431` over
+ *     `12` requests at `~42k–50k` context (`C1_r01`–`C1_r03`, `C1mem_r02`).
+ *   - Compaction latency (live): synchronous `103.9s–126.0s` (`~2-minute`) pause (`C1`, `6` runs).
+ *   - H7 (`evaluateSessionBoundaryDetector`, `phase1_boundary_detector.csv`): `24/30` (`80.00%`)
+ *     precision and `24/24` (`100%`) recall on same-author scripted plans; `0` organic boundaries
+ *     observed across `1,240` existing benchmark turns -> detector accuracy is **unverified**.
+ */
+
+import {
+  isKnownCatalogModel,
+  normalizeModelId,
+  resolveEffectiveRates
+} from '../config/catalogLoader.mjs';
+import {
+  estimateEmpiricalRemainingTurns,
+  resolveRequestsPerTurn
+} from './cacheGravityRouter.mjs';
+
+export const TEST_CMD_REGEX =
+  /\b(?:node\s+--test|npm\s+(?:run\s+)?test|pnpm\s+(?:run\s+)?test|yarn\s+test|bun\s+test|vitest|jest|pytest|cargo\s+test|go\s+test|tsc(?:\s|$)|npx\s+tsc)\b/i;
+
+const EDIT_TOOL_REGEX =
+  /^(?:Write|Edit|MultiEdit|NotebookEdit|Replace|write_to_file|replace_file_content|multi_replace_file_content)$/i;
+
+export const DEFAULT_POST_COMPACT_COOLDOWN_TURNS = 4;
+
+/**
+ * Updates `openFailure` and `editsSinceBoundary` state across tool executions,
+ * reproducing `evaluateSessionBoundaryDetector` from `run_smart_compact_phase0_phase1.mjs`.
+ * Detector accuracy on organic transcripts is **unverified**.
+ *
+ * @param {object} [toolEvent={}]
+ * @param {object} [priorState={}]
+ * @returns {object}
+ */
+export function evaluateTaskBoundaryTurn(toolEvent = {}, priorState = {}) {
+  let openFailure = Boolean(priorState.openFailure);
+  let editsSinceBoundary = Math.max(0, Number(priorState.editsSinceBoundary || 0));
+  const lastBoundarySuggestedTurn = priorState.lastBoundarySuggestedTurn ?? null;
+
+  const toolName = String(toolEvent.toolName || toolEvent.tool_name || '');
+  const command = String(toolEvent.command || toolEvent.cmd || '');
+  const fileEdited = Boolean(toolEvent.fileEdited) || EDIT_TOOL_REGEX.test(toolName);
+  const isTestCmd = Boolean(command && TEST_CMD_REGEX.test(command));
+
+  if (fileEdited) {
+    editsSinceBoundary += 1;
+  }
+
+  let boundaryDetected = false;
+  let detectorState = openFailure ? 'mid_debug' : 'other';
+
+  if (isTestCmd) {
+    const failed =
+      toolEvent.failed !== undefined
+        ? Boolean(toolEvent.failed)
+        : toolEvent.succeeded !== undefined
+          ? !Boolean(toolEvent.succeeded)
+          : typeof toolEvent.exitCode === 'number'
+            ? toolEvent.exitCode !== 0
+            : false;
+
+    if (failed) {
+      openFailure = true;
+      detectorState = 'mid_debug';
+    } else if (openFailure || editsSinceBoundary > 0) {
+      boundaryDetected = true;
+      detectorState = 'task_boundary';
+      openFailure = false;
+      editsSinceBoundary = 0;
+    } else {
+      detectorState = 'other';
+    }
+  }
+
+  return {
+    boundaryDetected,
+    detectorState,
+    openFailure,
+    editsSinceBoundary,
+    lastBoundarySuggestedTurn,
+    detectorStatus: 'unverified'
+  };
+}
+
+/**
+ * Estimates counterfactual H4 compaction net USD saving over expected remaining requests,
+ * using runtime catalog prices and the DET-08 horizon logic.
+ *
+ * @param {object} [params={}]
+ * @param {object} [options={}]
+ * @returns {object}
+ */
+export function computeCompactionHorizonNetSaving(params = {}, options = {}) {
+  const rawModel = params.modelId || params.currentModel || 'claude-sonnet-5-5';
+  const preCompactTokens = Math.max(
+    0,
+    Number(params.preCompactTokens ?? params.cachedTokens ?? params.contextTokens ?? 0)
+  );
+
+  if (!isKnownCatalogModel(rawModel, options)) {
+    return {
+      unknownModel: true,
+      modelId: String(rawModel || ''),
+      preCompactTokens,
+      remainingRequestsUsed: null,
+      horizonSource: null,
+      isPlaceholderPrior: false,
+      netSavingUSD: null,
+      positive: false
+    };
+  }
+
+  const modelId = normalizeModelId(rawModel, options);
+  const rates = resolveEffectiveRates(modelId, preCompactTokens, options);
+  const writeRatePer1M = params.cacheTtlTier === '1h' ? rates.write1hPer1M : rates.write5mPer1M;
+
+  let remainingRequestsUsed;
+  let horizonSource;
+  let isPlaceholderPrior = false;
+  if (
+    params.expectedRemainingRequests !== undefined &&
+    params.expectedRemainingRequests !== null &&
+    Number.isFinite(Number(params.expectedRemainingRequests))
+  ) {
+    remainingRequestsUsed = Math.max(0, Number(params.expectedRemainingRequests));
+    horizonSource = 'explicit_requests';
+  } else if (
+    params.expectedRemainingTurns !== undefined &&
+    params.expectedRemainingTurns !== null &&
+    Number.isFinite(Number(params.expectedRemainingTurns))
+  ) {
+    const rpt = resolveRequestsPerTurn(params, options).requestsPerTurn;
+    remainingRequestsUsed = Math.max(0, Number(params.expectedRemainingTurns)) * rpt;
+    horizonSource = 'explicit_turns';
+  } else {
+    const prior = estimateEmpiricalRemainingTurns(
+      {
+        turnsCompleted: params.turnsCompleted ?? 0,
+        apiCallsCompleted: params.apiCallsCompleted,
+        requestsPerTurn: params.requestsPerTurn,
+        contextGrowthPerTurn: params.contextGrowthPerTurn,
+        cachedTokens: preCompactTokens,
+        contextCeiling: params.contextCeiling,
+        autoCompactLimitTokens: params.autoCompactLimitTokens,
+        initialPrefixTokens: params.initialPrefixTokens
+      },
+      options
+    );
+    remainingRequestsUsed = Math.max(0, Number(prior.expectedRemainingRequests || 0));
+    horizonSource = prior.source;
+    isPlaceholderPrior = Boolean(prior.isPlaceholderPrior);
+  }
+
+  // H4 structural split: warm tools/system[0..1] survives read-side; compacted summary + tail rewrites once.
+  const postCompactWarmTokens =
+    params.postCompactWarmTokens !== undefined
+      ? Math.max(0, Math.min(preCompactTokens, Number(params.postCompactWarmTokens)))
+      : Math.min(preCompactTokens, 8_000);
+  const postCompactColdWriteTokens =
+    params.postCompactColdWriteTokens !== undefined
+      ? Math.max(0, Math.min(preCompactTokens, Number(params.postCompactColdWriteTokens)))
+      : Math.min(Math.max(0, preCompactTokens - postCompactWarmTokens), 8_000);
+  const estimatedCompactOutputTokens = Math.max(
+    0,
+    Number(params.estimatedCompactOutputTokens ?? 7_000)
+  );
+
+  const postCompactTotalTokens = postCompactWarmTokens + postCompactColdWriteTokens;
+  const reducedContextTokens = Math.max(0, preCompactTokens - postCompactTotalTokens);
+
+  const compactCallCostUSD =
+    (preCompactTokens / 1_000_000) * rates.readPer1M +
+    (estimatedCompactOutputTokens / 1_000_000) * rates.outputPer1M;
+  const firstPostTurnColdSurchargeUSD =
+    (postCompactColdWriteTokens / 1_000_000) * Math.max(0, writeRatePer1M - rates.readPer1M);
+  const perRequestReadSavingUSD = (reducedContextTokens / 1_000_000) * rates.readPer1M;
+  const grossReadSavingUSD = remainingRequestsUsed * perRequestReadSavingUSD;
+  const netSavingUSD = Number(
+    (grossReadSavingUSD - compactCallCostUSD - firstPostTurnColdSurchargeUSD).toFixed(6)
+  );
+
+  return {
+    unknownModel: false,
+    modelId,
+    preCompactTokens,
+    postCompactWarmTokens,
+    postCompactColdWriteTokens,
+    estimatedCompactOutputTokens,
+    remainingRequestsUsed: Number(remainingRequestsUsed.toFixed(2)),
+    horizonSource,
+    isPlaceholderPrior,
+    compactCallCostUSD: Number(compactCallCostUSD.toFixed(6)),
+    firstPostTurnColdSurchargeUSD: Number(firstPostTurnColdSurchargeUSD.toFixed(6)),
+    perRequestReadSavingUSD: Number(perRequestReadSavingUSD.toFixed(6)),
+    grossReadSavingUSD: Number(grossReadSavingUSD.toFixed(6)),
+    netSavingUSD,
+    positive: netSavingUSD > 0
+  };
+}
+
+/**
+ * Evaluates whether a non-blocking task-boundary `/compact` suggestion should be shown (`Item 5`).
+ * Gated OFF by default (`smartCompactBoundarySuggest: false`). Never triggers `/compact`.
+ *
+ * @param {object} [params={}]
+ * @param {object} [options={}]
+ * @returns {object}
+ */
+export function evaluateSmartCompactSuggestion(params = {}, options = {}) {
+  const enabled = Boolean(
+    params.enabled ??
+      options.smartCompactBoundarySuggest ??
+      options.horizonConfig?.thresholds?.smartCompactBoundarySuggest ??
+      options.horizonConfig?.smartCompactBoundarySuggest ??
+      false
+  );
+
+  if (!enabled) {
+    return {
+      shouldSuggest: false,
+      suppressedReason: 'disabled_by_default',
+      detectorStatus: 'unverified',
+      message: null
+    };
+  }
+
+  const turnsSinceLastCompact =
+    params.turnsSinceLastCompact !== undefined && params.turnsSinceLastCompact !== null
+      ? Number(params.turnsSinceLastCompact)
+      : null;
+  if (
+    turnsSinceLastCompact !== null &&
+    Number.isFinite(turnsSinceLastCompact) &&
+    turnsSinceLastCompact < DEFAULT_POST_COMPACT_COOLDOWN_TURNS
+  ) {
+    return {
+      shouldSuggest: false,
+      suppressedReason: 'post_compact_cooldown',
+      detectorStatus: 'unverified',
+      message: null
+    };
+  }
+
+  const detectorState = String(params.detectorState || 'other');
+  if (
+    detectorState === 'mid_debug' ||
+    Boolean(params.openFailure) ||
+    Number(params.consecutiveFailures || 0) > 0
+  ) {
+    return {
+      shouldSuggest: false,
+      suppressedReason: 'mid_debug',
+      detectorStatus: 'unverified',
+      message: null
+    };
+  }
+
+  if (!params.boundaryDetected && detectorState !== 'task_boundary') {
+    return {
+      shouldSuggest: false,
+      suppressedReason: 'no_task_boundary',
+      detectorStatus: 'unverified',
+      message: null
+    };
+  }
+
+  const netSaving = computeCompactionHorizonNetSaving(params, options);
+  if (netSaving.unknownModel || !netSaving.positive) {
+    return {
+      shouldSuggest: false,
+      suppressedReason: netSaving.unknownModel ? 'unknown_model' : 'non_positive_net_saving',
+      detectorStatus: 'unverified',
+      netSaving,
+      message: null
+    };
+  }
+
+  const message =
+    `[Highbeam] Task boundary reached (unverified detector): running /compact saves ` +
+    `~$${netSaving.netSavingUSD.toFixed(2)} over ~${netSaving.remainingRequestsUsed} remaining requests, ` +
+    `with a ~2-minute synchronous pause (H4/H7).`;
+
+  return {
+    shouldSuggest: true,
+    suppressedReason: null,
+    detectorStatus: 'unverified',
+    netSaving,
+    message
+  };
+}
+
+export default {
+  TEST_CMD_REGEX,
+  DEFAULT_POST_COMPACT_COOLDOWN_TURNS,
+  evaluateTaskBoundaryTurn,
+  computeCompactionHorizonNetSaving,
+  evaluateSmartCompactSuggestion
+};

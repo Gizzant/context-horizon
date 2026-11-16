@@ -6,6 +6,9 @@
 
 import { loadHorizonConfig, resolveDetectorOverride } from '../../src/core-isomorphic/config/horizonConfig.mjs';
 import { isSilentOrOffMode } from '../../src/core-isomorphic/coach/cacheGravityRouter.mjs';
+import { evaluateSmartCompactSuggestion } from '../../src/core-isomorphic/coach/smartCompactAdvisor.mjs';
+import { computeActiveToolsetHash } from '../../src/core-isomorphic/coach/resumeToolsetAuditor.mjs';
+import { readLiveStateSnapshot } from '../../src/core-isomorphic/telemetry/telemetryBridge.mjs';
 import { updateSessionCalibrationOnStop } from '../../src/utils/sessionCalibration.mjs';
 import {
   evaluateDet14PrematureStopGate,
@@ -67,13 +70,33 @@ export function runStopGateHook(event = {}, options = {}) {
       : null;
 
   if (isSessionEnd) {
-    if (shouldPersistState && breakerSnap && activeBackgroundTasks.length === 0) {
+    if (shouldPersistState) {
+      const liveEnd = options.telemetryState || readLiveStateSnapshot(sessionId, cwdOptions);
+      const endContextTokens = Number(
+        event.context_tokens ??
+          event.contextTokens ??
+          event.cached_tokens ??
+          event.cachedTokens ??
+          liveEnd?.contextWindow?.cachedTokens ??
+          breakerSnap?.lastContextTokens ??
+          0
+      );
+      const endModelId = String(
+        event.model || event.modelId || liveEnd?.modelId || breakerSnap?.lastModelId || 'claude-sonnet-5-5'
+      );
+      const toolsetHash = computeActiveToolsetHash(event, cwdOptions);
       writeBreakerStateSnapshot(
         sessionId,
         {
-          ...breakerSnap,
+          ...(breakerSnap || {}),
           updatedAt: Date.now(),
-          activeBackgroundTasks: []
+          ...(activeBackgroundTasks.length === 0 ? { activeBackgroundTasks: [] } : {}),
+          pending_downshift: null,
+          pendingDownshiftModel: null,
+          justCompacted: false,
+          lastToolsetHash: toolsetHash,
+          lastContextTokens: endContextTokens,
+          lastModelId: endModelId
         },
         cwdOptions
       );
@@ -259,17 +282,113 @@ export function runStopGateHook(event = {}, options = {}) {
     }
   }
 
-  if (shouldPersistState && breakerSnap && det14.decision !== 'block') {
+  const liveForStop =
+    shouldPersistState ||
+    event.smartCompactBoundarySuggest !== undefined ||
+    options.smartCompactBoundarySuggest !== undefined ||
+    horizonConfig?.thresholds?.smartCompactBoundarySuggest
+      ? (options.telemetryState || readLiveStateSnapshot(sessionId, cwdOptions))
+      : null;
+  const currentContextTokens = Number(
+    event.context_tokens ??
+      event.contextTokens ??
+      event.cached_tokens ??
+      event.cachedTokens ??
+      liveForStop?.contextWindow?.cachedTokens ??
+      breakerSnap?.lastContextTokens ??
+      0
+  );
+  const currentModelId = String(
+    event.model ||
+      event.modelId ||
+      liveForStop?.modelId ||
+      breakerSnap?.lastModelId ||
+      'claude-sonnet-5-5'
+  );
+  const effectiveTurnsSinceLastCompact =
+    event.turns_since_last_compact ??
+    event.turnsSinceLastCompact ??
+    breakerSnap?.turnsSinceLastCompact ??
+    null;
+  const boundaryReached = Boolean(
+    event.boundary_detected ?? event.boundaryDetected ?? breakerSnap?.turnBoundaryReached
+  );
+  const midDebugActive = Boolean(
+    event.mid_debug ??
+      event.midDebug ??
+      breakerSnap?.turnMidDebug ??
+      breakerSnap?.taskBoundaryState?.openFailure
+  );
+  const smartCompactSuggestion =
+    det14.decision === 'block' ||
+    stopPass?.decision === 'block' ||
+    isSilentOrOffMode(effectiveMode) ||
+    stopHookActive
+      ? { shouldSuggest: false, suppressedReason: 'blocked_or_silent', detectorStatus: 'unverified', message: null }
+      : evaluateSmartCompactSuggestion(
+          {
+            enabled:
+              event.smartCompactBoundarySuggest ??
+              options.smartCompactBoundarySuggest ??
+              horizonConfig?.thresholds?.smartCompactBoundarySuggest ??
+              false,
+            detectorState: midDebugActive
+              ? 'mid_debug'
+              : boundaryReached
+                ? 'task_boundary'
+                : (event.detectorState || 'other'),
+            boundaryDetected: boundaryReached,
+            openFailure: Boolean(breakerSnap?.taskBoundaryState?.openFailure),
+            consecutiveFailures: Number(breakerSnap?.consecutiveFailures || 0),
+            turnsSinceLastCompact: effectiveTurnsSinceLastCompact,
+            modelId: currentModelId,
+            preCompactTokens: currentContextTokens,
+            cacheTtlTier: liveForStop?.promptCache?.ttlTier === '1h' ? '1h' : '5m',
+            expectedRemainingRequests:
+              event.expected_remaining_requests ?? event.expectedRemainingRequests,
+            expectedRemainingTurns:
+              event.expected_remaining_turns ??
+              event.expectedRemainingTurns ??
+              horizonConfig?.expectedRemainingTurns,
+            turnsCompleted: sessionCalibration?.turnsCompleted ?? liveForStop?.turnsCompleted ?? 0,
+            apiCallsCompleted: sessionCalibration?.apiCallsCompleted,
+            requestsPerTurn:
+              event.requests_per_turn ??
+              event.requestsPerTurn ??
+              sessionCalibration?.requestsPerTurn,
+            contextGrowthPerTurn: sessionCalibration?.rollingMedianPromptGrowthTokens,
+            contextCeiling: liveForStop?.contextWindow?.contextCeiling
+          },
+          { ...cwdOptions, horizonConfig }
+        );
+
+  if (shouldPersistState && det14.decision !== 'block') {
+    const nextTurnsSinceCompact =
+      typeof breakerSnap?.turnsSinceLastCompact === 'number' &&
+      Number.isFinite(breakerSnap.turnsSinceLastCompact)
+        ? breakerSnap.turnsSinceLastCompact + 1
+        : null;
+    const toolsetHash =
+      event.cwd || cwdOptions.cwd || event.tools || event.mcp_servers || options.cliArgs || event.cliArgs
+        ? computeActiveToolsetHash(event, cwdOptions)
+        : (breakerSnap?.lastToolsetHash || null);
     writeBreakerStateSnapshot(
       sessionId,
       {
-        ...breakerSnap,
+        ...(breakerSnap || {}),
         updatedAt: Date.now(),
         modifiedFilesInTurn: [],
         editedFiles: [],
         pendingFormatFiles: [],
         turnFileDiffs: [],
-        codeEditedSinceLastTest: false
+        codeEditedSinceLastTest: false,
+        justCompacted: false,
+        turnBoundaryReached: false,
+        turnMidDebug: false,
+        ...(nextTurnsSinceCompact !== null ? { turnsSinceLastCompact: nextTurnsSinceCompact } : {}),
+        ...(toolsetHash ? { lastToolsetHash: toolsetHash } : {}),
+        lastContextTokens: currentContextTokens,
+        lastModelId: currentModelId
       },
       cwdOptions
     );
@@ -291,6 +410,7 @@ export function runStopGateHook(event = {}, options = {}) {
       sessionCalibration,
       det14,
       det15,
+      smartCompactSuggestion,
       activeBackgroundTasks
     };
   }
@@ -308,17 +428,19 @@ export function runStopGateHook(event = {}, options = {}) {
       sessionCalibration,
       det14,
       det15,
+      smartCompactSuggestion,
       overengineeringGate: stopPass,
       activeBackgroundTasks
     };
   }
 
-  if (det14.advisory || det15.triggered || bgDrainWarning || stopPass?.triggered) {
+  if (det14.advisory || det15.triggered || bgDrainWarning || stopPass?.triggered || smartCompactSuggestion.shouldSuggest) {
     const reasons = [
       det14.advisory ? det14.reason : null,
       det15.batchCommand ? `Batch format: ${det15.batchCommand}` : null,
       bgDrainWarning,
-      stopPass?.triggered ? stopPass.reason : null
+      stopPass?.triggered ? stopPass.reason : null,
+      smartCompactSuggestion.shouldSuggest ? smartCompactSuggestion.message : null
     ]
       .filter(Boolean)
       .join(' | ');
@@ -333,6 +455,7 @@ export function runStopGateHook(event = {}, options = {}) {
       sessionCalibration,
       det14,
       det15,
+      smartCompactSuggestion,
       ...(stopPass ? { overengineeringGate: stopPass } : {}),
       activeBackgroundTasks
     };
@@ -345,6 +468,7 @@ export function runStopGateHook(event = {}, options = {}) {
     sessionCalibration,
     det14,
     det15,
+    smartCompactSuggestion,
     ...(stopPass ? { overengineeringGate: stopPass } : {}),
     activeBackgroundTasks
   };

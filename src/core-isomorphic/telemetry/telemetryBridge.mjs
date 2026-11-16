@@ -45,6 +45,7 @@ function computeBreakEvenRatioFromRates(
   write1hTokens = 0,
   ttlTier = '5m'
 ) {
+  if (rates?.unknownModel) return null;
   const mults = rates?.multipliers || { write5m: 1.25, write1h: 2.0, read: 0.05 };
   const w5 = Math.max(0, Number(write5mTokens || 0));
   const w1 = Math.max(0, Number(write1hTokens || 0));
@@ -262,6 +263,18 @@ function buildCumulativeCacheRoi(state, currentRates) {
 function addTurnCostToCumulative(cumulative, turnCost) {
   const { uncachedInput, cacheWrite5m, cacheWrite1h, cacheRead, output, thinking } =
     turnCost.tokens;
+  cumulative.uncachedInputTokens += uncachedInput;
+  cumulative.cacheWrite5mTokens += cacheWrite5m;
+  cumulative.cacheWrite1hTokens += cacheWrite1h;
+  cumulative.cacheReadTokens += cacheRead;
+  cumulative.outputTokens += output;
+  cumulative.thinkingTokens += thinking;
+
+  if (turnCost.unknownModel || turnCost.costsUSD?.totalActualSpendUSD === null) {
+    cumulative.hasUnknownModelCost = true;
+    return;
+  }
+
   const {
     actualCacheSpendUSD,
     uncachedCacheEquivalentUSD,
@@ -269,12 +282,6 @@ function addTurnCostToCumulative(cumulative, turnCost) {
     totalUncachedEquivalentUSD
   } = turnCost.costsUSD;
 
-  cumulative.uncachedInputTokens += uncachedInput;
-  cumulative.cacheWrite5mTokens += cacheWrite5m;
-  cumulative.cacheWrite1hTokens += cacheWrite1h;
-  cumulative.cacheReadTokens += cacheRead;
-  cumulative.outputTokens += output;
-  cumulative.thinkingTokens += thinking;
   cumulative.actualCacheSpendUSD = Number(
     (cumulative.actualCacheSpendUSD + actualCacheSpendUSD).toFixed(6)
   );
@@ -788,8 +795,8 @@ export function ingestModTurnEvent(currentState, event = {}, options = {}) {
       cacheWriteTokens: totalWriteTokens,
       nowMs,
       ttlSeconds: ttlTier === '1h' ? 3600 : 300,
-      inputPer1M: fullTurnCost.rates.inputPer1M,
-      readPer1M: fullTurnCost.rates.readPer1M
+      inputPer1M: fullTurnCost.rates.inputPer1M ?? 0,
+      readPer1M: fullTurnCost.rates.readPer1M ?? 0
     });
   }
   if (!isSubagent) {

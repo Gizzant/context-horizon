@@ -345,9 +345,10 @@ export function deriveSurfaceMetrics(state = {}, options = {}) {
     totalInputTokens,
     options
   );
-  const liveSubagentIsolatedUSD = Number(
-    ((liveSubagentIsolatedTokens / 1_000_000) * Number(activeRatesForSub.inputPer1M || 3)).toFixed(6)
-  );
+  const liveSubagentIsolatedUSD =
+    activeRatesForSub && !activeRatesForSub.unknownModel && Number.isFinite(activeRatesForSub.inputPer1M)
+      ? Number(((liveSubagentIsolatedTokens / 1_000_000) * activeRatesForSub.inputPer1M).toFixed(6))
+      : 0;
 
   // Use explicit options.savedUSD / options.savedTokens if passed, else max of ledger + session
   const savedUSD =
@@ -478,10 +479,14 @@ export function deriveSurfaceMetrics(state = {}, options = {}) {
       totalInputTokens,
       options
     );
-    const mWrite =
-      ttlTier === '1h' ? activeRates.multipliers.write1h : activeRates.multipliers.write5m;
-    const mRead = activeRates.multipliers.read;
-    breakEvenReadsPerWrite = Number(((mWrite - 1) / (1 - mRead)).toFixed(3));
+    if (activeRates && !activeRates.unknownModel && activeRates.multipliers) {
+      const mWrite =
+        ttlTier === '1h' ? activeRates.multipliers.write1h : activeRates.multipliers.write5m;
+      const mRead = activeRates.multipliers.read;
+      breakEvenReadsPerWrite = Number(((mWrite - 1) / (1 - mRead)).toFixed(3));
+    } else {
+      breakEvenReadsPerWrite = null;
+    }
   }
   const sessionFiveMinRoiTarget = Number(roi.sessionFiveMinRoiTarget || 1.39);
 
@@ -1345,6 +1350,7 @@ export function renderAdvancedViewPane(state = {}, options = {}) {
     metrics
   };
 }
+
 
 /**
  * 4. Renders a single-line terminal `statusLine` adapting cleanly to terminal column width

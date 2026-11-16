@@ -242,7 +242,9 @@ export const DEFAULT_HORIZON_CONFIG = Object.freeze({
     minSwitchPenaltyUSD: 0.02,
     notableAllowPenaltyUSD: 0.02,
     outputShrinkageMinTurns: 5,
-    outputShrinkagePriorTokens: 500
+    outputShrinkagePriorTokens: 500,
+    smartCompactBoundarySuggest: false,
+    resumeToolsetWarnMinTokens: 10000
   }
 });
 
@@ -677,6 +679,16 @@ export function loadHorizonConfig(options = {}) {
     }
     if (typeof layer.useEmpiricalHorizonPrior === 'boolean') {
       useEmpiricalHorizonPrior = layer.useEmpiricalHorizonPrior;
+    }
+    if (typeof layer.smartCompactBoundarySuggest === 'boolean') {
+      thresholds.smartCompactBoundarySuggest = layer.smartCompactBoundarySuggest;
+    }
+    if (
+      layer.resumeToolsetWarnMinTokens !== undefined &&
+      layer.resumeToolsetWarnMinTokens !== null &&
+      Number.isFinite(Number(layer.resumeToolsetWarnMinTokens))
+    ) {
+      thresholds.resumeToolsetWarnMinTokens = Math.max(0, Number(layer.resumeToolsetWarnMinTokens));
     }
     for (const tk of [
       'minSwitchPenaltyUSD',

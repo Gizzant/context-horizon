@@ -14,6 +14,7 @@
 import { readLiveStateSnapshot } from '../../src/core-isomorphic/telemetry/telemetryBridge.mjs';
 import {
   computeTotalPromptTokens,
+  isKnownCatalogModel,
   normalizeModelId,
   resolveEffectiveRates
 } from '../../src/core-isomorphic/config/catalogLoader.mjs';
@@ -21,6 +22,7 @@ import { loadHorizonConfig, resolveDetectorOverride } from '../../src/core-isomo
 import {
   CacheGravityRouter,
   FLIGHT_MODES,
+  getEffortMutationCacheCapability,
   isSilentOrOffMode,
   normalizeFlightMode
 } from '../../src/core-isomorphic/coach/cacheGravityRouter.mjs';
@@ -176,12 +178,75 @@ export function runConfigChangeHook(event = {}, options = {}) {
     };
   }
 
+  // Item 1.2: Unknown model -> explicit unknownModel state (zero $ figures, no price-based hold, one-line advisory)
+  if (!isKnownCatalogModel(currentModel, cwdOptions)) {
+    const effortClause =
+      classification.kind === 'effort' ? ' (effort cache behavior unverified for this model)' : '';
+    const msg = `[Highbeam DET-09 Advisory] Prices are unknown for ${currentModel}${effortClause}; skipping price-based guard.`;
+    const stdoutJson = {
+      systemMessage: msg,
+      hookSpecificOutput: {
+        hookEventName: 'ConfigChange',
+        additionalContext: msg
+      }
+    };
+    return {
+      exitCode: 0,
+      stdout: JSON.stringify(stdoutJson),
+      stdoutJson,
+      stderr: '',
+      verdict: {
+        detectorId: 'DET-09',
+        triggered: false,
+        kind: classification.kind,
+        key: classification.key,
+        decision: 'allow',
+        advisory: true,
+        unknownModel: true,
+        cachedTokens,
+        avoidedRewritePenaltyUSD: null,
+        effortCacheCapability:
+          classification.kind === 'effort'
+            ? getEffortMutationCacheCapability(currentModel, cwdOptions)
+            : null,
+        reason: msg
+      }
+    };
+  }
+
+  // Item 3: DET-09 effort capability matrix (stay silent on measured cache-preserving models like Sonnet 5.5 / Opus 5.5)
+  const normalizedCurrentModel = normalizeModelId(currentModel);
+  const effortCap =
+    classification.kind === 'effort'
+      ? getEffortMutationCacheCapability(normalizedCurrentModel, cwdOptions)
+      : null;
+
+  if (effortCap && effortCap.invalidatesCache === 'no') {
+    return {
+      exitCode: 0,
+      stdout: '',
+      stderr: '',
+      verdict: {
+        detectorId: 'DET-09',
+        triggered: false,
+        kind: classification.kind,
+        key: classification.key,
+        decision: 'allow',
+        advisory: false,
+        cachedTokens,
+        avoidedRewritePenaltyUSD: 0,
+        effortCacheCapability: effortCap,
+        reason: null
+      }
+    };
+  }
+
   const totalPromptTokens = Math.max(
     cachedTokens,
     computeTotalPromptTokens(liveState.contextWindow || { cacheReadTokens: cachedTokens })
   );
   const ttlTier = liveState?.promptCache?.ttlTier === '1h' ? '1h' : '5m';
-  const rates = resolveEffectiveRates(currentModel, totalPromptTokens, cwdOptions);
+  const rates = resolveEffectiveRates(normalizedCurrentModel, totalPromptTokens, cwdOptions);
   const writeRate = ttlTier === '1h' ? rates.write1hPer1M : rates.write5mPer1M;
   const avoidedRewritePenaltyUSD = Number(
     Math.max(0, (cachedTokens / 1_000_000) * (writeRate - rates.readPer1M)).toFixed(6)
@@ -194,13 +259,19 @@ export function runConfigChangeHook(event = {}, options = {}) {
   }
 
   let nextPendingDownshift = priorSnap.pendingDownshiftModel || null;
+  let nextPendingDownshiftRecord = priorSnap.pending_downshift || null;
   const newValStr =
     typeof event.new_value === 'string'
       ? event.new_value
       : JSON.stringify(event.new_value ?? '');
 
-  if (classification.kind === 'model' && isOpusToSonnetDownshift(currentModel, newValStr)) {
+  if (classification.kind === 'model' && isOpusToSonnetDownshift(normalizedCurrentModel, newValStr)) {
     nextPendingDownshift = normalizeModelId(newValStr);
+    nextPendingDownshiftRecord = {
+      fromModel: normalizedCurrentModel,
+      toModel: nextPendingDownshift,
+      recordedAt: new Date().toISOString()
+    };
   }
 
   router.mutationQueue.enqueue({
@@ -219,6 +290,7 @@ export function runConfigChangeHook(event = {}, options = {}) {
         ...priorSnap,
         updatedAt: Date.now(),
         pendingDownshiftModel: nextPendingDownshift,
+        pending_downshift: nextPendingDownshiftRecord,
         queuedMutations: router.mutationQueue.toJSON()
       },
       cwdOptions
@@ -227,11 +299,17 @@ export function runConfigChangeHook(event = {}, options = {}) {
 
   const shouldBlock = effectiveMode === FLIGHT_MODES.AUTO_PILOT || detOverride === 'block';
   const downshiftHint = nextPendingDownshift
-    ? ` Held pending_downshift -> ${nextPendingDownshift} for PostCompact ($0 cold-cache penalty).`
+    ? ` Queued pending_downshift -> ${nextPendingDownshift} for next compaction.`
     : ' Wait for /compact or spawn an isolated subagent instead.';
+  const effortLabel =
+    effortCap?.invalidatesCache === 'unknown'
+      ? ' (unverified for this model)'
+      : effortCap?.provenance
+        ? ` (${effortCap.provenance})`
+        : '';
   const message =
-    `[Highbeam Quota Shield — Warm-Cache Config Bust (${classification.kind})] ` +
-    `Changing "${classification.key}" while ${cachedTokens.toLocaleString()} tokens are warm on ${normalizeModelId(currentModel)} ` +
+    `[Highbeam Quota Shield — Warm-Cache Config Bust (${classification.kind})${effortLabel}] ` +
+    `Changing "${classification.key}" while ${cachedTokens.toLocaleString()} tokens are warm on ${normalizedCurrentModel} ` +
     `invalidates the prompt cache prefix (+$${avoidedRewritePenaltyUSD.toFixed(4)} cold rewrite tax).` +
     downshiftHint;
 
@@ -245,7 +323,7 @@ export function runConfigChangeHook(event = {}, options = {}) {
       {
         sessionId,
         category: 'DET_09_CONFIG_CACHE_SHIELD',
-        modelId: normalizeModelId(currentModel),
+        modelId: normalizedCurrentModel,
         savedTokens: cachedTokens,
         savedUSD: avoidedRewritePenaltyUSD,
         dedupeId: `${classification.kind}:${classification.key}:${cachedTokens}`,
@@ -264,7 +342,9 @@ export function runConfigChangeHook(event = {}, options = {}) {
     advisory: !shouldBlock,
     cachedTokens,
     avoidedRewritePenaltyUSD,
+    effortCacheCapability: effortCap,
     pendingDownshiftModel: nextPendingDownshift,
+    pending_downshift: nextPendingDownshiftRecord,
     reason: message
   };
 

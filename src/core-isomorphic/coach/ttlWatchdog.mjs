@@ -302,11 +302,14 @@ export class TtlWatchdog {
       totalPromptTokens,
       this.options
     );
-    const writeRate = tier === '1h' ? rates.write1hPer1M : rates.write5mPer1M;
+    const hasKnownPrices = Boolean(rates && !rates.unknownModel && rates.readPer1M !== null);
+    const writeRate = hasKnownPrices
+      ? (tier === '1h' ? rates.write1hPer1M : rates.write5mPer1M)
+      : null;
     // Cost of losing the warm cache and rewriting it at writeRate (1.25x 5m / 2.0x 1h) instead of reading at readPer1M
-    const expiryPenaltyUSD = Number(
-      ((cachedTokens / 1_000_000) * (writeRate - rates.readPer1M)).toFixed(6)
-    );
+    const expiryPenaltyUSD = hasKnownPrices
+      ? Number(((cachedTokens / 1_000_000) * (writeRate - rates.readPer1M)).toFixed(6))
+      : null;
 
     const formattedRemaining = formatRemainingTtl(remainingSeconds);
     const pauseDistribution = this.getPauseDistribution();
@@ -417,9 +420,13 @@ export class TtlWatchdog {
       }
     }
 
+    const penaltySuffix =
+      expiryPenaltyUSD !== null
+        ? ` ($${expiryPenaltyUSD.toFixed(2)} rewrite)`
+        : ' (prices unknown)';
     const bannerText = preSnapshotTriggered
-      ? `amber TTL cliff (${formattedRemaining}): zero-token StateBaton pre-snapshot saved at T-${remainingSeconds}s (protects ${(cachedTokens / 1000).toFixed(1)}k cache / $${expiryPenaltyUSD.toFixed(2)} rewrite).`
-      : `amber TTL warning (${formattedRemaining}): ${(cachedTokens / 1000).toFixed(1)}k warm cache on ${rates.shortLabel} expires soon (+$${expiryPenaltyUSD.toFixed(2)} rewrite penalty).`;
+      ? `amber TTL cliff (${formattedRemaining}): zero-token StateBaton pre-snapshot saved at T-${remainingSeconds}s (protects ${(cachedTokens / 1000).toFixed(1)}k cache${penaltySuffix}).`
+      : `amber TTL warning (${formattedRemaining}): ${(cachedTokens / 1000).toFixed(1)}k warm cache on ${rates.shortLabel} expires soon${expiryPenaltyUSD !== null ? ` (+$${expiryPenaltyUSD.toFixed(2)} rewrite penalty)` : '; prices unknown'}.`;
 
     return {
       detectorId: 'DET-10',

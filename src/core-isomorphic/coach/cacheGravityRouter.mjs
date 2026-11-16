@@ -4,9 +4,8 @@
  * and `HysteresisLock` for Claude Code Highbeam.
  *
  * Implements the algebraic cross-model break-even equation:
- *   C* = [ O * (P_out,curr - P_out,target) ] / [ P_write5m,target - P_read,curr ]
- *   - Opus 5.5 -> Sonnet 5.5 (O = 1,500): C* = 6,522 tokens
- *   - Opus 4.6 -> Sonnet 4.6 (O = 1,500): C* = 4,615 tokens
+ *   C* = [ O * (P_out,curr - P_out,target) ] / [ P_write,target - P_read,curr ]
+ *   with all rates and thresholds derived dynamically from the price catalog at runtime.
  */
 
 import {
@@ -19,6 +18,69 @@ import {
 
 export const DEFAULT_FALLBACK_INITIAL_PREFIX_TOKENS = 9000;
 export const DEFAULT_REQUESTS_PER_TURN = 1.0;
+
+/**
+ * Per-model `DET-09` capability matrix for mid-session `effort` changes with provenance:
+ *   - `claude-sonnet-4-6`: invalidates whole prefix (`EF1_46`: 0% cache read, +38.7% cost) -> `yes`
+ *   - `claude-opus-4-6`: invalidates whole prefix (earlier article experiment) -> `yes`
+ *   - `claude-sonnet-5-5`: keeps cache (`r2_effort.csv` & R2 rerun, n = 3: 99.3% cache read, thinking 1.47-1.57x) -> `no`
+ *   - `claude-opus-5-5`: keeps cache (`currency_55.csv` `effort_only_55`: 26,130 vs 26,126 read; behaviour unverified) -> `no`
+ *   - All other models: `unknown` (warn as before, labelled `"unverified for this model"`).
+ */
+export const MODEL_EFFORT_CACHE_CAPABILITIES = Object.freeze({
+  'claude-sonnet-4-6': Object.freeze({
+    modelId: 'claude-sonnet-4-6',
+    invalidatesCache: 'yes',
+    invalidationScope: 'whole_prefix',
+    status: 'measured',
+    provenance: 'EF1_46 (Sonnet 4.6: 0% cache read, +38.7% cost)'
+  }),
+  'claude-opus-4-6': Object.freeze({
+    modelId: 'claude-opus-4-6',
+    invalidatesCache: 'yes',
+    invalidationScope: 'whole_prefix',
+    status: 'measured',
+    provenance: 'earlier article experiment (Opus 4.6 effort-only invalidation)'
+  }),
+  'claude-sonnet-5-5': Object.freeze({
+    modelId: 'claude-sonnet-5-5',
+    invalidatesCache: 'no',
+    invalidationScope: 'none',
+    status: 'measured, n = 3 with behaviour change',
+    provenance:
+      'r2_effort.csv & R2 behavioural rerun (Sonnet 5.5, n = 3: cache kept 99.3%, thinking 1.47-1.57x control)'
+  }),
+  'claude-opus-5-5': Object.freeze({
+    modelId: 'claude-opus-5-5',
+    invalidatesCache: 'no',
+    invalidationScope: 'none',
+    status: 'measured for cache only; behaviour unverified',
+    provenance:
+      'currency_55.csv effort_only_55 (Opus 5.5: cache kept 26,130 vs 26,126 control; behaviour unverified)'
+  })
+});
+
+/**
+ * Resolves `DET-09` mid-session `effort` cache-invalidation capability for a model.
+ * @param {string} [modelId='']
+ * @param {object} [options={}]
+ */
+export function getEffortMutationCacheCapability(modelId = '', options = {}) {
+  const known = isKnownCatalogModel(modelId, options);
+  const normalized = known ? normalizeModelId(modelId, options) : 'unknown';
+  const entry = known ? MODEL_EFFORT_CACHE_CAPABILITIES[normalized] : null;
+  if (entry) {
+    return entry;
+  }
+  return {
+    modelId: known ? normalized : String(modelId || 'unknown'),
+    invalidatesCache: 'unknown',
+    invalidationScope: 'unknown',
+    status: 'unverified for this model',
+    label: 'unverified for this model',
+    provenance: 'unverified for this model (not in EF1_46, R2, or currency_55)'
+  };
+}
 
 /**
  * Placeholder empirical survival prior derived from 496 Antigravity IDE workstation sessions
@@ -211,9 +273,10 @@ export const DEFAULT_ADVISORY_COOLDOWN_TURNS = 3;
 
 /**
  * Maps an active model to its natural one-tier downshift peer for cross-model break-even C* (`ISS-006`).
+ * Break-even thresholds are computed dynamically from `anthropicModelCatalog.json` rates at runtime.
  *   - claude-fable-5-2 / claude-fable-5-1 -> claude-opus-5-5
- *   - claude-opus-5-5 -> claude-sonnet-5-5 (C* = 6,522 at O = 1,500)
- *   - claude-opus-4-6 / claude-opus-4-5 -> claude-sonnet-4-6 (C* = 4,615 at O = 1,500)
+ *   - claude-opus-5-5 -> claude-sonnet-5-5
+ *   - claude-opus-4-6 / claude-opus-4-5 -> claude-sonnet-4-6
  *   - claude-sonnet-5-5 -> claude-haiku-5-5
  *   - claude-sonnet-4-6 / claude-sonnet-4-5 -> claude-haiku-4-5
  *   - claude-haiku-4-5 -> claude-haiku-5-5
@@ -224,17 +287,35 @@ export const DEFAULT_ADVISORY_COOLDOWN_TURNS = 3;
 export function resolveNaturalDownshiftPeer(modelId = 'claude-opus-5-5') {
   const norm = normalizeModelId(modelId);
   switch (norm) {
+    case 'claude-mythos-5-2':
+    case 'claude-mythos-5-1':
+    case 'claude-mythos-5':
     case 'claude-fable-5-2':
     case 'claude-fable-5-1':
+    case 'claude-fable-5':
       return 'claude-opus-5-5';
     case 'claude-opus-5-5':
       return 'claude-sonnet-5-5';
+    case 'claude-opus-5':
+      return 'claude-sonnet-5';
+    case 'claude-opus-4-8':
+    case 'claude-opus-4-7':
     case 'claude-opus-4-6':
+    case 'claude-opus-4-5':
+    case 'claude-opus-4-1':
+    case 'claude-opus-4-0':
       return 'claude-sonnet-4-6';
     case 'claude-sonnet-5-5':
+    case 'claude-sonnet-5':
       return 'claude-haiku-5-5';
     case 'claude-sonnet-4-6':
+    case 'claude-sonnet-4-5':
+    case 'claude-sonnet-4-0':
       return 'claude-haiku-4-5';
+    case 'claude-3-7-sonnet':
+    case 'claude-3-5-sonnet':
+    case 'claude-3-5-haiku':
+      return 'claude-3-5-haiku';
     case 'claude-haiku-4-5':
     case 'claude-haiku-5-5':
       return 'claude-haiku-5-5';
@@ -301,11 +382,13 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
   );
   const cachedTokens = Math.max(0, Number(params.cachedTokens ?? 0));
   const uncachedDeltaTokens = Math.max(0, Number(params.uncachedDeltaTokens ?? 0));
+  const uncachedWriteTokens = Math.max(0, Number(params.uncachedWriteTokens ?? 0));
+  const request1UncachedTokens = uncachedDeltaTokens + uncachedWriteTokens;
   const cacheWarm = params.cacheWarm !== undefined ? Boolean(params.cacheWarm) : cachedTokens > 0;
   const ttlTier = params.cacheTtlTier === '1h' ? '1h' : '5m';
 
   const totalPromptTokens = Math.max(
-    cachedTokens + uncachedDeltaTokens,
+    cachedTokens + request1UncachedTokens,
     computeTotalPromptTokens(params)
   );
 
@@ -336,22 +419,23 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
       expectedOutputTokens,
       cachedTokens,
       uncachedDeltaTokens,
+      uncachedWriteTokens,
       totalPromptTokens,
       cacheWarm,
       cacheTtlTier: ttlTier,
       writeMultiplierLabel: ttlTier === '1h' ? '2.0x' : '1.25x',
       isCapabilityUpshift: false,
-      breakEvenTokens: 0,
+      breakEvenTokens: null,
       rates: null,
-      stayOnCurrentModelUSD: 0,
-      switchToTargetModelUSD: 0,
-      coldWritePenaltyUSD: 0,
-      perTurnPostSwitchSavingUSD: 0,
-      averagePostSwitchSavingUSD: 0,
-      paybackTurns: 0,
-      paybackWarmRequests: 0,
+      stayOnCurrentModelUSD: null,
+      switchToTargetModelUSD: null,
+      coldWritePenaltyUSD: null,
+      perTurnPostSwitchSavingUSD: null,
+      averagePostSwitchSavingUSD: null,
+      paybackTurns: null,
+      paybackWarmRequests: null,
       switchTurnWarmReads: 0,
-      totalWarmReadsToPayback: 0,
+      totalWarmReadsToPayback: null,
       asymptoticWarmRequestRatio: null,
       contextGrowthPerTurn: Math.max(0, Number(params.contextGrowthPerTurn ?? 0)),
       expectedRemainingTurns: hasExplicitRemaining ? Math.max(0, Number(rawRemaining)) : null,
@@ -448,7 +532,7 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
   } else {
     const numeratorUSD =
       (expectedOutputTokens / 1_000_000) * (pOutCurr - pOutTarget) +
-      (uncachedDeltaTokens / 1_000_000) * (pWriteCurr - pWriteTarget);
+      (request1UncachedTokens / 1_000_000) * (pWriteCurr - pWriteTarget);
     const denominator = pWriteTarget - pReadCurr;
     if (numeratorUSD <= 0) {
       breakEvenTokens = 0;
@@ -459,15 +543,16 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
     }
   }
 
-  // Exact USD switch-turn cost: request 1 pays cache write on cold target; requests 2..R read at warm rate.
+  // Exact USD switch-turn cost: request 1 pays cache write on cold target (and uncachedWriteTokens even on stay); requests 2..R read at warm rate.
   const effectiveRpt = currentModel === targetModel ? 1 : Math.max(1, requestsPerTurnUsed);
   const extraWarmReadsOnSwitchTurn = Math.max(0, effectiveRpt - 1);
+  const combinedReq1Tokens = cachedTokens + request1UncachedTokens;
   const stayPrefixCostUSD = cacheWarm
     ? (cachedTokens / 1_000_000) * pReadCurr +
-      (uncachedDeltaTokens / 1_000_000) * pWriteCurr +
-      extraWarmReadsOnSwitchTurn * ((cachedTokens + uncachedDeltaTokens) / 1_000_000) * pReadCurr
-    : ((cachedTokens + uncachedDeltaTokens) / 1_000_000) * pWriteCurr +
-      extraWarmReadsOnSwitchTurn * ((cachedTokens + uncachedDeltaTokens) / 1_000_000) * pReadCurr;
+      (request1UncachedTokens / 1_000_000) * pWriteCurr +
+      extraWarmReadsOnSwitchTurn * (combinedReq1Tokens / 1_000_000) * pReadCurr
+    : (combinedReq1Tokens / 1_000_000) * pWriteCurr +
+      extraWarmReadsOnSwitchTurn * (combinedReq1Tokens / 1_000_000) * pReadCurr;
   const stayOutputCostUSD = (expectedOutputTokens / 1_000_000) * pOutCurr;
   const stayOnCurrentModelUSD = stayPrefixCostUSD + stayOutputCostUSD;
 
@@ -475,10 +560,8 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
   const switchPrefixCostUSD =
     currentModel === targetModel && cacheWarm
       ? stayPrefixCostUSD
-      : ((cachedTokens + uncachedDeltaTokens) / 1_000_000) * pWriteTarget +
-        extraWarmReadsOnSwitchTurn *
-          ((cachedTokens + uncachedDeltaTokens) / 1_000_000) *
-          targetRates.readPer1M;
+      : (combinedReq1Tokens / 1_000_000) * pWriteTarget +
+        extraWarmReadsOnSwitchTurn * (combinedReq1Tokens / 1_000_000) * targetRates.readPer1M;
   const switchOutputCostUSD = (expectedOutputTokens / 1_000_000) * pOutTarget;
   const switchToTargetModelUSD = switchPrefixCostUSD + switchOutputCostUSD;
 
@@ -487,7 +570,7 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
   );
 
   // Horizon-aware payback (`C1e` / `rule_v2`, opt-in via `expectedRemainingTurns` or `useEmpiricalHorizonPrior`):
-  //   perTurnPostSwitchSavingUSD = R * ((C + Delta)/1M) * (P_read,curr - P_read,target)
+  //   perTurnPostSwitchSavingUSD = R * ((C + cw_1)/1M) * (P_read,curr - P_read,target)
   //                              + (Delta_post/1M) * (P_write,curr - P_write,target)
   //                              + (O/1M) * (P_out,curr - P_out,target)
   //   paybackTurns = coldWritePenaltyUSD / perTurnPostSwitchSavingUSD
@@ -506,7 +589,7 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
     currentModel === targetModel || isCapabilityUpshift
       ? 0
       : effectiveRpt *
-          ((cachedTokens + uncachedDeltaTokens) / 1_000_000) *
+          (combinedReq1Tokens / 1_000_000) *
           (pReadCurr - targetRates.readPer1M) +
         (effectivePostSwitchDeltaTokens / 1_000_000) * (pWriteCurr - pWriteTarget) +
         (expectedOutputTokens / 1_000_000) * (pOutCurr - pOutTarget);
@@ -630,6 +713,7 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
     expectedOutputTokens,
     cachedTokens,
     uncachedDeltaTokens,
+    uncachedWriteTokens,
     totalPromptTokens,
     cacheWarm,
     cacheTtlTier: ttlTier,
@@ -956,7 +1040,7 @@ export class CacheGravityRouter {
 
     if (breakEven.unknownModel) {
       const unknownList = breakEven.unknownModelIds.join(', ');
-      const warning = `[Highbeam DET-08 Warning] Unrecognized non-Anthropic model (${unknownList}) is not in the Anthropic pricing catalog; passing model switch through without hold.`;
+      const warning = `[Highbeam DET-08 Advisory] Prices are unknown for ${unknownList}; passing model switch through without price-based hold.`;
       return {
         detectorId: 'DET-08',
         mode: this.mode,
@@ -1169,49 +1253,6 @@ export class CacheGravityRouter {
    */
   interceptTopLevelMutation(mutationRequest = {}) {
     const explicitModel = mutationRequest.currentModel ?? mutationRequest.modelId;
-    if (explicitModel !== undefined && !isKnownCatalogModel(explicitModel, this.options)) {
-      if (isSilentOrOffMode(this.mode)) {
-        return {
-          detectorId: 'DET-09',
-          triggered: false,
-          queued: false,
-          decision: 'allow',
-          unknownModel: true,
-          avoidedRewritePenaltyUSD: 0,
-          queueSize: this.mutationQueue.size(),
-          reason: null
-        };
-      }
-      const warning = `[Highbeam DET-09 Warning] Unrecognized non-Anthropic model (${String(explicitModel)}) is not in the Anthropic pricing catalog; passing mutation through.`;
-      return {
-        detectorId: 'DET-09',
-        triggered: false,
-        queued: false,
-        decision: 'allow',
-        advisory: true,
-        unknownModel: true,
-        warning,
-        avoidedRewritePenaltyUSD: 0,
-        queueSize: this.mutationQueue.size(),
-        reason: warning
-      };
-    }
-
-    const rawModel = explicitModel || 'claude-opus-5-5';
-    const modelId = normalizeModelId(rawModel);
-    const cachedTokens = Math.max(0, Number(mutationRequest.cachedTokens ?? 0));
-    const hasTtlField =
-      mutationRequest.ttlRemainingSeconds !== undefined &&
-      mutationRequest.ttlRemainingSeconds !== null;
-    const ttlRemainingSeconds = hasTtlField ? Number(mutationRequest.ttlRemainingSeconds) : null;
-    const ttlExpired = hasTtlField && ttlRemainingSeconds <= 0;
-
-    const cacheWarm = ttlExpired
-      ? false
-      : mutationRequest.cacheWarm !== undefined
-        ? Boolean(mutationRequest.cacheWarm)
-        : cachedTokens > 0;
-
     const targetFilePath = String(
       mutationRequest.filePath || mutationRequest.file_path || mutationRequest.path || ''
     ).trim();
@@ -1232,6 +1273,76 @@ export class CacheGravityRouter {
       };
     }
 
+    const mutationType =
+      mutationRequest.type || (targetFilePath ? 'system_prompt' : 'effort');
+
+    if (explicitModel !== undefined && !isKnownCatalogModel(explicitModel, this.options)) {
+      const effortCap = mutationType === 'effort'
+        ? getEffortMutationCacheCapability(explicitModel, this.options)
+        : null;
+      if (isSilentOrOffMode(this.mode)) {
+        return {
+          detectorId: 'DET-09',
+          triggered: false,
+          queued: false,
+          decision: 'allow',
+          unknownModel: true,
+          effortCacheCapability: effortCap,
+          avoidedRewritePenaltyUSD: null,
+          queueSize: this.mutationQueue.size(),
+          reason: null
+        };
+      }
+      const effortClause =
+        mutationType === 'effort' ? ' (effort cache behavior unverified for this model)' : '';
+      const warning = `[Highbeam DET-09 Advisory] Prices are unknown for ${String(explicitModel)}${effortClause}; passing mutation through without price-based hold.`;
+      return {
+        detectorId: 'DET-09',
+        triggered: false,
+        queued: false,
+        decision: 'allow',
+        advisory: true,
+        unknownModel: true,
+        effortCacheCapability: effortCap,
+        warning,
+        avoidedRewritePenaltyUSD: null,
+        queueSize: this.mutationQueue.size(),
+        reason: warning
+      };
+    }
+
+    const rawModel = explicitModel || 'claude-opus-5-5';
+    const modelId = normalizeModelId(rawModel);
+    const effortCap =
+      mutationType === 'effort' ? getEffortMutationCacheCapability(modelId, this.options) : null;
+
+    if (effortCap && effortCap.invalidatesCache === 'no') {
+      return {
+        detectorId: 'DET-09',
+        triggered: false,
+        queued: false,
+        decision: 'allow',
+        advisory: false,
+        effortCacheCapability: effortCap,
+        avoidedRewritePenaltyUSD: 0,
+        queueSize: this.mutationQueue.size(),
+        reason: null
+      };
+    }
+
+    const cachedTokens = Math.max(0, Number(mutationRequest.cachedTokens ?? 0));
+    const hasTtlField =
+      mutationRequest.ttlRemainingSeconds !== undefined &&
+      mutationRequest.ttlRemainingSeconds !== null;
+    const ttlRemainingSeconds = hasTtlField ? Number(mutationRequest.ttlRemainingSeconds) : null;
+    const ttlExpired = hasTtlField && ttlRemainingSeconds <= 0;
+
+    const cacheWarm = ttlExpired
+      ? false
+      : mutationRequest.cacheWarm !== undefined
+        ? Boolean(mutationRequest.cacheWarm)
+        : cachedTokens > 0;
+
     const ttlTier = mutationRequest.cacheTtlTier === '1h' ? '1h' : '5m';
     const totalPromptTokens = Math.max(cachedTokens, computeTotalPromptTokens(mutationRequest));
     const rates = resolveEffectiveRates(rawModel, totalPromptTokens, this.options);
@@ -1243,6 +1354,7 @@ export class CacheGravityRouter {
         triggered: false,
         queued: false,
         decision: 'allow',
+        effortCacheCapability: effortCap,
         avoidedRewritePenaltyUSD: 0,
         queueSize: this.mutationQueue.size(),
         reason: 'Cache is cold or router is OFF/SILENT; top-level mutation may apply immediately.'
@@ -1274,6 +1386,7 @@ export class CacheGravityRouter {
         queued: false,
         decision: 'allow',
         belowBreakEvenThreshold: true,
+        effortCacheCapability: effortCap,
         breakEvenTokens: det09BreakEven.breakEvenTokens,
         avoidedRewritePenaltyUSD,
         queueSize: this.mutationQueue.size(),
@@ -1283,8 +1396,12 @@ export class CacheGravityRouter {
       };
     }
 
-    const mutationType =
-      mutationRequest.type || (targetFilePath ? 'system_prompt' : 'effort');
+    const effortLabel =
+      effortCap?.invalidatesCache === 'unknown'
+        ? ' (unverified for this model)'
+        : effortCap?.provenance
+          ? ` (${effortCap.provenance})`
+          : '';
     const entry = this.mutationQueue.enqueue({
       type: mutationType,
       key: mutationRequest.key || targetFilePath || mutationType,
@@ -1292,7 +1409,7 @@ export class CacheGravityRouter {
       cachedTokens,
       avoidedRewritePenaltyUSD,
       reason:
-        `[DET-09 Top-Level Mutation Deferred] Mutating top-level ${mutationType} ` +
+        `[DET-09 Top-Level Mutation Deferred] Mutating top-level ${mutationType}${effortLabel} ` +
         `while ${cachedTokens.toLocaleString()} tokens are warm on ${modelId} would invalidate the ` +
         `Anthropic prompt cache prefix (+$${avoidedRewritePenaltyUSD.toFixed(4)} rewrite spike). ` +
         `Queued in PostCompactMutationQueue to apply after next compaction.`
@@ -1303,6 +1420,7 @@ export class CacheGravityRouter {
       triggered: true,
       queued: true,
       decision: 'defer',
+      effortCacheCapability: effortCap,
       entry,
       breakEvenTokens: enableDet09Threshold ? det09BreakEven.breakEvenTokens : 0,
       avoidedRewritePenaltyUSD,
@@ -1330,6 +1448,16 @@ export function computeDet09BreakEvenTokens(params = {}, options = {}) {
     computeTotalPromptTokens(params)
   );
   const rates = resolveEffectiveRates(rawModel, totalPromptTokens, options);
+  if (rates.unknownModel) {
+    return {
+      unknownModel: true,
+      breakEvenTokens: null,
+      outputDeltaTokens: null,
+      writeRatePer1M: null,
+      readRatePer1M: null,
+      outputRatePer1M: null
+    };
+  }
   const writeRate = ttlTier === '1h' ? rates.write1hPer1M : rates.write5mPer1M;
   const denominator = writeRate - rates.readPer1M;
 
@@ -1401,6 +1529,8 @@ export default {
   DEFAULT_EXPECTED_OUTPUT_TOKENS,
   DEFAULT_DET09_OUTPUT_DELTA_TOKENS,
   DEFAULT_ADVISORY_COOLDOWN_TURNS,
+  MODEL_EFFORT_CACHE_CAPABILITIES,
+  getEffortMutationCacheCapability,
   EMPIRICAL_SESSION_API_CALL_PRIOR,
   estimateEmpiricalRemainingTurns,
   normalizeFlightMode,

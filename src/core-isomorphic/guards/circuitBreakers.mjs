@@ -188,7 +188,41 @@ export class CircuitBreakerEngine {
     this.committedTopDirs = Array.isArray(options.committedTopDirs) ? [...options.committedTopDirs] : [];
     this.pendingVerificationCommand = Boolean(options.pendingVerificationCommand || false);
     this.lastFailingLocation = options.lastFailingLocation ? String(options.lastFailingLocation) : null;
-    this.pendingDownshiftModel = options.pendingDownshiftModel ? String(options.pendingDownshiftModel) : null;
+    this.pending_downshift =
+      options.pending_downshift && typeof options.pending_downshift === 'object'
+        ? { ...options.pending_downshift }
+        : null;
+    this.pendingDownshiftModel = options.pendingDownshiftModel
+      ? String(options.pendingDownshiftModel)
+      : this.pending_downshift?.toModel
+        ? String(this.pending_downshift.toModel)
+        : null;
+    this.justCompacted = Boolean(options.justCompacted || false);
+    this.turnsSinceLastCompact =
+      options.turnsSinceLastCompact !== undefined &&
+      options.turnsSinceLastCompact !== null &&
+      Number.isFinite(Number(options.turnsSinceLastCompact))
+        ? Math.max(0, Number(options.turnsSinceLastCompact))
+        : null;
+    this.taskBoundaryState =
+      options.taskBoundaryState && typeof options.taskBoundaryState === 'object'
+        ? {
+            openFailure: Boolean(options.taskBoundaryState.openFailure),
+            editsSinceBoundary: Math.max(0, Number(options.taskBoundaryState.editsSinceBoundary || 0)),
+            lastBoundarySuggestedTurn: options.taskBoundaryState.lastBoundarySuggestedTurn ?? null
+          }
+        : { openFailure: false, editsSinceBoundary: 0, lastBoundarySuggestedTurn: null };
+    this.lastToolsetHash =
+      options.lastToolsetHash && typeof options.lastToolsetHash === 'object'
+        ? { ...options.lastToolsetHash }
+        : null;
+    this.lastContextTokens =
+      options.lastContextTokens !== undefined &&
+      options.lastContextTokens !== null &&
+      Number.isFinite(Number(options.lastContextTokens))
+        ? Math.max(0, Number(options.lastContextTokens))
+        : null;
+    this.lastModelId = options.lastModelId ? String(options.lastModelId) : null;
     this.activeBackgroundTasks = Array.isArray(options.activeBackgroundTasks)
       ? [...options.activeBackgroundTasks]
       : [];
@@ -280,6 +314,25 @@ export class CircuitBreakerEngine {
       pendingVerificationCommand: Boolean(this.pendingVerificationCommand),
       lastFailingLocation: this.lastFailingLocation || null,
       pendingDownshiftModel: this.pendingDownshiftModel || null,
+      pending_downshift: this.pending_downshift ? { ...this.pending_downshift } : null,
+      justCompacted: Boolean(this.justCompacted),
+      turnsSinceLastCompact:
+        typeof this.turnsSinceLastCompact === 'number' && Number.isFinite(this.turnsSinceLastCompact)
+          ? Math.max(0, this.turnsSinceLastCompact)
+          : null,
+      taskBoundaryState: this.taskBoundaryState
+        ? {
+            openFailure: Boolean(this.taskBoundaryState.openFailure),
+            editsSinceBoundary: Math.max(0, Number(this.taskBoundaryState.editsSinceBoundary || 0)),
+            lastBoundarySuggestedTurn: this.taskBoundaryState.lastBoundarySuggestedTurn ?? null
+          }
+        : { openFailure: false, editsSinceBoundary: 0, lastBoundarySuggestedTurn: null },
+      lastToolsetHash: this.lastToolsetHash ? { ...this.lastToolsetHash } : null,
+      lastContextTokens:
+        typeof this.lastContextTokens === 'number' && Number.isFinite(this.lastContextTokens)
+          ? Math.max(0, this.lastContextTokens)
+          : null,
+      lastModelId: this.lastModelId ? String(this.lastModelId) : null,
       activeBackgroundTasks: Array.isArray(this.activeBackgroundTasks)
         ? [...this.activeBackgroundTasks]
         : [],
@@ -381,6 +434,46 @@ export class CircuitBreakerEngine {
     }
     if (snap.pendingDownshiftModel !== undefined) {
       this.pendingDownshiftModel = snap.pendingDownshiftModel ? String(snap.pendingDownshiftModel) : null;
+    }
+    if (snap.pending_downshift !== undefined) {
+      this.pending_downshift =
+        snap.pending_downshift && typeof snap.pending_downshift === 'object'
+          ? { ...snap.pending_downshift }
+          : null;
+      if (this.pending_downshift?.toModel && snap.pendingDownshiftModel === undefined) {
+        this.pendingDownshiftModel = String(this.pending_downshift.toModel);
+      }
+    }
+    if (typeof snap.justCompacted === 'boolean') {
+      this.justCompacted = snap.justCompacted;
+    }
+    if (snap.turnsSinceLastCompact !== undefined) {
+      this.turnsSinceLastCompact =
+        snap.turnsSinceLastCompact !== null && Number.isFinite(Number(snap.turnsSinceLastCompact))
+          ? Math.max(0, Number(snap.turnsSinceLastCompact))
+          : null;
+    }
+    if (snap.taskBoundaryState && typeof snap.taskBoundaryState === 'object') {
+      this.taskBoundaryState = {
+        openFailure: Boolean(snap.taskBoundaryState.openFailure),
+        editsSinceBoundary: Math.max(0, Number(snap.taskBoundaryState.editsSinceBoundary || 0)),
+        lastBoundarySuggestedTurn: snap.taskBoundaryState.lastBoundarySuggestedTurn ?? null
+      };
+    }
+    if (snap.lastToolsetHash !== undefined) {
+      this.lastToolsetHash =
+        snap.lastToolsetHash && typeof snap.lastToolsetHash === 'object'
+          ? { ...snap.lastToolsetHash }
+          : null;
+    }
+    if (snap.lastContextTokens !== undefined) {
+      this.lastContextTokens =
+        snap.lastContextTokens !== null && Number.isFinite(Number(snap.lastContextTokens))
+          ? Math.max(0, Number(snap.lastContextTokens))
+          : null;
+    }
+    if (snap.lastModelId !== undefined) {
+      this.lastModelId = snap.lastModelId ? String(snap.lastModelId) : null;
     }
     if (Array.isArray(snap.activeBackgroundTasks)) {
       this.activeBackgroundTasks = snap.activeBackgroundTasks.filter(Boolean).map(String);

@@ -441,10 +441,21 @@ test('5. CacheGravityRouter: algebraic break-even C* = 6,522 (Opus 5.5 -> Sonnet
   assert.equal(benignColdClaudeMd.triggered, false);
   assert.equal(benignColdClaudeMd.queued, false);
 
-  const interceptRes = router.interceptTopLevelMutation({
+  const effortSilent55 = router.interceptTopLevelMutation({
     type: 'effort',
     value: 'low',
     currentModel: 'claude-opus-5-5',
+    cachedTokens: 100_000,
+    cacheWarm: true
+  });
+  assert.equal(effortSilent55.triggered, false);
+  assert.equal(effortSilent55.queued, false);
+  assert.equal(effortSilent55.decision, 'allow');
+
+  const interceptRes = router.interceptTopLevelMutation({
+    type: 'effort',
+    value: 'low',
+    currentModel: 'claude-opus-4-6',
     cachedTokens: 100_000,
     cacheWarm: true
   });
@@ -452,13 +463,13 @@ test('5. CacheGravityRouter: algebraic break-even C* = 6,522 (Opus 5.5 -> Sonnet
   assert.equal(interceptRes.triggered, true);
   assert.equal(interceptRes.queued, true);
   assert.equal(interceptRes.decision, 'defer');
-  assert.equal(interceptRes.avoidedRewritePenaltyUSD, 0.48); // 100k * ($5.00 - $0.20) / 1M = $0.48
+  assert.equal(interceptRes.avoidedRewritePenaltyUSD, 0.575); // 100k * ($6.25 - $0.50) / 1M = $0.575
   assert.equal(router.mutationQueue.size(), 1);
 
   const flushed = router.mutationQueue.flush();
   assert.equal(flushed.flushedCount, 1);
   assert.equal(flushed.appliedMutations[0].value, 'low');
-  assert.equal(flushed.totalAvoidedPenaltyUSD, 0.48);
+  assert.equal(flushed.totalAvoidedPenaltyUSD, 0.575);
   assert.equal(router.mutationQueue.size(), 0);
 
   // Verify HysteresisLock

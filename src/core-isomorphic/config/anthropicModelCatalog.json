@@ -1,5 +1,8 @@
 {
-  "schemaVersion": "2026.11.1",
+  "schemaVersion": "2026.11.15",
+  "catalogVersion": "2026-11-15",
+  "source": "phase0_capabilities_and_cost_gate.md (OpenRouter /api/v1/models, 2026-11-15) & Claude Code 2.1.325 bakedCatalog",
+  "dateRead": "2026-11-15",
   "defaultModel": "claude-sonnet-5-5",
   "cacheWriteMultipliers": {
     "5m": 1.25,
@@ -32,6 +35,8 @@
         "write1h": 2.0,
         "read": 0.025
       },
+      "source": "phase0_capabilities_and_cost_gate.md (OpenRouter /api/v1/models)",
+      "dateRead": "2026-11-15",
       "pricingCliff": null
     },
     "claude-fable-5-1": {
@@ -54,6 +59,32 @@
         "write1h": 2.0,
         "read": 0.025
       },
+      "source": "phase0_capabilities_and_cost_gate.md (OpenRouter /api/v1/models)",
+      "dateRead": "2026-11-15",
+      "pricingCliff": null
+    },
+    "claude-fable-5": {
+      "id": "claude-fable-5",
+      "label": "Claude Fable 5",
+      "shortLabel": "Fable 5",
+      "family": "fable",
+      "generation": "5",
+      "contextCeiling": 1000000,
+      "operationalSoftCeiling": 180000,
+      "ratesPer1M": {
+        "input": 10.0,
+        "output": 50.0,
+        "write5m": 12.5,
+        "write1h": 20.0,
+        "read": 1.0
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "source": "phase0_capabilities_and_cost_gate.md (OpenRouter /api/v1/models) & Claude Code 2.1.325 bakedCatalog (tier_10_50)",
+      "dateRead": "2026-11-15",
       "pricingCliff": null
     },
     "claude-opus-5-5": {
@@ -76,6 +107,8 @@
         "write1h": 2.0,
         "read": 0.05
       },
+      "source": "phase0_capabilities_and_cost_gate.md (OpenRouter /api/v1/models)",
+      "dateRead": "2026-11-15",
       "pricingCliff": null
     },
     "claude-sonnet-5-5": {
@@ -98,6 +131,8 @@
         "write1h": 2.0,
         "read": 0.05
       },
+      "source": "phase0_capabilities_and_cost_gate.md (OpenRouter /api/v1/models)",
+      "dateRead": "2026-11-15",
       "pricingCliff": null
     },
     "claude-haiku-5-5": {
@@ -120,6 +155,8 @@
         "write1h": 2.0,
         "read": 0.1
       },
+      "source": "phase0_capabilities_and_cost_gate.md (OpenRouter /api/v1/models) & Claude Code 2.1.325 bakedCatalog (haiku_55)",
+      "dateRead": "2026-11-15",
       "pricingCliff": {
         "thresholdTokens": 100000,
         "preCliffWarningTokens": 90000,
@@ -132,6 +169,102 @@
           "read": 0.05
         }
       }
+    },
+    "claude-opus-5": {
+      "id": "claude-opus-5",
+      "label": "Claude Opus 5",
+      "shortLabel": "Opus 5",
+      "family": "opus",
+      "generation": "5",
+      "contextCeiling": 1000000,
+      "operationalSoftCeiling": 180000,
+      "ratesPer1M": {
+        "input": 5.0,
+        "output": 25.0,
+        "write5m": 6.25,
+        "write1h": 10.0,
+        "read": 0.5
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "source": "phase0_capabilities_and_cost_gate.md (OpenRouter /api/v1/models)",
+      "dateRead": "2026-11-15",
+      "pricingCliff": null
+    },
+    "claude-sonnet-5": {
+      "id": "claude-sonnet-5",
+      "label": "Claude Sonnet 5",
+      "shortLabel": "Sonnet 5",
+      "family": "sonnet",
+      "generation": "5",
+      "contextCeiling": 1000000,
+      "operationalSoftCeiling": 180000,
+      "ratesPer1M": {
+        "input": 2.0,
+        "output": 10.0,
+        "write5m": 2.5,
+        "write1h": 4.0,
+        "read": 0.2
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "source": "phase0_capabilities_and_cost_gate.md (OpenRouter /api/v1/models)",
+      "dateRead": "2026-11-15",
+      "pricingCliff": null
+    },
+    "claude-opus-4-8": {
+      "id": "claude-opus-4-8",
+      "label": "Claude Opus 4.8",
+      "shortLabel": "Opus 4.8",
+      "family": "opus",
+      "generation": "4.8",
+      "contextCeiling": 1000000,
+      "operationalSoftCeiling": 180000,
+      "ratesPer1M": {
+        "input": 5.0,
+        "output": 25.0,
+        "write5m": 6.25,
+        "write1h": 10.0,
+        "read": 0.5
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "source": "phase0_capabilities_and_cost_gate.md (OpenRouter /api/v1/models)",
+      "dateRead": "2026-11-15",
+      "pricingCliff": null
+    },
+    "claude-opus-4-7": {
+      "id": "claude-opus-4-7",
+      "label": "Claude Opus 4.7",
+      "shortLabel": "Opus 4.7",
+      "family": "opus",
+      "generation": "4.7",
+      "contextCeiling": 1000000,
+      "operationalSoftCeiling": 180000,
+      "ratesPer1M": {
+        "input": 5.0,
+        "output": 25.0,
+        "write5m": 6.25,
+        "write1h": 10.0,
+        "read": 0.5
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "source": "phase0_capabilities_and_cost_gate.md (OpenRouter /api/v1/models)",
+      "dateRead": "2026-11-15",
+      "pricingCliff": null
     },
     "claude-opus-4-6": {
       "id": "claude-opus-4-6",
@@ -153,6 +286,80 @@
         "write1h": 2.0,
         "read": 0.1
       },
+      "source": "phase0_capabilities_and_cost_gate.md (OpenRouter /api/v1/models)",
+      "dateRead": "2026-11-15",
+      "pricingCliff": null
+    },
+    "claude-opus-4-5": {
+      "id": "claude-opus-4-5",
+      "label": "Claude Opus 4.5",
+      "shortLabel": "Opus 4.5",
+      "family": "opus",
+      "generation": "4.5",
+      "contextCeiling": 200000,
+      "operationalSoftCeiling": 160000,
+      "ratesPer1M": {
+        "input": 5.0,
+        "output": 25.0,
+        "write5m": 6.25,
+        "write1h": 10.0,
+        "read": 0.5
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "source": "phase0_capabilities_and_cost_gate.md (OpenRouter /api/v1/models)",
+      "dateRead": "2026-11-15",
+      "pricingCliff": null
+    },
+    "claude-opus-4-1": {
+      "id": "claude-opus-4-1",
+      "label": "Claude Opus 4.1",
+      "shortLabel": "Opus 4.1",
+      "family": "opus",
+      "generation": "4.1",
+      "contextCeiling": 200000,
+      "operationalSoftCeiling": 160000,
+      "ratesPer1M": {
+        "input": 15.0,
+        "output": 75.0,
+        "write5m": 18.75,
+        "write1h": 30.0,
+        "read": 1.5
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "source": "phase0_capabilities_and_cost_gate.md (OpenRouter /api/v1/models)",
+      "dateRead": "2026-11-15",
+      "pricingCliff": null
+    },
+    "claude-opus-4-0": {
+      "id": "claude-opus-4-0",
+      "label": "Claude Opus 4",
+      "shortLabel": "Opus 4",
+      "family": "opus",
+      "generation": "4.0",
+      "contextCeiling": 200000,
+      "operationalSoftCeiling": 160000,
+      "ratesPer1M": {
+        "input": 15.0,
+        "output": 75.0,
+        "write5m": 18.75,
+        "write1h": 30.0,
+        "read": 1.5
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "source": "Claude Code 2.1.325 bakedCatalog (tier_15_75) & OpenRouter /api/v1/models (anthropic/claude-opus-4)",
+      "dateRead": "2026-11-15",
       "pricingCliff": null
     },
     "claude-sonnet-4-6": {
@@ -175,6 +382,56 @@
         "write1h": 2.0,
         "read": 0.1
       },
+      "source": "phase0_capabilities_and_cost_gate.md (OpenRouter /api/v1/models)",
+      "dateRead": "2026-11-15",
+      "pricingCliff": null
+    },
+    "claude-sonnet-4-5": {
+      "id": "claude-sonnet-4-5",
+      "label": "Claude Sonnet 4.5",
+      "shortLabel": "Sonnet 4.5",
+      "family": "sonnet",
+      "generation": "4.5",
+      "contextCeiling": 200000,
+      "operationalSoftCeiling": 160000,
+      "ratesPer1M": {
+        "input": 3.0,
+        "output": 15.0,
+        "write5m": 3.75,
+        "write1h": 6.0,
+        "read": 0.3
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "source": "phase0_capabilities_and_cost_gate.md (OpenRouter /api/v1/models)",
+      "dateRead": "2026-11-15",
+      "pricingCliff": null
+    },
+    "claude-sonnet-4-0": {
+      "id": "claude-sonnet-4-0",
+      "label": "Claude Sonnet 4",
+      "shortLabel": "Sonnet 4",
+      "family": "sonnet",
+      "generation": "4.0",
+      "contextCeiling": 200000,
+      "operationalSoftCeiling": 160000,
+      "ratesPer1M": {
+        "input": 3.0,
+        "output": 15.0,
+        "write5m": 3.75,
+        "write1h": 6.0,
+        "read": 0.3
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "source": "Claude Code 2.1.325 bakedCatalog (tier_3_15) & OpenRouter /api/v1/models (anthropic/claude-sonnet-4)",
+      "dateRead": "2026-11-15",
       "pricingCliff": null
     },
     "claude-haiku-4-5": {
@@ -197,6 +454,152 @@
         "write1h": 2.0,
         "read": 0.1
       },
+      "source": "phase0_capabilities_and_cost_gate.md (OpenRouter /api/v1/models)",
+      "dateRead": "2026-11-15",
+      "pricingCliff": null
+    },
+    "claude-3-7-sonnet": {
+      "id": "claude-3-7-sonnet",
+      "label": "Claude Sonnet 3.7",
+      "shortLabel": "Sonnet 3.7",
+      "family": "sonnet",
+      "generation": "3.7",
+      "contextCeiling": 200000,
+      "operationalSoftCeiling": 160000,
+      "ratesPer1M": {
+        "input": 3.0,
+        "output": 15.0,
+        "write5m": 3.75,
+        "write1h": 6.0,
+        "read": 0.3
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "source": "Claude Code 2.1.325 bakedCatalog (tier_3_15) & OpenRouter /api/v1/models (anthropic/claude-3.7-sonnet)",
+      "dateRead": "2026-11-15",
+      "pricingCliff": null
+    },
+    "claude-3-5-sonnet": {
+      "id": "claude-3-5-sonnet",
+      "label": "Claude Sonnet 3.5",
+      "shortLabel": "Sonnet 3.5",
+      "family": "sonnet",
+      "generation": "3.5",
+      "contextCeiling": 200000,
+      "operationalSoftCeiling": 160000,
+      "ratesPer1M": {
+        "input": 3.0,
+        "output": 15.0,
+        "write5m": 3.75,
+        "write1h": 6.0,
+        "read": 0.3
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "source": "Claude Code 2.1.325 bakedCatalog (tier_3_15) & OpenRouter /api/v1/models",
+      "dateRead": "2026-11-15",
+      "pricingCliff": null
+    },
+    "claude-3-5-haiku": {
+      "id": "claude-3-5-haiku",
+      "label": "Claude Haiku 3.5",
+      "shortLabel": "Haiku 3.5",
+      "family": "haiku",
+      "generation": "3.5",
+      "contextCeiling": 200000,
+      "operationalSoftCeiling": 160000,
+      "ratesPer1M": {
+        "input": 0.8,
+        "output": 4.0,
+        "write5m": 1.0,
+        "write1h": 1.6,
+        "read": 0.08
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "source": "Claude Code 2.1.325 bakedCatalog (haiku_35) & OpenRouter /api/v1/models (anthropic/claude-3.5-haiku)",
+      "dateRead": "2026-11-15",
+      "pricingCliff": null
+    },
+    "claude-mythos-5": {
+      "id": "claude-mythos-5",
+      "label": "Claude Mythos 5",
+      "shortLabel": "Mythos 5",
+      "family": "mythos",
+      "generation": "5",
+      "contextCeiling": 1000000,
+      "operationalSoftCeiling": 180000,
+      "ratesPer1M": {
+        "input": 10.0,
+        "output": 50.0,
+        "write5m": 12.5,
+        "write1h": 20.0,
+        "read": 1.0
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.1
+      },
+      "source": "Claude Code 2.1.325 bakedCatalog (tier_10_50; OpenRouter price unverified)",
+      "dateRead": "2026-11-15",
+      "pricingCliff": null
+    },
+    "claude-mythos-5-1": {
+      "id": "claude-mythos-5-1",
+      "label": "Claude Mythos 5.1",
+      "shortLabel": "Mythos 5.1",
+      "family": "mythos",
+      "generation": "5.1",
+      "contextCeiling": 1000000,
+      "operationalSoftCeiling": 180000,
+      "ratesPer1M": {
+        "input": 10.0,
+        "output": 50.0,
+        "write5m": 12.5,
+        "write1h": 20.0,
+        "read": 0.25
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.025
+      },
+      "source": "Claude Code 2.1.325 bakedCatalog (tier_10_50_cache_read_0_25; OpenRouter price unverified)",
+      "dateRead": "2026-11-15",
+      "pricingCliff": null
+    },
+    "claude-mythos-5-2": {
+      "id": "claude-mythos-5-2",
+      "label": "Claude Mythos 5.2",
+      "shortLabel": "Mythos 5.2",
+      "family": "mythos",
+      "generation": "5.2",
+      "contextCeiling": 1000000,
+      "operationalSoftCeiling": 180000,
+      "ratesPer1M": {
+        "input": 8.0,
+        "output": 40.0,
+        "write5m": 10.0,
+        "write1h": 16.0,
+        "read": 0.2
+      },
+      "multipliers": {
+        "write5m": 1.25,
+        "write1h": 2.0,
+        "read": 0.025
+      },
+      "source": "Claude Code 2.1.325 bakedCatalog (tier_8_40_cache_read_0_20; OpenRouter price unverified)",
+      "dateRead": "2026-11-15",
       "pricingCliff": null
     }
   }

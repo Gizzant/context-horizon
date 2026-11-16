@@ -651,7 +651,7 @@ export function resolveReadDiscountFactor(modelId = 'gemini-4-argon', options = 
 /**
  * Closed-form prefix break-even calculator ($C^*$) for both quota-weight parity pairs
  * (`Argon -> Flash` = 3,529 @ 95%, 4,286 @ 90%; `Carbon -> Flash` = 3,529 @ 95%, 4,286 @ 90%)
- * and Anthropic explicit-cache USD pairs (`Opus 5.5 -> Sonnet 5.5` = 6,522, `Opus 4.6 -> Sonnet 4.6` = 4,615).
+ * and Anthropic explicit-cache USD pairs (computed dynamically from catalog pricing rates).
  */
 export function computeClosedFormBreakEven({
   currentModel = 'gemini-4-argon',

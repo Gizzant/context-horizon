@@ -1445,7 +1445,10 @@ export function runCli(args = [], options = {}) {
     const ccCap = res.claudeCapabilities;
     const lines = [
       `[Highbeam Doctor] Status: ${res.ok ? 'HEALTHY' : 'ISSUES DETECTED'}`,
-      ...res.checks.map((c) => `  [${c.ok ? 'PASS' : 'FAIL'}] ${c.id}: ${c.detail}`),
+      ...res.checks.map((c) => {
+        const badge = c.status || (c.ok ? 'PASS' : 'FAIL');
+        return `  [${badge}] ${c.id}: ${c.detail}`;
+      }),
       ...(ccCap?.found
         ? [
             `  [${ccCap.contractValid ? 'PASS' : 'WARN'}] claude_pre_model_switch: Claude Code ${ccCap.claudeVersion || 'unknown'} | PreModelSwitch=${ccCap.preModelSwitchSupported} | ask=${ccCap.supportsAskDecision} | PreEffortChange=${ccCap.preEffortChangeSupported}`

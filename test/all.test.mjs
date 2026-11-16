@@ -66,4 +66,5 @@ import './web_boilerplate_fidelity.test.mjs';
 import './blast_radius_sim.test.mjs';
 import './duplicate_clone_shingle_bench.test.mjs';
 import './bucket_b_gamma_suites.test.mjs';
+import './claude-code/round2_suite_findings.test.mjs';
 
