@@ -35,10 +35,16 @@ const testSessionId = 'test_pre_invoc_session';
 const baseSidecar = createDefaultSidecar(testSessionId, REPO_ROOT_POSIX);
 
 // Warm V8 JIT & module caches once before measuring runtime hook SLA (<15ms)
+writeSidecarAtomicSync(testSessionId, baseSidecar);
 await handlePreInvocation({
   conversationId: testSessionId,
   prompt: '! warmup'
 });
+await handlePreInvocation({
+  conversationId: testSessionId,
+  prompt: '#check Warmup multi-module architecture check'
+});
+writeSidecarAtomicSync(testSessionId, baseSidecar);
 
 const t0 = process.hrtime.bigint();
 const res1 = await handlePreInvocation({

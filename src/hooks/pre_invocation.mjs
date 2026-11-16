@@ -1369,11 +1369,13 @@ export async function handlePreInvocation(inputData = {}) {
   sessionMeta.lastShardedSpecAlertTurn = shardedEval.lastAlertTurn;
 
   sidecar.sessionMeta = sessionMeta;
-  try {
-    writeSidecarAtomicSync(conversationId, sidecar);
-  } catch (err) {
-    recordHookDiagnostic('pre_invocation', 'recentPrompts.writeSidecar', err);
-  }
+  const flushSidecarOnce = () => {
+    try {
+      writeSidecarAtomicSync(conversationId, sidecar);
+    } catch (err) {
+      recordHookDiagnostic('pre_invocation', 'recentPrompts.writeSidecar', err);
+    }
+  };
 
   const rapidSameScopeCount = sessionMeta.recentPrompts.filter(
     e => e.targetScope && e.targetScope === matchedScope && e.wordCount <= 18
@@ -1387,10 +1389,14 @@ export async function handlePreInvocation(inputData = {}) {
       extraWarn: { continue: true },
       extraBlock: { continue: false }
     });
-    if (dripRes) return dripRes;
+    if (dripRes) {
+      if (!dripRes.terminationBehavior && dripRes.decision !== 'block') flushSidecarOnce();
+      return dripRes;
+    }
   }
 
   if (shardedEval.triggered) {
+    flushSidecarOnce();
     return {
       ephemeralMessage: shardedEval.steerContext,
       systemMessage: shardedEval.steerContext,
@@ -1401,8 +1407,12 @@ export async function handlePreInvocation(inputData = {}) {
   }
 
   if (!hasCheckTag) {
-    if (hasActiveSetMatch) return {};
+    if (hasActiveSetMatch) {
+      flushSidecarOnce();
+      return {};
+    }
     if (config.hook_level === 'guard' && turnCount > (config.trust_decay_turn_threshold || 10)) {
+      flushSidecarOnce();
       return {};
     }
   }
@@ -1534,7 +1544,10 @@ export async function handlePreInvocation(inputData = {}) {
       rewriteSuggestion
     );
     const vagueRes = applyHabitOverride('vague-prompt-rubric', 'REWRITE_SCORECARD', card);
-    if (vagueRes) return vagueRes;
+    if (vagueRes) {
+      if (!vagueRes.terminationBehavior && vagueRes.decision !== 'block') flushSidecarOnce();
+      return vagueRes;
+    }
   }
 
   const hasTurn1Workspace = Boolean(
@@ -1582,11 +1595,6 @@ export async function handlePreInvocation(inputData = {}) {
   if (rawPrompt && (inputData.cwd || inputData.workspacePath)) {
     sessionMeta.lastUserPrompt = rawPrompt;
     sidecar.sessionMeta = sessionMeta;
-    try {
-      writeSidecarAtomicSync(conversationId, sidecar);
-    } catch (err) {
-      recordHookDiagnostic('pre_invocation', 'lastUserPrompt.writeSidecar', err);
-    }
   }
 
   if (rawPrompt && inputData.bucketBShadow !== false) {
@@ -1628,6 +1636,7 @@ export async function handlePreInvocation(inputData = {}) {
         }
       });
       if (promptAnchor.triggered) {
+        flushSidecarOnce();
         return {
           ephemeralMessage: promptAnchor.reason,
           systemMessage: promptAnchor.reason,
@@ -1640,6 +1649,7 @@ export async function handlePreInvocation(inputData = {}) {
     }
   }
 
+  flushSidecarOnce();
   return {};
 }
 
