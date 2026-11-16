@@ -964,7 +964,7 @@
         const activeSignalK = Number((totalUsedK - reclaimableK).toFixed(1));
         const safeLimitK = roundTenthsK(safeLimit);
         const maxK = Math.round(maxTokens / 1000);
-        const usedPct = Math.min(100, Math.round((rawUsedTokens / maxTokens) * 100));
+        const usedPct = Math.round((rawUsedTokens / maxTokens) * 100);
 
         // Cache Coherence (isCacheTrulyWarm per hn-ui-audit contract)
         const cache = state.quota?.cache || state.cache || {};

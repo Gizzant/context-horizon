@@ -258,7 +258,11 @@ function syncLiveCircuitBreakers(state, sessionKey) {
     lastBreakerSessionKey = sessionKey;
     lastBreakerStepCount = 0;
   } else if (steps.length < lastBreakerStepCount) {
-    circuitBreakers.purgeRewoundTurns(steps.length);
+    const lastSurviving = steps.length > 0 ? steps[steps.length - 1] : null;
+    const stepCutoff = lastSurviving
+      ? ((Number.isFinite(lastSurviving.stepIndex) ? lastSurviving.stepIndex : steps.length - 1) + 1)
+      : 0;
+    circuitBreakers.purgeRewoundTurns(stepCutoff);
     lastBreakerStepCount = steps.length;
   }
 
@@ -304,6 +308,9 @@ function syncLiveCircuitBreakers(state, sessionKey) {
           : (args.Replacement !== undefined
             ? args.Replacement
             : (args.ReplacementContent !== undefined ? args.ReplacementContent : chunksNew)));
+      const isPartialEdit = /^(replace_file_content|multi_replace_file_content)$/.test(toolName) ||
+        (toolName === 'edit_file' && args.Content === undefined && args.CodeContent === undefined &&
+          (args.Target !== undefined || args.TargetContent !== undefined || chunks !== null));
       circuitBreakers.recordTurn({
         turnIndex: Number.isFinite(st.stepIndex) ? st.stepIndex : idx,
         toolName,
@@ -312,7 +319,9 @@ function syncLiveCircuitBreakers(state, sessionKey) {
         failed,
         filePath,
         previousContent,
-        newContent
+        newContent,
+        isPartialEdit,
+        userPrompt: String(state?.lastUserPrompt || '')
       });
     }
   }
@@ -549,7 +558,7 @@ function buildCoachState(state, targetConvId) {
     }
     const actionableAlerts = combinedAlerts.filter((a) => a.guidance?.kind !== 'info');
     const primaryTripped = actionableAlerts.length > 0 ? actionableAlerts[actionableAlerts.length - 1] : null;
-    const trippedIds = new Set(combinedAlerts.map((a) => canonicalGuardIdForAlert(a)));
+    const trippedIds = new Set(actionableAlerts.map((a) => canonicalGuardIdForAlert(a)));
     const cfgDetectors = horizonCfg?.detectors || {};
     const guardList = Object.values(DETECTOR_CATALOG).filter((meta) => !meta.aliasOf).map((meta) => {
       const cfgMode = String(cfgDetectors[meta.id] || 'default').toLowerCase();
@@ -758,11 +767,15 @@ function buildCoachState(state, targetConvId) {
             const telDir = path.join(wsDir, '.agents', 'telemetry');
             let shardCount = Array.isArray(state.sessionMeta?.specShards) ? state.sessionMeta.specShards.length : 0;
             let turn1Steered = Boolean(state.turn1ContractSteered);
-            if (fs.existsSync(telDir)) {
+            if (fs.existsSync(telDir) && sessionKey && sessionKey !== 'default') {
               const pFiles = fs.readdirSync(telDir).filter((n) => n.startsWith('prompt_state.') && n.endsWith('.json'));
-              for (const pf of pFiles.slice(0, 3)) {
+              const safeKey = String(sessionKey).replace(/[^a-zA-Z0-9._-]/g, '_');
+              const exactNames = new Set([`prompt_state.${sessionKey}.json`, `prompt_state.${safeKey}.json`]);
+              for (const pf of pFiles) {
                 try {
                   const ps = JSON.parse(fs.readFileSync(path.join(telDir, pf), 'utf8'));
+                  const matchesSession = exactNames.has(pf) || ps?.sessionId === sessionKey;
+                  if (!matchesSession) continue;
                   if (shardCount === 0) {
                     shardCount = Math.max(shardCount, Array.isArray(ps?.specShards) ? ps.specShards.length : 0);
                   }

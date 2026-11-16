@@ -219,6 +219,8 @@ export class CircuitBreakers {
     this.turnRecords = [];
     // fileHashHistory: normalizedPath -> Array<{ turnIndex, hash }>
     this.fileHashHistory = new Map();
+    // partialHunkHistory: normalizedPath -> Array<{ turnIndex, prevHash, newHash }>
+    this.partialHunkHistory = new Map();
     // DET-17b state tracking
     this.readFiles = new Set();
     this.hasSearchedWorkspace = false;
@@ -284,8 +286,9 @@ export class CircuitBreakers {
             ? args.Replacement
             : (args.ReplacementContent !== undefined ? args.ReplacementContent : chunksNew))));
 
+    const isPartialEdit = Boolean(turnInput.isPartialEdit);
     let fileHash = turnInput.fileHash || null;
-    if (!fileHash && resolvedNewContent !== undefined && resolvedNewContent !== null) {
+    if (!fileHash && !isPartialEdit && resolvedNewContent !== undefined && resolvedNewContent !== null) {
       fileHash = sha256Hex(resolvedNewContent);
     }
 
@@ -354,8 +357,54 @@ export class CircuitBreakers {
       this.activeAlerts.push(alert);
     }
 
-    // 2. Evaluate DET-02 (AST Edit Oscillation: SHA-256 matches T-2 or T-3 within 5 turns)
-    if (normPath && fileHash && !failed) {
+    // 2. Evaluate DET-02 (AST Edit Oscillation: full-file hash match OR exact non-empty hunk reversal)
+    if (normPath && !failed && isPartialEdit && !turnInput.fileHash) {
+      const prevStr = String(resolvedPreviousContent ?? '').trim();
+      const nextStr = String(resolvedNewContent ?? '').trim();
+      if (prevStr.length >= 12 && nextStr.length >= 12 && prevStr !== nextStr) {
+        const prevHash = sha256Hex(prevStr);
+        const newHash = sha256Hex(nextStr);
+        if (!this.partialHunkHistory.has(normPath)) {
+          this.partialHunkHistory.set(normPath, []);
+        }
+        const pHist = this.partialHunkHistory.get(normPath);
+        const priorRev = pHist.find((entry) =>
+          (turnIndex - entry.turnIndex) <= 5 &&
+          entry.newHash === prevHash &&
+          entry.prevHash === newHash
+        );
+        pHist.push({ turnIndex, prevHash, newHash });
+        if (priorRev) {
+          if (this.hysteresisLock && typeof this.hysteresisLock.engage === 'function') {
+            this.hysteresisLock.engage({
+              stepId,
+              model: escalatedFrontierModel,
+              effort: 'high',
+              detectorId: 'DET-02',
+              reason: `DET-02 Edit Oscillation on ${rawPath} (reversed turn #${priorRev.turnIndex} hunk)`,
+              turnIndex
+            });
+          }
+          const alert = {
+            detectorId: 'DET-02',
+            name: 'AST Edit Oscillation',
+            severity: 'CRITICAL',
+            turnIndex,
+            filePath: rawPath,
+            matchedTurnIndex: priorRev.turnIndex,
+            promptPill: {
+              label: '🛡️ Inject 3-Stage Stepwise Refinement Contract',
+              injectAsNextUserMessage: true,
+              preservesPrefixCache: true,
+              prompt: THREE_STAGE_CONTRACT_PROMPT
+            },
+            message: `🚨 DET-02 AST Edit Oscillation: ${rawPath} reversed hunk from turn #${priorRev.turnIndex}.`
+          };
+          triggered.push(alert);
+          this.activeAlerts.push(alert);
+        }
+      }
+    } else if (normPath && fileHash && !failed) {
       if (!this.fileHashHistory.has(normPath)) {
         this.fileHashHistory.set(normPath, []);
       }
@@ -439,8 +488,8 @@ export class CircuitBreakers {
       }
     }
 
-    // 4. Evaluate DET-22 (Destructive Code-Stripping / >50% File Shrinkage)
-    if (rawPath && resolvedPreviousContent !== undefined && resolvedNewContent !== undefined) {
+    // 4. Evaluate DET-22 (Destructive Code-Stripping / >50% whole-file shrinkage; skipped for partial hunk edits)
+    if (!isPartialEdit && rawPath && resolvedPreviousContent !== undefined && resolvedNewContent !== undefined) {
       const shrinkAudit = inspectFileShrinkage({
         previousContent: resolvedPreviousContent,
         newContent: resolvedNewContent,
@@ -609,6 +658,20 @@ export class CircuitBreakers {
       } else {
         this.fileHashHistory.set(normPath, kept);
       }
+    }
+
+    for (const [normPath, hist] of this.partialHunkHistory.entries()) {
+      const kept = hist.filter((entry) => entry.turnIndex < cutoff);
+      if (kept.length === 0) {
+        this.partialHunkHistory.delete(normPath);
+      } else {
+        this.partialHunkHistory.set(normPath, kept);
+      }
+    }
+
+    if (cutoff <= 0) {
+      this.readFiles.clear();
+      this.hasSearchedWorkspace = false;
     }
 
     if (this.hysteresisLock && typeof this.hysteresisLock.onTrajectoryRewind === 'function') {

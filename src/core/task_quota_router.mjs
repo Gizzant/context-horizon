@@ -51,7 +51,7 @@ export const MODEL_CATALOG = {
   },
   'gemini-4-argon': {
     id: 'gemini-4-argon',
-    aliases: ['gemini-4-argon-high', 'gemini-4-argon-medium', 'gemini-4-argon-med', 'gemini-4-argon-low'],
+    aliases: ['gemini-4-argon-high', 'gemini-4-argon-medium', 'gemini-4-argon-med', 'gemini-4-argon-low', 'gemini-pro-orchestrator-argon', 'orchestrator-argon'],
     family: 'argon',
     label: 'Gemini 4 Argon',
     supported_efforts: ['low', 'medium', 'high'],
@@ -62,9 +62,23 @@ export const MODEL_CATALOG = {
     deprecated_after: null,
     multipliers: { low: 3.0, med: 5.5, medium: 5.5, high: 9.25 }
   },
+  'gemini-4-hydrogen': {
+    id: 'gemini-4-hydrogen',
+    aliases: ['gemini-4-hydrogen-xhigh', 'gemini-4-hydrogen-extra-high', 'gemini-4-hydrogen-high', 'gemini-4-hydrogen-medium', 'gemini-4-hydrogen-med', 'gemini-4-hydrogen-low', 'gemini-pro-orchestrator-hydrogen', 'orchestrator-hydrogen'],
+    family: 'hydrogen',
+    label: 'Gemini 4 Hydrogen',
+    supported_efforts: ['low', 'medium', 'high', 'xhigh'],
+    caching_mode: 'implicit_only',
+    supports_explicit_cache: false,
+    antigravity_min_tier: 'pro',
+    shared_pool_ceiling: SHARED_1M_CONTEXT_POOL_TOKENS,
+    max_output_tokens: 65536,
+    deprecated_after: null,
+    multipliers: { low: 1.5, med: 2.5, medium: 2.5, high: 4.0, xhigh: 6.0 }
+  },
   'gemini-4-carbon': {
     id: 'gemini-4-carbon',
-    aliases: ['gemini-4-carbon-high', 'gemini-4-carbon-medium', 'gemini-4-carbon-med', 'gemini-4-carbon-low', 'M427', 'M437', 'M438'],
+    aliases: ['gemini-4-carbon-high', 'gemini-4-carbon-medium', 'gemini-4-carbon-med', 'gemini-4-carbon-low', 'M427', 'M437', 'M438', 'gemini-pro-orchestrator', 'orchestrator', 'orchestrator-carbon', 'antigravity-orchestrator'],
     family: 'carbon',
     label: 'Gemini 4 Carbon',
     supported_efforts: ['low', 'medium', 'high'],
@@ -150,6 +164,34 @@ export const MODEL_CATALOG = {
     supports_explicit_cache: true,
     antigravity_min_tier: 'ultra',
     shared_pool_ceiling: 1000000,
+    deprecated_after: null,
+    multipliers: { low: 12.0, med: 18.0, medium: 18.0, high: 26.0 }
+  },
+  'claude-mythos-5-2': {
+    id: 'claude-mythos-5-2',
+    aliases: ['claude-mythos-5.2', 'mythos-5-2', 'mythos-5.2'],
+    family: 'mythos',
+    label: 'Claude Mythos 5.2',
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'ultra',
+    shared_pool_ceiling: 1000000,
+    max_output_tokens: 128000,
+    deprecated_after: null,
+    multipliers: { low: 10.0, med: 15.0, medium: 15.0, high: 22.0 }
+  },
+  'claude-mythos-5-1': {
+    id: 'claude-mythos-5-1',
+    aliases: ['claude-mythos-5.1', 'mythos-5-1', 'mythos-5.1'],
+    family: 'mythos',
+    label: 'Claude Mythos 5.1',
+    supported_efforts: ['low', 'medium', 'high'],
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'ultra',
+    shared_pool_ceiling: 1000000,
+    max_output_tokens: 128000,
     deprecated_after: null,
     multipliers: { low: 12.0, med: 18.0, medium: 18.0, high: 26.0 }
   },
@@ -258,6 +300,7 @@ export const EXPECTED_OUTPUT_TOKENS_BY_EFFORT = Object.freeze({
   med: 1500,
   medium: 1500,
   high: 3500,
+  xhigh: 5000,
   max: 6000
 });
 
@@ -325,13 +368,25 @@ export function normalizeModelId(rawModel = '') {
   if (Object.prototype.hasOwnProperty.call(ANTIGRAVITY_ENUM_ALIASES, lower)) {
     return ANTIGRAVITY_ENUM_ALIASES[lower];
   }
+  const parenStripped = lower.replace(/\s*\((?:low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard|extended[\s-]*thinking)(?:\s*[,/|]\s*(?:low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard|extended[\s-]*thinking))*\)\s*$/i, '').trim();
+  const parenSlug = parenStripped.replace(/[()]+/g, ' ').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').replace(/-(xhigh|extra-high|high|medium|med|low)$/i, '');
+  if (Object.prototype.hasOwnProperty.call(ANTIGRAVITY_ENUM_ALIASES, parenSlug)) {
+    return ANTIGRAVITY_ENUM_ALIASES[parenSlug];
+  }
+  if (lower.includes('orchestrator-argon') || parenSlug.includes('orchestrator-argon')) return 'gemini-4-argon';
+  if (lower.includes('orchestrator-hydrogen') || parenSlug.includes('orchestrator-hydrogen')) return 'gemini-4-hydrogen';
+  if (lower.includes('orchestrator') || parenSlug.includes('orchestrator')) return 'gemini-4-carbon';
   if (lower.includes('carbon-cyber-permissive')) return 'gemini-4-carbon-cyber-permissive';
   if (lower.includes('carbon')) return 'gemini-4-carbon';
   if (lower.includes('flash')) return 'gemini-3.8-flash';
   if (lower.includes('argon')) return 'gemini-4-argon';
+  if (lower.includes('hydrogen')) return 'gemini-4-hydrogen';
   if (lower.includes('fable-5-2') || lower.includes('fable-5.2')) return 'claude-fable-5-2';
   if (lower.includes('fable-5-1') || lower.includes('fable-5.1')) return 'claude-fable-5-1';
   if (lower.includes('fable')) return 'claude-fable-5-2';
+  if (lower.includes('mythos-5-2') || lower.includes('mythos-5.2')) return 'claude-mythos-5-2';
+  if (lower.includes('mythos-5-1') || lower.includes('mythos-5.1')) return 'claude-mythos-5-1';
+  if (lower.includes('mythos')) return 'claude-mythos-5-2';
   if (lower.includes('haiku-5-5') || lower.includes('haiku-5.5')) return 'claude-haiku-5-5';
   if (lower.includes('haiku-4-5') || lower.includes('haiku-4.5')) return 'claude-haiku-4-5';
   if (lower.includes('haiku')) return 'claude-haiku-5-5';
@@ -372,6 +427,7 @@ export function normalizeEffortTier(rawEffort = '') {
   const lower = String(rawEffort || '').toLowerCase().trim();
   if (lower === 'low' || lower === 'min') return 'low';
   if (lower === 'medium' || lower === 'med') return 'medium';
+  if (lower === 'xhigh' || lower === 'extra-high' || lower === 'extra high') return 'xhigh';
   if (lower === 'high' || lower === 'max') return 'high';
   return 'high';
 }
@@ -576,15 +632,16 @@ export function classifyTaskComplexity(promptOrOptions = {}, maybeOptions = {}) 
 
   if (hasLoopSignal) {
     const isFlashLow = activeModel === 'gemini-3.8-flash' && activeEffort === 'low';
+    const isHydrogenLow = activeModel === 'gemini-4-hydrogen' && activeEffort === 'low';
     const isArgonLow = activeModel === 'gemini-4-argon' && activeEffort === 'low';
     const isCarbonLow = activeModel.includes('carbon') && activeEffort === 'low';
-    if (isFlashLow || isArgonLow || isCarbonLow || recommendedModel === 'gemini-3.8-flash') {
+    if (isFlashLow || isHydrogenLow || isArgonLow || isCarbonLow || recommendedModel === 'gemini-3.8-flash') {
       loopEscalated = true;
       escalationReason = det01Count >= 2
         ? `DET-01 retry churn (${det01Count} consecutive failures)`
         : `DET-02 file-hash edit oscillation (${det02Count} flips)`;
       recommendedModel = isActiveCarbon ? activeModel : 'gemini-4-argon';
-      recommendedEffort = (isArgonLow || isCarbonLow) && det01Count >= 3 ? 'high' : 'medium';
+      recommendedEffort = (isArgonLow || isCarbonLow || isHydrogenLow) && det01Count >= 3 ? 'high' : 'medium';
       if (complexityTier === 'LOW') {
         complexityTier = 'MEDIUM';
       }

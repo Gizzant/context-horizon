@@ -252,11 +252,27 @@ export const SWARM_IDLE_TTL_CONSTANTS = Object.freeze({
  */
 export function isFrontierSwarmModel(modelId = '') {
   const desc = resolveModelDescriptor(modelId);
-  if (desc && (desc.family === 'carbon' || desc.family === 'argon' || desc.family === 'opus' || desc.family === 'sonnet')) {
+  if (
+    desc &&
+    (desc.family === 'carbon' ||
+      desc.family === 'argon' ||
+      desc.family === 'opus' ||
+      desc.family === 'sonnet' ||
+      desc.family === 'fable' ||
+      desc.family === 'mythos')
+  ) {
     return true;
   }
   const norm = normalizeModelId(modelId);
-  return norm.includes('carbon') || norm.includes('argon') || norm.includes('opus') || norm.includes('pro');
+  return (
+    norm.includes('carbon') ||
+    norm.includes('argon') ||
+    norm.includes('opus') ||
+    norm.includes('fable') ||
+    norm.includes('mythos') ||
+    norm.includes('orchestrator') ||
+    norm.includes('pro')
+  );
 }
 
 /**

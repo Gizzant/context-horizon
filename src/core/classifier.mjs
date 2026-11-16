@@ -14,6 +14,7 @@ import {
   resolveEffortProfile,
   resolveModelCeiling,
   resolveModelCeilingDetailed,
+  resolveModelDescriptor,
   resolvePricePerM,
   resolveSurfaceTag,
   scaleEffortProfileForCeiling,
@@ -1652,17 +1653,30 @@ export function classifyHorizon(rawSteps, options = {}) {
       canonicalPath: canonicalWorkspace,
       projectId
     },
-    model: {
-      id: modelId,
-      displayName: humanizeModelLabel(modelId),
-      source: options.modelSource || null,
-      inputPricePerMillionUsd: pricePerM,
-      nativeCeilingTokens: ceilingDetails.ceilingTokens,
-      ceilingSource: ceilingDetails.source,
-      isClamped1MModel: Boolean(ceilingDetails.isClamped1MModel),
-      clampedLabel: ceilingDetails.clampedLabel || '',
-      patchedTier: ceilingDetails.patchedTier || null
-    },
+    model: (() => {
+      const desc = resolveModelDescriptor(modelId);
+      const rawStr = String(options.modelLabel || modelId || '').trim();
+      const effortOnlyRe = /\s*\((?:low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard|extended[\s-]*thinking)(?:\s*[,/|]\s*(?:low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard|extended[\s-]*thinking))*\)\s*$/i;
+      const strippedLabel = rawStr.replace(effortOnlyRe, '').trim();
+      const isHumanLabel = /[A-Z ]/.test(strippedLabel) && !/^M\d+$/i.test(strippedLabel);
+      const displayName = isHumanLabel
+        ? strippedLabel
+        : (desc?.label || humanizeModelLabel(modelId));
+      return {
+        id: modelId,
+        canonicalId: desc?.id || null,
+        family: desc?.family || null,
+        rawLabel: rawStr,
+        displayName,
+        source: options.modelSource || null,
+        inputPricePerMillionUsd: pricePerM,
+        nativeCeilingTokens: ceilingDetails.ceilingTokens,
+        ceilingSource: ceilingDetails.source,
+        isClamped1MModel: Boolean(ceilingDetails.isClamped1MModel),
+        clampedLabel: ceilingDetails.clampedLabel || '',
+        patchedTier: ceilingDetails.patchedTier || null
+      };
+    })(),
     parseHealth: options.parseHealth || rawSteps.health || {
       totalLines: rawSteps.length,
       parsedLines: rawSteps.length,

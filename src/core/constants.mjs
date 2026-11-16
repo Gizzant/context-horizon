@@ -159,7 +159,15 @@ export const ANTIGRAVITY_ENUM_ALIASES = Object.freeze({
   'm427': 'gemini-4-carbon',
   'm437': 'gemini-4-carbon',
   'm438': 'gemini-4-carbon',
-  'm670': 'gemini-4-carbon-cyber-permissive'
+  'm670': 'gemini-4-carbon-cyber-permissive',
+  'orchestrator': 'gemini-4-carbon',
+  'orchestrator-carbon': 'gemini-4-carbon',
+  'antigravity-orchestrator': 'gemini-4-carbon',
+  'gemini-pro-orchestrator': 'gemini-4-carbon',
+  'gemini-pro-orchestrator-argon': 'gemini-4-argon',
+  'orchestrator-argon': 'gemini-4-argon',
+  'gemini-pro-orchestrator-hydrogen': 'gemini-4-hydrogen',
+  'orchestrator-hydrogen': 'gemini-4-hydrogen'
 });
 
 export const PLAN_TIER_RANK = Object.freeze({
@@ -258,6 +266,29 @@ export const FLASH_RATE_SCHEDULES = Object.freeze([
   })
 ]);
 
+export const HYDROGEN_RATE_SCHEDULES = Object.freeze([
+  Object.freeze({
+    id: 'hydrogen-standard-from-2026-11-12',
+    window: 'standard',
+    effective_from_utc: null,
+    effective_until_utc: null,
+    standard: Object.freeze({
+      input_per_1m: 1.50,
+      output_per_1m: 7.50,
+      write_5m_per_1m: 1.50,
+      write_1h_per_1m: 1.50,
+      cached_read_per_1m: 0.075
+    }),
+    priority: Object.freeze({
+      input_per_1m: 2.70,
+      output_per_1m: 13.50,
+      write_5m_per_1m: 2.70,
+      write_1h_per_1m: 2.70,
+      cached_read_per_1m: 0.075
+    })
+  })
+]);
+
 /**
  * Frozen Schema Gate Definitions for Shared Core (`ModelDescriptor`, `RateSchedule`, `AgentCacheKey`, `SwarmAgentState`).
  */
@@ -328,7 +359,11 @@ export const MODEL_REGISTRY = Object.freeze({
       'gemini-4-carbon-low',
       'M427',
       'M437',
-      'M438'
+      'M438',
+      'gemini-pro-orchestrator',
+      'orchestrator',
+      'orchestrator-carbon',
+      'antigravity-orchestrator'
     ]),
     family: 'carbon',
     label: 'Gemini 4 Carbon',
@@ -365,7 +400,9 @@ export const MODEL_REGISTRY = Object.freeze({
       'gemini-4-argon-high',
       'gemini-4-argon-medium',
       'gemini-4-argon-med',
-      'gemini-4-argon-low'
+      'gemini-4-argon-low',
+      'gemini-pro-orchestrator-argon',
+      'orchestrator-argon'
     ]),
     family: 'argon',
     label: 'Gemini 4 Argon',
@@ -379,6 +416,31 @@ export const MODEL_REGISTRY = Object.freeze({
     max_output_tokens: null,
     deprecated_after: null,
     rate_schedules: CARBON_RATE_SCHEDULES
+  }),
+  'gemini-4-hydrogen': Object.freeze({
+    id: 'gemini-4-hydrogen',
+    aliases: Object.freeze([
+      'gemini-4-hydrogen-xhigh',
+      'gemini-4-hydrogen-extra-high',
+      'gemini-4-hydrogen-high',
+      'gemini-4-hydrogen-medium',
+      'gemini-4-hydrogen-med',
+      'gemini-4-hydrogen-low',
+      'orchestrator-hydrogen',
+      'gemini-pro-orchestrator-hydrogen'
+    ]),
+    family: 'hydrogen',
+    label: 'Gemini 4 Hydrogen',
+    supported_efforts: Object.freeze(['low', 'medium', 'high', 'xhigh']),
+    supported_effort_tiers: Object.freeze(['low', 'medium', 'high', 'xhigh']),
+    caching_mode: 'implicit_only',
+    supports_explicit_cache: false,
+    antigravity_min_tier: 'pro',
+    shared_pool_ceiling: SHARED_1M_CONTEXT_POOL_TOKENS,
+    shared_context_pool_tokens: SHARED_1M_CONTEXT_POOL_TOKENS,
+    max_output_tokens: 65536,
+    deprecated_after: null,
+    rate_schedules: HYDROGEN_RATE_SCHEDULES
   }),
   'gemini-3.8-flash': Object.freeze({
     id: 'gemini-3.8-flash',
@@ -478,7 +540,7 @@ export const MODEL_REGISTRY = Object.freeze({
     supports_explicit_cache: true,
     antigravity_min_tier: 'ultra',
     shared_pool_ceiling: 1000000,
-    max_output_tokens: null,
+    max_output_tokens: 128000,
     deprecated_after: null,
     rate_schedules: buildAnthropicSchedule({ input: 8.00, output: 40.00, write5m: 10.00, write1h: 16.00, cachedRead: 0.20 })
   }),
@@ -492,7 +554,7 @@ export const MODEL_REGISTRY = Object.freeze({
     supports_explicit_cache: true,
     antigravity_min_tier: 'ultra',
     shared_pool_ceiling: 1000000,
-    max_output_tokens: null,
+    max_output_tokens: 128000,
     deprecated_after: null,
     rate_schedules: buildAnthropicSchedule({ input: 10.00, output: 50.00, write5m: 12.50, write1h: 20.00, cachedRead: 0.25 })
   }),
@@ -507,6 +569,48 @@ export const MODEL_REGISTRY = Object.freeze({
     antigravity_min_tier: 'ultra',
     shared_pool_ceiling: 1000000,
     max_output_tokens: null,
+    deprecated_after: null,
+    rate_schedules: buildAnthropicSchedule({ input: 10.00, output: 50.00, write5m: 12.50, write1h: 20.00, cachedRead: 1.00 })
+  }),
+  'claude-mythos-5-2': Object.freeze({
+    id: 'claude-mythos-5-2',
+    aliases: Object.freeze(['claude-mythos-5.2', 'mythos-5-2', 'mythos-5.2']),
+    family: 'mythos',
+    label: 'Claude Mythos 5.2',
+    supported_efforts: Object.freeze(['low', 'medium', 'high']),
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'ultra',
+    shared_pool_ceiling: 1000000,
+    max_output_tokens: 128000,
+    deprecated_after: null,
+    rate_schedules: buildAnthropicSchedule({ input: 8.00, output: 40.00, write5m: 10.00, write1h: 16.00, cachedRead: 0.20 })
+  }),
+  'claude-mythos-5-1': Object.freeze({
+    id: 'claude-mythos-5-1',
+    aliases: Object.freeze(['claude-mythos-5.1', 'mythos-5-1', 'mythos-5.1']),
+    family: 'mythos',
+    label: 'Claude Mythos 5.1',
+    supported_efforts: Object.freeze(['low', 'medium', 'high']),
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'ultra',
+    shared_pool_ceiling: 1000000,
+    max_output_tokens: 128000,
+    deprecated_after: null,
+    rate_schedules: buildAnthropicSchedule({ input: 10.00, output: 50.00, write5m: 12.50, write1h: 20.00, cachedRead: 0.25 })
+  }),
+  'claude-mythos-5': Object.freeze({
+    id: 'claude-mythos-5',
+    aliases: Object.freeze(['mythos-5']),
+    family: 'mythos',
+    label: 'Claude Mythos 5',
+    supported_efforts: Object.freeze(['low', 'medium', 'high']),
+    caching_mode: 'explicit_and_implicit',
+    supports_explicit_cache: true,
+    antigravity_min_tier: 'ultra',
+    shared_pool_ceiling: 1000000,
+    max_output_tokens: 128000,
     deprecated_after: null,
     rate_schedules: buildAnthropicSchedule({ input: 10.00, output: 50.00, write5m: 12.50, write1h: 20.00, cachedRead: 1.00 })
   }),
@@ -771,6 +875,15 @@ export const MODEL_PRICING_PER_MILLION = {
   'claude-fable-5-1': 10.00,
   'claude-fable-5.1': 10.00,
   'claude-fable-5': 10.00,
+  'claude-mythos-5-2': 8.00,
+  'claude-mythos-5.2': 8.00,
+  'mythos-5-2': 8.00,
+  'mythos-5.2': 8.00,
+  'claude-mythos-5-1': 10.00,
+  'claude-mythos-5.1': 10.00,
+  'mythos-5-1': 10.00,
+  'mythos-5.1': 10.00,
+  'claude-mythos-5': 10.00,
   'claude-opus-5': 5.00,
   'claude-sonnet-5': 2.00,
   'claude-opus-4-8': 5.00,
@@ -804,12 +917,27 @@ export const MODEL_PRICING_PER_MILLION = {
   'gemini-4-argon-medium': 2.00,
   'gemini-4-argon-med': 2.00,
   'gemini-4-argon-low': 2.00,
+  'gemini-pro-orchestrator-argon': 2.00,
+  'orchestrator-argon': 2.00,
+  'gemini-4-hydrogen': 1.50,
+  'gemini-4-hydrogen-xhigh': 1.50,
+  'gemini-4-hydrogen-extra-high': 1.50,
+  'gemini-4-hydrogen-high': 1.50,
+  'gemini-4-hydrogen-medium': 1.50,
+  'gemini-4-hydrogen-med': 1.50,
+  'gemini-4-hydrogen-low': 1.50,
+  'gemini-pro-orchestrator-hydrogen': 1.50,
+  'orchestrator-hydrogen': 1.50,
   'gemini-4-carbon': 2.00,
   'gemini-4-carbon-high': 2.00,
   'gemini-4-carbon-medium': 2.00,
   'gemini-4-carbon-med': 2.00,
   'gemini-4-carbon-low': 2.00,
   'gemini-4-carbon-cyber-permissive': 2.00,
+  'gemini-pro-orchestrator': 2.00,
+  'orchestrator': 2.00,
+  'orchestrator-carbon': 2.00,
+  'antigravity-orchestrator': 2.00,
   'm427': 2.00,
   'm437': 2.00,
   'm438': 2.00,
@@ -839,6 +967,15 @@ export const MODEL_CEILINGS = Object.freeze({
   'claude-fable-5-1': 1000000,
   'claude-fable-5.1': 1000000,
   'claude-fable-5': 1000000,
+  'claude-mythos-5-2': 1000000,
+  'claude-mythos-5.2': 1000000,
+  'mythos-5-2': 1000000,
+  'mythos-5.2': 1000000,
+  'claude-mythos-5-1': 1000000,
+  'claude-mythos-5.1': 1000000,
+  'mythos-5-1': 1000000,
+  'mythos-5.1': 1000000,
+  'claude-mythos-5': 1000000,
   'claude-opus-5': 1000000,
   'claude-sonnet-5': 1000000,
   'claude-opus-4-8': 1000000,
@@ -872,12 +1009,27 @@ export const MODEL_CEILINGS = Object.freeze({
   'gemini-4-argon-medium': SHARED_1M_CONTEXT_POOL_TOKENS,
   'gemini-4-argon-med': SHARED_1M_CONTEXT_POOL_TOKENS,
   'gemini-4-argon-low': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'gemini-pro-orchestrator-argon': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'orchestrator-argon': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'gemini-4-hydrogen': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'gemini-4-hydrogen-xhigh': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'gemini-4-hydrogen-extra-high': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'gemini-4-hydrogen-high': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'gemini-4-hydrogen-medium': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'gemini-4-hydrogen-med': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'gemini-4-hydrogen-low': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'gemini-pro-orchestrator-hydrogen': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'orchestrator-hydrogen': SHARED_1M_CONTEXT_POOL_TOKENS,
   'gemini-4-carbon': SHARED_1M_CONTEXT_POOL_TOKENS,
   'gemini-4-carbon-high': SHARED_1M_CONTEXT_POOL_TOKENS,
   'gemini-4-carbon-medium': SHARED_1M_CONTEXT_POOL_TOKENS,
   'gemini-4-carbon-med': SHARED_1M_CONTEXT_POOL_TOKENS,
   'gemini-4-carbon-low': SHARED_1M_CONTEXT_POOL_TOKENS,
   'gemini-4-carbon-cyber-permissive': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'gemini-pro-orchestrator': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'orchestrator': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'orchestrator-carbon': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'antigravity-orchestrator': SHARED_1M_CONTEXT_POOL_TOKENS,
   'm427': SHARED_1M_CONTEXT_POOL_TOKENS,
   'm437': SHARED_1M_CONTEXT_POOL_TOKENS,
   'm438': SHARED_1M_CONTEXT_POOL_TOKENS,
@@ -1024,13 +1176,16 @@ function buildCeilingDescriptor(ceilingTokens, source, modelKey = '') {
  * "Claude Opus 5.5 (Medium)" -> "claude-opus-5.5"; "gemini-4-argon" -> "gemini-4-argon";
  * Antigravity enum aliases ("M427", "M437", "M438") -> "gemini-4-carbon", "M670" -> "gemini-4-carbon-cyber-permissive".
  */
+const EFFORT_ONLY_PAREN_RE = /\s*\((?:low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard|extended[\s-]*thinking)(?:\s*[,/|]\s*(?:low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard|extended[\s-]*thinking))*\)\s*$/i;
+
 export function normalizeModelId(modelId = '') {
   let s = String(modelId ?? '').trim().toLowerCase();
-  // Strip trailing "(Medium)" / "(High, Thinking)" style suffixes (possibly repeated).
-  while (/\s*\([^()]*\)\s*$/.test(s)) {
-    s = s.replace(/\s*\([^()]*\)\s*$/, '');
+  // Strip trailing effort/mode suffixes like "(Medium)" or "(High, Thinking)",
+  // while preserving model/codename qualifiers like "(Carbon)" or "(Cyber Permissive)".
+  while (EFFORT_ONLY_PAREN_RE.test(s)) {
+    s = s.replace(EFFORT_ONLY_PAREN_RE, '');
   }
-  s = s.replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  s = s.replace(/[()]+/g, ' ').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
   if (Object.prototype.hasOwnProperty.call(ANTIGRAVITY_ENUM_ALIASES, s)) {
     return ANTIGRAVITY_ENUM_ALIASES[s];
   }
@@ -1040,7 +1195,7 @@ export function normalizeModelId(modelId = '') {
 export const normalizeModelKey = normalizeModelId;
 
 function stripEffortSuffix(modelKey = '') {
-  return String(modelKey || '').replace(/-(high|medium|med|low)$/i, '');
+  return String(modelKey || '').replace(/-(xhigh|extra-high|high|medium|med|low)$/i, '');
 }
 
 /**
@@ -1078,12 +1233,20 @@ export function resolveModelDescriptor(modelId = 'gemini-4-argon') {
   if (hyphenated.includes('carbon-cyber-permissive')) return MODEL_REGISTRY['gemini-4-carbon-cyber-permissive'];
   if (hyphenated.includes('carbon')) return MODEL_REGISTRY['gemini-4-carbon'];
   if (hyphenated.includes('argon')) return MODEL_REGISTRY['gemini-4-argon'];
+  if (hyphenated.includes('hydrogen')) return MODEL_REGISTRY['gemini-4-hydrogen'];
   if (hyphenated.includes('3-8-flash') || hyphenated.includes('flash')) return MODEL_REGISTRY['gemini-3.8-flash'];
   if (hyphenated.includes('fable-5-2')) return MODEL_REGISTRY['claude-fable-5-2'];
   if (hyphenated.includes('fable-5-1')) return MODEL_REGISTRY['claude-fable-5-1'];
+  if (hyphenated.includes('fable')) return MODEL_REGISTRY['claude-fable-5-2'];
+  if (hyphenated.includes('mythos-5-2')) return MODEL_REGISTRY['claude-mythos-5-2'];
+  if (hyphenated.includes('mythos-5-1')) return MODEL_REGISTRY['claude-mythos-5-1'];
+  if (hyphenated.includes('mythos-5')) return MODEL_REGISTRY['claude-mythos-5'];
+  if (hyphenated.includes('mythos')) return MODEL_REGISTRY['claude-mythos-5-2'];
   if (hyphenated.includes('haiku-5-5')) return MODEL_REGISTRY['claude-haiku-5-5'];
   if (hyphenated.includes('sonnet-5-5')) return MODEL_REGISTRY['claude-sonnet-5-5'];
   if (hyphenated.includes('opus-5-5')) return MODEL_REGISTRY['claude-opus-5-5'];
+  if (hyphenated.includes('opus-4-8')) return MODEL_REGISTRY['claude-opus-4-8'];
+  if (hyphenated.includes('opus-4-7')) return MODEL_REGISTRY['claude-opus-4-7'];
   if (hyphenated.includes('sonnet-4-6')) return MODEL_REGISTRY['claude-sonnet-4-6'];
   if (hyphenated.includes('sonnet-4-5')) return MODEL_REGISTRY['claude-sonnet-4-5'];
   if (hyphenated.includes('opus-4-6')) return MODEL_REGISTRY['claude-opus-4-6'];
@@ -1952,7 +2115,7 @@ export function resolveEffortProfile(turnMetadata) {
   }
 
   if (effortStr) {
-    if (/\b(high|max|thinking|deep)\b/i.test(effortStr)) {
+    if (/\b(xhigh|extra[\s-]*high|high|max|thinking|deep)\b/i.test(effortStr)) {
       return { ...EFFORT_PROFILES.HIGH };
     }
     if (/\b(low|fast|lite)\b/i.test(effortStr)) {
@@ -1964,7 +2127,7 @@ export function resolveEffortProfile(turnMetadata) {
   }
 
   const combined = `${effortStr} ${modelStr}`.trim();
-  if (/\b(high|max|thinking|deep)\b|-high\b/i.test(combined)) {
+  if (/\b(xhigh|extra[\s-]*high|high|max|thinking|deep)\b|-(?:xhigh|extra-high|high)\b/i.test(combined)) {
     return { ...EFFORT_PROFILES.HIGH };
   }
   if (/\b(low|fast|flash|lite)\b/i.test(combined)) {

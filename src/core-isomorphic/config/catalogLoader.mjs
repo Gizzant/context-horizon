@@ -27,6 +27,7 @@ export const BUILTIN_CATALOG = {
     low: 800,
     medium: 1500,
     high: 3500,
+    xhigh: 5000,
     max: 6000
   },
   models: {
@@ -448,6 +449,8 @@ function canonicalizeModelToken(rawModelId = '') {
     .trim()
     .replace(/\[[12]m\]/gi, '')
     .replace(/[-_:\s]+1m$/g, '')
+    .replace(/\s*\((?:xhigh|extra[\s-]*high|high|medium|med|low|max|minimal|auto|fast|thinking|standard|extended[\s-]*thinking)(?:\s*[,/|]\s*(?:xhigh|extra[\s-]*high|high|medium|med|low|max|minimal|auto|fast|thinking|standard|extended[\s-]*thinking))*\)\s*$/gi, '')
+    .trim()
     .replace(/\s+/g, '-');
 
   if (!s) return '';
@@ -471,11 +474,11 @@ function canonicalizeModelToken(rawModelId = '') {
   }
 
   s = s.replace(/\./g, '-');
-  // Strip Bedrock version tag (-v1:0 / -v2), date trailer (-20251001 / @20251001), or tier tag (:batch is NOT stripped as base rate)
+  // Strip Bedrock version tag (-v1:0 / -v2), date trailer (-20251001 / @20251001), or tier/effort tag (:batch is NOT stripped as base rate)
   s = s
     .replace(/-v\d+(?::\d+)?$/i, '')
     .replace(/[@-]\d{8}$/i, '')
-    .replace(/-(?:thinking|fast|latest)$/i, '');
+    .replace(/-(?:thinking|fast|latest|xhigh|extra-high|high|medium|med|low)$/i, '');
 
   // Handle alternate ordering like claude-4-6-sonnet -> claude-sonnet-4-6 (4.x+ only; 3.x is claude-3-x-family)
   const altOrder = s.match(/^claude-([4-9]\d*-\d+)-(opus|sonnet|haiku|fable|mythos)$/);
@@ -490,7 +493,7 @@ function canonicalizeModelToken(rawModelId = '') {
   if (Object.prototype.hasOwnProperty.call(SHORT_MODEL_ALIASES, s)) {
     return SHORT_MODEL_ALIASES[s];
   }
-  if (/^(?:opus|sonnet|haiku|fable)-/.test(s) && !s.startsWith('claude-')) {
+  if (/^(?:opus|sonnet|haiku|fable|mythos)-/.test(s) && !s.startsWith('claude-')) {
     return `claude-${s}`;
   }
 

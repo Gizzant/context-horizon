@@ -27,7 +27,7 @@ const EXEMPT_FRONTIER_ROLE_RE =
   /\b(?:cold\s+critic|spec\s+relay|adversarial\s+critic|security\s+auditor|architecture\s+review|verifier|judge)\b/i;
 
 const FRONTIER_MODEL_RE =
-  /^(?:opus|claude-(?:opus|sonnet)(?:-[a-z0-9.]+)*|sonnet|pro|gemini-[a-z0-9.-]*(?:pro|carbon|argon)|inherit)$/i;
+  /^(?:opus|fable|mythos|claude-(?:opus|sonnet|fable|mythos)(?:-[a-z0-9.]+)*|sonnet|pro|gemini-[a-z0-9.-]*(?:pro|carbon|argon|orchestrator)|orchestrator(?:-carbon|-argon)?|inherit)$/i;
 
 /**
  * Evaluates subagent/team spawn parameters for read-only model right-sizing, brief bloat,

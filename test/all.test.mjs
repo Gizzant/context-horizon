@@ -74,4 +74,6 @@ import './reverse_trial_and_shadow_auto.test.mjs';
 import './free_auto_shadow_mode.test.mjs';
 import './pre_push_bug_sweep.test.mjs';
 import './simple_view_clarity_and_safeguards.test.mjs';
+import './simple_view_truth_audit.test.mjs';
+import './nov2026_model_awareness.test.mjs';
 

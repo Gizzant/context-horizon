@@ -51,6 +51,7 @@ export const SAFE_TURN_BOUNDARY_STATES = Object.freeze(new Set([
 export const COST_MULTIPLIER_MATRIX = Object.freeze({
   'gemini-3.8-flash': Object.freeze({ low: 1.0, med: 1.5, medium: 1.5, high: 2.2 }),
   'gemini-4-argon': Object.freeze({ low: 3.0, med: 5.5, medium: 5.5, high: 9.25 }),
+  'gemini-4-hydrogen': Object.freeze({ low: 1.5, med: 2.5, medium: 2.5, high: 4.0, xhigh: 6.0 }),
   'gemini-4-carbon': Object.freeze({ low: 3.2, med: 6.0, medium: 6.0, high: 10.0 }),
   'gemini-4-carbon-cyber-permissive': Object.freeze({ low: 3.2, med: 6.0, medium: 6.0, high: 10.0 }),
   'claude-haiku-5-5': Object.freeze({ low: 0.5, med: 0.8, medium: 0.8, high: 1.2 }),
@@ -63,6 +64,10 @@ export const COST_MULTIPLIER_MATRIX = Object.freeze({
   'claude-fable-5.2': Object.freeze({ low: 10.0, med: 15.0, medium: 15.0, high: 22.0 }),
   'claude-fable-5-1': Object.freeze({ low: 12.0, med: 18.0, medium: 18.0, high: 26.0 }),
   'claude-fable-5.1': Object.freeze({ low: 12.0, med: 18.0, medium: 18.0, high: 26.0 }),
+  'claude-mythos-5-2': Object.freeze({ low: 10.0, med: 15.0, medium: 15.0, high: 22.0 }),
+  'claude-mythos-5.2': Object.freeze({ low: 10.0, med: 15.0, medium: 15.0, high: 22.0 }),
+  'claude-mythos-5-1': Object.freeze({ low: 12.0, med: 18.0, medium: 18.0, high: 26.0 }),
+  'claude-mythos-5.1': Object.freeze({ low: 12.0, med: 18.0, medium: 18.0, high: 26.0 }),
   'claude-sonnet-4-6': Object.freeze({ low: 3.5, med: 5.0, medium: 5.0, high: 7.5 }),
   'claude-sonnet-4.6': Object.freeze({ low: 3.5, med: 5.0, medium: 5.0, high: 7.5 }),
   'claude-sonnet-4-5': Object.freeze({ low: 3.5, med: 5.0, medium: 5.0, high: 7.5 }),
@@ -88,6 +93,7 @@ export function normalizeEffortKey(rawEffort = 'high') {
   const lower = String(rawEffort || 'high').toLowerCase().trim();
   if (lower === 'low' || lower === 'min') return 'low';
   if (lower === 'med' || lower === 'medium') return 'med';
+  if (lower === 'xhigh' || lower === 'extra-high' || lower === 'extra high') return 'xhigh';
   return 'high';
 }
 
@@ -108,6 +114,8 @@ export function formatShortFamilyLabel(modelId = 'gemini-4-argon') {
   const family = getModelFamily(modelId);
   if (family === 'flash') return 'Flash';
   if (family === 'argon') return 'Argon';
+  if (family === 'hydrogen') return 'Hydrogen';
+  if (family === 'mythos') return 'Mythos';
   if (family === 'sonnet') return 'Sonnet';
   return family.charAt(0).toUpperCase() + family.slice(1);
 }

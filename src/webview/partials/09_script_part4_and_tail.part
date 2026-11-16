@@ -570,7 +570,7 @@
         Number(raw.reclaimableTokens) || 0,
         dpReclaimT,
         bdLiveReclaimT,
-        (Number(bd.reclaimableClutter) || 0) + (Number(bd.cachedHistory) || 0),
+        Number(bd.reclaimableClutter) || 0,
         (Number(bd.staleLogs) || 0) + depsT,
         dupWaste + errWaste + histWaste + bleedWaste
       )
@@ -579,11 +579,24 @@
     const memKiT = Number(bdLive.MEMORY_KI ?? bd.memoryKi) || 0;
     const pinnedT = Math.min(usefulT, Math.max(0, rulesT + toolsT + memKiT));
     const newActiveT = Math.max(0, usefulT - pinnedT);
+    // Synchronize displayed 0.1k values so New & active + Reclaimable + Rules & tools === Total Used.
+    const unitScale = total >= 1000000 ? 100000 : 100;
+    const totalUnits = Math.round(total / unitScale);
+    const staleUnits = Math.min(totalUnits, Math.round(staleT / unitScale));
+    const usefulUnits = Math.max(0, totalUnits - staleUnits);
+    const pinnedUnits = Math.min(usefulUnits, Math.round(pinnedT / unitScale));
+    const newActiveUnits = Math.max(0, usefulUnits - pinnedUnits);
+    const dispTotalT = totalUnits * unitScale;
+    const dispStaleT = staleUnits * unitScale;
+    const dispUsefulT = usefulUnits * unitScale;
+    const dispPinnedT = pinnedUnits * unitScale;
+    const dispNewActiveT = newActiveUnits * unitScale;
+
     const remainingSafe = Math.max(0, safeCap - total);
     const kpis = raw.sessionTimeline?.kpis || {};
     const burnRate = Number(raw.burnRatePerTurn ?? kpis.burnRateTokens) || 0;
     const turnsLeft = burnRate > 0 ? Math.max(0, Math.floor(remainingSafe / burnRate)) : (Number(kpis.turnsLeft) || 99);
-    const usedPct = safeCap > 0 ? Math.min(100, Math.round((total / safeCap) * 100)) : 0;
+    const usedPct = safeCap > 0 ? Math.round((total / safeCap) * 100) : 0;
 
     const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
     const setTip = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.title = v; };
@@ -591,22 +604,24 @@
     // Authoritative active model (raw.model) — quota pool name is only a legacy fallback.
     const mdl = raw.model || {};
     const activeModel = mdl.displayName || win.activeModelLabel || raw.modelName || raw.quota?.sprint5h?.modelPoolName || 'Auto';
-    const modelId = String(mdl.id || raw.quota?.cache?.turnBoundarySwitchState?.active_model_id || win.unifiedPool?.modelId || activeModel).toLowerCase();
-    const modelHay = `${modelId} ${String(mdl.rawLabel || activeModel).toLowerCase()}`;
-    // Provider from id/label, including registry sub-families (constants.mjs `family`).
-    const modelProvider = /claude|opus|sonnet|haiku|fable/.test(modelHay) ? 'Claude'
-      : /gemini|carbon|argon|hydrogen|flash/.test(modelHay) ? 'Gemini'
+    const modelId = String(mdl.canonicalId || mdl.id || raw.quota?.cache?.turnBoundarySwitchState?.active_model_id || win.unifiedPool?.modelId || activeModel).toLowerCase();
+    const modelHay = `${modelId} ${String(mdl.family || '')} ${String(mdl.rawLabel || activeModel).toLowerCase()}`;
+    // Provider from id/family/label, including registry sub-families (constants.mjs `family`).
+    const modelProvider = /claude|opus|sonnet|haiku|fable|mythos/.test(modelHay) ? 'Claude'
+      : /gemini|carbon|argon|hydrogen|flash|orchestrator/.test(modelHay) ? 'Gemini'
         : /gpt/.test(modelHay) ? 'GPT-OSS' : 'Other';
     // Selected effort comes from the host label "Model (Medium)" only when the parenthetical is an effort word.
-    const labelParen = (String(mdl.rawLabel || '').match(/\(([^)]+)\)\s*$/) || [])[1] || '';
-    const effortFromLabel = /^(low|medium|med|high|max|minimal|auto|fast|thinking)\b/i.test(labelParen.trim()) ? labelParen.trim() : '';
-    const activeEffort = effortFromLabel || raw.activeEffortProfile?.label || raw.effortProfile?.label || raw.thinkingEffort || 'Auto';
+    const EFFORT_WORD_RE = /^(low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard)\b/i;
+    const labelParen = (String(mdl.rawLabel || activeModel || '').match(/\(([^)]+)\)\s*$/) || [])[1] || '';
+    const effortFromLabel = EFFORT_WORD_RE.test(labelParen.trim()) ? labelParen.trim() : '';
+    const activeEffort = effortFromLabel || raw.activeEffortProfile?.shortLabel || raw.effortProfile?.shortLabel || raw.activeEffortProfile?.label || raw.effortProfile?.label || raw.thinkingEffort || 'Auto';
 
     const hostBadge = document.getElementById('tufteTopHostBadge');
     if (hostBadge) {
       const surfaceName = (raw.storeSource || 'antigravity').toLowerCase().includes('claude') ? 'Claude Code' : 'Antigravity';
-      const hasTrailingParen = /\([^)]*\)\s*$/.test(String(activeModel).trim());
-      const omitEffort = hasTrailingParen || (activeModel === 'Auto' && activeEffort === 'Auto');
+      const trailingParen = (String(activeModel).trim().match(/\(([^)]+)\)\s*$/) || [])[1] || '';
+      const hasEffortParen = EFFORT_WORD_RE.test(trailingParen.trim());
+      const omitEffort = hasEffortParen || (activeModel === 'Auto' && activeEffort === 'Auto');
       hostBadge.textContent = omitEffort ? `${surfaceName} \u00B7 ${activeModel}` : `${surfaceName} \u00B7 ${activeModel} (${activeEffort})`;
       hostBadge.title = `Active editor host: ${surfaceName}. Current model: ${activeModel}. Reasoning effort: ${activeEffort}.`;
     }
@@ -625,7 +640,9 @@
     const hitPct = Math.max(0, Math.round(rawHit || 0));
 
     // --- Health state ---
-    const isCrisis = Boolean(raw.amputationCrisis || raw.amputation?.amputationCrisis || raw.telemetry?.amputationRisk) || total >= safeCap;
+    const isOverSafe = total >= safeCap;
+    const isCrisis = Boolean(raw.amputationCrisis || raw.amputation?.amputationCrisis || raw.telemetry?.amputationRisk) || isOverSafe;
+    const isRuleRiskOnly = isCrisis && !isOverSafe;
     const isWarn = !isCrisis && (total >= safeCap * 0.82 || staleT >= 35000);
     const errLoopCount = Number(bs.deadErrors?.errorCount || 0);
     const isStuckErrorLoop = Boolean(bs.deadErrors?.isErrorLoop || errLoopCount >= 3);
@@ -634,7 +651,7 @@
     const idleEagerTokens = Math.max(0, Number(bs.mcpAudit?.reclaimableEagerSchemaTokens) || 0);
     const baselineEst = Math.max(0, Number(raw.baseline?.totalEst ?? (rulesT + toolsT)) || 0);
     const baselineOverBudget = Boolean(raw.baseline?.eagerInjectionWarning) || baselineEst > 20000;
-    const isHighEffort = /high|max|deep|thinking/i.test(String(activeEffort));
+    const isHighEffort = /xhigh|extra[\s-]*high|high|max|deep|thinking/i.test(String(activeEffort));
 
     // =======================================================================
     // 1. SIMPLE VIEW UPDATES (#argonSimpleSurface — Antigravity & Claude Code)
@@ -661,7 +678,9 @@
       if (autoShadowFlag) {
         tsModeHintEl.textContent = 'Preview \u2014 shows what Auto would fix';
       } else if (raw.proEntitlement?.tier === 'trial') {
-        tsModeHintEl.textContent = `Hands-free \u00B7 Trial ${raw.proEntitlement.daysRemaining || 14}d left`;
+        const dRaw = raw.proEntitlement.daysRemaining;
+        const dTxt = Number.isFinite(Number(dRaw)) ? (Number(dRaw) <= 0 ? '<1' : String(Number(dRaw))) : '14';
+        tsModeHintEl.textContent = `Hands-free \u00B7 Trial ${dTxt}d left`;
       }
     }
     const simpleSurface = document.getElementById('argonSimpleSurface');
@@ -696,12 +715,50 @@
       tsCacheBulletFill.dataset.tone = isWarm && hitPct >= 75 ? 'nominal' : (isRebuilding ? 'warn' : 'muted');
     }
 
+    // Hoist safeguard & overlap alerts so Card 1 badge, header dot, and Card 2 guidance stay in sync.
+    const breakerSrc = raw.coachState?.detectors?.tripped || raw.circuitBreakerTripped ||
+      (Array.isArray(raw.coachState?.circuitBreakerAlerts) ? raw.coachState.circuitBreakerAlerts[0] : null);
+    // Plain-text helper: drops emoji, shortens full/relative paths (preserving URLs & words like try/catch) to file name.
+    const plainText = (s) => String(s || '')
+      .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, '')
+      .replace(/(^|[\s"'`(\[,=])((?:[A-Za-z]:[\\/]|\/)[^\s"'`):;,>]+|(?:[A-Za-z0-9_.-]+[\\/]){2,}[^\s"'`):;,>]+|[A-Za-z0-9_.-]+[\\/][A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,8})/g, (m, pre, p) => {
+        if (/^https?:\/\//i.test(p)) return m;
+        const clean = p.replace(/[\\/]+$/, '');
+        const base = clean.split(/[\\/]+/).pop();
+        return base ? `${pre}${base}` : m;
+      })
+      .replace(/\s+/g, ' ')
+      .replace(/[.\s]+$/, '')
+      .trim();
+    const breakerGuide = (breakerSrc && typeof breakerSrc === 'object' && breakerSrc.guidance && typeof breakerSrc.guidance === 'object')
+      ? breakerSrc.guidance
+      : null;
+    // Informational safeguards (handled automatically) never raise a red alarm.
+    const simpleBreaker = (breakerSrc && typeof breakerSrc === 'object' && !(breakerGuide && breakerGuide.kind === 'info'))
+      ? {
+          id: String(breakerSrc.detectorId || breakerSrc.id || 'DET'),
+          guide: breakerGuide,
+          msg: plainText(breakerSrc.reason || breakerSrc.message || breakerSrc.title || 'a safeguard needs your attention')
+        }
+      : null;
+    const shardedSpecCount = Number(raw.shardedSpecCount || 0);
+    const rslClashCount = Number(raw.rsl?.clashCount || 0);
+    const scopeCollisions = Array.isArray(raw.swarmTopology?.scopeLocks?.collisions)
+      ? raw.swarmTopology.scopeLocks.collisions
+      : (Array.isArray(raw.coachState?.scopeCollision) ? raw.coachState.scopeCollision : []);
+
     const tsStatusDot = document.getElementById('tsStatusDot');
     const tsStatusLabel = document.getElementById('tsStatusLabel');
     if (tsStatusDot && tsStatusLabel) {
       if (isCrisis) {
         tsStatusDot.dataset.tone = 'danger';
-        tsStatusLabel.textContent = 'Over Safe Limit';
+        tsStatusLabel.textContent = isOverSafe ? 'Over Safe Limit' : 'Pinned Rules at Risk';
+      } else if (simpleBreaker) {
+        tsStatusDot.dataset.tone = 'danger';
+        tsStatusLabel.textContent = 'Safeguard Alert';
+      } else if (scopeCollisions.length > 0) {
+        tsStatusDot.dataset.tone = 'danger';
+        tsStatusLabel.textContent = 'Agent File Overlap';
       } else if (isStuckErrorLoop) {
         tsStatusDot.dataset.tone = 'warn';
         tsStatusLabel.textContent = 'Repeating Error';
@@ -718,15 +775,27 @@
         tsStatusDot.dataset.tone = isWarm ? 'signal' : 'nominal';
         tsStatusLabel.textContent = isWarm ? 'Cache Warm' : 'Healthy';
       }
+      // Keep top-left header status dot in sync with Card 1 status dot when viewing Simple View.
+      const hdrDot = document.getElementById('statusDot');
+      if (hdrDot && document.body?.dataset?.viewMode !== 'advanced') {
+        const tone = tsStatusDot.dataset.tone;
+        hdrDot.className = tone === 'danger' ? 'dot danger' : (tone === 'warn' ? 'dot warn' : 'dot');
+        hdrDot.dataset.riskBand = tone === 'danger' ? 'RED' : (tone === 'warn' ? 'AMBER' : 'GREEN');
+        hdrDot.title = tsStatusLabel.textContent;
+      }
     }
 
     const tsRunwayMeta = document.getElementById('tsRunwayMeta');
     if (tsRunwayMeta) {
-      if (isCrisis) {
+      if (isOverSafe) {
         const overTok = Math.max(0, total - safeCap);
         tsRunwayMeta.dataset.tone = 'danger';
-        tsRunwayMeta.textContent = overTok > 0 ? `+${formatTokens(overTok)} over safe` : 'At safe limit';
+        tsRunwayMeta.textContent = overTok >= 100 ? `+${formatTokens(overTok)} over safe` : 'At safe limit';
         tsRunwayMeta.title = 'Working memory has passed the safe ceiling. Run /compact before continuing so early instructions stay in view.';
+      } else if (isRuleRiskOnly) {
+        tsRunwayMeta.dataset.tone = 'danger';
+        tsRunwayMeta.textContent = `${formatTokens(remainingSafe)} headroom \u00B7 rules at risk`;
+        tsRunwayMeta.title = 'Early project rules may be displaced from attention headroom — compact older context before continuing.';
       } else if (burnRate > 0 && turnsLeft < 99) {
         tsRunwayMeta.dataset.tone = turnsLeft <= 4 ? 'danger' : (turnsLeft <= 8 ? 'warn' : 'nominal');
         tsRunwayMeta.textContent = `~${turnsLeft} turn${turnsLeft === 1 ? '' : 's'} \u00B7 +${formatTokens(burnRate)}/t`;
@@ -740,18 +809,20 @@
 
     // Friendly narrative summary in Card 1 (CONTEXT)
     if (isCrisis) {
-      setTxt('tsContextSummary', `Context is at ${usedPct}% of the safe limit (${formatTokens(total)} used). Early project rules risk getting pushed out unless you clean up ${formatTokens(staleT)} of older clutter.`);
+      setTxt('tsContextSummary', dispStaleT >= 100
+        ? `Context is at ${usedPct}% of the safe limit (${formatTokens(dispTotalT)} used). Early project rules risk getting pushed out unless you clean up ${formatTokens(dispStaleT)} of older clutter.`
+        : `Context is at ${usedPct}% of the safe limit (${formatTokens(dispTotalT)} used). Early project rules risk getting pushed out unless you summarize this chat with /compact.`);
     } else if (isWarn && staleT >= 35000) {
-      setTxt('tsContextSummary', `Older turns and repeat file reads have grown to ${formatTokens(staleT)}. Clearing them with /compact frees space while keeping your project rules and active edits intact.`);
+      setTxt('tsContextSummary', `Older turns and repeat file reads have grown to ${formatTokens(dispStaleT)}. Clearing them with /compact frees space while keeping your project rules and active edits intact.`);
     } else if (isWarm) {
       setTxt('tsContextSummary', `Your prompt cache is warm: ${hitPct}% of your input is billed at the cheaper cached rate for ${ttlMm}:${ttlSs}. You have ${formatTokens(remainingSafe)} of room left below your safe limit.`);
     } else {
       setTxt('tsContextSummary', total > 0
-        ? `Working memory uses ${formatTokens(total)} out of ${formatTokens(safeCap)} safe capacity, leaving ${formatTokens(remainingSafe)} of clean room before slowdowns or rule fade.`
+        ? `Working memory uses ${formatTokens(dispTotalT)} out of ${formatTokens(safeCap)} safe capacity, leaving ${formatTokens(remainingSafe)} of clean room before slowdowns or rule fade.`
         : `Ready to track live context usage against your ${formatTokens(safeCap)} safe limit as soon as your session grows.`);
     }
 
-    setTxt('tsUsedLabel', formatTokens(total));
+    setTxt('tsUsedLabel', formatTokens(dispTotalT));
     setTxt('tsSafeLabel', formatTokens(safeCap));
     setTxt('tsUsedPct', `${usedPct}%`);
 
@@ -826,16 +897,16 @@
       const glassState = isCrisis ? 'crisis' : (isNearOrPastSafe || isWarn ? 'warn' : 'nominal');
 
       const vesselCeiling = Math.max(safeCap, total, 1);
-      const sumLayers = newActiveT + staleT + pinnedT;
+      const sumLayers = dispNewActiveT + dispStaleT + dispPinnedT;
       const denom = Math.max(1, sumLayers);
       const fillHeightPct = total > 0 ? Math.min(100, Math.max(5, (total / vesselCeiling) * 100)) : 0;
-      const newSegPct = sumLayers > 0 ? (newActiveT / denom) * 100 : 0;
-      const oldSegPct = sumLayers > 0 ? (staleT / denom) * 100 : 0;
+      const newSegPct = sumLayers > 0 ? (dispNewActiveT / denom) * 100 : 0;
+      const oldSegPct = sumLayers > 0 ? (dispStaleT / denom) * 100 : 0;
       const pinSegPct = sumLayers > 0 ? Math.max(0, 100 - newSegPct - oldSegPct) : 0;
 
       if (vessel) {
         vessel.dataset.state = glassState;
-        vessel.title = `Context glass (${formatTokens(total)} / ${formatTokens(safeCap)} safe): bottom = Rules & tools (${formatTokens(pinnedT)}), middle = Older & reclaimable (${formatTokens(staleT)}), top = New & active work (${formatTokens(newActiveT)}).`;
+        vessel.title = `Context glass (${formatTokens(dispTotalT)} / ${formatTokens(safeCap)} safe): bottom = Rules & tools (${formatTokens(dispPinnedT)}), middle = Older & reclaimable (${formatTokens(dispStaleT)}), top = New & active work (${formatTokens(dispNewActiveT)}).`;
       }
       if (fill) {
         fill.style.height = `${fillHeightPct.toFixed(1)}%`;
@@ -843,18 +914,18 @@
       }
       if (segNew) {
         segNew.style.height = `${newSegPct.toFixed(1)}%`;
-        segNew.title = `New & active work (top of glass): ${formatTokens(newActiveT)} tokens of recent replies and active files.`;
+        segNew.title = `New & active work (top of glass): ${formatTokens(dispNewActiveT)} tokens of recent replies and active files.`;
       }
       if (segOld) {
         segOld.style.height = `${oldSegPct.toFixed(1)}%`;
         segOld.dataset.clutterTone = isWarm ? 'cached' : 'stale';
-        segOld.title = isWarm && staleT > 0
-          ? `Older & reclaimable history (middle layer): ${formatTokens(staleT)} tokens — currently discounted in warm cache until the timer ends.`
-          : `Older & reclaimable clutter (middle layer): ${formatTokens(staleT)} tokens that /compact can remove safely.`;
+        segOld.title = isWarm && dispStaleT >= 100
+          ? `Older & reclaimable history (middle layer): ${formatTokens(dispStaleT)} tokens — currently discounted in warm cache until the timer ends.`
+          : `Older & reclaimable clutter (middle layer): ${formatTokens(dispStaleT)} tokens that /compact can remove safely.`;
       }
       if (segPin) {
         segPin.style.height = `${pinSegPct.toFixed(1)}%`;
-        segPin.title = `Rules & tools (base of glass): ${formatTokens(pinnedT)} tokens of AGENTS.md / CLAUDE.md instructions, learned rules, and connected tool definitions.`;
+        segPin.title = `Rules & tools (base of glass): ${formatTokens(dispPinnedT)} tokens of AGENTS.md / CLAUDE.md instructions, learned rules, and connected tool definitions.`;
       }
       const vesselPx = 116;
       const pxHeight = (segPct) => (fillHeightPct / 100) * (segPct / 100) * vesselPx;
@@ -877,7 +948,9 @@
       }
       if (captionEl) {
         captionEl.dataset.state = glassState;
-        captionEl.textContent = total > safeCap ? 'Over safe limit' : `${usedPct}% of safe`;
+        captionEl.textContent = total > safeCap
+          ? 'Over safe limit'
+          : (isRuleRiskOnly ? `${usedPct}% \u00B7 rules at risk` : `${usedPct}% of safe`);
       }
     }
 
@@ -895,15 +968,32 @@
       const histTurnsN = Number(bs.oldHistory?.turnCount || 0);
       const errN = Number(bs.deadErrors?.errorCount || 0);
       const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-      const knownWaste = dupWaste + histWaste + errWaste + bleedWaste;
-      const otherWaste = staleT > knownWaste + 99 ? (staleT - knownWaste) : 0;
-      const whyRows = [
+      const whyBuckets = [
         { label: 'Repeated file reads', sub: dupFilesN ? plural(dupFilesN, 'file', 'files') : '', tok: dupWaste, tip: 'Full copies of files read more than once after edits.' },
         { label: 'Earlier chat history', sub: histTurnsN ? plural(histTurnsN, 'old turn', 'old turns') : '', tok: histWaste, tip: 'Older back-and-forth turns that /compact summarizes cleanly.' },
         { label: isStuckErrorLoop ? 'Error logs & loop traces' : 'Fixed error logs', sub: errN ? plural(errN, isStuckErrorLoop ? 'error' : 'old error', isStuckErrorLoop ? 'errors' : 'old errors') : '', tok: errWaste, tip: 'Past command failures and tracebacks that are already resolved or repeating.' },
-        { label: 'Notes from other projects', sub: 'other repos', tok: bleedWaste, tip: 'Background memory notes pulled in from unrelated repositories.' },
-        { label: 'Other stale tool outputs', sub: '', tok: otherWaste, tip: 'Earlier search results or tool outputs no longer needed in full.' }
-      ].filter(r => r.tok >= 100).sort((a, b) => b.tok - a.tok);
+        { label: 'Notes from other projects', sub: 'other repos', tok: bleedWaste, tip: 'Background memory notes pulled in from unrelated repositories.' }
+      ].map(r => ({ ...r, dispTok: Math.round(Math.max(0, r.tok) / unitScale) * unitScale }))
+        .filter(r => dispStaleT >= 100 && r.dispTok >= 100);
+
+      let specSum = whyBuckets.reduce((acc, r) => acc + r.dispTok, 0);
+      if (specSum > dispStaleT) {
+        let excess = specSum - dispStaleT;
+        for (const r of whyBuckets.slice().sort((a, b) => b.dispTok - a.dispTok)) {
+          if (excess <= 0) break;
+          const cut = Math.min(r.dispTok, excess);
+          r.dispTok -= cut;
+          excess -= cut;
+        }
+        specSum = dispStaleT;
+      }
+      const whyRows = whyBuckets.filter(r => r.dispTok >= 100);
+      const shownSum = whyRows.reduce((acc, r) => acc + r.dispTok, 0);
+      const otherTok = Math.max(0, dispStaleT - shownSum);
+      if (dispStaleT >= 100 && otherTok >= 100) {
+        whyRows.push({ label: 'Other stale tool outputs', sub: '', dispTok: otherTok, tip: 'Earlier search results or tool outputs no longer needed in full.' });
+      }
+      whyRows.sort((a, b) => b.dispTok - a.dispTok);
       if (whyRows.length === 0) {
         tsWhyClears.hidden = true;
         tsWhyClears.open = false;
@@ -911,22 +1001,25 @@
         tsWhyClears.hidden = false;
         tsWhyList.innerHTML = whyRows.map(r =>
           `<li class="ts-why-row" title="${escAttr(r.tip)}"><span>${escAttr(r.label)}${r.sub ? ` <span class="ts-why-sub">(${escAttr(r.sub)})</span>` : ''}</span>` +
-          `<span class="ts-why-tok">${escAttr(formatTokens(r.tok))}</span></li>`
+          `<span class="ts-why-tok">${escAttr(formatTokens(r.dispTok))}</span></li>`
         ).join('');
-        setTxt('tsWhyTotal', formatTokens(staleT));
+        setTxt('tsWhyTotal', formatTokens(dispStaleT));
       }
     }
 
-    setTxt('tsValNew', formatTokens(newActiveT));
-    setTxt('tsValPinned', formatTokens(pinnedT));
-    setTxt('tsValSignal', formatTokens(usefulT));
-    setTxt('tsValClutter', formatTokens(staleT));
-    setTxt('tsClutterKind', isWarm && staleT > 0 ? 'Cached Old Turns' : 'Reclaimable');
-    setTip('tsRowNew', `New & active: ${formatTokens(newActiveT)} tokens of your current prompts and open source files (top of the glass). Total useful signal = ${formatTokens(usefulT)}.`);
-    setTip('tsRowOld', staleT > 0
-      ? `Reclaimable clutter: ${formatTokens(staleT)} tokens of older turns, repeat file reads, or resolved errors that /compact can trim without losing active code.`
+    setTxt('tsValNew', formatTokens(dispNewActiveT));
+    setTxt('tsValPinned', formatTokens(dispPinnedT));
+    setTxt('tsValSignal', formatTokens(dispUsefulT));
+    setTxt('tsValClutter', formatTokens(dispStaleT));
+    setTxt('tsClutterKind', isWarm && dispStaleT >= 100 ? 'Cached Old Turns' : 'Reclaimable');
+    setTxt('tsOldSub', isWarm && dispStaleT >= 100 ? 'Discounted in warm cache' : 'Older chat & repeat reads');
+    setTip('tsRowNew', `New & active: ${formatTokens(dispNewActiveT)} tokens of your current prompts and open source files (top of the glass). Total useful signal = ${formatTokens(dispUsefulT)}.`);
+    setTip('tsRowOld', dispStaleT >= 100
+      ? (isWarm
+        ? `Cached old turns: ${formatTokens(dispStaleT)} tokens are currently reused at a cache discount. Wait until the cache timer ends before running /compact.`
+        : `Reclaimable clutter: ${formatTokens(dispStaleT)} tokens of older turns, repeat file reads, or resolved errors that /compact can trim without losing active code.`)
       : 'No old clutter yet — working memory holds only startup rules and fresh work.');
-    setTip('tsRowPinned', `Rules & tools: ${formatTokens(pinnedT)} tokens of startup instructions and connected tool definitions anchored at the base of context.`);
+    setTip('tsRowPinned', `Rules & tools: ${formatTokens(dispPinnedT)} tokens of startup instructions and connected tool definitions anchored at the base of context.`);
     const tsAnchorHealthEl = document.getElementById('tsAnchorHealth');
     if (tsAnchorHealthEl) {
       tsAnchorHealthEl.dataset.risk = isCrisis ? 'true' : 'false';
@@ -951,39 +1044,17 @@
     }
     if (avoidTagEl) avoidTagEl.textContent = 'AVOID';
 
-    const breakerSrc = raw.coachState?.detectors?.tripped || raw.circuitBreakerTripped ||
-      (Array.isArray(raw.coachState?.circuitBreakerAlerts) ? raw.coachState.circuitBreakerAlerts[0] : null);
-    // Plain-text helper: drops emoji, shortens full file paths to the file name, never cuts words in half.
-    const plainText = (s) => String(s || '')
-      .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, '')
-      .replace(/(?:[A-Za-z]:)?[\\/](?:[^\s\\/:;,)]+[\\/])+([^\s\\/:;,)]+)/g, '$1')
-      .replace(/\s+/g, ' ')
-      .replace(/[.\s]+$/, '')
-      .trim();
-    const breakerGuide = (breakerSrc && typeof breakerSrc === 'object' && breakerSrc.guidance && typeof breakerSrc.guidance === 'object')
-      ? breakerSrc.guidance
-      : null;
-    // Informational safeguards (handled automatically) never raise a red alarm.
-    const simpleBreaker = (breakerSrc && typeof breakerSrc === 'object' && !(breakerGuide && breakerGuide.kind === 'info'))
-      ? {
-          id: String(breakerSrc.detectorId || breakerSrc.id || 'DET'),
-          guide: breakerGuide,
-          msg: plainText(breakerSrc.reason || breakerSrc.message || breakerSrc.title || 'a safeguard needs your attention')
-        }
-      : null;
-    const shardedSpecCount = Number(raw.shardedSpecCount || 0);
-    const rslClashCount = Number(raw.rsl?.clashCount || 0);
-    const scopeCollisions = Array.isArray(raw.swarmTopology?.scopeLocks?.collisions)
-      ? raw.swarmTopology.scopeLocks.collisions
-      : (Array.isArray(raw.coachState?.scopeCollision) ? raw.coachState.scopeCollision : []);
-
     if (isCrisis) {
       if (tsDoRow) tsDoRow.dataset.tone = 'danger';
-      setTxt('tsDoText', `Run /compact now or save a checkpoint to task.md — working memory is ${formatTokens(Math.max(0, total - safeCap))} past the safe limit, so early rules can start fading.`);
-      setTxt('tsAvoidText', `Avoid opening whole files or running verbose test suites until that ${formatTokens(staleT)} of clutter is cleared.`);
+      setTxt('tsDoText', isOverSafe
+        ? `Run /compact now or save a checkpoint to task.md — working memory is ${formatTokens(Math.max(0, total - safeCap))} past the safe limit, so early rules can start fading.`
+        : 'Run /compact now or save a checkpoint to task.md — early project rules risk getting pushed out of memory.');
+      setTxt('tsAvoidText', dispStaleT >= 100
+        ? `Avoid opening whole files or running verbose test suites until that ${formatTokens(dispStaleT)} of clutter is cleared.`
+        : 'Avoid opening whole files or running verbose test suites before summarizing this chat with /compact.');
     } else if (isStuckErrorLoop) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `Pause blind retries (${errLoopCount}\u00D7 error loop) — the same failure is piling up in chat; inspect the root cause${staleT >= 5000 ? ` or /compact ${formatTokens(staleT)} of error noise` : ''}.`);
+      setTxt('tsDoText', `Pause blind retries (${errLoopCount}\u00D7 error loop) — the same failure is piling up in chat; inspect the root cause${dispStaleT >= 5000 ? ` or /compact ${formatTokens(dispStaleT)} of error noise` : ''}.`);
       setTxt('tsAvoidText', 'Avoid running the exact same failing command again. Try a smaller test case, or switch to a stronger model or higher effort.');
     } else if (simpleBreaker) {
       if (tsDoRow) tsDoRow.dataset.tone = 'danger';
@@ -1012,9 +1083,10 @@
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
       setTxt('tsDoText', `Your requirements changed ${shardedSpecCount} times across this chat — run ctxtop handoff --consolidate to merge them into one clear spec so nothing gets missed.`);
       setTxt('tsAvoidText', 'Avoid adding new requirements one message at a time. Combine them into one clear plan.');
-    } else if (isHighEffort && staleT >= 30000) {
+    } else if (isHighEffort && dispStaleT >= 30000) {
+      const effWord = String(activeEffort).replace(/\s*effort\s*$/i, '').trim() || 'High';
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `Run /compact to clear ${formatTokens(staleT)} clutter \u2014 ${activeEffort} effort re-processes stale noise every turn, slowing responses and burning extra quota.`);
+      setTxt('tsDoText', `Run /compact to clear ${formatTokens(dispStaleT)} clutter \u2014 ${effWord} effort re-processes stale noise every turn, slowing responses and burning extra quota.`);
       setTxt('tsAvoidText', 'Avoid keeping full-file reads or long terminal logs in memory while High effort is enabled.');
     } else if (staleT >= 35000) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
@@ -1025,7 +1097,7 @@
           : bleedWaste >= errWaste && bleedWaste > 0
             ? 'notes from other projects'
             : errWaste > 0 ? 'error logs' : 'stale outputs';
-      setTxt('tsDoText', `Run /compact when you reach a natural stopping point to reclaim ${formatTokens(staleT)} clutter (${dominantCause}) and keep future turns fast.`);
+      setTxt('tsDoText', `Run /compact when you reach a natural stopping point to reclaim ${formatTokens(dispStaleT)} clutter (${dominantCause}) and keep future turns fast.`);
       setTxt('tsAvoidText', dominantCause === 'repeated file reads'
         ? 'Avoid re-reading whole files after small edits. Use line ranges (StartLine and EndLine) or let a helper agent inspect long files.'
         : dominantCause === 'notes from other projects'
@@ -1059,7 +1131,7 @@
         ? ` (saves ~$${Number(sc.estimatedNetSavingsUsd).toFixed(2)} net over the next ${sc.horizonTurns || 6} turns)`
         : '';
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `Task complete — run /compact now before starting your next task${savedUsdTxt} while ${formatTokens(staleT || sc.reclaimableTokens || 0)} of finished work can be cleanly summarized.`);
+      setTxt('tsDoText', `Task complete — run /compact now before starting your next task${savedUsdTxt} while ${formatTokens(dispStaleT || sc.reclaimableTokens || 0)} of finished work can be cleanly summarized.`);
       setTxt('tsAvoidText', 'Avoid carrying completed-task file reads and test logs into an unrelated next task.');
     } else {
       if (tsDoRow) tsDoRow.dataset.tone = 'do';
@@ -1070,9 +1142,9 @@
     if (effectiveMode === 'off' && !isCrisis) {
       if (tsDoRow) tsDoRow.dataset.tone = 'do';
       if (doTagEl) doTagEl.textContent = 'WATCH';
-      setTxt('tsDoText', `Watch-only mode \u2014 tracking ${formatTokens(total)} / ${formatTokens(safeCap)} safe memory without blocking commands or injecting advice.`);
+      setTxt('tsDoText', `Watch-only mode \u2014 tracking ${formatTokens(dispTotalT)} / ${formatTokens(safeCap)} safe memory without blocking commands or injecting advice.`);
       if (avoidRowEl) avoidRowEl.hidden = true;
-    } else if (effectiveMode === 'autopilot') {
+    } else if (effectiveMode === 'autopilot' && !autoShadowFlag) {
       const needsHumanAction = isCrisis || isStuckErrorLoop || Boolean(simpleBreaker) ||
         scopeCollisions.length > 0 || shardedSpecCount >= 4 || rslClashCount > 0 ||
         total >= safeCap * 0.82 || staleT >= 30000 ||
@@ -1101,14 +1173,18 @@
     {
       const ttlTxt = `${ttlMm}:${ttlSs}`;
       const otherFamily = modelProvider === 'Claude' ? 'Gemini' : (modelProvider === 'Gemini' ? 'Claude' : 'another family');
-      const familyHint = modelProvider === 'Claude' ? 'Opus/Sonnet/Haiku' : (modelProvider === 'Gemini' ? 'Carbon/Argon/Flash' : 'same provider');
+      const familyHint = modelProvider === 'Claude' ? 'Fable/Opus/Sonnet/Haiku' : (modelProvider === 'Gemini' ? 'Carbon/Argon/Hydrogen/Flash' : 'same provider');
       const cg = cache.costGate || {};
       const rewriteUsd = Number(cg.coldRewriteCostUsd) || 0;
       const quotaUnits = Number(cg.quotaPenaltyUnits) || 0;
       const usdTxt = rewriteUsd >= 0.01 ? `$${rewriteUsd.toFixed(2)}` : '<$0.01';
       const costTxt = rewriteUsd > 0 ? ` (\u2248 ${usdTxt}${quotaUnits > 0 ? ` \u00B7 ${formatTokens(quotaUnits)} quota units` : ''})` : '';
-      const windowTxt = `switches to ${formatTokens(maxCap)} window / ${formatTokens(safeCap)} safe`;
-      const crossFamTxt = `To ${otherFamily}: prompt cache rebuilds from scratch, tokens are re-counted, and ${windowTxt}.`;
+      const targetWindowTxt = otherFamily === 'Claude'
+        ? "switches to Claude's 200.0k window (140.0k safe limit)"
+        : (otherFamily === 'Gemini'
+          ? "switches to Gemini's 256.0k IDE cap (1.0M pool)"
+          : "uses the new model's window");
+      const crossFamTxt = `To ${otherFamily}: prompt cache rebuilds from scratch, tokens are re-counted, and ${targetWindowTxt}.`;
       // Claude (and unknown providers, conservatively): effort/thinking changes invalidate cached chat history.
       // Gemini: thinking level is not part of the cached prompt prefix.
       const effortBustsCache = modelProvider !== 'Gemini';
@@ -1118,7 +1194,7 @@
 
       if (isCrisis) {
         m = { tone: 'danger', verdict: 'LOCK', badge: 'Hold',
-          same: `Run /compact first — switching models now would re-send all ${formatTokens(total)} tokens without a cache discount.`,
+          same: `Run /compact first — switching models now would re-send all ${formatTokens(dispTotalT)} tokens without a cache discount.`,
           cross: `To ${otherFamily}: full rebuild plus tokens re-counted against the new window.` };
         e = { tone: 'danger', verdict: 'LOWER', badge: 'Lower', text: 'Switch effort down to Low or Medium so long reasoning steps do not overflow memory.' };
       } else if (isStuckErrorLoop) {
@@ -1141,7 +1217,7 @@
       } else {
         m = { tone: 'do', verdict: 'OK', badge: 'OK',
           same: `Cache is cold — switching within ${modelProvider} (${familyHint}) has no extra rewrite penalty.`,
-          cross: `To ${otherFamily}: tokens are re-counted and context ${windowTxt}.` };
+          cross: `To ${otherFamily}: tokens are re-counted and context ${targetWindowTxt}.` };
         e = { tone: 'do', verdict: 'OK', badge: 'OK',
           text: isHighEffort && usedPct >= 45
             ? 'Consider Low or Medium effort for routine edits now that memory is filling up.'
@@ -1165,8 +1241,8 @@
       const tsModelLast = document.getElementById('tsModelLast');
       if (tsModelLast) {
         if (hasModelSwitchBust) {
-          const stripEff = (s) => String(s).replace(/\s*\([^)]*\)\s*$/, '');
-          const prov = (s) => (/claude|opus|sonnet|haiku|fable/i.test(s) ? 'Claude' : /gemini|carbon|argon|hydrogen|flash/i.test(s) ? 'Gemini' : /gpt/i.test(s) ? 'GPT-OSS' : 'Other');
+          const stripEff = (s) => String(s).replace(/\s*\((?:low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard)\b[^)]*\)\s*$/i, '');
+          const prov = (s) => (/claude|opus|sonnet|haiku|fable|mythos/i.test(s) ? 'Claude' : /gemini|carbon|argon|hydrogen|flash|orchestrator/i.test(s) ? 'Gemini' : /gpt/i.test(s) ? 'GPT-OSS' : 'Other');
           const crossTag = prov(bc.from) !== prov(bc.to) ? ' \u00B7 cross-family' : '';
           tsModelLast.textContent = `Last switch: ${stripEff(bc.from)} \u2192 ${stripEff(bc.to)} (cache miss${crossTag})`;
           tsModelLast.hidden = false;
@@ -1192,20 +1268,27 @@
           tsGuidanceBadge.dataset.tone = isCrisis ? 'danger' : 'muted';
           tsGuidanceBadge.textContent = 'Watch only';
           tsGuidanceBadge.title = 'Mode is Off — Highbeam is passively measuring memory and cache timers without stepping in.';
-        } else if (effectiveMode === 'autopilot' && !isCrisis) {
+        } else if (effectiveMode === 'autopilot' && !autoShadowFlag && !isCrisis) {
           tsGuidanceBadge.dataset.tone = 'signal';
           tsGuidanceBadge.textContent = isWarm ? `Auto-hold ${ttlTxt}` : 'Auto-routed at turn end';
           tsGuidanceBadge.title = isWarm
             ? 'Auto mode protects your warm prompt cache automatically and waits until turn end or cache expiry before switching.'
             : 'Auto mode picks the model and effort for you at the end of each turn.';
         } else {
+          const previewPrefix = effectiveMode === 'autopilot' && autoShadowFlag && !isCrisis ? 'Preview \u00B7 ' : '';
           tsGuidanceBadge.dataset.tone = (m.tone === 'danger' || e.tone === 'danger')
             ? 'danger'
-            : ((m.tone === 'do' && e.tone === 'do') ? 'muted' : 'warn');
-          tsGuidanceBadge.textContent = `Model: ${m.badge} \u00B7 Effort: ${e.badge}`;
-          tsGuidanceBadge.title = isWarm
-            ? `Cache is warm (${ttlTxt} left) — avoid switching models unnecessarily so you keep the cached rate.`
-            : 'Cache is cold — changing models or effort right now triggers no warm-cache penalty.';
+            : ((m.tone === 'do' && e.tone === 'do' && !previewPrefix) ? 'muted' : 'warn');
+          tsGuidanceBadge.textContent = `${previewPrefix}Model: ${m.badge} \u00B7 Effort: ${e.badge}`;
+          tsGuidanceBadge.title = isCrisis
+            ? 'Context is over the safe limit — run /compact before switching models so you do not re-send everything uncached.'
+            : (isStuckErrorLoop
+              ? 'Repeating errors detected — moving up to a stronger model or higher effort may break the loop.'
+              : (isWarm
+                ? `Cache is warm (${ttlTxt} left) — avoid switching models unnecessarily so you keep the cached rate.`
+                : (isRebuilding
+                  ? `Cache is warming up on ${activeModel} — staying on this model lets the next turn reuse the cache.`
+                  : 'Cache is cold — changing models or effort right now triggers no warm-cache penalty.')));
         }
       }
     }
@@ -1292,6 +1375,7 @@
           tip: 'Deferring non-urgent AGENTS.md / CLAUDE.md edits protects your active 90%–95% prompt cache discount.'
         });
       }
+      const realInterventionCount = rows.length;
       if (rows.length < 4 && shieldEnabled) {
         rows.push({
           age: 'shield',
@@ -1310,7 +1394,7 @@
         });
       }
 
-      const activeInterventionCount = rows.length;
+      const activeInterventionCount = realInterventionCount;
       const liveGuardTotal = Number(raw.coachState?.detectors?.totalCount || 0);
       const guardLabel = liveGuardTotal > 0 ? `${liveGuardTotal} guards` : 'guards';
       if (effectiveMode === 'off') {
@@ -1360,14 +1444,14 @@
             ? `Auto-enforcing \u00B7 ${activeInterventionCount} active \u00B7 ${guardLabel}`
             : `Auto-enforcing \u00B7 ${liveGuardTotal > 0 ? guardLabel : 'Guards'}`);
           setTip('tsGuardsSummary', liveGuardTotal > 0
-            ? `Hands-free Auto mode is actively enforcing ${liveGuardTotal} safety and token-efficiency guards (${activeInterventionCount} active in this chat).`
+            ? `Hands-free Auto mode is actively enforcing ${liveGuardTotal} safety and token-efficiency guards (${activeInterventionCount} live action${activeInterventionCount === 1 ? '' : 's'} in this chat).`
             : 'Auto mode applies the safety, cache, and file-read guards for you.');
         } else {
           setTxt('tsGuardsSummary', activeInterventionCount > 0
             ? `${activeInterventionCount} auto-intervention${activeInterventionCount === 1 ? '' : 's'} \u00B7 ${guardLabel}`
             : `${liveGuardTotal > 0 ? guardLabel : 'Guards'} armed`);
           setTip('tsGuardsSummary', liveGuardTotal > 0
-            ? `${liveGuardTotal} safety & token-efficiency guards are enabled right now (${activeInterventionCount} active in this chat).`
+            ? `${liveGuardTotal} safety & token-efficiency guards are enabled right now (${activeInterventionCount} live action${activeInterventionCount === 1 ? '' : 's'} in this chat).`
             : 'Background guards watch for log dumps, repeat file reads, and cache-busting changes.');
         }
 
@@ -1489,9 +1573,11 @@
           lrList.innerHTML = '';
         } else {
           drawerEl.hidden = false;
-          setTxt('tsLearnedRulesSummary', `Applying ${lrCount} learned rule${lrCount === 1 ? '' : 's'}`);
+          setTxt('tsLearnedRulesSummary', effectiveMode === 'off'
+            ? `${lrCount} learned rule${lrCount === 1 ? '' : 's'} (${rslHooksCount > 0 ? 'checks paused' : 'in project'})`
+            : `Applying ${lrCount} learned rule${lrCount === 1 ? '' : 's'}`);
           setTxt('tsLearnedRulesHint', effectiveMode === 'off'
-            ? 'Paused'
+            ? (rslHooksCount > 0 ? 'Paused' : 'Active')
             : (rslHooksCount > 0 ? `${rslHooksCount} auto-check${rslHooksCount === 1 ? '' : 's'}` : 'Details'));
           lrHead.textContent = (uiRules.length > 0 && uiRules.length < lrCount)
             ? `Learned project rules (showing ${uiRules.length} of ${lrCount})`
@@ -1505,7 +1591,7 @@
             ? `<li class="ts-ledger-row" title="Highbeam knows about these rules, but this view does not have their details yet."><span class="ts-ledger-age">info</span><span>Rule details are not available yet. Run <code>ctxtop rsl status</code> to list them.</span><span class="ts-ledger-saved">${lrCount}</span></li>`
             : uiRules.map((r) => {
               const kind = ['hook', 'skill', 'rule'].includes(r.kind) ? r.kind : 'rule';
-              const state = effectiveMode === 'off' ? 'paused' : (kind === 'hook' ? 'blocks' : 'active');
+              const state = kind === 'hook' ? (effectiveMode === 'off' ? 'paused' : 'blocks') : 'active';
               const tip = `${kindTip[kind]}${r.detail ? ` ${r.detail}` : ''}`;
               return `<li class="ts-ledger-row" data-kind="${escAttr(kind)}" data-effective-state="${state}" title="${escAttr(tip)}">` +
                 `<span class="ts-ledger-age">${escAttr(kind)}</span>` +
@@ -1560,20 +1646,22 @@
         raw.thirtyDayTokensSaved
       ) || 0
     );
+    const modelRateUsd = Number(raw.model?.inputPricePerMillionUsd) || 2.0;
     const usdSaved = Number(
       raw.savings?.session?.estimatedUsd ??
       raw.savings?.session?.estimatedInputValueUsd ??
       raw.savings?.session?.estimatedCostSavedUsd ??
       raw.sessionCostSavedUsd ??
-      ((sessionSaved / 1000000) * 2.0)
+      ((sessionSaved / 1000000) * modelRateUsd)
     ) || 0;
-    const usd30d = Number(
+    const usd30dRaw = Number(
       raw.savings?.workspace30d?.estimatedUsd ??
       raw.savings?.workspace30d?.estimatedInputValueUsd ??
       raw.savings?.thirtyDay?.estimatedCostSavedUsd ??
       raw.lifetimeCostSavedUsd ??
-      ((lifetimeSaved / 1000000) * 2.0)
+      ((lifetimeSaved / 1000000) * modelRateUsd)
     ) || 0;
+    const usd30d = Math.max(usdSaved, usd30dRaw);
     setTxt('tsKpiSaved', `+${formatTokens(sessionSaved)}`);
     setTxt('tsKpiUsd', `~$${usdSaved.toFixed(2)}`);
     setTxt('tsKpi30d', `30d: +${formatTokens(lifetimeSaved)} (~$${usd30d.toFixed(2)})`);
@@ -1638,13 +1726,13 @@
       if (totalTurns > 0) {
         digestParts.push(`${totalTurns} turn${totalTurns === 1 ? '' : 's'} so far`);
       } else if (total > 0) {
-        digestParts.push(`Currently holding ${formatTokens(total)} across your session`);
+        digestParts.push(`Currently holding ${formatTokens(dispTotalT)} across your session`);
       } else {
         digestParts.push('Fresh session ready');
       }
       if (compactN > 0) digestParts.push(`compacted ${compactN} time${compactN === 1 ? '' : 's'} cleanly`);
-      if (sessionSaved > 0) digestParts.push(`saved ${formatTokens(sessionSaved)} from noise & caching`);
-      else if (staleT >= 20000) digestParts.push(`${formatTokens(staleT)} of older turns can be compacted later`);
+      if (sessionSaved >= 50) digestParts.push(`saved ${formatTokens(sessionSaved)} from noise & caching`);
+      else if (staleT >= 20000) digestParts.push(`${formatTokens(dispStaleT)} of older turns can be compacted later`);
       else digestParts.push('keeping early instructions sharp in view');
       setTxt('tsSessionDigest', digestParts.join(' \u2014 ') + '.');
 
@@ -1721,13 +1809,18 @@
     const tsSparklineDot = document.getElementById('tsSparklineDot');
     if (tsSparklinePath && tsSparklineDot) {
       const tlTurns = Array.isArray(raw.sessionTimeline?.turns) ? raw.sessionTimeline.turns : [];
-      let series = tlTurns.slice(-16).map(t => Math.max(0, Number(t.tokensAdded ?? t.cumulativeTokens ?? t.tokens) || 0));
-      if (series.length < 2 && Array.isArray(raw.cells)) {
+      let series = tlTurns.slice(-16).map(t => Math.max(0, Number(t.tokensAdded ?? t.cumulative ?? t.cumulativeTokens ?? t.tokens) || 0));
+      let hasMultiPointHistory = series.length >= 2;
+      if (!hasMultiPointHistory && Array.isArray(raw.cells)) {
         const cellVals = raw.cells.filter(c => c && c.cat !== 'empty' && Number(c.tokens) > 0).slice(-16).map(c => Number(c.tokens) || 0);
-        if (cellVals.length >= 2) series = cellVals;
+        if (cellVals.length >= 2) {
+          series = cellVals;
+          hasMultiPointHistory = true;
+        }
       }
-      if (series.length < 2) {
-        series = total > 0 ? [Math.round(usefulT * 0.5), usefulT, total] : [0, 0];
+      if (!hasMultiPointHistory) {
+        const singleVal = series.length === 1 ? series[0] : total;
+        series = singleVal > 0 ? [singleVal, singleVal] : [0, 0];
       }
       const peak = Math.max(1, ...series);
       const pts = series.map((v, idx) => {
@@ -1742,7 +1835,9 @@
       const sparkStroke = isCrisis ? 'var(--status-critical)' : (isWarn ? 'var(--status-warning)' : 'var(--text-secondary)');
       tsSparklinePath.setAttribute('stroke', sparkStroke);
       tsSparklineDot.setAttribute('fill', isCrisis ? 'var(--status-critical)' : (isWarn ? 'var(--status-warning)' : 'var(--text-primary)'));
-      setTxt('tsSparklineTip', `Context growth trend over recent turns (peak ${formatTokens(peak)}). Left = earlier, right = newest.`);
+      setTxt('tsSparklineTip', hasMultiPointHistory
+        ? `Context growth trend over recent turns (peak ${formatTokens(peak)}). Left = earlier, right = newest.`
+        : (total > 0 ? `Single-turn snapshot (${formatTokens(series[0])}). Trend line appears after 2 or more turns.` : 'Waiting for turns — trend line builds as turns arrive.'));
     }
 
     const tsBtnCleanPrimary = document.getElementById('tsBtnCleanPrimary');
@@ -1750,17 +1845,21 @@
       if (isCrisis) {
         tsBtnCleanPrimary.disabled = false;
         tsBtnCleanPrimary.dataset.ctaState = 'crisis';
-        setTxt('tsBtnCleanLabel', `Purge Clutter Now \u00B7 Reclaim ${formatTokens(staleT)} (Copy /compact)`);
-        tsBtnCleanPrimary.title = `Memory is past safe capacity. Click to copy /compact and reclaim ${formatTokens(staleT)} of clutter right away.`;
-      } else if (staleT > 500) {
+        setTxt('tsBtnCleanLabel', dispStaleT >= 100
+          ? `Purge Clutter Now \u00B7 Reclaim ${formatTokens(dispStaleT)} (Copy /compact)`
+          : 'Summarize & Compact Now (Copy /compact)');
+        tsBtnCleanPrimary.title = dispStaleT >= 100
+          ? `Memory is at risk or over the safe limit. Click to copy /compact and reclaim ${formatTokens(dispStaleT)} of clutter right away.`
+          : 'Memory is at risk or over the safe limit. Click to copy /compact and summarize earlier turns.';
+      } else if (dispStaleT >= 100) {
         tsBtnCleanPrimary.disabled = false;
         tsBtnCleanPrimary.dataset.ctaState = isWarm ? 'guarded' : 'ready';
         setTxt('tsBtnCleanLabel', isWarm
-          ? `Hold Cache (${ttlMm}:${ttlSs}) or Copy /compact (${formatTokens(staleT)})`
-          : `Reclaim ${formatTokens(staleT)} Clutter (Copy /compact)`);
+          ? `Hold Cache (${ttlMm}:${ttlSs}) or Copy /compact (${formatTokens(dispStaleT)})`
+          : `Reclaim ${formatTokens(dispStaleT)} Clutter (Copy /compact)`);
         tsBtnCleanPrimary.title = isWarm
           ? `Prompt cache is warm for ${ttlMm}:${ttlSs}. Wait until it cools to keep your discount, or click to copy /compact anyway.`
-          : `Click to copy /compact and clear ${formatTokens(staleT)} of older clutter while preserving rules and active code.`;
+          : `Click to copy /compact and clear ${formatTokens(dispStaleT)} of older clutter while preserving rules and active code.`;
       } else {
         tsBtnCleanPrimary.disabled = false;
         tsBtnCleanPrimary.dataset.ctaState = 'guarded';
@@ -1768,7 +1867,9 @@
         tsBtnCleanPrimary.title = 'Memory is already clean. Click anytime to copy the /compact command.';
       }
     }
-    setTxt('tsCompactReclaim', `${formatTokens(staleT)} reclaimable clutter \u00B7 Active working set protected`);
+    setTxt('tsCompactReclaim', dispStaleT >= 100
+      ? `${formatTokens(dispStaleT)} reclaimable clutter \u00B7 Active working set protected`
+      : '0.0k reclaimable clutter \u00B7 Active working set clean');
 
     // =======================================================================
     // 2. ADVANCED VIEW UPDATES (#argonAdvancedSurface)
@@ -2101,7 +2202,9 @@
   const tsBtnCleanPrimary = document.getElementById('tsBtnCleanPrimary');
   if (tsBtnCleanPrimary) {
     tsBtnCleanPrimary.addEventListener('click', async () => {
-      const cmd = currentRenderedState?.compaction?.parameterizedCommand || '/compact';
+      const cmd = currentRenderedState?.compaction?.parameterizedCommand ||
+        document.getElementById('parameterizedCompactText')?.textContent?.trim() ||
+        '/compact';
       try {
         if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
           await navigator.clipboard.writeText(cmd);

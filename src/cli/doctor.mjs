@@ -202,7 +202,7 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
   }
 
   // 3. Model Ceiling & Pricing Resolution
-  const testModels = ['gemini-3.8-flash', 'gemini-4-argon', 'gemini-4-carbon', 'claude-opus-5.5', 'custom-enterprise-model'];
+  const testModels = ['gemini-3.8-flash', 'gemini-4-argon', 'gemini-4-hydrogen', 'gemini-4-carbon', 'claude-opus-5.5', 'claude-fable-5-2', 'custom-enterprise-model'];
   let fallbackSeen = false;
   for (const m of testModels) {
     const details = resolveModelCeilingDetailed(m, null, { config });

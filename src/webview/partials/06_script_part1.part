@@ -721,7 +721,7 @@
       ? `${autoSurfaceTag} [${autoTok ? fmtK(autoTok) : '?'}] ${stripTokPrefix(autoMeta.title)}`
       : (autoTok ? `${autoSurfaceTag} [${fmtK(autoTok)}] ${fallbackTitle}` : '\u26A1 Auto (Active Conversation)');
 
-    let html = `<option value="auto" data-surface="${escAttr(autoMeta?.surface || autoState?.storeSource || 'antigravity')}">${autoTitle}</option>`;
+    let html = `<option value="auto" data-surface="${escAttr(autoMeta?.surface || autoState?.storeSource || 'antigravity')}">${escAttr(autoTitle)}</option>`;
     for (const s of sessions) {
       if (s.sessionId === autoId && s.sessionId !== selectedSessionMode) continue; // Deduplicate: autoId is already surfaced as the active session top option
       const tok = tokensFor(s.sessionId, s);
@@ -730,18 +730,20 @@
       const prefix = tokStr;
       const sSurface = s.surface || sState?.storeSource || 'antigravity';
       const sTag = s.surfaceTag || sState?.surfaceTag || resolveSurfaceTag(sSurface);
-      html += `<option value="${s.sessionId}" data-surface="${escAttr(sSurface)}">${sTag} [${prefix}] ${stripTokPrefix(s.title)}</option>`;
+      html += `<option value="${escAttr(s.sessionId)}" data-surface="${escAttr(sSurface)}">${escAttr(sTag)} [${escAttr(prefix)}] ${escAttr(stripTokPrefix(s.title))}</option>`;
     }
 
     if (selectedSessionMode !== 'auto' && !sessions.some(s => s.sessionId === selectedSessionMode)) {
       const pinTok = tokensFor(selectedSessionMode, null);
       const pinPrefix = pinTok ? fmtK(pinTok) : 'pinned';
+      const pinSurface = currentRenderedState?.storeSource || 'antigravity';
+      const pinTag = currentRenderedState?.surfaceTag || resolveSurfaceTag(pinSurface);
       const pinTitle = stripTokPrefix(
         (currentRenderedState?.sessionId === selectedSessionMode && currentRenderedState?.sessionTitle)
           || __liveSessionCache[selectedSessionMode]?.sessionTitle
           || selectedSessionMode.slice(0, 12)
       );
-      html += `<option value="${escAttr(selectedSessionMode)}" data-surface="antigravity">[AG] [${pinPrefix}] ${escAttr(pinTitle)}</option>`;
+      html += `<option value="${escAttr(selectedSessionMode)}" data-surface="${escAttr(pinSurface)}">${escAttr(pinTag)} [${escAttr(pinPrefix)}] ${escAttr(pinTitle)}</option>`;
     }
 
     // Skip DOM rewrite when nothing changed so an open dropdown is not collapsed by the live refresh
@@ -1319,16 +1321,17 @@
 
     // 1. Token Totals (Dynamic 200k / 256k / 512k / 900k / 1M / 1.048M Ceiling)
     const modelIdLower = String(raw.model?.id || sessionMeta.activeModel || raw.activeModel || '').toLowerCase().trim();
-    const isCarbonModel = modelIdLower.includes('carbon') || modelIdLower === 'm670';
-    const isArgonModel = modelIdLower.includes('argon');
-    const isClaude55OrFable = modelIdLower.includes('opus-5') || modelIdLower.includes('sonnet-5') || modelIdLower.includes('haiku-5') || modelIdLower.includes('fable-5');
+    const isCarbonModel = modelIdLower.includes('carbon') || modelIdLower === 'm670' || modelIdLower === 'gemini-pro-orchestrator' || modelIdLower === 'orchestrator' || modelIdLower === 'orchestrator-carbon';
+    const isArgonModel = modelIdLower.includes('argon') || modelIdLower.includes('orchestrator-argon');
+    const isHydrogenModel = modelIdLower.includes('hydrogen');
+    const isClaude55OrFable = modelIdLower.includes('opus-5') || modelIdLower.includes('sonnet-5') || modelIdLower.includes('haiku-5') || modelIdLower.includes('fable-5') || modelIdLower.includes('mythos-5') || modelIdLower.includes('opus-4-8') || modelIdLower.includes('opus-4-7') || modelIdLower.includes('opus-4.8') || modelIdLower.includes('opus-4.7');
     const isClaude46Model = !isClaude55OrFable && (
       modelIdLower.includes('claude-sonnet') ||
       modelIdLower.includes('claude-opus-4') ||
       modelIdLower.includes('claude-haiku-4') ||
       modelIdLower.includes('claude-3-5-sonnet')
     );
-    const inferredModelCeiling = (isCarbonModel || isArgonModel)
+    const inferredModelCeiling = (isCarbonModel || isArgonModel || isHydrogenModel)
       ? 1048576
       : (isClaude55OrFable ? 1000000 : (isClaude46Model ? 200000 : 256000));
     const maxTokens = win.maxTokens || raw.contextWindow || telemetry.contextWindow || (raw.model?.nativeCeilingTokens) || inferredModelCeiling;
@@ -1347,7 +1350,7 @@
     if (clampPillEl) {
       const isGemini4Clamped = Boolean(
         raw.model?.isClamped1MModel ||
-        ((isCarbonModel || isArgonModel || modelIdLower.includes('gemini-4')) && maxTokens === 256000)
+        ((isCarbonModel || isArgonModel || isHydrogenModel || modelIdLower.includes('gemini-4')) && maxTokens === 256000)
       );
       const isPatchedCli = Boolean(
         raw.model?.ceilingSource === 'patched_cli' ||
@@ -1356,7 +1359,7 @@
         maxTokens === 900000
       );
       if (isGemini4Clamped) {
-        const gemini4FamilyLabel = isCarbonModel ? 'Gemini 4 Carbon' : 'Gemini 4 Argon';
+        const gemini4FamilyLabel = isCarbonModel ? 'Gemini 4 Carbon' : (isHydrogenModel ? 'Gemini 4 Hydrogen' : 'Gemini 4 Argon');
         clampPillEl.hidden = false;
         clampPillEl.textContent = raw.model?.clampedLabel || '256k Host Cap (1M model)';
         clampPillEl.title = `Capped by host Cortex checkpoint ceiling (0x3E800). ${gemini4FamilyLabel} has a 1M native context window but is capped at 256k.`;
@@ -1420,7 +1423,11 @@
         : (typeof raw.model === 'string' ? raw.model : (raw.model?.id || ''));
       const shortModel = isCarbonModel
         ? 'Gemini 4 Carbon'
-        : activeModelName.replace('gemini-3.1-', '').replace('gemini-1.5-', '');
+        : (isHydrogenModel
+          ? 'Gemini 4 Hydrogen'
+          : (isArgonModel
+            ? 'Gemini 4 Argon'
+            : activeModelName.replace('gemini-3.1-', '').replace('gemini-1.5-', '')));
       const liveRoute = formatEffortRouteLabel(raw);
       modelPillEl.textContent = liveRoute && liveRoute !== 'Auto' ? `${shortModel ? `${shortModel} · ` : ''}${liveRoute}` : (shortModel || 'Auto');
     }
@@ -1680,7 +1687,7 @@
       quotaForecast.hidden = !isHighForecast;
 
       // Pool-specific reset timers & Google One AI Credits
-      const defaultGemini4PoolLabel = isCarbonModel ? 'Gemini 4 Carbon' : 'Gemini 4 Argon';
+      const defaultGemini4PoolLabel = isCarbonModel ? 'Gemini 4 Carbon' : (isHydrogenModel ? 'Gemini 4 Hydrogen' : 'Gemini 4 Argon');
       const s5PoolLabelBase = q.sprint5h?.poolCountdownLabel || (q.sprint5h?.resetLabel ? `${q.sprint5h.modelPoolName || defaultGemini4PoolLabel} resets in ${q.sprint5h.resetLabel}` : '');
       // Model provenance: anything not supplied by the host (stdin) is marked inferred.
       const modelSource = raw.model?.source || null;
@@ -1717,7 +1724,7 @@
       const coachActionPill = document.getElementById('coachActionPill');
       const coachData = raw.coachState?.taskQuotaRouter;
       if (coachBarEl && coachLiveLabel) {
-        const activeModelName = coachData?.activeModelLabel || q.sprint5h?.modelPoolName || raw.model?.label || (isCarbonModel ? 'Gemini 4 Carbon' : 'Gemini 4 Argon');
+        const activeModelName = coachData?.activeModelLabel || q.sprint5h?.modelPoolName || raw.model?.label || (isCarbonModel ? 'Gemini 4 Carbon' : (isHydrogenModel ? 'Gemini 4 Hydrogen' : 'Gemini 4 Argon'));
         const activeEffortStr = coachData?.activeEffort ? (coachData.activeEffort.charAt(0).toUpperCase() + coachData.activeEffort.slice(1)) : 'High';
         const burnMultiplier = coachData?.activeBurnMultiplier || 9.25;
         const liveStatus = coachData?.syncStatus || (isLiveSynced ? 'live synced' : (modelSource === 'stdin' ? 'live synced' : 'model inferred'));

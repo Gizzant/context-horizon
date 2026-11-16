@@ -12,6 +12,7 @@
     "low": 800,
     "medium": 1500,
     "high": 3500,
+    "xhigh": 5000,
     "max": 6000
   },
   "models": {

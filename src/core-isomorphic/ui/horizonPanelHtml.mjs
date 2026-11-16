@@ -470,14 +470,34 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
   const usefulTokens = Math.max(0, grid.totalInputTokens - grid.tokens.D);
   const holdWarmActive = Boolean(metrics.cacheWarm && grid.tokens.D > 0 && verdict.severity !== 'critical');
 
-  const safeCeiling = Math.max(1, Number(grid.zoomTier.ceilingTokens || 1));
+  const rawMaxTok = Math.max(1000, Number(state.maxTokens || state.window?.maxTokens || grid.zoomTier.ceilingTokens || 200000));
+  const safeLimitTok = Math.max(1, Number(state.safeLimitTokens || state.window?.safeLimit || Math.round(rawMaxTok * 0.7)));
   const pinnedTok = Math.max(0, Number(grid.tokens.S || 0));
   const reclaimTok = Math.max(0, Number(grid.tokens.D || 0));
-  const newActiveTok = Math.max(0, Number(grid.tokens.C || 0) + Number(grid.tokens.W || 0));
-  const fillPct = Math.min(100, Math.max(0, Math.round((grid.totalInputTokens / safeCeiling) * 100)));
+  const rawNewActiveTok = Math.max(0, Number(grid.tokens.C || 0) + Number(grid.tokens.W || 0));
+  // Synchronize displayed 3-row breakdown with the headline total in #simpleRunwaySub.
+  const bScale = grid.totalInputTokens >= 1000000 ? 10000 : (grid.totalInputTokens >= 1000 ? 100 : 1);
+  const bTotalU = grid.totalInputTokens >= 100000 && grid.totalInputTokens < 1000000
+    ? Math.round(grid.totalInputTokens / 1000) * 10
+    : Math.round(grid.totalInputTokens / bScale);
+  const bReclaimU = Math.min(bTotalU, Math.round(reclaimTok / bScale));
+  const bPinnedU = Math.min(bTotalU - bReclaimU, Math.round(pinnedTok / bScale));
+  const bNewU = Math.max(0, bTotalU - bReclaimU - bPinnedU);
+  const fmtBreakdownU = (u) => {
+    if (u <= 0) return '0';
+    if (bScale === 10000) return `${Number((u / 100).toFixed(2))}M`;
+    if (bScale === 100) return `${Number((u / 10).toFixed(1))}k`;
+    return String(u);
+  };
+  const dispNewActiveStr = fmtBreakdownU(bNewU);
+  const dispReclaimStr = fmtBreakdownU(bReclaimU);
+  const dispPinnedStr = fmtBreakdownU(bPinnedU);
+
+  const usedSafePct = Math.round((grid.totalInputTokens / safeLimitTok) * 100);
+  const fillPct = Math.min(100, Math.max(0, usedSafePct));
   const freePct = Math.max(0, 100 - fillPct);
-  const glassSum = Math.max(1, newActiveTok + reclaimTok + pinnedTok);
-  const segNewPct = newActiveTok > 0 ? Number(((newActiveTok / glassSum) * 100).toFixed(1)) : 0;
+  const glassSum = Math.max(1, rawNewActiveTok + reclaimTok + pinnedTok);
+  const segNewPct = rawNewActiveTok > 0 ? Number(((rawNewActiveTok / glassSum) * 100).toFixed(1)) : 0;
   const segOldPct = reclaimTok > 0 ? Number(((reclaimTok / glassSum) * 100).toFixed(1)) : 0;
   const segPinPct = pinnedTok > 0 ? Math.max(0, Number((100 - segNewPct - segOldPct).toFixed(1))) : 0;
 
@@ -488,9 +508,11 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
     options.shadowAuto ||
     state.shadowAuto ||
     (proEntitlement ? computeShadowAutoSummary([], { proEntitlement }) : null);
+  const trialDaysNum = Number(proEntitlement?.daysRemaining);
+  const trialDaysTxt = Number.isFinite(trialDaysNum) ? (trialDaysNum <= 0 ? '<1' : String(Math.ceil(trialDaysNum))) : '14';
   const flightBadgeLabel =
     metrics.flightMode === 'AUTO_PILOT' && proEntitlement?.tier === 'trial'
-      ? `Auto (Trial \u00B7 ${proEntitlement.daysRemaining || 14}d)`
+      ? `Auto (Trial \u00B7 ${trialDaysTxt}d)`
       : metrics.flightMode;
   const avoidText = metrics.cacheWarm
     ? `Avoid switching models or editing CLAUDE.md/.mcp.json while ${formatTokensCompact(metrics.cachedTokens)} cached prefix reads at 0.10x.`
@@ -1236,17 +1258,17 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
               <div class="ts-cat-row" role="listitem">
                 <span class="ts-swatch-dot" style="background:var(--accent-focus);" aria-hidden="true"></span>
                 <div class="ts-cat-meta"><span class="ts-cat-name">New &amp; active</span><span class="ts-cat-sub">Current files &amp; replies</span></div>
-                <strong class="ts-cat-val">${escapeHtml(formatTokensCompact(newActiveTok))}</strong>
+                <strong class="ts-cat-val">${escapeHtml(dispNewActiveStr)}</strong>
               </div>
               <div class="ts-cat-row" role="listitem">
                 <span class="ts-swatch-dot" style="background:var(--status-warning);" aria-hidden="true"></span>
                 <div class="ts-cat-meta"><span class="ts-cat-name">Reclaimable</span><span class="ts-cat-sub">Older chat &amp; repeat reads</span></div>
-                <strong class="ts-cat-val">${escapeHtml(formatTokensCompact(reclaimTok))}</strong>
+                <strong class="ts-cat-val">${escapeHtml(dispReclaimStr)}</strong>
               </div>
               <div class="ts-cat-row" role="listitem">
                 <span class="ts-swatch-dot" style="background:var(--text-secondary);" aria-hidden="true"></span>
                 <div class="ts-cat-meta"><span class="ts-cat-name">Rules &amp; tools</span><span class="ts-cat-sub">Pinned in CLAUDE.md &amp; MCP</span></div>
-                <strong class="ts-cat-val">${escapeHtml(formatTokensCompact(pinnedTok))}</strong>
+                <strong class="ts-cat-val">${escapeHtml(dispPinnedStr)}</strong>
               </div>
             </div>
 
@@ -1272,12 +1294,12 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
               <span id="ccGlassHeadroom" class="ts-glass-headroom-label">${freePct}% free</span>
               <div id="ccGlassSafeLine" class="ts-glass-safe-line" title="Safe limit line"></div>
               <div id="ccGlassFill" class="ts-glass-fill" style="height:${fillPct}%">
-                <div id="ccGlassSegNew" class="ts-glass-seg ts-glass-seg-new" style="height:${segNewPct}%" title="New &amp; active: ${escapeHtml(formatTokensCompact(newActiveTok))}"></div>
-                <div id="ccGlassSegOld" class="ts-glass-seg ts-glass-seg-old" style="height:${segOldPct}%" title="Reclaimable clutter: ${escapeHtml(formatTokensCompact(reclaimTok))}"></div>
-                <div id="ccGlassSegPinned" class="ts-glass-seg ts-glass-seg-pinned" style="height:${segPinPct}%" title="Rules &amp; tools: ${escapeHtml(formatTokensCompact(pinnedTok))}"></div>
+                <div id="ccGlassSegNew" class="ts-glass-seg ts-glass-seg-new" style="height:${segNewPct}%" title="New &amp; active: ${escapeHtml(dispNewActiveStr)}"></div>
+                <div id="ccGlassSegOld" class="ts-glass-seg ts-glass-seg-old" style="height:${segOldPct}%" title="Reclaimable clutter: ${escapeHtml(dispReclaimStr)}"></div>
+                <div id="ccGlassSegPinned" class="ts-glass-seg ts-glass-seg-pinned" style="height:${segPinPct}%" title="Rules &amp; tools: ${escapeHtml(dispPinnedStr)}"></div>
               </div>
             </div>
-            <span id="ccGlassCaption" class="ts-glass-caption">${grid.utilizationPct}% of safe</span>
+            <span id="ccGlassCaption" class="ts-glass-caption">${grid.totalInputTokens > safeLimitTok ? 'Over safe limit' : `${usedSafePct}% of safe`}</span>
           </div>
         </div>
 
@@ -1330,7 +1352,7 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
       <section class="ah-card ts-card" id="priorityActionCard" data-severity="${escapeHtml(verdict.severity)}" data-hold="${holdWarmActive ? 'true' : 'false'}" data-rank="3">
         <div class="ts-card-head">
           <span class="ah-sec-name">Direct guidance</span>
-          <span class="ts-kpi-sub">${metrics.cacheWarm ? 'Model: Hold · Effort: Match task' : 'Model: OK · Effort: OK'}</span>
+          <span class="ts-kpi-sub">${metrics.cacheWarm ? 'Model: Hold · Effort: Hold' : 'Model: OK · Effort: OK'}</span>
         </div>
         <div class="ah-sec-blurb">The highest-leverage step right now and what to avoid to protect your cache.</div>
         <div id="ccDoRow" class="ts-guidance-row" data-tone="do">

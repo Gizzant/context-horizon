@@ -50,7 +50,9 @@ export const MODEL_BREAK_EVEN_RATES = Object.freeze({
   'claude-haiku-5-5': { output: 0.5, read: 0.01, write5m: 0.125, write1h: 0.2 },
   'claude-haiku-4-5': { output: 5.0, read: 0.10, write5m: 1.25, write1h: 2.0 },
   'claude-fable-5-2': { output: 40.0, read: 0.20, write5m: 10.0, write1h: 16.0 },
-  'claude-fable-5-1': { output: 50.0, read: 0.25, write5m: 12.5, write1h: 20.0 }
+  'claude-fable-5-1': { output: 50.0, read: 0.25, write5m: 12.5, write1h: 20.0 },
+  'claude-mythos-5-2': { output: 40.0, read: 0.20, write5m: 10.0, write1h: 16.0 },
+  'claude-mythos-5-1': { output: 50.0, read: 0.25, write5m: 12.5, write1h: 20.0 }
 });
 
 /**

@@ -12,18 +12,36 @@
         "gemini-4-carbon-low",
         "M427",
         "M437",
-        "M438"
+        "M438",
+        "gemini-pro-orchestrator",
+        "orchestrator",
+        "orchestrator-carbon",
+        "antigravity-orchestrator"
       ],
       "family": "carbon",
       "label": "Gemini 4 Carbon",
-      "supported_efforts": ["low", "medium", "high"],
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
       "caching_mode": "implicit_only",
       "supports_explicit_cache": false,
       "antigravity_min_tier": "ultra",
       "shared_pool_ceiling": 1048576,
       "deprecated_after": null,
-      "weights": { "low": 3.2, "med": 6.0, "medium": 6.0, "high": 10.0 },
-      "quota_multipliers": { "low": 3.2, "med": 6.0, "medium": 6.0, "high": 10.0 },
+      "weights": {
+        "low": 3.2,
+        "med": 6,
+        "medium": 6,
+        "high": 10
+      },
+      "quota_multipliers": {
+        "low": 3.2,
+        "med": 6,
+        "medium": 6,
+        "high": 10
+      },
       "rate_schedules": [
         {
           "id": "carbon-introductory-pre-2026-12-01",
@@ -31,18 +49,18 @@
           "effective_from_utc": null,
           "effective_until_utc": "2026-11-30T23:59:59Z",
           "standard": {
-            "input_per_1m": 2.00,
-            "output_per_1m": 10.00,
-            "write_5m_per_1m": 2.00,
-            "write_1h_per_1m": 2.00,
-            "cached_read_per_1m": 0.10
+            "input_per_1m": 2,
+            "output_per_1m": 10,
+            "write_5m_per_1m": 2,
+            "write_1h_per_1m": 2,
+            "cached_read_per_1m": 0.1
           },
           "priority": {
-            "input_per_1m": 3.60,
-            "output_per_1m": 18.00,
-            "write_5m_per_1m": 3.60,
-            "write_1h_per_1m": 3.60,
-            "cached_read_per_1m": 0.10
+            "input_per_1m": 3.6,
+            "output_per_1m": 18,
+            "write_5m_per_1m": 3.6,
+            "write_1h_per_1m": 3.6,
+            "cached_read_per_1m": 0.1
           }
         },
         {
@@ -51,35 +69,51 @@
           "effective_from_utc": "2026-12-01T00:00:00Z",
           "effective_until_utc": null,
           "standard": {
-            "input_per_1m": 4.00,
-            "output_per_1m": 20.00,
-            "write_5m_per_1m": 4.00,
-            "write_1h_per_1m": 4.00,
-            "cached_read_per_1m": 0.20
+            "input_per_1m": 4,
+            "output_per_1m": 20,
+            "write_5m_per_1m": 4,
+            "write_1h_per_1m": 4,
+            "cached_read_per_1m": 0.2
           },
           "priority": {
-            "input_per_1m": 7.20,
-            "output_per_1m": 36.00,
-            "write_5m_per_1m": 7.20,
-            "write_1h_per_1m": 7.20,
-            "cached_read_per_1m": 0.20
+            "input_per_1m": 7.2,
+            "output_per_1m": 36,
+            "write_5m_per_1m": 7.2,
+            "write_1h_per_1m": 7.2,
+            "cached_read_per_1m": 0.2
           }
         }
       ]
     },
     "gemini-4-carbon-cyber-permissive": {
       "id": "gemini-4-carbon-cyber-permissive",
-      "aliases": ["M670"],
+      "aliases": [
+        "M670"
+      ],
       "family": "carbon",
       "label": "Gemini 4 Carbon (Cyber Permissive)",
-      "supported_efforts": ["low", "medium", "high"],
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
       "caching_mode": "implicit_only",
       "supports_explicit_cache": false,
       "antigravity_min_tier": "ultra",
       "shared_pool_ceiling": 1048576,
       "deprecated_after": null,
-      "weights": { "low": 3.2, "med": 6.0, "medium": 6.0, "high": 10.0 },
-      "quota_multipliers": { "low": 3.2, "med": 6.0, "medium": 6.0, "high": 10.0 },
+      "weights": {
+        "low": 3.2,
+        "med": 6,
+        "medium": 6,
+        "high": 10
+      },
+      "quota_multipliers": {
+        "low": 3.2,
+        "med": 6,
+        "medium": 6,
+        "high": 10
+      },
       "rate_schedules": [
         {
           "id": "carbon-introductory-pre-2026-12-01",
@@ -87,18 +121,18 @@
           "effective_from_utc": null,
           "effective_until_utc": "2026-11-30T23:59:59Z",
           "standard": {
-            "input_per_1m": 2.00,
-            "output_per_1m": 10.00,
-            "write_5m_per_1m": 2.00,
-            "write_1h_per_1m": 2.00,
-            "cached_read_per_1m": 0.10
+            "input_per_1m": 2,
+            "output_per_1m": 10,
+            "write_5m_per_1m": 2,
+            "write_1h_per_1m": 2,
+            "cached_read_per_1m": 0.1
           },
           "priority": {
-            "input_per_1m": 3.60,
-            "output_per_1m": 18.00,
-            "write_5m_per_1m": 3.60,
-            "write_1h_per_1m": 3.60,
-            "cached_read_per_1m": 0.10
+            "input_per_1m": 3.6,
+            "output_per_1m": 18,
+            "write_5m_per_1m": 3.6,
+            "write_1h_per_1m": 3.6,
+            "cached_read_per_1m": 0.1
           }
         },
         {
@@ -107,18 +141,18 @@
           "effective_from_utc": "2026-12-01T00:00:00Z",
           "effective_until_utc": null,
           "standard": {
-            "input_per_1m": 4.00,
-            "output_per_1m": 20.00,
-            "write_5m_per_1m": 4.00,
-            "write_1h_per_1m": 4.00,
-            "cached_read_per_1m": 0.20
+            "input_per_1m": 4,
+            "output_per_1m": 20,
+            "write_5m_per_1m": 4,
+            "write_1h_per_1m": 4,
+            "cached_read_per_1m": 0.2
           },
           "priority": {
-            "input_per_1m": 7.20,
-            "output_per_1m": 36.00,
-            "write_5m_per_1m": 7.20,
-            "write_1h_per_1m": 7.20,
-            "cached_read_per_1m": 0.20
+            "input_per_1m": 7.2,
+            "output_per_1m": 36,
+            "write_5m_per_1m": 7.2,
+            "write_1h_per_1m": 7.2,
+            "cached_read_per_1m": 0.2
           }
         }
       ]
@@ -129,18 +163,34 @@
         "gemini-4-argon-high",
         "gemini-4-argon-medium",
         "gemini-4-argon-med",
-        "gemini-4-argon-low"
+        "gemini-4-argon-low",
+        "gemini-pro-orchestrator-argon",
+        "orchestrator-argon"
       ],
       "family": "argon",
       "label": "Gemini 4 Argon",
-      "supported_efforts": ["low", "medium", "high"],
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
       "caching_mode": "implicit_only",
       "supports_explicit_cache": false,
       "antigravity_min_tier": "pro",
       "shared_pool_ceiling": 1048576,
       "deprecated_after": null,
-      "weights": { "low": 3.0, "med": 5.5, "medium": 5.5, "high": 9.25 },
-      "quota_multipliers": { "low": 3.0, "med": 5.5, "medium": 5.5, "high": 9.25 },
+      "weights": {
+        "low": 3,
+        "med": 5.5,
+        "medium": 5.5,
+        "high": 9.25
+      },
+      "quota_multipliers": {
+        "low": 3,
+        "med": 5.5,
+        "medium": 5.5,
+        "high": 9.25
+      },
       "rate_schedules": [
         {
           "id": "argon-introductory-pre-2026-12-01",
@@ -148,18 +198,18 @@
           "effective_from_utc": null,
           "effective_until_utc": "2026-11-30T23:59:59Z",
           "standard": {
-            "input_per_1m": 2.00,
-            "output_per_1m": 10.00,
-            "write_5m_per_1m": 2.00,
-            "write_1h_per_1m": 2.00,
-            "cached_read_per_1m": 0.10
+            "input_per_1m": 2,
+            "output_per_1m": 10,
+            "write_5m_per_1m": 2,
+            "write_1h_per_1m": 2,
+            "cached_read_per_1m": 0.1
           },
           "priority": {
-            "input_per_1m": 3.60,
-            "output_per_1m": 18.00,
-            "write_5m_per_1m": 3.60,
-            "write_1h_per_1m": 3.60,
-            "cached_read_per_1m": 0.10
+            "input_per_1m": 3.6,
+            "output_per_1m": 18,
+            "write_5m_per_1m": 3.6,
+            "write_1h_per_1m": 3.6,
+            "cached_read_per_1m": 0.1
           }
         },
         {
@@ -168,18 +218,81 @@
           "effective_from_utc": "2026-12-01T00:00:00Z",
           "effective_until_utc": null,
           "standard": {
-            "input_per_1m": 4.00,
-            "output_per_1m": 20.00,
-            "write_5m_per_1m": 4.00,
-            "write_1h_per_1m": 4.00,
-            "cached_read_per_1m": 0.20
+            "input_per_1m": 4,
+            "output_per_1m": 20,
+            "write_5m_per_1m": 4,
+            "write_1h_per_1m": 4,
+            "cached_read_per_1m": 0.2
           },
           "priority": {
-            "input_per_1m": 7.20,
-            "output_per_1m": 36.00,
-            "write_5m_per_1m": 7.20,
-            "write_1h_per_1m": 7.20,
-            "cached_read_per_1m": 0.20
+            "input_per_1m": 7.2,
+            "output_per_1m": 36,
+            "write_5m_per_1m": 7.2,
+            "write_1h_per_1m": 7.2,
+            "cached_read_per_1m": 0.2
+          }
+        }
+      ]
+    },
+    "gemini-4-hydrogen": {
+      "id": "gemini-4-hydrogen",
+      "aliases": [
+        "gemini-4-hydrogen-xhigh",
+        "gemini-4-hydrogen-extra-high",
+        "gemini-4-hydrogen-high",
+        "gemini-4-hydrogen-medium",
+        "gemini-4-hydrogen-med",
+        "gemini-4-hydrogen-low",
+        "orchestrator-hydrogen",
+        "gemini-pro-orchestrator-hydrogen"
+      ],
+      "family": "hydrogen",
+      "label": "Gemini 4 Hydrogen",
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "caching_mode": "implicit_only",
+      "supports_explicit_cache": false,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 1048576,
+      "max_output_tokens": 65536,
+      "deprecated_after": null,
+      "weights": {
+        "low": 1.5,
+        "med": 2.5,
+        "medium": 2.5,
+        "high": 4,
+        "xhigh": 6
+      },
+      "quota_multipliers": {
+        "low": 1.5,
+        "med": 2.5,
+        "medium": 2.5,
+        "high": 4,
+        "xhigh": 6
+      },
+      "rate_schedules": [
+        {
+          "id": "hydrogen-standard-from-2026-11-12",
+          "window": "standard",
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 1.5,
+            "output_per_1m": 7.5,
+            "write_5m_per_1m": 1.5,
+            "write_1h_per_1m": 1.5,
+            "cached_read_per_1m": 0.075
+          },
+          "priority": {
+            "input_per_1m": 2.7,
+            "output_per_1m": 13.5,
+            "write_5m_per_1m": 2.7,
+            "write_1h_per_1m": 2.7,
+            "cached_read_per_1m": 0.075
           }
         }
       ]
@@ -194,13 +307,22 @@
       ],
       "family": "flash",
       "label": "Gemini 3.8 Flash",
-      "supported_efforts": ["low", "medium", "high"],
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
       "caching_mode": "implicit_only",
       "supports_explicit_cache": false,
       "antigravity_min_tier": "free",
       "shared_pool_ceiling": 256000,
       "deprecated_after": null,
-      "quota_multipliers": { "low": 1.0, "med": 1.5, "medium": 1.5, "high": 2.2 },
+      "quota_multipliers": {
+        "low": 1,
+        "med": 1.5,
+        "medium": 1.5,
+        "high": 2.2
+      },
       "rate_schedules": [
         {
           "id": "flash-introductory-pre-2027-01-01",
@@ -228,17 +350,17 @@
           "effective_from_utc": "2027-01-01T00:00:00Z",
           "effective_until_utc": null,
           "standard": {
-            "input_per_1m": 1.50,
-            "output_per_1m": 7.50,
-            "write_5m_per_1m": 1.50,
-            "write_1h_per_1m": 1.50,
+            "input_per_1m": 1.5,
+            "output_per_1m": 7.5,
+            "write_5m_per_1m": 1.5,
+            "write_1h_per_1m": 1.5,
             "cached_read_per_1m": 0.15
           },
           "priority": {
-            "input_per_1m": 2.70,
-            "output_per_1m": 13.50,
-            "write_5m_per_1m": 2.70,
-            "write_1h_per_1m": 2.70,
+            "input_per_1m": 2.7,
+            "output_per_1m": 13.5,
+            "write_5m_per_1m": 2.7,
+            "write_1h_per_1m": 2.7,
             "cached_read_per_1m": 0.15
           }
         }
@@ -246,41 +368,54 @@
     },
     "claude-haiku-5-5": {
       "id": "claude-haiku-5-5",
-      "aliases": ["claude-haiku-5.5", "haiku-5-5", "haiku-5.5"],
+      "aliases": [
+        "claude-haiku-5.5",
+        "haiku-5-5",
+        "haiku-5.5"
+      ],
       "family": "haiku",
       "label": "Claude Haiku 5.5",
-      "supported_efforts": ["low", "medium", "high"],
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
       "caching_mode": "explicit_and_implicit",
       "supports_explicit_cache": true,
       "antigravity_min_tier": "pro",
       "shared_pool_ceiling": 1000000,
       "deprecated_after": null,
       "prompt_cliff_tokens": 100000,
-      "quota_multipliers": { "low": 0.5, "med": 0.8, "medium": 0.8, "high": 1.2 },
+      "quota_multipliers": {
+        "low": 0.5,
+        "med": 0.8,
+        "medium": 0.8,
+        "high": 1.2
+      },
       "rate_schedules": [
         {
           "id": "haiku-5-5-standard",
           "effective_from_utc": null,
           "effective_until_utc": null,
           "standard": {
-            "input_per_1m": 0.10,
-            "output_per_1m": 0.50,
+            "input_per_1m": 0.1,
+            "output_per_1m": 0.5,
             "write_5m_per_1m": 0.125,
-            "write_1h_per_1m": 0.20,
+            "write_1h_per_1m": 0.2,
             "cached_read_per_1m": 0.01
           },
           "cliff_over_100k": {
-            "input_per_1m": 0.50,
-            "output_per_1m": 2.50,
+            "input_per_1m": 0.5,
+            "output_per_1m": 2.5,
             "write_5m_per_1m": 0.625,
-            "write_1h_per_1m": 1.00,
+            "write_1h_per_1m": 1,
             "cached_read_per_1m": 0.05
           },
           "priority": {
-            "input_per_1m": 0.10,
-            "output_per_1m": 0.50,
+            "input_per_1m": 0.1,
+            "output_per_1m": 0.5,
             "write_5m_per_1m": 0.125,
-            "write_1h_per_1m": 0.20,
+            "write_1h_per_1m": 0.2,
             "cached_read_per_1m": 0.01
           }
         }
@@ -288,347 +423,854 @@
     },
     "claude-sonnet-5-5": {
       "id": "claude-sonnet-5-5",
-      "aliases": ["claude-sonnet-5.5", "sonnet-5-5", "sonnet-5.5"],
+      "aliases": [
+        "claude-sonnet-5.5",
+        "sonnet-5-5",
+        "sonnet-5.5"
+      ],
       "family": "sonnet",
       "label": "Claude Sonnet 5.5",
-      "supported_efforts": ["low", "medium", "high"],
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
       "caching_mode": "explicit_and_implicit",
       "supports_explicit_cache": true,
       "antigravity_min_tier": "pro",
       "shared_pool_ceiling": 1000000,
       "deprecated_after": null,
-      "quota_multipliers": { "low": 3.0, "med": 4.5, "medium": 4.5, "high": 7.0 },
+      "quota_multipliers": {
+        "low": 3,
+        "med": 4.5,
+        "medium": 4.5,
+        "high": 7
+      },
       "rate_schedules": [
         {
           "effective_from_utc": null,
           "effective_until_utc": null,
           "standard": {
-            "input_per_1m": 2.00,
-            "output_per_1m": 10.00,
-            "write_5m_per_1m": 2.50,
-            "write_1h_per_1m": 4.00,
-            "cached_read_per_1m": 0.10
+            "input_per_1m": 2,
+            "output_per_1m": 10,
+            "write_5m_per_1m": 2.5,
+            "write_1h_per_1m": 4,
+            "cached_read_per_1m": 0.1
           },
           "priority": {
-            "input_per_1m": 2.00,
-            "output_per_1m": 10.00,
-            "write_5m_per_1m": 2.50,
-            "write_1h_per_1m": 4.00,
-            "cached_read_per_1m": 0.10
+            "input_per_1m": 2,
+            "output_per_1m": 10,
+            "write_5m_per_1m": 2.5,
+            "write_1h_per_1m": 4,
+            "cached_read_per_1m": 0.1
           }
         }
       ]
     },
     "claude-opus-5-5": {
       "id": "claude-opus-5-5",
-      "aliases": ["claude-opus-5.5", "opus-5-5", "opus-5.5"],
+      "aliases": [
+        "claude-opus-5.5",
+        "opus-5-5",
+        "opus-5.5"
+      ],
       "family": "opus",
       "label": "Claude Opus 5.5",
-      "supported_efforts": ["low", "medium", "high"],
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
       "caching_mode": "explicit_and_implicit",
       "supports_explicit_cache": true,
       "antigravity_min_tier": "pro",
       "shared_pool_ceiling": 1000000,
       "deprecated_after": null,
-      "quota_multipliers": { "low": 6.0, "med": 9.0, "medium": 9.0, "high": 14.0 },
+      "quota_multipliers": {
+        "low": 6,
+        "med": 9,
+        "medium": 9,
+        "high": 14
+      },
       "rate_schedules": [
         {
           "effective_from_utc": null,
           "effective_until_utc": null,
           "standard": {
-            "input_per_1m": 4.00,
-            "output_per_1m": 20.00,
-            "write_5m_per_1m": 5.00,
-            "write_1h_per_1m": 8.00,
-            "cached_read_per_1m": 0.20
+            "input_per_1m": 4,
+            "output_per_1m": 20,
+            "write_5m_per_1m": 5,
+            "write_1h_per_1m": 8,
+            "cached_read_per_1m": 0.2
           },
           "priority": {
-            "input_per_1m": 4.00,
-            "output_per_1m": 20.00,
-            "write_5m_per_1m": 5.00,
-            "write_1h_per_1m": 8.00,
-            "cached_read_per_1m": 0.20
+            "input_per_1m": 4,
+            "output_per_1m": 20,
+            "write_5m_per_1m": 5,
+            "write_1h_per_1m": 8,
+            "cached_read_per_1m": 0.2
           }
         }
       ]
     },
     "claude-fable-5-2": {
       "id": "claude-fable-5-2",
-      "aliases": ["claude-fable-5.2", "fable-5-2", "fable-5.2"],
+      "aliases": [
+        "claude-fable-5.2",
+        "fable-5-2",
+        "fable-5.2"
+      ],
       "family": "fable",
       "label": "Claude Fable 5.2",
-      "supported_efforts": ["low", "medium", "high"],
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
       "caching_mode": "explicit_and_implicit",
       "supports_explicit_cache": true,
       "antigravity_min_tier": "ultra",
       "shared_pool_ceiling": 1000000,
       "deprecated_after": null,
-      "quota_multipliers": { "low": 10.0, "med": 15.0, "medium": 15.0, "high": 22.0 },
+      "quota_multipliers": {
+        "low": 10,
+        "med": 15,
+        "medium": 15,
+        "high": 22
+      },
       "rate_schedules": [
         {
           "effective_from_utc": null,
           "effective_until_utc": null,
           "standard": {
-            "input_per_1m": 8.00,
-            "output_per_1m": 40.00,
-            "write_5m_per_1m": 10.00,
-            "write_1h_per_1m": 16.00,
-            "cached_read_per_1m": 0.20
+            "input_per_1m": 8,
+            "output_per_1m": 40,
+            "write_5m_per_1m": 10,
+            "write_1h_per_1m": 16,
+            "cached_read_per_1m": 0.2
           },
           "priority": {
-            "input_per_1m": 8.00,
-            "output_per_1m": 40.00,
-            "write_5m_per_1m": 10.00,
-            "write_1h_per_1m": 16.00,
-            "cached_read_per_1m": 0.20
+            "input_per_1m": 8,
+            "output_per_1m": 40,
+            "write_5m_per_1m": 10,
+            "write_1h_per_1m": 16,
+            "cached_read_per_1m": 0.2
+          }
+        }
+      ],
+      "max_output_tokens": 128000
+    },
+    "claude-fable-5-1": {
+      "id": "claude-fable-5-1",
+      "aliases": [
+        "claude-fable-5.1",
+        "fable-5-1",
+        "fable-5.1"
+      ],
+      "family": "fable",
+      "label": "Claude Fable 5.1",
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "ultra",
+      "shared_pool_ceiling": 1000000,
+      "deprecated_after": null,
+      "quota_multipliers": {
+        "low": 12,
+        "med": 18,
+        "medium": 18,
+        "high": 26
+      },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 10,
+            "output_per_1m": 50,
+            "write_5m_per_1m": 12.5,
+            "write_1h_per_1m": 20,
+            "cached_read_per_1m": 0.25
+          },
+          "priority": {
+            "input_per_1m": 10,
+            "output_per_1m": 50,
+            "write_5m_per_1m": 12.5,
+            "write_1h_per_1m": 20,
+            "cached_read_per_1m": 0.25
+          }
+        }
+      ],
+      "max_output_tokens": 128000
+    },
+    "claude-fable-5": {
+      "id": "claude-fable-5",
+      "aliases": [
+        "fable-5"
+      ],
+      "family": "fable",
+      "label": "Claude Fable 5",
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "ultra",
+      "shared_pool_ceiling": 1000000,
+      "deprecated_after": null,
+      "quota_multipliers": {
+        "low": 12,
+        "med": 18,
+        "medium": 18,
+        "high": 26
+      },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 10,
+            "output_per_1m": 50,
+            "write_5m_per_1m": 12.5,
+            "write_1h_per_1m": 20,
+            "cached_read_per_1m": 1
+          },
+          "priority": {
+            "input_per_1m": 10,
+            "output_per_1m": 50,
+            "write_5m_per_1m": 12.5,
+            "write_1h_per_1m": 20,
+            "cached_read_per_1m": 1
           }
         }
       ]
     },
-    "claude-fable-5-1": {
-      "id": "claude-fable-5-1",
-      "aliases": ["claude-fable-5.1", "fable-5-1", "fable-5.1"],
-      "family": "fable",
-      "label": "Claude Fable 5.1",
-      "supported_efforts": ["low", "medium", "high"],
+    "claude-mythos-5-2": {
+      "id": "claude-mythos-5-2",
+      "aliases": [
+        "claude-mythos-5.2",
+        "mythos-5-2",
+        "mythos-5.2"
+      ],
+      "family": "mythos",
+      "label": "Claude Mythos 5.2",
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
       "caching_mode": "explicit_and_implicit",
       "supports_explicit_cache": true,
       "antigravity_min_tier": "ultra",
       "shared_pool_ceiling": 1000000,
+      "max_output_tokens": 128000,
       "deprecated_after": null,
-      "quota_multipliers": { "low": 12.0, "med": 18.0, "medium": 18.0, "high": 26.0 },
+      "quota_multipliers": {
+        "low": 10,
+        "med": 15,
+        "medium": 15,
+        "high": 22
+      },
       "rate_schedules": [
         {
           "effective_from_utc": null,
           "effective_until_utc": null,
           "standard": {
-            "input_per_1m": 10.00,
-            "output_per_1m": 50.00,
-            "write_5m_per_1m": 12.50,
-            "write_1h_per_1m": 20.00,
+            "input_per_1m": 8,
+            "output_per_1m": 40,
+            "write_5m_per_1m": 10,
+            "write_1h_per_1m": 16,
+            "cached_read_per_1m": 0.2
+          },
+          "priority": {
+            "input_per_1m": 8,
+            "output_per_1m": 40,
+            "write_5m_per_1m": 10,
+            "write_1h_per_1m": 16,
+            "cached_read_per_1m": 0.2
+          }
+        }
+      ]
+    },
+    "claude-mythos-5-1": {
+      "id": "claude-mythos-5-1",
+      "aliases": [
+        "claude-mythos-5.1",
+        "mythos-5-1",
+        "mythos-5.1"
+      ],
+      "family": "mythos",
+      "label": "Claude Mythos 5.1",
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "ultra",
+      "shared_pool_ceiling": 1000000,
+      "max_output_tokens": 128000,
+      "deprecated_after": null,
+      "quota_multipliers": {
+        "low": 12,
+        "med": 18,
+        "medium": 18,
+        "high": 26
+      },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 10,
+            "output_per_1m": 50,
+            "write_5m_per_1m": 12.5,
+            "write_1h_per_1m": 20,
             "cached_read_per_1m": 0.25
           },
           "priority": {
-            "input_per_1m": 10.00,
-            "output_per_1m": 50.00,
-            "write_5m_per_1m": 12.50,
-            "write_1h_per_1m": 20.00,
+            "input_per_1m": 10,
+            "output_per_1m": 50,
+            "write_5m_per_1m": 12.5,
+            "write_1h_per_1m": 20,
             "cached_read_per_1m": 0.25
+          }
+        }
+      ]
+    },
+    "claude-mythos-5": {
+      "id": "claude-mythos-5",
+      "aliases": [
+        "mythos-5"
+      ],
+      "family": "mythos",
+      "label": "Claude Mythos 5",
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "ultra",
+      "shared_pool_ceiling": 1000000,
+      "max_output_tokens": 128000,
+      "deprecated_after": null,
+      "quota_multipliers": {
+        "low": 12,
+        "med": 18,
+        "medium": 18,
+        "high": 26
+      },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 10,
+            "output_per_1m": 50,
+            "write_5m_per_1m": 12.5,
+            "write_1h_per_1m": 20,
+            "cached_read_per_1m": 1
+          },
+          "priority": {
+            "input_per_1m": 10,
+            "output_per_1m": 50,
+            "write_5m_per_1m": 12.5,
+            "write_1h_per_1m": 20,
+            "cached_read_per_1m": 1
+          }
+        }
+      ]
+    },
+    "claude-opus-5": {
+      "id": "claude-opus-5",
+      "aliases": [
+        "opus-5"
+      ],
+      "family": "opus",
+      "label": "Claude Opus 5",
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 1000000,
+      "deprecated_after": null,
+      "quota_multipliers": {
+        "low": 7.5,
+        "med": 11,
+        "medium": 11,
+        "high": 16
+      },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 5,
+            "output_per_1m": 25,
+            "write_5m_per_1m": 6.25,
+            "write_1h_per_1m": 10,
+            "cached_read_per_1m": 0.5
+          },
+          "priority": {
+            "input_per_1m": 5,
+            "output_per_1m": 25,
+            "write_5m_per_1m": 6.25,
+            "write_1h_per_1m": 10,
+            "cached_read_per_1m": 0.5
+          }
+        }
+      ]
+    },
+    "claude-sonnet-5": {
+      "id": "claude-sonnet-5",
+      "aliases": [
+        "sonnet-5"
+      ],
+      "family": "sonnet",
+      "label": "Claude Sonnet 5",
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 1000000,
+      "deprecated_after": null,
+      "quota_multipliers": {
+        "low": 3,
+        "med": 4.5,
+        "medium": 4.5,
+        "high": 7
+      },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 2,
+            "output_per_1m": 10,
+            "write_5m_per_1m": 2.5,
+            "write_1h_per_1m": 4,
+            "cached_read_per_1m": 0.2
+          },
+          "priority": {
+            "input_per_1m": 2,
+            "output_per_1m": 10,
+            "write_5m_per_1m": 2.5,
+            "write_1h_per_1m": 4,
+            "cached_read_per_1m": 0.2
+          }
+        }
+      ]
+    },
+    "claude-opus-4-8": {
+      "id": "claude-opus-4-8",
+      "aliases": [
+        "claude-opus-4.8",
+        "opus-4-8",
+        "opus-4.8"
+      ],
+      "family": "opus",
+      "label": "Claude Opus 4.8",
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 1000000,
+      "deprecated_after": null,
+      "quota_multipliers": {
+        "low": 7.5,
+        "med": 11,
+        "medium": 11,
+        "high": 16
+      },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 5,
+            "output_per_1m": 25,
+            "write_5m_per_1m": 6.25,
+            "write_1h_per_1m": 10,
+            "cached_read_per_1m": 0.5
+          },
+          "priority": {
+            "input_per_1m": 5,
+            "output_per_1m": 25,
+            "write_5m_per_1m": 6.25,
+            "write_1h_per_1m": 10,
+            "cached_read_per_1m": 0.5
+          }
+        }
+      ]
+    },
+    "claude-opus-4-7": {
+      "id": "claude-opus-4-7",
+      "aliases": [
+        "claude-opus-4.7",
+        "opus-4-7",
+        "opus-4.7"
+      ],
+      "family": "opus",
+      "label": "Claude Opus 4.7",
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "caching_mode": "explicit_and_implicit",
+      "supports_explicit_cache": true,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 1000000,
+      "deprecated_after": null,
+      "quota_multipliers": {
+        "low": 7.5,
+        "med": 11,
+        "medium": 11,
+        "high": 16
+      },
+      "rate_schedules": [
+        {
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 5,
+            "output_per_1m": 25,
+            "write_5m_per_1m": 6.25,
+            "write_1h_per_1m": 10,
+            "cached_read_per_1m": 0.5
+          },
+          "priority": {
+            "input_per_1m": 5,
+            "output_per_1m": 25,
+            "write_5m_per_1m": 6.25,
+            "write_1h_per_1m": 10,
+            "cached_read_per_1m": 0.5
           }
         }
       ]
     },
     "claude-opus-4-6": {
       "id": "claude-opus-4-6",
-      "aliases": ["claude-opus-4.6", "claude-opus-4-6-thinking", "opus-4-6", "opus-4.6"],
+      "aliases": [
+        "claude-opus-4.6",
+        "claude-opus-4-6-thinking",
+        "opus-4-6",
+        "opus-4.6"
+      ],
       "family": "opus",
       "label": "Claude Opus 4.6",
-      "supported_efforts": ["low", "medium", "high"],
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
       "caching_mode": "explicit_and_implicit",
       "supports_explicit_cache": true,
       "antigravity_min_tier": "pro",
       "shared_pool_ceiling": 200000,
       "deprecated_after": "2026-11-18T00:00:00Z",
-      "quota_multipliers": { "low": 7.5, "med": 11.0, "medium": 11.0, "high": 16.0 },
+      "quota_multipliers": {
+        "low": 7.5,
+        "med": 11,
+        "medium": 11,
+        "high": 16
+      },
       "rate_schedules": [
         {
           "effective_from_utc": null,
           "effective_until_utc": null,
           "standard": {
-            "input_per_1m": 5.00,
-            "output_per_1m": 25.00,
+            "input_per_1m": 5,
+            "output_per_1m": 25,
             "write_5m_per_1m": 6.25,
-            "write_1h_per_1m": 10.00,
-            "cached_read_per_1m": 0.50
+            "write_1h_per_1m": 10,
+            "cached_read_per_1m": 0.5
           },
           "priority": {
-            "input_per_1m": 5.00,
-            "output_per_1m": 25.00,
+            "input_per_1m": 5,
+            "output_per_1m": 25,
             "write_5m_per_1m": 6.25,
-            "write_1h_per_1m": 10.00,
-            "cached_read_per_1m": 0.50
+            "write_1h_per_1m": 10,
+            "cached_read_per_1m": 0.5
           }
         }
       ]
     },
     "claude-opus-4-5": {
       "id": "claude-opus-4-5",
-      "aliases": ["claude-opus-4.5", "opus-4-5", "opus-4.5"],
+      "aliases": [
+        "claude-opus-4.5",
+        "opus-4-5",
+        "opus-4.5"
+      ],
       "family": "opus",
       "label": "Claude Opus 4.5",
-      "supported_efforts": ["low", "medium", "high"],
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
       "caching_mode": "explicit_and_implicit",
       "supports_explicit_cache": true,
       "antigravity_min_tier": "pro",
       "shared_pool_ceiling": 200000,
       "deprecated_after": null,
-      "quota_multipliers": { "low": 7.5, "med": 11.0, "medium": 11.0, "high": 16.0 },
+      "quota_multipliers": {
+        "low": 7.5,
+        "med": 11,
+        "medium": 11,
+        "high": 16
+      },
       "rate_schedules": [
         {
           "effective_from_utc": null,
           "effective_until_utc": null,
           "standard": {
-            "input_per_1m": 5.00,
-            "output_per_1m": 25.00,
+            "input_per_1m": 5,
+            "output_per_1m": 25,
             "write_5m_per_1m": 6.25,
-            "write_1h_per_1m": 10.00,
-            "cached_read_per_1m": 0.50
+            "write_1h_per_1m": 10,
+            "cached_read_per_1m": 0.5
           },
           "priority": {
-            "input_per_1m": 5.00,
-            "output_per_1m": 25.00,
+            "input_per_1m": 5,
+            "output_per_1m": 25,
             "write_5m_per_1m": 6.25,
-            "write_1h_per_1m": 10.00,
-            "cached_read_per_1m": 0.50
+            "write_1h_per_1m": 10,
+            "cached_read_per_1m": 0.5
           }
         }
       ]
     },
     "claude-sonnet-4-6": {
       "id": "claude-sonnet-4-6",
-      "aliases": ["claude-sonnet-4.6", "sonnet-4-6", "sonnet-4.6"],
+      "aliases": [
+        "claude-sonnet-4.6",
+        "sonnet-4-6",
+        "sonnet-4.6"
+      ],
       "family": "sonnet",
       "label": "Claude Sonnet 4.6",
-      "supported_efforts": ["low", "medium", "high"],
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
       "caching_mode": "explicit_and_implicit",
       "supports_explicit_cache": true,
       "antigravity_min_tier": "pro",
       "shared_pool_ceiling": 200000,
       "deprecated_after": "2026-11-18T00:00:00Z",
-      "quota_multipliers": { "low": 3.5, "med": 5.0, "medium": 5.0, "high": 7.5 },
+      "quota_multipliers": {
+        "low": 3.5,
+        "med": 5,
+        "medium": 5,
+        "high": 7.5
+      },
       "rate_schedules": [
         {
           "effective_from_utc": null,
           "effective_until_utc": null,
           "standard": {
-            "input_per_1m": 3.00,
-            "output_per_1m": 15.00,
+            "input_per_1m": 3,
+            "output_per_1m": 15,
             "write_5m_per_1m": 3.75,
-            "write_1h_per_1m": 6.00,
-            "cached_read_per_1m": 0.30
+            "write_1h_per_1m": 6,
+            "cached_read_per_1m": 0.3
           },
           "priority": {
-            "input_per_1m": 3.00,
-            "output_per_1m": 15.00,
+            "input_per_1m": 3,
+            "output_per_1m": 15,
             "write_5m_per_1m": 3.75,
-            "write_1h_per_1m": 6.00,
-            "cached_read_per_1m": 0.30
+            "write_1h_per_1m": 6,
+            "cached_read_per_1m": 0.3
           }
         }
       ]
     },
     "claude-sonnet-4-5": {
       "id": "claude-sonnet-4-5",
-      "aliases": ["claude-sonnet-4.5", "sonnet-4-5", "sonnet-4.5"],
+      "aliases": [
+        "claude-sonnet-4.5",
+        "sonnet-4-5",
+        "sonnet-4.5"
+      ],
       "family": "sonnet",
       "label": "Claude Sonnet 4.5",
-      "supported_efforts": ["low", "medium", "high"],
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
       "caching_mode": "explicit_and_implicit",
       "supports_explicit_cache": true,
       "antigravity_min_tier": "pro",
       "shared_pool_ceiling": 200000,
       "deprecated_after": null,
-      "quota_multipliers": { "low": 3.5, "med": 5.0, "medium": 5.0, "high": 7.5 },
+      "quota_multipliers": {
+        "low": 3.5,
+        "med": 5,
+        "medium": 5,
+        "high": 7.5
+      },
       "rate_schedules": [
         {
           "effective_from_utc": null,
           "effective_until_utc": null,
           "standard": {
-            "input_per_1m": 3.00,
-            "output_per_1m": 15.00,
+            "input_per_1m": 3,
+            "output_per_1m": 15,
             "write_5m_per_1m": 3.75,
-            "write_1h_per_1m": 6.00,
-            "cached_read_per_1m": 0.30
+            "write_1h_per_1m": 6,
+            "cached_read_per_1m": 0.3
           },
           "priority": {
-            "input_per_1m": 3.00,
-            "output_per_1m": 15.00,
+            "input_per_1m": 3,
+            "output_per_1m": 15,
             "write_5m_per_1m": 3.75,
-            "write_1h_per_1m": 6.00,
-            "cached_read_per_1m": 0.30
+            "write_1h_per_1m": 6,
+            "cached_read_per_1m": 0.3
           }
         }
       ]
     },
     "claude-haiku-4-5": {
       "id": "claude-haiku-4-5",
-      "aliases": ["claude-haiku-4.5", "haiku-4-5", "haiku-4.5"],
+      "aliases": [
+        "claude-haiku-4.5",
+        "haiku-4-5",
+        "haiku-4.5"
+      ],
       "family": "haiku",
       "label": "Claude Haiku 4.5",
-      "supported_efforts": ["low", "medium", "high"],
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
       "caching_mode": "explicit_and_implicit",
       "supports_explicit_cache": true,
       "antigravity_min_tier": "pro",
       "shared_pool_ceiling": 200000,
       "deprecated_after": null,
-      "quota_multipliers": { "low": 1.2, "med": 1.8, "medium": 1.8, "high": 2.5 },
+      "quota_multipliers": {
+        "low": 1.2,
+        "med": 1.8,
+        "medium": 1.8,
+        "high": 2.5
+      },
       "rate_schedules": [
         {
           "effective_from_utc": null,
           "effective_until_utc": null,
           "standard": {
-            "input_per_1m": 1.00,
-            "output_per_1m": 5.00,
+            "input_per_1m": 1,
+            "output_per_1m": 5,
             "write_5m_per_1m": 1.25,
-            "write_1h_per_1m": 2.00,
-            "cached_read_per_1m": 0.10
+            "write_1h_per_1m": 2,
+            "cached_read_per_1m": 0.1
           },
           "priority": {
-            "input_per_1m": 1.00,
-            "output_per_1m": 5.00,
+            "input_per_1m": 1,
+            "output_per_1m": 5,
             "write_5m_per_1m": 1.25,
-            "write_1h_per_1m": 2.00,
-            "cached_read_per_1m": 0.10
+            "write_1h_per_1m": 2,
+            "cached_read_per_1m": 0.1
           }
         }
       ]
     },
     "gpt-oss-120b": {
       "id": "gpt-oss-120b",
-      "aliases": ["gpt-oss"],
+      "aliases": [
+        "gpt-oss"
+      ],
       "family": "gpt-oss",
       "label": "GPT-OSS 120B",
-      "supported_efforts": ["low", "medium", "high"],
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
       "caching_mode": "implicit_only",
       "supports_explicit_cache": false,
       "antigravity_min_tier": "pro",
       "shared_pool_ceiling": 128000,
       "deprecated_after": "2026-11-18T00:00:00Z",
-      "quota_multipliers": { "low": 1.5, "med": 2.5, "medium": 2.5, "high": 4.0 },
+      "quota_multipliers": {
+        "low": 1.5,
+        "med": 2.5,
+        "medium": 2.5,
+        "high": 4
+      },
       "rate_schedules": [
         {
           "effective_from_utc": null,
           "effective_until_utc": null,
           "standard": {
-            "input_per_1m": 1.00,
-            "output_per_1m": 3.00,
-            "write_5m_per_1m": 1.00,
-            "write_1h_per_1m": 1.00,
-            "cached_read_per_1m": 0.10
+            "input_per_1m": 1,
+            "output_per_1m": 3,
+            "write_5m_per_1m": 1,
+            "write_1h_per_1m": 1,
+            "cached_read_per_1m": 0.1
           },
           "priority": {
-            "input_per_1m": 1.00,
-            "output_per_1m": 3.00,
-            "write_5m_per_1m": 1.00,
-            "write_1h_per_1m": 1.00,
-            "cached_read_per_1m": 0.10
+            "input_per_1m": 1,
+            "output_per_1m": 3,
+            "write_5m_per_1m": 1,
+            "write_1h_per_1m": 1,
+            "cached_read_per_1m": 0.1
           }
         }
       ]
     },
     "gemini-3.1-pro": {
       "id": "gemini-3.1-pro",
-      "aliases": ["gemini-3.1-pro-preview", "gemini-3-1-pro", "gemini-3-1-pro-preview"],
+      "aliases": [
+        "gemini-3.1-pro-preview",
+        "gemini-3-1-pro",
+        "gemini-3-1-pro-preview"
+      ],
       "family": "gemini-pro",
       "label": "Gemini 3.1 Pro",
-      "supported_efforts": ["low", "medium", "high"],
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
       "caching_mode": "explicit_and_implicit",
       "supports_explicit_cache": true,
       "antigravity_min_tier": "pro",
       "shared_pool_ceiling": 1000000,
       "deprecated_after": null,
       "prompt_cliff_tokens": 200000,
-      "quota_multipliers": { "low": 2.0, "med": 3.5, "medium": 3.5, "high": 5.5 },
+      "quota_multipliers": {
+        "low": 2,
+        "med": 3.5,
+        "medium": 3.5,
+        "high": 5.5
+      },
       "rate_schedules": [
         {
           "id": "gemini-3-1-pro-standard",
@@ -636,21 +1278,21 @@
           "effective_until_utc": null,
           "standard": {
             "input_per_1m": 1.25,
-            "output_per_1m": 10.00,
+            "output_per_1m": 10,
             "write_5m_per_1m": 1.25,
             "write_1h_per_1m": 1.25,
             "cached_read_per_1m": 0.125
           },
           "cliff_over_200k": {
-            "input_per_1m": 2.50,
-            "output_per_1m": 15.00,
-            "write_5m_per_1m": 2.50,
-            "write_1h_per_1m": 2.50,
+            "input_per_1m": 2.5,
+            "output_per_1m": 15,
+            "write_5m_per_1m": 2.5,
+            "write_1h_per_1m": 2.5,
             "cached_read_per_1m": 0.25
           },
           "priority": {
             "input_per_1m": 1.25,
-            "output_per_1m": 10.00,
+            "output_per_1m": 10,
             "write_5m_per_1m": 1.25,
             "write_1h_per_1m": 1.25,
             "cached_read_per_1m": 0.125
@@ -660,17 +1302,30 @@
     },
     "gemini-2.5-pro": {
       "id": "gemini-2.5-pro",
-      "aliases": ["gemini-2.5-pro-preview", "gemini-2-5-pro", "gemini-2.5-pro-1m"],
+      "aliases": [
+        "gemini-2.5-pro-preview",
+        "gemini-2-5-pro",
+        "gemini-2.5-pro-1m"
+      ],
       "family": "gemini-pro",
       "label": "Gemini 2.5 Pro",
-      "supported_efforts": ["low", "medium", "high"],
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
       "caching_mode": "explicit_and_implicit",
       "supports_explicit_cache": true,
       "antigravity_min_tier": "pro",
       "shared_pool_ceiling": 1000000,
       "deprecated_after": null,
       "prompt_cliff_tokens": 200000,
-      "quota_multipliers": { "low": 2.0, "med": 3.5, "medium": 3.5, "high": 5.5 },
+      "quota_multipliers": {
+        "low": 2,
+        "med": 3.5,
+        "medium": 3.5,
+        "high": 5.5
+      },
       "rate_schedules": [
         {
           "id": "gemini-2-5-pro-standard",
@@ -678,21 +1333,21 @@
           "effective_until_utc": null,
           "standard": {
             "input_per_1m": 1.25,
-            "output_per_1m": 10.00,
+            "output_per_1m": 10,
             "write_5m_per_1m": 1.25,
             "write_1h_per_1m": 1.25,
             "cached_read_per_1m": 0.125
           },
           "cliff_over_200k": {
-            "input_per_1m": 2.50,
-            "output_per_1m": 15.00,
-            "write_5m_per_1m": 2.50,
-            "write_1h_per_1m": 2.50,
+            "input_per_1m": 2.5,
+            "output_per_1m": 15,
+            "write_5m_per_1m": 2.5,
+            "write_1h_per_1m": 2.5,
             "cached_read_per_1m": 0.25
           },
           "priority": {
             "input_per_1m": 1.25,
-            "output_per_1m": 10.00,
+            "output_per_1m": 10,
             "write_5m_per_1m": 1.25,
             "write_1h_per_1m": 1.25,
             "cached_read_per_1m": 0.125
