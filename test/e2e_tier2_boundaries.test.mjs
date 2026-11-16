@@ -262,7 +262,7 @@ describe('Feature 1: Single ctxtop Package', () => {
     const parsed = JSON.parse(jsonStr);
 
     assert.equal(parsed.name, 'ctxtop');
-    assert.equal(parsed.version, '4.0.0');
+    assert.equal(parsed.version, '4.1.0');
     assert.equal(parsed.type, 'module');
     assert.ok(parsed.bin.ctxtop);
     assert.ok(parsed.bin['ah-statusline']);
@@ -507,7 +507,7 @@ describe('Feature 2: Dual Plugin Manifests', () => {
     // 1. Positive baseline: Production workspace dual manifests must maintain version parity
     const prodCheck = verifyDualManifestParity(process.cwd());
     assert.equal(prodCheck.verified, true, 'Production dual manifests must maintain parity');
-    assert.equal(prodCheck.version, '4.0.0', 'Production manifest version must be 4.0.0');
+    assert.equal(prodCheck.version, '4.1.0', 'Production manifest version must be 4.1.0');
 
     // 2. Negative boundary: Sandboxed workspace with conflicting versions must be detected
     const ws = createTempWorkspace({ prefix: 'manifest-version-conflict-' });
@@ -2492,14 +2492,14 @@ describe('Feature 31: Unified ctxtop CLI', () => {
     assert.ok(res2.output.includes('Usage: ctxtop'));
   });
 
-  it('31.B3 Unified ctxtop CLI: flag --version or -v outputs version 4.0.0 with exit code 0', async () => {
+  it('31.B3 Unified ctxtop CLI: flag --version or -v outputs version 4.1.0 with exit code 0', async () => {
     const res1 = await runCli(['--version']);
     assert.equal(res1.exitCode, 0);
-    assert.ok(res1.output.includes('4.0.0'));
+    assert.ok(res1.output.includes('4.1.0'));
 
     const res2 = await runCli(['-v']);
     assert.equal(res2.exitCode, 0);
-    assert.ok(res2.output.includes('4.0.0'));
+    assert.ok(res2.output.includes('4.1.0'));
   });
 
   it('31.B4 Unified ctxtop CLI: inspect with non-existent session handles missing state gracefully', async () => {

@@ -58,6 +58,7 @@ import {
   activateLocalTrial
 } from '../../src/core/pro_license.mjs';
 import { generateCorporateExpenseReceipt } from '../../src/core-isomorphic/ui/pdfReceiptGenerator.mjs';
+import { DETECTOR_CATALOG } from '../../src/core-isomorphic/catalog/detectorCatalog.mjs';
 import { ProgressiveCheckpointer } from '../../src/core/coach/progressive_checkpointer.mjs';
 import { atomicWriteFileSync } from '../../src/core/atomic_io.mjs';
 import { MicroIpcServer } from '../../src/engine-node/ipc/server.mjs';
@@ -484,12 +485,20 @@ function buildCoachState(state, targetConvId) {
       });
     }
     const primaryTripped = combinedAlerts.length > 0 ? combinedAlerts[combinedAlerts.length - 1] : null;
+    const trippedIds = new Set(combinedAlerts.map((a) => a.detectorId));
+    const cfgDetectors = horizonCfg?.detectors || {};
+    const guardList = Object.values(DETECTOR_CATALOG).map((meta) => {
+      const cfgMode = String(cfgDetectors[meta.id] || 'default').toLowerCase();
+      const mode = cfgMode === 'default' ? String(meta.defaultMode || 'advisory') : cfgMode;
+      return { id: meta.id, name: meta.name, mode, severity: meta.severity || 'WARN', tripped: trippedIds.has(meta.id) };
+    }).filter((g) => g.mode !== 'off');
 
     return {
       prefixCacheShield: shieldStatus,
       detectors: {
         active: true,
-        totalCount: 30,
+        totalCount: guardList.length,
+        list: guardList,
         tripped: primaryTripped
           ? {
               detectorId: primaryTripped.detectorId,
@@ -501,7 +510,7 @@ function buildCoachState(state, targetConvId) {
           : null,
         summary: combinedAlerts.length > 0
           ? `${combinedAlerts.length} breaker${combinedAlerts.length === 1 ? '' : 's'} tripped (${combinedAlerts.map(a => a.detectorId).join(', ')})`
-          : '30 guards quiet (DET-01..30 Active)'
+          : `${guardList.length} guards quiet`
       },
       scopeCollision: scopeCollisionAlert,
       thinkingDrift,

@@ -69,4 +69,5 @@ import './bucket_b_gamma_suites.test.mjs';
 import './claude-code/round2_suite_findings.test.mjs';
 import './rsl_dual_platform.test.mjs';
 import './spec_sharding_and_rule_clash.test.mjs';
+import './simple_view_next_action.test.mjs';
 

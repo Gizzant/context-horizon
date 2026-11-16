@@ -4929,6 +4929,12 @@
     .ts-ledger-row:first-child { border-top: none; }
     .ts-ledger-age { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
     .ts-ledger-saved { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-secondary); font-weight: 600; }
+    .ts-guard-head { margin: 8px 0 0 10px; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
+    .ts-guard-list { max-height: 180px; overflow-y: auto; }
+    .ts-guard-list[hidden], .ts-guard-head[hidden] { display: none; }
+    .ts-guard-list .ts-ledger-row { grid-template-columns: 46px minmax(0, 1fr) auto; }
+    .ts-guard-list .ts-ledger-row[data-tripped="true"] .ts-ledger-saved { color: var(--warn, #f59e0b); }
+    .ts-guard-list .ts-ledger-row[data-mode="advisory"] .ts-ledger-saved { font-weight: 400; color: var(--text-muted); }
 
     [data-theme="light"] .ta-cell:not([data-cat]) { background: var(--hz-free); }
     [data-theme="light"] .ta-inspector,
@@ -5220,7 +5226,7 @@
     </details>
 
     <details id="tsActivityDrawer" class="ts-drawer">
-      <summary><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Auto-guard activity</span><span id="tsGuardsSummary" class="ts-kpi-sub">32 guards armed</span></summary>
+      <summary><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Auto-guard activity</span><span id="tsGuardsSummary" class="ts-kpi-sub">Guards armed</span></summary>
       <ul id="tsLedgerList" class="ts-ledger" role="list">
         <li class="ts-ledger-row">
           <span class="ts-ledger-age">now</span>
@@ -5228,6 +5234,8 @@
           <span class="ts-ledger-saved">ready</span>
         </li>
       </ul>
+      <div id="tsGuardListHead" class="ts-guard-head" hidden>Live guards</div>
+      <ul id="tsGuardList" class="ts-ledger ts-guard-list" role="list" hidden></ul>
     </details>
   </div>
 
@@ -11859,6 +11867,13 @@
     // Zone B: Direct Guidance (DO / AVOID / MODEL & EFFORT)
     const tsGuidanceBadge = document.getElementById('tsGuidanceBadge');
     const tsDoRow = document.getElementById('tsDoRow');
+    const breakerSrc = raw.coachState?.detectors?.tripped || raw.circuitBreakerTripped ||
+      (Array.isArray(raw.coachState?.circuitBreakerAlerts) ? raw.coachState.circuitBreakerAlerts[0] : null);
+    const simpleBreaker = (breakerSrc && typeof breakerSrc === 'object')
+      ? { id: String(breakerSrc.detectorId || breakerSrc.id || 'DET'), msg: String(breakerSrc.reason || breakerSrc.message || breakerSrc.title || 'intervention active').slice(0, 90) }
+      : null;
+    const shardedSpecCount = Number(raw.shardedSpecCount || 0);
+    const rslClashCount = Number(raw.rsl?.clashCount || 0);
 
     if (isCrisis) {
       if (tsDoRow) tsDoRow.dataset.tone = 'danger';
@@ -11868,6 +11883,10 @@
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
       setTxt('tsDoText', `Pause blind retries (${errLoopCount}\u00D7 error loop) \u2014 inspect root cause${staleT >= 5000 ? ` or /compact ${formatTokens(staleT)} of error noise` : ''}.`);
       setTxt('tsAvoidText', 'Avoid repeating the same failing command; upshift model/effort or isolate a minimal repro.');
+    } else if (simpleBreaker) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'danger';
+      setTxt('tsDoText', `Guard tripped (${simpleBreaker.id}): ${simpleBreaker.msg} \u2014 review the agent's last changes before continuing.`);
+      setTxt('tsAvoidText', 'Avoid approving further edits until the flagged change is reviewed or reverted.');
     } else if (isWarm && staleT > 10000) {
       if (tsDoRow) tsDoRow.dataset.tone = 'do';
       setTxt('tsDoText', `Keep prompting while ${hitPct}% cache discount is warm (${formatTokens(remainingSafe)} safe headroom left).`);
@@ -11876,6 +11895,10 @@
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
       setTxt('tsDoText', `Checkpoint to task.md or run /compact soon \u2014 only ${formatTokens(remainingSafe)} left below ${formatTokens(safeCap)} safe limit.`);
       setTxt('tsAvoidText', 'Avoid multi-file reads or verbose test loops until context is compacted.');
+    } else if (shardedSpecCount >= 4) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
+      setTxt('tsDoText', `Consolidate ${shardedSpecCount} scattered requirement changes \u2014 run ctxtop handoff --consolidate and restart from one spec.`);
+      setTxt('tsAvoidText', 'Avoid drip-feeding new constraints mid-task; state them together in one prompt or spec file.');
     } else if (isHighEffort && staleT >= 30000) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
       setTxt('tsDoText', `Run /compact to clear ${formatTokens(staleT)} clutter \u2014 ${activeEffort} effort re-processes stale noise every turn.`);
@@ -11909,6 +11932,10 @@
         ? `Switch ${idleEagerMcps.length} idle eager MCP${idleEagerMcps.length === 1 ? '' : 's'} to lazy loading to save ~${formatTokens(idleEagerTokens)} at Turn 0.`
         : `Trim Turn-0 customizations (${formatTokens(baselineEst)} vs 20.0k budget) to free permanent headroom.`);
       setTxt('tsAvoidText', 'Avoid eager-loading unused MCP schemas or >200-line global rule files.');
+    } else if (rslClashCount > 0) {
+      if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
+      setTxt('tsDoText', `${rslClashCount} conflicting rule${rslClashCount === 1 ? '' : 's'} detected \u2014 run ctxtop rsl status and keep one directive per conflict.`);
+      setTxt('tsAvoidText', 'Avoid adding rules that contradict existing AGENTS.md or .agents/rules directives.');
     } else {
       if (tsDoRow) tsDoRow.dataset.tone = 'do';
       setTxt('tsDoText', `Safe to run multi-file edits or implementation tasks (${formatTokens(remainingSafe)} left below ${formatTokens(safeCap)} safe limit).`);
@@ -12085,12 +12112,16 @@
       }
 
       const activeInterventionCount = rows.length;
+      const liveGuardTotal = Number(raw.coachState?.detectors?.totalCount || 0);
+      const guardLabel = liveGuardTotal > 0 ? `${liveGuardTotal} guards` : 'guards';
       if (rows.length === 0) {
-        rows.push({
-          age: 'active',
-          action: `Pinned ${formatTokens(rulesT || 12400)} system rules & workspace invariants`,
-          saved: 'pinned'
-        });
+        if (rulesT > 0) {
+          rows.push({
+            age: 'active',
+            action: `Pinned ${formatTokens(rulesT)} system rules & workspace invariants`,
+            saved: 'pinned'
+          });
+        }
         rows.push({
           age: 'now',
           action: 'Auto-guards armed (FTS5 CLI compressor & PrefixCacheShield)',
@@ -12098,8 +12129,8 @@
         });
       }
       setTxt('tsGuardsSummary', activeInterventionCount > 0
-        ? `${activeInterventionCount} auto-intervention${activeInterventionCount === 1 ? '' : 's'} \u00B7 32 guards`
-        : '32 guards armed');
+        ? `${activeInterventionCount} auto-intervention${activeInterventionCount === 1 ? '' : 's'} \u00B7 ${guardLabel}`
+        : `${liveGuardTotal > 0 ? guardLabel : 'Guards'} armed`);
 
       tsLedgerList.innerHTML = rows.slice(0, 4).map(r => `
         <li class="ts-ledger-row">
@@ -12108,6 +12139,34 @@
           <span class="ts-ledger-saved">${escAttr(r.saved)}</span>
         </li>
       `).join('');
+    }
+
+    // Live guard roster (dropdown body of Auto-guard activity)
+    {
+      const guardListEl = document.getElementById('tsGuardList');
+      const guardHeadEl = document.getElementById('tsGuardListHead');
+      const liveGuards = Array.isArray(raw.coachState?.detectors?.list) ? raw.coachState.detectors.list : [];
+      if (guardListEl && guardHeadEl) {
+        if (liveGuards.length === 0) {
+          guardListEl.hidden = true;
+          guardHeadEl.hidden = true;
+          guardListEl.innerHTML = '';
+        } else {
+          const rank = (g) => (g.tripped ? 0 : (g.mode === 'guard' ? 1 : 2));
+          const sorted = liveGuards.slice().sort((a, b) => rank(a) - rank(b) || String(a.id).localeCompare(String(b.id)));
+          const trippedN = sorted.filter((g) => g.tripped).length;
+          guardHeadEl.textContent = `Live guards (${sorted.length}${trippedN ? ` \u00B7 ${trippedN} tripped` : ''})`;
+          guardListEl.innerHTML = sorted.map((g) => {
+            const state = g.tripped ? 'tripped' : (g.mode === 'guard' ? 'blocks' : 'advises');
+            return `<li class="ts-ledger-row" data-mode="${escAttr(g.mode)}" data-tripped="${g.tripped ? 'true' : 'false'}">` +
+              `<span class="ts-ledger-age">${escAttr(g.id)}</span>` +
+              `<span>${escAttr(g.name)}</span>` +
+              `<span class="ts-ledger-saved">${state}</span></li>`;
+          }).join('');
+          guardHeadEl.hidden = false;
+          guardListEl.hidden = false;
+        }
+      }
     }
 
     // Core Impact KPI, 5h Sprint Pacing, 72x18 SVG Sparkline & Primary ActionPill
@@ -12150,6 +12209,16 @@
     setTxt('tsKpiSaved', `+${formatTokens(sessionSaved)}`);
     setTxt('tsKpiUsd', `~$${usdSaved.toFixed(2)}`);
     setTxt('tsKpi30d', `30d: +${formatTokens(lifetimeSaved)} (~$${usd30d.toFixed(2)})`);
+    {
+      const usdEl = document.getElementById('tsKpiUsd');
+      const d30El = document.getElementById('tsKpi30d');
+      const sepEl = d30El ? d30El.previousElementSibling : null;
+      const hideUsd = usdSaved < 0.005;
+      const hide30d = lifetimeSaved <= 0;
+      if (usdEl) usdEl.hidden = hideUsd;
+      if (d30El) d30El.hidden = hide30d;
+      if (sepEl && sepEl.getAttribute('aria-hidden') === 'true') sepEl.hidden = hide30d;
+    }
 
     const tsSprintMeta = document.getElementById('tsSprintMeta');
     if (tsSprintMeta) {

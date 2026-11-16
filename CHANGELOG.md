@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [4.1.0] - 2026-11-15
+
+### Dual-Platform RSL Engine, Spec Integrity, Guard Waves & Simple View Guard Roster
+
+#### Added
+- **Dual-Platform Recursive Self-Learning (RSL) Engine** (`src/core/rsl_triage.mjs`, `src/core/rsl_distiller.mjs`, `src/core/rsl_ledger.mjs`, `src/hooks/{antigravity,claude}_rsl_hook.mjs`):
+  - Contrastive session post-mortem triage with SHA-256 test-suite integrity gating (`evaluateTestIntegrityGate`).
+  - Zero-token deterministic local distiller (`--mode local`, `<15ms`) plus opt-in Python SDK mode (`scripts/rsl_sdk_distiller.py --mode sdk`).
+  - ExpeL weight decay and promotion lifecycle compiling rules, skills, and `PreToolUse` hooks simultaneously to `.agents/` and `.claude/`.
+  - Unified `ctxtop rsl <status|list|run|promote|prune>` CLI subcommand.
+- **Spec Integrity, Rule Clash & Turn-1 Gate** (`src/core/rsl_clash_auditor.mjs`, `src/core-isomorphic/diagnostics/prompt_hygiene_governor.mjs`):
+  - **Sharded-Spec Consolidator** (`evaluateShardedSpecDrift`, `[CTX_HINT: SHARDED_SPEC]`, and `ctxtop handoff --consolidate`): detects multi-turn requirement drift (4+ requirement-modifying turns at >=25k tokens) and consolidates scattered constraints into a single contract.
+  - **RSL Rule Clash & Polarity Auditor**: scans `AGENTS.md`, `CLAUDE.md`, `.agents/rules/*.md`, and `.claude/rules/*.md`, quarantining conflicting newly distilled RSL directives and reporting active clashes in `ctxtop rsl status`, `ctxtop doctor`, and the Horizon Panel.
+  - **Turn-1 Contract Gate** (`evaluateTurn1ContractGate`, `[CTX_CONTRACT]`): nudges Turn-1 multi-file implementation prompts lacking target paths or verification commands to state invariants upfront before mutating files.
+- **Simple View Live Guard Roster & Next-Action Signals** (`src/webview/horizon_panel.html`, `sidecars/horizon-daemon/server.mjs`):
+  - Expanding **"Auto-guard activity"** in Simple view displays the live sorted guard roster (`#tsGuardList`: tripped -> blocks -> advises) driven directly from `DETECTOR_CATALOG` and live config overrides.
+  - Added Next-action guidance in Simple view for tripped circuit breakers, sharded specs, and conflicting rules.
+- **Zero-Token Shield (`doc_indexer.mjs`, `ctxtop shield`)**: structural document indexer, net-positive read firewall, and `ctxtop shield` CLI.
+- **Bucket A + Bucket B Guardrail Waves**: promoted 10 validated Bucket B guards (`#2`, `#3b`, `#4`, `#5`, `#6`, `#8`, `#9`, `#13`, `#16`, `#19`) from shadow to default `COACH` mode alongside deterministic Bucket A guards.
+- **Router Calibration & Claude 5.5/Fable Catalog Guardrails**: `PreModelSwitch` / `PostModelSwitch` session calibration, empirical horizon prior, Claude 5.5/fable model catalog entries, unknown-model safety pass-through, model-aware `DET-09`, and post-compact downshift.
+
+#### Fixed
+- Removed fabricated `12.4k` pinned-rules fallback, hard-coded `30` / `32` guard counts, and empty `~$0.00` / `30d: +0.0k` zero-savings placeholders from Simple view telemetry.
+
+---
+
+## [4.0.0] - 2026-11-12
+
+### Unified `ctxtop` Package, Monorepo Workspaces & Simple/Advanced Telemetry HUD
+
+#### Added & Changed
+- Unified Antigravity and Claude Code harnesses under the `ctxtop` monorepo (`packages/core`, `packages/engine-node`, `packages/antigravity`, `packages/claude-code`, `packages/pro`, `packages/mcp`).
+- Added Simple/Advanced surface toggle in `horizon_panel.html` with 360px compact viewport support and light/dark parity.
+
+---
+
 ## [3.4.0] - 2026-11-10
 
 ### Sprint 1 + 2: Cost-Visibility Wedge (local/private build)

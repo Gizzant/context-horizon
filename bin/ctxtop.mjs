@@ -754,7 +754,7 @@ export function executeInitSubcommand(args = [], options = {}) {
     targetParts.length === 2 && !isMcp ? targetParts.join(' & ') : targetParts.join(', ');
 
   const lines = [
-    `\x1b[1m\x1b[38;5;51m⚡ Highbeam (ctxtop v4.0.0) — Zero-Config Unified Installer\x1b[0m`,
+    `\x1b[1m\x1b[38;5;51m⚡ Highbeam (ctxtop v4.1.0) — Zero-Config Unified Installer\x1b[0m`,
     `  • Target Harnesses : ${targetLabel}`,
     `  • Installation Scope: ${isWorkspace ? 'Workspace' : 'Global'}${isDryRun ? ' [DRY RUN]' : ''}`
   ];
@@ -836,7 +836,7 @@ export function runCli(args = [], options = {}) {
   const scope = isGlobal ? 'global' : 'project';
 
   if (args.includes('--version') || args.includes('-v') || subcommand === 'version') {
-    return { exitCode: 0, output: '4.0.0', data: { version: '4.0.0' } };
+    return { exitCode: 0, output: '4.1.0', data: { version: '4.1.0' } };
   }
 
   if (subcommand === 'inspect') {
