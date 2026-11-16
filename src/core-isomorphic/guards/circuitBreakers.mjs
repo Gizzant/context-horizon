@@ -80,7 +80,13 @@ import {
   evaluateSilentPrefixMutations,
   evaluateDet18UntrustedSettingsGuard,
   evaluateDet19SubagentIpiSanitizer,
-  evaluateDet20ScopeLockAndQuotaBrake
+  evaluateDet20ScopeLockAndQuotaBrake,
+  sanitizeBreakerSessionId,
+  getBreakerStateFilePath,
+  readBreakerStateSnapshot,
+  writeBreakerStateSnapshot,
+  serializeCircuitBreakerState,
+  hydrateCircuitBreakerState
 } from './det13_20_mcp_scope.mjs';
 
 export {
@@ -105,57 +111,12 @@ export {
   evaluateSilentPrefixMutations,
   evaluateDet18UntrustedSettingsGuard,
   evaluateDet19SubagentIpiSanitizer,
-  evaluateDet20ScopeLockAndQuotaBrake
+  evaluateDet20ScopeLockAndQuotaBrake,
+  sanitizeBreakerSessionId,
+  getBreakerStateFilePath,
+  readBreakerStateSnapshot,
+  writeBreakerStateSnapshot
 };
-
-/**
- * Sanitizes a session ID for `.claude/cache/ah_breaker_state_<sessionId>.json`.
- * @param {string} [sessionId='default']
- * @returns {string}
- */
-export function sanitizeBreakerSessionId(sessionId = 'default') {
-  return String(sessionId || 'default').replace(/[^a-zA-Z0-9._-]/g, '_');
-}
-
-/**
- * Resolves the atomic CLI circuit-breaker state file path (`.claude/cache/ah_breaker_state_<sessionId>.json`).
- * @param {string} [sessionId='default']
- * @param {object} [options={}]
- * @returns {string}
- */
-export function getBreakerStateFilePath(sessionId = 'default', options = {}) {
-  if (options?.breakerStatePath) {
-    return options.breakerStatePath;
-  }
-  const cwd = getCwd(options);
-  return path.join(
-    cwd,
-    '.claude',
-    'cache',
-    `ah_breaker_state_${sanitizeBreakerSessionId(sessionId)}.json`
-  );
-}
-
-/**
- * Safely reads a persisted `CircuitBreakerEngine` snapshot from disk (`ISS-038`).
- * @param {string} [sessionId='default']
- * @param {object} [options={}]
- * @returns {object | null}
- */
-export function readBreakerStateSnapshot(sessionId = 'default', options = {}) {
-  return readJsonSafe(getBreakerStateFilePath(sessionId, options), null, options);
-}
-
-/**
- * Atomically writes a `CircuitBreakerEngine` snapshot to disk (`ISS-038`).
- * @param {string} [sessionId='default']
- * @param {object} [snapshot={}]
- * @param {object} [options={}]
- * @returns {boolean}
- */
-export function writeBreakerStateSnapshot(sessionId = 'default', snapshot = {}, options = {}) {
-  return writeJsonAtomic(getBreakerStateFilePath(sessionId, options), snapshot, options);
-}
 
 /**
  * Unified Stateful Circuit Breaker Engine (`DET-01`..`DET-20`).
@@ -292,73 +253,7 @@ export class CircuitBreakerEngine {
    * @returns {object}
    */
   exportStateSnapshot() {
-    const hashObj = {};
-    for (const [k, v] of this.fileHashHistory.entries()) {
-      hashObj[k] = Array.isArray(v) ? [...v] : [];
-    }
-    return {
-      schemaVersion: '1.0.0',
-      updatedAt: Date.now(),
-      mode: this.mode,
-      consecutiveFailures: this.consecutiveFailures,
-      lastFailedToolKey: this.lastFailedToolKey,
-      sequentialSearchCount: this.sequentialSearchCount,
-      fileHashHistory: hashObj,
-      modifiedFilesInTurn: Array.from(this.modifiedFilesInTurn),
-      editedFiles: Array.from(this.modifiedFilesInTurn),
-      unverifiedEdits: Array.isArray(this.unverifiedEdits) ? this.unverifiedEdits.slice(-32) : [],
-      turnFileDiffs: Array.isArray(this.turnFileDiffs) ? this.turnFileDiffs.slice(-32) : [],
-      pendingBatchEdits: Array.from(this.pendingBatchEdits),
-      pendingFormatFiles: Array.from(this.pendingFormatFiles),
-      codeEditedSinceLastTest: Boolean(this.codeEditedSinceLastTest),
-      pendingVerificationCommand: Boolean(this.pendingVerificationCommand),
-      lastFailingLocation: this.lastFailingLocation || null,
-      pendingDownshiftModel: this.pendingDownshiftModel || null,
-      pending_downshift: this.pending_downshift ? { ...this.pending_downshift } : null,
-      justCompacted: Boolean(this.justCompacted),
-      turnsSinceLastCompact:
-        typeof this.turnsSinceLastCompact === 'number' && Number.isFinite(this.turnsSinceLastCompact)
-          ? Math.max(0, this.turnsSinceLastCompact)
-          : null,
-      taskBoundaryState: this.taskBoundaryState
-        ? {
-            openFailure: Boolean(this.taskBoundaryState.openFailure),
-            editsSinceBoundary: Math.max(0, Number(this.taskBoundaryState.editsSinceBoundary || 0)),
-            lastBoundarySuggestedTurn: this.taskBoundaryState.lastBoundarySuggestedTurn ?? null
-          }
-        : { openFailure: false, editsSinceBoundary: 0, lastBoundarySuggestedTurn: null },
-      lastToolsetHash: this.lastToolsetHash ? { ...this.lastToolsetHash } : null,
-      lastContextTokens:
-        typeof this.lastContextTokens === 'number' && Number.isFinite(this.lastContextTokens)
-          ? Math.max(0, this.lastContextTokens)
-          : null,
-      lastModelId: this.lastModelId ? String(this.lastModelId) : null,
-      activeBackgroundTasks: Array.isArray(this.activeBackgroundTasks)
-        ? [...this.activeBackgroundTasks]
-        : [],
-      activeWriteWorkers: Array.isArray(this.activeWriteWorkers)
-        ? [...this.activeWriteWorkers]
-        : [],
-      lastUserPrompt: this.lastUserPrompt || '',
-      lastTurnGitCommitted: Boolean(this.lastTurnGitCommitted),
-      committedTopDirs: Array.isArray(this.committedTopDirs) ? [...this.committedTopDirs] : [],
-      consecutiveTrivialMaxEffortTurns: this.consecutiveTrivialMaxEffortTurns,
-      recentEditTimestampsByFile: { ...this.recentEditTimestampsByFile },
-      totalDiscoveryCalls: this.totalDiscoveryCalls,
-      consecutiveVisionTurns: this.consecutiveVisionTurns,
-      unanchoredTurnFlag: Boolean(this.unanchoredTurnFlag),
-      candidateFiles: Array.isArray(this.candidateFiles) ? [...this.candidateFiles] : [],
-      relayState: this.relayState ? { ...this.relayState } : { state: RELAY_STATES.IDLE, critiquePastes: 0, boundSpecPath: 'SPEC.md' },
-      steeredPrompts: Number(this.steeredPrompts || 0),
-      blockedPrompts: Number(this.blockedPrompts || 0),
-      sightseeingToolsPrevented: Number(this.sightseeingToolsPrevented || 0),
-      subagentTurns: { ...this.subagentTurns },
-      subagentTokens: { ...this.subagentTokens },
-      det11AdvisedTurn: this.det11AdvisedTurn,
-      det13AdvisedTurn: this.det13AdvisedTurn,
-      queuedMutations: this.router.mutationQueue.toJSON(),
-      hysteresisState: this.router.hysteresisLock.getStatus()
-    };
+    return serializeCircuitBreakerState(this);
   }
 
   /**
@@ -367,182 +262,7 @@ export class CircuitBreakerEngine {
    * @returns {this}
    */
   hydrateStateSnapshot(snap) {
-    if (!snap || typeof snap !== 'object') return this;
-
-    if (typeof snap.consecutiveFailures === 'number' && Number.isFinite(snap.consecutiveFailures)) {
-      this.consecutiveFailures = Math.max(0, snap.consecutiveFailures);
-    }
-    if (snap.lastFailedToolKey !== undefined) {
-      this.lastFailedToolKey = snap.lastFailedToolKey ? String(snap.lastFailedToolKey) : null;
-    }
-    if (
-      typeof snap.sequentialSearchCount === 'number' &&
-      Number.isFinite(snap.sequentialSearchCount)
-    ) {
-      this.sequentialSearchCount = Math.max(0, snap.sequentialSearchCount);
-    }
-    if (snap.fileHashHistory && typeof snap.fileHashHistory === 'object') {
-      this.fileHashHistory = new Map();
-      for (const [k, v] of Object.entries(snap.fileHashHistory)) {
-        if (Array.isArray(v)) {
-          this.fileHashHistory.set(k, v.slice(-6).map(String));
-        }
-      }
-    }
-    const editedList = Array.isArray(snap.modifiedFilesInTurn)
-      ? snap.modifiedFilesInTurn
-      : Array.isArray(snap.editedFiles)
-        ? snap.editedFiles
-        : null;
-    if (editedList) {
-      this.modifiedFilesInTurn = new Set(editedList.filter(Boolean).map(String));
-    }
-    if (Array.isArray(snap.unverifiedEdits)) {
-      this.unverifiedEdits = snap.unverifiedEdits
-        .filter((e) => e && typeof e.filePath === 'string')
-        .slice(-32)
-        .map((e) => ({
-          filePath: String(e.filePath),
-          netLines: Math.max(0, Number(e.netLines) || 0),
-          ...(Array.isArray(e.changedLines) ? { changedLines: e.changedLines.slice(0, 64).map(String) } : {})
-        }));
-    }
-    if (Array.isArray(snap.turnFileDiffs)) {
-      this.turnFileDiffs = snap.turnFileDiffs
-        .filter((e) => e && typeof e.filePath === 'string')
-        .slice(-32)
-        .map((e) => ({
-          filePath: String(e.filePath),
-          addedLines: Array.isArray(e.addedLines) ? e.addedLines.slice(0, 400).map(String) : [],
-          deletedLineCount: Math.max(0, Number(e.deletedLineCount) || 0)
-        }));
-    }
-    if (Array.isArray(snap.pendingBatchEdits)) {
-      this.pendingBatchEdits = new Set(snap.pendingBatchEdits.filter(Boolean).map(String));
-    }
-    if (Array.isArray(snap.pendingFormatFiles)) {
-      this.pendingFormatFiles = new Set(snap.pendingFormatFiles.filter(Boolean).map(String));
-    }
-    if (typeof snap.codeEditedSinceLastTest === 'boolean') {
-      this.codeEditedSinceLastTest = snap.codeEditedSinceLastTest;
-    }
-    if (typeof snap.pendingVerificationCommand === 'boolean') {
-      this.pendingVerificationCommand = snap.pendingVerificationCommand;
-    }
-    if (snap.lastFailingLocation !== undefined) {
-      this.lastFailingLocation = snap.lastFailingLocation ? String(snap.lastFailingLocation) : null;
-    }
-    if (snap.pendingDownshiftModel !== undefined) {
-      this.pendingDownshiftModel = snap.pendingDownshiftModel ? String(snap.pendingDownshiftModel) : null;
-    }
-    if (snap.pending_downshift !== undefined) {
-      this.pending_downshift =
-        snap.pending_downshift && typeof snap.pending_downshift === 'object'
-          ? { ...snap.pending_downshift }
-          : null;
-      if (this.pending_downshift?.toModel && snap.pendingDownshiftModel === undefined) {
-        this.pendingDownshiftModel = String(this.pending_downshift.toModel);
-      }
-    }
-    if (typeof snap.justCompacted === 'boolean') {
-      this.justCompacted = snap.justCompacted;
-    }
-    if (snap.turnsSinceLastCompact !== undefined) {
-      this.turnsSinceLastCompact =
-        snap.turnsSinceLastCompact !== null && Number.isFinite(Number(snap.turnsSinceLastCompact))
-          ? Math.max(0, Number(snap.turnsSinceLastCompact))
-          : null;
-    }
-    if (snap.taskBoundaryState && typeof snap.taskBoundaryState === 'object') {
-      this.taskBoundaryState = {
-        openFailure: Boolean(snap.taskBoundaryState.openFailure),
-        editsSinceBoundary: Math.max(0, Number(snap.taskBoundaryState.editsSinceBoundary || 0)),
-        lastBoundarySuggestedTurn: snap.taskBoundaryState.lastBoundarySuggestedTurn ?? null
-      };
-    }
-    if (snap.lastToolsetHash !== undefined) {
-      this.lastToolsetHash =
-        snap.lastToolsetHash && typeof snap.lastToolsetHash === 'object'
-          ? { ...snap.lastToolsetHash }
-          : null;
-    }
-    if (snap.lastContextTokens !== undefined) {
-      this.lastContextTokens =
-        snap.lastContextTokens !== null && Number.isFinite(Number(snap.lastContextTokens))
-          ? Math.max(0, Number(snap.lastContextTokens))
-          : null;
-    }
-    if (snap.lastModelId !== undefined) {
-      this.lastModelId = snap.lastModelId ? String(snap.lastModelId) : null;
-    }
-    if (Array.isArray(snap.activeBackgroundTasks)) {
-      this.activeBackgroundTasks = snap.activeBackgroundTasks.filter(Boolean).map(String);
-    }
-    if (Array.isArray(snap.activeWriteWorkers)) {
-      this.activeWriteWorkers = snap.activeWriteWorkers.filter(Boolean).map(String);
-    }
-    if (typeof snap.lastUserPrompt === 'string') {
-      this.lastUserPrompt = snap.lastUserPrompt;
-    }
-    if (typeof snap.lastTurnGitCommitted === 'boolean') {
-      this.lastTurnGitCommitted = snap.lastTurnGitCommitted;
-    }
-    if (Array.isArray(snap.committedTopDirs)) {
-      this.committedTopDirs = [...snap.committedTopDirs];
-    }
-    if (typeof snap.consecutiveTrivialMaxEffortTurns === 'number') {
-      this.consecutiveTrivialMaxEffortTurns = snap.consecutiveTrivialMaxEffortTurns;
-    }
-    if (snap.recentEditTimestampsByFile && typeof snap.recentEditTimestampsByFile === 'object') {
-      this.recentEditTimestampsByFile = { ...snap.recentEditTimestampsByFile };
-    }
-    if (typeof snap.totalDiscoveryCalls === 'number') {
-      this.totalDiscoveryCalls = snap.totalDiscoveryCalls;
-    }
-    if (typeof snap.consecutiveVisionTurns === 'number') {
-      this.consecutiveVisionTurns = snap.consecutiveVisionTurns;
-    }
-    if (typeof snap.unanchoredTurnFlag === 'boolean') {
-      this.unanchoredTurnFlag = snap.unanchoredTurnFlag;
-    }
-    if (Array.isArray(snap.candidateFiles)) {
-      this.candidateFiles = [...snap.candidateFiles];
-    }
-    if (snap.relayState && typeof snap.relayState === 'object') {
-      this.relayState = { ...snap.relayState };
-    }
-    if (typeof snap.steeredPrompts === 'number') {
-      this.steeredPrompts = snap.steeredPrompts;
-    }
-    if (typeof snap.blockedPrompts === 'number') {
-      this.blockedPrompts = snap.blockedPrompts;
-    }
-    if (typeof snap.sightseeingToolsPrevented === 'number') {
-      this.sightseeingToolsPrevented = snap.sightseeingToolsPrevented;
-    }
-    if (snap.subagentTurns && typeof snap.subagentTurns === 'object') {
-      this.subagentTurns = { ...snap.subagentTurns };
-    }
-    if (snap.subagentTokens && typeof snap.subagentTokens === 'object') {
-      this.subagentTokens = { ...snap.subagentTokens };
-    }
-    if (snap.det11AdvisedTurn !== undefined) {
-      this.det11AdvisedTurn = snap.det11AdvisedTurn;
-    }
-    if (snap.det13AdvisedTurn !== undefined) {
-      this.det13AdvisedTurn = snap.det13AdvisedTurn;
-    }
-    if (Array.isArray(snap.queuedMutations)) {
-      this.router.mutationQueue.items = [...snap.queuedMutations];
-    }
-    if (snap.hysteresisState && typeof snap.hysteresisState === 'object') {
-      this.router.hysteresisLock.locked = Boolean(snap.hysteresisState.locked);
-      this.router.hysteresisLock.pinnedModel = snap.hysteresisState.pinnedModel || null;
-      this.router.hysteresisLock.pinnedEffort = snap.hysteresisState.pinnedEffort || null;
-      this.router.hysteresisLock.reason = snap.hysteresisState.reason || null;
-      this.router.hysteresisLock.lockedAtTurn = snap.hysteresisState.lockedAtTurn ?? null;
-    }
-    return this;
+    return hydrateCircuitBreakerState(this, snap);
   }
 
   /**

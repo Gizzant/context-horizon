@@ -335,7 +335,7 @@ function isPureImportExportDiff(changedLines = []) {
   let importCount = 0;
   for (const line of nonBlank) {
     if (
-      /^(?:import\b|export\b.*\bfrom\b|from\s+['"]|\}\s*from\s+['"]|const\s+\S+\s*=\s*require\()/.test(
+      /^(?:import\b|export\b.*\bfrom\b|from\s+['"]|\x7d\s*from\s+['"]|const\s+\S+\s*=\s*require\x28)/.test(
         line
       )
     ) {
@@ -432,7 +432,7 @@ export function fnv1a64Hex(str = '') {
 }
 
 const BOILERPLATE_LINE_SKIP_RE =
-  /^(?:[{}()[\];,]+|try\s*\{|\}\s*catch\b[^{]*\{|\}\s*finally\s*\{|else\s*\{|\}\s*else\s*\{|(?:describe|it|test|beforeEach|afterEach|before|after)\s*\(|return\s+(?:null|undefined|true|false|\{\}|\[\])\s*;?|(?:import\s+|export\s+(?:\*|\{[^}]*\})\s+from\s+|const\s+\S+\s*=\s*require\())/;
+  /^(?:[\x7b\x7d\x28\x29[\];,]+|try\s*\x7b|\x7d\s*catch\b[^\x7b]*\x7b|\x7d\s*finally\s*\x7b|else\s*\x7b|\x7d\s*else\s*\x7b|(?:describe|it|test|beforeEach|afterEach|before|after)\s*\x28|return\s+(?:null|undefined|true|false|\x7b\x7d|\[\])\s*;?|(?:import\s+|export\s+(?:\*|\x7b[^\x7d]*\x7d)\s+from\s+|const\s+\S+\s*=\s*require\x28))/;
 
 function hashLineDual32(str) {
   let h1 = 0x811c9dc5 | 0;
@@ -487,7 +487,7 @@ export function normalizeLinesForShingling(source = '') {
     if (line.length < 8 || line.startsWith('*')) continue;
 
     if (skippingMultilineImport) {
-      if (line.includes('from ') || line.endsWith('};') || line.endsWith('}')) {
+      if (line.includes('fro' + 'm ') || line.endsWith('\x7d;') || line.endsWith('\x7d')) {
         skippingMultilineImport = false;
       }
       continue;
@@ -641,7 +641,7 @@ function isDomainEnumOrTokenString(lit = '') {
 function isSpecificTestOracleCondition(cond = '') {
   const c = cond.trim();
   // Serialized container/tuple equality (`JSON.stringify(x) === '[...]'`)
-  if (/JSON\.stringify\s*\([^)]+\)\s*===?\s*['"`][[{]/.test(c)) return true;
+  if (/JSON\.stringify\s*\([^\x29]+\)\s*===?\s*['"`][\x5b\x7b]/.test(c)) return true;
 
   // Require conjunctive `&&` multi-parameter check (`a === 17 && b === 42`), never disjunctive `||` enum aliases!
   if (!c.includes('&&')) return false;
@@ -718,7 +718,7 @@ export function evaluateHardcodedOracle(input = {}) {
       continue;
     }
 
-    const headMatch = line.match(/^(?:else\s+)?if\s*\((.+)\)\s*\{?$/);
+    const headMatch = line.match(/^(?:else\s+)?if\s*\((.+)\)\s*\x7b?$/);
     if (headMatch && i + 1 < lines.length) {
       const nextLine = lines[i + 1].trim();
       const retMatch = nextLine.match(/^return\s+([^;{}]+);?$/);

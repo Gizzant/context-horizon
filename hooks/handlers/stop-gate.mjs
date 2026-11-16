@@ -17,6 +17,7 @@ import {
   writeBreakerStateSnapshot
 } from '../../src/core-isomorphic/guards/circuitBreakers.mjs';
 import { runBucketBStopPass } from '../../src/core/bucket_b_runtime.mjs';
+import { handleClaudeRslHook } from '../../src/hooks/claude_rsl_hook.mjs';
 import {
   isCliEntrypoint,
   readStdinJsonAsync,
@@ -100,6 +101,13 @@ export function runStopGateHook(event = {}, options = {}) {
         },
         cwdOptions
       );
+      if (!stopHookActive && Boolean(event.cwd || options.cwd) && options.enableRsl !== false) {
+        try {
+          handleClaudeRslHook(event, { ...cwdOptions, event: 'SessionEnd' });
+        } catch {
+          // Fail open for RSL post-mortem
+        }
+      }
     }
     if (bgDrainWarning) {
       const stdoutJson = { systemMessage: bgDrainWarning };
@@ -392,6 +400,13 @@ export function runStopGateHook(event = {}, options = {}) {
       },
       cwdOptions
     );
+    if (!stopHookActive && Boolean(event.cwd || options.cwd) && options.enableRsl !== false) {
+      try {
+        handleClaudeRslHook(event, { ...cwdOptions, event: 'Stop' });
+      } catch {
+        // Fail open for RSL post-mortem
+      }
+    }
   }
 
   if (det14.decision === 'block') {

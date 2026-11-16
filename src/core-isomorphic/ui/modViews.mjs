@@ -1351,6 +1351,22 @@ export function renderAdvancedViewPane(state = {}, options = {}) {
   };
 }
 
+/**
+ * Pure zero-Node formatter for the Claude Code `statusLine` RSL budget segment.
+ *
+ * @param {object} rsl
+ * @returns {string}
+ */
+export function formatRslStatusSegment(rsl) {
+  if (!rsl || typeof rsl !== 'object') return '';
+  const rules = Math.max(0, Number(rsl.activeRules ?? 0));
+  const tokens = Math.max(0, Number(rsl.ruleBudgetTokens ?? 0));
+  const clashes = Math.max(0, Number(rsl.clashCount ?? 0));
+  const budgetStr =
+    tokens >= 1000 ? `${(tokens / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(tokens);
+  const base = `RSL: ${rules} rules | Budget: ${budgetStr}/20k`;
+  return clashes > 0 ? `${base} | ${clashes} clash!` : base;
+}
 
 /**
  * 4. Renders a single-line terminal `statusLine` adapting cleanly to terminal column width
@@ -1421,6 +1437,9 @@ export function renderStatusLine(state = {}, options = {}) {
       const retStr = state.prefixRetention?.measured ? ` · ${formatRetentionCompact(state.prefixRetention)}` : '';
       const swarmTok = layoutTier === 'wide-144' ? formatSwarmCompact(computeSwarmSummary(state, { nowMs: options.nowMs || Date.now() })) : '';
       const swarmStr = swarmTok ? ` · ${swarmTok}` : '';
+      const rslData = options.rsl || state.rsl || null;
+      const rslTok = layoutTier !== 'compact-80' && rslData ? formatRslStatusSegment(rslData) : '';
+      const rslStr = rslTok ? ` · ${rslTok}` : '';
 
       let p = '';
       let a = '';
@@ -1429,8 +1448,8 @@ export function renderStatusLine(state = {}, options = {}) {
         a = `AH ${g.ansiCodeBar} ${tokStr} C:${metrics.cacheHitPct}% ${ttlStr} ${pill}${loopStr} ${savedStr}`;
       } else {
         const shortModel = g.modelId.replace(/^claude-/, '');
-        p = `AH ${g.bracketedBar} ${shortModel} ${tokStr} (${g.utilizationPct}%) · Cache ${metrics.cacheHitPct}% (${ttlStr})${retStr} · ${pill}${loopStr} · Saved ${savedStr}${swarmStr}`;
-        a = `AH ${g.ansiCodeBar} ${shortModel} ${tokStr} (${g.utilizationPct}%) · Cache ${metrics.cacheHitPct}% (${ttlStr})${retStr} · ${pill}${loopStr} · Saved ${savedStr}${swarmStr}`;
+        p = `AH ${g.bracketedBar} ${shortModel} ${tokStr} (${g.utilizationPct}%) · Cache ${metrics.cacheHitPct}% (${ttlStr})${retStr} · ${pill}${loopStr} · Saved ${savedStr}${swarmStr}${rslStr}`;
+        a = `AH ${g.ansiCodeBar} ${shortModel} ${tokStr} (${g.utilizationPct}%) · Cache ${metrics.cacheHitPct}% (${ttlStr})${retStr} · ${pill}${loopStr} · Saved ${savedStr}${swarmStr}${rslStr}`;
       }
 
       chosenGrid = g;
@@ -1480,5 +1499,6 @@ export default {
   renderSimpleViewPane,
   renderSimpleHudPane,
   renderAdvancedViewPane,
+  formatRslStatusSegment,
   renderStatusLine
 };

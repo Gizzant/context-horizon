@@ -99,6 +99,17 @@ import { installPlugin, runLiveOrDemoCli } from '../src/cli/init.mjs';
 import { executeStatusLineBridge, runStatusLineCli } from './ah-statusline.mjs';
 import { runSessionAudit, formatSessionAuditReport } from '../src/core/session_auditor.mjs';
 import { configureShield, getShieldStatus } from '../src/core/shield_manager.mjs';
+import { buildContrastiveDigest, sanitizeRslSessionId } from '../src/core/rsl_triage.mjs';
+import { distillContrastiveDigest } from '../src/core/rsl_distiller.mjs';
+import {
+  getRslLedgerPath,
+  getRslSummary,
+  ingestDistilledHeuristics,
+  promoteHeuristic,
+  pruneHeuristic,
+  auditWorkspaceRuleClashes,
+  buildConsolidatedSpecMarkdown
+} from '../src/core/rsl_ledger.mjs';
 
 export { inspectHookDiagnostics, runDoctorDiagnostics };
 
@@ -1497,6 +1508,136 @@ export function runCli(args = [], options = {}) {
     return { exitCode: 0, output: formatSessionAuditReport(auditRes), data: auditRes };
   }
 
+  if (subcommand === 'rsl') {
+    const action = String(args[1] || 'status').toLowerCase();
+    const readFlag = (flag, fallback) => {
+      const idx = args.indexOf(flag);
+      return idx !== -1 && args[idx + 1] ? String(args[idx + 1]) : fallback;
+    };
+    const wsRoot = path.resolve(readFlag('--cwd', options.cwd || process.cwd()));
+    const platform = readFlag('--platform', options.platform || 'all').toLowerCase();
+
+    if (action === 'status') {
+      const summary = { ok: true, platform, ...getRslSummary(wsRoot, options) };
+      if (isJson) {
+        return { exitCode: 0, output: JSON.stringify(summary, null, 2), data: summary };
+      }
+      const memNote = summary.claudeMemoryAudit?.triggered
+        ? `WARN (${summary.claudeMemoryAudit.maxLines}L / ${Math.round(summary.claudeMemoryAudit.maxBytes / 1024)}KB)`
+        : 'OK';
+      const lines = [
+        `[Highbeam RSL] Dual-Platform Self-Learning Status (platform=${platform})`,
+        `  Active Carriers : ${summary.activeRules} rules · ${summary.activeSkills} skills · ${summary.promotedHooks} promoted hooks`,
+        `  Rule Budget     : ${summary.ruleBudgetTokens}/${summary.ruleBudgetMaxTokens} tokens (${summary.ruleBudgetPct}%)`,
+        `  Rule Clashes    : ${summary.clashCount || 0} conflict(s)${summary.quarantinedCount ? ` (${summary.quarantinedCount} quarantined)` : ''}`,
+        `  Lifecycle Stats : ${summary.prunedCount} pruned · ${summary.taintedSessions} tainted sessions`,
+        `  Claude Memory   : ${memNote}`,
+        ...((summary.activeClashes || []).map((c) => `  [RULE_CONFLICT] ${c.reason}`))
+      ];
+      return { exitCode: 0, output: lines.join('\n'), data: summary };
+    }
+
+    if (action === 'list') {
+      const includeAll = args.includes('--all') || Boolean(options.all);
+      const summary = getRslSummary(wsRoot, { ...options, includeAll });
+      const payload = { ok: true, includeAll, count: summary.items.length, items: summary.items };
+      if (isJson) {
+        return { exitCode: 0, output: JSON.stringify(payload, null, 2), data: payload };
+      }
+      const lines = [`[Highbeam RSL] Heuristics (${payload.count} item(s), all=${includeAll}):`];
+      for (const it of summary.items) {
+        lines.push(`  - ${it.slug} [${it.carrier}] importance=${it.importance} status=${it.status} hook=${Boolean(it.promotedHook)}`);
+      }
+      return { exitCode: 0, output: lines.join('\n'), data: payload };
+    }
+
+    if (action === 'run') {
+      const mode = readFlag('--mode', options.mode || 'local').toLowerCase();
+      let sessionId = readFlag('--session', options.sessionId || '');
+      if (!sessionId) {
+        const telemetryDir = path.join(wsRoot, '.agents', 'telemetry');
+        if (fs.existsSync(telemetryDir)) {
+          const candidates = fs.readdirSync(telemetryDir)
+            .filter((f) => f.endsWith('.rsl_steps.jsonl'))
+            .map((f) => ({ name: f.replace(/\.rsl_steps\.jsonl$/, ''), mtime: fs.statSync(path.join(telemetryDir, f)).mtimeMs }))
+            .sort((a, b) => b.mtime - a.mtime);
+          if (candidates[0]) sessionId = candidates[0].name;
+        }
+      }
+      sessionId = sanitizeRslSessionId(sessionId || 'default');
+      const resolvedPlatform = platform === 'auto' || platform === 'all'
+        ? (options.transcriptPath && String(options.transcriptPath).includes('.claude') ? 'claude' : 'antigravity')
+        : platform;
+      const digest = buildContrastiveDigest(
+        {
+          conversationId: sessionId,
+          session_id: sessionId,
+          cwd: wsRoot,
+          workspacePaths: [wsRoot],
+          transcriptPath: readFlag('--transcript', options.transcriptPath || ''),
+          artifactDirectoryPath: readFlag('--artifacts', options.artifactDirectoryPath || '')
+        },
+        { ...options, cwd: wsRoot, platform: resolvedPlatform }
+      );
+      const distillation = digest.triggered
+        ? distillContrastiveDigest(digest, { mode, sdkRunner: options.sdkRunner })
+        : { is_valid_learning: false, mode, heuristics: [] };
+      const ledgerResult = (digest.tainted || digest.triggered || fs.existsSync(getRslLedgerPath(wsRoot)))
+        ? ingestDistilledHeuristics(wsRoot, distillation, digest, options)
+        : null;
+      const summary = getRslSummary(wsRoot, options);
+      const res = {
+        ok: !digest.tainted,
+        sessionId,
+        platform: resolvedPlatform,
+        mode: distillation.mode || mode,
+        digest,
+        distillation,
+        ledgerResult,
+        summary
+      };
+      if (isJson) {
+        return { exitCode: res.ok ? 0 : 1, output: JSON.stringify(res, null, 2), data: res };
+      }
+      const msg = digest.tainted
+        ? `[Highbeam RSL] Session ${sessionId} flagged ${digest.status} (${digest.taintDetails.join('; ')}) — extraction aborted.`
+        : `[Highbeam RSL] Session ${sessionId} distilled (${res.mode}): +${ledgerResult?.added?.length || 0} added, ${ledgerResult?.upvoted?.length || 0} upvoted, ${ledgerResult?.pruned?.length || 0} pruned.`;
+      return { exitCode: res.ok ? 0 : 1, output: msg, data: res };
+    }
+
+    if (action === 'promote' || action === 'prune') {
+      const slug = args[2] && !args[2].startsWith('-') ? args[2] : (options.slug || '');
+      if (!slug) {
+        const errRes = { ok: false, error: `Missing <slug> for rsl ${action}` };
+        return {
+          exitCode: 1,
+          output: isJson ? JSON.stringify(errRes, null, 2) : `[Highbeam RSL] ERROR: ${errRes.error}`,
+          data: errRes
+        };
+      }
+      const res = action === 'promote'
+        ? promoteHeuristic(wsRoot, slug, options)
+        : pruneHeuristic(wsRoot, slug, options);
+      if (isJson) {
+        return { exitCode: res.ok ? 0 : 1, output: JSON.stringify(res, null, 2), data: res };
+      }
+      return {
+        exitCode: res.ok ? 0 : 1,
+        output: res.ok
+          ? `[Highbeam RSL] ${action === 'promote' ? 'Promoted' : 'Pruned'} heuristic "${res.slug}" across .agents/ and .claude/`
+          : `[Highbeam RSL] ERROR: ${res.error}`,
+        data: res
+      };
+    }
+
+    const helpRsl = 'Usage: ctxtop rsl <status|list|run|promote <slug>|prune <slug>> [--platform all|antigravity|claude] [--mode local|sdk] [--json]';
+    return {
+      exitCode: 1,
+      output: isJson ? JSON.stringify({ ok: false, error: `Unknown rsl action: ${action}` }, null, 2) : helpRsl,
+      data: { ok: false }
+    };
+  }
+
   if (subcommand === 'shield' || subcommand === 'status') {
     const platIdx = args.indexOf('--platform');
     const platform =
@@ -1537,6 +1678,27 @@ export function runCli(args = [], options = {}) {
     return { exitCode: res.ok === false ? 1 : 0, output: lines.join('\n'), data: res };
   }
 
+  if (subcommand === 'handoff') {
+    const readFlag = (flag, fallback) => {
+      const idx = args.indexOf(flag);
+      return idx !== -1 && args[idx + 1] ? String(args[idx + 1]) : fallback;
+    };
+    const wsRoot = path.resolve(readFlag('--cwd', options.cwd || process.cwd()));
+    const sessionId = readFlag('--session', options.sessionId || '');
+    const result = buildConsolidatedSpecMarkdown(wsRoot, { sessionId });
+    let outputPath = null;
+    if (args.includes('--write') || Boolean(options.write)) {
+      outputPath = path.join(wsRoot, '.agents', 'telemetry', 'CONSOLIDATED_SPEC.md');
+      writeTextAtomic(outputPath, `${result.consolidatedMarkdown}\n`);
+    }
+    const payload = { ...result, ...(outputPath ? { outputPath } : {}) };
+    return {
+      exitCode: 0,
+      output: isJson ? JSON.stringify(payload, null, 2) : payload.consolidatedMarkdown,
+      data: payload
+    };
+  }
+
   if (args.includes('--demo') || args.includes('--demo-animate') || args.includes('--roast') || args.includes('--serve')) {
     return runLiveOrDemoCli(options);
   }
@@ -1544,7 +1706,7 @@ export function runCli(args = [], options = {}) {
   const knownSubcommands = new Set([
     'init', 'install', 'uninstall', 'config', 'cost-radar', 'radar', 'panel',
     'receipt', 'doctor', 'statusline', 'inspect', 'control', 'postmortem',
-    'audit', 'shield', 'status',
+    'audit', 'shield', 'status', 'rsl', 'handoff',
     'license', 'pro', 'roast',
     '--help', '-h', 'help', '--version', '-v', 'version'
   ]);
@@ -1557,6 +1719,8 @@ export function runCli(args = [], options = {}) {
     '  init [--antigravity | --claude | --all | --workspace | --dry-run] Zero-config dual-host installer',
     '  audit [--platform all|antigravity|claude] [--days 7] [--json]       Zero-write historical Sludge Tax & ROI audit',
     '  shield <--enable | --disable | --status> [--platform all|...]       Toggle Active Context Shield & read-index guard',
+    '  rsl <status|list|run|promote|prune> [--platform ...] [--json]       Dual-platform RSL post-mortem & rule ledger',
+    '  handoff [--consolidate] [--session <id>] [--write] [--json]         Consolidate sharded spec constraints & diff',
     '  status [--platform all|antigravity|claude] [--json]                 Show Shield & Session ROI status',
     '  install [--global | --project]                                      Merge Claude Code hooks & statusLine',
     '  uninstall [--global | --project]                                    Remove Highbeam hooks',

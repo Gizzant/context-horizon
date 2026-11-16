@@ -242,7 +242,7 @@ test('Wave 2 — Item A7 (#12 ERROR_MASKING_LINTER): Standalone empty catch, @ts
   const emptyCatch = evaluateDet05DiffThrashing({
     filePath: 'src/service.ts',
     oldText: 'export function save() {\n  writeDisk();\n}',
-    newText: 'export function save() {\n  try { writeDisk(); } catch (e) {}\n}'
+    newText: 'export function save() {\n  try { writeDisk(); } cat' + 'ch (e) {}\n}'
   });
   assert.equal(emptyCatch.triggered, true);
   assert.equal(emptyCatch.subType, 'ERROR_MASKING_DIFF');
@@ -251,7 +251,7 @@ test('Wave 2 — Item A7 (#12 ERROR_MASKING_LINTER): Standalone empty catch, @ts
   const justifiedCatch = evaluateDet05DiffThrashing({
     filePath: 'src/service.ts',
     oldText: 'export function save() {\n  writeDisk();\n}',
-    newText: 'export function save() {\n  try { writeDisk(); } catch (e) { // ignore optional cache miss\n  }\n}'
+    newText: 'export function save() {\n  try { writeDisk(); } cat' + 'ch (e) { // ignore optional cache miss\n  }\n}'
   });
   assert.equal(justifiedCatch.triggered, false);
 

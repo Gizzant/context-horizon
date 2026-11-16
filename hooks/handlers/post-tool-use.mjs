@@ -20,6 +20,7 @@ import { recordSavingsReceipt } from '../../src/core-isomorphic/coach/savedQuota
 import { readLiveStateSnapshot } from '../../src/core-isomorphic/telemetry/telemetryBridge.mjs';
 import { resolveEffectiveRates, computeTotalPromptTokens } from '../../src/core-isomorphic/config/catalogLoader.mjs';
 import { runBucketBPostToolPass } from '../../src/core/bucket_b_runtime.mjs';
+import { handleClaudeRslHook } from '../../src/hooks/claude_rsl_hook.mjs';
 import {
   isCliEntrypoint,
   readStdinJsonAsync,
@@ -113,6 +114,13 @@ export function runPostToolUseHook(event = {}, options = {}) {
     Boolean(event.cwd || options.cwd || options.breakerStatePath || options.persistState);
 
   if (shouldPersistState) {
+    if (hasExplicitCwd && options.enableRsl !== false) {
+      try {
+        handleClaudeRslHook(event, { ...cwdOptions, event: 'PostToolUse' });
+      } catch {
+        // Fail open for RSL step telemetry
+      }
+    }
     const failed = didToolExecutionFail(event);
     const priorSnap = readBreakerStateSnapshot(sessionId, cwdOptions);
     loadedPriorSnap = priorSnap;

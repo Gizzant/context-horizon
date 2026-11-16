@@ -4015,10 +4015,91 @@
     html, body { max-width: 100%; overflow-x: hidden; }
     .wrap { width: 100%; min-width: 0; }
 
+    :root {
+      /* DESIGN.md Locked Surface & Semantic Exception Tokens */
+      --bg-canvas: #0B0C0E;
+      --bg-surface: #121417;
+      --bg-elevated: #1B1E23;
+      --hairline: rgba(255, 255, 255, 0.07);
+      --text-primary: #F1F3F4;
+      --text-secondary: #9AA0A6;
+      --text-muted: #80868B;
+      --status-critical: #D93025;
+      --status-warning: #F29900;
+      --status-nominal: #1E8E3E;
+      --accent-focus: #1A73E8;
+      --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Google Sans", sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      --space-1: 8px;
+      --space-2: 16px;
+      --space-3: 24px;
+      --control-height: 28px;
+      --control-radius: 6px;
+      --ease-snappy: 140ms cubic-bezier(0.2, 0, 0, 1);
+
+      /* Calm Monochrome Signal + Exception Clutter (<10% non-neutral pixels) */
+      --ts-sig: #E8EAED;
+      --ts-sig-ink: #0B0C0E;
+      --ts-sig-text: #E8EAED;
+      --ts-clu: #F29900;
+      --ts-clu-ink: #0B0C0E;
+      --ts-clu-text: #F29900;
+      --ts-clu-cached: #64748B;
+      --ts-clu-cached-text: #9AA0A6;
+    }
+    :root[data-theme="light"],
+    [data-theme="light"] body,
+    body[data-theme="light"] {
+      --bg-canvas: #F8F9FA;
+      --bg-surface: #FFFFFF;
+      --bg-elevated: #F1F3F4;
+      --hairline: rgba(0, 0, 0, 0.08);
+      --text-primary: #111315;
+      --text-secondary: #3C4043;
+      --text-muted: #5F6368;
+      --status-critical: #D93025;
+      --status-warning: #B06000;
+      --status-nominal: #137333;
+      --accent-focus: #1A73E8;
+
+      --ts-sig: #202124;
+      --ts-sig-ink: #FFFFFF;
+      --ts-sig-text: #202124;
+      --ts-clu: #D97706;
+      --ts-clu-ink: #FFFFFF;
+      --ts-clu-text: #B45309;
+      --ts-clu-cached: #64748B;
+      --ts-clu-cached-text: #5F6368;
+    }
+
+    body[data-view-mode="simple"] {
+      background: var(--bg-canvas);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+    }
+    body[data-view-mode="simple"] .wrap > header {
+      padding-bottom: 1px;
+    }
+    body[data-view-mode="simple"] .wrap > header .brand-wordmark {
+      height: 20px;
+      width: auto;
+    }
+    body[data-view-mode="simple"] .wrap > header .brand-logo {
+      width: 22px;
+      height: 22px;
+    }
+    body[data-view-mode="simple"] .header-controls {
+      padding: 0 0 6px 0 !important;
+      margin: 0 !important;
+      border-bottom: 1px solid var(--hairline) !important;
+    }
+
     #argonSimpleSurface {
       display: none;
       flex-direction: column;
       width: 100%;
+      font-family: var(--font-sans);
+      color: var(--text-primary);
       font-variant-numeric: tabular-nums;
     }
     body[data-view-mode="simple"] #argonSimpleSurface {
@@ -4034,178 +4115,424 @@
       display: flex;
     }
 
-    .ts-zone {
-      padding: 11px 0;
-      border-bottom: 1px solid var(--hz-border);
+    /* Pass 2 Atomic Primitives: MetricHeader (Pinned at scrollTop: 0) */
+    .ts-metric-header {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--hairline);
       display: flex;
       flex-direction: column;
       gap: 6px;
     }
-    .ts-zone-last {
-      padding: 11px 0 2px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .ts-head {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 3px 8px;
-      min-width: 0;
-    }
-    .ts-overline {
-      font-size: 10.5px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--hz-muted);
-      margin: 0;
-    }
-    .ts-meta {
-      font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
-      font-size: 11px;
-      color: var(--hz-muted);
-    }
-    .ts-meta[data-tone="signal"] { color: #10B981; }
-    .ts-meta[data-tone="warn"] { color: #F59E0B; }
     .ts-status-row {
       display: flex;
-      align-items: baseline;
+      align-items: center;
       justify-content: space-between;
       gap: 8px;
-      flex-wrap: wrap;
+      min-width: 0;
     }
     .ts-status-badge {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      font-size: 13.5px;
+      gap: 6px;
+      font-size: 12.5px;
       font-weight: 600;
-      color: var(--hz-fg);
+      color: var(--text-primary);
+      min-width: 0;
     }
     .ts-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 999px;
-      background: #10B981;
+      background: var(--status-nominal);
       flex-shrink: 0;
     }
-    .ts-dot[data-tone="warn"] { background: #F59E0B; }
-    .ts-dot[data-tone="danger"] { background: #EF4444; }
-    .ts-dot[data-tone="active"] { background: #3B82F6; }
+    .ts-dot[data-tone="nominal"] { background: var(--text-secondary); }
+    .ts-dot[data-tone="signal"] { background: var(--status-nominal); }
+    .ts-dot[data-tone="warn"] { background: var(--status-warning); }
+    .ts-dot[data-tone="danger"] { background: var(--status-critical); }
+    .ts-dot[data-tone="active"] { background: var(--accent-focus); }
+
+    .ts-runway-meta {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .ts-runway-meta[data-tone="warn"] { color: var(--status-warning); }
+    .ts-runway-meta[data-tone="danger"] { color: var(--status-critical); font-weight: 600; }
+
+    .ts-quant-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+    .ts-quant-primary {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      color: var(--text-secondary);
+    }
+    .ts-quant-primary strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .ts-anchor-health {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .ts-anchor-health[data-risk="true"] {
+      color: var(--status-critical);
+      font-weight: 600;
+    }
+
+    /* 1D 8px Horizon BulletBar (Zero Chartjunk) */
     .ts-bar-wrap {
       position: relative;
-      padding: 3px 0;
+      padding: 1px 0 11px;
     }
     .ts-bar-track {
       width: 100%;
       height: 8px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid var(--hz-border);
-      border-radius: 3px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--hairline);
+      border-radius: 2px;
       overflow: hidden;
       display: flex;
     }
-    :root {
-      --ts-sig: #C4B5FD;      /* light purple — active signal */
-      --ts-sig-ink: #2E1065;
-      --ts-sig-text: #C4B5FD;
-      --ts-clu: #FDBA74;      /* light orange — reclaimable */
-      --ts-clu-ink: #431407;
-      --ts-clu-text: #FDBA74;
-    }
-    :root[data-theme="light"],
-    [data-theme="light"] body,
-    body[data-theme="light"] {
-      --ts-sig: #A78BFA;
-      --ts-clu: #FB923C;
-      --ts-sig-text: #6D28D9;
-      --ts-clu-text: #C2410C;
-    }
-    [data-theme="light"] .ts-meta[data-tone="signal"],
-    [data-theme="light"] .ts-switch-card[data-tone="do"] .ts-switch-verdict,
-    [data-theme="light"] .ts-guidance-row[data-tone="do"] .ts-tag { color: var(--hz-useful); }
-    [data-theme="light"] .ts-meta[data-tone="warn"],
-    [data-theme="light"] .ts-switch-card[data-tone="avoid"] .ts-switch-verdict,
-    [data-theme="light"] .ts-guidance-row[data-tone="avoid"] .ts-tag,
-    [data-theme="light"] .ts-why-total,
-    [data-theme="light"] .ts-why-tok { color: var(--hz-clutter); }
-    [data-theme="light"] .ts-switch-card[data-tone="danger"] .ts-switch-verdict,
-    [data-theme="light"] .ts-guidance-row[data-tone="danger"] .ts-tag,
-    [data-theme="light"] .ts-safe-label { color: var(--hz-danger); }
-    [data-theme="light"] .ts-bar-track,
-    [data-theme="light"] .ta-cell:not([data-cat]) { background: var(--hz-free); }
-    [data-theme="light"] .ts-guidance-row,
-    [data-theme="light"] .ta-inspector,
-    [data-theme="light"] .ta-ucurve,
-    [data-theme="light"] .ta-source-grid,
-    [data-theme="light"] .tufte-top-host-badge { background: var(--hz-card); }
-    [data-theme="light"] .header-controls .shadcn-tabs-list,
-    [data-theme="light"] .ts-cta-btn[data-cta-state="guarded"],
-    [data-theme="light"] .ta-mini-btn { background: var(--hz-card-alt) !important; }
-    [data-theme="light"] .header-controls .shadcn-tab-trigger[aria-selected="true"] { background: var(--hz-card); }
-    [data-theme="light"] .ts-ledger-row,
-    [data-theme="light"] .ta-table td { border-bottom-color: var(--hz-border-subtle); }
     .ts-seg-signal {
       height: 100%;
       background: var(--ts-sig);
-      transition: width 160ms ease-out;
+      transition: width var(--ease-snappy);
+      position: relative;
+      overflow: hidden;
     }
     .ts-seg-clutter {
       height: 100%;
       background: var(--ts-clu);
-      transition: width 160ms ease-out;
+      transition: width var(--ease-snappy);
+      position: relative;
+      overflow: hidden;
+    }
+    .ts-seg-clutter[data-clutter-tone="cached"] {
+      background: var(--ts-clu-cached);
+    }
+    .ts-seg-label,
+    .ts-bar-outer-label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      pointer-events: none;
     }
     .ts-safe-tick {
       position: absolute;
-      top: 0;
-      bottom: 0;
+      top: -1px;
+      bottom: 9px;
       width: 2px;
-      background: #EF4444;
+      background: var(--text-secondary);
       pointer-events: none;
     }
-    /* Labeled context bar (top of Zone A) */
-    .ts-bar-lg { padding: 2px 0 15px; }
-    .ts-bar-lg .ts-bar-track { height: 20px; border-radius: 4px; }
-    .ts-bar-lg .ts-seg-signal,
-    .ts-bar-lg .ts-seg-clutter { position: relative; overflow: hidden; }
-    .ts-seg-label {
+    .ts-safe-tick[data-breach="true"] {
+      background: var(--status-critical);
+    }
+    .ts-safe-label {
       position: absolute;
-      top: 0; bottom: 0; left: 6px; right: 4px;
+      bottom: 0;
+      transform: translateX(-100%);
+      padding-right: 3px;
+      white-space: nowrap;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      line-height: 10px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .ts-safe-label[data-breach="true"] {
+      color: var(--status-critical);
+      font-weight: 600;
+    }
+    .ts-legend {
       display: flex;
       align-items: center;
-      font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
-      font-size: 11px;
-      font-weight: 600;
-      white-space: nowrap;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 10.5px;
+      color: var(--text-secondary);
       font-variant-numeric: tabular-nums;
-      color: var(--ts-sig-ink);
     }
-    .ts-seg-clutter .ts-seg-label { color: var(--ts-clu-ink); }
-    .ts-bar-lg .ts-safe-tick { top: 0; bottom: 13px; }
-    .ts-bar-outer-label {
-      position: absolute;
-      top: 2px;
-      height: 20px;
-      max-width: calc(100% - 4px);
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .ts-legend strong {
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .ts-swatch-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    /* Immediate Remediation Strip + 28px ActionPill */
+    .ts-remediation {
       display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding-top: 2px;
+    }
+    .ts-guidance-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      font-size: 11px;
+      line-height: 1.35;
+      color: var(--text-secondary);
+      overflow-wrap: anywhere;
+    }
+    .ts-guidance-row[data-tone="avoid"] {
+      padding-left: 6px;
+      border-left: 2px solid var(--status-warning);
+      color: var(--text-primary);
+    }
+    .ts-guidance-row[data-tone="danger"] {
+      padding-left: 6px;
+      border-left: 2px solid var(--status-critical);
+      color: var(--text-primary);
+    }
+    .ts-tag {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .ts-guidance-row[data-tone="avoid"] .ts-tag { color: var(--status-warning); }
+    .ts-guidance-row[data-tone="danger"] .ts-tag { color: var(--status-critical); }
+
+    .ts-cta-btn {
+      width: 100%;
+      min-height: var(--control-height);
+      padding: 4px 10px;
+      border-radius: var(--control-radius);
+      border: 1px solid var(--hz-fg);
+      background: var(--hz-fg);
+      color: var(--hz-bg);
+      font-family: var(--font-sans);
+      font-size: 11.5px;
+      font-weight: 600;
+      white-space: normal;
+      text-align: center;
+      line-height: 1.2;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: opacity var(--ease-snappy), transform var(--ease-snappy);
+    }
+    .ts-cta-btn:hover:not(:disabled) { opacity: 0.9; }
+    .ts-cta-btn:active:not(:disabled) { transform: scale(0.988); }
+    .ts-cta-btn[data-cta-state="ready"] {
+      background: var(--accent-focus);
+      color: #FFFFFF;
+      border-color: var(--accent-focus);
+    }
+    .ts-cta-btn[data-cta-state="guarded"] {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      border-color: var(--hairline);
+    }
+    .ts-cta-btn[data-cta-state="crisis"] {
+      background: var(--status-critical);
+      color: #FFFFFF;
+      border-color: var(--status-critical);
+    }
+    .ts-cta-btn:disabled,
+    .ts-cta-btn[data-cta-state="disabled"] {
+      background: transparent;
+      color: var(--text-muted);
+      border-color: var(--hairline);
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .ts-compact-caption {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 2px 8px;
+      font-size: 10px;
+      line-height: 1.3;
+      color: var(--text-muted);
+    }
+    .ts-compact-caption code {
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+    }
+
+    /* Core Health Signals: Full-Bleed 1px Hairline MetricRows (Zero Nested Cards) */
+    .ts-metric-list {
+      display: flex;
+      flex-direction: column;
+    }
+    .ts-metric-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
       gap: 8px;
-      padding-left: 6px;
-      white-space: nowrap;
-      pointer-events: none;
-      font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
-      font-size: 11px;
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
+      padding: 6.5px 0;
+      border-bottom: 1px solid var(--hairline);
+      min-width: 0;
     }
-    .ts-bar-outer-label .ts-ol-signal { color: var(--ts-sig-text); }
-    .ts-bar-outer-label .ts-ol-clutter { color: var(--ts-clu-text); }
-    /* Zone B: Model & Effort switch containers */
+    .ts-metric-main {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 2px 7px;
+      min-width: 0;
+    }
+    .ts-metric-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    .ts-meta {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .ts-meta[data-tone="muted"] { color: var(--text-secondary); }
+    .ts-meta[data-tone="signal"] { color: var(--text-primary); }
+    .ts-meta[data-tone="warn"] { color: var(--status-warning); font-weight: 600; }
+    .ts-meta[data-tone="danger"] { color: var(--status-critical); font-weight: 600; }
+
+    /* High-Resolution Micro-Visuals: 6px BulletBar + 72x18 Sparkline */
+    .ts-micro-bullet {
+      position: relative;
+      width: 60px;
+      height: 6px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--hairline);
+      border-radius: 2px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .ts-micro-bullet-fill {
+      height: 100%;
+      background: var(--text-primary);
+      transition: width var(--ease-snappy);
+    }
+    .ts-micro-bullet-fill[data-tone="nominal"] { background: var(--status-nominal); }
+    .ts-micro-bullet-fill[data-tone="warn"] { background: var(--status-warning); }
+    .ts-micro-bullet-tick {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 80%;
+      width: 1.5px;
+      background: var(--text-muted);
+      pointer-events: none;
+    }
+    .ts-sparkline {
+      width: 72px;
+      height: 18px;
+      display: block;
+      flex-shrink: 0;
+      overflow: visible;
+    }
+    .ts-kpi-inline {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .ts-kpi-sub {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-muted);
+    }
+
+    /* Progressive Disclosure Drawers (CollapsibleSection, Zero Layout Shift) */
+    .ts-why,
+    .ts-drawer {
+      border-bottom: 1px solid var(--hairline);
+      padding: 6px 0;
+    }
+    .ts-why > summary,
+    .ts-drawer > summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      user-select: none;
+    }
+    .ts-why > summary::-webkit-details-marker,
+    .ts-drawer > summary::-webkit-details-marker { display: none; }
+    .ts-why > summary:hover,
+    .ts-drawer > summary:hover { color: var(--text-primary); }
+    .ts-why > summary:focus-visible,
+    .ts-drawer > summary:focus-visible { outline: 1.5px solid var(--accent-focus); outline-offset: 2px; border-radius: 2px; }
+    .ts-why-caret {
+      display: inline-block;
+      width: 10px;
+      color: var(--text-muted);
+      transition: transform var(--ease-snappy);
+    }
+    .ts-why[open] .ts-why-caret,
+    .ts-drawer[open] .ts-why-caret { transform: rotate(90deg); }
+    .ts-drawer-body {
+      margin-top: 6px;
+      padding-left: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .ts-why-total, .ts-why-tok {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .ts-why-list { list-style: none; margin: 5px 0 0; padding: 0; }
+    .ts-why-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 3.5px 0 3.5px 10px;
+      border-top: 1px solid var(--hairline);
+      font-size: 11px;
+      color: var(--text-primary);
+    }
+    .ts-why-row:first-child { border-top: none; }
+    .ts-why-sub { color: var(--text-muted); }
+    .ts-why-keep { padding: 3px 0 0 10px; font-size: 10.5px; color: var(--text-muted); }
+
+    /* Flattened Switch & Hygiene Rows inside Progressive Disclosure */
     .ts-switch-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -4217,125 +4544,38 @@
       align-items: stretch;
       gap: 2px;
       min-width: 0;
-      grid-template-columns: none;
+      padding: 5px 0 0;
+      border: 0;
+      border-top: 1px solid var(--hairline);
+      background: transparent;
     }
     .ts-switch-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
     .ts-switch-verdict {
-      font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
-      font-size: 10.5px;
-      font-weight: 700;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
       font-variant-numeric: tabular-nums;
       letter-spacing: 0.02em;
+      color: var(--text-secondary);
     }
-    .ts-switch-card[data-tone="do"] .ts-switch-verdict { color: #10B981; }
-    .ts-switch-card[data-tone="avoid"] .ts-switch-verdict { color: #F59E0B; }
-    .ts-switch-card[data-tone="danger"] .ts-switch-verdict { color: #EF4444; }
-    .ts-switch-name { font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .ts-switch-card[data-tone="do"] .ts-switch-verdict { color: var(--text-secondary); }
+    .ts-switch-card[data-tone="avoid"] .ts-switch-verdict { color: var(--status-warning); }
+    .ts-switch-card[data-tone="danger"] .ts-switch-verdict { color: var(--status-critical); }
+    .ts-switch-name { font-size: 11px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
     .ts-switch-lines {
       margin: 0;
       padding: 0;
       list-style: none;
-      font-size: 11px;
-      color: var(--hz-muted);
+      font-size: 10.5px;
+      color: var(--text-secondary);
       font-variant-numeric: tabular-nums;
     }
-    .ts-switch-lines li + li { margin-top: 1px; }
-    .ts-switch-card .ts-sub { font-size: 11px; color: var(--hz-muted); }
-    .ts-safe-label {
-      position: absolute;
-      bottom: 0;
-      transform: translateX(-100%);
-      padding-right: 3px;
-      white-space: nowrap;
-      font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
-      font-size: 10px;
-      line-height: 12px;
-      color: #F87171;
-      font-variant-numeric: tabular-nums;
-    }
-    /* "What /compact clears" disclosure (Zone D) */
-    .ts-why { border-top: 1px solid var(--hz-border); padding-top: 6px; }
-    .ts-why > summary {
-      list-style: none;
-      cursor: pointer;
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 8px;
-      font-size: 11.5px;
-      color: var(--hz-fg-secondary);
-    }
-    .ts-why > summary::-webkit-details-marker { display: none; }
-    .ts-why > summary:focus-visible { outline: 2px solid #3B82F6; outline-offset: 2px; border-radius: 2px; }
-    .ts-why-caret { display: inline-block; width: 10px; color: var(--hz-muted); transition: transform 120ms ease-out; }
-    .ts-why[open] .ts-why-caret { transform: rotate(90deg); }
-    .ts-why-total, .ts-why-tok {
-      font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
-      font-variant-numeric: tabular-nums;
-      color: #F59E0B;
-      font-weight: 600;
-    }
-    .ts-why-list { list-style: none; margin: 4px 0 0; padding: 0; }
-    .ts-why-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 4px 0 4px 14px;
-      border-top: 1px solid var(--hz-border);
-      font-size: 11.5px;
-      color: var(--hz-fg);
-    }
-    .ts-why-row:first-child { border-top: none; }
-    .ts-why-sub { color: var(--hz-muted); }
-    .ts-why-keep { padding: 4px 0 0 14px; font-size: 11px; color: var(--hz-muted); }
-    @media (prefers-reduced-motion: reduce) {
-      .ts-why-caret, .ts-seg-signal, .ts-seg-clutter { transition: none; }
-    }
-    .ts-legend {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      flex-wrap: wrap;
-      font-size: 11px;
-      color: var(--hz-fg-secondary);
-    }
-    .ts-guidance-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .ts-guidance-row {
-      display: grid;
-      grid-template-columns: 44px minmax(0, 1fr);
-      gap: 8px;
-      align-items: start;
-      padding: 6px 8px;
-      border-radius: 4px;
-      background: rgba(255, 255, 255, 0.025);
-      border: 1px solid var(--hz-border);
-      border-left-width: 2px;
-      font-size: 11.5px;
-      line-height: 1.4;
-      overflow-wrap: anywhere;
-    }
-    .ts-guidance-row[data-tone="do"] { border-left-color: #10B981; }
-    .ts-guidance-row[data-tone="avoid"] { border-left-color: #F59E0B; }
-    .ts-guidance-row[data-tone="danger"] { border-left-color: #EF4444; }
-    .ts-tag {
-      font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      padding-top: 1px;
-    }
-    .ts-guidance-row[data-tone="do"] .ts-tag { color: #10B981; }
-    .ts-guidance-row[data-tone="avoid"] .ts-tag { color: #F59E0B; }
-    .ts-guidance-row[data-tone="danger"] .ts-tag { color: #EF4444; }
+    .ts-switch-lines li + li { margin-top: 2px; }
+    .ts-switch-card .ts-sub { font-size: 10.5px; color: var(--text-muted); }
+
     .ts-ledger {
       list-style: none;
-      margin: 0;
+      margin: 5px 0 0;
       padding: 0;
       display: flex;
       flex-direction: column;
@@ -4345,55 +4585,28 @@
       grid-template-columns: 36px minmax(0, 1fr) auto;
       gap: 8px;
       align-items: baseline;
-      padding: 4px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      font-size: 11.5px;
+      padding: 3.5px 0 3.5px 10px;
+      border-top: 1px solid var(--hairline);
+      font-size: 11px;
+      color: var(--text-primary);
       overflow-wrap: anywhere;
     }
-    .ts-ledger-row:last-child { border-bottom: none; }
-    .ts-kpi-num {
-      font-size: 22px;
-      font-weight: 600;
-      letter-spacing: -0.02em;
-      color: var(--hz-fg);
-    }
-    .ts-cta-btn {
-      width: 100%;
-      min-height: 36px;
-      padding: 7px 12px;
-      border-radius: 4px;
-      border: 1px solid var(--hz-fg);
-      background: var(--hz-fg);
-      color: var(--hz-bg);
-      font-family: inherit;
-      font-size: 12px;
-      font-weight: 600;
-      white-space: normal;
-      text-align: center;
-      line-height: 1.25;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-    .ts-cta-btn[data-cta-state="guarded"] {
-      background: rgba(255, 255, 255, 0.04);
-      color: var(--hz-fg);
-      border-color: var(--hz-border);
-    }
-    .ts-cta-btn[data-cta-state="crisis"] {
-      background: #EF4444;
-      color: #FFFFFF;
-      border-color: #EF4444;
-    }
-    .ts-cta-btn:disabled,
-    .ts-cta-btn[data-cta-state="disabled"] {
-      background: transparent;
-      color: var(--hz-muted);
-      border-color: var(--hz-border);
-      opacity: 0.55;
-      cursor: not-allowed;
+    .ts-ledger-row:first-child { border-top: none; }
+    .ts-ledger-age { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
+    .ts-ledger-saved { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-secondary); font-weight: 600; }
+
+    [data-theme="light"] .ta-cell:not([data-cat]) { background: var(--hz-free); }
+    [data-theme="light"] .ta-inspector,
+    [data-theme="light"] .ta-ucurve,
+    [data-theme="light"] .ta-source-grid,
+    [data-theme="light"] .tufte-top-host-badge { background: var(--hz-card); }
+    [data-theme="light"] .header-controls .shadcn-tabs-list,
+    [data-theme="light"] .ta-mini-btn { background: var(--hz-card-alt) !important; }
+    [data-theme="light"] .header-controls .shadcn-tab-trigger[aria-selected="true"] { background: var(--hz-card); }
+    [data-theme="light"] .ta-table td { border-bottom-color: var(--hz-border-subtle); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ts-why-caret, .ts-seg-signal, .ts-seg-clutter, .ts-micro-bullet-fill, .ts-cta-btn { transition: none; }
     }
 
     /* Advanced Forensic Surface inside horizon_panel.html */
@@ -4550,13 +4763,24 @@
        LIVE EDWARD TUFTE "SIMPLE VIEW" SURFACE (Active when data-view-mode=simple)
        ========================================================================= -->
   <div id="argonSimpleSurface" aria-label="Highbeam Simple View">
-    <!-- Zone A: System State & Context -->
-    <section class="ts-zone">
-      <div class="ts-head">
-        <h2 class="ts-overline">Zone A &middot; System State &amp; Context</h2>
-        <span id="tsCacheMeta" class="ts-meta" data-tone="muted">0% hit &middot; Cold</span>
+    <!-- Pass 2 MetricHeader: Pinned at scrollTop: 0 (Status + HorizonBulletBar + Primary ActionPill) -->
+    <section id="tsMetricHeader" class="ts-metric-header">
+      <div class="ts-status-row">
+        <div class="ts-status-badge" role="status" aria-live="polite">
+          <span id="tsStatusDot" class="ts-dot" data-tone="nominal"></span>
+          <span id="tsStatusLabel">Nominal Memory</span>
+        </div>
+        <span id="tsRunwayMeta" class="ts-runway-meta" data-tone="nominal">179.0k headroom</span>
       </div>
-      <div class="ts-bar-wrap ts-bar-lg" role="img" aria-label="Context usage bar">
+
+      <div class="ts-quant-row">
+        <span class="ts-quant-primary">
+          <strong id="tsUsedLabel">0.0k</strong> / <span id="tsSafeLabel">179.0k</span> safe (<span id="tsUsedPct">0%</span>)
+        </span>
+        <span id="tsAnchorHealth" class="ts-anchor-health" data-risk="false">Pinned rules safe</span>
+      </div>
+
+      <div class="ts-bar-wrap" role="img" aria-label="Context usage vs safe limit">
         <div class="ts-bar-track">
           <div id="tsBarSignal" class="ts-seg-signal" style="width:0%"><span id="tsBarSignalLabel" class="ts-seg-label"></span></div>
           <div id="tsBarClutter" class="ts-seg-clutter" data-clutter-tone="stale" style="width:0%"><span id="tsBarClutterLabel" class="ts-seg-label"></span></div>
@@ -4565,99 +4789,111 @@
         <div id="tsSafeTickLabel" class="ts-safe-label" style="left:70%">safe limit</div>
         <div id="tsBarOuterLabel" class="ts-bar-outer-label" hidden></div>
       </div>
-      <div class="ts-status-row">
-        <div class="ts-status-badge" role="status" aria-live="polite">
-          <span id="tsStatusDot" class="ts-dot" data-tone="signal"></span>
-          <span id="tsStatusLabel">Optimal Cache</span>
-        </div>
-        <div style="font-size:11.5px;">
-          <strong id="tsUsedLabel">0.0k</strong>
-          <span style="color:var(--hz-muted);">/ <span id="tsSafeLabel">179.0k</span> safe (<span id="tsUsedPct">0%</span>)</span>
-        </div>
-      </div>
+
       <div class="ts-legend">
-        <span><span style="color:var(--ts-sig);">&#9679;</span> Active Signal <strong id="tsValSignal" style="color:var(--hz-fg);">0.0k</strong></span>
-        <span><span id="tsClutterDot" style="color:var(--ts-clu);">&#9679;</span> <span id="tsClutterKind">Reclaimable</span> <strong id="tsValClutter" style="color:var(--hz-fg);">0.0k</strong></span>
-        <span id="tsAnchorHealth" style="color:var(--hz-muted);">Pinned rules safe</span>
+        <span><span class="ts-swatch-dot" style="background:var(--ts-sig);" aria-hidden="true"></span>Signal <strong id="tsValSignal">0.0k</strong></span>
+        <span><span id="tsClutterDot" class="ts-swatch-dot" style="background:var(--ts-clu);" aria-hidden="true"></span><span id="tsClutterKind">Reclaimable</span> <strong id="tsValClutter">0.0k</strong></span>
+      </div>
+
+      <div class="ts-remediation">
+        <div id="tsDoRow" class="ts-guidance-row" data-tone="do">
+          <span class="ts-tag">Next</span>
+          <span id="tsDoText">Safe to run multi-file edits or implementation tasks; working memory has ample headroom.</span>
+        </div>
+        <button type="button" id="tsBtnCleanPrimary" class="ts-cta-btn" data-cta-state="guarded">
+          <span id="tsBtnCleanLabel">Copy /compact Command (Memory Clean)</span>
+        </button>
+        <div class="ts-compact-caption">
+          <span id="tsCompactReclaim">0.0k reclaimable clutter &middot; Active working set protected</span>
+          <span id="tsCompactInstruction">Type <code>/compact</code> in chat &amp; press Enter</span>
+        </div>
       </div>
     </section>
 
-    <!-- Zone B: Direct Guidance (DO / AVOID / MODEL & EFFORT) -->
-    <section class="ts-zone">
-      <div class="ts-head">
-        <h2 class="ts-overline">Zone B &middot; Direct Guidance</h2>
-        <span id="tsGuidanceBadge" class="ts-meta" data-tone="signal">Model: OK &middot; Effort: OK</span>
-      </div>
-      <div class="ts-guidance-list">
-        <div id="tsDoRow" class="ts-guidance-row" data-tone="do">
-          <span class="ts-tag">DO</span>
-          <span id="tsDoText">Safe to run multi-file edits or implementation tasks; working memory has ample headroom.</span>
+    <!-- Core Health Signals: 3 Full-Bleed 1px Hairline Rows (Zero Nested Cards) -->
+    <div class="ts-metric-list" role="region" aria-label="Core session telemetry">
+      <!-- Signal 1: Prompt Cache Hit Rate & TTL -> 1D BulletBar -->
+      <div class="ts-metric-row">
+        <div class="ts-metric-main">
+          <span class="ts-metric-label">Prompt cache</span>
+          <span id="tsCacheMeta" class="ts-meta" data-tone="muted">0% hit &middot; Cold</span>
         </div>
+        <div class="ts-micro-bullet" role="img" aria-label="Prompt cache hit rate against 80% target">
+          <div id="tsCacheBulletFill" class="ts-micro-bullet-fill" style="width:0%"></div>
+          <div class="ts-micro-bullet-tick" title="80% cache hit target"></div>
+        </div>
+      </div>
+
+      <!-- Signal 2: Model & Effort Switch Gate -->
+      <div class="ts-metric-row">
+        <div class="ts-metric-main">
+          <span class="ts-metric-label">Switch gate</span>
+          <span id="tsSwitchActiveSummary" class="ts-kpi-sub">Auto &middot; Auto</span>
+        </div>
+        <span id="tsGuidanceBadge" class="ts-meta" data-tone="muted">Model: OK &middot; Effort: OK</span>
+      </div>
+
+      <!-- Signal 3: Verified Savings & Velocity -> 72x18 Word-Sized SVG Sparkline -->
+      <div class="ts-metric-row">
+        <div class="ts-metric-main">
+          <span class="ts-metric-label">Saved</span>
+          <span id="tsKpiSaved" class="ts-kpi-inline">+0.0k</span>
+          <span id="tsKpiUsd" class="ts-kpi-sub">~$0.00</span>
+          <span class="ts-kpi-sub" aria-hidden="true">&middot;</span>
+          <span id="tsKpi30d" class="ts-kpi-sub">30d: +0.0k (~$0.00)</span>
+          <span id="tsSprintMeta" class="ts-kpi-sub" hidden></span>
+        </div>
+        <svg id="tsTurnSparkline" class="ts-sparkline" width="72" height="18" viewBox="0 0 72 18" role="img" aria-label="Per-turn context velocity sparkline">
+          <polyline id="tsSparklinePath" fill="none" stroke="var(--text-secondary)" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" points="1,15 71,15"/>
+          <circle id="tsSparklineDot" cx="71" cy="15" r="2" fill="var(--text-primary)"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Progressive Disclosure: Zero-Layout-Shift Expandable Diagnostics -->
+    <details id="tsWhyClears" class="ts-why" hidden>
+      <summary><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>What <code>/compact</code> clears</span><span id="tsWhyTotal" class="ts-why-total">0.0k</span></summary>
+      <ul id="tsWhyList" class="ts-why-list" role="list"></ul>
+      <div id="tsWhyKeepNote" class="ts-why-keep">Keeps rules, <code>task.md</code>, plan &amp; active code.</div>
+    </details>
+
+    <details id="tsSwitchDetailsDrawer" class="ts-drawer">
+      <summary><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Switch cost &amp; hygiene rules</span><span id="tsSwitchDrawerHint" class="ts-kpi-sub">Details</span></summary>
+      <div class="ts-drawer-body">
         <div id="tsAvoidRow" class="ts-guidance-row" data-tone="avoid">
           <span class="ts-tag">AVOID</span>
           <span id="tsAvoidText">Avoid reading large files without line bounds (`StartLine`/`EndLine`) to keep context lean.</span>
         </div>
-      </div>
-      <div class="ts-switch-grid" style="margin-top:6px;">
-        <div id="tsModelCard" class="ts-guidance-row ts-switch-card" data-tone="do">
-          <div class="ts-switch-head"><span class="ts-tag">MODEL</span><span id="tsModelVerdict" class="ts-switch-verdict">OK</span></div>
-          <div id="tsModelName" class="ts-switch-name">Auto</div>
-          <ul class="ts-switch-lines">
-            <li id="tsModelSameFam">Cache is cold &mdash; no rewrite penalty.</li>
-            <li id="tsModelCrossFam"></li>
-          </ul>
-          <div id="tsModelLast" class="ts-sub" hidden></div>
+        <div class="ts-switch-grid">
+          <div id="tsModelCard" class="ts-guidance-row ts-switch-card" data-tone="do">
+            <div class="ts-switch-head"><span class="ts-tag">MODEL</span><span id="tsModelVerdict" class="ts-switch-verdict">OK</span></div>
+            <div id="tsModelName" class="ts-switch-name">Auto</div>
+            <ul class="ts-switch-lines">
+              <li id="tsModelSameFam">Cache is cold &mdash; no rewrite penalty.</li>
+              <li id="tsModelCrossFam"></li>
+            </ul>
+            <div id="tsModelLast" class="ts-sub" hidden></div>
+          </div>
+          <div id="tsEffortCard" class="ts-guidance-row ts-switch-card" data-tone="do">
+            <div class="ts-switch-head"><span class="ts-tag">EFFORT</span><span id="tsEffortVerdict" class="ts-switch-verdict">OK</span></div>
+            <div id="tsEffortName" class="ts-switch-name">Auto</div>
+            <div id="tsEffortText" class="ts-sub">Match tier to task: Low/Med for edits, High for specs.</div>
+            <div id="tsEffortHist" class="ts-sub" hidden></div>
+          </div>
         </div>
-        <div id="tsEffortCard" class="ts-guidance-row ts-switch-card" data-tone="do">
-          <div class="ts-switch-head"><span class="ts-tag">EFFORT</span><span id="tsEffortVerdict" class="ts-switch-verdict">OK</span></div>
-          <div id="tsEffortName" class="ts-switch-name">Auto</div>
-          <div id="tsEffortText" class="ts-sub">Match tier to task: Low/Med for edits, High for specs.</div>
-          <div id="tsEffortHist" class="ts-sub" hidden></div>
-        </div>
       </div>
-    </section>
+    </details>
 
-    <!-- Zone C: Automated Activity Ledger -->
-    <section class="ts-zone">
-      <div class="ts-head">
-        <h2 class="ts-overline">Zone C &middot; Automated Activity</h2>
-        <span id="tsGuardsSummary" class="ts-meta">32 guards armed</span>
-      </div>
+    <details id="tsActivityDrawer" class="ts-drawer">
+      <summary><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Auto-guard activity</span><span id="tsGuardsSummary" class="ts-kpi-sub">32 guards armed</span></summary>
       <ul id="tsLedgerList" class="ts-ledger" role="list">
         <li class="ts-ledger-row">
-          <span style="color:var(--hz-muted);">now</span>
+          <span class="ts-ledger-age">now</span>
           <span>Auto-guards armed (FTS5 CLI compressor &amp; PrefixCacheShield)</span>
-          <span style="color:var(--hz-muted);">ready</span>
+          <span class="ts-ledger-saved">ready</span>
         </li>
       </ul>
-    </section>
-
-    <!-- Zone D: Core Impact KPI & Primary Action -->
-    <section class="ts-zone-last">
-      <div class="ts-head">
-        <h2 class="ts-overline">Zone D &middot; Session Impact &amp; Memory Clean</h2>
-        <span id="tsKpi30d" class="ts-meta">30d: 0.0k ($0.00)</span>
-      </div>
-      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
-        <div>
-          <span id="tsKpiSaved" class="ts-kpi-num">0.0k</span>
-          <span style="font-size:11.5px;color:var(--hz-muted);margin-left:4px;">tokens saved</span>
-        </div>
-        <span id="tsKpiUsd" style="font-size:12px;color:var(--hz-useful);font-weight:600;">$0.00</span>
-      </div>
-      <button type="button" id="tsBtnCleanPrimary" class="ts-cta-btn" data-cta-state="disabled" disabled>
-        <span id="tsBtnCleanLabel">Memory Clean &middot; 0.0k Reclaimable</span>
-      </button>
-      <div style="font-size:11px;color:var(--hz-fg-secondary);line-height:1.35;">
-        <div id="tsCompactReclaim">0.0k reclaimable clutter &middot; Active working set protected</div>
-        <div id="tsCompactInstruction" style="color:var(--hz-muted);">Type <code>/compact</code> in the chat box and press Enter when resetting conversation history.</div>
-      </div>
-      <details id="tsWhyClears" class="ts-why" hidden>
-        <summary><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>What <code>/compact</code> clears</span><span id="tsWhyTotal" class="ts-why-total">0.0k</span></summary>
-        <ul id="tsWhyList" class="ts-why-list" role="list"></ul>
-        <div class="ts-why-keep">Keeps rules, <code>task.md</code>, plan &amp; active code.</div>
-      </details>
-    </section>
+    </details>
   </div>
 
   <!-- =========================================================================
@@ -5348,6 +5584,10 @@
             <span id="rsiMiddleTroughLabel">0 Trough Risks</span> &middot;
             <span id="rsiShieldLabel">Rule Shield: 0 queued</span>
           </div>
+        </div>
+        <div class="rsi-health-row rsl-summary-strip mono" id="rslSummaryStrip">
+          <span class="rsi-icon" aria-hidden="true">&#x1F501;</span>
+          <div class="rsi-health-summary" id="rslSummaryText">RSL Dual-Sync: <strong>0</strong> rules &middot; <strong>0</strong> skills &middot; <strong>0</strong> hooks &middot; Budget: <strong>0/20k</strong> tok</div>
         </div>
         <div class="action-rows-stack rsi-actions-stack" id="rsiActionList" hidden></div>
       </section>
@@ -10438,6 +10678,19 @@
         if (rsiPrimacyEl) rsiPrimacyEl.innerHTML = `Primacy Band: <strong>${uCurveData?.healthScore || 94}%</strong>`;
         if (rsiMiddleEl) rsiMiddleEl.textContent = `${middleRisk} Trough Risk${middleRisk === 1 ? '' : 's'}`;
         if (rsiShieldEl) rsiShieldEl.textContent = `Rule Shield: ${stagedCnt} queued`;
+        const rslSummaryEl = document.getElementById('rslSummaryText');
+        const rslData = raw.rsl || raw.coachState?.rsl;
+        if (rslSummaryEl && rslData) {
+          const rTok = Number(rslData.ruleBudgetTokens || 0);
+          const rTokLabel = rTok >= 1000 ? `${(rTok / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(rTok);
+          const clashes = Number(rslData.clashCount || 0);
+          const clashSuffix = clashes > 0 ? ` &middot; <strong style="color:var(--warn)">${clashes} clash</strong>` : '';
+          rslSummaryEl.innerHTML =
+            `RSL Dual-Sync: <strong>${Number(rslData.activeRules || 0)}</strong> rules &middot; ` +
+            `<strong>${Number(rslData.activeSkills || 0)}</strong> skills &middot; ` +
+            `<strong>${Number(rslData.promotedHooks || 0)}</strong> hooks &middot; ` +
+            `Budget: <strong>${rTokLabel}/20k</strong> tok${clashSuffix}`;
+        }
         if (rsiPillEl) {
           rsiPillEl.textContent = rsiRows.length > 0 ? `${rsiRows.length} Ready` : `Primacy: ${uCurveData?.healthScore || 94}%`;
         }
@@ -11102,11 +11355,12 @@
     const isHighEffort = /high|max|deep|thinking/i.test(String(activeEffort));
 
     // =======================================================================
-    // 1. SIMPLE VIEW UPDATES (#argonSimpleSurface)
+    // 1. SIMPLE VIEW UPDATES (#argonSimpleSurface — Antigravity & Claude Code)
     // =======================================================================
+    const isClaudeSurface = (raw.storeSource || 'antigravity').toLowerCase().includes('claude');
     const tsCacheMeta = document.getElementById('tsCacheMeta');
+    const cacheUnmeasured = !isWarm && cache.prefixRetention?.unmeasuredReason === 'no_cache_telemetry';
     if (tsCacheMeta) {
-      const cacheUnmeasured = !isWarm && cache.prefixRetention?.unmeasuredReason === 'no_cache_telemetry';
       tsCacheMeta.dataset.tone = isWarm ? 'signal' : (isRebuilding && !cacheUnmeasured ? 'warn' : 'muted');
       tsCacheMeta.textContent = isWarm
         ? `${hitPct}% hit \u00B7 Warm (${ttlMm}:${ttlSs})`
@@ -11116,6 +11370,12 @@
       tsCacheMeta.title = cacheUnmeasured
         ? 'The host reports no cache-read tokens for this model, so the hit rate is unknown.'
         : (cache.prefixBustLabel || '');
+    }
+    const tsCacheBulletFill = document.getElementById('tsCacheBulletFill');
+    if (tsCacheBulletFill) {
+      const bulletW = cacheUnmeasured ? 0 : Math.max(0, Math.min(100, hitPct));
+      tsCacheBulletFill.style.width = `${bulletW}%`;
+      tsCacheBulletFill.dataset.tone = isWarm && hitPct >= 75 ? 'nominal' : (isRebuilding ? 'warn' : 'muted');
     }
 
     const tsStatusDot = document.getElementById('tsStatusDot');
@@ -11137,8 +11397,23 @@
         tsStatusDot.dataset.tone = 'warn';
         tsStatusLabel.textContent = 'Turn-0 Prefix Bloat';
       } else {
-        tsStatusDot.dataset.tone = 'signal';
+        tsStatusDot.dataset.tone = isWarm ? 'signal' : 'nominal';
         tsStatusLabel.textContent = isWarm ? 'Optimal Cache' : 'Nominal Memory';
+      }
+    }
+
+    const tsRunwayMeta = document.getElementById('tsRunwayMeta');
+    if (tsRunwayMeta) {
+      if (isCrisis) {
+        const overTok = Math.max(0, total - safeCap);
+        tsRunwayMeta.dataset.tone = 'danger';
+        tsRunwayMeta.textContent = overTok > 0 ? `+${formatTokens(overTok)} over safe` : 'At safe limit';
+      } else if (burnRate > 0 && turnsLeft < 99) {
+        tsRunwayMeta.dataset.tone = turnsLeft <= 4 ? 'danger' : (turnsLeft <= 8 ? 'warn' : 'nominal');
+        tsRunwayMeta.textContent = `~${turnsLeft} turn${turnsLeft === 1 ? '' : 's'} \u00B7 +${formatTokens(burnRate)}/t`;
+      } else {
+        tsRunwayMeta.dataset.tone = isWarn ? 'warn' : 'nominal';
+        tsRunwayMeta.textContent = `${formatTokens(remainingSafe)} headroom`;
       }
     }
 
@@ -11152,14 +11427,22 @@
     const tsBarSignal = document.getElementById('tsBarSignal');
     const tsBarClutter = document.getElementById('tsBarClutter');
     const tsSafeTick = document.getElementById('tsSafeTick');
+    const tsClutterDot = document.getElementById('tsClutterDot');
+    const isNearOrPastSafe = isCrisis || total >= safeCap * 0.85;
     if (tsBarSignal) tsBarSignal.style.width = `${usefulPct.toFixed(1)}%`;
     if (tsBarClutter) {
       tsBarClutter.style.width = `${wastePct.toFixed(1)}%`;
       tsBarClutter.dataset.clutterTone = isWarm ? 'cached' : 'stale';
     }
-    if (tsSafeTick) tsSafeTick.style.left = `${safeMarkPct.toFixed(1)}%`;
+    if (tsClutterDot) {
+      tsClutterDot.style.background = isWarm ? 'var(--ts-clu-cached)' : 'var(--ts-clu)';
+    }
+    if (tsSafeTick) {
+      tsSafeTick.style.left = `${safeMarkPct.toFixed(1)}%`;
+      tsSafeTick.dataset.breach = isNearOrPastSafe ? 'true' : 'false';
+    }
 
-    // In-bar labels: share of tokens in use (hidden when the segment is too narrow to fit)
+    // Screen-reader / fallback segment labels preserved for DOM parity
     const usedSumT = Math.max(1, usefulT + staleT);
     const sigShare = Math.round((usefulT / usedSumT) * 100);
     const cluShare = staleT > 0 ? 100 - sigShare : 0;
@@ -11171,7 +11454,6 @@
     const cluInside = staleT > 0 ? fitLabel(wastePct, cluTxtFull) : '';
     setTxt('tsBarSignalLabel', sigInside);
     setTxt('tsBarClutterLabel', cluInside);
-    // Fallback: labels that don't fit inside their segment are printed in the empty track after the fill
     const tsBarOuterLabel = document.getElementById('tsBarOuterLabel');
     if (tsBarOuterLabel) {
       const outerParts = [];
@@ -11190,12 +11472,19 @@
     const tsSafeTickLabel = document.getElementById('tsSafeTickLabel');
     if (tsSafeTickLabel) {
       tsSafeTickLabel.style.left = `${safeMarkPct.toFixed(1)}%`;
+      tsSafeTickLabel.dataset.breach = isNearOrPastSafe ? 'true' : 'false';
       tsSafeTickLabel.textContent = `${formatTokens(safeCap)} safe limit`;
     }
 
-    // Zone D: "What /compact clears" breakdown (rows only for non-zero sources)
+    // Progressive Disclosure Drawer 1: "What /compact clears" (auto-hidden at <100 tok)
     const tsWhyClears = document.getElementById('tsWhyClears');
     const tsWhyList = document.getElementById('tsWhyList');
+    const tsWhyKeepNote = document.getElementById('tsWhyKeepNote');
+    if (tsWhyKeepNote) {
+      tsWhyKeepNote.innerHTML = isClaudeSurface
+        ? 'Keeps <code>CLAUDE.md</code>, <code>HANDOFF_LATEST.md</code> &amp; active code.'
+        : 'Keeps rules, <code>task.md</code>, plan &amp; active code.';
+    }
     if (tsWhyClears && tsWhyList) {
       const dupFilesN = Number(bs.duplicateReads?.fileCount ?? (Array.isArray(bs.duplicateReads) ? bs.duplicateReads.length : 0)) || 0;
       const histTurnsN = Number(bs.oldHistory?.turnCount || 0);
@@ -11226,7 +11515,11 @@
     setTxt('tsValSignal', formatTokens(usefulT));
     setTxt('tsValClutter', formatTokens(staleT));
     setTxt('tsClutterKind', isWarm && staleT > 0 ? 'Warm Reclaimable' : 'Reclaimable');
-    setTxt('tsAnchorHealth', isCrisis ? 'Oldest rules at risk' : 'Pinned rules safe');
+    const tsAnchorHealthEl = document.getElementById('tsAnchorHealth');
+    if (tsAnchorHealthEl) {
+      tsAnchorHealthEl.dataset.risk = isCrisis ? 'true' : 'false';
+      tsAnchorHealthEl.textContent = isCrisis ? 'Oldest rules at risk' : 'Pinned rules safe';
+    }
 
     // Zone B: Direct Guidance (DO / AVOID / MODEL & EFFORT)
     const tsGuidanceBadge = document.getElementById('tsGuidanceBadge');
@@ -11348,10 +11641,11 @@
       setTxt('tsEffortName', activeEffort);
       setTxt('tsEffortText', e.text);
 
+      const bc = cache.prefixBustCause;
+      const hasModelSwitchBust = Boolean(bc && bc.cause === 'model_switch' && bc.from && bc.to);
       const tsModelLast = document.getElementById('tsModelLast');
       if (tsModelLast) {
-        const bc = cache.prefixBustCause;
-        if (bc && bc.cause === 'model_switch' && bc.from && bc.to) {
+        if (hasModelSwitchBust) {
           const stripEff = (s) => String(s).replace(/\s*\([^)]*\)\s*$/, '');
           const prov = (s) => (/claude|opus|sonnet|haiku|fable/i.test(s) ? 'Claude' : /gemini|carbon|argon|hydrogen|flash/i.test(s) ? 'Gemini' : /gpt/i.test(s) ? 'GPT-OSS' : 'Other');
           const crossTag = prov(bc.from) !== prov(bc.to) ? ' \u00B7 cross-family' : '';
@@ -11368,8 +11662,16 @@
         tsEffortHist.hidden = effSwitches < 2;
         tsEffortHist.textContent = effSwitches >= 2 ? `${effSwitches} effort switches this chat` : '';
       }
+      setTxt('tsSwitchActiveSummary', `${activeModel} \u00B7 ${activeEffort}`);
+      setTxt('tsSwitchDrawerHint', isCrisis ? 'Switch locked' : (hasModelSwitchBust ? 'Cache miss' : (isWarm ? `Hold ${ttlTxt}` : 'Details')));
+      const tsSwitchDetailsDrawer = document.getElementById('tsSwitchDetailsDrawer');
+      if (tsSwitchDetailsDrawer && hasModelSwitchBust) {
+        tsSwitchDetailsDrawer.open = true;
+      }
       if (tsGuidanceBadge) {
-        tsGuidanceBadge.dataset.tone = (m.tone === 'do' && e.tone === 'do') ? 'signal' : 'warn';
+        tsGuidanceBadge.dataset.tone = (m.tone === 'danger' || e.tone === 'danger')
+          ? 'danger'
+          : ((m.tone === 'do' && e.tone === 'do') ? 'muted' : 'warn');
         tsGuidanceBadge.textContent = `Model: ${m.badge} \u00B7 Effort: ${e.badge}`;
       }
     }
@@ -11466,14 +11768,14 @@
 
       tsLedgerList.innerHTML = rows.slice(0, 4).map(r => `
         <li class="ts-ledger-row">
-          <span style="color:var(--hz-muted);">${escAttr(r.age)}</span>
+          <span class="ts-ledger-age">${escAttr(r.age)}</span>
           <span>${escAttr(r.action)}</span>
-          <span style="color:var(--hz-useful);">${escAttr(r.saved)}</span>
+          <span class="ts-ledger-saved">${escAttr(r.saved)}</span>
         </li>
       `).join('');
     }
 
-    // Zone D: Core Impact KPI & Primary CTA (supports raw.savings.session / workspace30d / thirtyDay)
+    // Core Impact KPI, 5h Sprint Pacing, 72x18 SVG Sparkline & Primary ActionPill
     const sessionSaved = Math.max(
       0,
       Number(
@@ -11514,6 +11816,46 @@
     setTxt('tsKpiUsd', `~$${usdSaved.toFixed(2)}`);
     setTxt('tsKpi30d', `30d: +${formatTokens(lifetimeSaved)} (~$${usd30d.toFixed(2)})`);
 
+    const tsSprintMeta = document.getElementById('tsSprintMeta');
+    if (tsSprintMeta) {
+      const sprintPctRaw = raw.quota?.sprint5h?.usedPct ?? raw.quota?.fiveHourPct;
+      if (sprintPctRaw != null && Number.isFinite(Number(sprintPctRaw))) {
+        const estPrefix = raw.quota?.sprint5h?.source === 'estimate' ? '~' : '';
+        tsSprintMeta.textContent = `\u00B7 5h: ${estPrefix}${Math.min(100, Math.round(Number(sprintPctRaw)))}%`;
+        tsSprintMeta.hidden = false;
+      } else {
+        tsSprintMeta.hidden = true;
+        tsSprintMeta.textContent = '';
+      }
+    }
+
+    const tsSparklinePath = document.getElementById('tsSparklinePath');
+    const tsSparklineDot = document.getElementById('tsSparklineDot');
+    if (tsSparklinePath && tsSparklineDot) {
+      const tlTurns = Array.isArray(raw.sessionTimeline?.turns) ? raw.sessionTimeline.turns : [];
+      let series = tlTurns.slice(-16).map(t => Math.max(0, Number(t.tokensAdded ?? t.cumulativeTokens ?? t.tokens) || 0));
+      if (series.length < 2 && Array.isArray(raw.cells)) {
+        const cellVals = raw.cells.filter(c => c && c.cat !== 'empty' && Number(c.tokens) > 0).slice(-16).map(c => Number(c.tokens) || 0);
+        if (cellVals.length >= 2) series = cellVals;
+      }
+      if (series.length < 2) {
+        series = total > 0 ? [Math.round(usefulT * 0.5), usefulT, total] : [0, 0];
+      }
+      const peak = Math.max(1, ...series);
+      const pts = series.map((v, idx) => {
+        const x = 2 + (idx / Math.max(1, series.length - 1)) * 68;
+        const y = 15 - (Math.min(peak, v) / peak) * 12;
+        return [Number(x.toFixed(1)), Number(y.toFixed(1))];
+      });
+      tsSparklinePath.setAttribute('points', pts.map(p => `${p[0]},${p[1]}`).join(' '));
+      const lastPt = pts[pts.length - 1] || [70, 15];
+      tsSparklineDot.setAttribute('cx', String(lastPt[0]));
+      tsSparklineDot.setAttribute('cy', String(lastPt[1]));
+      const sparkStroke = isCrisis ? 'var(--status-critical)' : (isWarn ? 'var(--status-warning)' : 'var(--text-secondary)');
+      tsSparklinePath.setAttribute('stroke', sparkStroke);
+      tsSparklineDot.setAttribute('fill', isCrisis ? 'var(--status-critical)' : (isWarn ? 'var(--status-warning)' : 'var(--text-primary)'));
+    }
+
     const tsBtnCleanPrimary = document.getElementById('tsBtnCleanPrimary');
     if (tsBtnCleanPrimary) {
       if (isCrisis) {
@@ -11525,7 +11867,7 @@
         tsBtnCleanPrimary.dataset.ctaState = isWarm ? 'guarded' : 'ready';
         setTxt('tsBtnCleanLabel', isWarm
           ? `Hold Cache (${ttlMm}:${ttlSs}) or Copy /compact (${formatTokens(staleT)})`
-          : `Clean / Purge Cache \u00B7 Reclaim ${formatTokens(staleT)} (Copy /compact)`);
+          : `Reclaim ${formatTokens(staleT)} Clutter (Copy /compact)`);
       } else {
         tsBtnCleanPrimary.disabled = false;
         tsBtnCleanPrimary.dataset.ctaState = 'guarded';
@@ -11851,16 +12193,17 @@
   const tsBtnCleanPrimary = document.getElementById('tsBtnCleanPrimary');
   if (tsBtnCleanPrimary) {
     tsBtnCleanPrimary.addEventListener('click', async () => {
+      const cmd = currentRenderedState?.compaction?.parameterizedCommand || '/compact';
       try {
         if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-          await navigator.clipboard.writeText('/compact');
+          await navigator.clipboard.writeText(cmd);
         }
       } catch {}
       try {
         await fetch('/api/pre-compact', {
           method: 'POST',
           headers: buildHorizonPostHeaders(),
-          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto', action: 'clean_purge_cache' })
+          body: JSON.stringify({ conversationId: currentRenderedState?.sessionId || 'auto', action: 'clean_purge_cache', command: cmd })
         });
       } catch {}
       const lbl = document.getElementById('tsBtnCleanLabel');

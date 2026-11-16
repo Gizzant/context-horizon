@@ -30,6 +30,7 @@ import {
   auditClaudeAutoMemory,
   snapshotWorkspaceTestHashes
 } from '../../src/core/shield_manager.mjs';
+import { handleClaudeRslHook } from '../../src/hooks/claude_rsl_hook.mjs';
 import { evaluateGeminiThinkingTimeoutRisk } from '../../src/core-isomorphic/economics/driftLatency.mjs';
 import {
   isCliEntrypoint,
@@ -235,6 +236,13 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
       cwd && options.snapshotTestHashes !== false
         ? snapshotWorkspaceTestHashes({ cwd, sessionId })
         : null;
+    if (cwd && options.persistState !== false && options.enableRsl !== false && !testHashSnapshot) {
+      try {
+        handleClaudeRslHook(event, { ...cwdOptions, event: 'SessionStart' });
+      } catch {
+        // Fail open for RSL baseline capture
+      }
+    }
     const horizonConfig = options.horizonConfig || loadHorizonConfig(cwdOptions);
     const effectiveMode = event.mode || options.mode || horizonConfig?.flightMode || 'COACH';
     const sessionStartSource = String(event.source || event.trigger || '').toLowerCase();

@@ -19,6 +19,7 @@ import {
 } from '../src/core-isomorphic/telemetry/telemetryBridge.mjs';
 import { renderStatusLine } from '../src/core-isomorphic/ui/modViews.mjs';
 import { inspectClaudeBinaryCapabilities } from '../src/diagnostics/claudeHookCapabilities.mjs';
+import { getRslLedgerPath, getRslSummary } from '../src/core/rsl_ledger.mjs';
 
 /**
  * Programmatic entrypoint for the `statusLine` bridge.
@@ -60,6 +61,16 @@ export function executeStatusLineBridge(payload = {}, options = {}) {
           warning: cap.warning
         }
       : { found: false };
+  }
+  const rslCwd = payload.cwd || options.cwd;
+  if (options.rsl) {
+    nextState.rsl = options.rsl;
+  } else if (rslCwd && (options.includeRsl === true || fs.existsSync(getRslLedgerPath(rslCwd)))) {
+    try {
+      nextState.rsl = getRslSummary(rslCwd, options);
+    } catch {
+      // Fail open for statusline
+    }
   }
   const persisted = writeLiveStateSnapshot(nextState.sessionId, nextState, options);
 

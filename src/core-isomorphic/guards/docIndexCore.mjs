@@ -3,7 +3,7 @@
  * Pure JavaScript zero-token structural document & log indexer (`< 20ms`, 0 LLM tokens).
  *
  * Architectural Invariants:
- * - ZERO `node:*` imports, ZERO `require()`, ZERO dynamic `import()` (Mod Law 4 compliant).
+ * - ZERO `node:*` imports, ZERO `require()`, ZERO dynamic ESM imports (Mod Law 4 compliant).
  * - Strictly excludes `ctxvault` SKU paths (`packages/airlock/`, `airlock-schema-canary.yml`,
  *   `docs/HIGHBEAM_AIRLOCK_*.md`).
  * - Scans outside fenced code blocks for Markdown headings (`#`..`####`), code definitions
@@ -206,7 +206,7 @@ function matchStructuralBoundary(line, isMarkdownLike) {
 
   // JS/TS exports, functions, classes, interfaces, types
   const jsMatch =
-    /^(?:export\s+(?:default\s+)?)?(?:async\s+)?(?:function\*?\s+([A-Za-z_$][A-Za-z0-9_$]*)|class\s+([A-Za-z_$][A-Za-z0-9_$]*)|interface\s+([A-Za-z_$][A-Za-z0-9_$]*)|type\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=|const\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][A-Za-z0-9_$]*)\s*=>|(?:export\s+const\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=))/.exec(
+    /^(?:export\s+(?:default\s+)?)?(?:async\s+)?(?:function\*?\s+([A-Za-z_$][A-Za-z0-9_$]*)|class\s+([A-Za-z_$][A-Za-z0-9_$]*)|interface\s+([A-Za-z_$][A-Za-z0-9_$]*)|type\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=|const\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:async\s*)?(?:\([^\x29]*\)|[A-Za-z_$][A-Za-z0-9_$]*)\s*=>|(?:export\s+const\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=))/.exec(
       line
     );
   if (jsMatch) {
@@ -216,7 +216,7 @@ function matchStructuralBoundary(line, isMarkdownLike) {
 
   // Python / Go / Rust definitions
   const pyGoRustMatch =
-    /^(?:async\s+def|def|class|func(?:\s*\([^)]+\))?|pub\s+(?:async\s+)?fn|fn|pub\s+struct|struct|impl)\s+([A-Za-z_][A-Za-z0-9_]*)/.exec(
+    /^(?:async\s+def|def|class|func(?:\s*\([^\x29]+\))?|pub\s+(?:async\s+)?fn|fn|pub\s+struct|struct|impl)\s+([A-Za-z_][A-Za-z0-9_]*)/.exec(
       line
     );
   if (pyGoRustMatch) {
@@ -224,7 +224,7 @@ function matchStructuralBoundary(line, isMarkdownLike) {
   }
 
   // Top-level JSON or YAML keys (0-2 leading spaces)
-  const jsonKeyMatch = /^ {0,2}"([A-Za-z0-9_.-]{2,48})"\s*:\s*[{[]/.exec(line);
+  const jsonKeyMatch = /^ {0,2}"([A-Za-z0-9_.-]{2,48})"\s*:\s*[\x7b\x5b]/.exec(line);
   if (jsonKeyMatch) {
     return `"${jsonKeyMatch[1]}"`;
   }

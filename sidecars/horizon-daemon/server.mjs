@@ -22,6 +22,7 @@ import { getFlightcheckDir } from '../../src/core/sidecar_store.mjs';
 import { PrefixCacheShield } from '../../src/core/prefix_cache_shield.mjs';
 import { CompactionCoach, assessCompactionState, trimUncachedTail } from '../../src/core/compaction_coach.mjs';
 import { RsiInstinctEngine } from '../../src/core/rsi_instinct_engine.mjs';
+import { getRslSummary } from '../../src/core/rsl_ledger.mjs';
 import { UShapedAttentionOptimizer } from '../../src/core/u_shaped_optimizer.mjs';
 import {
   evaluateTaskAndQuotaRoute,
@@ -559,6 +560,32 @@ function buildCoachState(state, targetConvId) {
             middleTroughRiskCount: 0,
             recencyMirrorActive: false
           };
+        }
+      })(),
+      rsl: (() => {
+        try {
+          const rslSummary = getRslSummary(wsDir);
+          if (state && typeof state === 'object') {
+            state.rsl = rslSummary;
+            const telDir = path.join(wsDir, '.agents', 'telemetry');
+            let shardCount = Array.isArray(state.sessionMeta?.specShards) ? state.sessionMeta.specShards.length : 0;
+            if (shardCount === 0 && fs.existsSync(telDir)) {
+              const pFiles = fs.readdirSync(telDir).filter((n) => n.startsWith('prompt_state.') && n.endsWith('.json'));
+              for (const pf of pFiles.slice(0, 3)) {
+                try {
+                  const ps = JSON.parse(fs.readFileSync(path.join(telDir, pf), 'utf8'));
+                  shardCount = Math.max(shardCount, Array.isArray(ps?.specShards) ? ps.specShards.length : 0);
+                } catch (parseErr) {
+                  recordDaemonDiagnostic('buildCoachState:promptState', parseErr);
+                }
+              }
+            }
+            state.shardedSpecCount = shardCount;
+          }
+          return rslSummary;
+        } catch (err) {
+          if (err?.code !== 'ENOENT') recordDaemonDiagnostic('buildCoachState:rsl', err);
+          return null;
         }
       })(),
       taskQuotaRouter: taskRoute

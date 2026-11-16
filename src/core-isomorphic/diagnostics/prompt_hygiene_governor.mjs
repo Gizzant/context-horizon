@@ -620,3 +620,269 @@ export function evaluateTwoStageSightseeingIntercept({
     consumeFlag: false
   };
 }
+
+const SHARDED_SPEC_PIVOT_PATTERNS = Object.freeze([
+  /\b(?:actually|instead|wait)\b[^.?!]{0,40}\b(?:make|use|support|change|switch|add|keep|enforce|require|return|handle|format|allow|reject|export|include|preserve)\b/i,
+  /\b(?:also|additionally)\s+(?:make\s+sure|add|support|include|handle|enforce|allow|ensure|require|update|expose|reject|export|return)\b/i,
+  /\b(?:don't\s+forget\s+to|do\s+not\s+forget\s+to|make\s+sure\s+(?:it|we|you)\s+(?:also\s+)?(?:support|handle|reject|enforce|preserve|include|export|return)|one\s+more\s+(?:thing|requirement|constraint)|new\s+requirement|change\s+the\s+(?:format|schema|output|contract|behavior)\s+to)\b/i
+]);
+
+const TRIVIAL_COMMAND_FOLLOWUP_RE =
+  /^(?:also|and|now|then|please)?\s*(?:just\s+)?(?:run|re-?run|execute|check)\s+(?:the\s+)?(?:unit\s+|integration\s+|all\s+)?(?:tests?|npm\s+test|pnpm\s+test|pytest|vitest|jest|lint|build|typecheck|tsc|git\s+status|git\s+diff)[.!?\s]*$/i;
+
+const TURN1_BUILD_INTENT_RE =
+  /\b(?:build|implement|create|design|architect|redesign|migrate|refactor|overhaul|integrate|add\s+support\s+for|set\s+up)\b/i;
+
+const TURN1_QUESTION_RE =
+  /^(?:how|why|what|where|when|who|can\s+you\s+explain|could\s+you\s+explain|explain|describe|review|summarize)\b/i;
+
+const TURN1_SPEC_REF_RE = /\bspecs?[\\/][\w.-]+\.md\b/i;
+
+const REAL_CODE_SYMBOL_RE =
+  /`[^`]{2,}`|\b[a-z][a-zA-Z0-9]+_[a-zA-Z0-9_]+\b|\b[a-z][a-z0-9]*[A-Z][A-Za-z0-9]+\b|\b[A-Z][a-z0-9]+[A-Z][A-Za-z0-9]*\b|\b[a-zA-Z_]\w+\([^\x29]*\)/;
+
+const TURN1_BOUNDARY_RE =
+  /\b(?:do\s+not|don't|only|without\s+touching|out\s+of\s+scope|non-goal|avoid|preserve|must\s+not|cannot)\b/i;
+
+const TURN1_VERIFY_RE =
+  /\b(?:test|tests|verify|verification|acceptance\s+criteria|should\s+pass|assert|exit\s+code|exit\s+0|spec|benchmark)\b/i;
+
+export const TURN1_CONTRACT_DIRECTIVE =
+  '[CTX_CONTRACT: State (1) target files, (2) negative constraints/invariants, and (3) verification command in <=8 lines before calling file-mutation tools.]';
+
+/**
+ * Tracks cross-turn requirement-modifying user prompts (`Spec Sharding / Drip-Feed`)
+ * and emits `[CTX_HINT: SHARDED_SPEC]` when 4+ constraint shards accumulate alongside `>=25k` tokens.
+ * Zero I/O, Mod Law 4 compliant.
+ *
+ * @param {object} [params={}]
+ */
+export function evaluateShardedSpecDrift({
+  prompt = '',
+  provenance = 'user',
+  isAutonomousTurn = false,
+  isSubagent = false,
+  isScheduledTask = false,
+  isLoopIteration = false,
+  priorShards = [],
+  initialGoal = '',
+  totalTokens = 0,
+  turnNumber = 1,
+  lastAlertTurn = 0,
+  minShards = 4,
+  minTokens = 25000,
+  cooldownTurns = 3,
+  overrideMode = 'default',
+  flightMode = 'COACH',
+  detectorId = 'DET-26'
+} = {}) {
+  const safeShards = Array.isArray(priorShards)
+    ? priorShards
+        .filter((s) => s && typeof s.excerpt === 'string' && s.excerpt.trim().length > 0)
+        .map((s) => ({ turn: Number(s.turn || 0), excerpt: String(s.excerpt).trim() }))
+    : [];
+  const raw = String(prompt || '').trim();
+  const cleaned = raw.replace(/#check\b/gi, '').trim();
+  const normOverride = String(overrideMode || 'default').toLowerCase();
+  const fmUpper = String(flightMode || 'COACH').toUpperCase();
+  const numericTurn = Math.max(1, Number(turnNumber || 1));
+  const numericLastAlert = Number(lastAlertTurn || 0);
+  const nextInitialGoal =
+    String(initialGoal || '').trim() || (numericTurn <= 1 && cleaned ? cleaned.slice(0, 280) : '');
+
+  const noOp = (reason = null) => ({
+    detectorId,
+    slug: 'sharded-spec-drift',
+    triggered: false,
+    subType: null,
+    decision: 'allow',
+    bypassReason: reason,
+    shardCount: safeShards.length,
+    specShards: safeShards,
+    initialGoal: nextInitialGoal,
+    lastAlertTurn: numericLastAlert,
+    steerContext: null
+  });
+
+  if (normOverride === 'off' || fmUpper === 'OFF' || fmUpper === 'SILENT') {
+    return noOp('DISABLED_BY_CONFIG');
+  }
+
+  if (
+    Boolean(isAutonomousTurn) ||
+    Boolean(isSubagent) ||
+    Boolean(isScheduledTask) ||
+    Boolean(isLoopIteration) ||
+    AUTONOMOUS_PROVENANCE_RE.test(String(provenance || '')) ||
+    !cleaned ||
+    cleaned.startsWith('/') ||
+    AFFIRMATIVE_OR_CONTINUATION_RE.test(cleaned)
+  ) {
+    return noOp('AUTONOMOUS_OR_CONTINUATION');
+  }
+
+  if (matchRelayHardNegativeFilter(cleaned).matched) {
+    return noOp('HARD_NEGATIVE_PAYLOAD');
+  }
+
+  let nextShards = safeShards.slice();
+  const isFollowUpTurn = numericTurn >= 2 || Boolean(String(initialGoal || '').trim()) || safeShards.length > 0;
+  const isPivotPrompt =
+    isFollowUpTurn &&
+    !TRIVIAL_COMMAND_FOLLOWUP_RE.test(cleaned) &&
+    SHARDED_SPEC_PIVOT_PATTERNS.some((re) => re.test(cleaned));
+
+  if (isPivotPrompt) {
+    const excerpt = cleaned.slice(0, 220);
+    const prevExcerpt = nextShards.length > 0 ? nextShards[nextShards.length - 1].excerpt : '';
+    if (excerpt && excerpt !== prevExcerpt) {
+      nextShards.push({ turn: numericTurn, excerpt });
+      if (nextShards.length > 10) {
+        nextShards = nextShards.slice(-10);
+      }
+    }
+  }
+
+  const tokensNum = Math.max(0, Number(totalTokens || 0));
+  const cooldownOk = numericLastAlert <= 0 || numericTurn - numericLastAlert >= Number(cooldownTurns || 3);
+  const triggered =
+    isPivotPrompt &&
+    nextShards.length >= Number(minShards || 4) &&
+    tokensNum >= Number(minTokens || 25000) &&
+    cooldownOk;
+
+  if (!triggered) {
+    return {
+      detectorId,
+      slug: 'sharded-spec-drift',
+      triggered: false,
+      subType: null,
+      decision: 'allow',
+      bypassReason: null,
+      shardCount: nextShards.length,
+      specShards: nextShards,
+      initialGoal: nextInitialGoal,
+      lastAlertTurn: numericLastAlert,
+      steerContext: null
+    };
+  }
+
+  const steerContext = `[CTX_HINT: SHARDED_SPEC — ${nextShards.length} incremental constraint turns across ~${Math.round(tokensNum / 1000)}k tokens. Run \`npx ctxtop handoff --consolidate\` (or /handoff) to merge scattered requirements into one clean contract before restarting.]`;
+  return {
+    detectorId,
+    slug: 'sharded-spec-drift',
+    triggered: true,
+    subType: 'SHARDED_SPEC_DRIFT',
+    decision: 'steer',
+    bypassReason: null,
+    shardCount: nextShards.length,
+    specShards: nextShards,
+    initialGoal: nextInitialGoal,
+    lastAlertTurn: numericTurn,
+    steerContext
+  };
+}
+
+/**
+ * One-shot Turn-1 Specification Contract Gate (`[CTX_CONTRACT]`) for unanchored multi-file build/refactor prompts.
+ * Skips `/plan` mode, questions, slash commands, active-set matches, and Turn 2+.
+ * Zero I/O, Mod Law 4 compliant.
+ *
+ * @param {object} [params={}]
+ */
+export function evaluateTurn1ContractGate({
+  prompt = '',
+  provenance = 'user',
+  isAutonomousTurn = false,
+  isSubagent = false,
+  isScheduledTask = false,
+  isLoopIteration = false,
+  inPlanMode = false,
+  turnNumber = 1,
+  invocationNum = 1,
+  alreadyInjected = false,
+  hasActiveSetMatch = false,
+  sufficiency = null,
+  overrideMode = 'default',
+  flightMode = 'COACH',
+  detectorId = 'DET-26'
+} = {}) {
+  const allow = (bypassReason = null) => ({
+    detectorId,
+    slug: 'turn1-contract-gate',
+    triggered: false,
+    subType: null,
+    decision: 'allow',
+    bypassReason,
+    contractDirective: null
+  });
+
+  const normOverride = String(overrideMode || 'default').toLowerCase();
+  const fmUpper = String(flightMode || 'COACH').toUpperCase();
+  if (normOverride === 'off' || fmUpper === 'OFF' || fmUpper === 'SILENT') {
+    return allow('DISABLED_BY_CONFIG');
+  }
+
+  if (
+    Boolean(alreadyInjected) ||
+    Number(turnNumber || 1) > 1 ||
+    Number(invocationNum || 1) > 1 ||
+    Boolean(inPlanMode) ||
+    Boolean(hasActiveSetMatch)
+  ) {
+    return allow('NOT_ELIGIBLE_TURN1');
+  }
+
+  if (
+    Boolean(isAutonomousTurn) ||
+    Boolean(isSubagent) ||
+    Boolean(isScheduledTask) ||
+    Boolean(isLoopIteration) ||
+    AUTONOMOUS_PROVENANCE_RE.test(String(provenance || ''))
+  ) {
+    return allow('AUTONOMOUS_BYPASS');
+  }
+
+  const cleaned = String(prompt || '').replace(/#check\b/gi, '').trim();
+  if (
+    !cleaned ||
+    cleaned.startsWith('/') ||
+    AFFIRMATIVE_OR_CONTINUATION_RE.test(cleaned) ||
+    cleaned.endsWith('?') ||
+    TURN1_QUESTION_RE.test(cleaned) ||
+    TURN1_SPEC_REF_RE.test(cleaned) ||
+    matchRelayHardNegativeFilter(cleaned).matched
+  ) {
+    return allow('EXEMPT_PROMPT_KIND');
+  }
+
+  const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
+  if (wordCount < 8 || wordCount > 55 || !TURN1_BUILD_INTENT_RE.test(cleaned)) {
+    return allow('NOT_UNANCHORED_BUILD');
+  }
+
+  const hasConcreteTarget =
+    CONCRETE_FILE_OR_PATH_RE.test(cleaned) || REAL_CODE_SYMBOL_RE.test(cleaned);
+  if (hasConcreteTarget) {
+    return allow('HAS_CONCRETE_TARGET');
+  }
+
+  const dims = sufficiency?.dims || null;
+  const lacksBoundaryOrVerify = dims
+    ? Number(dims.boundedness || 0) === 0 || Number(dims.testability || 0) === 0
+    : !TURN1_BOUNDARY_RE.test(cleaned) || !TURN1_VERIFY_RE.test(cleaned);
+
+  if (!lacksBoundaryOrVerify) {
+    return allow('HAS_CONSTRAINTS_AND_VERIFY');
+  }
+
+  return {
+    detectorId,
+    slug: 'turn1-contract-gate',
+    triggered: true,
+    subType: 'TURN1_CONTRACT_GATE',
+    decision: 'steer',
+    bypassReason: null,
+    contractDirective: TURN1_CONTRACT_DIRECTIVE
+  };
+}

@@ -58,8 +58,17 @@ import {
   resolveModelCliffSpec,
   evaluateParameterizedCliffBreaker
 } from '../../core-isomorphic/economics/cliffBreaker.mjs';
+import {
+  handleAntigravityRslHook,
+  syncAntigravityWorkspaceRslHooks
+} from '../../hooks/antigravity_rsl_hook.mjs';
+export * from '../../core/rsl_triage.mjs';
+export * from '../../core/rsl_distiller.mjs';
+export * from '../../core/rsl_ledger.mjs';
 
 export {
+  handleAntigravityRslHook,
+  syncAntigravityWorkspaceRslHooks,
   handlePreInvocation,
   handlePreToolUse,
   handlePostInvocation,

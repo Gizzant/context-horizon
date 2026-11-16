@@ -156,8 +156,17 @@ import {
   evaluateParameterizedCliffBreaker
 } from '../../core-isomorphic/economics/cliffBreaker.mjs';
 import { runConfigChangeHook } from '../../../hooks/handlers/config-change.mjs';
+import {
+  handleClaudeRslHook,
+  syncClaudeWorkspaceRslHooks
+} from '../../hooks/claude_rsl_hook.mjs';
+export * from '../../core/rsl_triage.mjs';
+export * from '../../core/rsl_distiller.mjs';
+export * from '../../core/rsl_ledger.mjs';
 
 export {
+  handleClaudeRslHook,
+  syncClaudeWorkspaceRslHooks,
   formatAgentCacheKey,
   formatAgentStreamKey,
   parseAgentCacheKey,

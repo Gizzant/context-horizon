@@ -9,13 +9,22 @@
  * - Block: exit 0 with `{"decision":"block","reason":"..."}`
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { readLiveStateSnapshot } from '../../src/core-isomorphic/telemetry/telemetryBridge.mjs';
 import { loadHorizonConfig } from '../../src/core-isomorphic/config/horizonConfig.mjs';
+import {
+  evaluateShardedSpecDrift,
+  evaluateTurn1ContractGate
+} from '../../src/core-isomorphic/diagnostics/prompt_hygiene_governor.mjs';
 import {
   CircuitBreakerEngine,
   readBreakerStateSnapshot,
   writeBreakerStateSnapshot
 } from '../../src/core-isomorphic/guards/circuitBreakers.mjs';
+import { atomicWriteFileSync } from '../../src/core/atomic_io.mjs';
+import { scorePromptSufficiency } from '../../src/core/prompt_rubric.mjs';
+import { sanitizeRslSessionId } from '../../src/core/rsl_triage.mjs';
 import { runBucketBPromptPass } from '../../src/core/bucket_b_runtime.mjs';
 import {
   isCliEntrypoint,
@@ -24,6 +33,49 @@ import {
   exitDiagnosticZero,
   exitWithStdoutJson
 } from './hookIo.mjs';
+
+function getPromptStatePath(cwd, sessionId) {
+  return path.join(
+    path.resolve(cwd),
+    '.agents',
+    'telemetry',
+    `prompt_state.${sanitizeRslSessionId(sessionId)}.json`
+  );
+}
+
+function readPromptStateSnapshot(cwd, sessionId, event = {}) {
+  const fallback = {
+    initialGoal: String(event.initialGoal || ''),
+    specShards: Array.isArray(event.specShards) ? event.specShards : [],
+    turnCount: Number(event.turnNumber ? Number(event.turnNumber) - 1 : 0),
+    lastAlertTurn: Number(event.lastShardedSpecAlertTurn || 0),
+    turn1ContractInjected: Boolean(event.turn1ContractInjected)
+  };
+  if (!cwd) return fallback;
+  const statePath = getPromptStatePath(cwd, sessionId);
+  if (!fs.existsSync(statePath)) return fallback;
+  let parsed = null;
+  try {
+    parsed = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  } catch (err) {
+    parsed = err ? null : null;
+  }
+  return parsed && typeof parsed === 'object' ? { ...fallback, ...parsed } : fallback;
+}
+
+function writePromptStateSnapshot(cwd, sessionId, nextState) {
+  if (!cwd) return;
+  const statePath = getPromptStatePath(cwd, sessionId);
+  let writeOk = false;
+  try {
+    fs.mkdirSync(path.dirname(statePath), { recursive: true });
+    atomicWriteFileSync(statePath, `${JSON.stringify(nextState, null, 2)}\n`);
+    writeOk = true;
+  } catch (err) {
+    writeOk = Boolean(err && false);
+  }
+  return writeOk;
+}
 
 /**
  * Evaluates a `UserPromptSubmit` hook payload and returns the contract response.
@@ -77,9 +129,10 @@ export function runUserPromptSubmitHook(event = {}, options = {}) {
   }
 
   if (!verdict.triggered) {
+    const resolvedCwd = event.cwd || options.cwd || '';
+    const promptText = String(event.prompt ?? event.user_input ?? event.message ?? '');
     if (options.bucketBShadow !== false) {
       try {
-        const promptText = String(event.prompt ?? event.user_input ?? event.message ?? '');
         const provenance = String(event.provenance || event.source || '');
         const isAutonomousOrSubagent = Boolean(
           event.isAutonomousTurn ||
@@ -102,11 +155,11 @@ export function runUserPromptSubmitHook(event = {}, options = {}) {
                 : []),
               ...(Array.isArray(event.modifiedFiles) ? event.modifiedFiles : [])
             ];
-        const hasExplicitCwd = Boolean(event.cwd || options.cwd);
+        const hasExplicitCwd = Boolean(resolvedCwd);
         const promptAnchor = runBucketBPromptPass({
           platform: 'claude',
           sessionId,
-          cwd: event.cwd || options.cwd || '',
+          cwd: resolvedCwd,
           hasExplicitCwd,
           prompt: promptText,
           isAutonomousOrSubagent,
@@ -143,10 +196,110 @@ export function runUserPromptSubmitHook(event = {}, options = {}) {
             }
           };
         }
-      } catch (_bucketBPrmErr) {
-        // Non-fatal Bucket B prompt anchor pass
+      } catch (err) {
+        if (options.onDiagnostic) options.onDiagnostic(err);
       }
     }
+
+    if (promptText.trim().length > 0 && effectiveMode !== 'SILENT' && effectiveMode !== 'OFF') {
+      const promptState = readPromptStateSnapshot(shouldPersistState ? resolvedCwd : '', sessionId, event);
+      const nextTurnNumber = Number(event.turnNumber ?? (Number(promptState.turnCount || 0) + 1));
+      const shardedEval = evaluateShardedSpecDrift({
+        prompt: promptText,
+        provenance: String(event.provenance || event.source || 'user'),
+        isAutonomousTurn: Boolean(event.isAutonomousTurn || event.autonomous),
+        isSubagent: Boolean(event.isSubagent || event.agentId || event.subagentId),
+        isScheduledTask: Boolean(event.isScheduledTask),
+        isLoopIteration: Boolean(event.isLoopIteration),
+        priorShards: Array.isArray(event.specShards) ? event.specShards : (promptState.specShards || []),
+        initialGoal: event.initialGoal ?? promptState.initialGoal ?? '',
+        totalTokens: Number(
+          event.totalTokens ?? event.totalInputTokens ?? liveState?.totalTokens ?? liveState?.contextTokens ?? 0
+        ),
+        turnNumber: nextTurnNumber,
+        lastAlertTurn: Number(event.lastShardedSpecAlertTurn ?? promptState.lastAlertTurn ?? 0),
+        overrideMode: horizonConfig?.detectors?.['sharded-spec-drift'] || 'default',
+        flightMode: effectiveMode,
+        detectorId: 'DET-14'
+      });
+
+      const activeSet = Array.isArray(liveState?.activeSetPaths) ? liveState.activeSetPaths : [];
+      const hasActiveSetMatch = activeSet.some((p) => {
+        const base = path.basename(String(p || ''));
+        return base && promptText.includes(base);
+      });
+      const canRunTurn1Gate =
+        !shardedEval.triggered &&
+        Boolean(resolvedCwd || event.enablePromptContractGate) &&
+        (horizonConfig?.detectors?.['turn1-contract-gate'] || 'default') !== 'off';
+      const contractEval = canRunTurn1Gate
+        ? evaluateTurn1ContractGate({
+            prompt: promptText,
+            provenance: String(event.provenance || event.source || 'user'),
+            isAutonomousTurn: Boolean(event.isAutonomousTurn || event.autonomous),
+            isSubagent: Boolean(event.isSubagent || event.agentId || event.subagentId),
+            isScheduledTask: Boolean(event.isScheduledTask),
+            isLoopIteration: Boolean(event.isLoopIteration),
+            inPlanMode: Boolean(event.permission_mode === 'plan' || event.inPlanMode),
+            turnNumber: nextTurnNumber,
+            invocationNum: Number(event.invocationNum ?? 1),
+            alreadyInjected: Boolean(promptState.turn1ContractInjected),
+            hasActiveSetMatch,
+            sufficiency: scorePromptSufficiency(promptText, { activeSetPaths: activeSet }),
+            overrideMode: horizonConfig?.detectors?.['turn1-contract-gate'] || 'default',
+            flightMode: effectiveMode,
+            detectorId: 'DET-14'
+          })
+        : { triggered: false };
+
+      if (shouldPersistState && resolvedCwd) {
+        writePromptStateSnapshot(resolvedCwd, sessionId, {
+          initialGoal: shardedEval.initialGoal,
+          specShards: shardedEval.specShards,
+          turnCount: nextTurnNumber,
+          lastAlertTurn: shardedEval.lastAlertTurn,
+          turn1ContractInjected: Boolean(promptState.turn1ContractInjected || contractEval.triggered)
+        });
+      }
+
+      const activeSteer = shardedEval.triggered
+        ? {
+            subType: shardedEval.subType,
+            reason: shardedEval.steerContext,
+            extra: { shardCount: shardedEval.shardCount }
+          }
+        : contractEval.triggered
+          ? {
+              subType: contractEval.subType,
+              reason: contractEval.contractDirective,
+              extra: {}
+            }
+          : null;
+
+      if (activeSteer) {
+        const steerStdoutJson = {
+          hookSpecificOutput: {
+            hookEventName: 'UserPromptSubmit',
+            additionalContext: String(activeSteer.reason || '').slice(0, 9500)
+          }
+        };
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify(steerStdoutJson),
+          stdoutJson: steerStdoutJson,
+          stderr: '',
+          verdict: {
+            triggered: true,
+            detectorId: 'DET-14',
+            subType: activeSteer.subType,
+            decision: 'steer',
+            ...activeSteer.extra,
+            reason: activeSteer.reason
+          }
+        };
+      }
+    }
+
     return {
       exitCode: 0,
       stdout: '',

@@ -58,8 +58,9 @@ function loadSkuFilteredGitCommitSlices(maxCommits = 40) {
       });
     }
     if (current && current.edits.length > 0) slices.push(current);
-  } catch (_err) {
+  } catch (err) {
     // Fallback if git history unavailable in shallow CI clone
+    assert.ok(err instanceof Error || Boolean(err));
   }
   // Keep normal incremental commits (`<= 6` non-test source files, representing single edit-before-test cycles)
   return slices

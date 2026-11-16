@@ -431,11 +431,42 @@ describe('Top 10 Token Wasters — classifyHorizon + Horizon Panel UI Verificati
       win.renderState(st);
 
       const rootCs = win.getComputedStyle(d.documentElement);
-      assert.equal(rootCs.getPropertyValue('--ts-sig').trim(), '#A78BFA');
-      assert.equal(rootCs.getPropertyValue('--ts-clu').trim(), '#FB923C');
+      assert.equal(rootCs.getPropertyValue('--ts-sig').trim(), '#202124');
+      assert.equal(rootCs.getPropertyValue('--ts-clu').trim(), '#D97706');
+      assert.equal(rootCs.getPropertyValue('--bg-canvas').trim(), '#F8F9FA');
       assert.equal(rootCs.getPropertyValue('--hz-bg').trim(), '#f6f8fa');
       assert.equal(rootCs.getPropertyValue('--hz-useful').trim(), '#116329');
       assert.equal(rootCs.getPropertyValue('--hz-clutter').trim(), '#7d4e00');
+
+      // Verify scrollTop: 0 hierarchy: MetricHeader + ActionPill precede all <details> drawers
+      const metricHeader = d.getElementById('tsMetricHeader');
+      const primaryBtn = d.getElementById('tsBtnCleanPrimary');
+      const firstDrawer = d.querySelector('#argonSimpleSurface details');
+      assert.ok(metricHeader && primaryBtn && firstDrawer, 'MetricHeader, ActionPill, and drawers must exist');
+      assert.ok(Boolean(primaryBtn.compareDocumentPosition(firstDrawer) & 4), '#tsBtnCleanPrimary must precede progressive-disclosure drawers');
+
+      // Verify 1D Cache BulletBar + 72x18 SVG Sparkline + Runway Meta
+      const sparkSvg = d.getElementById('tsTurnSparkline');
+      assert.equal(sparkSvg.getAttribute('width'), '72');
+      assert.equal(sparkSvg.getAttribute('height'), '18');
+      assert.ok(d.getElementById('tsSparklinePath').getAttribute('points').includes(','), 'Sparkline polyline must render points');
+      assert.ok(d.getElementById('tsRunwayMeta').textContent.trim().length > 0, 'Runway meta must be populated');
+      assert.ok(d.getElementById('tsCacheBulletFill'), '1D Prompt Cache BulletBar fill must exist');
+
+      // Verify spec-safe parameterized /compact copy + Claude Code vs Antigravity surface parity
+      const copied = [];
+      Object.defineProperty(win.navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: async (t) => { copied.push(String(t)); } }
+      });
+      st.storeSource = 'claude-code';
+      st.compaction = { parameterizedCommand: '/compact Focus on preserving: src/webview/horizon_panel.html' };
+      win.renderState(st);
+      assert.match(d.getElementById('tsTufteHost')?.textContent || d.getElementById('tufteTopHostBadge').textContent, /^Claude Code ·/);
+      assert.match(d.getElementById('tsWhyKeepNote').textContent, /CLAUDE\.md.*HANDOFF_LATEST\.md/);
+      primaryBtn.click();
+      await new Promise((r) => setTimeout(r, 20));
+      assert.equal(copied[copied.length - 1], '/compact Focus on preserving: src/webview/horizon_panel.html');
 
       const badgeCs = win.getComputedStyle(d.getElementById('tufteTopHostBadge'));
       assert.equal(badgeCs.textOverflow, 'ellipsis');

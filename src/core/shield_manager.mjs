@@ -1406,7 +1406,7 @@ export function inspectAndSanitizeMultimodalRead(options = {}) {
         savedTokens,
         reason:
           `[Highbeam Multimodal Notebook Sanitizer (#14)] Stripped ${strippedImages} embedded base64 image(s) ` +
-          `(${(strippedBytes / 1024).toFixed(1)} KB, ~${savedTokens.toLocaleString()} tokens saved) from "${path.basename(resolved)}" -> "${sanitizedPath}".`
+          `(${(strippedBytes / 1024).toFixed(1)} KB, ~${savedTokens.toLocaleString()} tokens saved; source "${path.basename(resolved)}" -> "${sanitizedPath}").`
       };
     } catch {
       return { action: 'allow' };

@@ -4,12 +4,13 @@
  * Pure-V8 isomorphic ESM module (zero `node:*` imports).
  */
 
-import { path } from '../utils/runtime.mjs';
+import { path, getCwd, readJsonSafe, writeJsonAtomic } from '../utils/runtime.mjs';
 import {
   FLIGHT_MODES,
   normalizeFlightMode,
   isSilentOrOffMode
 } from '../coach/cacheGravityRouter.mjs';
+import { RELAY_STATES } from '../coach/promptHygieneGovernor.mjs';
 import { evaluateScopeAndQuotaBrake } from '../telemetry/scopeLockRegistry.mjs';
 import { EDIT_WRITE_TOOL_REGEX } from './det01_03_shell_secret.mjs';
 
@@ -600,4 +601,313 @@ export function evaluateDet19SubagentIpiSanitizer(params = {}) {
  */
 export function evaluateDet20ScopeLockAndQuotaBrake(params = {}, options = {}) {
   return evaluateScopeAndQuotaBrake(params, options);
+}
+
+/**
+ * Sanitizes a session ID for `.claude/cache/ah_breaker_state_<sessionId>.json`.
+ * @param {string} [sessionId='default']
+ * @returns {string}
+ */
+export function sanitizeBreakerSessionId(sessionId = 'default') {
+  return String(sessionId || 'default').replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
+/**
+ * Resolves the atomic CLI circuit-breaker state file path (`.claude/cache/ah_breaker_state_<sessionId>.json`).
+ * @param {string} [sessionId='default']
+ * @param {object} [options={}]
+ * @returns {string}
+ */
+export function getBreakerStateFilePath(sessionId = 'default', options = {}) {
+  if (options?.breakerStatePath) {
+    return options.breakerStatePath;
+  }
+  const cwd = getCwd(options);
+  return path.join(
+    cwd,
+    '.claude',
+    'cache',
+    `ah_breaker_state_${sanitizeBreakerSessionId(sessionId)}.json`
+  );
+}
+
+/**
+ * Safely reads a persisted `CircuitBreakerEngine` snapshot from disk (`ISS-038`).
+ * @param {string} [sessionId='default']
+ * @param {object} [options={}]
+ * @returns {object | null}
+ */
+export function readBreakerStateSnapshot(sessionId = 'default', options = {}) {
+  return readJsonSafe(getBreakerStateFilePath(sessionId, options), null, options);
+}
+
+/**
+ * Atomically writes a `CircuitBreakerEngine` snapshot to disk (`ISS-038`).
+ * @param {string} [sessionId='default']
+ * @param {object} [snapshot={}]
+ * @param {object} [options={}]
+ * @returns {boolean}
+ */
+export function writeBreakerStateSnapshot(sessionId = 'default', snapshot = {}, options = {}) {
+  return writeJsonAtomic(getBreakerStateFilePath(sessionId, options), snapshot, options);
+}
+
+/**
+ * Exports a serializable snapshot of a `CircuitBreakerEngine` instance (`ISS-038`).
+ * @param {object} engine
+ * @returns {object}
+ */
+export function serializeCircuitBreakerState(engine) {
+  const hashObj = {};
+  for (const [k, v] of engine.fileHashHistory.entries()) {
+    hashObj[k] = Array.isArray(v) ? [...v] : [];
+  }
+  return {
+    schemaVersion: '1.0.0',
+    updatedAt: Date.now(),
+    mode: engine.mode,
+    consecutiveFailures: engine.consecutiveFailures,
+    lastFailedToolKey: engine.lastFailedToolKey,
+    sequentialSearchCount: engine.sequentialSearchCount,
+    fileHashHistory: hashObj,
+    modifiedFilesInTurn: Array.from(engine.modifiedFilesInTurn),
+    editedFiles: Array.from(engine.modifiedFilesInTurn),
+    unverifiedEdits: Array.isArray(engine.unverifiedEdits) ? engine.unverifiedEdits.slice(-32) : [],
+    turnFileDiffs: Array.isArray(engine.turnFileDiffs) ? engine.turnFileDiffs.slice(-32) : [],
+    pendingBatchEdits: Array.from(engine.pendingBatchEdits),
+    pendingFormatFiles: Array.from(engine.pendingFormatFiles),
+    codeEditedSinceLastTest: Boolean(engine.codeEditedSinceLastTest),
+    pendingVerificationCommand: Boolean(engine.pendingVerificationCommand),
+    lastFailingLocation: engine.lastFailingLocation || null,
+    pendingDownshiftModel: engine.pendingDownshiftModel || null,
+    pending_downshift: engine.pending_downshift ? { ...engine.pending_downshift } : null,
+    justCompacted: Boolean(engine.justCompacted),
+    turnsSinceLastCompact:
+      typeof engine.turnsSinceLastCompact === 'number' && Number.isFinite(engine.turnsSinceLastCompact)
+        ? Math.max(0, engine.turnsSinceLastCompact)
+        : null,
+    taskBoundaryState: engine.taskBoundaryState
+      ? {
+          openFailure: Boolean(engine.taskBoundaryState.openFailure),
+          editsSinceBoundary: Math.max(0, Number(engine.taskBoundaryState.editsSinceBoundary || 0)),
+          lastBoundarySuggestedTurn: engine.taskBoundaryState.lastBoundarySuggestedTurn ?? null
+        }
+      : { openFailure: false, editsSinceBoundary: 0, lastBoundarySuggestedTurn: null },
+    lastToolsetHash: engine.lastToolsetHash ? { ...engine.lastToolsetHash } : null,
+    lastContextTokens:
+      typeof engine.lastContextTokens === 'number' && Number.isFinite(engine.lastContextTokens)
+        ? Math.max(0, engine.lastContextTokens)
+        : null,
+    lastModelId: engine.lastModelId ? String(engine.lastModelId) : null,
+    activeBackgroundTasks: Array.isArray(engine.activeBackgroundTasks)
+      ? [...engine.activeBackgroundTasks]
+      : [],
+    activeWriteWorkers: Array.isArray(engine.activeWriteWorkers)
+      ? [...engine.activeWriteWorkers]
+      : [],
+    lastUserPrompt: engine.lastUserPrompt || '',
+    lastTurnGitCommitted: Boolean(engine.lastTurnGitCommitted),
+    committedTopDirs: Array.isArray(engine.committedTopDirs) ? [...engine.committedTopDirs] : [],
+    consecutiveTrivialMaxEffortTurns: engine.consecutiveTrivialMaxEffortTurns,
+    recentEditTimestampsByFile: { ...engine.recentEditTimestampsByFile },
+    totalDiscoveryCalls: engine.totalDiscoveryCalls,
+    consecutiveVisionTurns: engine.consecutiveVisionTurns,
+    unanchoredTurnFlag: Boolean(engine.unanchoredTurnFlag),
+    candidateFiles: Array.isArray(engine.candidateFiles) ? [...engine.candidateFiles] : [],
+    relayState: engine.relayState ? { ...engine.relayState } : { state: RELAY_STATES.IDLE, critiquePastes: 0, boundSpecPath: 'SPEC.md' },
+    steeredPrompts: Number(engine.steeredPrompts || 0),
+    blockedPrompts: Number(engine.blockedPrompts || 0),
+    sightseeingToolsPrevented: Number(engine.sightseeingToolsPrevented || 0),
+    subagentTurns: { ...engine.subagentTurns },
+    subagentTokens: { ...engine.subagentTokens },
+    det11AdvisedTurn: engine.det11AdvisedTurn,
+    det13AdvisedTurn: engine.det13AdvisedTurn,
+    queuedMutations: engine.router.mutationQueue.toJSON(),
+    hysteresisState: engine.router.hysteresisLock.getStatus()
+  };
+}
+
+/**
+ * Hydrates stateful breaker counters and queues onto a `CircuitBreakerEngine` instance (`ISS-038`).
+ * @param {object} engine
+ * @param {object | null} snap
+ * @returns {object}
+ */
+export function hydrateCircuitBreakerState(engine, snap) {
+  if (!snap || typeof snap !== 'object') return engine;
+
+  if (typeof snap.consecutiveFailures === 'number' && Number.isFinite(snap.consecutiveFailures)) {
+    engine.consecutiveFailures = Math.max(0, snap.consecutiveFailures);
+  }
+  if (snap.lastFailedToolKey !== undefined) {
+    engine.lastFailedToolKey = snap.lastFailedToolKey ? String(snap.lastFailedToolKey) : null;
+  }
+  if (
+    typeof snap.sequentialSearchCount === 'number' &&
+    Number.isFinite(snap.sequentialSearchCount)
+  ) {
+    engine.sequentialSearchCount = Math.max(0, snap.sequentialSearchCount);
+  }
+  if (snap.fileHashHistory && typeof snap.fileHashHistory === 'object') {
+    engine.fileHashHistory = new Map();
+    for (const [k, v] of Object.entries(snap.fileHashHistory)) {
+      if (Array.isArray(v)) {
+        engine.fileHashHistory.set(k, v.slice(-6).map(String));
+      }
+    }
+  }
+  const editedList = Array.isArray(snap.modifiedFilesInTurn)
+    ? snap.modifiedFilesInTurn
+    : Array.isArray(snap.editedFiles)
+      ? snap.editedFiles
+      : null;
+  if (editedList) {
+    engine.modifiedFilesInTurn = new Set(editedList.filter(Boolean).map(String));
+  }
+  if (Array.isArray(snap.unverifiedEdits)) {
+    engine.unverifiedEdits = snap.unverifiedEdits
+      .filter((e) => e && typeof e.filePath === 'string')
+      .slice(-32)
+      .map((e) => ({
+        filePath: String(e.filePath),
+        netLines: Math.max(0, Number(e.netLines) || 0),
+        ...(Array.isArray(e.changedLines) ? { changedLines: e.changedLines.slice(0, 64).map(String) } : {})
+      }));
+  }
+  if (Array.isArray(snap.turnFileDiffs)) {
+    engine.turnFileDiffs = snap.turnFileDiffs
+      .filter((e) => e && typeof e.filePath === 'string')
+      .slice(-32)
+      .map((e) => ({
+        filePath: String(e.filePath),
+        addedLines: Array.isArray(e.addedLines) ? e.addedLines.slice(0, 400).map(String) : [],
+        deletedLineCount: Math.max(0, Number(e.deletedLineCount) || 0)
+      }));
+  }
+  if (Array.isArray(snap.pendingBatchEdits)) {
+    engine.pendingBatchEdits = new Set(snap.pendingBatchEdits.filter(Boolean).map(String));
+  }
+  if (Array.isArray(snap.pendingFormatFiles)) {
+    engine.pendingFormatFiles = new Set(snap.pendingFormatFiles.filter(Boolean).map(String));
+  }
+  if (typeof snap.codeEditedSinceLastTest === 'boolean') {
+    engine.codeEditedSinceLastTest = snap.codeEditedSinceLastTest;
+  }
+  if (typeof snap.pendingVerificationCommand === 'boolean') {
+    engine.pendingVerificationCommand = snap.pendingVerificationCommand;
+  }
+  if (snap.lastFailingLocation !== undefined) {
+    engine.lastFailingLocation = snap.lastFailingLocation ? String(snap.lastFailingLocation) : null;
+  }
+  if (snap.pendingDownshiftModel !== undefined) {
+    engine.pendingDownshiftModel = snap.pendingDownshiftModel ? String(snap.pendingDownshiftModel) : null;
+  }
+  if (snap.pending_downshift !== undefined) {
+    engine.pending_downshift =
+      snap.pending_downshift && typeof snap.pending_downshift === 'object'
+        ? { ...snap.pending_downshift }
+        : null;
+    if (engine.pending_downshift?.toModel && snap.pendingDownshiftModel === undefined) {
+      engine.pendingDownshiftModel = String(engine.pending_downshift.toModel);
+    }
+  }
+  if (typeof snap.justCompacted === 'boolean') {
+    engine.justCompacted = snap.justCompacted;
+  }
+  if (snap.turnsSinceLastCompact !== undefined) {
+    engine.turnsSinceLastCompact =
+      snap.turnsSinceLastCompact !== null && Number.isFinite(Number(snap.turnsSinceLastCompact))
+        ? Math.max(0, Number(snap.turnsSinceLastCompact))
+        : null;
+  }
+  if (snap.taskBoundaryState && typeof snap.taskBoundaryState === 'object') {
+    engine.taskBoundaryState = {
+      openFailure: Boolean(snap.taskBoundaryState.openFailure),
+      editsSinceBoundary: Math.max(0, Number(snap.taskBoundaryState.editsSinceBoundary || 0)),
+      lastBoundarySuggestedTurn: snap.taskBoundaryState.lastBoundarySuggestedTurn ?? null
+    };
+  }
+  if (snap.lastToolsetHash !== undefined) {
+    engine.lastToolsetHash =
+      snap.lastToolsetHash && typeof snap.lastToolsetHash === 'object'
+        ? { ...snap.lastToolsetHash }
+        : null;
+  }
+  if (snap.lastContextTokens !== undefined) {
+    engine.lastContextTokens =
+      snap.lastContextTokens !== null && Number.isFinite(Number(snap.lastContextTokens))
+        ? Math.max(0, Number(snap.lastContextTokens))
+        : null;
+  }
+  if (snap.lastModelId !== undefined) {
+    engine.lastModelId = snap.lastModelId ? String(snap.lastModelId) : null;
+  }
+  if (Array.isArray(snap.activeBackgroundTasks)) {
+    engine.activeBackgroundTasks = snap.activeBackgroundTasks.filter(Boolean).map(String);
+  }
+  if (Array.isArray(snap.activeWriteWorkers)) {
+    engine.activeWriteWorkers = snap.activeWriteWorkers.filter(Boolean).map(String);
+  }
+  if (typeof snap.lastUserPrompt === 'string') {
+    engine.lastUserPrompt = snap.lastUserPrompt;
+  }
+  if (typeof snap.lastTurnGitCommitted === 'boolean') {
+    engine.lastTurnGitCommitted = snap.lastTurnGitCommitted;
+  }
+  if (Array.isArray(snap.committedTopDirs)) {
+    engine.committedTopDirs = [...snap.committedTopDirs];
+  }
+  if (typeof snap.consecutiveTrivialMaxEffortTurns === 'number') {
+    engine.consecutiveTrivialMaxEffortTurns = snap.consecutiveTrivialMaxEffortTurns;
+  }
+  if (snap.recentEditTimestampsByFile && typeof snap.recentEditTimestampsByFile === 'object') {
+    engine.recentEditTimestampsByFile = { ...snap.recentEditTimestampsByFile };
+  }
+  if (typeof snap.totalDiscoveryCalls === 'number') {
+    engine.totalDiscoveryCalls = snap.totalDiscoveryCalls;
+  }
+  if (typeof snap.consecutiveVisionTurns === 'number') {
+    engine.consecutiveVisionTurns = snap.consecutiveVisionTurns;
+  }
+  if (typeof snap.unanchoredTurnFlag === 'boolean') {
+    engine.unanchoredTurnFlag = snap.unanchoredTurnFlag;
+  }
+  if (Array.isArray(snap.candidateFiles)) {
+    engine.candidateFiles = [...snap.candidateFiles];
+  }
+  if (snap.relayState && typeof snap.relayState === 'object') {
+    engine.relayState = { ...snap.relayState };
+  }
+  if (typeof snap.steeredPrompts === 'number') {
+    engine.steeredPrompts = snap.steeredPrompts;
+  }
+  if (typeof snap.blockedPrompts === 'number') {
+    engine.blockedPrompts = snap.blockedPrompts;
+  }
+  if (typeof snap.sightseeingToolsPrevented === 'number') {
+    engine.sightseeingToolsPrevented = snap.sightseeingToolsPrevented;
+  }
+  if (snap.subagentTurns && typeof snap.subagentTurns === 'object') {
+    engine.subagentTurns = { ...snap.subagentTurns };
+  }
+  if (snap.subagentTokens && typeof snap.subagentTokens === 'object') {
+    engine.subagentTokens = { ...snap.subagentTokens };
+  }
+  if (snap.det11AdvisedTurn !== undefined) {
+    engine.det11AdvisedTurn = snap.det11AdvisedTurn;
+  }
+  if (snap.det13AdvisedTurn !== undefined) {
+    engine.det13AdvisedTurn = snap.det13AdvisedTurn;
+  }
+  if (Array.isArray(snap.queuedMutations)) {
+    engine.router.mutationQueue.items = [...snap.queuedMutations];
+  }
+  if (snap.hysteresisState && typeof snap.hysteresisState === 'object') {
+    engine.router.hysteresisLock.locked = Boolean(snap.hysteresisState.locked);
+    engine.router.hysteresisLock.pinnedModel = snap.hysteresisState.pinnedModel || null;
+    engine.router.hysteresisLock.pinnedEffort = snap.hysteresisState.pinnedEffort || null;
+    engine.router.hysteresisLock.reason = snap.hysteresisState.reason || null;
+    engine.router.hysteresisLock.lockedAtTurn = snap.hysteresisState.lockedAtTurn ?? null;
+  }
+  return engine;
 }

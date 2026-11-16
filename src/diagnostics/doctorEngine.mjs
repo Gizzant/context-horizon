@@ -25,6 +25,7 @@ import { readModelSwitchTelemetry } from '../utils/modelSwitchTelemetry.mjs';
 import { auditAntigravityRulesIntegrity } from '../core/layer5_hygiene.mjs';
 import { auditClaudeAutoMemory } from '../core/shield_manager.mjs';
 import { auditProseRuleHookCandidates } from '../core/bucket_b_runtime.mjs';
+import { auditWorkspaceRuleClashes } from '../core/rsl_clash_auditor.mjs';
 
 /**
  * Redacts the user's OS home directory from any diagnostic string.
@@ -209,6 +210,7 @@ export function runDoctorDiagnostics(options = {}) {
   };
 
   const proseHookCandidates = auditProseRuleHookCandidates(cwd);
+  const rslClashAudit = auditWorkspaceRuleClashes(cwd);
   const hookDiagnostics = inspectHookDiagnostics({ ...options, cwd });
 
   // Item 1.2: Warn cleanly when the configured or active session model has no price catalog entry
@@ -256,6 +258,16 @@ export function runDoctorDiagnostics(options = {}) {
     cwd,
     recordDiagnostic: false
   });
+  if (rslClashAudit.clashCount > 0) {
+    const clashMsg = `${rslClashAudit.clashCount} RSL rule conflict(s) detected: ${rslClashAudit.clashes.slice(0, 2).map((c) => c.reason).join('; ')}`;
+    warnings.push(clashMsg);
+    checks.push({
+      id: 'rsl_rule_clashes',
+      status: 'WARN',
+      ok: true,
+      detail: clashMsg
+    });
+  }
   const ok =
     checks.every((c) => c.ok) &&
     memoryRuleIntegrity.ok &&
@@ -270,7 +282,9 @@ export function runDoctorDiagnostics(options = {}) {
     hookDiagnostics,
     modelSwitchTelemetry,
     memoryRuleIntegrity,
-    proseHookCandidates
+    proseHookCandidates,
+    rslRuleClashes: rslClashAudit.clashCount,
+    rslClashes: rslClashAudit.clashes.slice(0, 5)
   };
 }
 

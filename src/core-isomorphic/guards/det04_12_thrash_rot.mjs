@@ -233,7 +233,7 @@ export function evaluateDet05DiffThrashing(params = {}) {
 
   // 3. Scan ONLY deleted and added diff lines for test-assertion stripping / skip injection / weakening / error masking
   const assertionRegex =
-    /\b(?:assert(?:\.[a-zA-Z0-9_]+)?\s*\(|expect\s*\(|should\.|assert_eq!\s*\(|assert_ne!\s*\()|^\s*assert\s+(?!false\b)\S+/;
+    /\b(?:assert(?:\.[a-zA-Z0-9_]+)?\s*\x28|expect\s*\x28|should\.|assert_eq!\s*\x28|assert_ne!\s*\x28)|^\s*assert\s+(?!false\b)\S+/;
   const trivialTautologyRegex =
     /\b(?:assert\.ok\s*\(\s*true\s*\)|assert\.(?:strictEqual|equal)\s*\(\s*true\s*,\s*true\s*\)|expect\s*\(\s*true\s*\)\s*\.toBe\s*\(\s*true\s*\))/;
   const deletedAssertions = deletedLines.filter(
@@ -259,7 +259,7 @@ export function evaluateDet05DiffThrashing(params = {}) {
 
   // Item A2 (#3): Block net increase in skipped/disabled tests (.skip, xit, @pytest.mark.skip, #[ignore])
   const skipMarkerRegex =
-    /(?:\.(?:skip|todo)\s*\(|\b(?:xit|xdescribe|xtest)\s*\(|@pytest\.mark\.skip(?:if)?\b|#\[\s*ignore\b)/;
+    /(?:\.(?:skip|todo)\s*\x28|\b(?:xit|xdescribe|xtest)\s*\x28|@pytest\.mark\.skip(?:if)?\b|#\[\s*ignore\b)/;
   const deletedSkips = deletedLines.filter((l) => skipMarkerRegex.test(l));
   const addedSkips = addedLines.filter((l) => skipMarkerRegex.test(l));
   if (!userExplicitTestIntent && addedSkips.length > deletedSkips.length) {
@@ -276,8 +276,8 @@ export function evaluateDet05DiffThrashing(params = {}) {
   }
 
   // Item A2 (#3): Block assertion weakening (strict equality -> truthy/defined)
-  const strongAssertRegex = /\b(?:toEqual|toStrictEqual|deepStrictEqual|strictEqual|deepEqual)\s*\(/;
-  const weakAssertRegex = /\b(?:toBeTruthy|toBeDefined|toBeUndefined|assert\.ok)\s*\(/;
+  const strongAssertRegex = /\b(?:toEqual|toStrictEqual|deepStrictEqual|strictEqual|deepEqual)\s*\x28/;
+  const weakAssertRegex = /\b(?:toBeTruthy|toBeDefined|toBeUndefined|assert\.ok)\s*\x28/;
   if (
     !userExplicitTestIntent &&
     deletedLines.some((l) => strongAssertRegex.test(l)) &&
@@ -297,14 +297,14 @@ export function evaluateDet05DiffThrashing(params = {}) {
   // Item A7 (#12): Standalone Silent Error-Masking Linter (independent of deletedAssertions!)
   const justificationCommentRe = /(?:\/\/|\/\*|#)\s*(?:ignore|expected|noop|fallback|non-fatal|intentionally|best-effort)\b/i;
   const inlineSuppressionRe = /(?:@ts-ignore|@ts-nocheck|eslint-disable(?!\s+[^\r\n]*--\s*\S{4,}))/;
-  const singleLineEmptyCatchRe = /\bcatch\s*(?:\([^)]*\))?\s*\{\s*\}/;
+  const singleLineEmptyCatchRe = /\bcatch\s*(?:\x28[^\x29]*\x29)?\s*\{\s*\}/;
   const addedInlineMasking = addedLines.filter(
     (l) =>
       (singleLineEmptyCatchRe.test(l) || inlineSuppressionRe.test(l)) &&
       !justificationCommentRe.test(l)
   );
 
-  const multiLineEmptyCatchRe = /\bcatch\s*(?:\([^)]*\))?\s*\{\s*\}/g;
+  const multiLineEmptyCatchRe = /\bcatch\s*(?:\x28[^\x29]*\x29)?\s*\{\s*\}/g;
   const oldEmptyCatchCount = (oldText.match(multiLineEmptyCatchRe) || []).length;
   const newEmptyCatchCount = (newText.match(multiLineEmptyCatchRe) || []).length;
 

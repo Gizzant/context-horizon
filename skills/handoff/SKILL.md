@@ -40,3 +40,11 @@ When writing or updating `task.md`, apply the **KEEP / DROP** filter:
    ```
 3. When the audit reports `CLEAN ✅` and the KV cache window is ready, advise the user with the parameterized compaction prompt:
    > Type `/compact` in the chat box and press Enter (preserving active exported symbols, `task.md` checklist state, and explicit in-chat constraints).
+
+## Consolidating Sharded Specifications (`[CTX_HINT: SHARDED_SPEC]`)
+
+When multi-turn requirement sharding triggers (`4+` incremental constraint turns across `>=25k` tokens), merge scattered Turn-1 goals, recorded shards, and uncommitted paths into a clean restart contract before clearing:
+
+```bash
+npx ctxtop handoff --consolidate --write
+```

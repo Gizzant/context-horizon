@@ -38,7 +38,9 @@ import { recordHookDiagnostic } from '../core/hook_diagnostics.mjs';
 import {
   evaluateScopeBrake,
   evaluateRelayBreaker,
-  evaluateTwoStageSightseeingIntercept
+  evaluateTwoStageSightseeingIntercept,
+  evaluateShardedSpecDrift,
+  evaluateTurn1ContractGate
 } from '../core/shared/prompt_hygiene_governor.mjs';
 import { foldCodeToSignatureStub, computeCompactLineDiff } from '../core/pruner.mjs';
 import {
@@ -613,8 +615,8 @@ export async function handlePreToolUse(inputData = {}) {
             .join('\n');
         }
       }
-    } catch (_shadowErr) {
-      // Non-fatal Bucket B shadow/coach pass
+    } catch (err) {
+      recordHookDiagnostic('pre_invocation', 'handlePreToolUse.bucketBShadow', err, { persist: false });
     }
   }
 
@@ -975,8 +977,8 @@ export async function handlePreInvocation(inputData = {}) {
             horizonConfig
           }
         });
-      } catch (_silentPromptErr) {
-        // Non-fatal Bucket B SILENT shadow pass
+      } catch (err) {
+        recordHookDiagnostic('pre_invocation', 'handlePreInvocation.silentPromptPass', err, { persist: false });
       }
     }
     return {};
@@ -1329,13 +1331,43 @@ export async function handlePreInvocation(inputData = {}) {
   }) || '';
   const hasActiveSetMatch = Boolean(matchedScope);
 
-  // Conversational Drip-Feeding check (DET-02B):
-  // Even if prompt mentions activeSetPaths, 4+ rapid micro-prompts (<= 18 words) targeting the same file within 90s trigger advisory
+  // Conversational Drip-Feeding check (DET-02B) & Cross-Turn Sharded Spec Detector:
+  // Even if prompt mentions activeSetPaths, 4+ rapid micro-prompts (<= 18 words) targeting the same file within 90s trigger DET-02B,
+  // while 4+ requirement-mutating shards across >=25k tokens trigger SHARDED_SPEC_DRIFT.
   const timestampMs = Number(inputData.timestampMs ?? inputData.nowMs ?? inputData.timestamp ?? Date.now());
   const wordCount = rawPrompt.split(/\s+/).filter(Boolean).length;
+  const effectiveTurnNumber = Number(
+    inputData.turnNumber ?? Math.max(turnCount + 1, Number(sessionMeta.promptTurnSeq || 0) + 1)
+  );
+  sessionMeta.promptTurnSeq = effectiveTurnNumber;
   sessionMeta.recentPrompts = Array.isArray(sessionMeta.recentPrompts) ? sessionMeta.recentPrompts : [];
   sessionMeta.recentPrompts = sessionMeta.recentPrompts.filter(e => (timestampMs - e.ts) <= 90000);
   sessionMeta.recentPrompts.push({ ts: timestampMs, wordCount, targetScope: matchedScope });
+
+  const shardedOverride = resolveDetectorOverride(horizonConfig, 'sharded-spec-drift');
+  const shardedEval = rawPrompt
+    ? evaluateShardedSpecDrift({
+        prompt: rawPrompt,
+        provenance: inputData.provenance || inputData.source || 'user',
+        isAutonomousTurn: Boolean(inputData.isAutonomousTurn || inputData.autonomous),
+        isSubagent: Boolean(inputData.isSubagent || sessionMeta.isSubagent),
+        isScheduledTask: Boolean(inputData.isScheduledTask),
+        isLoopIteration: Boolean(inputData.isLoopIteration),
+        priorShards: Array.isArray(inputData.specShards) ? inputData.specShards : (sessionMeta.specShards || []),
+        initialGoal: inputData.initialGoal ?? sessionMeta.initialGoal ?? '',
+        totalTokens: Number(inputData.totalInputTokens ?? inputData.totalPromptTokens ?? tokens),
+        turnNumber: effectiveTurnNumber,
+        lastAlertTurn: Number(sessionMeta.lastShardedSpecAlertTurn || 0),
+        overrideMode: shardedOverride,
+        flightMode,
+        detectorId: 'DET-26'
+      })
+    : { triggered: false, specShards: sessionMeta.specShards || [], initialGoal: sessionMeta.initialGoal || '', lastAlertTurn: Number(sessionMeta.lastShardedSpecAlertTurn || 0) };
+
+  sessionMeta.specShards = shardedEval.specShards;
+  if (shardedEval.initialGoal) sessionMeta.initialGoal = shardedEval.initialGoal;
+  sessionMeta.lastShardedSpecAlertTurn = shardedEval.lastAlertTurn;
+
   sidecar.sessionMeta = sessionMeta;
   try {
     writeSidecarAtomicSync(conversationId, sidecar);
@@ -1356,6 +1388,16 @@ export async function handlePreInvocation(inputData = {}) {
       extraBlock: { continue: false }
     });
     if (dripRes) return dripRes;
+  }
+
+  if (shardedEval.triggered) {
+    return {
+      ephemeralMessage: shardedEval.steerContext,
+      systemMessage: shardedEval.steerContext,
+      detectorId: 'DET-26',
+      subType: shardedEval.subType,
+      shardCount: shardedEval.shardCount
+    };
   }
 
   if (!hasCheckTag) {
@@ -1495,6 +1537,48 @@ export async function handlePreInvocation(inputData = {}) {
     if (vagueRes) return vagueRes;
   }
 
+  const hasTurn1Workspace = Boolean(
+    inputData.cwd ||
+      inputData.workspacePath ||
+      (Array.isArray(inputData.workspacePaths) && inputData.workspacePaths.length > 0) ||
+      inputData.enableTurn1Contract
+  );
+  if (hasTurn1Workspace && resolveDetectorOverride(horizonConfig, 'turn1-contract-gate') !== 'off') {
+    const contractEval = evaluateTurn1ContractGate({
+      prompt: rawPrompt,
+      provenance: inputData.provenance || inputData.source || 'user',
+      isAutonomousTurn: Boolean(inputData.isAutonomousTurn || inputData.autonomous),
+      isSubagent: Boolean(inputData.isSubagent || sessionMeta.isSubagent),
+      isScheduledTask: Boolean(inputData.isScheduledTask),
+      isLoopIteration: Boolean(inputData.isLoopIteration),
+      inPlanMode: Boolean(sessionMeta.inPlanMode || inputData.inPlanMode),
+      turnNumber: effectiveTurnNumber,
+      invocationNum: Number(inputData.invocationNum ?? 1),
+      alreadyInjected: Boolean(sessionMeta.turn1ContractInjected),
+      hasActiveSetMatch,
+      sufficiency: promptSufficiency,
+      overrideMode: resolveDetectorOverride(horizonConfig, 'turn1-contract-gate'),
+      flightMode,
+      detectorId: 'DET-26'
+    });
+    if (contractEval.triggered) {
+      sessionMeta.turn1ContractInjected = true;
+      sessionMeta.lastUserPrompt = rawPrompt;
+      sidecar.sessionMeta = sessionMeta;
+      try {
+        writeSidecarAtomicSync(conversationId, sidecar);
+      } catch (err) {
+        recordHookDiagnostic('pre_invocation', 'turn1Contract.writeSidecar', err);
+      }
+      return {
+        ephemeralMessage: contractEval.contractDirective,
+        systemMessage: contractEval.contractDirective,
+        detectorId: 'DET-26',
+        subType: contractEval.subType
+      };
+    }
+  }
+
   if (rawPrompt && (inputData.cwd || inputData.workspacePath)) {
     sessionMeta.lastUserPrompt = rawPrompt;
     sidecar.sessionMeta = sessionMeta;
@@ -1551,8 +1635,8 @@ export async function handlePreInvocation(inputData = {}) {
           detectorId: 'VAGUE_PROMPT_ANCHOR'
         };
       }
-    } catch (_bucketBPrmErr) {
-      // Non-fatal Bucket B prompt anchor pass
+    } catch (err) {
+      recordHookDiagnostic('pre_invocation', 'handlePreInvocation.bucketBPromptPass', err, { persist: false });
     }
   }
 

@@ -174,6 +174,44 @@ function hasCompleteSixLifecycleHooks(lifecycleBlock, pluginRoot) {
   return true;
 }
 
+export function buildRslPostmortemHooksBlock(pluginRoot, enabled = true) {
+  const normHook = (rel) => {
+    const p = path.join(pluginRoot, rel).replace(/\\/g, '/');
+    return /\s/.test(p) ? `"${p}"` : p;
+  };
+  const scriptRef = normHook('src/hooks/antigravity_rsl_hook.mjs');
+  return {
+    enabled: Boolean(enabled),
+    SessionStart: [
+      { type: 'command', command: `node --no-warnings ${scriptRef} --event=SessionStart`, timeout: 5 }
+    ],
+    PostToolUse: [
+      {
+        matcher: '*',
+        hooks: [
+          {
+            type: 'command',
+            command: `node --no-warnings ${scriptRef} --event=PostToolUse`,
+            timeout: 5
+          }
+        ]
+      }
+    ],
+    Stop: [
+      { type: 'command', command: `node --no-warnings ${scriptRef} --event=Stop`, timeout: 15 }
+    ]
+  };
+}
+
+function hasCompleteRslPostmortemHooks(rslBlock, pluginRoot) {
+  if (!rslBlock || typeof rslBlock !== 'object') return false;
+  const normRsl = path.join(pluginRoot, 'src/hooks/antigravity_rsl_hook.mjs').replace(/\\/g, '/');
+  const stopCmd = String(rslBlock.Stop?.[0]?.command || '');
+  const startCmd = String(rslBlock.SessionStart?.[0]?.command || '');
+  const postCmd = String(rslBlock.PostToolUse?.[0]?.hooks?.[0]?.command || '');
+  return stopCmd.includes(normRsl) && startCmd.includes(normRsl) && postCmd.includes(normRsl);
+}
+
 function listSkillAndAssetFiles(relRootDir) {
   const results = [];
   const baseDir = path.join(CANONICAL_ROOT, relRootDir);
@@ -232,9 +270,15 @@ export function syncAndVerifyMirrors({
       'src/hooks/pre_invocation.mjs',
       'src/hooks/post_invocation.mjs',
       'src/hooks/session_start.mjs',
+      'src/hooks/antigravity_rsl_hook.mjs',
+      'src/hooks/claude_rsl_hook.mjs',
       'src/core/parser.mjs',
       'src/core/paths.mjs',
       'src/core/pruner.mjs',
+      'src/core/rsl_triage.mjs',
+      'src/core/rsl_distiller.mjs',
+      'src/core/rsl_clash_auditor.mjs',
+      'src/core/rsl_ledger.mjs',
       'hooks/register.js',
       'hooks/handlers/pre-tool-use.mjs',
       'bin/ctxtop.mjs'
@@ -326,7 +370,11 @@ export function syncAndVerifyMirrors({
               existingEnabled = parsedHooks['horizon-flightcheck-lifecycle'].enabled;
             }
             const hasBackslashes = /node[^"]*\\/.test(rawHooks);
-            if (!hasBackslashes && hasCompleteSixLifecycleHooks(parsedHooks?.['horizon-flightcheck-lifecycle'], root)) {
+            if (
+              !hasBackslashes &&
+              hasCompleteSixLifecycleHooks(parsedHooks?.['horizon-flightcheck-lifecycle'], root) &&
+              hasCompleteRslPostmortemHooks(parsedHooks?.['ctxtop-rsl-postmortem'], root)
+            ) {
               needsRewrite = false;
             }
           } catch {
@@ -337,7 +385,8 @@ export function syncAndVerifyMirrors({
         if (needsRewrite) {
           const updatedHooks = {
             ...parsedHooks,
-            'horizon-flightcheck-lifecycle': buildFullLifecycleHooksBlock(root, existingEnabled)
+            'horizon-flightcheck-lifecycle': buildFullLifecycleHooksBlock(root, existingEnabled),
+            'ctxtop-rsl-postmortem': buildRslPostmortemHooksBlock(root, existingEnabled)
           };
           atomicWriteFileSync(hooksPath, JSON.stringify(updatedHooks, null, 2) + '\n', { encoding: 'utf8' });
         }
@@ -349,8 +398,12 @@ export function syncAndVerifyMirrors({
             const en = typeof parsedHorizon['horizon-flightcheck-lifecycle'].enabled === 'boolean'
               ? parsedHorizon['horizon-flightcheck-lifecycle'].enabled
               : true;
-            if (!hasCompleteSixLifecycleHooks(parsedHorizon['horizon-flightcheck-lifecycle'], root)) {
+            if (
+              !hasCompleteSixLifecycleHooks(parsedHorizon['horizon-flightcheck-lifecycle'], root) ||
+              !hasCompleteRslPostmortemHooks(parsedHorizon['ctxtop-rsl-postmortem'], root)
+            ) {
               parsedHorizon['horizon-flightcheck-lifecycle'] = buildFullLifecycleHooksBlock(root, en);
+              parsedHorizon['ctxtop-rsl-postmortem'] = buildRslPostmortemHooksBlock(root, en);
               atomicWriteFileSync(hooksPath, JSON.stringify(parsedHorizon, null, 2) + '\n', { encoding: 'utf8' });
             }
           } else if (rawHorizonHooks.includes('./src/')) {
