@@ -73,11 +73,7 @@ export function resolveFastIpcPipePath(options = {}) {
   }
 
   const homeDir = options.homeDir || process.env.HOME || os.homedir() || '/tmp';
-  const sockPath = path.join(homeDir, '.ctxtop', 'daemon.sock');
-  if (!fs.existsSync(sockPath)) {
-    return null;
-  }
-  return sockPath;
+  return path.join(homeDir, '.ctxtop', 'daemon.sock');
 }
 
 /**
@@ -95,7 +91,7 @@ export function tryFastDaemonRpc(method, params = {}, options = {}) {
     return Promise.resolve(null);
   }
   const pipePath = resolveFastIpcPipePath(options);
-  if (!pipePath) {
+  if (!pipePath || (process.platform !== 'win32' && !fs.existsSync(pipePath))) {
     return Promise.resolve(null);
   }
 
