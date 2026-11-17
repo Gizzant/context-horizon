@@ -12,6 +12,10 @@ import { fs, path, os, readJsonSafe, writeJsonAtomic } from './nodeIo.mjs';
 
 export const ROLLING_OUTPUT_WINDOW = 10;
 export const MIN_TRUSTED_OUTPUT_TURNS = 5;
+// Note: In the cost-per-task study (42 SWITCH runs on Claude Code 2.1.325), Turn-1 observed
+// medians were R = 5 requests/turn (range 4-7) and O = 7,162 output tokens (range 3,627-13,797).
+// That Turn-1 data is from forced --permission-mode plan on synthetic benchmark tasks and must
+// NOT be used to retune DEFAULT_OUTPUT_SHRINKAGE_PRIOR_TOKENS, DEFAULT_RPT_SHRINKAGE_PRIOR, or minTrustedTurns.
 export const DEFAULT_OUTPUT_SHRINKAGE_PRIOR_TOKENS = 500;
 export const MIN_TRUSTED_RPT_TURNS = 5;
 export const DEFAULT_RPT_SHRINKAGE_PRIOR = 2.0;
@@ -498,6 +502,31 @@ export function parseSessionTranscriptCalibration(transcriptPath) {
       lastMsg.outputTokens
     : null;
 
+  const lastTurnMsgs =
+    sortedTurnGroups.length > 0 ? sortedTurnGroups[sortedTurnGroups.length - 1][1] : [];
+  const lastTurnRequests = lastTurnMsgs.length;
+  const lastTurnFirstPromptTokens =
+    lastTurnMsgs.length > 0
+      ? lastTurnMsgs[0].inputTokens +
+        lastTurnMsgs[0].cacheCreationTokens +
+        lastTurnMsgs[0].cacheReadTokens
+      : null;
+  const lastTurnLastPromptTokens =
+    lastTurnMsgs.length > 0
+      ? lastTurnMsgs[lastTurnMsgs.length - 1].inputTokens +
+        lastTurnMsgs[lastTurnMsgs.length - 1].cacheCreationTokens +
+        lastTurnMsgs[lastTurnMsgs.length - 1].cacheReadTokens
+      : null;
+  const intraTurnDeltaTokensPerRequest =
+    lastTurnRequests > 1 &&
+    Number.isFinite(lastTurnFirstPromptTokens) &&
+    Number.isFinite(lastTurnLastPromptTokens) &&
+    lastTurnLastPromptTokens > lastTurnFirstPromptTokens
+      ? Number(
+          ((lastTurnLastPromptTokens - lastTurnFirstPromptTokens) / (lastTurnRequests - 1)).toFixed(4)
+        )
+      : 0;
+
   const turnsCompleted = turnOutputs.length;
   const apiCallsCompleted = byMsgId.size;
   return {
@@ -523,6 +552,10 @@ export function parseSessionTranscriptCalibration(transcriptPath) {
       ROLLING_OUTPUT_WINDOW
     ),
     recentTurnPromptGrowths,
+    lastTurnRequests,
+    lastTurnFirstPromptTokens,
+    lastTurnLastPromptTokens,
+    intraTurnDeltaTokensPerRequest,
     initialPrefixTokens:
       Number.isFinite(initialPrefixTokens) && initialPrefixTokens > 0 ? initialPrefixTokens : null,
     latestContextTokens:

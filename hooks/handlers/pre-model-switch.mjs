@@ -526,7 +526,8 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
     rawRollingMedianRequestsPerTurn = shrunkRpt.rawRollingMedianRequestsPerTurn;
     rptShrinkageWeight = shrunkRpt.shrinkageWeight;
     rptPriorUsed = shrunkRpt.priorRequestsPerTurn;
-    isPlaceholderRptPrior = shrunkRpt.isPlaceholderShrinkagePrior;
+    isPlaceholderRptPrior =
+      shrunkRpt.shrinkageWeight < 1 ? Boolean(shrunkRpt.isPlaceholderShrinkagePrior) : false;
     rptTurnsAgree = shrunkRpt.turnsAgree;
     rptEffectiveMinTrustedTurns = shrunkRpt.effectiveMinTrustedTurns;
   } else if (
@@ -540,6 +541,96 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
     rptEstimateSource = 'local_transcript_rpt_prior';
     rptPriorUsed = requestsPerTurn;
     isPlaceholderRptPrior = false;
+  } else {
+    rptEstimateSource =
+      turnsCompleted > 0 && apiCallsCompleted !== undefined && apiCallsCompleted > 0
+        ? 'derived_api_calls_per_turn'
+        : 'default_1.0';
+  }
+  if (event.isPlaceholderRptPrior !== undefined || options.isPlaceholderRptPrior !== undefined) {
+    isPlaceholderRptPrior = Boolean(event.isPlaceholderRptPrior ?? options.isPlaceholderRptPrior);
+  }
+
+  const explicitIntraDeltaRaw =
+    event.intra_turn_delta_tokens_per_request ??
+    event.intraTurnDeltaTokensPerRequest ??
+    options.intraTurnDeltaTokensPerRequest;
+  const allowObservedIntraDelta =
+    (event.useObservedIntraTurnGrowth ?? options.useObservedIntraTurnGrowth) !== false;
+  let intraTurnDeltaTokensPerRequest = 0;
+  let intraTurnDeltaSource = 'default_0';
+  if (
+    explicitIntraDeltaRaw !== undefined &&
+    explicitIntraDeltaRaw !== null &&
+    Number.isFinite(Number(explicitIntraDeltaRaw)) &&
+    Number(explicitIntraDeltaRaw) >= 0
+  ) {
+    intraTurnDeltaTokensPerRequest = Number(Number(explicitIntraDeltaRaw).toFixed(4));
+    intraTurnDeltaSource = 'explicit';
+  } else if (allowObservedIntraDelta) {
+    if (
+      Number.isFinite(Number(sessionCal?.intraTurnDeltaTokensPerRequest)) &&
+      Number(sessionCal.intraTurnDeltaTokensPerRequest) > 0
+    ) {
+      intraTurnDeltaTokensPerRequest = Number(
+        Number(sessionCal.intraTurnDeltaTokensPerRequest).toFixed(4)
+      );
+      intraTurnDeltaSource = 'stop_hook_last_turn_delta';
+    } else if (
+      Number(sessionCal?.lastTurnRequests) > 1 &&
+      Number.isFinite(Number(sessionCal?.lastTurnFirstPromptTokens)) &&
+      Number.isFinite(Number(sessionCal?.lastTurnLastPromptTokens)) &&
+      Number(sessionCal.lastTurnLastPromptTokens) > Number(sessionCal.lastTurnFirstPromptTokens)
+    ) {
+      intraTurnDeltaTokensPerRequest = Number(
+        (
+          (Number(sessionCal.lastTurnLastPromptTokens) -
+            Number(sessionCal.lastTurnFirstPromptTokens)) /
+          (Number(sessionCal.lastTurnRequests) - 1)
+        ).toFixed(4)
+      );
+      intraTurnDeltaSource = 'stop_hook_last_turn_delta';
+    } else {
+      const liveDirectDelta = Number(
+        liveState?.intraTurnDeltaTokensPerRequest ??
+          liveState?.contextWindow?.intraTurnDeltaTokensPerRequest ??
+          liveState?.lastTurn?.intraTurnDeltaTokensPerRequest
+      );
+      const liveFirstPrompt = Number(
+        liveState?.lastTurnFirstPromptTokens ??
+          liveState?.contextWindow?.firstPromptTokens ??
+          liveState?.initialPrefixTokens ??
+          liveState?.contextWindow?.initialPrefixTokens ??
+          0
+      );
+      const liveLastPrompt = Number(
+        liveState?.lastTurnLastPromptTokens ??
+          liveState?.contextWindow?.lastPromptTokens ??
+          liveState?.contextWindow?.warmPrefixTokens ??
+          liveState?.contextWindow?.cachedTokens ??
+          0
+      );
+      const liveTurnReqs = Number(
+        liveState?.lastTurnRequests ??
+          liveState?.contextWindow?.requestsInTurn ??
+          liveState?.requestsPerTurn ??
+          (Number(liveState?.turnsCompleted) === 1 ? liveState?.steps : 0) ??
+          0
+      );
+      if (Number.isFinite(liveDirectDelta) && liveDirectDelta > 0) {
+        intraTurnDeltaTokensPerRequest = Number(liveDirectDelta.toFixed(4));
+        intraTurnDeltaSource = 'live_state_last_turn_delta';
+      } else if (
+        liveTurnReqs > 1 &&
+        liveFirstPrompt > 0 &&
+        liveLastPrompt > liveFirstPrompt
+      ) {
+        intraTurnDeltaTokensPerRequest = Number(
+          ((liveLastPrompt - liveFirstPrompt) / (liveTurnReqs - 1)).toFixed(4)
+        );
+        intraTurnDeltaSource = 'live_state_last_turn_delta';
+      }
+    }
   }
 
   const explicitGrowthRaw =
@@ -696,6 +787,7 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
     ...(apiCallsCompleted !== undefined ? { apiCallsCompleted } : {}),
     ...(requestsPerTurn !== undefined ? { requestsPerTurn } : {}),
     ...(contextGrowthPerTurn > 0 ? { contextGrowthPerTurn } : {}),
+    ...(intraTurnDeltaTokensPerRequest > 0 ? { intraTurnDeltaTokensPerRequest } : {}),
     ...(contextCeiling !== undefined ? { contextCeiling } : {}),
     initialPrefixTokens: sessionCal?.initialPrefixTokens,
     expectedOutputTokens: resolvedExpectedOutputTokens ?? 1500,
@@ -733,6 +825,24 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
     autoPilotDecision: resolvedAutoPilotDecision
   });
 
+  const resolvedBreakEvenRptSource =
+    verdict.breakEven?.requestsPerTurnSource ||
+    (requestsPerTurn === undefined ? rptEstimateSource : null);
+  const rptFallsBackToDefault =
+    rptEstimateSource === 'default_1.0' ||
+    resolvedBreakEvenRptSource === 'default_1.0' ||
+    String(rptEstimateSource || '').startsWith('placeholder_rpt_prior');
+  const outputFallsBackToDefault =
+    outputEstimateSource === 'default_1500' ||
+    outputEstimateSource === 'shrinkage_prior_default';
+  const holdRestsMainlyOnPriors = Boolean(
+    shrinkageWeight < 0.5 ||
+      rptShrinkageWeight < 0.5 ||
+      isPlaceholderRptPrior ||
+      rptFallsBackToDefault ||
+      outputFallsBackToDefault
+  );
+
   if (det08Override === 'warn' && verdict.blocked) {
     verdict = {
       ...verdict,
@@ -748,6 +858,32 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
       blocked: true,
       advisory: false,
       overriddenByConfig: 'block'
+    };
+  } else if (
+    holdRestsMainlyOnPriors &&
+    (verdict.blocked || verdict.advisory) &&
+    verdict.breakEven?.shouldHoldModel &&
+    !verdict.belowMinSwitchPenaltyUSD &&
+    !verdict.hysteresisLocked &&
+    !verdict.unknownModel &&
+    det08Override !== 'block'
+  ) {
+    const estPenaltyUSD = Number(verdict.breakEven?.coldWritePenaltyUSD ?? 0);
+    const estPenaltyLabel = `+$${estPenaltyUSD.toFixed(4)}`;
+    const priorNote =
+      `Advisory only: estimated ${estPenaltyLabel} switch penalty is based mostly on defaults ` +
+      `(output=${outputEstimateSource}, w=${shrinkageWeight}; rpt=${rptEstimateSource}, w=${rptShrinkageWeight}).`;
+    verdict = {
+      ...verdict,
+      decision: 'allow',
+      blocked: false,
+      advisory: true,
+      basedMostlyOnDefaults: true,
+      reason: verdict.reason
+        ? verdict.reason.includes('based mostly on defaults')
+          ? verdict.reason
+          : `${verdict.reason} ${priorNote}`
+        : `[DET-08 Warm KV-Cache Hold] Estimated ${estPenaltyLabel} switch penalty is based mostly on defaults.`
     };
   }
 
@@ -793,6 +929,7 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
           ...(apiCallsCompleted !== undefined ? { apiCallsCompleted } : {}),
           ...(requestsPerTurn !== undefined ? { requestsPerTurn } : {}),
           ...(contextGrowthPerTurn > 0 ? { contextGrowthPerTurn } : {}),
+          ...(intraTurnDeltaTokensPerRequest > 0 ? { intraTurnDeltaTokensPerRequest } : {}),
           ...(contextCeiling !== undefined ? { contextCeiling } : {}),
           initialPrefixTokens: sessionCal?.initialPrefixTokens,
           expectedOutputTokens: resolvedExpectedOutputTokens ?? 1500,
@@ -914,6 +1051,7 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
 
   verdict = {
     ...verdict,
+    basedMostlyOnDefaults: Boolean(verdict.basedMostlyOnDefaults),
     ...(recordedPendingDownshift ? { pending_downshift: recordedPendingDownshift } : {}),
     turnsCompletedUsed: turnsCompleted,
     apiCallsCompletedUsed: apiCallsCompleted ?? null,
@@ -930,6 +1068,9 @@ export function runPreModelSwitchHook(event = {}, options = {}) {
     contextGrowthPerTurnUsed: verdict.breakEven?.contextGrowthPerTurn ?? contextGrowthPerTurn ?? 0,
     promptGrowthEstimateSource,
     promptGrowthSampleSize,
+    intraTurnDeltaTokensPerRequestUsed:
+      verdict.breakEven?.intraTurnDeltaTokensPerRequest ?? intraTurnDeltaTokensPerRequest ?? 0,
+    intraTurnDeltaSource,
     outputEstimateSource,
     outputSampleSize,
     rawRollingMedianOutputTokens,
