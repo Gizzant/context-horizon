@@ -1,0 +1,794 @@
+{
+  "generatedAtUtc": "2026-11-15T23:01:31.090Z",
+  "route": "anthropic_direct (all costs computed from token usage using phase0_rate_card.json)",
+  "precheck": {
+    "verifiedDefaultEffort": "high",
+    "highMatchedOmittedCache": true,
+    "mediumMatchedOmittedCache": true,
+    "probeHighReadTokens": 27297,
+    "probeHighWriteTokens": 169,
+    "probeHighOutTokens": 550,
+    "probeMedReadTokens": 27297,
+    "probeMedWriteTokens": 115,
+    "probeMedOutTokens": 99
+  },
+  "arms": {
+    "EF0": {
+      "n": 3,
+      "model": "claude-sonnet-5-5",
+      "costSource": "computed",
+      "totalComputedCostUsd": {
+        "n": 3,
+        "median": 0.12853,
+        "min": 0.127683,
+        "max": 0.129254
+      },
+      "overallCacheHitPct": {
+        "n": 3,
+        "median": 91.55,
+        "min": 91.52,
+        "max": 91.56
+      },
+      "t6ReadTokens": {
+        "n": 3,
+        "median": 27816,
+        "min": 27748,
+        "max": 27964
+      },
+      "t6WriteTokens": {
+        "n": 3,
+        "median": 94,
+        "min": 94,
+        "max": 265
+      },
+      "t6CacheReadSharePct": {
+        "n": 3,
+        "median": 99.65,
+        "min": 99.05,
+        "max": 99.65
+      },
+      "t7ReadTokens": {
+        "n": 3,
+        "median": 27910,
+        "min": 27842,
+        "max": 28229
+      },
+      "t7WriteTokens": {
+        "n": 3,
+        "median": 82,
+        "min": 82,
+        "max": 82
+      },
+      "t7CacheReadSharePct": {
+        "n": 3,
+        "median": 99.69,
+        "min": 99.69,
+        "max": 99.7
+      },
+      "t6OutTokens": {
+        "n": 3,
+        "median": 550,
+        "min": 550,
+        "max": 550
+      },
+      "t7OutTokens": {
+        "n": 3,
+        "median": 550,
+        "min": 550,
+        "max": 550
+      },
+      "t6PlusT7OutTokens": {
+        "n": 3,
+        "median": 1100,
+        "min": 1100,
+        "max": 1100
+      },
+      "t6LatencyMs": {
+        "n": 3,
+        "median": 6065.645,
+        "min": 5846.304,
+        "max": 6380.097
+      },
+      "t7LatencyMs": {
+        "n": 3,
+        "median": 6109.708,
+        "min": 6025.3,
+        "max": 7371.023
+      }
+    },
+    "EF1": {
+      "n": 3,
+      "model": "claude-sonnet-5-5",
+      "costSource": "computed",
+      "totalComputedCostUsd": {
+        "n": 3,
+        "median": 0.128226,
+        "min": 0.127767,
+        "max": 0.128849
+      },
+      "overallCacheHitPct": {
+        "n": 3,
+        "median": 91.55,
+        "min": 91.55,
+        "max": 91.56
+      },
+      "t6ReadTokens": {
+        "n": 3,
+        "median": 27753,
+        "min": 27715,
+        "max": 27835
+      },
+      "t6WriteTokens": {
+        "n": 3,
+        "median": 94,
+        "min": 94,
+        "max": 94
+      },
+      "t6CacheReadSharePct": {
+        "n": 3,
+        "median": 99.65,
+        "min": 99.65,
+        "max": 99.65
+      },
+      "t7ReadTokens": {
+        "n": 3,
+        "median": 27847,
+        "min": 27809,
+        "max": 27929
+      },
+      "t7WriteTokens": {
+        "n": 3,
+        "median": 82,
+        "min": 82,
+        "max": 82
+      },
+      "t7CacheReadSharePct": {
+        "n": 3,
+        "median": 99.69,
+        "min": 99.69,
+        "max": 99.69
+      },
+      "t6OutTokens": {
+        "n": 3,
+        "median": 550,
+        "min": 550,
+        "max": 550
+      },
+      "t7OutTokens": {
+        "n": 3,
+        "median": 550,
+        "min": 550,
+        "max": 550
+      },
+      "t6PlusT7OutTokens": {
+        "n": 3,
+        "median": 1100,
+        "min": 1100,
+        "max": 1100
+      },
+      "t6LatencyMs": {
+        "n": 3,
+        "median": 5938.385,
+        "min": 5346.704,
+        "max": 6546.962
+      },
+      "t7LatencyMs": {
+        "n": 3,
+        "median": 6448.036,
+        "min": 5852.218,
+        "max": 6668.331
+      }
+    },
+    "EF2": {
+      "n": 3,
+      "model": "claude-sonnet-5-5",
+      "costSource": "computed",
+      "totalComputedCostUsd": {
+        "n": 3,
+        "median": 0.128667,
+        "min": 0.127942,
+        "max": 0.128688
+      },
+      "overallCacheHitPct": {
+        "n": 3,
+        "median": 91.53,
+        "min": 91.52,
+        "max": 91.56
+      },
+      "t6ReadTokens": {
+        "n": 3,
+        "median": 27876,
+        "min": 27768,
+        "max": 27952
+      },
+      "t6WriteTokens": {
+        "n": 3,
+        "median": 225,
+        "min": 94,
+        "max": 232
+      },
+      "t6CacheReadSharePct": {
+        "n": 3,
+        "median": 99.19,
+        "min": 99.16,
+        "max": 99.65
+      },
+      "t7ReadTokens": {
+        "n": 3,
+        "median": 28101,
+        "min": 27862,
+        "max": 28184
+      },
+      "t7WriteTokens": {
+        "n": 3,
+        "median": 82,
+        "min": 82,
+        "max": 82
+      },
+      "t7CacheReadSharePct": {
+        "n": 3,
+        "median": 99.69,
+        "min": 99.69,
+        "max": 99.7
+      },
+      "t6OutTokens": {
+        "n": 3,
+        "median": 550,
+        "min": 550,
+        "max": 550
+      },
+      "t7OutTokens": {
+        "n": 3,
+        "median": 550,
+        "min": 550,
+        "max": 550
+      },
+      "t6PlusT7OutTokens": {
+        "n": 3,
+        "median": 1100,
+        "min": 1100,
+        "max": 1100
+      },
+      "t6LatencyMs": {
+        "n": 3,
+        "median": 5541.995,
+        "min": 5072.036,
+        "max": 5628.807
+      },
+      "t7LatencyMs": {
+        "n": 3,
+        "median": 6401.197,
+        "min": 5593.377,
+        "max": 6416.82
+      }
+    },
+    "EF3": {
+      "n": 3,
+      "model": "claude-sonnet-5-5",
+      "costSource": "computed",
+      "totalComputedCostUsd": {
+        "n": 3,
+        "median": 0.128624,
+        "min": 0.128187,
+        "max": 0.128632
+      },
+      "overallCacheHitPct": {
+        "n": 3,
+        "median": 91.56,
+        "min": 91.56,
+        "max": 91.57
+      },
+      "t6ReadTokens": {
+        "n": 3,
+        "median": 27694,
+        "min": 27582,
+        "max": 27722
+      },
+      "t6WriteTokens": {
+        "n": 3,
+        "median": 94,
+        "min": 94,
+        "max": 94
+      },
+      "t6CacheReadSharePct": {
+        "n": 3,
+        "median": 99.65,
+        "min": 99.65,
+        "max": 99.65
+      },
+      "t7ReadTokens": {
+        "n": 3,
+        "median": 27788,
+        "min": 27676,
+        "max": 27816
+      },
+      "t7WriteTokens": {
+        "n": 3,
+        "median": 82,
+        "min": 82,
+        "max": 82
+      },
+      "t7CacheReadSharePct": {
+        "n": 3,
+        "median": 99.69,
+        "min": 99.69,
+        "max": 99.69
+      },
+      "t6OutTokens": {
+        "n": 3,
+        "median": 550,
+        "min": 550,
+        "max": 550
+      },
+      "t7OutTokens": {
+        "n": 3,
+        "median": 550,
+        "min": 550,
+        "max": 550
+      },
+      "t6PlusT7OutTokens": {
+        "n": 3,
+        "median": 1100,
+        "min": 1100,
+        "max": 1100
+      },
+      "t6LatencyMs": {
+        "n": 3,
+        "median": 5832.622,
+        "min": 5303.679,
+        "max": 6300.999
+      },
+      "t7LatencyMs": {
+        "n": 3,
+        "median": 6263.634,
+        "min": 5241.072,
+        "max": 6805.886
+      }
+    },
+    "EF0_46": {
+      "n": 3,
+      "model": "claude-sonnet-4-6",
+      "costSource": "computed",
+      "totalComputedCostUsd": {
+        "n": 3,
+        "median": 0.184686,
+        "min": 0.183052,
+        "max": 0.186643
+      },
+      "overallCacheHitPct": {
+        "n": 3,
+        "median": 91.17,
+        "min": 91.14,
+        "max": 91.19
+      },
+      "t6ReadTokens": {
+        "n": 3,
+        "median": 20687,
+        "min": 20686,
+        "max": 20705
+      },
+      "t6WriteTokens": {
+        "n": 3,
+        "median": 119,
+        "min": 114,
+        "max": 130
+      },
+      "t6CacheReadSharePct": {
+        "n": 3,
+        "median": 99.41,
+        "min": 99.36,
+        "max": 99.44
+      },
+      "t7ReadTokens": {
+        "n": 3,
+        "median": 20805,
+        "min": 20801,
+        "max": 20835
+      },
+      "t7WriteTokens": {
+        "n": 3,
+        "median": 610,
+        "min": 610,
+        "max": 610
+      },
+      "t7CacheReadSharePct": {
+        "n": 3,
+        "median": 97.14,
+        "min": 97.14,
+        "max": 97.14
+      },
+      "t6OutTokens": {
+        "n": 3,
+        "median": 550,
+        "min": 550,
+        "max": 550
+      },
+      "t7OutTokens": {
+        "n": 3,
+        "median": 550,
+        "min": 550,
+        "max": 550
+      },
+      "t6PlusT7OutTokens": {
+        "n": 3,
+        "median": 1100,
+        "min": 1100,
+        "max": 1100
+      },
+      "t6LatencyMs": {
+        "n": 3,
+        "median": 11856.949,
+        "min": 11365.99,
+        "max": 13108.941
+      },
+      "t7LatencyMs": {
+        "n": 3,
+        "median": 11823.468,
+        "min": 11730.066,
+        "max": 12338.166
+      }
+    },
+    "EF1_46": {
+      "n": 3,
+      "model": "claude-sonnet-4-6",
+      "costSource": "computed",
+      "totalComputedCostUsd": {
+        "n": 3,
+        "median": 0.256081,
+        "min": 0.254664,
+        "max": 0.259105
+      },
+      "overallCacheHitPct": {
+        "n": 3,
+        "median": 83.09,
+        "min": 83.07,
+        "max": 83.11
+      },
+      "t6ReadTokens": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "t6WriteTokens": {
+        "n": 3,
+        "median": 20801,
+        "min": 20800,
+        "max": 20828
+      },
+      "t6CacheReadSharePct": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "t7ReadTokens": {
+        "n": 3,
+        "median": 20801,
+        "min": 20800,
+        "max": 20828
+      },
+      "t7WriteTokens": {
+        "n": 3,
+        "median": 610,
+        "min": 610,
+        "max": 610
+      },
+      "t7CacheReadSharePct": {
+        "n": 3,
+        "median": 97.14,
+        "min": 97.14,
+        "max": 97.14
+      },
+      "t6OutTokens": {
+        "n": 3,
+        "median": 550,
+        "min": 550,
+        "max": 550
+      },
+      "t7OutTokens": {
+        "n": 3,
+        "median": 550,
+        "min": 550,
+        "max": 550
+      },
+      "t6PlusT7OutTokens": {
+        "n": 3,
+        "median": 1100,
+        "min": 1100,
+        "max": 1100
+      },
+      "t6LatencyMs": {
+        "n": 3,
+        "median": 11539.829,
+        "min": 11323.022,
+        "max": 12052.681
+      },
+      "t7LatencyMs": {
+        "n": 3,
+        "median": 12226.151,
+        "min": 11957.119,
+        "max": 13267.102
+      }
+    }
+  },
+  "behavioralRerun4096": {
+    "capUsd": 1.62,
+    "totalRerunComputedCostUsd": 0.965464,
+    "validSessionsCount": 9,
+    "allT2EndedCleanly": false,
+    "arms": {
+      "R2B_MED": {
+        "arm": "R2B_MED",
+        "label": "(a) top-level medium (control)",
+        "n": 3,
+        "model": "claude-sonnet-5-5",
+        "costSource": "computed",
+        "t1WriteTokens": {
+          "n": 3,
+          "median": 27304,
+          "min": 27303,
+          "max": 27304
+        },
+        "t1OutTokens": {
+          "n": 3,
+          "median": 91,
+          "min": 90,
+          "max": 91
+        },
+        "t1ThinkingTokens": {
+          "n": 3,
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "t2PromptTokens": {
+          "n": 3,
+          "median": 27487,
+          "min": 27487,
+          "max": 27488
+        },
+        "t2ReadTokens": {
+          "n": 3,
+          "median": 27304,
+          "min": 27303,
+          "max": 27304
+        },
+        "t2WriteTokens": {
+          "n": 3,
+          "median": 180,
+          "min": 179,
+          "max": 180
+        },
+        "t2CacheReadSharePct": {
+          "n": 3,
+          "median": 99.33,
+          "min": 99.33,
+          "max": 99.33
+        },
+        "t2OutTokens": {
+          "n": 3,
+          "median": 3321,
+          "min": 2717,
+          "max": 3837
+        },
+        "t2ThinkingTokens": {
+          "n": 3,
+          "median": 1774,
+          "min": 1592,
+          "max": 2438
+        },
+        "t2VisibleOutTokens": {
+          "n": 3,
+          "median": 1399,
+          "min": 1125,
+          "max": 1547
+        },
+        "t2LatencyMs": {
+          "n": 3,
+          "median": 25996.067,
+          "min": 21470.736,
+          "max": 29364.786
+        },
+        "sessionComputedCostUsd": {
+          "n": 3,
+          "median": 0.105564,
+          "min": 0.099536,
+          "max": 0.110734
+        },
+        "t2StopReasons": [
+          "end_turn",
+          "end_turn",
+          "end_turn"
+        ]
+      },
+      "R2B_TOP_HIGH": {
+        "arm": "R2B_TOP_HIGH",
+        "label": "(b) top-level high",
+        "n": 3,
+        "model": "claude-sonnet-5-5",
+        "costSource": "computed",
+        "t1WriteTokens": {
+          "n": 3,
+          "median": 27311,
+          "min": 27311,
+          "max": 27311
+        },
+        "t1OutTokens": {
+          "n": 3,
+          "median": 94,
+          "min": 86,
+          "max": 95
+        },
+        "t1ThinkingTokens": {
+          "n": 3,
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "t2PromptTokens": {
+          "n": 3,
+          "median": 27498,
+          "min": 27490,
+          "max": 27499
+        },
+        "t2ReadTokens": {
+          "n": 3,
+          "median": 27311,
+          "min": 27311,
+          "max": 27311
+        },
+        "t2WriteTokens": {
+          "n": 3,
+          "median": 183,
+          "min": 175,
+          "max": 184
+        },
+        "t2CacheReadSharePct": {
+          "n": 3,
+          "median": 99.32,
+          "min": 99.32,
+          "max": 99.35
+        },
+        "t2OutTokens": {
+          "n": 3,
+          "median": 4096,
+          "min": 1290,
+          "max": 4096
+        },
+        "t2ThinkingTokens": {
+          "n": 3,
+          "median": 2609,
+          "min": 1290,
+          "max": 3008
+        },
+        "t2VisibleOutTokens": {
+          "n": 3,
+          "median": 1088,
+          "min": 0,
+          "max": 1487
+        },
+        "t2LatencyMs": {
+          "n": 3,
+          "median": 30604.693,
+          "min": 12377.379,
+          "max": 31230.729
+        },
+        "sessionComputedCostUsd": {
+          "n": 3,
+          "median": 0.113382,
+          "min": 0.085222,
+          "max": 0.113395
+        },
+        "t2StopReasons": [
+          "refusal",
+          "max_tokens",
+          "max_tokens"
+        ]
+      },
+      "R2B_BETA_HIGH": {
+        "arm": "R2B_BETA_HIGH",
+        "label": "(c) per-message beta high",
+        "n": 3,
+        "model": "claude-sonnet-5-5",
+        "costSource": "computed",
+        "t1WriteTokens": {
+          "n": 3,
+          "median": 27311,
+          "min": 27311,
+          "max": 27312
+        },
+        "t1OutTokens": {
+          "n": 3,
+          "median": 94,
+          "min": 77,
+          "max": 96
+        },
+        "t1ThinkingTokens": {
+          "n": 3,
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "t2PromptTokens": {
+          "n": 3,
+          "median": 27498,
+          "min": 27482,
+          "max": 27500
+        },
+        "t2ReadTokens": {
+          "n": 3,
+          "median": 27311,
+          "min": 27311,
+          "max": 27312
+        },
+        "t2WriteTokens": {
+          "n": 3,
+          "median": 183,
+          "min": 166,
+          "max": 185
+        },
+        "t2CacheReadSharePct": {
+          "n": 3,
+          "median": 99.32,
+          "min": 99.31,
+          "max": 99.38
+        },
+        "t2OutTokens": {
+          "n": 3,
+          "median": 4096,
+          "min": 3863,
+          "max": 4096
+        },
+        "t2ThinkingTokens": {
+          "n": 3,
+          "median": 2778,
+          "min": 2509,
+          "max": 3680
+        },
+        "t2VisibleOutTokens": {
+          "n": 3,
+          "median": 1318,
+          "min": 416,
+          "max": 1354
+        },
+        "t2LatencyMs": {
+          "n": 3,
+          "median": 32795.386,
+          "min": 30512.7,
+          "max": 34057.314
+        },
+        "sessionComputedCostUsd": {
+          "n": 3,
+          "median": 0.113382,
+          "min": 0.110842,
+          "max": 0.113407
+        },
+        "t2StopReasons": [
+          "max_tokens",
+          "end_turn",
+          "max_tokens"
+        ]
+      }
+    },
+    "comparisons": {
+      "topHighVsMed": {
+        "thinkingTokensDelta": 835,
+        "thinkingTokensRatio": 1.471,
+        "outTokensDelta": 775,
+        "outTokensRatio": 1.233,
+        "visibleOutTokensDelta": -311,
+        "differsFromControl": true
+      },
+      "betaHighVsMed": {
+        "thinkingTokensDelta": 1004,
+        "thinkingTokensRatio": 1.566,
+        "outTokensDelta": 775,
+        "outTokensRatio": 1.233,
+        "visibleOutTokensDelta": -81,
+        "differsFromControl": true
+      }
+    }
+  },
+  "abortedSessions": []
+}

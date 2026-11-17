@@ -26,6 +26,8 @@ import { auditAntigravityRulesIntegrity } from '../core/layer5_hygiene.mjs';
 import { auditClaudeAutoMemory } from '../core/shield_manager.mjs';
 import { auditProseRuleHookCandidates } from '../core/bucket_b_runtime.mjs';
 import { auditWorkspaceRuleClashes } from '../core/rsl_clash_auditor.mjs';
+import { getOffloadIndexStats } from '../core/fts5_output_compressor.mjs';
+import { resolveFastIpcPipePath } from '../engine-node/ipc/fast_client.mjs';
 
 /**
  * Redacts the user's OS home directory from any diagnostic string.
@@ -95,7 +97,7 @@ export function inspectHookDiagnostics(options = {}) {
 }
 
 /**
- * Runs host contract & runtime diagnostic checks (`npx ah-claude doctor`).
+ * Runs host contract & runtime diagnostic checks (`npx ctxtop doctor`).
  *
  * @param {object} [options={}]
  * @returns {{
@@ -273,6 +275,28 @@ export function runDoctorDiagnostics(options = {}) {
     memoryRuleIntegrity.ok &&
     (!options.strictClaudeCheck || Boolean(claudeCapabilities.found && claudeCapabilities.contractValid));
 
+  let offloadIndex = { indexedToolLogs: 0, indexedArtifacts: 0, dbExists: false };
+  try {
+    offloadIndex = getOffloadIndexStats({
+      cwd,
+      homeDir: options.homeDir,
+      dbPath: options.toolLogsDbPath || null
+    });
+  } catch (offloadErr) {
+    void offloadErr;
+  }
+
+  let ipcFastPath = { pipePath: '', socketPresent: null };
+  try {
+    const pipePath = resolveFastIpcPipePath({ homeDir: options.homeDir });
+    ipcFastPath = {
+      pipePath: redactDoctorPaths(pipePath, options.homeDir),
+      socketPresent: pipePath.startsWith('\\\\.\\pipe\\') ? null : fs.existsSync(pipePath)
+    };
+  } catch (ipcErr) {
+    void ipcErr;
+  }
+
   return {
     ok,
     nodeVersion,
@@ -284,7 +308,9 @@ export function runDoctorDiagnostics(options = {}) {
     memoryRuleIntegrity,
     proseHookCandidates,
     rslRuleClashes: rslClashAudit.clashCount,
-    rslClashes: rslClashAudit.clashes.slice(0, 5)
+    rslClashes: rslClashAudit.clashes.slice(0, 5),
+    offloadIndex,
+    ipcFastPath
   };
 }
 

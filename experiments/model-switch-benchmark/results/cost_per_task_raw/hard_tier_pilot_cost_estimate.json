@@ -1,0 +1,81 @@
+{
+  "generatedAtUtc": "2026-11-17T00:34:21.523Z",
+  "tierLabel": "hard tier",
+  "preregistrationSha256": "86705bfb5e4664448dd46a4fd36f52cbdd308e3200e21cf363a95fcb624ad4e5",
+  "spendDeltaSinceRoutineStage1Usd": 0,
+  "pricingBasis": "2026-11-16 OpenRouter live /api/v1/models (Opus 5.5 $4/$20/$5/$0.20, Sonnet 5.5 $2/$10/$2.5/$0.10)",
+  "calibrationBasis": "Claude Code 2.1.325 Stage-1 routine wire prefixes (~15k start, multi-file H01-H06 diagnosis 7 reqs / +9k / 2k out, Turn-2 12 reqs / +13k / 3.8k out, avgRetries O=1.2 / S=1.8 / SW=1.4)",
+  "openRouterKeySnapshot": {
+    "timestampUtc": "2026-11-17T00:34:21.521Z",
+    "statusCode": 200,
+    "usage": 101.068949,
+    "limit": 200,
+    "limitRemaining": 98.931051
+  },
+  "byArmPilot6RunsEach": {
+    "OPUS": {
+      "pilotRuns": 6,
+      "planTurnPerRunUsd": 0.1834,
+      "implAndRetriesPerRunUsd": 0.3443,
+      "totalPerRunUsd": 0.5277,
+      "pilotPlanTurnUsd": 1.1004,
+      "pilotImplAndRetriesUsd": 2.0658,
+      "pilotTotalBaseUsd": 3.1662,
+      "pilotTotalWith15PctUsd": 3.6411,
+      "stressPlanTurnPerRunUsd": 0.2214,
+      "stressImplAndRetriesPerRunUsd": 0.6998,
+      "stressTotalPerRunUsd": 0.9212,
+      "stressPilotTotalBaseUsd": 5.5272,
+      "stressPilotTotalWith15PctUsd": 6.3563
+    },
+    "SONNET": {
+      "pilotRuns": 6,
+      "planTurnPerRunUsd": 0.0917,
+      "implAndRetriesPerRunUsd": 0.2047,
+      "totalPerRunUsd": 0.2964,
+      "pilotPlanTurnUsd": 0.5502,
+      "pilotImplAndRetriesUsd": 1.2282,
+      "pilotTotalBaseUsd": 1.7784,
+      "pilotTotalWith15PctUsd": 2.0452,
+      "stressPlanTurnPerRunUsd": 0.1107,
+      "stressImplAndRetriesPerRunUsd": 0.3825,
+      "stressTotalPerRunUsd": 0.4932,
+      "stressPilotTotalBaseUsd": 2.9592,
+      "stressPilotTotalWith15PctUsd": 3.4031
+    },
+    "SWITCH": {
+      "pilotRuns": 6,
+      "planTurnPerRunUsd": 0.1834,
+      "implAndRetriesPerRunUsd": 0.2399,
+      "totalPerRunUsd": 0.4233,
+      "pilotPlanTurnUsd": 1.1004,
+      "pilotImplAndRetriesUsd": 1.4394,
+      "pilotTotalBaseUsd": 2.5398,
+      "pilotTotalWith15PctUsd": 2.9208,
+      "stressPlanTurnPerRunUsd": 0.2214,
+      "stressImplAndRetriesPerRunUsd": 0.4301,
+      "stressTotalPerRunUsd": 0.6515,
+      "stressPilotTotalBaseUsd": 3.909,
+      "stressPilotTotalWith15PctUsd": 4.4953
+    }
+  },
+  "pilot18Runs": {
+    "expectedBaseUsd": 7.48,
+    "expectedWith15PctMarginUsd": 8.61,
+    "stressBaseUsd": 12.4,
+    "stressWith15PctMarginUsd": 14.25,
+    "hardAbortCeilingUsd": 54,
+    "fitsRemainingKeyCap": true
+  },
+  "reps2And3_36Runs": {
+    "expectedBaseUsd": 14.97,
+    "expectedWith15PctMarginUsd": 17.22,
+    "stressWith15PctMarginUsd": 28.5,
+    "hardAbortCeilingUsd": 108
+  },
+  "fullHardStudy54Runs": {
+    "expectedWith15PctMarginUsd": 25.83,
+    "stressWith15PctMarginUsd": 42.75,
+    "hardAbortCeilingUsd": 162
+  }
+}

@@ -1,0 +1,5 @@
+{"event":"start","ok":true,"timestamp":"2026-11-14T21:02:08.750Z","usage":36.83472605,"limit":50,"limit_remaining":13.16527395}
+{"event":"after_run","runId":"C2_L1_hb_rule_v2_calibrated_r01","ok":true,"timestamp":"2026-11-14T21:04:40.595Z","usage":37.1831173,"limit":50,"limit_remaining":12.8168827}
+{"event":"after_run","runId":"C2_L2_hb_rule_v2_calibrated_r01","ok":true,"timestamp":"2026-11-14T21:07:16.748Z","usage":37.6778248,"limit":50,"limit_remaining":12.322175199999997}
+{"event":"end","ok":true,"timestamp":"2026-11-14T21:07:25.302Z","usage":37.6778248,"limit":50,"limit_remaining":12.322175199999997}
+{"event":"settled_after_12m_idle","ok":true,"timestamp":"2026-11-14T21:19:52.034Z","usage":37.76052205,"limit":50,"limit_remaining":12.23947795}

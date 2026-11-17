@@ -7,6 +7,11 @@ on:
         description: 'Tag to release (e.g. v4.1.0)'
         required: true
         default: 'v4.1.0'
+      publish_npm:
+        description: 'Publish ctxtop package to npm registry'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build-and-release:
@@ -14,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
 
     steps:
       - name: Checkout repository
@@ -25,6 +31,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.14.0'
+          registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
 
       - name: Install Dev Dependencies (jsdom)
@@ -54,3 +61,9 @@ jobs:
           generate_release_notes: true
           draft: true
           prerelease: false
+
+      - name: Publish Package to npm (with OIDC Provenance)
+        if: ${{ inputs.publish_npm }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public

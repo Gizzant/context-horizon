@@ -1,0 +1,27 @@
+{
+  "mode": "pilot",
+  "startedAt": "2026-11-14T05:44:47.131Z",
+  "pinnedRepoCommit": "19c51055902c545508af1979a392505355777d90",
+  "claudeCodeVersion": "2.1.325 (Claude Code)",
+  "nodeVersion": "v25.6.0",
+  "platform": "win32 x64",
+  "predictionsSha256": "4b74083f47524c053dd8470644961442e473ff2f70f8bbc4a1069f7ca1961c56",
+  "armEIdleSeconds": 330,
+  "budgetCapUsd": 3,
+  "scheduledRuns": [
+    {
+      "runId": "PILOT_A_S_r01",
+      "arm": "A",
+      "tier": "small",
+      "replicate": 1,
+      "turnsToRun": 6
+    },
+    {
+      "runId": "PILOT_B_L_r01",
+      "arm": "B",
+      "tier": "large",
+      "replicate": 1,
+      "turnsToRun": 7
+    }
+  ]
+}

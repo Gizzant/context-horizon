@@ -1,0 +1,215 @@
+{
+  "generatedAtUtc": "2026-11-16T21:19:23.532Z",
+  "templateFileCount": 16,
+  "baselineTestsExitCode": 0,
+  "hashes": {
+    "task_repo_template": {
+      "fileCount": 16,
+      "treeSha256": "be65e665257c71478e0a3debea6e6e7190122ec5a51dddf882867d38abb5156f",
+      "perFile": {
+        "README.md": "e65acfb1a63f807b544c5d2059d18048fa3536c9ceadacae3e2a3d73a1b814b2",
+        "package.json": "199d4b5215f28b3d51f61628b83784d52e7cd29547d3cf5632ae133778382830",
+        "src/batchIngestor.mjs": "43ecde44d15efa41f6a3556e60f63462d06ca7aac06b05b605dd1e1568cd7cb1",
+        "src/clock.mjs": "34ffa24a6a1e451f5a5d0bcc17c9a0b9086e37e87e2994de5d06087a225e2d69",
+        "src/constants.mjs": "25aec7fc36f68b3e71c495a215dafaabcf0ea2f51b52a96cd9f5812c79ea5d89",
+        "src/creditPool.mjs": "4194a3fe384ac590611ef3cdb3bb157960786ae1c440bd288ba2d981da7b3ff3",
+        "src/errors.mjs": "ffdcf392b978388c8fec1e3f9561e39270f5a12a1218704b8ded5ca488df4a42",
+        "src/frozenWire.mjs": "c86d6f4517450db0753fc721968d27af26efe17b01acba3904c99f8b21505325",
+        "src/idempotencyGuard.mjs": "11d9698a97f643069bb91d2828fc7cb517c3fcaede6b85e93d2dfd4fa7acd96e",
+        "src/invoiceBuilder.mjs": "3cb4392053459f3fd28df3038d5be83af6deae82d3e36e993138f01621f4654d",
+        "src/queryDsl.mjs": "19c331c87da6e8f3644ef90ebc206cb56e3e65e73f71bfbc7f13b2180176d46b",
+        "src/tierEngine.mjs": "1b91422145acf810b380914bd48a5c8b1274fe489ee7c06431635c9e027f2b57",
+        "test/ingestor_and_idempotency.test.mjs": "e6fa1e7db2bf0df870a8263641bf73a64bffb7c43de8c13734c204943c673fc0",
+        "test/invoice_and_wire.test.mjs": "c9d5d20bfe175c39c23a1ae7e9b14444a1aaa8bd1c2442575ec2c4f58ba29044",
+        "test/query_and_clock.test.mjs": "3315d190e76278c2ab171a1d4176d55615559568b82fb8c2fd52952319b0b285",
+        "test/tier_and_credits.test.mjs": "af55eaaaf46edeacd4c2b8638b9398ff94406f744f55aa687382ccb4b3a7512a"
+      }
+    },
+    "visible_suites": {
+      "fileCount": 10,
+      "treeSha256": "5191dc65da5e8ee8bfc3edd531c2c71c003b910f8d13242e06f811f59dd2a84b",
+      "perFile": {
+        "S01.visible.test.mjs": "42f189dcdbf8325bc2bde69f58fc377c17f7ed614f52a41faa52246a0b38aa02",
+        "S02.visible.test.mjs": "68ff61625b05dd02345b227171049b8ddba5f83ee391810dab070e12acb1c523",
+        "T01.visible.test.mjs": "784e1220cc67e2d7aa450586950dc17fc1dec6bfb0eb507e13b343ac1ec20a0b",
+        "T02.visible.test.mjs": "13d22547a7180fae6e196ce168f721afc2d1905de152cb49ebd1d1e964aff07f",
+        "T03.visible.test.mjs": "45e46edd7e704d1ccb7f3111e6645c76cc95362527a1af8033a291f2a27d0bb6",
+        "T04.visible.test.mjs": "9c0b9428cc87b05230ce947ea33e41a2e2654cf54cb747a2000a7d5631a66d6f",
+        "T05.visible.test.mjs": "7e2565b471d6ab5884dc282277b705807a9dc937c24967c57a55f660073e2a7f",
+        "T06.visible.test.mjs": "7a924e2f27b44e0adfb729aefa89d6be12bc2561814d1861c4340c9dc2d72a15",
+        "T07.visible.test.mjs": "b0f4bdc0e4f7bd64aaaeaffe52ae165cb062ab3fbaba2ea08e58babccbf9835f",
+        "T08.visible.test.mjs": "1d11f225bf004a9785abc0c0a17fb837014e6752ebbe7e534d5af1334bdf3d3a"
+      }
+    },
+    "hidden_suites": {
+      "fileCount": 10,
+      "treeSha256": "179f2d069ba98868210a97b3debb7d88f48353f3d0c2e1e10b6710606b16ded3",
+      "perFile": {
+        "S01.hidden.test.mjs": "bb1e24b2af69ffebe9b1bbc93625aa8a5d080e48c818532f1ff165221791dbd0",
+        "S02.hidden.test.mjs": "d3a2c0fb968a02d37ff6ae04cb5fc8a13bb7f35c97746a449a83fca8c1382a94",
+        "T01.hidden.test.mjs": "9292abf34e2f68d2ee230744f8db63dce326482f09291ea158404fc4663174ac",
+        "T02.hidden.test.mjs": "5202a3973a6e2ee22d10644a8fd38d2f2de37c44f84e671c5109081405d92992",
+        "T03.hidden.test.mjs": "33462e294fa0fd6bbb8bbff53908a7bcc30b6988eefff85979d2c460e45fa680",
+        "T04.hidden.test.mjs": "de321a75c7c21a0b0cbd5ca63a53479da1d44ce6772f63c1fab7f47b06a4d27b",
+        "T05.hidden.test.mjs": "08b6eeb6c6e8c9b70b5e58d1bbc20745802eafde20eeaca56f5c292880c8cf1a",
+        "T06.hidden.test.mjs": "eb0e607da757e5454ceed52fbd4782f0c0b2d48a072fad4e938bf26e76cec76f",
+        "T07.hidden.test.mjs": "da8e5f86f430f97a75827efbfb44cd00906b759e877c1ac805594ec245add6d4",
+        "T08.hidden.test.mjs": "ce0365d888e936e6893bc04c4c7e58f48cd6d4549c588e96ef855b256307faca"
+      }
+    }
+  },
+  "tasksVerified": [
+    {
+      "task_id": "T01",
+      "difficulty": "easy",
+      "is_spare": false,
+      "preFixVisibleExit": 1,
+      "preFixHiddenExit": 1,
+      "postFixVisibleExit": 0,
+      "postFixHiddenExit": 0,
+      "hiddenPassCount": 6,
+      "hiddenFailCount": 0,
+      "referenceFilesChanged": [
+        "src/tierEngine.mjs"
+      ]
+    },
+    {
+      "task_id": "T02",
+      "difficulty": "easy",
+      "is_spare": false,
+      "preFixVisibleExit": 1,
+      "preFixHiddenExit": 1,
+      "postFixVisibleExit": 0,
+      "postFixHiddenExit": 0,
+      "hiddenPassCount": 6,
+      "hiddenFailCount": 0,
+      "referenceFilesChanged": [
+        "src/idempotencyGuard.mjs"
+      ]
+    },
+    {
+      "task_id": "T03",
+      "difficulty": "easy",
+      "is_spare": false,
+      "preFixVisibleExit": 1,
+      "preFixHiddenExit": 1,
+      "postFixVisibleExit": 0,
+      "postFixHiddenExit": 0,
+      "hiddenPassCount": 5,
+      "hiddenFailCount": 0,
+      "referenceFilesChanged": [
+        "src/creditPool.mjs"
+      ]
+    },
+    {
+      "task_id": "T04",
+      "difficulty": "medium",
+      "is_spare": false,
+      "preFixVisibleExit": 1,
+      "preFixHiddenExit": 1,
+      "postFixVisibleExit": 0,
+      "postFixHiddenExit": 0,
+      "hiddenPassCount": 5,
+      "hiddenFailCount": 0,
+      "referenceFilesChanged": [
+        "src/creditPool.mjs",
+        "src/invoiceBuilder.mjs",
+        "src/tierEngine.mjs"
+      ]
+    },
+    {
+      "task_id": "T05",
+      "difficulty": "medium",
+      "is_spare": false,
+      "preFixVisibleExit": 1,
+      "preFixHiddenExit": 1,
+      "postFixVisibleExit": 0,
+      "postFixHiddenExit": 0,
+      "hiddenPassCount": 5,
+      "hiddenFailCount": 0,
+      "referenceFilesChanged": [
+        "src/invoiceBuilder.mjs",
+        "src/queryDsl.mjs",
+        "src/tierEngine.mjs"
+      ]
+    },
+    {
+      "task_id": "T06",
+      "difficulty": "medium",
+      "is_spare": false,
+      "preFixVisibleExit": 1,
+      "preFixHiddenExit": 1,
+      "postFixVisibleExit": 0,
+      "postFixHiddenExit": 0,
+      "hiddenPassCount": 5,
+      "hiddenFailCount": 0,
+      "referenceFilesChanged": [
+        "src/creditPool.mjs",
+        "src/errors.mjs",
+        "src/invoiceBuilder.mjs",
+        "src/tierEngine.mjs"
+      ]
+    },
+    {
+      "task_id": "T07",
+      "difficulty": "hard",
+      "is_spare": false,
+      "preFixVisibleExit": 1,
+      "preFixHiddenExit": 1,
+      "postFixVisibleExit": 0,
+      "postFixHiddenExit": 0,
+      "hiddenPassCount": 7,
+      "hiddenFailCount": 0,
+      "referenceFilesChanged": [
+        "src/clock.mjs",
+        "src/creditPool.mjs",
+        "src/invoiceBuilder.mjs",
+        "src/tierEngine.mjs"
+      ]
+    },
+    {
+      "task_id": "T08",
+      "difficulty": "hard",
+      "is_spare": false,
+      "preFixVisibleExit": 1,
+      "preFixHiddenExit": 1,
+      "postFixVisibleExit": 0,
+      "postFixHiddenExit": 0,
+      "hiddenPassCount": 6,
+      "hiddenFailCount": 0,
+      "referenceFilesChanged": [
+        "src/batchIngestor.mjs",
+        "src/queryDsl.mjs"
+      ]
+    },
+    {
+      "task_id": "S01",
+      "difficulty": "easy",
+      "is_spare": true,
+      "preFixVisibleExit": 1,
+      "preFixHiddenExit": 1,
+      "postFixVisibleExit": 0,
+      "postFixHiddenExit": 0,
+      "hiddenPassCount": 4,
+      "hiddenFailCount": 0,
+      "referenceFilesChanged": [
+        "src/invoiceBuilder.mjs"
+      ]
+    },
+    {
+      "task_id": "S02",
+      "difficulty": "hard",
+      "is_spare": true,
+      "preFixVisibleExit": 1,
+      "preFixHiddenExit": 1,
+      "postFixVisibleExit": 0,
+      "postFixHiddenExit": 0,
+      "hiddenPassCount": 4,
+      "hiddenFailCount": 0,
+      "referenceFilesChanged": [
+        "src/batchIngestor.mjs",
+        "src/idempotencyGuard.mjs"
+      ]
+    }
+  ]
+}

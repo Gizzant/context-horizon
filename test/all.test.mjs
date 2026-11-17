@@ -77,4 +77,7 @@ import './simple_view_clarity_and_safeguards.test.mjs';
 import './simple_view_truth_audit.test.mjs';
 import './nov2026_model_awareness.test.mjs';
 import './advanced_view_truth_audit.test.mjs';
+import './windows_hook_latency_and_rsl_opt.test.mjs';
+import './matrix_9plus_capabilities.test.mjs';
+import './claude-code/effort_shift_and_doctor.test.mjs';
 

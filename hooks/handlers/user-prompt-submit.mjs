@@ -23,6 +23,10 @@ import {
   readBreakerStateSnapshot,
   writeBreakerStateSnapshot
 } from '../../src/core-isomorphic/guards/circuitBreakers.mjs';
+import {
+  extractEventEffortObservation,
+  applyTurnEffortObservation
+} from '../../src/core-isomorphic/coach/effortShiftDetector.mjs';
 import { atomicWriteFileSync } from '../../src/core/atomic_io.mjs';
 import { scorePromptSufficiency } from '../../src/core/prompt_rubric.mjs';
 import { sanitizeRslSessionId } from '../../src/core/rsl_triage.mjs';
@@ -50,7 +54,9 @@ function readPromptStateSnapshot(cwd, sessionId, event = {}) {
     specShards: Array.isArray(event.specShards) ? event.specShards : [],
     turnCount: Number(event.turnNumber ? Number(event.turnNumber) - 1 : 0),
     lastAlertTurn: Number(event.lastShardedSpecAlertTurn || 0),
-    turn1ContractInjected: Boolean(event.turn1ContractInjected)
+    turn1ContractInjected: Boolean(event.turn1ContractInjected),
+    lastConsumedEffortAdvisoryId: null,
+    lastObservedEffort: null
   };
   if (!cwd) return fallback;
   const statePath = getPromptStatePath(cwd, sessionId);
@@ -261,6 +267,7 @@ export function runUserPromptSubmitHook(event = {}, options = {}) {
 
       if (shouldPersistState && resolvedCwd) {
         writePromptStateSnapshot(resolvedCwd, sessionId, {
+          ...promptState,
           initialGoal: shardedEval.initialGoal,
           specShards: shardedEval.specShards,
           turnCount: nextTurnNumber,
@@ -304,6 +311,101 @@ export function runUserPromptSubmitHook(event = {}, options = {}) {
             reason: activeSteer.reason
           }
         };
+      }
+    }
+
+    if (effectiveMode !== 'SILENT' && effectiveMode !== 'OFF') {
+      const effortPromptState = readPromptStateSnapshot(
+        shouldPersistState ? resolvedCwd : '',
+        sessionId,
+        event
+      );
+      const eventEffortObs = extractEventEffortObservation(event);
+      const baselineEffort =
+        effortPromptState.lastObservedEffort ||
+        liveState?.effortTracking?.currentEffort ||
+        null;
+      let activeEffortAdvisory = null;
+      let nextObservedEffort = baselineEffort;
+
+      if (eventEffortObs.effortLevel) {
+        if (baselineEffort && eventEffortObs.effortLevel !== baselineEffort) {
+          const boundaryEval = applyTurnEffortObservation(
+            {
+              ...(liveState?.effortTracking || {}),
+              currentEffort: baselineEffort,
+              pendingAdvisory: null
+            },
+            {
+              modelId: event.model || liveState?.rawModelId || liveState?.modelId,
+              rawModelId: event.model || liveState?.rawModelId || liveState?.modelId,
+              observedEffort: eventEffortObs.effortLevel,
+              observedThinkingBudget: eventEffortObs.thinkingBudget,
+              turnIndex: Math.max(1, Number(effortPromptState.turnCount || liveState?.turnsCompleted || 1)),
+              priorTurnsCompleted: Number(liveState?.turnsCompleted || effortPromptState.turnCount || 0),
+              priorModelId: liveState?.rawModelId || liveState?.modelId || null,
+              priorWarmPrefixTokens: Number(
+                liveState?.contextWindow?.warmPrefixTokens || liveState?.contextWindow?.cachedTokens || 0
+              ),
+              priorCacheWarm: Boolean(liveState?.promptCache?.warm),
+              evaluateThinkingSpike: false,
+              ttlTier: liveState?.promptCache?.ttlTier === '1h' ? '1h' : '5m'
+            },
+            cwdOptions
+          );
+          activeEffortAdvisory = boundaryEval.pendingAdvisory || null;
+        }
+        nextObservedEffort = eventEffortObs.effortLevel;
+      }
+
+      if (!activeEffortAdvisory && liveState?.effortTracking?.pendingAdvisory) {
+        activeEffortAdvisory = liveState.effortTracking.pendingAdvisory;
+      }
+
+      if (
+        activeEffortAdvisory &&
+        activeEffortAdvisory.advisoryId &&
+        activeEffortAdvisory.advisoryId !== effortPromptState.lastConsumedEffortAdvisoryId
+      ) {
+        if (shouldPersistState && resolvedCwd) {
+          writePromptStateSnapshot(resolvedCwd, sessionId, {
+            ...effortPromptState,
+            lastConsumedEffortAdvisoryId: activeEffortAdvisory.advisoryId,
+            lastObservedEffort: nextObservedEffort
+          });
+        }
+        const effortStdoutJson = {
+          hookSpecificOutput: {
+            hookEventName: 'UserPromptSubmit',
+            additionalContext: String(activeEffortAdvisory.message || '').slice(0, 9500)
+          }
+        };
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify(effortStdoutJson),
+          stdoutJson: effortStdoutJson,
+          stderr: '',
+          verdict: {
+            triggered: true,
+            detectorId: activeEffortAdvisory.detectorId,
+            subType: activeEffortAdvisory.subType,
+            decision: 'steer',
+            advisoryId: activeEffortAdvisory.advisoryId,
+            reason: activeEffortAdvisory.message
+          }
+        };
+      }
+
+      if (
+        shouldPersistState &&
+        resolvedCwd &&
+        nextObservedEffort &&
+        nextObservedEffort !== effortPromptState.lastObservedEffort
+      ) {
+        writePromptStateSnapshot(resolvedCwd, sessionId, {
+          ...effortPromptState,
+          lastObservedEffort: nextObservedEffort
+        });
       }
     }
 

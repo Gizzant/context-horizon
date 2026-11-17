@@ -1,0 +1,537 @@
+{
+  "generatedAtUtc": "2026-11-15T20:11:46.655Z",
+  "measuredLayerTokens": {
+    "toolsTokens": 6347,
+    "toolsPlusSystemTokens": 9386,
+    "systemOnlyApproxTokens": 3039,
+    "calCostUsd": 0.058525
+  },
+  "ccProxySideCalls": {
+    "sideCallsCount": 0,
+    "sideCallsCostUsd": 0
+  },
+  "abortedRuns": [],
+  "armSummaries": [
+    {
+      "arm": "C",
+      "harness": "api",
+      "n": 3,
+      "t5PromptTokens": {
+        "n": 3,
+        "median": 15046,
+        "min": 15004,
+        "max": 15065
+      },
+      "t6CacheReadTokens": {
+        "n": 3,
+        "median": 15043,
+        "min": 15001,
+        "max": 15062
+      },
+      "t7CacheReadTokens": {
+        "n": 3,
+        "median": 16220,
+        "min": 16178,
+        "max": 16239
+      },
+      "t6CostUsd": {
+        "n": 3,
+        "median": 0.01043565,
+        "min": 0.01042305,
+        "max": 0.01044135
+      },
+      "total12TurnCostUsd": {
+        "n": 3,
+        "median": 0.15997185000000005,
+        "min": 0.15989295,
+        "max": 0.16020210000000001
+      },
+      "t6SurvivingLabels": [
+        "tools+system+history",
+        "tools+system+history",
+        "tools+system+history"
+      ]
+    },
+    {
+      "arm": "TS",
+      "harness": "api",
+      "n": 3,
+      "t5PromptTokens": {
+        "n": 3,
+        "median": 15110,
+        "min": 15067,
+        "max": 15128
+      },
+      "t6CacheReadTokens": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "t7CacheReadTokens": {
+        "n": 3,
+        "median": 14809,
+        "min": 14776,
+        "max": 14822
+      },
+      "t6CostUsd": {
+        "n": 3,
+        "median": 0.05704275,
+        "min": 0.056919,
+        "max": 0.0570915
+      },
+      "total12TurnCostUsd": {
+        "n": 3,
+        "median": 0.20457525,
+        "min": 0.20417459999999996,
+        "max": 0.20473770000000002
+      },
+      "t6SurvivingLabels": [
+        "none",
+        "none",
+        "none"
+      ]
+    },
+    {
+      "arm": "TF",
+      "harness": "api",
+      "n": 3,
+      "t5PromptTokens": {
+        "n": 3,
+        "median": 13628,
+        "min": 13582,
+        "max": 13647
+      },
+      "t6CacheReadTokens": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "t7CacheReadTokens": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "t6CostUsd": {
+        "n": 3,
+        "median": 0.057009,
+        "min": 0.0568365,
+        "max": 0.05708025
+      },
+      "total12TurnCostUsd": {
+        "n": 3,
+        "median": 0.718158,
+        "min": 0.716148,
+        "max": 0.7190617499999999
+      },
+      "t6SurvivingLabels": [
+        "none",
+        "none",
+        "none"
+      ]
+    },
+    {
+      "arm": "TK",
+      "harness": "api",
+      "n": 3,
+      "t5PromptTokens": {
+        "n": 3,
+        "median": 15088,
+        "min": 15066,
+        "max": 15129
+      },
+      "t6CacheReadTokens": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "t7CacheReadTokens": {
+        "n": 3,
+        "median": 16262,
+        "min": 16240,
+        "max": 16303
+      },
+      "t6CostUsd": {
+        "n": 3,
+        "median": 0.0624915,
+        "min": 0.062409,
+        "max": 0.06264525
+      },
+      "total12TurnCostUsd": {
+        "n": 3,
+        "median": 0.2125227,
+        "min": 0.2122992,
+        "max": 0.2127585
+      },
+      "t6SurvivingLabels": [
+        "none",
+        "none",
+        "none"
+      ]
+    },
+    {
+      "arm": "TA",
+      "harness": "api",
+      "n": 3,
+      "t5PromptTokens": {
+        "n": 3,
+        "median": 15087,
+        "min": 15067,
+        "max": 15087
+      },
+      "t6CacheReadTokens": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "t7CacheReadTokens": {
+        "n": 3,
+        "median": 16553,
+        "min": 16532,
+        "max": 16553
+      },
+      "t6CostUsd": {
+        "n": 3,
+        "median": 0.06358275,
+        "min": 0.063504,
+        "max": 0.06358275
+      },
+      "total12TurnCostUsd": {
+        "n": 3,
+        "median": 0.21413564999999998,
+        "min": 0.21391200000000002,
+        "max": 0.2141415
+      },
+      "t6SurvivingLabels": [
+        "none",
+        "none",
+        "none"
+      ]
+    },
+    {
+      "arm": "SY",
+      "harness": "api",
+      "n": 3,
+      "t5PromptTokens": {
+        "n": 3,
+        "median": 15087,
+        "min": 15067,
+        "max": 15109
+      },
+      "t6CacheReadTokens": {
+        "n": 3,
+        "median": 6059,
+        "min": 6039,
+        "max": 6079
+      },
+      "t7CacheReadTokens": {
+        "n": 3,
+        "median": 16280,
+        "min": 16260,
+        "max": 16302
+      },
+      "t6CostUsd": {
+        "n": 3,
+        "median": 0.04165545,
+        "min": 0.04164945,
+        "max": 0.04166895
+      },
+      "total12TurnCostUsd": {
+        "n": 3,
+        "median": 0.19171349999999998,
+        "min": 0.19158060000000002,
+        "max": 0.19187835
+      },
+      "t6SurvivingLabels": [
+        "tools_only",
+        "tools_only",
+        "tools_only"
+      ]
+    },
+    {
+      "arm": "SRAG",
+      "harness": "api",
+      "n": 3,
+      "t5PromptTokens": {
+        "n": 3,
+        "median": 15904,
+        "min": 15904,
+        "max": 15925
+      },
+      "t6CacheReadTokens": {
+        "n": 3,
+        "median": 9105,
+        "min": 9105,
+        "max": 9126
+      },
+      "t7CacheReadTokens": {
+        "n": 3,
+        "median": 9105,
+        "min": 9105,
+        "max": 9126
+      },
+      "t6CostUsd": {
+        "n": 3,
+        "median": 0.03301425,
+        "min": 0.03301425,
+        "max": 0.03302055
+      },
+      "total12TurnCostUsd": {
+        "n": 3,
+        "median": 0.4625782499999999,
+        "min": 0.46255575,
+        "max": 0.46273005
+      },
+      "t6SurvivingLabels": [
+        "tools+system",
+        "tools+system",
+        "tools+system"
+      ]
+    },
+    {
+      "arm": "MRAG",
+      "harness": "api",
+      "n": 3,
+      "t5PromptTokens": {
+        "n": 3,
+        "median": 15924,
+        "min": 15924,
+        "max": 15926
+      },
+      "t6CacheReadTokens": {
+        "n": 3,
+        "median": 15126,
+        "min": 15126,
+        "max": 15128
+      },
+      "t7CacheReadTokens": {
+        "n": 3,
+        "median": 16303,
+        "min": 16301,
+        "max": 16305
+      },
+      "t6CostUsd": {
+        "n": 3,
+        "median": 0.01194555,
+        "min": 0.01193805,
+        "max": 0.01194615
+      },
+      "total12TurnCostUsd": {
+        "n": 3,
+        "median": 0.1795212,
+        "min": 0.17951445,
+        "max": 0.1795335
+      },
+      "t6SurvivingLabels": [
+        "tools+system+history",
+        "tools+system+history",
+        "tools+system+history"
+      ]
+    },
+    {
+      "arm": "TSTUB",
+      "harness": "api",
+      "n": 3,
+      "t5PromptTokens": {
+        "n": 3,
+        "median": 9268,
+        "min": 9154,
+        "max": 9346
+      },
+      "t6CacheReadTokens": {
+        "n": 3,
+        "median": 9265,
+        "min": 9151,
+        "max": 9343
+      },
+      "t7CacheReadTokens": {
+        "n": 3,
+        "median": 12258,
+        "min": 12143,
+        "max": 12336
+      },
+      "t6CostUsd": {
+        "n": 3,
+        "median": 0.01551225,
+        "min": 0.0154743,
+        "max": 0.01553565
+      },
+      "total12TurnCostUsd": {
+        "n": 3,
+        "median": 0.1295526,
+        "min": 0.12703470000000003,
+        "max": 0.13008494999999998
+      },
+      "t6SurvivingLabels": [
+        "tools+system+history",
+        "tools+system+history",
+        "tools+system+history"
+      ],
+      "stubToolsPlusSystemTokens": 4811
+    },
+    {
+      "arm": "ME",
+      "harness": "api",
+      "n": 3,
+      "t5PromptTokens": {
+        "n": 3,
+        "median": 15045,
+        "min": 15023,
+        "max": 15046
+      },
+      "t6CacheReadTokens": {
+        "n": 3,
+        "median": 10509,
+        "min": 10488,
+        "max": 10509
+      },
+      "t7CacheReadTokens": {
+        "n": 3,
+        "median": 16224,
+        "min": 16202,
+        "max": 16224
+      },
+      "t6CostUsd": {
+        "n": 3,
+        "median": 0.02609295,
+        "min": 0.0260829,
+        "max": 0.02609295
+      },
+      "total12TurnCostUsd": {
+        "n": 3,
+        "median": 0.17584260000000002,
+        "min": 0.1756884,
+        "max": 0.1758507
+      },
+      "t6SurvivingLabels": [
+        "approx_10488tok",
+        "approx_10509tok",
+        "approx_10509tok"
+      ]
+    },
+    {
+      "arm": "CC-T",
+      "harness": "claude_code_2.1.325",
+      "n": 3,
+      "t5PromptTokens": {
+        "n": 3,
+        "median": 14997,
+        "min": 14940,
+        "max": 15001
+      },
+      "t6CacheReadTokens": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "t7CacheReadTokens": {
+        "n": 3,
+        "median": 18175,
+        "min": 18121,
+        "max": 18180
+      },
+      "t6CostUsd": {
+        "n": 3,
+        "median": 0.07055025,
+        "min": 0.07027275,
+        "max": 0.071064
+      },
+      "total12TurnCostUsd": {
+        "n": 3,
+        "median": 0.23225550000000003,
+        "min": 0.22929629999999998,
+        "max": 0.2335332
+      },
+      "t6SurvivingLabels": [
+        "none(tools_changed)",
+        "none(tools_changed)",
+        "none(tools_changed)"
+      ]
+    },
+    {
+      "arm": "CC-M",
+      "harness": "claude_code_2.1.325",
+      "n": 3,
+      "t5PromptTokens": {
+        "n": 3,
+        "median": 14443,
+        "min": 14378,
+        "max": 14517
+      },
+      "t6CacheReadTokens": {
+        "n": 3,
+        "median": 14440,
+        "min": 14375,
+        "max": 14514
+      },
+      "t7CacheReadTokens": {
+        "n": 3,
+        "median": 14924,
+        "min": 14855,
+        "max": 15015
+      },
+      "t6CostUsd": {
+        "n": 3,
+        "median": 0.009186,
+        "min": 0.0087015,
+        "max": 0.00922695
+      },
+      "total12TurnCostUsd": {
+        "n": 3,
+        "median": 0.16682205000000003,
+        "min": 0.1658301,
+        "max": 0.17085255000000002
+      },
+      "t6SurvivingLabels": [
+        "tools+system+history",
+        "tools+system+history",
+        "tools+system+history"
+      ]
+    },
+    {
+      "arm": "CC-S",
+      "harness": "claude_code_2.1.325",
+      "n": 3,
+      "t5PromptTokens": {
+        "n": 3,
+        "median": 14995,
+        "min": 14944,
+        "max": 15041
+      },
+      "t6CacheReadTokens": {
+        "n": 3,
+        "median": 14992,
+        "min": 14941,
+        "max": 15038
+      },
+      "t7CacheReadTokens": {
+        "n": 3,
+        "median": 15311,
+        "min": 15239,
+        "max": 15356
+      },
+      "t6CostUsd": {
+        "n": 3,
+        "median": 0.0081579,
+        "min": 0.0079488,
+        "max": 0.00817785
+      },
+      "total12TurnCostUsd": {
+        "n": 3,
+        "median": 0.16547805000000002,
+        "min": 0.16302360000000005,
+        "max": 0.1670325
+      },
+      "t6SurvivingLabels": [
+        "tools+system+history",
+        "tools+system+history",
+        "tools+system+history"
+      ]
+    }
+  ]
+}

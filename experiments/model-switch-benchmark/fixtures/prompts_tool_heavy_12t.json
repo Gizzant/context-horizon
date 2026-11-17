@@ -1,0 +1,153 @@
+{
+  "tier": "tool_heavy_12t",
+  "description": "12 sequential Read-heavy turns (4 distinct src/*.mjs files per turn, 48 distinct files total, offset=1 limit=25) enforcing one Read tool call per assistant message (target R = 5 API requests/turn).",
+  "turns": 12,
+  "targetRequestsPerTurn": 5,
+  "readsPerTurn": 4,
+  "prompts": [
+    {
+      "turn": 1,
+      "phase": "tool_load",
+      "expectToolUse": true,
+      "files": [
+        "src/adapters/antigravity/index.mjs",
+        "src/adapters/claude-code/index.mjs",
+        "src/cli/cost_radar.mjs",
+        "src/cli/doctor.mjs"
+      ],
+      "prompt": "STRICT SEQUENTIAL PROTOCOL: Emit AT MOST ONE `Read` tool call per assistant response (never batch multiple `Read` calls in one message). Read these 4 slices one by one (offset=1, limit=25): 1) `src/adapters/antigravity/index.mjs`, 2) `src/adapters/claude-code/index.mjs`, 3) `src/cli/cost_radar.mjs`, 4) `src/cli/doctor.mjs`. After all 4 finish, give 2 concise bullets (<40 words total) naming one symbol per file."
+    },
+    {
+      "turn": 2,
+      "phase": "tool_load",
+      "expectToolUse": true,
+      "files": [
+        "src/cli/horizon_hud.mjs",
+        "src/cli/init.mjs",
+        "src/cli/postmortem.mjs",
+        "src/core-isomorphic/catalog/detectorCatalog.mjs"
+      ],
+      "prompt": "STRICT SEQUENTIAL PROTOCOL: Emit AT MOST ONE `Read` tool call per assistant response (never batch multiple `Read` calls in one message). Read these 4 slices one by one (offset=1, limit=25): 1) `src/cli/horizon_hud.mjs`, 2) `src/cli/init.mjs`, 3) `src/cli/postmortem.mjs`, 4) `src/core-isomorphic/catalog/detectorCatalog.mjs`. After all 4 finish, give 2 concise bullets (<40 words total) naming one symbol per file."
+    },
+    {
+      "turn": 3,
+      "phase": "switch_point",
+      "expectToolUse": true,
+      "files": [
+        "src/core-isomorphic/coach/cacheGravityRouter.mjs",
+        "src/core-isomorphic/coach/repoCalibration.mjs",
+        "src/core-isomorphic/coach/savedQuotaLedger.mjs",
+        "src/core-isomorphic/coach/stateBatonHydrator.mjs"
+      ],
+      "prompt": "STRICT SEQUENTIAL PROTOCOL: Emit AT MOST ONE `Read` tool call per assistant response (never batch multiple `Read` calls in one message). Read these 4 slices one by one (offset=1, limit=25): 1) `src/core-isomorphic/coach/cacheGravityRouter.mjs`, 2) `src/core-isomorphic/coach/repoCalibration.mjs`, 3) `src/core-isomorphic/coach/savedQuotaLedger.mjs`, 4) `src/core-isomorphic/coach/stateBatonHydrator.mjs`. After all 4 finish, give 2 concise bullets (<40 words total) naming one symbol per file."
+    },
+    {
+      "turn": 4,
+      "phase": "post_switch_1",
+      "expectToolUse": true,
+      "files": [
+        "src/core-isomorphic/coach/ttlWatchdog.mjs",
+        "src/core-isomorphic/config/catalogLoader.mjs",
+        "src/core-isomorphic/config/horizonConfig.mjs",
+        "src/core-isomorphic/control/callTree.mjs"
+      ],
+      "prompt": "STRICT SEQUENTIAL PROTOCOL: Emit AT MOST ONE `Read` tool call per assistant response (never batch multiple `Read` calls in one message). Read these 4 slices one by one (offset=1, limit=25): 1) `src/core-isomorphic/coach/ttlWatchdog.mjs`, 2) `src/core-isomorphic/config/catalogLoader.mjs`, 3) `src/core-isomorphic/config/horizonConfig.mjs`, 4) `src/core-isomorphic/control/callTree.mjs`. After all 4 finish, give 2 concise bullets (<40 words total) naming one symbol per file."
+    },
+    {
+      "turn": 5,
+      "phase": "post_switch",
+      "expectToolUse": true,
+      "files": [
+        "src/core-isomorphic/control/coachLatches.mjs",
+        "src/core-isomorphic/control/controlStateMachine.mjs",
+        "src/core-isomorphic/control/index.mjs",
+        "src/core-isomorphic/control/swarmWorktree.mjs"
+      ],
+      "prompt": "STRICT SEQUENTIAL PROTOCOL: Emit AT MOST ONE `Read` tool call per assistant response (never batch multiple `Read` calls in one message). Read these 4 slices one by one (offset=1, limit=25): 1) `src/core-isomorphic/control/coachLatches.mjs`, 2) `src/core-isomorphic/control/controlStateMachine.mjs`, 3) `src/core-isomorphic/control/index.mjs`, 4) `src/core-isomorphic/control/swarmWorktree.mjs`. After all 4 finish, give 2 concise bullets (<40 words total) naming one symbol per file."
+    },
+    {
+      "turn": 6,
+      "phase": "post_switch",
+      "expectToolUse": true,
+      "files": [
+        "src/core-isomorphic/control/toolSuspension.mjs",
+        "src/core-isomorphic/diagnostics/drift_guard.mjs",
+        "src/core-isomorphic/diagnostics/micro_skills.mjs",
+        "src/core-isomorphic/diagnostics/prompt_hygiene_governor.mjs"
+      ],
+      "prompt": "STRICT SEQUENTIAL PROTOCOL: Emit AT MOST ONE `Read` tool call per assistant response (never batch multiple `Read` calls in one message). Read these 4 slices one by one (offset=1, limit=25): 1) `src/core-isomorphic/control/toolSuspension.mjs`, 2) `src/core-isomorphic/diagnostics/drift_guard.mjs`, 3) `src/core-isomorphic/diagnostics/micro_skills.mjs`, 4) `src/core-isomorphic/diagnostics/prompt_hygiene_governor.mjs`. After all 4 finish, give 2 concise bullets (<40 words total) naming one symbol per file."
+    },
+    {
+      "turn": 7,
+      "phase": "post_switch",
+      "expectToolUse": true,
+      "files": [
+        "src/core-isomorphic/economics/billingBlocks.mjs",
+        "src/core-isomorphic/economics/cacheGravity.mjs",
+        "src/core-isomorphic/economics/cliffBreaker.mjs",
+        "src/core-isomorphic/economics/driftLatency.mjs"
+      ],
+      "prompt": "STRICT SEQUENTIAL PROTOCOL: Emit AT MOST ONE `Read` tool call per assistant response (never batch multiple `Read` calls in one message). Read these 4 slices one by one (offset=1, limit=25): 1) `src/core-isomorphic/economics/billingBlocks.mjs`, 2) `src/core-isomorphic/economics/cacheGravity.mjs`, 3) `src/core-isomorphic/economics/cliffBreaker.mjs`, 4) `src/core-isomorphic/economics/driftLatency.mjs`. After all 4 finish, give 2 concise bullets (<40 words total) naming one symbol per file."
+    },
+    {
+      "turn": 8,
+      "phase": "post_switch",
+      "expectToolUse": true,
+      "files": [
+        "src/core-isomorphic/economics/dualTtl.mjs",
+        "src/core-isomorphic/economics/index.mjs",
+        "src/core-isomorphic/economics/retentionRadar.mjs",
+        "src/core-isomorphic/guards/circuitBreakers.mjs"
+      ],
+      "prompt": "STRICT SEQUENTIAL PROTOCOL: Emit AT MOST ONE `Read` tool call per assistant response (never batch multiple `Read` calls in one message). Read these 4 slices one by one (offset=1, limit=25): 1) `src/core-isomorphic/economics/dualTtl.mjs`, 2) `src/core-isomorphic/economics/index.mjs`, 3) `src/core-isomorphic/economics/retentionRadar.mjs`, 4) `src/core-isomorphic/guards/circuitBreakers.mjs`. After all 4 finish, give 2 concise bullets (<40 words total) naming one symbol per file."
+    },
+    {
+      "turn": 9,
+      "phase": "post_switch",
+      "expectToolUse": true,
+      "files": [
+        "src/core-isomorphic/guards/det01_03_shell_secret.mjs",
+        "src/core-isomorphic/guards/det04_12_thrash_rot.mjs",
+        "src/core-isomorphic/guards/det13_20_mcp_scope.mjs",
+        "src/core-isomorphic/guards/losslessPostSanitizer.mjs"
+      ],
+      "prompt": "STRICT SEQUENTIAL PROTOCOL: Emit AT MOST ONE `Read` tool call per assistant response (never batch multiple `Read` calls in one message). Read these 4 slices one by one (offset=1, limit=25): 1) `src/core-isomorphic/guards/det01_03_shell_secret.mjs`, 2) `src/core-isomorphic/guards/det04_12_thrash_rot.mjs`, 3) `src/core-isomorphic/guards/det13_20_mcp_scope.mjs`, 4) `src/core-isomorphic/guards/losslessPostSanitizer.mjs`. After all 4 finish, give 2 concise bullets (<40 words total) naming one symbol per file."
+    },
+    {
+      "turn": 10,
+      "phase": "post_switch",
+      "expectToolUse": true,
+      "files": [
+        "src/core-isomorphic/telemetry/otelExporter.mjs",
+        "src/core-isomorphic/telemetry/scopeLockRegistry.mjs",
+        "src/core-isomorphic/telemetry/sprintMetrics.mjs",
+        "src/core-isomorphic/telemetry/swarmTopology.mjs"
+      ],
+      "prompt": "STRICT SEQUENTIAL PROTOCOL: Emit AT MOST ONE `Read` tool call per assistant response (never batch multiple `Read` calls in one message). Read these 4 slices one by one (offset=1, limit=25): 1) `src/core-isomorphic/telemetry/otelExporter.mjs`, 2) `src/core-isomorphic/telemetry/scopeLockRegistry.mjs`, 3) `src/core-isomorphic/telemetry/sprintMetrics.mjs`, 4) `src/core-isomorphic/telemetry/swarmTopology.mjs`. After all 4 finish, give 2 concise bullets (<40 words total) naming one symbol per file."
+    },
+    {
+      "turn": 11,
+      "phase": "post_switch",
+      "expectToolUse": true,
+      "files": [
+        "src/core-isomorphic/telemetry/telemetryBridge.mjs",
+        "src/core-isomorphic/ui/brailleSparkline.mjs",
+        "src/core-isomorphic/ui/costRadarSvg.mjs",
+        "src/core-isomorphic/ui/horizonGrid.mjs"
+      ],
+      "prompt": "STRICT SEQUENTIAL PROTOCOL: Emit AT MOST ONE `Read` tool call per assistant response (never batch multiple `Read` calls in one message). Read these 4 slices one by one (offset=1, limit=25): 1) `src/core-isomorphic/telemetry/telemetryBridge.mjs`, 2) `src/core-isomorphic/ui/brailleSparkline.mjs`, 3) `src/core-isomorphic/ui/costRadarSvg.mjs`, 4) `src/core-isomorphic/ui/horizonGrid.mjs`. After all 4 finish, give 2 concise bullets (<40 words total) naming one symbol per file."
+    },
+    {
+      "turn": 12,
+      "phase": "post_switch",
+      "expectToolUse": true,
+      "files": [
+        "src/core-isomorphic/ui/pdfReceiptGenerator.mjs",
+        "src/core-isomorphic/ustf/normalizer.mjs",
+        "src/core-isomorphic/ustf/schema.mjs",
+        "src/core-isomorphic/utils/runtime.mjs"
+      ],
+      "prompt": "STRICT SEQUENTIAL PROTOCOL: Emit AT MOST ONE `Read` tool call per assistant response (never batch multiple `Read` calls in one message). Read these 4 slices one by one (offset=1, limit=25): 1) `src/core-isomorphic/ui/pdfReceiptGenerator.mjs`, 2) `src/core-isomorphic/ustf/normalizer.mjs`, 3) `src/core-isomorphic/ustf/schema.mjs`, 4) `src/core-isomorphic/utils/runtime.mjs`. After all 4 finish, give 2 concise bullets (<40 words total) naming one symbol per file."
+    }
+  ]
+}

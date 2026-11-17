@@ -1,0 +1,6 @@
+{"event":"start","ok":true,"timestamp":"2026-11-14T18:30:11.384Z","usage":35.06669945,"limit":50,"limit_remaining":14.933300549999998}
+{"event":"after_run","runId":"C2_L1_hb_rule_v2_r01","ok":true,"timestamp":"2026-11-14T18:32:40.772Z","usage":35.39090445,"limit":50,"limit_remaining":14.60909555}
+{"event":"after_run","runId":"C2_L1_hb_rule_v2_r02","ok":true,"timestamp":"2026-11-14T18:35:21.423Z","usage":35.85178275,"limit":50,"limit_remaining":14.148217250000002}
+{"event":"after_run","runId":"C2_L1_hb_rule_v2_r03","ok":true,"timestamp":"2026-11-14T18:38:00.178Z","usage":36.2218071,"limit":50,"limit_remaining":13.7781929}
+{"event":"after_run","runId":"C2_L2_hb_rule_v2_r01","ok":true,"timestamp":"2026-11-14T18:40:59.558Z","usage":36.7686956,"limit":50,"limit_remaining":13.231304399999999}
+{"event":"end","ok":true,"timestamp":"2026-11-14T18:41:08.240Z","usage":36.8231462,"limit":50,"limit_remaining":13.176853800000004}

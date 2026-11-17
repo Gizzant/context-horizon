@@ -14,7 +14,10 @@ import {
   sanitizeRslSessionId,
   snapshotTestSuiteBaseline,
   recordStepOutcome,
-  buildContrastiveDigest
+  buildContrastiveDigest,
+  RSL_ANTIGRAVITY_POST_TOOL_MATCHER,
+  isMutatingOrExecRslTool,
+  isDuplicateRslStepEvent
 } from '../core/rsl_triage.mjs';
 import { distillContrastiveDigest } from '../core/rsl_distiller.mjs';
 import {
@@ -135,6 +138,25 @@ export function handleAntigravityRslHook(payload = {}, options = {}) {
   }
 
   if (event === 'PostToolUse') {
+    const toolName = String(
+      payload?.toolCall?.name || payload?.tool_name || payload?.toolName || ''
+    ).trim();
+    if (toolName && !isMutatingOrExecRslTool(toolName)) {
+      return {
+        exitCode: 0,
+        stdoutJson: {},
+        event,
+        skippedReason: 'read_only_tool'
+      };
+    }
+    if (isDuplicateRslStepEvent(payload, { ...options, platform: 'antigravity' })) {
+      return {
+        exitCode: 0,
+        stdoutJson: {},
+        event,
+        deduplicated: true
+      };
+    }
     const recorded = recordStepOutcome(payload, { ...options, platform: 'antigravity' });
     return {
       exitCode: 0,
@@ -217,7 +239,7 @@ export function syncAntigravityWorkspaceRslHooks(workspaceRoot, options = {}) {
       ],
       PostToolUse: [
         {
-          matcher: '*',
+          matcher: RSL_ANTIGRAVITY_POST_TOOL_MATCHER,
           hooks: [
             { type: 'command', command: `node "${hookScript}" --event=PostToolUse`, timeout: 5 }
           ]

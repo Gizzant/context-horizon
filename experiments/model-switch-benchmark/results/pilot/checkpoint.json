@@ -1,0 +1,23 @@
+{
+  "mode": "pilot",
+  "runs": {
+    "PILOT_A_S_r01": {
+      "sessionId": "sess_PILOT_A_S_r01",
+      "nextTurn": 7,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: PILOT_A_S_r01_63bb5bc9",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "PILOT_B_L_r01": {
+      "sessionId": "sess_PILOT_B_L_r01",
+      "nextTurn": 8,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: PILOT_B_L_r01_203e34b7",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    }
+  }
+}

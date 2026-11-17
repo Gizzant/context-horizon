@@ -76,6 +76,7 @@ import {
 import { ProgressiveCheckpointer } from '../../src/core/coach/progressive_checkpointer.mjs';
 import { atomicWriteFileSync } from '../../src/core/atomic_io.mjs';
 import { MicroIpcServer } from '../../src/engine-node/ipc/server.mjs';
+import { registerDaemonHookRpcMethods } from '../../src/hooks/daemon_hook_bridge.mjs';
 
 export const HORIZON_CSRF_TOKEN = crypto.randomBytes(32).toString('hex');
 export const MAX_REQUEST_BODY_BYTES = 1_048_576; // 1 MB
@@ -2429,6 +2430,7 @@ export function startServer(port = EXPLICIT_PORT) {
         let ipcServer = null;
         try {
           ipcServer = new MicroIpcServer();
+          registerDaemonHookRpcMethods(ipcServer);
           ipcServer.listen().catch((ipcErr) => {
             recordDaemonDiagnostic('ipcServer:listen', ipcErr);
           });

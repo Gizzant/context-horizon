@@ -34,3 +34,5 @@ docs/*_PLAN.md
 docs/HANDOFF_*.md
 docs/archive/
 docs/specs/stage_*_prompt.md
+~$*
+

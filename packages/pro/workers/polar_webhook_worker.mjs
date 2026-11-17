@@ -7,7 +7,7 @@
  */
 
 import crypto from 'node:crypto';
-import { signProLicensePayload } from '../../../src/core/pro_license.mjs';
+import { signProLicensePayload } from '../src/pro_license.mjs';
 
 /**
  * Verifies a Standard Webhooks / Polar.sh HMAC-SHA256 signature (`v1,<base64Sig>`).

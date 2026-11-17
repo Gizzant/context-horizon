@@ -1,0 +1,73 @@
+{
+  "generatedAt": "2026-11-16T16:02:51.101Z",
+  "liveApiSpendUsd": 0,
+  "corpus": {
+    "sessions": 59,
+    "totalTurns": 762,
+    "groundTruth": {
+      "task_boundary": 70,
+      "mid_debug": 75,
+      "other": 617
+    }
+  },
+  "arms": {
+    "arm1_phase1_turn_level": {
+      "tp": 41,
+      "fp": 69,
+      "fn": 29,
+      "tn": 623,
+      "totalTurns": 762,
+      "precision": 0.3727,
+      "recall": 0.5857,
+      "f1": 0.4555,
+      "falsePromptsPer100Turns": 9.06
+    },
+    "arm2_per_tool_unfiltered_trailing": {
+      "tp": 70,
+      "fp": 136,
+      "fn": 0,
+      "tn": 556,
+      "totalTurns": 762,
+      "precision": 0.3398,
+      "recall": 1,
+      "f1": 0.5072,
+      "falsePromptsPer100Turns": 17.85
+    },
+    "arm3_per_tool_fixed_causal": {
+      "tp": 70,
+      "fp": 18,
+      "fn": 0,
+      "tn": 674,
+      "totalTurns": 762,
+      "precision": 0.7955,
+      "recall": 1,
+      "f1": 0.8861,
+      "falsePromptsPer100Turns": 2.36
+    },
+    "arm4_per_tool_with_4turn_cooldown": {
+      "tp": 43,
+      "fp": 13,
+      "fn": 27,
+      "tn": 679,
+      "totalTurns": 762,
+      "precision": 0.7679,
+      "recall": 0.6143,
+      "f1": 0.6826,
+      "falsePromptsPer100Turns": 1.71
+    }
+  },
+  "arm3FalsePositiveBreakdown": {
+    "terminal_turn": 15,
+    "next_turn_bug_report": 3
+  },
+  "supplementaryRoiGatedAdvisor": {
+    "fires": 3,
+    "tp": 3,
+    "fp": 0,
+    "precision": 1
+  },
+  "artifacts": {
+    "json": "C:\\Projects\\ga-visualizer-v2\\experiments\\model-switch-benchmark\\results\\smart_compact\\organic_h7_boundary_audit.json",
+    "csv": "C:\\Projects\\ga-visualizer-v2\\experiments\\model-switch-benchmark\\results\\smart_compact\\organic_h7_boundary_turns.csv"
+  }
+}

@@ -1,0 +1,1149 @@
+{
+  "generatedAtUtc": "2026-11-15T17:57:45.630Z",
+  "openRouterKeyStatus": {
+    "status": 200,
+    "usageUsd": 48.006627,
+    "limitUsd": 200,
+    "limitRemainingUsd": 151.993373
+  },
+  "openRouterAnthropicModels": [
+    {
+      "id": "anthropic/claude-fable-5.2",
+      "name": "Anthropic: Claude Fable 5.2",
+      "context_length": 1000000,
+      "input_per_1m": 8,
+      "output_per_1m": 40,
+      "cache_read_per_1m": 0.2,
+      "cache_write_per_1m": 10,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-fable-5.2:batch",
+      "name": "Anthropic: Claude Fable 5.2 (batch)",
+      "context_length": 1000000,
+      "input_per_1m": 4,
+      "output_per_1m": 20,
+      "cache_read_per_1m": 0.1,
+      "cache_write_per_1m": 5,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-haiku-5.5",
+      "name": "Anthropic: Claude Haiku 5.5",
+      "context_length": 1000000,
+      "input_per_1m": 0.1,
+      "output_per_1m": 0.5,
+      "cache_read_per_1m": 0.01,
+      "cache_write_per_1m": 0.125,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-haiku-5.5:batch",
+      "name": "Anthropic: Claude Haiku 5.5 (batch)",
+      "context_length": 1000000,
+      "input_per_1m": 0.05,
+      "output_per_1m": 0.25,
+      "cache_read_per_1m": 0.005,
+      "cache_write_per_1m": 0.0625,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-sonnet-5.5",
+      "name": "Anthropic: Claude Sonnet 5.5",
+      "context_length": 1000000,
+      "input_per_1m": 2,
+      "output_per_1m": 10,
+      "cache_read_per_1m": 0.1,
+      "cache_write_per_1m": 2.5,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-sonnet-5.5:batch",
+      "name": "Anthropic: Claude Sonnet 5.5 (batch)",
+      "context_length": 1000000,
+      "input_per_1m": 1,
+      "output_per_1m": 5,
+      "cache_read_per_1m": 0.05,
+      "cache_write_per_1m": 1.25,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-opus-5.5",
+      "name": "Anthropic: Claude Opus 5.5",
+      "context_length": 1000000,
+      "input_per_1m": 4,
+      "output_per_1m": 20,
+      "cache_read_per_1m": 0.2,
+      "cache_write_per_1m": 5,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-opus-5.5:batch",
+      "name": "Anthropic: Claude Opus 5.5 (batch)",
+      "context_length": 1000000,
+      "input_per_1m": 2,
+      "output_per_1m": 10,
+      "cache_read_per_1m": 0.1,
+      "cache_write_per_1m": 2.5,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-fable-5.1",
+      "name": "Anthropic: Claude Fable 5.1",
+      "context_length": 1000000,
+      "input_per_1m": 10,
+      "output_per_1m": 50,
+      "cache_read_per_1m": 0.25,
+      "cache_write_per_1m": 12.5,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-fable-5.1:batch",
+      "name": "Anthropic: Claude Fable 5.1 (batch)",
+      "context_length": 1000000,
+      "input_per_1m": 5,
+      "output_per_1m": 25,
+      "cache_read_per_1m": 0.125,
+      "cache_write_per_1m": 6.25,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-opus-5",
+      "name": "Anthropic: Claude Opus 5",
+      "context_length": 1000000,
+      "input_per_1m": 5,
+      "output_per_1m": 25,
+      "cache_read_per_1m": 0.5,
+      "cache_write_per_1m": 6.25,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-opus-5:batch",
+      "name": "Anthropic: Claude Opus 5 (batch)",
+      "context_length": 1000000,
+      "input_per_1m": 2.5,
+      "output_per_1m": 12.5,
+      "cache_read_per_1m": 0.25,
+      "cache_write_per_1m": 3.125,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-sonnet-5",
+      "name": "Anthropic: Claude Sonnet 5",
+      "context_length": 1000000,
+      "input_per_1m": 2,
+      "output_per_1m": 10,
+      "cache_read_per_1m": 0.2,
+      "cache_write_per_1m": 2.5,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-fable-5",
+      "name": "Anthropic: Claude Fable 5",
+      "context_length": 1000000,
+      "input_per_1m": 10,
+      "output_per_1m": 50,
+      "cache_read_per_1m": 1,
+      "cache_write_per_1m": 12.5,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-opus-4.8",
+      "name": "Anthropic: Claude Opus 4.8",
+      "context_length": 1000000,
+      "input_per_1m": 5,
+      "output_per_1m": 25,
+      "cache_read_per_1m": 0.5,
+      "cache_write_per_1m": 6.25,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-opus-4.7",
+      "name": "Anthropic: Claude Opus 4.7",
+      "context_length": 1000000,
+      "input_per_1m": 5,
+      "output_per_1m": 25,
+      "cache_read_per_1m": 0.5,
+      "cache_write_per_1m": 6.25,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "tool_choice",
+        "tools",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-sonnet-4.6",
+      "name": "Anthropic: Claude Sonnet 4.6",
+      "context_length": 1000000,
+      "input_per_1m": 3,
+      "output_per_1m": 15,
+      "cache_read_per_1m": 0.3,
+      "cache_write_per_1m": 3.75,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-opus-4.6",
+      "name": "Anthropic: Claude Opus 4.6",
+      "context_length": 1000000,
+      "input_per_1m": 5,
+      "output_per_1m": 25,
+      "cache_read_per_1m": 0.5,
+      "cache_write_per_1m": 6.25,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "reasoning_effort",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-opus-4.5",
+      "name": "Anthropic: Claude Opus 4.5",
+      "context_length": 200000,
+      "input_per_1m": 5,
+      "output_per_1m": 25,
+      "cache_read_per_1m": 0.5,
+      "cache_write_per_1m": 6.25,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "verbosity"
+      ]
+    },
+    {
+      "id": "anthropic/claude-haiku-4.5",
+      "name": "Anthropic: Claude Haiku 4.5",
+      "context_length": 200000,
+      "input_per_1m": 1,
+      "output_per_1m": 5,
+      "cache_read_per_1m": 0.1,
+      "cache_write_per_1m": 1.25,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ]
+    },
+    {
+      "id": "anthropic/claude-sonnet-4.5",
+      "name": "Anthropic: Claude Sonnet 4.5",
+      "context_length": 1000000,
+      "input_per_1m": 3,
+      "output_per_1m": 15,
+      "cache_read_per_1m": 0.3,
+      "cache_write_per_1m": 3.75,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_completion_tokens",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ]
+    },
+    {
+      "id": "anthropic/claude-opus-4.1",
+      "name": "Anthropic: Claude Opus 4.1",
+      "context_length": 200000,
+      "input_per_1m": 15,
+      "output_per_1m": 75,
+      "cache_read_per_1m": 1.5,
+      "cache_write_per_1m": 18.75,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "stop",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ]
+    }
+  ],
+  "directAnthropicModels": {
+    "configured": true,
+    "ok": true,
+    "authModeUsed": "x-api-key",
+    "attempts": [
+      {
+        "authMode": "x-api-key",
+        "statusCode": 200,
+        "errorPreview": null
+      }
+    ],
+    "models": [
+      {
+        "id": "claude-fable-5-2",
+        "display_name": "Claude Fable 5.2",
+        "created_at": "2026-11-09T18:30:00Z"
+      },
+      {
+        "id": "claude-haiku-5-5",
+        "display_name": "Claude Haiku 5.5",
+        "created_at": "2026-10-07T18:00:00Z"
+      },
+      {
+        "id": "claude-sonnet-5-5",
+        "display_name": "Claude Sonnet 5.5",
+        "created_at": "2026-09-28T00:00:00Z"
+      },
+      {
+        "id": "claude-opus-5-5",
+        "display_name": "Claude Opus 5.5",
+        "created_at": "2026-09-21T16:24:00Z"
+      },
+      {
+        "id": "claude-fable-5-1",
+        "display_name": "Claude Fable 5.1",
+        "created_at": "2026-08-28T00:00:00Z"
+      },
+      {
+        "id": "claude-opus-5",
+        "display_name": "Claude Opus 5",
+        "created_at": "2026-07-24T00:00:00Z"
+      },
+      {
+        "id": "claude-sonnet-5",
+        "display_name": "Claude Sonnet 5",
+        "created_at": "2026-06-29T00:00:00Z"
+      },
+      {
+        "id": "claude-fable-5",
+        "display_name": "Claude Fable 5",
+        "created_at": "2026-06-07T00:00:00Z"
+      },
+      {
+        "id": "claude-opus-4-8",
+        "display_name": "Claude Opus 4.8",
+        "created_at": "2026-05-28T00:00:00Z"
+      },
+      {
+        "id": "claude-opus-4-7",
+        "display_name": "Claude Opus 4.7",
+        "created_at": "2026-04-14T00:00:00Z"
+      },
+      {
+        "id": "claude-sonnet-4-6",
+        "display_name": "Claude Sonnet 4.6",
+        "created_at": "2026-02-17T00:00:00Z"
+      },
+      {
+        "id": "claude-opus-4-6",
+        "display_name": "Claude Opus 4.6",
+        "created_at": "2026-02-04T00:00:00Z"
+      },
+      {
+        "id": "claude-opus-4-5-20251101",
+        "display_name": "Claude Opus 4.5",
+        "created_at": "2025-11-24T00:00:00Z"
+      },
+      {
+        "id": "claude-haiku-4-5-20251001",
+        "display_name": "Claude Haiku 4.5",
+        "created_at": "2025-10-15T00:00:00Z"
+      }
+    ]
+  },
+  "geminiProbe": {
+    "configured": true,
+    "ok": true,
+    "workingEndpoint": "generativelanguage_v1beta_header",
+    "geminiModels": [
+      {
+        "name": "models/gemini-2.5-flash",
+        "displayName": "Gemini 2.5 Flash",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "createCachedContent",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-2.5-pro",
+        "displayName": "Gemini 2.5 Pro",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "createCachedContent",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-2.5-flash-preview-tts",
+        "displayName": "Gemini 2.5 Flash Preview TTS",
+        "supportedGenerationMethods": [
+          "countTokens",
+          "generateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-2.5-pro-preview-tts",
+        "displayName": "Gemini 2.5 Pro Preview TTS",
+        "supportedGenerationMethods": [
+          "countTokens",
+          "generateContent",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-2.5-flash-lite",
+        "displayName": "Gemini 2.5 Flash-Lite",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "createCachedContent",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-2.5-flash-image",
+        "displayName": "Nano Banana",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3-flash-preview",
+        "displayName": "Gemini 3 Flash Preview",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "createCachedContent",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3.1-pro-preview",
+        "displayName": "Gemini 3.1 Pro Preview",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "createCachedContent",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3.1-pro-preview-customtools",
+        "displayName": "Gemini 3.1 Pro Preview Custom Tools",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "createCachedContent",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3.1-flash-lite-preview",
+        "displayName": "Gemini 3.1 Flash Lite Preview",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "createCachedContent",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3.1-flash-lite",
+        "displayName": "Gemini 3.1 Flash Lite",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "createCachedContent",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3-pro-image-preview",
+        "displayName": "Nano Banana Pro",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3-pro-image",
+        "displayName": "Nano Banana Pro",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3.1-flash-image-preview",
+        "displayName": "Nano Banana 2",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3.1-flash-image",
+        "displayName": "Nano Banana 2",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3.1-flash-lite-image",
+        "displayName": "Nano Banana 2 Lite",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3.5-flash",
+        "displayName": "Gemini 3.5 Flash",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "createCachedContent",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3.5-flash-lite",
+        "displayName": "Gemini 3.5 Flash Lite",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "createCachedContent",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3.5-transcribe",
+        "displayName": "Gemini 3.5 Transcribe",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens"
+        ]
+      },
+      {
+        "name": "models/gemini-3.6-flash",
+        "displayName": "Gemini 3.6 Flash",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "createCachedContent",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3.7-flash",
+        "displayName": "Gemini 3.7 Flash",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "createCachedContent",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3.8-flash",
+        "displayName": "Gemini 3.8 Flash",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "createCachedContent",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3.1-flash-tts-preview",
+        "displayName": "Gemini 3.1 Flash TTS Preview",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3.8-flash-tts",
+        "displayName": "Gemini 3.8 Flash TTS",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "batchGenerateContent"
+        ]
+      },
+      {
+        "name": "models/gemini-3.8-flash-lite-tts",
+        "displayName": "Gemini 3.8 Flash Lite TTS",
+        "supportedGenerationMethods": [
+          "generateContent",
+          "countTokens",
+          "batchGenerateContent"
+        ]
+      }
+    ],
+    "probeAttempts": [
+      {
+        "label": "generativelanguage_v1beta_header",
+        "statusCode": 200,
+        "errorPreview": null
+      }
+    ],
+    "cacheProbe": {
+      "targetModel": "models/gemini-3.1-pro-preview",
+      "createStatus": 200,
+      "usageMetadata": {
+        "totalTokenCount": 6001
+      },
+      "expireTime": "2026-11-15T17:58:43.647486086Z",
+      "responseKeys": [
+        "name",
+        "model",
+        "createTime",
+        "updateTime",
+        "expireTime",
+        "displayName",
+        "usageMetadata"
+      ],
+      "errorPreview": null,
+      "deletedStatus": 200
+    }
+  },
+  "openRouterCapabilityProbes": {
+    "basic5mWriteRead": {
+      "writeStatus": 200,
+      "write5mTokens": 3150,
+      "writeTotalTokens": 3150,
+      "writeCostSource": "billed",
+      "writeBilledUsd": 0.0119115,
+      "readStatus": 200,
+      "readTokens": 3150,
+      "readBilledUsd": 0.001089,
+      "error": null
+    },
+    "maxTokensZero": {
+      "warmStatus": 200,
+      "warmOutputTokens": 9,
+      "warmWriteTokens": 3154,
+      "warmError": null,
+      "followStatus": 200,
+      "followCacheReadTokens": 3145,
+      "works": true,
+      "strictCountPromptOutputTokens": 116,
+      "strictCountPromptStopReason": "end_turn",
+      "strictCountPromptBilledUsd": 0.0136065,
+      "trueZeroOutput": false
+    },
+    "ttl1h": {
+      "status": 200,
+      "cacheWrite5mTokens": 0,
+      "cacheWrite1hTokens": 3156,
+      "cacheWriteTotalTokens": 3156,
+      "billedCostUsd": 0.01905,
+      "computed1hCostUsd": 0.01905,
+      "costSource": "billed",
+      "rawUsage": {
+        "input_tokens": 3,
+        "output_tokens": 7,
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "cache_creation_input_tokens": 3156,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 3156
+        },
+        "inference_geo": "global",
+        "server_tool_use": null,
+        "service_tier": "standard",
+        "speed": "standard",
+        "cost": 0.01905,
+        "is_byok": false,
+        "cost_details": {
+          "upstream_inference_cost": 0.01905,
+          "upstream_inference_prompt_cost": 0.018945,
+          "upstream_inference_completions_cost": 0.000105
+        }
+      },
+      "error": null,
+      "splitReported": true
+    },
+    "midConversationOutputConfig": {
+      "t1Status": 200,
+      "t1Error": null,
+      "t2Status": 400,
+      "t2CacheReadTokens": 0,
+      "t2CacheWriteTokens": 0,
+      "t2Error": "{\"type\":\"invalid_request_error\",\"message\":\"Mid-conversation reasoning effort (configuration_update) is not supported on anthropic/claude-4.6-sonnet-20260217.\",\"error_type\":\"invalid_request\"}",
+      "worksAndPreservesPrefix": false
+    }
+  },
+  "directAnthropicCapabilityProbes": {
+    "basic5mWriteRead": {
+      "writeStatus": 200,
+      "write5mTokens": 4111,
+      "writeTotalTokens": 4111,
+      "writeCostSource": "computed",
+      "writeBilledUsd": "",
+      "readStatus": 200,
+      "readTokens": 4111,
+      "readBilledUsd": "",
+      "error": null
+    },
+    "maxTokensZero": {
+      "warmStatus": 200,
+      "warmOutputTokens": 0,
+      "warmWriteTokens": 4116,
+      "warmError": null,
+      "followStatus": 200,
+      "followCacheReadTokens": 4103,
+      "works": true
+    },
+    "ttl1h": {
+      "status": 200,
+      "cacheWrite5mTokens": 0,
+      "cacheWrite1hTokens": 4119,
+      "cacheWriteTotalTokens": 4119,
+      "billedCostUsd": "",
+      "computed1hCostUsd": 0.016644,
+      "costSource": "computed",
+      "rawUsage": {
+        "input_tokens": 4,
+        "cache_creation_input_tokens": 4119,
+        "cache_read_input_tokens": 0,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 4119
+        },
+        "output_tokens": 16,
+        "output_tokens_details": {
+          "thinking_tokens": 16
+        },
+        "service_tier": "standard",
+        "inference_geo": "global",
+        "speed": "standard"
+      },
+      "error": null,
+      "splitReported": true
+    },
+    "midConversationOutputConfig": {
+      "t1Status": 200,
+      "t1Error": null,
+      "t2Status": 200,
+      "t2CacheReadTokens": 4112,
+      "t2CacheWriteTokens": 19,
+      "t2Error": null,
+      "worksAndPreservesPrefix": true
+    }
+  },
+  "claudeCodeBetaProbe": {
+    "skipped": false,
+    "claudeVersion": "2.1.325",
+    "baselineExit": 0,
+    "baselineBetaHeader": "claude-code-20250219,interleaved-thinking-2025-05-14,context-management-2025-06-27,thinking-token-count-2026-05-13,effort-2025-11-24",
+    "withAnthropicCustomHeaders": {
+      "exit": 0,
+      "betaHeaderSent": "claude-code-20250219,interleaved-thinking-2025-05-14,context-management-2025-06-27,thinking-token-count-2026-05-13,effort-2025-11-24",
+      "forwardedMidEffortBeta": false
+    },
+    "withAnthropicBetaEnv": {
+      "exit": 0,
+      "betaHeaderSent": "claude-code-20250219,interleaved-thinking-2025-05-14,context-management-2025-06-27,thinking-token-count-2026-05-13,effort-2025-11-24",
+      "forwardedMidEffortBeta": false
+    }
+  },
+  "models": {
+    "anthropic/claude-fable-5.2": {
+      "input": 8,
+      "output": 40,
+      "write5m": 10,
+      "write1h": 16,
+      "read": 0.2
+    },
+    "anthropic/claude-fable-5.2:batch": {
+      "input": 4,
+      "output": 20,
+      "write5m": 5,
+      "write1h": 8,
+      "read": 0.1
+    },
+    "anthropic/claude-haiku-5.5": {
+      "input": 0.1,
+      "output": 0.5,
+      "write5m": 0.125,
+      "write1h": 0.2,
+      "read": 0.01
+    },
+    "anthropic/claude-haiku-5.5:batch": {
+      "input": 0.05,
+      "output": 0.25,
+      "write5m": 0.0625,
+      "write1h": 0.1,
+      "read": 0.005
+    },
+    "anthropic/claude-sonnet-5.5": {
+      "input": 2,
+      "output": 10,
+      "write5m": 2.5,
+      "write1h": 4,
+      "read": 0.1
+    },
+    "anthropic/claude-sonnet-5.5:batch": {
+      "input": 1,
+      "output": 5,
+      "write5m": 1.25,
+      "write1h": 2,
+      "read": 0.05
+    },
+    "anthropic/claude-opus-5.5": {
+      "input": 4,
+      "output": 20,
+      "write5m": 5,
+      "write1h": 8,
+      "read": 0.2
+    },
+    "anthropic/claude-opus-5.5:batch": {
+      "input": 2,
+      "output": 10,
+      "write5m": 2.5,
+      "write1h": 4,
+      "read": 0.1
+    },
+    "anthropic/claude-fable-5.1": {
+      "input": 10,
+      "output": 50,
+      "write5m": 12.5,
+      "write1h": 20,
+      "read": 0.25
+    },
+    "anthropic/claude-fable-5.1:batch": {
+      "input": 5,
+      "output": 25,
+      "write5m": 6.25,
+      "write1h": 10,
+      "read": 0.125
+    },
+    "anthropic/claude-opus-5": {
+      "input": 5,
+      "output": 25,
+      "write5m": 6.25,
+      "write1h": 10,
+      "read": 0.5
+    },
+    "anthropic/claude-opus-5:batch": {
+      "input": 2.5,
+      "output": 12.5,
+      "write5m": 3.125,
+      "write1h": 5,
+      "read": 0.25
+    },
+    "anthropic/claude-sonnet-5": {
+      "input": 2,
+      "output": 10,
+      "write5m": 2.5,
+      "write1h": 4,
+      "read": 0.2
+    },
+    "anthropic/claude-fable-5": {
+      "input": 10,
+      "output": 50,
+      "write5m": 12.5,
+      "write1h": 20,
+      "read": 1
+    },
+    "anthropic/claude-opus-4.8": {
+      "input": 5,
+      "output": 25,
+      "write5m": 6.25,
+      "write1h": 10,
+      "read": 0.5
+    },
+    "anthropic/claude-opus-4.7": {
+      "input": 5,
+      "output": 25,
+      "write5m": 6.25,
+      "write1h": 10,
+      "read": 0.5
+    },
+    "anthropic/claude-sonnet-4.6": {
+      "input": 3,
+      "output": 15,
+      "write5m": 3.75,
+      "write1h": 6,
+      "read": 0.3
+    },
+    "anthropic/claude-opus-4.6": {
+      "input": 5,
+      "output": 25,
+      "write5m": 6.25,
+      "write1h": 10,
+      "read": 0.5
+    },
+    "anthropic/claude-opus-4.5": {
+      "input": 5,
+      "output": 25,
+      "write5m": 6.25,
+      "write1h": 10,
+      "read": 0.5
+    },
+    "anthropic/claude-haiku-4.5": {
+      "input": 1,
+      "output": 5,
+      "write5m": 1.25,
+      "write1h": 2,
+      "read": 0.1
+    },
+    "anthropic/claude-sonnet-4.5": {
+      "input": 3,
+      "output": 15,
+      "write5m": 3.75,
+      "write1h": 6,
+      "read": 0.3
+    },
+    "anthropic/claude-opus-4.1": {
+      "input": 15,
+      "output": 75,
+      "write5m": 18.75,
+      "write1h": 30,
+      "read": 1.5
+    }
+  }
+}

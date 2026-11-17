@@ -12,7 +12,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { requireProFeature } from '../../../src/core/pro_license.mjs';
+import { requireProFeature } from './pro_license.mjs';
 
 /**
  * Builds the 5 Team FinOps Pack file payloads in memory.

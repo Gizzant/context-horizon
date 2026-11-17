@@ -1,0 +1,731 @@
+{
+  "generatedAtUtc": "2026-11-15T21:02:53.567Z",
+  "budgetW": 24000,
+  "arms": {
+    "A": {
+      "n": 3,
+      "totalCostUsd": {
+        "n": 3,
+        "median": 0.450831,
+        "min": 0.450067,
+        "max": 0.452072
+      },
+      "auxSummaryCostUsd": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "summaryOutputTokens": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "overallCacheHitPct": {
+        "n": 3,
+        "median": 93.9,
+        "min": 93.9,
+        "max": 93.91
+      },
+      "postTrimCacheHitPct": {
+        "n": 3,
+        "median": 96.14,
+        "min": 96.13,
+        "max": 96.14
+      },
+      "steadyStatePostCliffHitPct": {
+        "n": 3,
+        "median": 96.14,
+        "min": 96.13,
+        "max": 96.14
+      },
+      "rebuildEventsCount": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "constraintsPreserved": {
+        "k": 12,
+        "n": 15,
+        "p": 0.8,
+        "low": 0.5481455128483065,
+        "high": 0.9295245065301844
+      },
+      "constraintViolationsTotal": 3,
+      "constraintViolationsPerSession": {
+        "n": 3,
+        "median": 1,
+        "min": 1,
+        "max": 1
+      },
+      "perConstraintPass": {
+        "C1_PORT_9411": {
+          "k": 3,
+          "n": 3,
+          "p": 1,
+          "low": 0.4385029682449546,
+          "high": 1
+        },
+        "C2_HEADER_GUARD": {
+          "k": 3,
+          "n": 3,
+          "p": 1,
+          "low": 0.4385029682449546,
+          "high": 1
+        },
+        "C3_ERR_CHUNK": {
+          "k": 3,
+          "n": 3,
+          "p": 1,
+          "low": 0.4385029682449546,
+          "high": 1
+        },
+        "C4_OVERRIDE_FILE": {
+          "k": 3,
+          "n": 3,
+          "p": 1,
+          "low": 0.4385029682449546,
+          "high": 1
+        },
+        "C5_PRAGMA_TABS": {
+          "k": 0,
+          "n": 3,
+          "p": 0,
+          "low": 5.551115123125783e-17,
+          "high": 0.5614970317550454
+        }
+      },
+      "constraintsPreservedExclC5": {
+        "k": 12,
+        "n": 12,
+        "violationsTotal": 0,
+        "p": 1,
+        "low": 0.7575059933447592,
+        "high": 1
+      }
+    },
+    "B": {
+      "n": 3,
+      "totalCostUsd": {
+        "n": 3,
+        "median": 1.421494,
+        "min": 1.420324,
+        "max": 1.423023
+      },
+      "auxSummaryCostUsd": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "summaryOutputTokens": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "overallCacheHitPct": {
+        "n": 3,
+        "median": 39.75,
+        "min": 39.63,
+        "max": 39.77
+      },
+      "postTrimCacheHitPct": {
+        "n": 3,
+        "median": 13.82,
+        "min": 13.82,
+        "max": 13.82
+      },
+      "steadyStatePostCliffHitPct": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "rebuildEventsCount": {
+        "n": 3,
+        "median": 16,
+        "min": 16,
+        "max": 16
+      },
+      "constraintsPreserved": {
+        "k": 0,
+        "n": 15,
+        "p": 0,
+        "low": 0,
+        "high": 0.20388330103584862
+      },
+      "constraintViolationsTotal": 15,
+      "constraintViolationsPerSession": {
+        "n": 3,
+        "median": 5,
+        "min": 5,
+        "max": 5
+      },
+      "perConstraintPass": {
+        "C1_PORT_9411": {
+          "k": 0,
+          "n": 3,
+          "p": 0,
+          "low": 5.551115123125783e-17,
+          "high": 0.5614970317550454
+        },
+        "C2_HEADER_GUARD": {
+          "k": 0,
+          "n": 3,
+          "p": 0,
+          "low": 5.551115123125783e-17,
+          "high": 0.5614970317550454
+        },
+        "C3_ERR_CHUNK": {
+          "k": 0,
+          "n": 3,
+          "p": 0,
+          "low": 5.551115123125783e-17,
+          "high": 0.5614970317550454
+        },
+        "C4_OVERRIDE_FILE": {
+          "k": 0,
+          "n": 3,
+          "p": 0,
+          "low": 5.551115123125783e-17,
+          "high": 0.5614970317550454
+        },
+        "C5_PRAGMA_TABS": {
+          "k": 0,
+          "n": 3,
+          "p": 0,
+          "low": 5.551115123125783e-17,
+          "high": 0.5614970317550454
+        }
+      },
+      "constraintsPreservedExclC5": {
+        "k": 0,
+        "n": 12,
+        "violationsTotal": 12,
+        "p": 0,
+        "low": 2.7755575615628914e-17,
+        "high": 0.24249400665524085
+      }
+    },
+    "C": {
+      "n": 3,
+      "totalCostUsd": {
+        "n": 3,
+        "median": 0.484474,
+        "min": 0.481809,
+        "max": 0.48556
+      },
+      "auxSummaryCostUsd": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "summaryOutputTokens": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "overallCacheHitPct": {
+        "n": 3,
+        "median": 84.3,
+        "min": 84.29,
+        "max": 84.32
+      },
+      "postTrimCacheHitPct": {
+        "n": 3,
+        "median": 81.72,
+        "min": 81.7,
+        "max": 81.74
+      },
+      "steadyStatePostCliffHitPct": {
+        "n": 3,
+        "median": 92.39,
+        "min": 92.38,
+        "max": 92.4
+      },
+      "rebuildEventsCount": {
+        "n": 3,
+        "median": 3,
+        "min": 3,
+        "max": 3
+      },
+      "constraintsPreserved": {
+        "k": 0,
+        "n": 15,
+        "p": 0,
+        "low": 0,
+        "high": 0.20388330103584862
+      },
+      "constraintViolationsTotal": 15,
+      "constraintViolationsPerSession": {
+        "n": 3,
+        "median": 5,
+        "min": 5,
+        "max": 5
+      },
+      "perConstraintPass": {
+        "C1_PORT_9411": {
+          "k": 0,
+          "n": 3,
+          "p": 0,
+          "low": 5.551115123125783e-17,
+          "high": 0.5614970317550454
+        },
+        "C2_HEADER_GUARD": {
+          "k": 0,
+          "n": 3,
+          "p": 0,
+          "low": 5.551115123125783e-17,
+          "high": 0.5614970317550454
+        },
+        "C3_ERR_CHUNK": {
+          "k": 0,
+          "n": 3,
+          "p": 0,
+          "low": 5.551115123125783e-17,
+          "high": 0.5614970317550454
+        },
+        "C4_OVERRIDE_FILE": {
+          "k": 0,
+          "n": 3,
+          "p": 0,
+          "low": 5.551115123125783e-17,
+          "high": 0.5614970317550454
+        },
+        "C5_PRAGMA_TABS": {
+          "k": 0,
+          "n": 3,
+          "p": 0,
+          "low": 5.551115123125783e-17,
+          "high": 0.5614970317550454
+        }
+      },
+      "constraintsPreservedExclC5": {
+        "k": 0,
+        "n": 12,
+        "violationsTotal": 12,
+        "p": 0,
+        "low": 2.7755575615628914e-17,
+        "high": 0.24249400665524085
+      }
+    },
+    "D": {
+      "n": 3,
+      "totalCostUsd": {
+        "n": 3,
+        "median": 0.550533,
+        "min": 0.54929,
+        "max": 0.550942
+      },
+      "auxSummaryCostUsd": {
+        "n": 3,
+        "median": 0.056445,
+        "min": 0.056337,
+        "max": 0.056727
+      },
+      "summaryOutputTokens": {
+        "n": 3,
+        "median": 1500,
+        "min": 1500,
+        "max": 1500
+      },
+      "overallCacheHitPct": {
+        "n": 3,
+        "median": 83.98,
+        "min": 83.96,
+        "max": 83.99
+      },
+      "postTrimCacheHitPct": {
+        "n": 3,
+        "median": 81.27,
+        "min": 81.26,
+        "max": 81.38
+      },
+      "steadyStatePostCliffHitPct": {
+        "n": 3,
+        "median": 92.55,
+        "min": 92.54,
+        "max": 92.85
+      },
+      "rebuildEventsCount": {
+        "n": 3,
+        "median": 3,
+        "min": 3,
+        "max": 3
+      },
+      "constraintsPreserved": {
+        "k": 2,
+        "n": 15,
+        "p": 0.13333333333333333,
+        "low": 0.03736125910306537,
+        "high": 0.37881982832322364
+      },
+      "constraintViolationsTotal": 13,
+      "constraintViolationsPerSession": {
+        "n": 3,
+        "median": 5,
+        "min": 3,
+        "max": 5
+      },
+      "perConstraintPass": {
+        "C1_PORT_9411": {
+          "k": 1,
+          "n": 3,
+          "p": 0.3333333333333333,
+          "low": 0.06149194472039621,
+          "high": 0.7923403991979522
+        },
+        "C2_HEADER_GUARD": {
+          "k": 1,
+          "n": 3,
+          "p": 0.3333333333333333,
+          "low": 0.06149194472039621,
+          "high": 0.7923403991979522
+        },
+        "C3_ERR_CHUNK": {
+          "k": 0,
+          "n": 3,
+          "p": 0,
+          "low": 5.551115123125783e-17,
+          "high": 0.5614970317550454
+        },
+        "C4_OVERRIDE_FILE": {
+          "k": 0,
+          "n": 3,
+          "p": 0,
+          "low": 5.551115123125783e-17,
+          "high": 0.5614970317550454
+        },
+        "C5_PRAGMA_TABS": {
+          "k": 0,
+          "n": 3,
+          "p": 0,
+          "low": 5.551115123125783e-17,
+          "high": 0.5614970317550454
+        }
+      },
+      "constraintsPreservedExclC5": {
+        "k": 2,
+        "n": 12,
+        "violationsTotal": 10,
+        "p": 0.16666666666666666,
+        "low": 0.04696514218385381,
+        "high": 0.4480308622529734
+      },
+      "armDCliffSummaryCalls": {
+        "maxTokensPerSummaryCall": 500,
+        "totalCalls": 9,
+        "cappedCount": 9,
+        "allCallsHitOutputCap": true,
+        "cliffs": {
+          "cliff1": {
+            "n": 3,
+            "turns": [
+              15
+            ],
+            "evictedPairs": {
+              "n": 3,
+              "median": 7,
+              "min": 7,
+              "max": 7
+            },
+            "promptTokens": {
+              "n": 3,
+              "median": 3821,
+              "min": 3790,
+              "max": 3955
+            },
+            "outputTokens": {
+              "n": 3,
+              "median": 500,
+              "min": 500,
+              "max": 500
+            },
+            "billedCostUsd": {
+              "n": 3,
+              "median": 0.018963,
+              "min": 0.01887,
+              "max": 0.019365
+            }
+          },
+          "cliff2": {
+            "n": 3,
+            "turns": [
+              22
+            ],
+            "evictedPairs": {
+              "n": 3,
+              "median": 7,
+              "min": 7,
+              "max": 7
+            },
+            "promptTokens": {
+              "n": 3,
+              "median": 3877,
+              "min": 3858,
+              "max": 3878
+            },
+            "outputTokens": {
+              "n": 3,
+              "median": 500,
+              "min": 500,
+              "max": 500
+            },
+            "billedCostUsd": {
+              "n": 3,
+              "median": 0.019131,
+              "min": 0.019074,
+              "max": 0.019134
+            }
+          },
+          "cliff3": {
+            "n": 3,
+            "turns": [
+              27,
+              28
+            ],
+            "evictedPairs": {
+              "n": 3,
+              "median": 7,
+              "min": 7,
+              "max": 7
+            },
+            "promptTokens": {
+              "n": 3,
+              "median": 3612,
+              "min": 3596,
+              "max": 3616
+            },
+            "outputTokens": {
+              "n": 3,
+              "median": 500,
+              "min": 500,
+              "max": 500
+            },
+            "billedCostUsd": {
+              "n": 3,
+              "median": 0.018336,
+              "min": 0.018288,
+              "max": 0.018348
+            }
+          }
+        }
+      }
+    },
+    "E": {
+      "n": 3,
+      "totalCostUsd": {
+        "n": 3,
+        "median": 0.536748,
+        "min": 0.534761,
+        "max": 0.536783
+      },
+      "auxSummaryCostUsd": {
+        "n": 3,
+        "median": 0.053826,
+        "min": 0.053556,
+        "max": 0.053982
+      },
+      "summaryOutputTokens": {
+        "n": 3,
+        "median": 1050,
+        "min": 1050,
+        "max": 1050
+      },
+      "overallCacheHitPct": {
+        "n": 3,
+        "median": 84.32,
+        "min": 84.29,
+        "max": 84.34
+      },
+      "postTrimCacheHitPct": {
+        "n": 3,
+        "median": 81.78,
+        "min": 81.77,
+        "max": 81.81
+      },
+      "steadyStatePostCliffHitPct": {
+        "n": 3,
+        "median": 92.58,
+        "min": 92.57,
+        "max": 92.59
+      },
+      "rebuildEventsCount": {
+        "n": 3,
+        "median": 3,
+        "min": 3,
+        "max": 3
+      },
+      "constraintsPreserved": {
+        "k": 5,
+        "n": 15,
+        "p": 0.3333333333333333,
+        "low": 0.15176324439714725,
+        "high": 0.5828645226148023
+      },
+      "constraintViolationsTotal": 10,
+      "constraintViolationsPerSession": {
+        "n": 3,
+        "median": 4,
+        "min": 2,
+        "max": 4
+      },
+      "perConstraintPass": {
+        "C1_PORT_9411": {
+          "k": 3,
+          "n": 3,
+          "p": 1,
+          "low": 0.4385029682449546,
+          "high": 1
+        },
+        "C2_HEADER_GUARD": {
+          "k": 1,
+          "n": 3,
+          "p": 0.3333333333333333,
+          "low": 0.06149194472039621,
+          "high": 0.7923403991979522
+        },
+        "C3_ERR_CHUNK": {
+          "k": 1,
+          "n": 3,
+          "p": 0.3333333333333333,
+          "low": 0.06149194472039621,
+          "high": 0.7923403991979522
+        },
+        "C4_OVERRIDE_FILE": {
+          "k": 0,
+          "n": 3,
+          "p": 0,
+          "low": 5.551115123125783e-17,
+          "high": 0.5614970317550454
+        },
+        "C5_PRAGMA_TABS": {
+          "k": 0,
+          "n": 3,
+          "p": 0,
+          "low": 5.551115123125783e-17,
+          "high": 0.5614970317550454
+        }
+      },
+      "constraintsPreservedExclC5": {
+        "k": 5,
+        "n": 12,
+        "violationsTotal": 7,
+        "p": 0.4166666666666667,
+        "low": 0.19326031365875665,
+        "high": 0.6804886874504503
+      },
+      "armECliffStateCalls": {
+        "initialSeedJson": {
+          "negative_constraints": [],
+          "verified_paths": [],
+          "dead_ends": []
+        },
+        "maxTokensPerStateCall": 350,
+        "allCallsHitOutputCap": true,
+        "rawStateTextPersisted": false,
+        "cliffs": {
+          "T15": {
+            "n": 3,
+            "evictedPairs": {
+              "n": 3,
+              "median": 7,
+              "min": 7,
+              "max": 7
+            },
+            "promptTokens": {
+              "n": 3,
+              "median": 3978,
+              "min": 3882,
+              "max": 4017
+            },
+            "outputTokens": {
+              "n": 3,
+              "median": 350,
+              "min": 350,
+              "max": 350
+            },
+            "billedCostUsd": {
+              "n": 3,
+              "median": 0.017184,
+              "min": 0.016896,
+              "max": 0.017301
+            }
+          },
+          "T22": {
+            "n": 3,
+            "evictedPairs": {
+              "n": 3,
+              "median": 7,
+              "min": 7,
+              "max": 7
+            },
+            "promptTokens": {
+              "n": 3,
+              "median": 4457,
+              "min": 4446,
+              "max": 4458
+            },
+            "outputTokens": {
+              "n": 3,
+              "median": 350,
+              "min": 350,
+              "max": 350
+            },
+            "billedCostUsd": {
+              "n": 3,
+              "median": 0.018621,
+              "min": 0.018588,
+              "max": 0.018624
+            }
+          },
+          "T29": {
+            "n": 3,
+            "evictedPairs": {
+              "n": 3,
+              "median": 7,
+              "min": 7,
+              "max": 7
+            },
+            "promptTokens": {
+              "n": 3,
+              "median": 4268,
+              "min": 4263,
+              "max": 4269
+            },
+            "outputTokens": {
+              "n": 3,
+              "median": 350,
+              "min": 350,
+              "max": 350
+            },
+            "billedCostUsd": {
+              "n": 3,
+              "median": 0.018054,
+              "min": 0.018039,
+              "max": 0.018057
+            }
+          }
+        }
+      }
+    }
+  },
+  "abortedSessions": [],
+  "stateVsProseVerdict": "inconclusive: harness truncation",
+  "fixedArmERerunEstimate": {
+    "notExecuted": true,
+    "model": "anthropic/claude-sonnet-4.6",
+    "maxTokens": 1500,
+    "mergeMode": "deterministic_json_set_union",
+    "validateConstraintsEachCliff": true,
+    "nReps": 3,
+    "expectedUsdN3": 1.72,
+    "ceilingUsdN3": 2.15,
+    "optionalMatchedDFixedExpectedUsdN3": 1.75
+  }
+}

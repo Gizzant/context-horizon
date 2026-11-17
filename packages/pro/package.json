@@ -10,7 +10,14 @@
     "./worker": "./workers/polar_webhook_worker.mjs",
     "./team-finops": "./src/team_finops_pack.mjs"
   },
+  "files": [
+    "src/",
+    "workers/",
+    "LICENSE-COMMERCIAL.md",
+    "README-SIGNING.md"
+  ],
   "engines": {
     "node": ">=20.0.0"
-  }
+  },
+  "dependencies": {}
 }

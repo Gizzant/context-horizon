@@ -77,13 +77,13 @@ describe('v4.0 RC Remediation & @ctxtop/mcp Regression Suite', () => {
     );
   });
 
-  it('Component 3: package.json URLs point to Gizzant/context-horizon, pricing tiers match, and signing docs exist', () => {
+  it('Component 3: package.json URLs point to Gizzant/attention-horizon-antigravity, pricing tiers match, and signing docs exist', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-    assert.equal(pkg.repository.url, 'git+https://github.com/Gizzant/context-horizon.git');
-    assert.equal(pkg.homepage, 'https://gizzant.github.io/context-horizon/');
-    assert.equal(pkg.bugs.url, 'https://github.com/Gizzant/context-horizon/issues');
+    assert.equal(pkg.repository.url, 'git+https://github.com/Gizzant/attention-horizon-antigravity.git');
+    assert.equal(pkg.homepage, 'https://gizzant.github.io/attention-horizon-antigravity/');
+    assert.equal(pkg.bugs.url, 'https://github.com/Gizzant/attention-horizon-antigravity/issues');
     assert.equal(pkg.license, 'MIT');
-    assert.ok(Array.isArray(pkg.workspaces) && pkg.workspaces.includes('packages/mcp'));
+    assert.ok(Array.isArray(pkg.files) && pkg.files.includes('packages/mcp/') && pkg.files.includes('packages/pro/'));
 
     assert.equal(PRO_PRICING_TIERS.pro_monthly.priceUSD, PLG_TIER_MATRIX.pro.priceMonthlyUSD);
     assert.equal(PRO_PRICING_TIERS.pro_monthly.priceUSD, 15);
@@ -144,7 +144,15 @@ describe('v4.0 RC Remediation & @ctxtop/mcp Regression Suite', () => {
     assert.equal(listRes.result.tools.length, MCP_TOOLS.length);
     assert.deepEqual(
       listRes.result.tools.map((t) => t.name),
-      ['horizon_status', 'cache_gravity_check', 'scope_lock_claim', 'export_receipt_pdf']
+      [
+        'horizon_status',
+        'cache_gravity_check',
+        'scope_lock_claim',
+        'export_receipt_pdf',
+        'horizon_compress_cli',
+        'horizon_search_logs',
+        'horizon_audit_sessions'
+      ]
     );
 
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ctxtop-mcp-test-'));

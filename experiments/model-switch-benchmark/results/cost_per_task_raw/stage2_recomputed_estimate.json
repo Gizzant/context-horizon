@@ -1,0 +1,24 @@
+{
+  "generatedAtUtc": "2026-11-16T23:54:16.014Z",
+  "stage1MeasuredTotalUsd": 7.552819,
+  "stage1MeasuredByArm": {
+    "OPUS": 3.462609,
+    "SONNET": 1.058898,
+    "SWITCH": 3.031312
+  },
+  "stage2Recomputed48Runs": {
+    "baseUsd": 15.1056,
+    "with15PctMarginUsd": 17.3715
+  },
+  "openRouterKeyRemainingUsd": 98.931051,
+  "fitsRemainingKeyCap": true,
+  "audit": {
+    "summaryCount": 24,
+    "requestCount": 215,
+    "t1Req1NonZeroCacheRead": 0,
+    "switchT2Req1NonZeroCacheRead": 0,
+    "nonCleanTurn1Count": 0,
+    "constraintViolationsCount": 0,
+    "oneShotAcrossAllArmsTasks": 24
+  }
+}

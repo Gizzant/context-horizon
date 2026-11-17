@@ -26,6 +26,11 @@ import {
   applyPrefixRetentionRequest,
   applyThinkingDriftEvent
 } from './sprintMetrics.mjs';
+import {
+  createInitialEffortTrackingState,
+  extractEventEffortObservation,
+  applyTurnEffortObservation
+} from '../coach/effortShiftDetector.mjs';
 
 export const SESSION_FIVE_MIN_ROI_TARGET = 1.39;
 
@@ -386,6 +391,7 @@ export function createInitialTelemetryState(sessionId = 'default', model = 'clau
     preCliffWarningTriggered: false,
     prefixRetention: createInitialPrefixRetention(),
     thinkingDrift: createInitialThinkingDrift(),
+    effortTracking: createInitialEffortTrackingState(),
     lastTurn: null
   };
 }
@@ -499,6 +505,13 @@ export function ingestModTurnEvent(currentState, event = {}, options = {}) {
   const sessionId = event.sessionId || event.session_id || currentState?.sessionId || 'default';
   const rawEventModel = event.model || event.result?.model || null;
   const fallbackModel = currentState?.rawModelId || currentState?.modelId || 'claude-sonnet-5-5';
+  const priorModelId = currentState?.rawModelId || currentState?.modelId || null;
+  const priorWarmPrefixTokens = Math.max(
+    0,
+    Number(currentState?.contextWindow?.warmPrefixTokens || currentState?.contextWindow?.cachedTokens || 0)
+  );
+  const priorCacheWarm = Boolean(currentState?.promptCache?.warm);
+  const priorTurnsCompleted = Math.max(0, Number(currentState?.turnsCompleted || 0));
   const state = currentState
     ? JSON.parse(JSON.stringify(currentState))
     : createInitialTelemetryState(sessionId, rawEventModel || fallbackModel);
@@ -811,6 +824,31 @@ export function ingestModTurnEvent(currentState, event = {}, options = {}) {
       ttftMs: Number(event.ttftMs ?? event.ttft_ms ?? event.result?.ttft_ms ?? 0) || null,
       turnMutations: Number(event.turnMutations ?? 0) || 0
     });
+    if (event.type === 'turn.complete' || isNewRequest) {
+      const effortObs = extractEventEffortObservation(event);
+      state.effortTracking = applyTurnEffortObservation(
+        state.effortTracking,
+        {
+          modelId: state.modelId,
+          rawModelId: effectiveTurnModelRaw,
+          observedEffort: effortObs.effortLevel,
+          observedThinkingBudget: effortObs.thinkingBudget,
+          turnIndex: state.turnsCompleted || priorTurnsCompleted + 1,
+          priorTurnsCompleted,
+          priorModelId,
+          priorWarmPrefixTokens,
+          priorCacheWarm,
+          cacheReadTokens,
+          cacheWriteTokens: totalWriteTokens,
+          outputTokens,
+          thinkingTokens,
+          hasTurnUsage: true,
+          turnMutations: Number(event.turnMutations ?? 0) || 0,
+          ttlTier
+        },
+        options
+      );
+    }
   }
 
   exportOtelTelemetry(state, options);
@@ -862,6 +900,13 @@ export function ingestStatusLinePayload(currentState, statusPayload = {}, option
     'claude-sonnet-5-5';
 
   const prevSource = currentState?.lastSource || 'init';
+  const priorModelId = currentState?.rawModelId || currentState?.modelId || null;
+  const priorWarmPrefixTokens = Math.max(
+    0,
+    Number(currentState?.contextWindow?.warmPrefixTokens || currentState?.contextWindow?.cachedTokens || 0)
+  );
+  const priorCacheWarm = Boolean(currentState?.promptCache?.warm);
+  const priorTurnsCompleted = Math.max(0, Number(currentState?.turnsCompleted || 0));
   const state = currentState
     ? JSON.parse(JSON.stringify(currentState))
     : createInitialTelemetryState(sessionId, rawModel);
@@ -1001,7 +1046,11 @@ export function ingestStatusLinePayload(currentState, statusPayload = {}, option
     (statusTurnId && state.lastStatusTurnId === statusTurnId) ||
     (hasReportedCost && !costChanged && state.lastStatusLineEnvelopeSig === envelopeSig);
 
-  if (hasCurrentUsage && !alreadyCommittedByMod && !isDuplicateStatusEnvelope) {
+  const isDistinctStatusTurn = Boolean(
+    hasCurrentUsage && !alreadyCommittedByMod && !isDuplicateStatusEnvelope
+  );
+
+  if (isDistinctStatusTurn) {
     const turnCost = calculateTurnCostUSD(
       {
         model: rawModel,
@@ -1025,6 +1074,33 @@ export function ingestStatusLinePayload(currentState, statusPayload = {}, option
   } else if (!hasCurrentUsage && costChanged && rawReportedCost > (state.lastReportedStatusCostUSD || 0)) {
     state.steps += 1;
     state.lastReportedStatusCostUSD = rawReportedCost;
+  }
+
+  const statusEffortObs = extractEventEffortObservation(statusPayload);
+  if (statusEffortObs.effortLevel !== null || isDistinctStatusTurn) {
+    state.effortTracking = applyTurnEffortObservation(
+      state.effortTracking,
+      {
+        modelId: state.modelId,
+        rawModelId: rawModel,
+        observedEffort: statusEffortObs.effortLevel,
+        observedThinkingBudget: statusEffortObs.thinkingBudget,
+        turnIndex: Math.max(1, state.turnsCompleted || state.steps || 1),
+        priorTurnsCompleted: Math.max(0, priorTurnsCompleted || (state.steps > 0 ? state.steps - 1 : 0)),
+        priorModelId,
+        priorWarmPrefixTokens,
+        priorCacheWarm,
+        cacheReadTokens: cacheRead,
+        cacheWriteTokens: cacheWrite,
+        outputTokens,
+        thinkingTokens,
+        hasTurnUsage: isDistinctStatusTurn,
+        evaluateThinkingSpike: isDistinctStatusTurn,
+        turnMutations: Number(statusPayload.turnMutations ?? statusPayload.turn_mutations ?? 0) || 0,
+        ttlTier: state.promptCache.ttlTier
+      },
+      options
+    );
   }
 
   if (

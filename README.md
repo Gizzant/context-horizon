@@ -1,16 +1,16 @@
 <div align="center">
 
-# Highbeam (ctxtop v4.0) — Active Context Surgeon, KV-Cache Shield & Token FinOps for Claude Code & Google Antigravity
+# Highbeam (`ctxtop` v4.1) — Active Context Surgeon, KV-Cache Shield & Token FinOps for Claude Code, Google Antigravity & MCP Hosts
 
-**Local Context Window Profiler, KV-Cache TTL Monitor & Deterministic PreInvocation / PreToolUse Surgeon (`~0.18ms` Tier-1 In-Process / `~25–90ms` Tier-2 CLI Hook) for Claude Code & Google Antigravity**
+**Local Context Window Profiler, KV-Cache TTL Monitor, Multi-Family FTS5 Output Compressor & Deterministic PreInvocation / PreToolUse Surgeon (`~0.1–2.9ms` avg Tier-1 In-Process · `~58ms` Warm IPC / `~105ms` Cold Windows Tier-2 Hook) across Google Antigravity, Claude Code, Codex CLI, Gemini CLI & Cursor**
 
 [![Zero Runtime Dependencies](https://img.shields.io/badge/dependencies-0_runtime-brightgreen.svg)](#systems-architecture--zero-trust-security)
-[![Hook Latency](https://img.shields.io/badge/Tier--1_in--process-~0.18ms_p95_%7C_Tier--2_CLI_hook-~25--90ms-00e5ff.svg)](#deterministic-preinvocation-router--6-local-sensors)
-[![Node.js >= 20](https://img.shields.io/badge/node-%3E%3D20_zero_deps-339933.svg)](#quick-start)
+[![Hook Latency](https://img.shields.io/badge/Tier--1_in--process-~2.9ms_avg_%7C_Tier--2_hook-~58ms_IPC%2F~105ms_cold-00e5ff.svg)](#deterministic-preinvocation-router--6-local-sensors)
+[![Node.js >= 20](https://img.shields.io/badge/node-%3E%3D20_zero_deps-339933.svg)](#try-in-10-seconds-zero-hooks--zero-writes)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Claude Code & Antigravity](https://img.shields.io/badge/Hosts-Claude_Code_%2B_Google_Antigravity-blueviolet.svg)](#-installation--quick-start)
+[![Multi-Host Parity](https://img.shields.io/badge/Hosts-Antigravity_%7C_Claude_%7C_Codex_%7C_Gemini_%7C_Cursor-blueviolet.svg)](#-installation--quick-start)
 
-[**Live Interactive Demo**](https://gizzant.github.io/attention-horizon-antigravity/) • [**Quick Start**](#-installation--quick-start) • [**Cookbook & Recipes**](docs/COOKBOOK.md) • [**Systems Architecture**](#systems-architecture--zero-trust-security)
+[**Live Interactive Demo**](https://gizzant.github.io/attention-horizon-antigravity/) • [**10-Second 5-Host Audit**](#try-in-10-seconds-zero-hooks--zero-writes) • [**Quick Start**](#-installation--quick-start) • [**Cookbook**](docs/COOKBOOK.md) • [**Benchmarks**](docs/ANTIGRAVITY_AND_COMPRESSION_BENCHMARK.md) • [**Enterprise MDM**](docs/ENTERPRISE_MDM.md)
 
 <br/>
 
@@ -20,33 +20,52 @@
 
 ---
 
-## ⚡ Installation & Quick Start
+## ⚡ Try in 10 Seconds (Zero Hooks / Zero Writes)
 
-| **Google Antigravity** *(1-Line Install)* | **Claude Code** *(1-Line Install)* |
-| :--- | :--- |
+Before installing any hooks or modifying config files, scan your last 7 days of local **Google Antigravity**, **Claude Code**, **OpenAI Codex CLI**, **Gemini CLI**, and **Cursor** sessions strictly read-only to measure preventable token waste, cold-cache spikes, and oversized tool dumps:
+
+```bash
+npx ctxtop audit --days 7
+```
+
+```text
+[Highbeam Session ROI Audit] Window: 7d | Platform: all | Sessions: 12
+  Sludge Tax Preventable : 1,420,850 tok ($2.84 USD)
+  Cold-Cache Spikes (>5m): 14 | 3x Thrash Loops: 4
+  Un-Sliced Large Reads  : 11 | Oversized Tool Dumps: 38
+```
+
+---
+
+## 🚀 Installation & Quick Start
+
+| **Google Antigravity** *(1-Line Install)* | **Claude Code** *(1-Line Install)* | **Cursor / Windsurf / Codex / Gemini CLI** |
+| :--- | :--- | :--- |
 | ```bash
 npx ctxtop init
 ``` | ```bash
-npx ctxtop install --claude
+npx ctxtop install --global
+``` | ```bash
+npx ctxtop init --cursor --windsurf --codex --gemini-cli
 ``` |
-| *Workspace-only*: `npx ctxtop init --workspace`<br/>*Health check*: `npx ctxtop doctor` | *StatusLine HUD*: `npx ah-statusline --demo`<br/>*In-chat pane*: `/horizon` · `/cost-radar` · `/handoff` |
+| *Workspace-only*: `npx ctxtop init --workspace`<br/>*Health check*: `npx ctxtop doctor` | *StatusLine HUD*: `npx ctxtop statusline --demo`<br/>*In-chat pane*: `/horizon` · `/cost-radar` · `/handoff` | *Universal `.mcp.json`*: `npx ctxtop init --all-hosts`<br/>*FTS5 search*: `npx ctxtop search "<keyword>"` |
 
 ### Your First 5 Minutes After Installing
 
 #### 1. Google Antigravity Workflow
 1. **Install hooks & sidecar**: Run `npx ctxtop init` in your project root (or globally).
-2. **Open the Highbeam Sidepane**: Launch the local telemetry WebView (`npx ctxtop --serve` or via the Antigravity sidepane) to view real-time context health:
+2. **Open the Highbeam Sidepane**: Launch the local telemetry WebView (`npx ctxtop ui` or via the Antigravity sidepane) to view real-time context health:
    - **Simple View (Default)**: 4 glanceable zones—**Zone A** (Safe Headroom & Warm KV Cache TTL), **Zone B** (`DO / AVOID / HOLD` Model & Effort switch guidance), **Zone C** (Live automated interventions), and **Zone D** (Verified tokens/USD saved + 1-click `/compact`).
-   - **Advanced View (1-Click Toggle)**: Expands the **40-Cell Chrono-Positional Recall Grid** (`Primacy 0–30%`, `Mid-Trough 30–70%`, `Recency 70–100%`), top token consumer file table, `Off / Coach / Auto-Pilot` mode switcher, and the full `DET-01..32` guard log.
+   - **Advanced View (1-Click Toggle)**: Expands the **40-Cell Chrono-Positional Recall Grid** (`Primacy 0–30%`, `Mid-Trough 30–70%`, `Recency 70–100%`), top token consumer file table, `Off / Coach / Auto` mode switcher, and the full `DET-01..32` guard log.
 3. **Code normally**: Highbeam runs in **`COACH` mode** by default—automatically compressing verbose CLI test dumps via SQLite FTS5 and folding repeat file reads without interrupting your prompts.
 
 #### 2. Claude Code Workflow
-1. **Install plugin & hooks**: Run `npx ctxtop install --claude` to wire `.claude-plugin/plugin.json`, `hooks/hooks.json`, and the live terminal `statusLine`.
+1. **Install plugin & hooks**: Run `npx ctxtop install --global` (or `npx ctxtop init --claude`) to wire `.claude-plugin/plugin.json`, `hooks/hooks.json`, and the live terminal `statusLine`.
 2. **Watch the Live Terminal `statusLine`**: At the bottom of your terminal, Highbeam renders an auto-adapting (`80 / 110 / 144` col) telemetry bar:
    ```text
    AH [SCCCCCCC................] sonnet-5-5 64k/200k (32%) · Cache 88% (4m12s) · COACH · Saved $1.84
    ```
-3. **Open the In-Chat Docked HUD**: Type `/horizon` in chat (or run `npx ah-claude panel` for the standalone HTML workbench) to inspect cache gravity, active guards, and reclaimable tokens.
+3. **Open the In-Chat Docked HUD**: Type `/horizon` in chat (or run `npx ctxtop panel` for the standalone HTML workbench) to inspect cache gravity, active guards, and reclaimable tokens.
 
 ---
 
@@ -70,7 +89,7 @@ All 6 slash skills are registered identically in both **Google Antigravity** (`p
 
 ---
 
-## 🛡️ Verified Token Receipt: `+164.0k` Tokens Saved in One 4-Step Coding Loop
+## 🛡️ Example Session Receipt: `+164.0k` Tokens Saved in One 4-Step Loop
 
 Most CLI trackers passively count tokens *after* your quota is already burned. Highbeam intercepts redundant reads, compresses noisy test dumps via local SQLite FTS5, and shields warm KV prefixes **before** they hit your billing meter:
 
@@ -78,12 +97,14 @@ Most CLI trackers passively count tokens *after* your quota is already burned. H
   <img src="assets/zone_c_step3_shield_full.png" alt="Highbeam Zone C Active Protection & Verified Token Receipt (+164.0k tokens saved)" width="460" />
 </div>
 
-| Step in Coding Loop | Developer / Agent Action | Highbeam Active Intervention (Zone C) | Verified Savings |
+| Step in Coding Loop | Developer / Agent Action | Highbeam Active Intervention (Zone C) | Verified Incident Savings |
 | :--- | :--- | :--- | :---: |
 | **1. Warm KV Cache + Repeat Read** | Agent re-reads an unmodified 800-line source file on a `100k` warm cache | **GUARD-4** intercepts the duplicate read (`AST signature stub`) and preserves the `95%` warm KV cache discount | **`+95.0k` tok** *(KV cache)*<br/>**`+800` tok** *(deduped read)* |
 | **2. Failing Test Suite Dump** | `npm test` dumps `120+` lines of verbose stdout (`~11.4k` tokens) | **SQLite FTS5 BM25 Compressor** indexes raw stdout locally and injects only the 160-token failing assertion digest | **`+11.2k` tok** |
 | **3. Mid-Session Rule Edit** | Agent updates `AGENTS.md` / `CLAUDE.md` while `60k` prefix is warm (`2m 55s` TTL left) | **PrefixCacheShield** queues the rule delta until TTL expiry or `/compact`, preventing a cold prefix rebuild | **`+57.0k` tok** |
-| **Total Verified Session Receipt** | **4-Step Feature / Bugfix Loop** | **Zero context dilution · 100% critical error retention** | **`+164.0k` tok (`~$0.33`)** |
+| **Example Incident Receipt** | **4-Step Feature / Bugfix Loop** | **Zero context dilution · 100% critical error retention** | **`+164.0k` tok (`~$0.33`)** |
+
+> **Reconciled Monthly Expectation:** Across normal coding weeks without deliberate cache-busting, our bottom-up benchmark model estimates **`~$9.42/wk` (`~$40.79/mo`, `~6%–11%` of raw API spend)** saved for a full-time agentic developer, alongside **`30%–50%` longer 5-hour subscription sprints** by cutting `O(N²)` tool-log compounding.
 
 ---
 
@@ -93,47 +114,40 @@ In agentic coding, every turn re-sends the entire prior conversation history. A 
 
 1. **For Fixed-Subscription Users (`Claude Pro / Max`, `Antigravity OAuth Seats`) — Stop 2:00 PM Quota Lockouts & Context Rot**:
    - Compressing noisy tool outputs and duplicate file reads on early turns prevents `O(N²)` history compounding, **stretching 5-hour sprint quotas by `30%–50%`**.
-   - Even more importantly, keeping your session below the **70% Safe Horizon** prevents **Context Rot** (middle-window attention decay where the model starts forgetting `AGENTS.md`/`CLAUDE.md` rules, hallucinating imports, and breaking working code).
+   - Staying below the **70% Safe Horizon** prevents **Context Rot** (middle-window attention decay where the model starts overlooking `AGENTS.md`/`CLAUDE.md` rules or hallucinating imports).
 2. **For Metered API & Enterprise Teams — Self-Expensing FinOps ROI**:
-   - Preventing just two accidental warm-cache busts per day (switching models mid-TTL or editing rule files on a `100k` warm prefix) plus FTS5 log compression saves **`$3–$12/day` (`$60–$240/month`) per active seat**.
+   - Preventing accidental warm-cache busts plus automatic FTS5 log compression saves **`~$40.79/mo` (`$9.42/wk`)** for average full-time API devs (`~$149/mo` for heavy 100k–200k Opus swarm users).
 3. **Daily Cockpit Decisions No Human Can Calculate in Their Head (Zone B)**:
-   - *"If I downshift from Opus/Argon to Sonnet/Flash right now, will I save quota or pay a 10x cold-prefill penalty?"* — Highbeam computes the horizon-aware KV-cache break-even limit (`C_max`) and post-switch warm-request payback in real time and displays a 1-line verdict: **`Model: Hold (03:34) — switching busts warm cache · Effort: changing busts warm cache`**.
+   - *"If I downshift from Opus to Sonnet right now, will I save quota or pay a 10x cold-prefill penalty?"* — Highbeam computes the horizon-aware KV-cache break-even limit (`C_max`) and post-switch warm-request payback in real time and displays a 1-line verdict: **`Model: Hold (03:34) — switching busts warm cache`**.
 
 ---
 
-## ⚙️ What Runs Automatically (Zero-Friction `COACH` Default)
+## ⚙️ What Runs Automatically (100% Free `COACH` Default)
 
-Highbeam defaults to **`COACH` mode**—performing lossless token surgery silently in the background while never blocking your chat prompt unless a true 3-strike identical failure loop or destructive git command occurs:
+Highbeam defaults to **`COACH` mode**—performing lossless token surgery silently in the background while never blocking your chat prompt unless a 3-strike identical failure loop or destructive git command occurs:
 
 | Automated Feature | How It Works Under the Hood | Developer Experience |
 | :--- | :--- | :--- |
 | **1. SQLite FTS5 CLI & Test Output Compression** (`PostToolUse`) | Strips ANSI/progress noise, indexes full stdout in local SQLite FTS5 (`porter unicode61`), and injects only the compact failing assertion digest | **100% automatic** — saves `50%–90%` of test/build log tokens with zero lost stack traces |
 | **2. Post-Edit Delta Diffs & 3rd-Read AST Stubs** (`GUARD-4` in `PreToolUse`) | When the agent re-reads a file after editing 5 lines (or reads the same unclipped file `>=3` times), returns a unified line diff or function-signature AST stub | **100% automatic** — cuts repeat-read token burn by `80%+` without interrupting the agent |
-| **3. `PrefixCacheShield` Warm Rule & Effort Deferral** (`DET-09`) | Intercepts mid-session edits to `AGENTS.md` / `CLAUDE.md` while a KV cache is warm, and checks `MODEL_EFFORT_CACHE_CAPABILITIES` on effort changes: defers on `4.6` models (`EF1_46` / article), stays silent on measured cache-preserving `claude-sonnet-5-5` (`r2_effort.csv`, `n = 3` with thinking expansion) and `claude-opus-5-5` (`currency_55.csv` `effort_only_55`, behaviour **unverified**), and warns with `"unverified for this model"` on untested models | **Model-aware cache protection** — prevents silent `4.6` / rule-file cold prefix rebuilds without false-positiving on `5.5` effort |
+| **3. `PrefixCacheShield` Warm Rule & Effort Deferral** (`DET-09`) | Intercepts mid-session edits to `AGENTS.md` / `CLAUDE.md` while a KV cache is warm, and checks `MODEL_EFFORT_CACHE_CAPABILITIES` on effort changes (defers on `4.6`, silent on cache-preserving `5.5` models, warns on untested models) | **Model-aware cache protection** — prevents silent cold prefix rebuilds without false-positiving on `5.5` effort |
 | **4. Live Model & Effort Switch Verdict** (`Zone B`) | Evaluates remaining KV cache TTL (`5m`/`1h`) and horizon break-even (`C_max` & warm-request payback) across `MODEL / HOLD / SWITCH / LOCK` states | **Instant visual guidance** — tells you when to hold vs. switch models or lower thinking effort |
-| **5. Held Downshift & Boundary Lifecycle** (`SessionStart:compact` / `Stop`) | Surfaces held `pending_downshift` after compaction via `SessionStart:compact` `systemMessage` (`0` `/v1/messages` tokens leaked) without adding custom `PreCompact` or `SessionStart` preservation templates; optional task-boundary `/compact` advisor is gated **OFF by default** (`smartCompactBoundarySuggest: false`, boundary detector **unverified**) | **Post-compact downshift handoff** — reminds `/model <target>` once after compaction, when switching avoids full pre-compact rewrites |
+| **5. Held Downshift & Boundary Lifecycle** (`SessionStart:compact` / `Stop`) | Surfaces held `pending_downshift` after compaction via a zero-token `SessionStart:compact` `systemMessage` reminder (`/model <target>`), with optional boundary prompts disabled by default | **Post-compact downshift handoff** — reminds `/model <target>` cleanly right after compaction |
 | **6. Git Hook-Bypass & Destructive Shell Guard** (`DET-18` / `DET-19`) | Blocks `git commit --no-verify`, `-n`, `core.hooksPath` tampering, and unconfirmed `git reset --hard` | **Zero-config repo safety** — keeps frustrated agents from bypassing your pre-commit linters |
-| **7. `PreModelSwitch` Warm KV-Cache Guard** (`DET-08`) | Evaluates KV-cache TTL (`5m`/`1h`), Stop-hook shrunk rolling-median `requestsPerTurn` (`R`, cold-start placeholder prior overridden once `>= 3` non-current, non-benchmark deduplicated sessions exist in `~/.claude/projects/**/*.jsonl`), Stop-hook rolling median prompt growth (`g` tok/turn, capped at `g = 0` until `n >= 5` observed turns and a stable regime; with `< 5` observed turns, the hook omits the net dollar figure and shows payback in requests first and turns in parentheses), horizon limit `C_max`, Stop-hook rolling output shrinkage, and warm-request payback (`AUTO_PILOT`). **Catalog-derived per-pair payback:** All break-even thresholds (`C*`, `C_max`), cold-write penalties, and warm-request paybacks (`~a / b` where `a = P_write,B - P_read,A` and `b = P_read,A - P_read,B`, less output credit and `R - 1` switch-turn reads) are derived at runtime from `anthropicModelCatalog.json` with no hard-coded constants. Unknown model IDs return explicit `unknownModel: true` with `null` USD fields, no price-based hold, a one-line unknown-price advisory, and a `ctxtop doctor` `WARN`. Under headless `claude -p`/SDK, `"ask"` becomes `blocked_by_hook`; override with `"DET-08": "warn"` or `expectedRemainingTurns`. | **Protects mid-session switches** — reports payback in post-switch warm requests (turns in parentheses), allows post-compaction splits cleanly, and never hallucinates fallback prices |
+| **7. `PreModelSwitch` Warm KV-Cache Guard** (`DET-08`) | Computes break-even (`C*`, `C_max`), cold-write penalties, and warm-request paybacks directly from `anthropicModelCatalog.json` using rolling session turns (`R`, `g`), returning explicit `unknownModel: true` without fallback price guesses | **Protects mid-session switches** — prevents losing money on short-horizon downgrades while allowing profitable early switches |
 
 ---
 
-## Measured behaviour (Claude Code 2.1.325)
+## 📊 Empirical Wire Highlights (Claude Code `2.1.325`)
 
-Empirical findings from the suite (every item cites its source file; unmeasured behaviors are labeled **unverified**):
+Highbeam's cache-economics engine is backed by **45 pre-registered randomized runs (`540` live wire-reconciled turns)** and **6 live 30-turn compaction studies** against first-party Anthropic via OpenRouter:
 
-- Editing `CLAUDE.md` before `--resume` does not invalidate the cache; the old and new versions both stay in context (`T6 CC-M`, `t6_layers.csv`).
-- `--append-system-prompt` is ignored on `--resume` (`T6 CC-S`, `t6_layers.csv`).
-- Changing MCP servers or the tool list on resume wipes the cache (`T6 CC-T`, `t6_layers.csv`).
-- `PreCompact` instructions must be plain text on stdout; JSON is dropped (`Phase 0`, `$0` binary & mock-SSE audit; Highbeam emits zero custom `PreCompact` or `SessionStart` preservation templates since `summary_smart_compact.md` found `0/6` violations up to `28.10x` compression without them).
-- Auto-memory added about `23.5%` to session cost in the smart-compact fixture (`n = 2 vs 2`, `summary_smart_compact.md`); this is a cost note, not a recommendation to disable it.
-- On OpenRouter, `max_tokens: 0` still generates output; cache pre-warming with 0 output works on the direct API only (`Phase 0`, `T3b`).
-- A 1-hour cache costs `2x` on writes and wins once a `5–60` minute pause occurs (`T3a`).
+- **Downgrading Mid-Chat Can Cost More Than Staying on Opus:** At `~58k` context, switching `Opus 4.6 -> Sonnet 4.6` at Turn 6 produced a `0.0%` cache hit (`+$0.1783` spike) and increased 12-turn session cost (`$0.8611` vs `$0.7789` Opus control).
+- **Changing `--effort` Busted `4.6` Caches (`+$0.0853`), Fixed in `5.5`:** Wire diffs caught `output_config.effort` invalidating `4.6` prompt caches while `claude-sonnet-5-5` preserved warm cache hits (`n = 3`).
+- **Stock `/compact` Scored `0/6` Violations Up to `28.10x` Compression:** Because default compaction preserved constraints cleanly without custom templates, Highbeam emits zero `PreCompact` bloat.
+- **MCP / Tool-List Swaps on `--resume` Wipe Cache; `CLAUDE.md` Edits Do Not:** Highbeam hashes `.mcp.json` / `.claude/settings*.json` across resumes and warns before uncached rebuilds.
 
-**SDK / `stream-json` host downshift pattern (`Item 4.2`):** Interactive hooks (`SessionStart:compact`, `PostCompact`) cannot set `mainLoopModel` (`Phase 0`). In interactive Claude Code, Highbeam emits a one-line `SessionStart:compact` `systemMessage` (`0` tokens injected into `/v1/messages`, verified at `$0` on `claude.exe@2.1.325`) naming `/model <target>`, and avoids invalid `PostCompact` `hookSpecificOutput`. In SDK or `stream-json` hosts, inspect stream frames for `compact_boundary` and call `set_model` on the host controller immediately afterward — never from inside a hook.
-
-**Resume toolset visibility (`Item 6`):** On `claude.exe@2.1.325`, `SessionStart:resume` stdin supplies `context_tokens` and `prompt_cache_likely_expired` but does not expose `tools` or `mcp_servers` (and `deferred_tools_delta` is written to `.jsonl` after `SessionStart`). Highbeam therefore hashes observable config files (`.mcp.json`, `.claude/settings*.json`, `~/.claude.json`), CLI `--mcp-config`/`--tools` flags when provided, and optional host arrays, and warns when hashes differ on large non-expired resumes (`t6_layers.csv` `CC-T`).
-
-**Unverified items explicitly labeled:** `claude-opus-5-5` effort-change behaviour (`currency_55.csv` verified cache preservation only; reasoning output change unverified), `DET-09` effort behaviour on non-`4.6`/non-`5.5` models (`"unverified for this model"`), and `evaluateTaskBoundaryTurn` compaction suggestions (`phase1_boundary_detector.csv`: `80.00%` precision on scripted plans, `0` organic boundaries; `smartCompactBoundarySuggest` defaults to `false` and suggests only with estimated `~2-minute` pause per `summary_smart_compact.md` H4/H7).
+👉 See full methodology, per-arm datasets, SDK `stream-json` `set_model` patterns, and explicit unverified boundaries in [**`docs/EMPIRICAL_BENCHMARKS.md`**](docs/EMPIRICAL_BENCHMARKS.md).
 
 ---
 
@@ -272,26 +286,43 @@ npx ctxtop config DET-19 block
 - **`"AUTO_PILOT"`**: Enforces strict pre-turn & stop-gate verification locks (e.g., requiring tests to run after source edits before session completion).
 - **`"SILENT"` / `"OFF"`**: Passive telemetry collection only.
 
-### 2. Using Highbeam as an MCP Server (`ctxtop-mcp`)
-Any MCP-compatible client (**Google Antigravity**, **Claude Code**, **Cursor**, **Windsurf**, or **Claude Desktop**) can query Highbeam's telemetry and KV-cache advisor via standard JSON-RPC stdio:
+### 2. Using Highbeam as an MCP Server (`npx ctxtop mcp`)
+Any MCP-compatible client (**Google Antigravity**, **Claude Code**, **OpenAI Codex CLI**, **Gemini CLI**, **Cursor**, **Windsurf**, or **Claude Desktop**) can auto-configure Highbeam via `npx ctxtop init --cursor --windsurf --codex --gemini-cli` or run standard JSON-RPC stdio directly:
 
 ```json
 {
   "mcpServers": {
     "highbeam": {
       "command": "npx",
-      "args": ["-y", "ctxtop-mcp"]
+      "args": ["-y", "ctxtop", "mcp"]
     }
   }
 }
 ```
-Exposes 4 read-only MCP tools (`<5ms` response): `get_context_telemetry`, `check_cache_gravity`, `get_savings_receipt`, and `inspect_detectors`.
+Exposes **7 standalone zero-network MCP tools** (`<5ms` response): `horizon_status`, `cache_gravity_check`, `scope_lock_claim`, `export_receipt_pdf`, `horizon_compress_cli`, `horizon_search_logs`, and `horizon_audit_sessions`.
+
+For centralized organization deployment (Jamf / Intune / GPO), `CHECKSUMS.sha256` verification, and BYO-Grafana OpenTelemetry telemetry, see [**Enterprise & MDM Deployment Guide**](docs/ENTERPRISE_MDM.md).
+
+---
+
+## 📦 Editions: Free (`MIT` Core + `COACH`) vs. Pro & Team
+
+| Feature / Capability | Free Core (`MIT`) | Highbeam Pro (`$15/mo` · 14d Trial) | Team / FinOps (`$39/seat/mo`) |
+| :--- | :---: | :---: | :---: |
+| Simple & Advanced 40-Cell HUD + `5m/1h` Live TTL Timer | ✅ | ✅ | ✅ |
+| Multi-Family FTS5 Compression (`test`, `lint`, `git`, `docker`/`kubectl`) & `ctxtop search` | ✅ | ✅ | ✅ |
+| Automated Repeat-Read Delta Diffs & AST Stubs (`GUARD-4`) | ✅ | ✅ | ✅ |
+| `COACH` Non-Blocking Advisories & 32 Auditable Guards across 5 Hosts | ✅ | ✅ | ✅ |
+| `AUTO_PILOT` Hands-Free Enforcement & Horizon `C_max` Holds | Preview | ✅ | ✅ |
+| 30-Day Chronic Offender Memory & Workspace Savings Ledger | — | ✅ | ✅ |
+| Signed Corporate PDF 1.4 FinOps + GreenOps Receipt (`ctxtop receipt --pdf`) | — | ✅ | ✅ |
+| Shared `.agents/rules/` Governance, MDM Policy & OTel / Grafana Pack | — | — | ✅ |
 
 ---
 
 ## Deterministic `PreInvocation` Router & 6 Local Sensors
 
-When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incoming prompts across 8 deterministic router states (**Tier-1 In-Process Router Evaluation: `~0.18ms p95`** inside a warm V8 isolate; **Tier-2 Spawned CLI Hook End-to-End Wall Time: `~25–45ms` POSIX / `~40–90ms` Windows PowerShell** including Node process startup):
+When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incoming prompts across 8 deterministic router states (**Tier-1 In-Process `PreInvocation`: `~0.1–2.9ms` avg / `~3.4ms` p95** inside a warm V8 isolate; **Tier-2 CLI Hook End-to-End Wall Time on Windows: `~58ms` p50 warm daemon IPC / `~105ms` avg cold fallback (`~25–60ms` POSIX)** including Node process startup):
 
 1. `ALLOW_SILENT`: Immediate pass-through (`{}`) on `!` bypass prefix or healthy turns.
 2. `ALLOW_ACTIVE_SET`: Silent pass-through when referenced files are already warm in the last 5 turns.
@@ -308,27 +339,30 @@ When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incomi
 
 | Command | Description |
 | :--- | :--- |
-| `npx ctxtop init [--workspace]` | Installs Google Antigravity plugin manifests, lifecycle hooks, and sidecar configuration. |
-| `npx ctxtop install --claude` | Installs Claude Code `.claude-plugin` manifest, Tier-1/Tier-2 hooks, and terminal `statusLine`. |
-| `npx ctxtop doctor [--diagnostic]` | Validates hook registration, config overlays, dynamic model ceilings, 3-way WebView SHA-256 parity, and SQLite/JSONL health. |
+| `npx ctxtop audit [--platform all\|antigravity\|claude\|codex\|gemini\|cursor] [--days 7] [--json]` | Zero-write, hookless 5-host audit of Sludge Tax, cold-cache spikes, and oversized tool dumps. |
+| `npx ctxtop init [--cursor \| --windsurf \| --codex \| --gemini-cli \| --all-hosts]` | Installs Google Antigravity, Claude Code, and 1-command MCP configurations across editors & CLIs. |
+| `npx ctxtop search [<turn-id>] "<keyword>" [--json]` | Searches local SQLite FTS5 offloaded CLI dumps and artifacts via BM25 matching. |
+| `npx ctxtop install --global` | Installs Claude Code `.claude-plugin` manifest, Tier-1/Tier-2 hooks, and terminal `statusLine`. |
+| `npx ctxtop ui [--demo]` | Launches the local HTTP/SSE telemetry daemon (`127.0.0.1`) and interactive WebView (`/` Simple, `/advanced` Advanced). |
+| `npx ctxtop mcp` | Starts the standalone zero-network 7-tool JSON-RPC stdio MCP server (`@ctxtop/mcp`). |
+| `npx ctxtop doctor [--diagnostic]` | Validates hook registration, FTS5 offload readiness, warm-IPC path, model ceilings, 3-way SHA-256 parity, and SQLite health. |
 | `npx ctxtop postmortem [--last N] [--json]` | Scans the last `N` local sessions, classifies root causes (`CONTEXT_ROT_DECAY`, `VERIFICATION_CHURN`, `SPEC_AMBIGUITY`, `CLEAN`), lists top duplicate-read files, and audits Turn-0 MCP schema overhead. |
 | `npx ctxtop receipt [--markdown \| --pdf]` | Exports a SHA-256 verified FinOps + GreenOps token/USD savings receipt for the active workspace. |
-| `npx ctxtop verify [--json]` | Verifies cryptographic SHA-256 integrity of all 149 release files against `CHECKSUMS.sha256`. |
+| `npx ctxtop verify [--json]` | Verifies cryptographic SHA-256 integrity of all tracked release files against `CHECKSUMS.sha256`. |
 | `npx ctxtop --roast` | Prints a terminal forensic summary of recent sessions with top duplicate-read file offenders and copy-pasteable remediations. |
-| `npx ctxtop --serve` | Launches the local HTTP/SSE telemetry daemon (`127.0.0.1`) and interactive WebView (`/` Simple, `/advanced` Advanced). |
 | `npx ctxtop --demo-animate` | Plays the 5-stage terminal crisis simulation across synthetic fixtures. |
 
 ---
 
 ## Verification & Benchmarks
 
-Run the full zero-dependency test and verification suite (**1,050+ tests across 215+ suites**):
+Run the full zero-dependency test and verification suites (**1,060+ tests across 215+ suites** — see [**Empirical Benchmarks**](docs/EMPIRICAL_BENCHMARKS.md) & [**Compression & Antigravity Parity Report**](docs/ANTIGRAVITY_AND_COMPRESSION_BENCHMARK.md)):
 
 ```bash
-# Full Coach, UI, & 360° Capability-Proof suite (911+ tests across 183+ suites)
+# Full Coach, UI, & 360° Capability-Proof suite
 npm run test:coach
 
-# Claude Code dual-tier Mod, CLI hooks, statusLine, and 5-category ledger suite (168 tests)
+# Claude Code dual-tier Mod, CLI hooks, statusLine, and 5-category ledger suite (195 tests)
 npm run test:claude
 
 # Unit & Multi-Harness Wedge suite (89 tests across 31 suites)
@@ -337,10 +371,10 @@ npm run test:unit
 # Architectural verification suite (Gates 0-6 & Phases 1-7: SQLite read-only locks, JSDOM UI, MCP audit)
 npm run test:gates && npm run test:phases
 
-# End-to-end context memory & live loopback daemon integration suite (7 layers)
-npm run test:e2e
+# Reproducible 10-family CLI compression + 12-session Antigravity & 5-host parity benchmark
+npm run bench:parity
 
-# Latency benchmark (200 iterations/path: Tier-1 ~3.0ms avg / <15ms SLA, Tier-2 CLI Hook, <45ms HUD)
+# Latency benchmark (200 iterations/path: Tier-1 ~2.9ms avg, Tier-2 ~58ms warm IPC / ~105ms cold Windows, ~5.4ms HUD)
 npm run bench
 ```
 

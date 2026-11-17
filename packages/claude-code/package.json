@@ -5,10 +5,17 @@
   "type": "module",
   "main": "./src/index.mjs",
   "exports": {
-    ".": "./src/index.mjs"
+    ".": "./src/index.mjs",
+    "./*": "./src/*"
   },
+  "files": [
+    "src/"
+  ],
   "engines": {
     "node": ">=20.0.0"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@ctxtop/core": "^4.1.0",
+    "@ctxtop/engine-node": "^4.1.0"
+  }
 }

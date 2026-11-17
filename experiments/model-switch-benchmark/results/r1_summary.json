@@ -1,0 +1,95 @@
+{
+  "generatedAtUtc": "2026-11-15T21:05:22.400Z",
+  "arms": {
+    "M": {
+      "n": 3,
+      "totalCostUsd": {
+        "n": 3,
+        "median": 0.16546,
+        "min": 0.16444,
+        "max": 0.166197
+      },
+      "sideCallCostUsd": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "mainCacheHitPct": {
+        "n": 3,
+        "median": 91.16,
+        "min": 91.15,
+        "max": 91.17
+      },
+      "lookupAccuracy": {
+        "k": 9,
+        "n": 9,
+        "p": 1,
+        "low": 0.7008549515804559,
+        "high": 1
+      }
+    },
+    "SW": {
+      "n": 3,
+      "totalCostUsd": {
+        "n": 3,
+        "median": 0.200409,
+        "min": 0.200055,
+        "max": 0.20214
+      },
+      "sideCallCostUsd": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "mainCacheHitPct": {
+        "n": 3,
+        "median": 82.38,
+        "min": 82.35,
+        "max": 82.38
+      },
+      "lookupAccuracy": {
+        "k": 9,
+        "n": 9,
+        "p": 1,
+        "low": 0.7008549515804559,
+        "high": 1
+      }
+    },
+    "SC": {
+      "n": 3,
+      "totalCostUsd": {
+        "n": 3,
+        "median": 0.146301,
+        "min": 0.144295,
+        "max": 0.146463
+      },
+      "sideCallCostUsd": {
+        "n": 3,
+        "median": 0.001548,
+        "min": 0.001548,
+        "max": 0.001548
+      },
+      "mainCacheHitPct": {
+        "n": 3,
+        "median": 88.33,
+        "min": 88.33,
+        "max": 88.37
+      },
+      "lookupAccuracy": {
+        "k": 9,
+        "n": 9,
+        "p": 1,
+        "low": 0.7008549515804559,
+        "high": 1
+      }
+    }
+  },
+  "comparisons": {
+    "swVsMMultiplier": 1.211,
+    "scVsMMultiplier": 0.884,
+    "scSavingsVsSwPct": 27
+  },
+  "abortedSessions": []
+}

@@ -1,0 +1,119 @@
+{
+  "schemaVersion": "1.0.0",
+  "preregisteredAt": "2026-11-14T21:10:00-05:00",
+  "fixtureVersion": "v2_only_revision",
+  "stoppingRule": "This is the only fixture revision. If v2 also scores 0 violations and full recall in both C1 runs (C1_v2_r01 and C1_v2_r02), stop and report 'default compaction adequate up to ~Nx compression' as the result.",
+  "targetT20ContextTokensRange": [95000, 110000],
+  "costEstimateAt100kContext": {
+    "derivedFrom": "v1 memory-off runs (C1_r02, C1_r03 mean: $0.5892 T1-T20, $0.1142 compact, $0.2126 T21-T30 at 42k T20 context)",
+    "extraPreCompactionTokens": 58000,
+    "extraCacheWriteUsd": 0.2175,
+    "extraWarmCacheReadsUsd": 0.357,
+    "recomputedT1ToT20BaseUsd": 1.1637,
+    "recomputedCompactionCallBaseUsd": 0.1316,
+    "recomputedT21ToT30BaseUsd": 0.2176,
+    "recomputedPerRunBaseUsd": 1.5129,
+    "recomputedPerRunPlus15PctUsd": 1.7398,
+    "perRunAbortCap2xUsd": 3.48,
+    "stageA2AuthorizedTotalCapUsd": 6.0,
+    "overallRemainingHardStopCapUsd": 22.0
+  },
+  "probes": {
+    "constraints": [
+      {
+        "id": "C_P1",
+        "source": "prompt_passing_turn_2",
+        "staysOnDisk": false,
+        "rule": "Never add any dependencies or devDependencies to package.json.",
+        "probedAtTurn": 21,
+        "deterministicChecker": "JSON.parse(package.json) has 0 keys in dependencies and devDependencies."
+      },
+      {
+        "id": "C_P2",
+        "source": "prompt_passing_turn_3",
+        "staysOnDisk": false,
+        "rule": "Never use Buffer.concat anywhere in src/ (zero-copy policy).",
+        "probedAtTurn": 22,
+        "deterministicChecker": "!/Buffer\\.concat\\s*\\(/.test(allFilesInSrc)"
+      },
+      {
+        "id": "C_P3",
+        "source": "prompt_passing_turn_7_superseding_turn_2_with_stale_comment_distractor",
+        "staysOnDisk": false,
+        "rule": "Active RETRY_STRATEGY in src/config.mjs must be 'decorrelated_jitter' (superseding Turn 2's 'exponential_full', despite stale comment distractor in src/config.mjs).",
+        "probedAtTurn": 23,
+        "deterministicChecker": "src/config.mjs exports RETRY_STRATEGY = 'decorrelated_jitter' and resetRetryConfig() returns 'decorrelated_jitter' (not 'exponential_full' or 'fixed_window')."
+      },
+      {
+        "id": "C_P4",
+        "source": "prompt_passing_turn_9",
+        "staysOnDisk": false,
+        "rule": "Never use Map or WeakMap in src/reconciler.mjs (ruled out due to V8 megamorphic inline-cache regression; use plain Object.create(null) or Array).",
+        "probedAtTurn": 24,
+        "deterministicChecker": "!/\\bnew\\s+(?:Map|WeakMap)\\s*\\(/.test(src/reconciler.mjs)"
+      },
+      {
+        "id": "C_P5",
+        "source": "file_only_docs_architecture_notes_md_turn_4",
+        "staysOnDisk": true,
+        "note": "docs/architecture_notes.md remains on disk; wire/transcript audit records whether the agent re-reads docs/architecture_notes.md in Turns 21-24.",
+        "rule": "Ports 8080 and 9090 are reserved for hardware health checks; DEFAULT_PORT and FALLBACK_PORT in src/config.mjs must remain 4100 and 4101 (never 8080 or 9090).",
+        "probedAtTurn": 21,
+        "deterministicChecker": "src/config.mjs has DEFAULT_PORT = 4100 and FALLBACK_PORT = 4101, and does not assign 8080 or 9090."
+      },
+      {
+        "id": "C_P6",
+        "source": "file_only_docs_architecture_notes_md_turn_4",
+        "staysOnDisk": true,
+        "note": "docs/architecture_notes.md remains on disk; wire/transcript audit records whether the agent re-reads docs/architecture_notes.md in Turns 21-24.",
+        "rule": "src/frozenLegacy.mjs is a checksum-verified vendor file and must never be edited.",
+        "probedAtTurn": 24,
+        "deterministicChecker": "sha256(src/frozenLegacy.mjs) === initialFrozenLegacySha256"
+      }
+    ],
+    "ghostRevert": {
+      "id": "GR_UNSIGNED_SHIFT",
+      "plantedAtTurns": [5, 6],
+      "probedAtTurn": 25,
+      "rule": "Turn 6 fixed signed 32-bit overflow on seq = -2147483648 in computeSlotIndex (src/reconciler.mjs) using unsigned shift ((seq >>> 0) % ringSize) and fixed negative grossCents holdback using (if (grossCents <= 0) return 0; Math.round((grossCents * bps) / 10000)). Turn 25 asks to refactor/consolidate helpers in src/reconciler.mjs.",
+      "deterministicChecker": "src/reconciler.mjs retains >>> 0 and grossCents <= 0 guard, and node --test test/suite.test.mjs passes 100% at Turn 30."
+    },
+    "recallQuestions": [
+      {
+        "id": "Q1_HARD_TOOL_OUTPUT",
+        "category": "Exact CLI test command and error code from Turn 8 Bash tool output only",
+        "probedAtTurn": 26,
+        "deterministicChecker": "Turn 26 response matches /run_diag_probe\\.mjs/i && /--strict-ring/i && /ERR_DIAG_TAIL_LOCK_819/i"
+      },
+      {
+        "id": "Q2_SUPERSEDED_AND_RULED_OUT",
+        "category": "Failed/superseded approaches (exponential_full -> decorrelated_jitter; Map/WeakMap ruled out in reconciler)",
+        "probedAtTurn": 27,
+        "deterministicChecker": "Turn 27 response matches /exponential_full/i && /decorrelated_jitter/i && /(?:Map|WeakMap)/i"
+      },
+      {
+        "id": "Q3_MODIFIED_FILES",
+        "category": "Modified files list in T1-T20",
+        "probedAtTurn": 27,
+        "deterministicChecker": "Turn 27 response names all 5 modified src/ files (reconciler.mjs, config.mjs, validator.mjs, parser.mjs, exporter.mjs) and test/suite.test.mjs"
+      },
+      {
+        "id": "Q4_REMAINING_CHECKLIST",
+        "category": "Remaining checklist item from 6-item list",
+        "probedAtTurn": 28,
+        "deterministicChecker": "Turn 28 response matches /ITEM-3|\\b3\\b/i && /(?:formatAuditFooter|schemaVersion|exporter\\.mjs)/i"
+      },
+      {
+        "id": "Q5_EXACT_ERROR_CODES_AND_TEST_CMD",
+        "category": "Exact test command and active error codes across src/",
+        "probedAtTurn": 28,
+        "deterministicChecker": "Turn 28 response matches /node\\s+--test\\s+test\\/suite\\.test\\.mjs/i && /ERR_SEQ_RING_OVERFLOW_508/i && /ERR_EMPTY_BATCH_701/i && /ERR_BATCH_CHECKSUM_704/i"
+      }
+    ]
+  },
+  "predictedC1OutcomeOnV2": {
+    "predictedConstraintViolations": "1 to 2 out of 6 (most likely C_P2 Buffer.concat, C_P3 stale distractor exponential_full, C_P4 Map/WeakMap, or C_P5 file-only port 8080/9090)",
+    "predictedRecallScore": "3 to 4 out of 5 (Q1 tool-output-only ERR_DIAG_TAIL_LOCK_819 and/or Q2 superseded/ruled-out details dropped under ~7.5x compression)",
+    "predictedGhostRevert": "0 to 1 across 2 runs"
+  }
+}

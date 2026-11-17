@@ -1,0 +1,121 @@
+{
+  "mode": "highbeam_auto",
+  "runs": {
+    "HB_E_S_r01": {
+      "sessionId": "sess_HB_E_S_r01",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: HB_E_S_r01_cce8891b",
+      "activeModel": "claude-sonnet-4-6",
+      "activeEffort": "medium",
+      "lastCachedTokens": 17271,
+      "lastTotalInputTokens": 17274,
+      "lastTurnFinishedAtMs": 1794670811053,
+      "turn5FinishedAtMs": 1794670341390,
+      "parkedUntilMs": 1794670676390,
+      "actualIdleSec": 418.94,
+      "queuedMutations": []
+    },
+    "HB_B_S_r01": {
+      "sessionId": "sess_HB_B_S_r01",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: HB_B_S_r01_1a44cbc5",
+      "activeModel": "claude-opus-4-6",
+      "activeEffort": "medium",
+      "lastCachedTokens": 17139,
+      "lastTotalInputTokens": 17142,
+      "lastTurnFinishedAtMs": 1794670443374,
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null,
+      "queuedMutations": []
+    },
+    "HB_C_S_r01": {
+      "sessionId": "sess_HB_C_S_r01",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: HB_C_S_r01_6de66fa9",
+      "activeModel": "claude-opus-4-6",
+      "activeEffort": "medium",
+      "lastCachedTokens": 17106,
+      "lastTotalInputTokens": 17109,
+      "lastTurnFinishedAtMs": 1794670548552,
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null,
+      "queuedMutations": []
+    },
+    "HB_D_S_r01": {
+      "sessionId": "sess_HB_D_S_r01",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: HB_D_S_r01_2cb162bd",
+      "activeModel": "claude-opus-4-6",
+      "activeEffort": "medium",
+      "lastCachedTokens": 16942,
+      "lastTotalInputTokens": 16945,
+      "lastTurnFinishedAtMs": 1794670651189,
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null,
+      "queuedMutations": [
+        {
+          "type": "effort",
+          "key": "effort",
+          "value": "high",
+          "reason": "[DET-09 Top-Level Mutation Deferred] Mutating top-level effort while 16,639 tokens are warm on claude-opus-4-6 would invalidate the Anthropic prompt cache prefix (+$0.0957 rewrite spike). Queued in PostCompactMutationQueue to apply after next compaction.",
+          "avoidedRewritePenaltyUSD": 0.095674,
+          "cachedTokens": 16639,
+          "savedTokens": 0,
+          "enqueuedAt": 1794670642867
+        }
+      ]
+    },
+    "HB_F_S_r01": {
+      "sessionId": "sess_HB_F_S_r01",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: HB_F_S_r01_8769883a",
+      "activeModel": "claude-opus-4-6",
+      "activeEffort": "medium",
+      "lastCachedTokens": 17020,
+      "lastTotalInputTokens": 17023,
+      "lastTurnFinishedAtMs": 1794670760322,
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null,
+      "queuedMutations": []
+    },
+    "HB_B_L_r01": {
+      "sessionId": "sess_HB_B_L_r01",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: HB_B_L_r01_00758929",
+      "activeModel": "claude-opus-4-6",
+      "activeEffort": "medium",
+      "lastCachedTokens": 58461,
+      "lastTotalInputTokens": 58464,
+      "lastTurnFinishedAtMs": 1794670938522,
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null,
+      "queuedMutations": []
+    },
+    "HB_F_L_r01": {
+      "sessionId": "sess_HB_F_L_r01",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: HB_F_L_r01_976ae003",
+      "activeModel": "claude-opus-4-6",
+      "activeEffort": "medium",
+      "lastCachedTokens": 58436,
+      "lastTotalInputTokens": 58439,
+      "lastTurnFinishedAtMs": 1794671062231,
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null,
+      "queuedMutations": []
+    }
+  }
+}

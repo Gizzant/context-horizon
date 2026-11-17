@@ -1,0 +1,11 @@
+{
+  "stage": "stage1",
+  "recordedAtUtc": "2026-11-16T23:53:51.339Z",
+  "runCount": 24,
+  "usageBeforeUsd": 93.5161304,
+  "usageAfterSnap1Usd": 101.068949,
+  "usageAfterSettledUsd": 101.068949,
+  "keyDeltaUsd": 7.5528186,
+  "summedRunBilledUsd": 7.5528186,
+  "residualUsd": 0
+}

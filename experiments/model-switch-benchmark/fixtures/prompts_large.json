@@ -1,0 +1,83 @@
+{
+  "tier": "large",
+  "description": "12 deterministic read-only prompts calibrated to ~56k-64k tokens at Turn 6 using single bounded Read calls of core modules in Turns 1-3 and zero-tool analytical turns in Turns 4-12.",
+  "targetFiles": [
+    "src/core/parser.mjs (lines 1-1020)",
+    "src/core/quota.mjs (lines 1-920)",
+    "src/core/constants.mjs (lines 1-960)"
+  ],
+  "prompts": [
+    {
+      "turn": 1,
+      "phase": "load",
+      "expectToolUse": true,
+      "prompt": "Call the Read tool ONCE in a single tool call on `src/core/parser.mjs` with offset=1, limit=1020 (explicit benchmark override: do NOT split into 150-line chunks). After reading it, list exactly 3 concise bullet points (under 70 words total) summarizing the read-only SQLite guard, transcript effort extraction, and Claude Code JSONL parser."
+    },
+    {
+      "turn": 2,
+      "phase": "load",
+      "expectToolUse": true,
+      "prompt": "Call the Read tool ONCE in a single tool call on `src/core/quota.mjs` with offset=1, limit=920 (explicit benchmark override: do NOT split into 150-line chunks). After reading it, list exactly 3 concise bullet points (under 70 words total) summarizing `TurnBoundaryModelSwitchBuffer`, `detectModelSwitchCause`, and `computeCacheRoi`."
+    },
+    {
+      "turn": 3,
+      "phase": "load",
+      "expectToolUse": true,
+      "prompt": "Call the Read tool ONCE in a single tool call on `src/core/constants.mjs` with offset=1, limit=960 (explicit benchmark override: do NOT split into 150-line chunks). After reading it, list exactly 3 concise bullet points (under 70 words total) summarizing `HORIZON_WINDOW`, `SESSION_RISK_THRESHOLDS`, and `CATEGORY_METADATA`."
+    },
+    {
+      "turn": 4,
+      "phase": "measure",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, explain in 4 concise bullet points (under 100 words total) what `SQLITE_OPEN_READONLY_OPTIONS` and `ZERO_TRUST_SECURITY_MANIFEST` enforce in `src/core/parser.mjs` and how `parseRawJsonl` parses session logs."
+    },
+    {
+      "turn": 5,
+      "phase": "pre_switch",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, locate `TurnBoundaryModelSwitchBuffer` and `hasExplicitPrefixMutation` in `src/core/quota.mjs` and explain in 4 concise bullet points (under 100 words total) how model switches vs prefix mutations are classified."
+    },
+    {
+      "turn": 6,
+      "phase": "switch_point",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, explain in 4 concise bullet points (under 100 words total) how `computeCacheRoi` in `quota.mjs` uses `SESSION_5M_READ_TO_WRITE_MIN_ROI_RATIO` and how `CATEGORIES` in `constants.mjs` maps tool/context overhead categories."
+    },
+    {
+      "turn": 7,
+      "phase": "recovery_point",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, trace in 4 concise bullet points (under 100 words total) how `extractTurnEffortMetadata` and `extractEffortTimeline` in `parser.mjs` extract effort changes from transcripts."
+    },
+    {
+      "turn": 8,
+      "phase": "return_point",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, summarize in 4 concise bullet points (under 100 words total) how `discoverClaudeCodeSessions` and `findSessionDirectory` in `parser.mjs` resolve transcript directories across platforms."
+    },
+    {
+      "turn": 9,
+      "phase": "measure",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, compare `SURFACE_TAGS`, `resolveSurfaceTag`, and `ATTENTION_TROUGH_CONFIG` in `constants.mjs` with `resolveModelPoolDisplayName` in `quota.mjs` in 4 concise bullet points (under 100 words total)."
+    },
+    {
+      "turn": 10,
+      "phase": "measure",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, explain in 4 concise bullet points (under 100 words total) how `parseClaudeCodeJsonl` in `parser.mjs` handles Anthropic usage fields and sidecar/subagent entries."
+    },
+    {
+      "turn": 11,
+      "phase": "measure",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, summarize in 4 concise bullet points (under 100 words total) how `SESSION_RISK_THRESHOLDS`, `PATCHED_CLI_CEILING_TIERS`, and `CARBON_RATE_CLIFF_UTC` are structured in `constants.mjs`."
+    },
+    {
+      "turn": 12,
+      "phase": "measure",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, give a 4-bullet synthesis (under 100 words total) showing how `parser.mjs`, `quota.mjs`, and `constants.mjs` fit together from raw session logs to cache/model diagnostics."
+    }
+  ]
+}

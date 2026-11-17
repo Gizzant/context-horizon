@@ -17,6 +17,12 @@ To eliminate any risk of database lock contention or corruption while Google Ant
 2. **Read-Only JSONL File Descriptors (`'r'`):** Incremental transcript slicing (`transcript_full.jsonl` and `transcript.jsonl`) opens log files strictly with read-only flag `'r'` (`fs.openSync(filePath, 'r')`) and never acquires write locks on active Antigravity session databases.
 3. **Atomic Sidecar & Backup I/O:** Any optional user-triggered state (such as `docs/HANDOFF_<timestamp>.md` generation or `.bak` transcript backups prior to surgical pruning) is written atomically via PID-scoped temporary files and rename operations.
 
-## 3. Reporting a Vulnerability
+## 3. Multi-Host Read-Only Scoping & Open-Core Cryptographic Model
+
+1. **5-Host Read-Only Transcript Scoping (`ctxtop audit` & `horizon_audit_sessions`)**: When auditing sessions across Antigravity, Claude Code, Codex CLI, Gemini CLI, and Cursor, `ctxtop` reads solely completed/active conversation transcript files (e.g. Gemini CLI `~/.gemini/tmp/**/chats/session-*.json`). Highbeam never reads OAuth credential files (`~/.gemini/oauth_creds.json`, Keychain/Credential Manager tokens) and never spawns host CLIs against interactive OAuth seats.
+2. **Release Checksums & npm Provenance**: Tracked runtime files can be verified offline anytime via `npx ctxtop verify --json` (`CHECKSUMS.sha256`), and CI releases publish with `--provenance` OIDC attestation.
+3. **Offline Ed25519 Entitlement Verification (`@ctxtop/pro`)**: License verification runs locally using Node.js native `node:crypto` Ed25519 signature checks with zero license phone-home pings; enterprises may pin their own SPKI key via `CTXTOP_ED25519_PUBLIC_KEY_PEM`. For central MDM policy deployment see [docs/ENTERPRISE_MDM.md](docs/ENTERPRISE_MDM.md).
+
+## 4. Reporting a Vulnerability
 
 If you discover a security or path-handling issue, please open a GitHub Security Advisory on the repository or contact `frankmiller@gmail.com`. We respond to security reports within 48 hours.

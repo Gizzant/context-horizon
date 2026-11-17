@@ -1,0 +1,598 @@
+{
+  "generatedAtUtc": "2026-11-17T00:10:10.155Z",
+  "algebraicSingleTurnCStar": 6902,
+  "perTask": [
+    {
+      "task_id": "T01",
+      "switchRunId": "T01_SWITCH_r01",
+      "opusRunId": "T01_OPUS_r01",
+      "exactShadowInputs": {
+        "cachedTokens": 18334,
+        "uncachedDeltaTokens": 350,
+        "expectedOutputTokens": 1500,
+        "outputEstimateSource": "default_1500",
+        "requestsPerTurn": 1,
+        "requestsPerTurnSource": "default_1.0",
+        "expectedRemainingTurns": null,
+        "postSwitchRemainingTurns": null,
+        "horizonPriorSource": null,
+        "ruleVersion": "rule_v1",
+        "breakEvenTokens": 6902,
+        "coldWritePenaltyUsd": 0.026293,
+        "decision": "deny",
+        "blocked": true
+      },
+      "empiricalReplay": {
+        "ruleVersion": "rule_v2",
+        "requestsPerTurn": 5,
+        "expectedOutputTokens": 4717,
+        "expectedRemainingTurns": 11.4,
+        "postSwitchRemainingTurns": 10.4,
+        "horizonPriorSource": "placeholder_antigravity_496_prior",
+        "horizonMaxCachedTokens": null,
+        "paybackTurns": 0,
+        "coldWritePenaltyUsd": -0.01335,
+        "decision": "allow",
+        "blocked": false
+      },
+      "proposedFormulaSim": {
+        "assumedRptFromT1": 5,
+        "assumedTurnOutFromT1": 4717,
+        "avgOutPerReqT1": 943.4,
+        "stayTurnUsd": 0.152574,
+        "switchTurnUsd": 0.120289,
+        "netSwitchTurnPenaltyUsd": -0.032285,
+        "netHorizonDeltaUsd": -0.032285,
+        "proposedBlocked": false,
+        "proposedDecision": "allow"
+      },
+      "measuredWire": {
+        "switchT1": {
+          "requests": 5,
+          "lastPromptTokens": 18334,
+          "outputTokens": 4717,
+          "billedUsd": 0.196225
+        },
+        "switchT2": {
+          "requests": 3,
+          "req1WriteTokens": 19527,
+          "incrementalWriteTokens": 2683,
+          "totalReadTokens": 40997,
+          "outputTokens": 2398,
+          "t2PlusProbeUsd": 0.083697
+        },
+        "opusT2": {
+          "requests": 4,
+          "incrementalWriteTokens": 4233,
+          "totalReadTokens": 76235,
+          "outputTokens": 3377,
+          "billedUsd": 0.111704
+        },
+        "actualSwitchRunUsd": 0.2799221,
+        "actualOpusRunUsd": 0.2953434,
+        "actualRunDeltaUsd": -0.015421,
+        "actualT2DeltaUsd": -0.028007,
+        "switchBeatOpusTotal": true,
+        "switchBeatOpusT2": true
+      }
+    },
+    {
+      "task_id": "T02",
+      "switchRunId": "T02_SWITCH_r01",
+      "opusRunId": "T02_OPUS_r01",
+      "exactShadowInputs": {
+        "cachedTokens": 15860,
+        "uncachedDeltaTokens": 350,
+        "expectedOutputTokens": 1500,
+        "outputEstimateSource": "default_1500",
+        "requestsPerTurn": 1,
+        "requestsPerTurnSource": "default_1.0",
+        "expectedRemainingTurns": null,
+        "postSwitchRemainingTurns": null,
+        "horizonPriorSource": null,
+        "ruleVersion": "rule_v1",
+        "breakEvenTokens": 6902,
+        "coldWritePenaltyUsd": 0.020603,
+        "decision": "deny",
+        "blocked": true
+      },
+      "empiricalReplay": {
+        "ruleVersion": "rule_v2",
+        "requestsPerTurn": 4,
+        "expectedOutputTokens": 4345,
+        "expectedRemainingTurns": 14.25,
+        "postSwitchRemainingTurns": 13.25,
+        "horizonPriorSource": "placeholder_antigravity_496_prior",
+        "horizonMaxCachedTokens": null,
+        "paybackTurns": 0,
+        "coldWritePenaltyUsd": -0.01271,
+        "decision": "allow",
+        "blocked": false
+      },
+      "proposedFormulaSim": {
+        "assumedRptFromT1": 4,
+        "assumedTurnOutFromT1": 4345,
+        "avgOutPerReqT1": 1086.3,
+        "stayTurnUsd": 0.130938,
+        "switchTurnUsd": 0.103533,
+        "netSwitchTurnPenaltyUsd": -0.027405,
+        "netHorizonDeltaUsd": -0.027405,
+        "proposedBlocked": false,
+        "proposedDecision": "allow"
+      },
+      "measuredWire": {
+        "switchT1": {
+          "requests": 4,
+          "lastPromptTokens": 15860,
+          "outputTokens": 4345,
+          "billedUsd": 0.172927
+        },
+        "switchT2": {
+          "requests": 2,
+          "req1WriteTokens": 17650,
+          "incrementalWriteTokens": 2225,
+          "totalReadTokens": 17650,
+          "outputTokens": 2370,
+          "t2PlusProbeUsd": 0.075241
+        },
+        "opusT2": {
+          "requests": 2,
+          "incrementalWriteTokens": 2462,
+          "totalReadTokens": 32707,
+          "outputTokens": 2894,
+          "billedUsd": 0.085312
+        },
+        "actualSwitchRunUsd": 0.2481677,
+        "actualOpusRunUsd": 0.2564358,
+        "actualRunDeltaUsd": -0.008268,
+        "actualT2DeltaUsd": -0.010071,
+        "switchBeatOpusTotal": true,
+        "switchBeatOpusT2": true
+      }
+    },
+    {
+      "task_id": "T03",
+      "switchRunId": "T03_SWITCH_r01",
+      "opusRunId": "T03_OPUS_r01",
+      "exactShadowInputs": {
+        "cachedTokens": 15896,
+        "uncachedDeltaTokens": 350,
+        "expectedOutputTokens": 1500,
+        "outputEstimateSource": "default_1500",
+        "requestsPerTurn": 1,
+        "requestsPerTurnSource": "default_1.0",
+        "expectedRemainingTurns": null,
+        "postSwitchRemainingTurns": null,
+        "horizonPriorSource": null,
+        "ruleVersion": "rule_v1",
+        "breakEvenTokens": 6902,
+        "coldWritePenaltyUsd": 0.020686,
+        "decision": "deny",
+        "blocked": true
+      },
+      "empiricalReplay": {
+        "ruleVersion": "rule_v2",
+        "requestsPerTurn": 5,
+        "expectedOutputTokens": 4172,
+        "expectedRemainingTurns": 11.4,
+        "postSwitchRemainingTurns": 10.4,
+        "horizonPriorSource": "placeholder_antigravity_496_prior",
+        "horizonMaxCachedTokens": null,
+        "paybackTurns": 0,
+        "coldWritePenaltyUsd": -0.012533,
+        "decision": "allow",
+        "blocked": false
+      },
+      "proposedFormulaSim": {
+        "assumedRptFromT1": 5,
+        "assumedTurnOutFromT1": 4172,
+        "avgOutPerReqT1": 834.4,
+        "stayTurnUsd": 0.139236,
+        "switchTurnUsd": 0.107768,
+        "netSwitchTurnPenaltyUsd": -0.031468,
+        "netHorizonDeltaUsd": -0.031468,
+        "proposedBlocked": false,
+        "proposedDecision": "allow"
+      },
+      "measuredWire": {
+        "switchT1": {
+          "requests": 5,
+          "lastPromptTokens": 15896,
+          "outputTokens": 4172,
+          "billedUsd": 0.171963
+        },
+        "switchT2": {
+          "requests": 2,
+          "req1WriteTokens": 17437,
+          "incrementalWriteTokens": 1831,
+          "totalReadTokens": 17437,
+          "outputTokens": 1893,
+          "t2PlusProbeUsd": 0.068932
+        },
+        "opusT2": {
+          "requests": 2,
+          "incrementalWriteTokens": 3027,
+          "totalReadTokens": 33995,
+          "outputTokens": 3008,
+          "billedUsd": 0.089375
+        },
+        "actualSwitchRunUsd": 0.2408945,
+        "actualOpusRunUsd": 0.2695566,
+        "actualRunDeltaUsd": -0.028662,
+        "actualT2DeltaUsd": -0.020443,
+        "switchBeatOpusTotal": true,
+        "switchBeatOpusT2": true
+      }
+    },
+    {
+      "task_id": "T04",
+      "switchRunId": "T04_SWITCH_r01",
+      "opusRunId": "T04_OPUS_r01",
+      "exactShadowInputs": {
+        "cachedTokens": 25524,
+        "uncachedDeltaTokens": 350,
+        "expectedOutputTokens": 1500,
+        "outputEstimateSource": "default_1500",
+        "requestsPerTurn": 1,
+        "requestsPerTurnSource": "default_1.0",
+        "expectedRemainingTurns": null,
+        "postSwitchRemainingTurns": null,
+        "horizonPriorSource": null,
+        "ruleVersion": "rule_v1",
+        "breakEvenTokens": 6902,
+        "coldWritePenaltyUsd": 0.04283,
+        "decision": "deny",
+        "blocked": true
+      },
+      "empiricalReplay": {
+        "ruleVersion": "rule_v2",
+        "requestsPerTurn": 4,
+        "expectedOutputTokens": 4869,
+        "expectedRemainingTurns": 14.25,
+        "postSwitchRemainingTurns": 13.25,
+        "horizonPriorSource": "placeholder_antigravity_496_prior",
+        "horizonMaxCachedTokens": null,
+        "paybackTurns": 0.023,
+        "coldWritePenaltyUsd": 0.001378,
+        "decision": "allow",
+        "blocked": false
+      },
+      "proposedFormulaSim": {
+        "assumedRptFromT1": 4,
+        "assumedTurnOutFromT1": 4869,
+        "avgOutPerReqT1": 1217.3,
+        "stayTurnUsd": 0.149149,
+        "switchTurnUsd": 0.135832,
+        "netSwitchTurnPenaltyUsd": -0.013317,
+        "netHorizonDeltaUsd": -0.013317,
+        "proposedBlocked": false,
+        "proposedDecision": "allow"
+      },
+      "measuredWire": {
+        "switchT1": {
+          "requests": 4,
+          "lastPromptTokens": 25524,
+          "outputTokens": 4869,
+          "billedUsd": 0.23524
+        },
+        "switchT2": {
+          "requests": 6,
+          "req1WriteTokens": 26997,
+          "incrementalWriteTokens": 9887,
+          "totalReadTokens": 155108,
+          "outputTokens": 9464,
+          "t2PlusProbeUsd": 0.202465
+        },
+        "opusT2": {
+          "requests": 8,
+          "incrementalWriteTokens": 9873,
+          "totalReadTokens": 242173,
+          "outputTokens": 8420,
+          "billedUsd": 0.274634
+        },
+        "actualSwitchRunUsd": 0.4377052,
+        "actualOpusRunUsd": 0.5215796,
+        "actualRunDeltaUsd": -0.083874,
+        "actualT2DeltaUsd": -0.072169,
+        "switchBeatOpusTotal": true,
+        "switchBeatOpusT2": true
+      }
+    },
+    {
+      "task_id": "T05",
+      "switchRunId": "T05_SWITCH_r01",
+      "opusRunId": "T05_OPUS_r01",
+      "exactShadowInputs": {
+        "cachedTokens": 24822,
+        "uncachedDeltaTokens": 350,
+        "expectedOutputTokens": 1500,
+        "outputEstimateSource": "default_1500",
+        "requestsPerTurn": 1,
+        "requestsPerTurnSource": "default_1.0",
+        "expectedRemainingTurns": null,
+        "postSwitchRemainingTurns": null,
+        "horizonPriorSource": null,
+        "ruleVersion": "rule_v1",
+        "breakEvenTokens": 6902,
+        "coldWritePenaltyUsd": 0.041216,
+        "decision": "deny",
+        "blocked": true
+      },
+      "empiricalReplay": {
+        "ruleVersion": "rule_v2",
+        "requestsPerTurn": 5,
+        "expectedOutputTokens": 6726,
+        "expectedRemainingTurns": 11.4,
+        "postSwitchRemainingTurns": 10.4,
+        "horizonPriorSource": "placeholder_antigravity_496_prior",
+        "horizonMaxCachedTokens": null,
+        "paybackTurns": 0,
+        "coldWritePenaltyUsd": -0.021113,
+        "decision": "allow",
+        "blocked": false
+      },
+      "proposedFormulaSim": {
+        "assumedRptFromT1": 5,
+        "assumedTurnOutFromT1": 6726,
+        "avgOutPerReqT1": 1345.2,
+        "stayTurnUsd": 0.199242,
+        "switchTurnUsd": 0.159194,
+        "netSwitchTurnPenaltyUsd": -0.040048,
+        "netHorizonDeltaUsd": -0.040048,
+        "proposedBlocked": false,
+        "proposedDecision": "allow"
+      },
+      "measuredWire": {
+        "switchT1": {
+          "requests": 5,
+          "lastPromptTokens": 24822,
+          "outputTokens": 6726,
+          "billedUsd": 0.270587
+        },
+        "switchT2": {
+          "requests": 7,
+          "req1WriteTokens": 24698,
+          "incrementalWriteTokens": 9479,
+          "totalReadTokens": 179622,
+          "outputTokens": 7420,
+          "t2PlusProbeUsd": 0.177713
+        },
+        "opusT2": {
+          "requests": 7,
+          "incrementalWriteTokens": 9270,
+          "totalReadTokens": 200197,
+          "outputTokens": 7799,
+          "billedUsd": 0.249835
+        },
+        "actualSwitchRunUsd": 0.4482997,
+        "actualOpusRunUsd": 0.519127,
+        "actualRunDeltaUsd": -0.070827,
+        "actualT2DeltaUsd": -0.072122,
+        "switchBeatOpusTotal": true,
+        "switchBeatOpusT2": true
+      }
+    },
+    {
+      "task_id": "T06",
+      "switchRunId": "T06_SWITCH_r01",
+      "opusRunId": "T06_OPUS_r01",
+      "exactShadowInputs": {
+        "cachedTokens": 20924,
+        "uncachedDeltaTokens": 350,
+        "expectedOutputTokens": 1500,
+        "outputEstimateSource": "default_1500",
+        "requestsPerTurn": 1,
+        "requestsPerTurnSource": "default_1.0",
+        "expectedRemainingTurns": null,
+        "postSwitchRemainingTurns": null,
+        "horizonPriorSource": null,
+        "ruleVersion": "rule_v1",
+        "breakEvenTokens": 6902,
+        "coldWritePenaltyUsd": 0.03225,
+        "decision": "deny",
+        "blocked": true
+      },
+      "empiricalReplay": {
+        "ruleVersion": "rule_v2",
+        "requestsPerTurn": 4,
+        "expectedOutputTokens": 6161,
+        "expectedRemainingTurns": 14.25,
+        "postSwitchRemainingTurns": 13.25,
+        "horizonPriorSource": "placeholder_antigravity_496_prior",
+        "horizonMaxCachedTokens": null,
+        "paybackTurns": 0,
+        "coldWritePenaltyUsd": -0.020742,
+        "decision": "allow",
+        "blocked": false
+      },
+      "proposedFormulaSim": {
+        "assumedRptFromT1": 4,
+        "assumedTurnOutFromT1": 6161,
+        "avgOutPerReqT1": 1540.3,
+        "stayTurnUsd": 0.171309,
+        "switchTurnUsd": 0.135872,
+        "netSwitchTurnPenaltyUsd": -0.035437,
+        "netHorizonDeltaUsd": -0.035437,
+        "proposedBlocked": false,
+        "proposedDecision": "allow"
+      },
+      "measuredWire": {
+        "switchT1": {
+          "requests": 4,
+          "lastPromptTokens": 20924,
+          "outputTokens": 6161,
+          "billedUsd": 0.235415
+        },
+        "switchT2": {
+          "requests": 8,
+          "req1WriteTokens": 21425,
+          "incrementalWriteTokens": 13985,
+          "totalReadTokens": 199954,
+          "outputTokens": 13612,
+          "t2PlusProbeUsd": 0.244752
+        },
+        "opusT2": {
+          "requests": 4,
+          "incrementalWriteTokens": 6215,
+          "totalReadTokens": 102294,
+          "outputTokens": 6341,
+          "billedUsd": 0.186336
+        },
+        "actualSwitchRunUsd": 0.480167,
+        "actualOpusRunUsd": 0.4517704,
+        "actualRunDeltaUsd": 0.028397,
+        "actualT2DeltaUsd": 0.058416,
+        "switchBeatOpusTotal": false,
+        "switchBeatOpusT2": false
+      }
+    },
+    {
+      "task_id": "T07",
+      "switchRunId": "T07_SWITCH_r01",
+      "opusRunId": "T07_OPUS_r01",
+      "exactShadowInputs": {
+        "cachedTokens": 25755,
+        "uncachedDeltaTokens": 350,
+        "expectedOutputTokens": 1500,
+        "outputEstimateSource": "default_1500",
+        "requestsPerTurn": 1,
+        "requestsPerTurnSource": "default_1.0",
+        "expectedRemainingTurns": null,
+        "postSwitchRemainingTurns": null,
+        "horizonPriorSource": null,
+        "ruleVersion": "rule_v1",
+        "breakEvenTokens": 6902,
+        "coldWritePenaltyUsd": 0.043362,
+        "decision": "deny",
+        "blocked": true
+      },
+      "empiricalReplay": {
+        "ruleVersion": "rule_v2",
+        "requestsPerTurn": 5,
+        "expectedOutputTokens": 9075,
+        "expectedRemainingTurns": 11.4,
+        "postSwitchRemainingTurns": 10.4,
+        "horizonPriorSource": "placeholder_antigravity_496_prior",
+        "horizonMaxCachedTokens": null,
+        "paybackTurns": 0,
+        "coldWritePenaltyUsd": -0.04283,
+        "decision": "allow",
+        "blocked": false
+      },
+      "proposedFormulaSim": {
+        "assumedRptFromT1": 5,
+        "assumedTurnOutFromT1": 9075,
+        "avgOutPerReqT1": 1815,
+        "stayTurnUsd": 0.247155,
+        "switchTurnUsd": 0.185389,
+        "netSwitchTurnPenaltyUsd": -0.061766,
+        "netHorizonDeltaUsd": -0.061766,
+        "proposedBlocked": false,
+        "proposedDecision": "allow"
+      },
+      "measuredWire": {
+        "switchT1": {
+          "requests": 5,
+          "lastPromptTokens": 25755,
+          "outputTokens": 9075,
+          "billedUsd": 0.321708
+        },
+        "switchT2": {
+          "requests": 4,
+          "req1WriteTokens": 23669,
+          "incrementalWriteTokens": 10078,
+          "totalReadTokens": 80956,
+          "outputTokens": 10225,
+          "t2PlusProbeUsd": 0.194809
+        },
+        "opusT2": {
+          "requests": 6,
+          "incrementalWriteTokens": 8280,
+          "totalReadTokens": 191789,
+          "outputTokens": 8474,
+          "billedUsd": 0.257166
+        },
+        "actualSwitchRunUsd": 0.5165169,
+        "actualOpusRunUsd": 0.593409,
+        "actualRunDeltaUsd": -0.076892,
+        "actualT2DeltaUsd": -0.062357,
+        "switchBeatOpusTotal": true,
+        "switchBeatOpusT2": true
+      }
+    },
+    {
+      "task_id": "T08",
+      "switchRunId": "T08_SWITCH_r01",
+      "opusRunId": "T08_OPUS_r01",
+      "exactShadowInputs": {
+        "cachedTokens": 19966,
+        "uncachedDeltaTokens": 350,
+        "expectedOutputTokens": 1500,
+        "outputEstimateSource": "default_1500",
+        "requestsPerTurn": 1,
+        "requestsPerTurnSource": "default_1.0",
+        "expectedRemainingTurns": null,
+        "postSwitchRemainingTurns": null,
+        "horizonPriorSource": null,
+        "ruleVersion": "rule_v1",
+        "breakEvenTokens": 6902,
+        "coldWritePenaltyUsd": 0.030047,
+        "decision": "deny",
+        "blocked": true
+      },
+      "empiricalReplay": {
+        "ruleVersion": "rule_v2",
+        "requestsPerTurn": 4,
+        "expectedOutputTokens": 5623,
+        "expectedRemainingTurns": 14.25,
+        "postSwitchRemainingTurns": 13.25,
+        "horizonPriorSource": "placeholder_antigravity_496_prior",
+        "horizonMaxCachedTokens": null,
+        "paybackTurns": 0,
+        "coldWritePenaltyUsd": -0.017278,
+        "decision": "allow",
+        "blocked": false
+      },
+      "proposedFormulaSim": {
+        "assumedRptFromT1": 4,
+        "assumedTurnOutFromT1": 5623,
+        "avgOutPerReqT1": 1405.8,
+        "stayTurnUsd": 0.159783,
+        "switchTurnUsd": 0.12781,
+        "netSwitchTurnPenaltyUsd": -0.031973,
+        "netHorizonDeltaUsd": -0.031973,
+        "proposedBlocked": false,
+        "proposedDecision": "allow"
+      },
+      "measuredWire": {
+        "switchT1": {
+          "requests": 4,
+          "lastPromptTokens": 19966,
+          "outputTokens": 5623,
+          "billedUsd": 0.219984
+        },
+        "switchT2": {
+          "requests": 7,
+          "req1WriteTokens": 20893,
+          "incrementalWriteTokens": 8317,
+          "totalReadTokens": 151920,
+          "outputTokens": 7133,
+          "t2PlusProbeUsd": 0.159655
+        },
+        "opusT2": {
+          "requests": 9,
+          "incrementalWriteTokens": 11891,
+          "totalReadTokens": 242410,
+          "outputTokens": 10118,
+          "billedUsd": 0.318994
+        },
+        "actualSwitchRunUsd": 0.379639,
+        "actualOpusRunUsd": 0.555387,
+        "actualRunDeltaUsd": -0.175748,
+        "actualT2DeltaUsd": -0.159339,
+        "switchBeatOpusTotal": true,
+        "switchBeatOpusT2": true
+      }
+    }
+  ]
+}

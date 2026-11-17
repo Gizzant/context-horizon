@@ -74,7 +74,7 @@ const heroSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" w
   <circle cx="42" cy="20" r="6" fill="#f59e0b"/>
   <circle cx="62" cy="20" r="6" fill="#22c55e"/>
   <text x="480" y="25" text-anchor="middle" fill="#94a3b8" font-size="13" font-weight="600" class="mono">
-    Highbeam (ctxtop v3.4.0) — 40-Cell Context Telemetry HUD &amp; PreInvocation Flight Check
+    Highbeam (ctxtop v4.1.0) — 40-Cell Context Telemetry HUD &amp; PreInvocation Flight Check
   </text>
 
   <!-- Section 1: Turn 50 Prefix Amputation & Sludge Crisis -->

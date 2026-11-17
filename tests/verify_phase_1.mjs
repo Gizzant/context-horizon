@@ -288,10 +288,10 @@ w.renderState({
 });
 await new Promise(r => setTimeout(r, 30));
 
-// Verify GREEN status dot despite 77.8k older cached history
+// Verify AMBER status dot for 77.8k older cached clutter per Simple View truth audit
 const dotEl = d.getElementById('statusDot');
-assert.equal(dotEl.dataset.riskBand, 'GREEN', '139.9k warm cache session with synced task.md must show GREEN status dot');
-assert.equal(dotEl.className, 'dot');
+assert.equal(dotEl.dataset.riskBand, 'AMBER', '139.9k warm cache session with 77.8k clutter must show AMBER status dot');
+assert.equal(dotEl.className, 'dot warn');
 
 // Verify Prefix-Lock Protection Warning on #sessionSelect and #prefixLockBadge
 const selEl = d.getElementById('sessionSelect');

@@ -1,0 +1,164 @@
+{
+  "generatedAtUtc": "2026-11-15T21:13:41.974Z",
+  "pricingSource": "phase0_rate_card.json (OpenRouter 2026-11-15: Opus 5.5 $4/$20/$5/$0.20, Sonnet 5.5 $2/$10/$2.5/$0.10)",
+  "arms": {
+    "control_55": {
+      "n": 3,
+      "totalCostUsd": {
+        "n": 3,
+        "median": 0.226092,
+        "min": 0.226078,
+        "max": 0.226106
+      },
+      "overallCacheHitPct": {
+        "n": 3,
+        "median": 91.57,
+        "min": 91.57,
+        "max": 91.57
+      },
+      "t6Read": {
+        "n": 3,
+        "median": 26126,
+        "min": 26124,
+        "max": 26128
+      },
+      "t6Write": {
+        "n": 3,
+        "median": 70,
+        "min": 70,
+        "max": 70
+      },
+      "t8Read": {
+        "n": 3,
+        "median": 26249,
+        "min": 26247,
+        "max": 26251
+      },
+      "t8Write": {
+        "n": 3,
+        "median": 40,
+        "min": 40,
+        "max": 40
+      },
+      "t6CostUsd": {
+        "n": 3,
+        "median": 0.0085912,
+        "min": 0.0085908,
+        "max": 0.0085916
+      },
+      "t8CostUsd": {
+        "n": 3,
+        "median": 0.0084658,
+        "min": 0.0084654,
+        "max": 0.0084662
+      }
+    },
+    "one_switch_55": {
+      "n": 3,
+      "totalCostUsd": {
+        "n": 3,
+        "median": 0.259038,
+        "min": 0.259021,
+        "max": 0.259056
+      },
+      "overallCacheHitPct": {
+        "n": 3,
+        "median": 83.27,
+        "min": 83.27,
+        "max": 83.27
+      },
+      "t6Read": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "t6Write": {
+        "n": 3,
+        "median": 26199,
+        "min": 26197,
+        "max": 26201
+      },
+      "t8Read": {
+        "n": 3,
+        "median": 26252,
+        "min": 26250,
+        "max": 26254
+      },
+      "t8Write": {
+        "n": 3,
+        "median": 40,
+        "min": 40,
+        "max": 40
+      },
+      "t6CostUsd": {
+        "n": 3,
+        "median": 0.0670055,
+        "min": 0.0670005,
+        "max": 0.0670105
+      },
+      "t8CostUsd": {
+        "n": 3,
+        "median": 0.0042332,
+        "min": 0.004233,
+        "max": 0.0042334
+      }
+    },
+    "effort_only_55": {
+      "n": 3,
+      "totalCostUsd": {
+        "n": 3,
+        "median": 0.226121,
+        "min": 0.226121,
+        "max": 0.226135
+      },
+      "overallCacheHitPct": {
+        "n": 3,
+        "median": 91.57,
+        "min": 91.57,
+        "max": 91.57
+      },
+      "t6Read": {
+        "n": 3,
+        "median": 26130,
+        "min": 26130,
+        "max": 26132
+      },
+      "t6Write": {
+        "n": 3,
+        "median": 70,
+        "min": 70,
+        "max": 70
+      },
+      "t8Read": {
+        "n": 3,
+        "median": 26253,
+        "min": 26253,
+        "max": 26255
+      },
+      "t8Write": {
+        "n": 3,
+        "median": 40,
+        "min": 40,
+        "max": 40
+      },
+      "t6CostUsd": {
+        "n": 3,
+        "median": 0.008592,
+        "min": 0.008592,
+        "max": 0.0085924
+      },
+      "t8CostUsd": {
+        "n": 3,
+        "median": 0.0084666,
+        "min": 0.0084666,
+        "max": 0.008467
+      }
+    }
+  },
+  "comparisons": {
+    "oneSwitchVsControlRatio": 1.146,
+    "effortOnlyVsControlRatio": 1
+  },
+  "abortedSessions": []
+}

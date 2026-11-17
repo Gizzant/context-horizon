@@ -1,0 +1,5 @@
+{"event":"before_stage_a","key":{"timestamp":"2026-11-15T01:45:40.259Z","statusCode":200,"usage":40.82880465,"limit":200,"limitRemaining":159.17119535},"credits":{"timestamp":"2026-11-15T01:45:40.291Z","statusCode":200,"totalCredits":525,"totalUsage":446.48222935,"availableBalance":78.517771}}
+{"event":"after_C1_r02","key":{"timestamp":"2026-11-15T01:50:02.799Z","statusCode":200,"usage":41.6759589,"limit":200,"limitRemaining":158.3240411}}
+{"event":"after_C1_r03","key":{"timestamp":"2026-11-15T01:54:41.390Z","statusCode":200,"usage":42.59903955,"limit":200,"limitRemaining":157.40096045}}
+{"event":"after_C1mem_r02","key":{"timestamp":"2026-11-15T02:00:19.831Z","statusCode":200,"usage":43.8367596,"limit":200,"limitRemaining":156.1632404}}
+{"event":"after_stage_a_settled","key":{"timestamp":"2026-11-15T02:00:25.996Z","statusCode":200,"usage":43.8367596,"limit":200,"limitRemaining":156.1632404},"credits":{"timestamp":"2026-11-15T02:00:26.070Z","statusCode":200,"totalCredits":525,"totalUsage":449.4901843,"availableBalance":75.509816}}

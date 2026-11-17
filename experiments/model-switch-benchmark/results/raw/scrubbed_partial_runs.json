@@ -1,0 +1,24 @@
+{
+  "scrubbedAt": "2026-11-14T13:56:08.597Z",
+  "reason": "Paused >7h after HTTP 402 payment_required on Turn 10; scrubbed to avoid 5m TTL expiration artifact on resume.",
+  "runs": [
+    {
+      "runId": "B_L_r01",
+      "priorCheckpoint": {
+        "sessionId": "sess_B_L_r01_aborted_attempt1",
+        "nextTurn": 10,
+        "completed": false,
+        "salt": "Benchmark-Run-Salt: B_L_r01_d3e3019a",
+        "turn5FinishedAtMs": 0,
+        "parkedUntilMs": 0,
+        "actualIdleSec": null
+      },
+      "wireEntriesRemoved": 17,
+      "cliTurnsRemoved": 10,
+      "totalCostUsd": 0.794648,
+      "mainCostUsd": 0.794648,
+      "sideCostUsd": 0
+    }
+  ],
+  "totalScrubbedCostUsd": 0.794648
+}

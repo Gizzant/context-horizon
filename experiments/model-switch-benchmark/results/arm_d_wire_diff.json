@@ -1,0 +1,73 @@
+{
+  "comparable": true,
+  "toolsIdentical": true,
+  "systemIdentical": true,
+  "messagesBeforeCount": 15,
+  "messagesAfterCount": 17,
+  "changedFields": [
+    {
+      "field": "output_config",
+      "before": {
+        "effort": "medium"
+      },
+      "after": {
+        "effort": "high"
+      }
+    },
+    {
+      "field": "cacheBreakpoints",
+      "before": [
+        {
+          "section": "system",
+          "index": 1,
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        },
+        {
+          "section": "system",
+          "index": 2,
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        },
+        {
+          "section": "messages",
+          "messageIndex": 14,
+          "role": "user",
+          "blockIndex": 1,
+          "blockType": "text",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        }
+      ],
+      "after": [
+        {
+          "section": "system",
+          "index": 1,
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        },
+        {
+          "section": "system",
+          "index": 2,
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        },
+        {
+          "section": "messages",
+          "messageIndex": 16,
+          "role": "user",
+          "blockIndex": 1,
+          "blockType": "text",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        }
+      ]
+    }
+  ]
+}

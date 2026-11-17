@@ -1,7 +1,7 @@
 {
   "name": "@ctxtop/mcp",
   "version": "4.1.0",
-  "description": "Highbeam Zero-Dependency MCP Stdio Server for Cursor, Windsurf, Claude Code & Antigravity",
+  "description": "Highbeam Zero-Dependency 7-Tool MCP Stdio Server for Cursor, Windsurf, Codex CLI, Gemini CLI, Claude Code & Antigravity",
   "license": "MIT",
   "type": "module",
   "main": "./src/server.mjs",
@@ -11,7 +11,11 @@
   "exports": {
     ".": "./src/server.mjs"
   },
+  "files": [
+    "src/"
+  ],
   "engines": {
     "node": ">=20.0.0"
-  }
+  },
+  "dependencies": {}
 }

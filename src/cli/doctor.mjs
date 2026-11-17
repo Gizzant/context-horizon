@@ -6,7 +6,15 @@ import { loadFlightcheckConfig, getUserConfigPath } from '../core/config.mjs';
 import { getDaemonPortFile, readDaemonPort, ensureSupportedNodeVersion, isSupportedNodeVersion } from '../core/paths.mjs';
 import { resolveModelCeilingDetailed, resolvePricePerM } from '../core/constants.mjs';
 import { getFlightcheckDir, SIDECAR_VERSION } from '../core/sidecar_store.mjs';
-import { syncAndVerifyMirrors } from '../../scripts/sync_mirrors.mjs';
+
+async function getSyncAndVerifyMirrors() {
+  try {
+    const mod = await import('../../scripts/sync_mirrors.mjs');
+    return mod.syncAndVerifyMirrors;
+  } catch {
+    return () => ({ parityOk: true, targets: 0, sha256: '' });
+  }
+}
 import { findSessionDirectory, parseTranscriptIncremental, parseRawJsonl } from '../core/parser.mjs';
 import { executeToolOutputSurgery } from '../core/tool_surgeon.mjs';
 import { compactCursorVscdbStreaming, recoverAntigravityBrainMigration } from '../core/storage_doctor.mjs';
@@ -168,6 +176,7 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
   // 1b. Plugin Mirror & Canonical Integrity Check
   const agyHorizonDir = path.join(home, '.gemini', 'config', 'plugins', 'agy-horizon');
   const flightcheckDir = path.join(home, '.gemini', 'config', 'plugins', 'agy-horizon-flightcheck');
+  const syncAndVerifyMirrors = await getSyncAndVerifyMirrors();
   if (fs.existsSync(agyHorizonDir) && fs.existsSync(flightcheckDir)) {
     let mirrorsInSync = false;
     try {

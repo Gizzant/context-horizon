@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @file bin/ctxtop.mjs
- * Highbeam v4.0 Unified Cross-Platform CLI (`ctxtop`).
+ * Highbeam v4.1.0 Unified Cross-Platform CLI (`ctxtop`).
  *
  * Commands:
  *   - `ctxtop init [--antigravity | --claude | --all | --workspace | --project | --dry-run | --dedupe]`
@@ -95,8 +95,11 @@ import {
   inspectHookDiagnostics,
   runDoctorDiagnostics
 } from '../src/diagnostics/doctorEngine.mjs';
-import { inspectClaudeBinaryCapabilities } from '../src/diagnostics/claudeHookCapabilities.mjs';
-import { installPlugin, runLiveOrDemoCli } from '../src/cli/init.mjs';
+import {
+  formatPreEffortChangeCapability,
+  inspectClaudeBinaryCapabilities
+} from '../src/diagnostics/claudeHookCapabilities.mjs';
+import { installPlugin, runLiveOrDemoCli, openBrowserUrl } from '../src/cli/init.mjs';
 import { executeStatusLineBridge, runStatusLineCli } from './ah-statusline.mjs';
 import { runSessionAudit, formatSessionAuditReport } from '../src/core/session_auditor.mjs';
 import { configureShield, getShieldStatus } from '../src/core/shield_manager.mjs';
@@ -111,6 +114,15 @@ import {
   auditWorkspaceRuleClashes,
   buildConsolidatedSpecMarkdown
 } from '../src/core/rsl_ledger.mjs';
+import {
+  searchOffloadedContextFts5,
+  getOffloadIndexStats
+} from '../src/core/fts5_output_compressor.mjs';
+import {
+  SUPPORTED_MCP_HOSTS,
+  installHostMcpConfig
+} from '../src/engine-node/multi_host_mcp.mjs';
+import { resolveFastIpcPipePath } from '../src/engine-node/ipc/fast_client.mjs';
 
 export { inspectHookDiagnostics, runDoctorDiagnostics };
 
@@ -596,11 +608,11 @@ export function generateRoastCard(options = {}) {
     `│ Verified Savings   : +${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)} USD saved in 30d)            │`,
     '│ Top Remediation    : Fence mid-session CLAUDE.md/AGENTS.md edits (DET-09)  │',
     '╰────────────────────────────────────────────────────────────────────────────╯',
-    `Share: Shielded +${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)}) with npx ah-claude --roast #ClaudeCode #Antigravity`
+    `Share: Shielded +${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)}) with npx ctxtop --roast #ClaudeCode #Antigravity`
   ].join('\n');
 
   const markdown = [
-    '### 🔥 Highbeam Context Roast (`npx ah-claude --roast`)',
+    '### 🔥 Highbeam Context Roast (`npx ctxtop --roast`)',
     `- **KV-Cache Retention**: Grade **${retentionGrade}** (${retentionPct}% warmth retained)`,
     `- **Cold Prefill Leak**: **$${leakedUsd.toFixed(2)}** burned on avoidable cold switches`,
     `- **30-Day Verified Savings**: **+${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)} USD)**`,
@@ -731,15 +743,28 @@ export function installMcpConfig(options = {}) {
 }
 
 export function executeInitSubcommand(args = [], options = {}) {
-  const isAntigravity = args.includes('--antigravity') || args.includes('-a');
-  const isClaude = args.includes('--claude') || args.includes('-c');
-  const isMcp =
-    args.includes('--mcp') ||
-    args.includes('--cursor') ||
-    args.includes('--windsurf') ||
-    Boolean(options.mcp) ||
-    Boolean(options.cursor);
-  const isAll = args.includes('--all') || (!isAntigravity && !isClaude && !isMcp);
+  const isAllHosts = args.includes('--all-hosts') || Boolean(options.allHosts);
+  const isAntigravity = args.includes('--antigravity') || args.includes('-a') || isAllHosts;
+  const isClaude = args.includes('--claude') || args.includes('-c') || isAllHosts;
+  const isLegacyMcp = args.includes('--mcp') || Boolean(options.mcp);
+
+  const selectedMcpHosts = [];
+  if (args.includes('--cursor') || Boolean(options.cursor)) selectedMcpHosts.push('cursor');
+  if (args.includes('--windsurf') || Boolean(options.windsurf)) selectedMcpHosts.push('windsurf');
+  if (args.includes('--codex') || Boolean(options.codex)) selectedMcpHosts.push('codex');
+  if (args.includes('--gemini-cli') || args.includes('--gemini') || Boolean(options.geminiCli)) {
+    selectedMcpHosts.push('gemini-cli');
+  }
+  if (isAllHosts) {
+    for (const h of SUPPORTED_MCP_HOSTS) {
+      if (!selectedMcpHosts.includes(h)) selectedMcpHosts.push(h);
+    }
+  } else if (isLegacyMcp && selectedMcpHosts.length === 0) {
+    // Also ensure --mcp works cleanly alongside legacy .cursor/mcp.json contract
+  }
+
+  const hasMcpTarget = isLegacyMcp || selectedMcpHosts.length > 0;
+  const isAll = args.includes('--all') || (!isAntigravity && !isClaude && !hasMcpTarget);
   const isDryRun = args.includes('--dry-run') || Boolean(options.dryRun);
   const isWorkspace = args.includes('--workspace') || args.includes('--project') || Boolean(options.workspace);
   const isGlobal = args.includes('--global') || Boolean(options.global);
@@ -750,9 +775,10 @@ export function executeInitSubcommand(args = [], options = {}) {
   const targetParts = [];
   if (isAll || isAntigravity) targetParts.push('Google Antigravity');
   if (isAll || isClaude) targetParts.push('Claude Code');
-  if (isMcp) targetParts.push('MCP (.cursor/mcp.json)');
+  if (isLegacyMcp) targetParts.push('MCP (.cursor/mcp.json)');
+  if (selectedMcpHosts.length > 0) targetParts.push(`MCP (${selectedMcpHosts.join(', ')})`);
   const targetLabel =
-    targetParts.length === 2 && !isMcp ? targetParts.join(' & ') : targetParts.join(', ');
+    targetParts.length === 2 && !hasMcpTarget ? targetParts.join(' & ') : targetParts.join(', ');
 
   const lines = [
     `\x1b[1m\x1b[38;5;51m⚡ Highbeam (ctxtop v4.1.0) — Zero-Config Unified Installer\x1b[0m`,
@@ -763,6 +789,7 @@ export function executeInitSubcommand(args = [], options = {}) {
   let claudeResult = null;
   let antigravityResult = null;
   let mcpResult = null;
+  let hostMcpResult = null;
 
   if (isClaude || isAll) {
     const scope = isGlobal ? 'global' : 'project';
@@ -804,7 +831,7 @@ export function executeInitSubcommand(args = [], options = {}) {
     }
   }
 
-  if (isMcp) {
+  if (isLegacyMcp) {
     mcpResult = installMcpConfig({
       ...options,
       global: isGlobal,
@@ -816,28 +843,112 @@ export function executeInitSubcommand(args = [], options = {}) {
     );
   }
 
+  if (selectedMcpHosts.length > 0) {
+    hostMcpResult = installHostMcpConfig({
+      hosts: selectedMcpHosts,
+      cwd: options.cwd || process.cwd(),
+      homeDir: options.homeDir || options.home,
+      global: isGlobal,
+      dryRun: isDryRun
+    });
+    for (const r of hostMcpResult.results) {
+      lines.push(
+        `  \x1b[38;5;82m✓\x1b[0m MCP [${r.host.padEnd(10)}]: ${isDryRun ? '[DRY RUN] Would configure' : 'Configured'} ${r.configPath} (${r.serverKey})`
+      );
+      if (r.tomlSnippet) {
+        lines.push(`    Tip: Append to ~/.codex/config.toml:\n${r.tomlSnippet}`);
+      }
+    }
+  }
+
   const ok =
     (claudeResult ? claudeResult.ok : true) &&
     (antigravityResult ? antigravityResult.ok : true) &&
-    (mcpResult ? mcpResult.ok : true);
+    (mcpResult ? mcpResult.ok : true) &&
+    (hostMcpResult ? hostMcpResult.ok : true);
   return {
     ok,
     exitCode: ok ? 0 : 1,
     output: lines.join('\n'),
-    data: { claude: claudeResult, antigravity: antigravityResult, mcp: mcpResult, dryRun: isDryRun }
+    data: {
+      claude: claudeResult,
+      antigravity: antigravityResult,
+      mcp: mcpResult,
+      hostMcp: hostMcpResult,
+      dryRun: isDryRun
+    }
   };
 }
 
 export function runCli(args = [], options = {}) {
-  const subcommand = String(args[0] || 'doctor').toLowerCase();
-  const isGlobal = args.includes('--global') || args.includes('-g');
-  const isJson = args.includes('--json') || Boolean(options.json);
-  const isMarkdown = args.includes('--markdown') || args.includes('--md') || args.includes('--git');
-  const isDiagnostic = args.includes('--diagnostic') || args.includes('--bug-report');
+  const invokedBin = path.basename(String(globalThis.process?.argv?.[1] || '')).toLowerCase();
+  const isLogSearchBin = invokedBin.includes('agy-log-search');
+  const effectiveArgs = isLogSearchBin && !['search', 'log-search'].includes(String(args[0] || '').toLowerCase())
+    ? ['search', ...args]
+    : args;
+  const subcommand = String(effectiveArgs[0] || 'doctor').toLowerCase();
+  const isGlobal = effectiveArgs.includes('--global') || effectiveArgs.includes('-g');
+  const isJson = effectiveArgs.includes('--json') || Boolean(options.json);
+  const isMarkdown = effectiveArgs.includes('--markdown') || effectiveArgs.includes('--md') || effectiveArgs.includes('--git');
+  const isDiagnostic = effectiveArgs.includes('--diagnostic') || effectiveArgs.includes('--bug-report');
   const scope = isGlobal ? 'global' : 'project';
 
-  if (args.includes('--version') || args.includes('-v') || subcommand === 'version') {
+  if (effectiveArgs.includes('--version') || effectiveArgs.includes('-v') || subcommand === 'version') {
     return { exitCode: 0, output: '4.1.0', data: { version: '4.1.0' } };
+  }
+
+  if (subcommand === 'search' || subcommand === 'log-search') {
+    const positional = [];
+    let turnId = options.turnId || '';
+    let cwd = options.cwd || process.cwd();
+    let limit = Number(options.limit || 10);
+    for (let i = 1; i < effectiveArgs.length; i++) {
+      const a = String(effectiveArgs[i] || '');
+      if (a === '--turn' && effectiveArgs[i + 1]) {
+        turnId = String(effectiveArgs[++i]);
+      } else if (a === '--cwd' && effectiveArgs[i + 1]) {
+        cwd = String(effectiveArgs[++i]);
+      } else if (a === '--limit' && effectiveArgs[i + 1]) {
+        limit = Math.max(1, Number(effectiveArgs[++i]) || 10);
+      } else if (a === '--json') {
+        // handled via isJson
+      } else if (!a.startsWith('-')) {
+        positional.push(a);
+      }
+    }
+    let keyword = '';
+    if (!turnId && positional.length >= 2 && /^(turn-|art_)/i.test(positional[0])) {
+      turnId = positional[0];
+      keyword = positional.slice(1).join(' ');
+    } else if (!turnId && positional.length === 1 && /^(turn-|art_)/i.test(positional[0])) {
+      turnId = positional[0];
+    } else {
+      keyword = positional.join(' ');
+    }
+    return searchOffloadedContextFts5({
+      turnId,
+      keyword,
+      cwd,
+      homeDir: options.homeDir || getHomeDir(),
+      dbPath: options.dbPath || null,
+      limit
+    }).then((searchRes) => {
+      if (isJson) {
+        return { exitCode: 0, output: JSON.stringify(searchRes, null, 2), data: searchRes };
+      }
+      if (searchRes.matchedLines.length === 0) {
+        return {
+          exitCode: 0,
+          output: `[Highbeam FTS5 Search] No indexed matches for "${keyword || turnId || '*'}" (hits=${searchRes.totalHits}).`,
+          data: searchRes
+        };
+      }
+      const lines = [
+        `[Highbeam FTS5 Search] Matched ${searchRes.matchedLines.length} line(s) across ${searchRes.toolLogHits} tool log(s) + ${searchRes.artifactHits} artifact(s):`,
+        ...searchRes.matchedLines.map((m) => `  [${m.turnId}:${m.lineNumber}] (${m.source}) ${m.text}`)
+      ];
+      return { exitCode: 0, output: lines.join('\n'), data: searchRes };
+    });
   }
 
   if (subcommand === 'inspect') {
@@ -1074,7 +1185,15 @@ export function runCli(args = [], options = {}) {
   }
 
   if (subcommand === 'init') {
-    return executeInitSubcommand(args.slice(1), options);
+    const initRes = executeInitSubcommand(effectiveArgs.slice(1), options);
+    if (isJson) {
+      return {
+        exitCode: initRes.exitCode,
+        output: JSON.stringify(initRes.data, null, 2),
+        data: initRes.data
+      };
+    }
+    return initRes;
   }
 
   if (subcommand === 'install') {
@@ -1332,7 +1451,7 @@ export function runCli(args = [], options = {}) {
     const res = generateCostRadar({ ...options, demo: isDemo });
     fs.mkdirSync(path.dirname(target), { recursive: true });
     const ok = writeTextAtomic(target, res.html) !== false;
-    const shareSnippet = `⚡ Cost Radar: ${res.summary.retention} · ${res.summary.drift} · ${res.summary.swarm} (via npx ah-claude cost-radar)`;
+    const shareSnippet = `⚡ Cost Radar: ${res.summary.retention} · ${res.summary.drift} · ${res.summary.swarm} (via npx ctxtop cost-radar)`;
     const data = { ok, path: target, ...res.summary, shareSnippet };
     if (isJson) {
       return { exitCode: ok ? 0 : 1, output: JSON.stringify(data, null, 2), data };
@@ -1488,7 +1607,7 @@ export function runCli(args = [], options = {}) {
       }),
       ...(ccCap?.found
         ? [
-            `  [${ccCap.contractValid ? 'PASS' : 'WARN'}] claude_pre_model_switch: Claude Code ${ccCap.claudeVersion || 'unknown'} | PreModelSwitch=${ccCap.preModelSwitchSupported} | ask=${ccCap.supportsAskDecision} | PreEffortChange=${ccCap.preEffortChangeSupported}`
+            `  [${ccCap.contractValid ? 'PASS' : 'WARN'}] claude_pre_model_switch: Claude Code ${ccCap.claudeVersion || 'unknown'} | PreModelSwitch=${ccCap.preModelSwitchSupported} | ask=${ccCap.supportsAskDecision} | PreEffortChange=${ccCap.preEffortChangeSummary || formatPreEffortChangeCapability(ccCap)}`
           ]
         : []),
       `  [${hookDiag.recentErrorCount > 0 ? 'WARN' : 'PASS'}] hook_diagnostics: ${hookDiag.recentErrorCount} recent non-fatal error(s)`
@@ -1681,7 +1800,7 @@ export function runCli(args = [], options = {}) {
       else action = 'status';
     }
 
-    const res =
+    const baseRes =
       subcommand === 'status'
         ? { ok: true, action: 'status', platform, ...getShieldStatus({ ...options }) }
         : configureShield({
@@ -1691,6 +1810,29 @@ export function runCli(args = [], options = {}) {
             ...(maxUnslicedLines ? { maxUnslicedLines } : {})
           });
 
+    const offloadIndex =
+      subcommand === 'status'
+        ? getOffloadIndexStats({
+            cwd: options.cwd || process.cwd(),
+            homeDir: options.homeDir || getHomeDir(),
+            dbPath: options.dbPath || null
+          })
+        : null;
+    const ipcFastPath =
+      subcommand === 'status'
+        ? {
+            pipePath: resolveFastIpcPipePath({ homeDir: options.homeDir || getHomeDir() }),
+            socketPresent: (() => {
+              const p = resolveFastIpcPipePath({ homeDir: options.homeDir || getHomeDir() });
+              return p.startsWith('\\\\.\\pipe\\') ? null : fs.existsSync(p);
+            })()
+          }
+        : null;
+    const res =
+      subcommand === 'status'
+        ? { ...baseRes, offloadIndex, ipcFastPath }
+        : baseRes;
+
     if (isJson) {
       return { exitCode: res.ok === false ? 1 : 0, output: JSON.stringify(res, null, 2), data: res };
     }
@@ -1699,6 +1841,11 @@ export function runCli(args = [], options = {}) {
       `  Targets       : Antigravity=${res.platforms.antigravity ? 'ON' : 'OFF'} (hooks=${res.hooksConfigured.antigravity}) | Claude=${res.platforms.claude ? 'ON' : 'OFF'} (hooks=${res.hooksConfigured.claude})`,
       `  Read Threshold: >${res.maxUnslicedLines} lines default | >${res.cliffMaxUnslicedLines} lines near pricing cliff`,
       `  Session ROI   : +${res.roi.tokensSaved.toLocaleString('en-US')} tok saved ($${res.roi.dollarsSaved.toFixed(2)} USD) | ${res.roi.readsBlocked} oversized reads indexed`,
+      ...(offloadIndex
+        ? [
+            `  Offload Index : ${offloadIndex.indexedToolLogs} FTS5 CLI logs · ${offloadIndex.indexedArtifacts} artifact(s) (query: npx ctxtop search "<keyword>")`
+          ]
+        : []),
       ...(res.selfTest ? [`  Self-Test     : ${res.selfTest.detail}`] : [])
     ];
     return { exitCode: res.ok === false ? 1 : 0, output: lines.join('\n'), data: res };
@@ -1725,41 +1872,81 @@ export function runCli(args = [], options = {}) {
     };
   }
 
-  if (args.includes('--demo') || args.includes('--demo-animate') || args.includes('--roast') || args.includes('--serve')) {
+  if (subcommand === 'mcp') {
+    return import('../packages/mcp/src/server.mjs').then(({ startMcpStdioServer }) => {
+      startMcpStdioServer(options);
+      if (isCliMain()) {
+        globalThis.process?.stdin?.resume?.();
+      }
+      return { exitCode: 0, output: '', data: { ok: true, mode: 'mcp' } };
+    });
+  }
+
+  if (subcommand === 'ui' || subcommand === 'serve' || args.includes('--serve')) {
+    if (args.includes('--demo')) {
+      process.env.HORIZON_DEMO = '1';
+    }
+    const shouldOpenBrowser = (subcommand === 'ui' || args.includes('--open')) && !args.includes('--no-open');
+    return import('../sidecars/horizon-daemon/server.mjs').then(({ startServer }) =>
+      startServer().then(({ port }) => {
+        const targetUrl = `http://127.0.0.1:${port}`;
+        if (shouldOpenBrowser) {
+          openBrowserUrl(targetUrl);
+        }
+        return {
+          exitCode: 0,
+          output: `✓ Highbeam Web UI Live at: ${targetUrl} (Press Ctrl+C to stop)`,
+          data: { ok: true, port, url: targetUrl }
+        };
+      })
+    );
+  }
+
+  if (args.includes('--demo') || args.includes('--demo-animate') || args.includes('--roast')) {
     return runLiveOrDemoCli(options);
   }
 
   const knownSubcommands = new Set([
     'init', 'install', 'uninstall', 'config', 'cost-radar', 'radar', 'panel',
     'receipt', 'doctor', 'statusline', 'inspect', 'control', 'postmortem',
-    'audit', 'shield', 'status', 'rsl', 'handoff',
-    'license', 'pro', 'roast',
-    '--help', '-h', 'help', '--version', '-v', 'version'
+    'audit', 'shield', 'status', 'rsl', 'handoff', 'search', 'log-search',
+    'mcp', 'ui', 'serve', 'license', 'pro', 'roast', 'tiers', 'team-pack',
+    'verify', 'verify-checksums', '--help', '-h', 'help', '--version', '-v', 'version'
   ]);
   const hasHelp = args.length === 0 || args.includes('--help') || args.includes('-h') || subcommand === 'help';
   const isUnknown = !hasHelp && args.length > 0 && !knownSubcommands.has(subcommand);
 
   const helpText = [
     'Usage: ctxtop <command> [options]',
-    'Commands:',
-    '  init [--antigravity | --claude | --all | --workspace | --dry-run] Zero-config dual-host installer',
-    '  audit [--platform all|antigravity|claude] [--days 7] [--json]       Zero-write historical Sludge Tax & ROI audit',
+    '',
+    'Quick Start (Zero-Write & Setup):',
+    '  audit [--platform all|antigravity|claude|codex|gemini|cursor] [--days 7] [--json]',
+    '                                                                      Zero-write 5-host Sludge Tax & ROI scan',
+    '  init [--antigravity|--claude|--cursor|--windsurf|--codex|--gemini-cli|--mcp|--all-hosts]',
+    '                                                                      Zero-config multi-host installer',
+    '  ui [--open] [--demo]                                                Launch local Simple/Advanced Web UI (127.0.0.1)',
+    '  doctor [--diagnostic | --json]                                      Verify contracts, FTS5 index & IPC readiness',
+    '',
+    'Daily Cockpit & Live UX:',
+    '  status [--platform all|antigravity|claude] [--json]                 Show Shield, FTS5 offload & Session ROI status',
+    '  statusline [--demo] [--columns N]                                   Responsive single-line statusline bridge',
+    '  panel [--advanced] [--out <file.html>]                              Write zero-socket HTML HUD',
+    '  radar [--out <file.html>] [--json] [--demo]                         Write SVG KV-cache retention radar timeline',
+    '  postmortem [--last N] [--json] [--demo]                             Analyze transcript forensics & rot',
+    '  inspect [<session-id> | --last] [--out <file.json>]                 Inspect session trajectory',
+    '',
+    'Compression, Search & Multi-Host MCP:',
     '  shield <--enable | --disable | --status> [--platform all|...]       Toggle Active Context Shield & read-index guard',
+    '  search [<turn-id>] "<keyword>" [--limit 10] [--json]                Search FTS5 offloaded CLI logs & artifacts',
+    '  mcp                                                                 Start zero-network 7-tool stdio MCP (@ctxtop/mcp)',
+    '',
+    'Governance, RSL & FinOps:',
     '  rsl <status|list|run|promote|prune> [--platform ...] [--json]       Dual-platform RSL post-mortem & rule ledger',
     '  handoff [--consolidate] [--session <id>] [--write] [--json]         Consolidate sharded spec constraints & diff',
-    '  status [--platform all|antigravity|claude] [--json]                 Show Shield & Session ROI status',
-    '  install [--global | --project]                                      Merge Claude Code hooks & statusLine',
-    '  uninstall [--global | --project]                                    Remove Highbeam hooks',
-    '  doctor [--diagnostic | --json]                                      Verify contracts or emit zero-PII report',
-    '  postmortem [--last N] [--json] [--demo]                             Analyze transcript forensics & rot',
-    '  receipt [--advanced | --markdown | --json]                          Print Simple View or Git-Commit Receipt',
-    '  panel [--advanced] [--out <file.html>]                              Write zero-socket Claude Code HTML HUD',
-    '  radar [--out <file.html>] [--json] [--demo]                         Write SVG KV-cache retention radar timeline',
-    '  cost-radar [--out <file.html>] [--json]                             (Alias for radar)',
-    '  statusline [--demo] [--columns N]                                   Responsive single-line statusline bridge',
-    '  config [list | set <DET-ID> <mode> | reset]                        Configure per-detector overrides',
-    '  inspect [<session-id> | --last] [--out <file.json>]                 Inspect session trajectory',
-    '  control <pause|resume|step|abort|rewind|status>                     Execution control plane command'
+    '  receipt [--advanced | --markdown | --pdf | --json]                  Print Simple View, Git Receipt, or FinOps PDF',
+    '  config [list | set <DET-ID> <mode> | reset]                         Configure per-detector overrides',
+    '  control <pause|resume|step|abort|rewind|status>                     Execution control plane command',
+    '  verify [--json] | uninstall [--global | --project]                  Verify checksums or remove Highbeam hooks'
   ].join('\n');
   return { exitCode: isUnknown ? 1 : 0, output: helpText, data: { help: true, isUnknown } };
 }

@@ -1,0 +1,164 @@
+{
+  "generatedAtUtc": "2026-11-17T00:33:29.435Z",
+  "templateFileCount": 18,
+  "baselineTestsExitCode": 0,
+  "hashes": {
+    "task_repo_hard_template": {
+      "fileCount": 18,
+      "treeSha256": "8b029207d80bbfbd0c7f89d3d917d2f46fdbb2772905ab44e4d0ed4bf718fec7",
+      "perFile": {
+        "README.md": "56ffad376249ea7e8a839b1db7705c4374ad1f15c35b56b43fcc1bc70901e93b",
+        "package.json": "199d4b5215f28b3d51f61628b83784d52e7cd29547d3cf5632ae133778382830",
+        "src/batchIngestor.mjs": "43ecde44d15efa41f6a3556e60f63462d06ca7aac06b05b605dd1e1568cd7cb1",
+        "src/clock.mjs": "34ffa24a6a1e451f5a5d0bcc17c9a0b9086e37e87e2994de5d06087a225e2d69",
+        "src/constants.mjs": "25aec7fc36f68b3e71c495a215dafaabcf0ea2f51b52a96cd9f5812c79ea5d89",
+        "src/creditPool.mjs": "4194a3fe384ac590611ef3cdb3bb157960786ae1c440bd288ba2d981da7b3ff3",
+        "src/errors.mjs": "ffdcf392b978388c8fec1e3f9561e39270f5a12a1218704b8ded5ca488df4a42",
+        "src/frozenWire.mjs": "c86d6f4517450db0753fc721968d27af26efe17b01acba3904c99f8b21505325",
+        "src/fxConverter.mjs": "cb14a2aba6b424f67adc700bf479efe7812d7f31e0e251ba8a523e82557ee895",
+        "src/idempotencyGuard.mjs": "11d9698a97f643069bb91d2828fc7cb517c3fcaede6b85e93d2dfd4fa7acd96e",
+        "src/invoiceBuilder.mjs": "3cb4392053459f3fd28df3038d5be83af6deae82d3e36e993138f01621f4654d",
+        "src/queryDsl.mjs": "19c331c87da6e8f3644ef90ebc206cb56e3e65e73f71bfbc7f13b2180176d46b",
+        "src/tierEngine.mjs": "1b91422145acf810b380914bd48a5c8b1274fe489ee7c06431635c9e027f2b57",
+        "src/usageCursor.mjs": "e52f758e34c564a0861a8eadb70388dc95b46e7ce22c6888f47bb069a9653b0b",
+        "test/ingestor_and_idempotency.test.mjs": "87f36c2fce1e13ef9a577b77703352692302efc0c9cd9a8bbe77e6565fe972fd",
+        "test/invoice_and_wire.test.mjs": "c9d5d20bfe175c39c23a1ae7e9b14444a1aaa8bd1c2442575ec2c4f58ba29044",
+        "test/query_and_clock.test.mjs": "3315d190e76278c2ab171a1d4176d55615559568b82fb8c2fd52952319b0b285",
+        "test/tier_and_credits.test.mjs": "caae744e518e7f635f40615e48cdf4550fc34ee6ff6aa06c8da6d0efa8da9d3f"
+      }
+    },
+    "visible_suites": {
+      "fileCount": 6,
+      "treeSha256": "56feca16b4de1ccc642a363fbdaee816144c54293ae4e3f91455a161824296b8",
+      "perFile": {
+        "H01.visible.test.mjs": "e11836f0312bad96ab3006498ebebb345786bae809f9b0deca8aee12c9e8d31b",
+        "H02.visible.test.mjs": "bb8a142ac782342cc84ea1531805748fa71f01da7dec6061abd31babb0cf9604",
+        "H03.visible.test.mjs": "54d22cc04645014e3fae5fc36f20f3c94e97e7995e70d63fb9225f2c1620862c",
+        "H04.visible.test.mjs": "756a84162bdfde6ee4c39163685a30334f8f01352e57dab360118b8a1993fbab",
+        "H05.visible.test.mjs": "1b1f178590f904056bdd6970153050db9614346e424a6813df5f4317e917584f",
+        "H06.visible.test.mjs": "1476e19db6ce9a5124a1baad1870862810a5ca4cef5870b7e454b3d85e9e2948"
+      }
+    },
+    "hidden_suites": {
+      "fileCount": 6,
+      "treeSha256": "eb87bfcfd0200fcd7eead6eccda7d1510130cf0327de7e28bc7bc13ea42d958d",
+      "perFile": {
+        "H01.hidden.test.mjs": "2c697ea97dc6868e464312f4e8fac2c5ecf44bcb0bd820c761b90f4d72fc6de0",
+        "H02.hidden.test.mjs": "2675a8a4308dcdb5e45affb6c0c0ba40e397ceacb3ccf703c832d9d15af8135c",
+        "H03.hidden.test.mjs": "751dc39dfb457f5bb98f81a2689debdd3adf16bcd54c5ae131533edba8701ebc",
+        "H04.hidden.test.mjs": "02a5f4d76a57949a42b4343e9f742faa1b0df73353763c70a60f612127d3d9ee",
+        "H05.hidden.test.mjs": "74a503ba880fad61736ac849af0ad22165c81238cba4dd4f402af45e978d54af",
+        "H06.hidden.test.mjs": "7e894a52b83ea2214a01894c2d2b9b0441660a8316867d9d5cd0a79d59d89712"
+      }
+    },
+    "hard_tasks_manifest_sha256": "c2e9c20698a8ab8141a7dff7d5a030a62f18934682e6b376ee282dee939f0ce7"
+  },
+  "tasksVerified": [
+    {
+      "task_id": "H01",
+      "difficulty": "hard",
+      "is_spare": false,
+      "preFixVisibleExit": 1,
+      "preFixHiddenExit": 1,
+      "postFixVisibleExit": 0,
+      "postFixHiddenExit": 0,
+      "hiddenPassCount": 6,
+      "hiddenFailCount": 0,
+      "referenceFilesChanged": [
+        "src/clock.mjs",
+        "src/creditPool.mjs",
+        "src/invoiceBuilder.mjs",
+        "src/tierEngine.mjs"
+      ]
+    },
+    {
+      "task_id": "H02",
+      "difficulty": "hard",
+      "is_spare": false,
+      "preFixVisibleExit": 1,
+      "preFixHiddenExit": 1,
+      "postFixVisibleExit": 0,
+      "postFixHiddenExit": 0,
+      "hiddenPassCount": 6,
+      "hiddenFailCount": 0,
+      "referenceFilesChanged": [
+        "src/errors.mjs",
+        "src/idempotencyGuard.mjs",
+        "src/invoiceBuilder.mjs",
+        "src/queryDsl.mjs"
+      ]
+    },
+    {
+      "task_id": "H03",
+      "difficulty": "hard",
+      "is_spare": false,
+      "preFixVisibleExit": 1,
+      "preFixHiddenExit": 1,
+      "postFixVisibleExit": 0,
+      "postFixHiddenExit": 0,
+      "hiddenPassCount": 5,
+      "hiddenFailCount": 0,
+      "referenceFilesChanged": [
+        "src/batchIngestor.mjs",
+        "src/errors.mjs",
+        "src/idempotencyGuard.mjs",
+        "src/usageCursor.mjs"
+      ]
+    },
+    {
+      "task_id": "H04",
+      "difficulty": "hard",
+      "is_spare": false,
+      "preFixVisibleExit": 1,
+      "preFixHiddenExit": 1,
+      "postFixVisibleExit": 0,
+      "postFixHiddenExit": 0,
+      "hiddenPassCount": 6,
+      "hiddenFailCount": 0,
+      "referenceFilesChanged": [
+        "src/creditPool.mjs",
+        "src/errors.mjs",
+        "src/fxConverter.mjs",
+        "src/invoiceBuilder.mjs",
+        "src/tierEngine.mjs"
+      ]
+    },
+    {
+      "task_id": "H05",
+      "difficulty": "hard",
+      "is_spare": false,
+      "preFixVisibleExit": 1,
+      "preFixHiddenExit": 1,
+      "postFixVisibleExit": 0,
+      "postFixHiddenExit": 0,
+      "hiddenPassCount": 5,
+      "hiddenFailCount": 0,
+      "referenceFilesChanged": [
+        "src/creditPool.mjs",
+        "src/errors.mjs",
+        "src/idempotencyGuard.mjs",
+        "src/invoiceBuilder.mjs",
+        "src/tierEngine.mjs"
+      ]
+    },
+    {
+      "task_id": "H06",
+      "difficulty": "hard",
+      "is_spare": false,
+      "preFixVisibleExit": 1,
+      "preFixHiddenExit": 1,
+      "postFixVisibleExit": 0,
+      "postFixHiddenExit": 0,
+      "hiddenPassCount": 4,
+      "hiddenFailCount": 0,
+      "referenceFilesChanged": [
+        "src/clock.mjs",
+        "src/creditPool.mjs",
+        "src/errors.mjs",
+        "src/invoiceBuilder.mjs",
+        "src/queryDsl.mjs",
+        "src/tierEngine.mjs"
+      ]
+    }
+  ]
+}

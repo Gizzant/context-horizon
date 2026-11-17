@@ -1,0 +1,28 @@
+{
+  "startedAt": "2026-11-14T21:02:08.127Z",
+  "ruleVersion": "rule_v2_calibrated",
+  "highbeamCommit": "b4e7502",
+  "pinnedRepoCommit": "19c51055902c545508af1979a392505355777d90",
+  "runs": {
+    "C2_L1_hb_rule_v2_calibrated_r01": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L1_hb_rule_v2_calibrated_r01",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.399707,
+      "totalCostUsdComputed": 0.399707,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T21:04:40.260Z"
+    },
+    "C2_L2_hb_rule_v2_calibrated_r01": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L2_hb_rule_v2_calibrated_r01",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.525921,
+      "totalCostUsdComputed": 0.525921,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T21:07:16.524Z"
+    }
+  }
+}

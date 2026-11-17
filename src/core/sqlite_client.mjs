@@ -27,7 +27,8 @@ export class JsonlFallbackDatabaseSync {
           this.tables = parsed.tables;
         }
       }
-    } catch {
+    } catch (readErr) {
+      void readErr;
       // Binary SQLite file or unreadable file in read-only fallback mode -> empty in-memory view
     }
   }
@@ -37,7 +38,9 @@ export class JsonlFallbackDatabaseSync {
     try {
       fs.mkdirSync(path.dirname(this.dbPath), { recursive: true });
       fs.writeFileSync(this.dbPath, JSON.stringify({ fallbackFormat: 'json-v1', tables: this.tables }), 'utf8');
-    } catch {}
+    } catch (flushErr) {
+      void flushErr;
+    }
   }
 
   exec(sql = '') {
@@ -243,7 +246,8 @@ export function openLocalHorizonDb(dbPath, { readOnly = false, readonly = false,
       if (typeof db.exec === 'function') {
         db.exec(`PRAGMA busy_timeout = ${timeoutVal};`);
       }
-    } catch {
+    } catch (pragmaErr) {
+      void pragmaErr;
       // Read-only handles on locked/immutable files may reject pragma mutations; ignore safely.
     }
     return db;
@@ -263,7 +267,9 @@ export function openLocalHorizonDb(dbPath, { readOnly = false, readonly = false,
   } catch (err) {
     try {
       if (typeof db.close === 'function') db.close();
-    } catch {}
+    } catch (closeErr) {
+      void closeErr;
+    }
     throw err;
   }
 }

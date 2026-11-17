@@ -1,0 +1,611 @@
+{
+  "generatedAtUtc": "2026-11-15T21:31:23.548Z",
+  "t3a": {
+    "TTL1H_4m": {
+      "n": 3,
+      "ttlMode": "TTL1H",
+      "gapMinutes": 4,
+      "hits": 3,
+      "misses": 0,
+      "actualIdleMin": {
+        "n": 3,
+        "median": 4,
+        "min": 4,
+        "max": 4
+      },
+      "req2CacheReadTokens": {
+        "n": 3,
+        "median": 17564,
+        "min": 17561,
+        "max": 17566
+      },
+      "req1CostUsd": {
+        "n": 3,
+        "median": 0.105543,
+        "min": 0.105525,
+        "max": 0.105555
+      },
+      "req2CostUsd": {
+        "n": 3,
+        "median": 0.0059928,
+        "min": 0.0059913,
+        "max": 0.0060372
+      },
+      "total2ReqCostUsd": {
+        "n": 3,
+        "median": 0.111548,
+        "min": 0.111516,
+        "max": 0.11158
+      }
+    },
+    "TTL5_4m": {
+      "n": 3,
+      "ttlMode": "TTL5",
+      "gapMinutes": 4,
+      "hits": 3,
+      "misses": 0,
+      "actualIdleMin": {
+        "n": 3,
+        "median": 4,
+        "min": 4,
+        "max": 4
+      },
+      "req2CacheReadTokens": {
+        "n": 3,
+        "median": 17563,
+        "min": 17562,
+        "max": 17565
+      },
+      "req1CostUsd": {
+        "n": 3,
+        "median": 0.06602025,
+        "min": 0.0660165,
+        "max": 0.06602775
+      },
+      "req2CostUsd": {
+        "n": 3,
+        "median": 0.0060219,
+        "min": 0.0059916,
+        "max": 0.0060225
+      },
+      "total2ReqCostUsd": {
+        "n": 3,
+        "median": 0.072042,
+        "min": 0.072008,
+        "max": 0.07205
+      }
+    },
+    "TTL1H_6m": {
+      "n": 3,
+      "ttlMode": "TTL1H",
+      "gapMinutes": 6,
+      "hits": 3,
+      "misses": 0,
+      "actualIdleMin": {
+        "n": 3,
+        "median": 6,
+        "min": 6,
+        "max": 6
+      },
+      "req2CacheReadTokens": {
+        "n": 3,
+        "median": 17564,
+        "min": 17564,
+        "max": 17564
+      },
+      "req1CostUsd": {
+        "n": 3,
+        "median": 0.105543,
+        "min": 0.105543,
+        "max": 0.105543
+      },
+      "req2CostUsd": {
+        "n": 3,
+        "median": 0.0059922,
+        "min": 0.0059772,
+        "max": 0.0060372
+      },
+      "total2ReqCostUsd": {
+        "n": 3,
+        "median": 0.111535,
+        "min": 0.11152,
+        "max": 0.11158
+      }
+    },
+    "TTL5_6m": {
+      "n": 3,
+      "ttlMode": "TTL5",
+      "gapMinutes": 6,
+      "hits": 0,
+      "misses": 3,
+      "actualIdleMin": {
+        "n": 3,
+        "median": 6,
+        "min": 6,
+        "max": 6
+      },
+      "req2CacheReadTokens": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "req1CostUsd": {
+        "n": 3,
+        "median": 0.0660165,
+        "min": 0.06601275,
+        "max": 0.06602775
+      },
+      "req2CostUsd": {
+        "n": 3,
+        "median": 0.06660675,
+        "min": 0.0665955,
+        "max": 0.06663675
+      },
+      "total2ReqCostUsd": {
+        "n": 3,
+        "median": 0.13262,
+        "min": 0.132612,
+        "max": 0.132664
+      }
+    },
+    "TTL1H_12m": {
+      "n": 3,
+      "ttlMode": "TTL1H",
+      "gapMinutes": 12,
+      "hits": 3,
+      "misses": 0,
+      "actualIdleMin": {
+        "n": 3,
+        "median": 12,
+        "min": 12,
+        "max": 12
+      },
+      "req2CacheReadTokens": {
+        "n": 3,
+        "median": 17564,
+        "min": 17561,
+        "max": 17565
+      },
+      "req1CostUsd": {
+        "n": 3,
+        "median": 0.105543,
+        "min": 0.105525,
+        "max": 0.105549
+      },
+      "req2CostUsd": {
+        "n": 3,
+        "median": 0.0060225,
+        "min": 0.0059763,
+        "max": 0.0060372
+      },
+      "total2ReqCostUsd": {
+        "n": 3,
+        "median": 0.111572,
+        "min": 0.111501,
+        "max": 0.11158
+      }
+    },
+    "TTL5_12m": {
+      "n": 3,
+      "ttlMode": "TTL5",
+      "gapMinutes": 12,
+      "hits": 0,
+      "misses": 3,
+      "actualIdleMin": {
+        "n": 3,
+        "median": 12,
+        "min": 12,
+        "max": 12
+      },
+      "req2CacheReadTokens": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "req1CostUsd": {
+        "n": 3,
+        "median": 0.0660165,
+        "min": 0.0660165,
+        "max": 0.066024
+      },
+      "req2CostUsd": {
+        "n": 3,
+        "median": 0.0665805,
+        "min": 0.066573,
+        "max": 0.0665805
+      },
+      "total2ReqCostUsd": {
+        "n": 3,
+        "median": 0.132597,
+        "min": 0.132597,
+        "max": 0.132597
+      }
+    },
+    "TTL1H_30m": {
+      "n": 3,
+      "ttlMode": "TTL1H",
+      "gapMinutes": 30,
+      "hits": 3,
+      "misses": 0,
+      "actualIdleMin": {
+        "n": 3,
+        "median": 30,
+        "min": 30,
+        "max": 30
+      },
+      "req2CacheReadTokens": {
+        "n": 3,
+        "median": 17563,
+        "min": 17563,
+        "max": 17565
+      },
+      "req1CostUsd": {
+        "n": 3,
+        "median": 0.105537,
+        "min": 0.105537,
+        "max": 0.105549
+      },
+      "req2CostUsd": {
+        "n": 3,
+        "median": 0.0060375,
+        "min": 0.0059919,
+        "max": 0.0060519
+      },
+      "total2ReqCostUsd": {
+        "n": 3,
+        "median": 0.111587,
+        "min": 0.111529,
+        "max": 0.111589
+      }
+    },
+    "TTL5_30m": {
+      "n": 3,
+      "ttlMode": "TTL5",
+      "gapMinutes": 30,
+      "hits": 0,
+      "misses": 3,
+      "actualIdleMin": {
+        "n": 3,
+        "median": 30,
+        "min": 30,
+        "max": 30
+      },
+      "req2CacheReadTokens": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "req1CostUsd": {
+        "n": 3,
+        "median": 0.0660165,
+        "min": 0.0660165,
+        "max": 0.06602025
+      },
+      "req2CostUsd": {
+        "n": 3,
+        "median": 0.0665805,
+        "min": 0.06655425,
+        "max": 0.0665805
+      },
+      "total2ReqCostUsd": {
+        "n": 3,
+        "median": 0.132597,
+        "min": 0.132574,
+        "max": 0.132597
+      }
+    },
+    "TTL5_62m": {
+      "n": 1,
+      "ttlMode": "TTL5",
+      "gapMinutes": 62,
+      "hits": 0,
+      "misses": 1,
+      "actualIdleMin": {
+        "n": 1,
+        "median": 62,
+        "min": 62,
+        "max": 62
+      },
+      "req2CacheReadTokens": {
+        "n": 1,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "req1CostUsd": {
+        "n": 1,
+        "median": 0.06602025,
+        "min": 0.06602025,
+        "max": 0.06602025
+      },
+      "req2CostUsd": {
+        "n": 1,
+        "median": 0.06658425,
+        "min": 0.06658425,
+        "max": 0.06658425
+      },
+      "total2ReqCostUsd": {
+        "n": 1,
+        "median": 0.132605,
+        "min": 0.132605,
+        "max": 0.132605
+      }
+    },
+    "TTL1H_62m": {
+      "n": 1,
+      "ttlMode": "TTL1H",
+      "gapMinutes": 62,
+      "hits": 0,
+      "misses": 1,
+      "actualIdleMin": {
+        "n": 1,
+        "median": 62,
+        "min": 62,
+        "max": 62
+      },
+      "req2CacheReadTokens": {
+        "n": 1,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "req1CostUsd": {
+        "n": 1,
+        "median": 0.105537,
+        "min": 0.105537,
+        "max": 0.105537
+      },
+      "req2CostUsd": {
+        "n": 1,
+        "median": 0.106131,
+        "min": 0.106131,
+        "max": 0.106131
+      },
+      "total2ReqCostUsd": {
+        "n": 1,
+        "median": 0.211668,
+        "min": 0.211668,
+        "max": 0.211668
+      }
+    }
+  },
+  "t3aBreakEven": {
+    "write5mSampleUsd": 0.06602775,
+    "write1hSampleUsd": 0.105543,
+    "readHitSampleUsd": 0.0060225,
+    "ttl5TotalAfterOnePost5mGapUsd": 0.132608,
+    "ttl1hTotalAfterOnePost5mGapUsd": 0.111565,
+    "breakEvenPostGapRequests": 1,
+    "note": "Because 1h write (2.0x) + 1 read (0.1x) = 2.1x < 5m write (1.25x) + 1 expired 5m rewrite (1.25x) = 2.5x, 1h TTL already breaks even at 1 post-gap request (turn 2) after any >5m pause — earlier than the attachment claim of roughly the third turn."
+  },
+  "t3b": {
+    "arms": {
+      "KA-read": {
+        "n": 2,
+        "route": "openrouter",
+        "model": "anthropic/claude-sonnet-4.6",
+        "costSource": "billed",
+        "pingsPerSession": {
+          "n": 2,
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "hitPingsPerSession": {
+          "n": 2,
+          "median": 5,
+          "min": 5,
+          "max": 5
+        },
+        "maxOutputTokensSeen": 1,
+        "keepAliveOverhead5PingsUsd": {
+          "n": 2,
+          "median": 0.026563,
+          "min": 0.026562,
+          "max": 0.026564
+        },
+        "total6PingCostUsd": {
+          "n": 2,
+          "median": 0.092452,
+          "min": 0.092449,
+          "max": 0.092455
+        }
+      },
+      "KA-zero": {
+        "n": 2,
+        "route": "anthropic_direct",
+        "model": "claude-sonnet-4-6",
+        "costSource": "computed",
+        "pingsPerSession": {
+          "n": 2,
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "hitPingsPerSession": {
+          "n": 2,
+          "median": 5,
+          "min": 5,
+          "max": 5
+        },
+        "maxOutputTokensSeen": 0,
+        "keepAliveOverhead5PingsUsd": {
+          "n": 2,
+          "median": 0.0264915,
+          "min": 0.02649,
+          "max": 0.026493
+        },
+        "total6PingCostUsd": {
+          "n": 2,
+          "median": 0.0923755,
+          "min": 0.09237,
+          "max": 0.092381
+        }
+      }
+    },
+    "measuredBreakEvenAnalysis": {
+      "pingCostKaReadUsd": 0.0053127,
+      "pingCostKaZeroUsd": 0.0052986,
+      "write5mCostUsd": 0.06602775,
+      "write1hCostUsd": 0.105543,
+      "note": "5m rewrite costs ~1.25x base vs 0.1x read ping (~12.5x ratio), so up to 12 keep-alive pings cost less than 1 cold rewrite (~60m max idle before break-even); 1h cache (2.0x write) beats 5m + keep-alive once >= ~8 idle pings would otherwise be needed."
+    }
+  },
+  "t3c": {
+    "aborted": false,
+    "model": "models/gemini-3.1-pro-preview",
+    "calibratedPrefixTokens": 34513,
+    "caches": [
+      {
+        "arm": "GEM_0Q",
+        "nameRedacted": "cachedContents/redacted_t3c_gem_0q_066fc8de691e777a",
+        "ttl": "3600s",
+        "createTime": "2026-11-15T20:05:35.526796Z",
+        "expireTime": "2026-11-15T21:05:34.676347540Z",
+        "usageMetadata": {
+          "totalTokenCount": 34542
+        },
+        "responseKeys": [
+          "name",
+          "model",
+          "createTime",
+          "updateTime",
+          "expireTime",
+          "displayName",
+          "usageMetadata"
+        ],
+        "hasBillingUsdField": false
+      },
+      {
+        "arm": "GEM_3Q",
+        "nameRedacted": "cachedContents/redacted_t3c_gem_3q_c0803fb41ae5e5b5",
+        "ttl": "3600s",
+        "createTime": "2026-11-15T20:05:36.281794Z",
+        "expireTime": "2026-11-15T21:05:35.785886868Z",
+        "usageMetadata": {
+          "totalTokenCount": 34542
+        },
+        "responseKeys": [
+          "name",
+          "model",
+          "createTime",
+          "updateTime",
+          "expireTime",
+          "displayName",
+          "usageMetadata"
+        ],
+        "hasBillingUsdField": false
+      }
+    ],
+    "queries": [
+      {
+        "queryIndex": 1,
+        "httpStatus": 200,
+        "usageMetadata": {
+          "promptTokenCount": 34557,
+          "candidatesTokenCount": 3,
+          "totalTokenCount": 34617,
+          "cachedContentTokenCount": 34542,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 34557
+            }
+          ],
+          "cacheTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 34542
+            }
+          ],
+          "thoughtsTokenCount": 57,
+          "serviceTier": "standard"
+        },
+        "responseKeys": [
+          "candidates",
+          "usageMetadata",
+          "modelVersion",
+          "responseId"
+        ],
+        "hasBillingUsdField": false
+      },
+      {
+        "queryIndex": 2,
+        "httpStatus": 200,
+        "usageMetadata": {
+          "promptTokenCount": 34558,
+          "totalTokenCount": 34619,
+          "cachedContentTokenCount": 34542,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 34558
+            }
+          ],
+          "cacheTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 34542
+            }
+          ],
+          "thoughtsTokenCount": 61,
+          "serviceTier": "standard"
+        },
+        "responseKeys": [
+          "candidates",
+          "usageMetadata",
+          "modelVersion",
+          "responseId"
+        ],
+        "hasBillingUsdField": false
+      },
+      {
+        "queryIndex": 3,
+        "httpStatus": 200,
+        "usageMetadata": {
+          "promptTokenCount": 34558,
+          "candidatesTokenCount": 2,
+          "totalTokenCount": 34618,
+          "cachedContentTokenCount": 34542,
+          "promptTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 34558
+            }
+          ],
+          "cacheTokensDetails": [
+            {
+              "modality": "TEXT",
+              "tokenCount": 34542
+            }
+          ],
+          "thoughtsTokenCount": 58,
+          "serviceTier": "standard"
+        },
+        "responseKeys": [
+          "candidates",
+          "usageMetadata",
+          "modelVersion",
+          "responseId"
+        ],
+        "hasBillingUsdField": false
+      }
+    ],
+    "deletions": [
+      {
+        "arm": "GEM_0Q",
+        "deleteHttpStatus": 200
+      },
+      {
+        "arm": "GEM_3Q",
+        "deleteHttpStatus": 200
+      }
+    ],
+    "apiStorageUsdVerified": false,
+    "note": "Gemini API returns usageMetadata token counts and timestamps (createTime, expireTime, ttl), with no USD storage rate or billed cost field; claimed $4.50/M tokens/hr rate and 2.5 queries/hr break-even remain unverified by API telemetry."
+  },
+  "abortedSessions": []
+}

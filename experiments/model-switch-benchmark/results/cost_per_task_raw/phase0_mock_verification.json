@@ -1,0 +1,203 @@
+{
+  "generatedAtUtc": "2026-11-16T21:07:24.709Z",
+  "cliVersion": "2.1.325 (Claude Code)",
+  "openRouterKeySnapshot": {
+    "usageBeforeUsd": 93.5161304,
+    "usageAfterUsd": 93.5161304,
+    "spendDeltaUsd": 0,
+    "limitUsd": 200,
+    "limitRemainingUsd": 106.4838696
+  },
+  "livePricing55": {
+    "anthropic/claude-opus-5.5": {
+      "inputPer1M": 4,
+      "outputPer1M": 20,
+      "writePer1M": 5,
+      "readPer1M": 0.2,
+      "contextLength": 1000000
+    },
+    "anthropic/claude-sonnet-5.5": {
+      "inputPer1M": 2,
+      "outputPer1M": 10,
+      "writePer1M": 2.5,
+      "readPer1M": 0.1,
+      "contextLength": 1000000
+    }
+  },
+  "mockVerification": {
+    "runA": {
+      "runLabel": "runA",
+      "permissionPromptsMode": "none",
+      "t1ResultText": "Plan complete: Read succeeded and Edit/Bash were tested.",
+      "t2ResultText": "Implementation complete.",
+      "sampleAfterT1": "export const STATUS = 'buggy';\n",
+      "pwnAfterT1": false,
+      "permControlResponse": {
+        "subtype": "success",
+        "request_id": "req_perm_runA",
+        "response": {
+          "mode": "bypassPermissions"
+        }
+      },
+      "modelControlResponse": {
+        "subtype": "success",
+        "request_id": "req_model_runA",
+        "response": {
+          "model": "claude-sonnet-5-5"
+        }
+      },
+      "sampleAfterT2": "export const STATUS = 'fixed';\n",
+      "bashCheckAfterT2": "BASH_OK",
+      "controlRequestsSeenCount": 0,
+      "stderrPreview": ""
+    },
+    "runB": {
+      "runLabel": "runB",
+      "permissionPromptsMode": "none",
+      "t1ResultText": "Plan complete: Read succeeded and Edit/Bash were tested.",
+      "t2ResultText": "Implementation complete.",
+      "sampleAfterT1": "export const STATUS = 'buggy';\n",
+      "pwnAfterT1": false,
+      "permControlResponse": {
+        "subtype": "success",
+        "request_id": "req_perm_runB",
+        "response": {
+          "mode": "bypassPermissions"
+        }
+      },
+      "modelControlResponse": {
+        "subtype": "success",
+        "request_id": "req_model_runB",
+        "response": {
+          "model": "claude-sonnet-5-5"
+        }
+      },
+      "sampleAfterT2": "export const STATUS = 'fixed';\n",
+      "bashCheckAfterT2": "BASH_OK",
+      "controlRequestsSeenCount": 0,
+      "stderrPreview": ""
+    },
+    "toolsMatchT1ToT2": true,
+    "systemMatchT1ToT2": true,
+    "toolsMatchAB": true,
+    "systemPrefixMatchAB": true,
+    "systemLastMatchAB": false,
+    "sideCallsCount": 2,
+    "sideCallsModels": [
+      "anthropic/claude-sonnet-5.5",
+      "anthropic/claude-sonnet-5.5"
+    ],
+    "anyMemoryMd": false,
+    "t1Req0ToolsSha256": "023173af654b35e60771abe79954b38b54a2d252f29c7993dc8afb2256d1d768",
+    "t2Req0ToolsSha256": "023173af654b35e60771abe79954b38b54a2d252f29c7993dc8afb2256d1d768",
+    "t1Req0SystemBlocksMeta": [
+      {
+        "index": 0,
+        "chars": 99,
+        "hasCacheControl": false,
+        "sha256": "e270cac24ba156a2f3ad7c321d6eaff637129c765fa91627230a8a356a58a93f",
+        "preview": "x-anthropic-billing-header: cc_version=2.1.325.29f; cc_entrypoint=sdk-cli;"
+      },
+      {
+        "index": 1,
+        "chars": 156,
+        "hasCacheControl": true,
+        "sha256": "47a0b210b7cbe3bc2ace5e3fcfff2764cbacaf9336fb5520c8b0fd2bc1f97211",
+        "preview": "You are Claude Code, Anthropic's official CLI for Claude, running within the Cla"
+      },
+      {
+        "index": 2,
+        "chars": 3682,
+        "hasCacheControl": true,
+        "sha256": "79b52ee72ab45e8fab70ac4ea67623abcbeba07057f0178121fb0100c2664eea",
+        "preview": "\nYou are an agent working with the user toward their goals, using your own judgm"
+      }
+    ],
+    "t2Req0SystemBlocksMeta": [
+      {
+        "index": 0,
+        "chars": 99,
+        "hasCacheControl": false,
+        "sha256": "e270cac24ba156a2f3ad7c321d6eaff637129c765fa91627230a8a356a58a93f",
+        "preview": "x-anthropic-billing-header: cc_version=2.1.325.29f; cc_entrypoint=sdk-cli;"
+      },
+      {
+        "index": 1,
+        "chars": 156,
+        "hasCacheControl": true,
+        "sha256": "47a0b210b7cbe3bc2ace5e3fcfff2764cbacaf9336fb5520c8b0fd2bc1f97211",
+        "preview": "You are Claude Code, Anthropic's official CLI for Claude, running within the Cla"
+      },
+      {
+        "index": 2,
+        "chars": 3682,
+        "hasCacheControl": true,
+        "sha256": "79b52ee72ab45e8fab70ac4ea67623abcbeba07057f0178121fb0100c2664eea",
+        "preview": "\nYou are an agent working with the user toward their goals, using your own judgm"
+      }
+    ],
+    "toolResultsObserved": [
+      {
+        "phase": "runA_T1_plan",
+        "results": [
+          {
+            "tool_use_id": "tu_edit_t1_2",
+            "is_error": true,
+            "preview": "Permission for this tool use was denied. It requires approval, and this session has no approval surface — nobody can answer a permission prompt here — so it was denied automaticall"
+          },
+          {
+            "tool_use_id": "tu_bash_t1_2",
+            "is_error": true,
+            "preview": "Auto mode is unavailable: its safety check does not run for this session, so Bash was not run. Other actions that need the check will be denied too, and retrying won't help. Finish"
+          }
+        ]
+      },
+      {
+        "phase": "runA_T2_impl",
+        "results": [
+          {
+            "tool_use_id": "tu_edit_t2_5",
+            "is_error": false,
+            "preview": "The file sample.mjs has been updated successfully. (file state is current in your context — no need to Read it back)"
+          },
+          {
+            "tool_use_id": "tu_bash_t2_5",
+            "is_error": false,
+            "preview": "Shell cwd was reset to <USER_HOME>\\AppData\\Local\\Temp\\cpt-p0-runA-LT9Lce\\repo"
+          }
+        ]
+      },
+      {
+        "phase": "runB_T1_plan",
+        "results": [
+          {
+            "tool_use_id": "tu_edit_t1_8",
+            "is_error": true,
+            "preview": "Permission for this tool use was denied. It requires approval, and this session has no approval surface — nobody can answer a permission prompt here — so it was denied automaticall"
+          },
+          {
+            "tool_use_id": "tu_bash_t1_8",
+            "is_error": true,
+            "preview": "Auto mode is unavailable: its safety check does not run for this session, so Bash was not run. Other actions that need the check will be denied too, and retrying won't help. Finish"
+          }
+        ]
+      },
+      {
+        "phase": "runB_T2_impl",
+        "results": [
+          {
+            "tool_use_id": "tu_edit_t2_11",
+            "is_error": false,
+            "preview": "The file sample.mjs has been updated successfully. (file state is current in your context — no need to Read it back)"
+          },
+          {
+            "tool_use_id": "tu_bash_t2_11",
+            "is_error": false,
+            "preview": "Shell cwd was reset to <USER_HOME>\\AppData\\Local\\Temp\\cpt-p0-runB-WHwZ7O\\repo"
+          }
+        ]
+      }
+    ],
+    "cacheIsolationConclusion": "tools + system[0..prefix] with cache_control precede --append-system-prompt; MUST enforce >=365s per-model idle cooldown in addition to per-run salt"
+  }
+}

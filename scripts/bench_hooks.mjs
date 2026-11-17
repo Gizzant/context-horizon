@@ -9,7 +9,7 @@
  *      reflecting `~5ms` minimal POSIX shell exec vs `~15-35ms` POSIX Node ESM cold-start vs `~40-90ms` Windows).
  */
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -17,6 +17,8 @@ import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import register from '../hooks/register.js';
 import { createInitialTelemetryState } from '../src/core-isomorphic/telemetry/telemetryBridge.mjs';
+import { MicroIpcServer } from '../src/engine-node/ipc/server.mjs';
+import { registerDaemonHookRpcMethods } from '../src/hooks/daemon_hook_bridge.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(SCRIPT_DIR, '..');
@@ -120,20 +122,45 @@ export async function runHookLatencyBenchmark(options = {}) {
     tier1RenderSamples.push(performance.now() - t0);
   }
 
-  // Tier-2 End-to-End Spawned Node ESM CLI Hook (`child_process.spawnSync`)
+  // Tier-2 End-to-End Spawned Node CLI Hooks (`child_process.spawnSync`)
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ah-bench-'));
   const tier2Samples = [];
+  const tier2ReadFastSamples = [];
+  const tier2WarmIpcSamples = [];
+  const sandboxEnv = {
+    ...process.env,
+    HOME: tmpDir,
+    USERPROFILE: tmpDir
+  };
+  delete sandboxEnv.CTXTOP_IPC_PATH;
+
   const stdinJson = JSON.stringify({
     session_id: 'bench-cli',
+    cwd: tmpDir,
     tool_name: 'Bash',
     tool_input: { command: 'git status --short' }
   });
+  const boundedReadJson = JSON.stringify({
+    session_id: 'bench-read',
+    cwd: tmpDir,
+    tool_name: 'Read',
+    tool_input: { file_path: 'src/index.mjs', offset: 1, limit: 80 }
+  });
+
+  const benchPipePath =
+    process.platform === 'win32'
+      ? `\\\\.\\pipe\\ctxtop-bench-${process.pid}-${Date.now()}`
+      : path.join(tmpDir, 'bench-daemon.sock');
+  const ipcServer = new MicroIpcServer({ ipcPath: benchPipePath });
+  registerDaemonHookRpcMethods(ipcServer);
 
   try {
+    // 2a. Cold CLI fallback (`Bash`)
     for (let i = 0; i < tier2Iterations; i++) {
       const t0 = performance.now();
       const proc = spawnSync(process.execPath, [PRE_TOOL_USE_HANDLER], {
         cwd: tmpDir,
+        env: sandboxEnv,
         input: stdinJson,
         encoding: 'utf8',
         timeout: 10_000
@@ -144,7 +171,87 @@ export async function runHookLatencyBenchmark(options = {}) {
       }
       tier2Samples.push(elapsed);
     }
+
+    // 2b. Cold Bounded-Read Fast-Path (`Read` with offset/limit)
+    for (let i = 0; i < tier2Iterations; i++) {
+      const t0 = performance.now();
+      const proc = spawnSync(process.execPath, [PRE_TOOL_USE_HANDLER], {
+        cwd: tmpDir,
+        env: sandboxEnv,
+        input: boundedReadJson,
+        encoding: 'utf8',
+        timeout: 10_000
+      });
+      const elapsed = performance.now() - t0;
+      if (proc.status !== 0) {
+        throw new Error(`Tier-2 fast-read pre-tool-use exited with status ${proc.status}: ${proc.stderr}`);
+      }
+      tier2ReadFastSamples.push(elapsed);
+    }
+
+    // 2c. Warm Horizon Daemon Micro-IPC (`Bash` evaluated in-memory by async daemon RPC)
+    const spawnHookAsync = (args, { cwd: spawnCwd, env, input, timeoutMs = 10_000 } = {}) =>
+      new Promise((resolve, reject) => {
+        const child = spawn(process.execPath, args, {
+          cwd: spawnCwd,
+          env,
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+        let stdout = '';
+        let stderr = '';
+        const timer = setTimeout(() => {
+          try {
+            child.kill('SIGKILL');
+          } catch (killErr) {
+            void killErr;
+          }
+          reject(new Error(`Hook timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+        child.stdout.on('data', (c) => {
+          stdout += c.toString('utf8');
+        });
+        child.stderr.on('data', (c) => {
+          stderr += c.toString('utf8');
+        });
+        child.once('error', (err) => {
+          clearTimeout(timer);
+          reject(err);
+        });
+        child.once('close', (code) => {
+          clearTimeout(timer);
+          resolve({ status: code ?? 0, stdout, stderr });
+        });
+        child.stdin.end(input);
+      });
+
+    await ipcServer.listen();
+    const warmEnv = { ...sandboxEnv, CTXTOP_IPC_PATH: benchPipePath };
+    // Warm daemon dynamic import once before timed loop
+    const warmup = await spawnHookAsync([PRE_TOOL_USE_HANDLER], {
+      cwd: tmpDir,
+      env: warmEnv,
+      input: stdinJson,
+      timeoutMs: 10_000
+    });
+    if (warmup.status !== 0) {
+      throw new Error(`Tier-2 warm-IPC warmup exited with status ${warmup.status}: ${warmup.stderr}`);
+    }
+    for (let i = 0; i < tier2Iterations; i++) {
+      const t0 = performance.now();
+      const proc = await spawnHookAsync([PRE_TOOL_USE_HANDLER], {
+        cwd: tmpDir,
+        env: warmEnv,
+        input: stdinJson,
+        timeoutMs: 10_000
+      });
+      const elapsed = performance.now() - t0;
+      if (proc.status !== 0) {
+        throw new Error(`Tier-2 warm-IPC pre-tool-use exited with status ${proc.status}: ${proc.stderr}`);
+      }
+      tier2WarmIpcSamples.push(elapsed);
+    }
   } finally {
+    await ipcServer.close().catch(() => {});
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 
@@ -153,7 +260,9 @@ export async function runHookLatencyBenchmark(options = {}) {
     nodeVersion: process.version,
     tier1ModToolCall: summarizeDurationsMs(tier1ToolSamples),
     tier1ModUiRender: summarizeDurationsMs(tier1RenderSamples),
-    tier2CliPreToolUse: summarizeDurationsMs(tier2Samples)
+    tier2CliPreToolUse: summarizeDurationsMs(tier2Samples),
+    tier2ReadFastPathCli: summarizeDurationsMs(tier2ReadFastSamples),
+    tier2WarmIpcCli: summarizeDurationsMs(tier2WarmIpcSamples)
   };
 }
 
@@ -173,6 +282,12 @@ if (isDirectCli) {
     `| Tier 1 In-Process Mod (\`ui.render\`) | \`hooks/register.js\` | ${report.tier1ModUiRender.count} | ${report.tier1ModUiRender.p50Ms} | ${report.tier1ModUiRender.p95Ms} | ${report.tier1ModUiRender.meanMs} | ~0.05ms (< 0.1ms in V8 memory) |`
   );
   console.log(
-    `| Tier 2 Spawned ESM CLI (\`PreToolUse\`) | \`hooks/handlers/pre-tool-use.mjs\` | ${report.tier2CliPreToolUse.count} | ${report.tier2CliPreToolUse.p50Ms} | ${report.tier2CliPreToolUse.p95Ms} | ${report.tier2CliPreToolUse.meanMs} | ~5ms minimal POSIX shell / ~15-35ms POSIX Node ESM / ~40-90ms Win11 |`
+    `| Tier 2 Warm Daemon IPC (\`PreToolUse\`) | \`hooks/handlers/pre-tool-use.mjs\` | ${report.tier2WarmIpcCli.count} | ${report.tier2WarmIpcCli.p50Ms} | ${report.tier2WarmIpcCli.p95Ms} | ${report.tier2WarmIpcCli.meanMs} | ~55-65ms Win32 / ~10-20ms POSIX |`
+  );
+  console.log(
+    `| Tier 2 Bounded-Read Fast-Path | \`hooks/handlers/pre-tool-use.mjs\` | ${report.tier2ReadFastPathCli.count} | ${report.tier2ReadFastPathCli.p50Ms} | ${report.tier2ReadFastPathCli.p95Ms} | ${report.tier2ReadFastPathCli.meanMs} | ~55-65ms Win32 / ~10-20ms POSIX |`
+  );
+  console.log(
+    `| Tier 2 Cold CLI Fallback (\`Bash\`) | \`hooks/handlers/pre-tool-use.mjs\` | ${report.tier2CliPreToolUse.count} | ${report.tier2CliPreToolUse.p50Ms} | ${report.tier2CliPreToolUse.p95Ms} | ${report.tier2CliPreToolUse.meanMs} | ~75-110ms Win32 / ~15-35ms POSIX |`
   );
 }

@@ -1,0 +1,148 @@
+{
+  "startedAt": "2026-11-14T17:32:09.055Z",
+  "ruleVersion": "rule_v1",
+  "highbeamCommit": "b4e7502",
+  "pinnedRepoCommit": "19c51055902c545508af1979a392505355777d90",
+  "runs": {
+    "C2_L1_off_r01": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L1_off_r01",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.405828,
+      "totalCostUsdComputed": 0.405828,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T17:34:39.326Z"
+    },
+    "C2_L1_hb_rule_v1_r01": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L1_hb_rule_v1_r01",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.527667,
+      "totalCostUsdComputed": 0.527667,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T17:37:17.960Z"
+    },
+    "C2_L1_off_r02": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L1_off_r02",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.394798,
+      "totalCostUsdComputed": 0.394798,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T17:39:38.722Z"
+    },
+    "C2_L1_hb_rule_v1_r02": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L1_hb_rule_v1_r02",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.531719,
+      "totalCostUsdComputed": 0.531719,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T17:42:14.971Z"
+    },
+    "C2_L1_off_r03": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L1_off_r03",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.403233,
+      "totalCostUsdComputed": 0.403233,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T17:44:41.809Z"
+    },
+    "C2_L1_hb_rule_v1_r03": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L1_hb_rule_v1_r03",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.527985,
+      "totalCostUsdComputed": 0.527985,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T17:47:20.438Z"
+    },
+    "C2_L2_off_r01": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L2_off_r01",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.54552,
+      "totalCostUsdComputed": 0.54552,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T17:50:07.216Z"
+    },
+    "C2_L2_hb_rule_v1_r01": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L2_hb_rule_v1_r01",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.530754,
+      "totalCostUsdComputed": 0.530754,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T17:53:16.747Z"
+    },
+    "C2_L2_off_r02": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L2_off_r02",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.548367,
+      "totalCostUsdComputed": 0.548367,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T17:56:11.258Z"
+    },
+    "C2_L2_hb_rule_v1_r02": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L2_hb_rule_v1_r02",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.517411,
+      "totalCostUsdComputed": 0.517411,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T17:59:08.632Z"
+    },
+    "C2_L2_off_r03": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L2_off_r03",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.546128,
+      "totalCostUsdComputed": 0.546128,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T18:01:49.675Z"
+    },
+    "C2_L2_hb_rule_v1_r03": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L2_hb_rule_v1_r03",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.521393,
+      "totalCostUsdComputed": 0.521393,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T18:04:36.717Z"
+    },
+    "C2_U1_off_r01": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_U1_off_r01",
+      "turnsCompleted": 12,
+      "totalCostUsdBilled": 0.278516,
+      "totalCostUsdComputed": 0.278516,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T18:05:57.283Z"
+    },
+    "C2_U1_hb_rule_v1_r01": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_U1_hb_rule_v1_r01",
+      "turnsCompleted": 12,
+      "totalCostUsdBilled": 0.274956,
+      "totalCostUsdComputed": 0.274956,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T18:07:18.339Z"
+    }
+  }
+}

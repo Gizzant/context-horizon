@@ -13,6 +13,7 @@ import {
 } from '../src/core/layer5_hygiene.mjs';
 import { buildDemoPage } from './build_demo_page.mjs';
 import { buildEvaluationBundles, TIER_1_FILES, TIER_2_FILES } from './build_evaluation_bundles.mjs';
+import { syncWorkspaces } from './sync_workspaces.mjs';
 
 /**
  * T4.2: Canonical Mirror Synchronization & Exhaustive SHA-256 Parity Verifier.
@@ -190,18 +191,6 @@ export function buildRslPostmortemHooksBlock(pluginRoot, enabled = true) {
     SessionStart: [
       { type: 'command', command: `node --no-warnings ${scriptRef} --event=SessionStart`, timeout: 5 }
     ],
-    PostToolUse: [
-      {
-        matcher: '*',
-        hooks: [
-          {
-            type: 'command',
-            command: `node --no-warnings ${scriptRef} --event=PostToolUse`,
-            timeout: 5
-          }
-        ]
-      }
-    ],
     Stop: [
       { type: 'command', command: `node --no-warnings ${scriptRef} --event=Stop`, timeout: 15 }
     ]
@@ -213,8 +202,7 @@ function hasCompleteRslPostmortemHooks(rslBlock, pluginRoot) {
   const normRsl = path.join(pluginRoot, 'src/hooks/antigravity_rsl_hook.mjs').replace(/\\/g, '/');
   const stopCmd = String(rslBlock.Stop?.[0]?.command || '');
   const startCmd = String(rslBlock.SessionStart?.[0]?.command || '');
-  const postCmd = String(rslBlock.PostToolUse?.[0]?.hooks?.[0]?.command || '');
-  return stopCmd.includes(normRsl) && startCmd.includes(normRsl) && postCmd.includes(normRsl);
+  return stopCmd.includes(normRsl) && startCmd.includes(normRsl) && !Array.isArray(rslBlock.PostToolUse);
 }
 
 function listSkillAndAssetFiles(relRootDir) {
@@ -241,6 +229,10 @@ export function syncAndVerifyMirrors({
   const canonicalHtml = path.join(CANONICAL_ROOT, 'src', 'webview', 'horizon_panel.html');
   if (!fs.existsSync(canonicalHtml)) {
     throw new Error(`Canonical WebView HTML missing: ${canonicalHtml}`);
+  }
+
+  if (!verifyOnly) {
+    syncWorkspaces();
   }
 
   if (retireLegacyMirror && legacyRoot && fs.existsSync(legacyRoot)) {

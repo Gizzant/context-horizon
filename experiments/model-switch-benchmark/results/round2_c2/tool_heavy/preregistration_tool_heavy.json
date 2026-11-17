@@ -1,0 +1,32 @@
+{
+  "experiment": "item5_tool_heavy_paired_n1",
+  "sampleSizeNote": "n=1 exploratory paired run; no statistical precision claim",
+  "switchBeforeTurn": 3,
+  "totalTurns": 12,
+  "postSwitchRemainingTurns": 9,
+  "ttlTier": "5m",
+  "providerPinned": "anthropic",
+  "modelA": "anthropic/claude-opus-4.6",
+  "modelB": "anthropic/claude-sonnet-4.6",
+  "effort": "medium",
+  "predictedRequestsPerTurn": 5,
+  "allowedRBand": [
+    3,
+    7
+  ],
+  "maxSingleTurnRequests": 10,
+  "predictedHoldCostUsd": 0.9816,
+  "predictedAllowCostUsd": 0.6915,
+  "predictedDiffUsd": 0.2901,
+  "abortMultiplier": 2,
+  "abortCapHold2xUsd": 1.9632,
+  "abortCapAllow2xUsd": 1.383,
+  "mode": "live",
+  "preregisteredAtUtc": "2026-11-14T23:06:58.704Z",
+  "openrouterBefore": {
+    "limit": 50,
+    "usage": 37.76052205,
+    "limitRemaining": 12.239477950000001,
+    "fetchedAtUtc": "2026-11-14T23:06:58.702Z"
+  }
+}

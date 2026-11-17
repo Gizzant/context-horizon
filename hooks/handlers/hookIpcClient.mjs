@@ -9,8 +9,6 @@
  */
 
 import { MicroIpcClient } from '../../src/engine-node/ipc/client.mjs';
-import { runPreToolUseHook } from './pre-tool-use.mjs';
-import { runPostToolUseHook } from './post-tool-use.mjs';
 
 let sharedClient = null;
 
@@ -43,7 +41,10 @@ export async function dispatchPreToolUseWithFallback(payload, options = {}) {
   return client.callWithFallback(
     'hook.preToolUse',
     payload,
-    async (p) => runPreToolUseHook(p, options),
+    async (p) => {
+      const { runPreToolUseHook } = await import('./pre-tool-use-core.mjs');
+      return runPreToolUseHook(p, options);
+    },
     {
       connectTimeoutMs: options.connectTimeoutMs ?? 15,
       requestTimeoutMs: options.requestTimeoutMs ?? 600000
@@ -63,7 +64,10 @@ export async function dispatchPostToolUseWithFallback(payload, options = {}) {
   return client.callWithFallback(
     'hook.postToolUse',
     payload,
-    async (p) => runPostToolUseHook(p, options),
+    async (p) => {
+      const { runPostToolUseHook } = await import('./post-tool-use-core.mjs');
+      return runPostToolUseHook(p, options);
+    },
     { connectTimeoutMs: options.connectTimeoutMs ?? 15 }
   );
 }

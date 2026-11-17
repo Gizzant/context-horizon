@@ -1,7 +1,10 @@
 {
   "name": "attention-horizon",
+  "displayName": "Highbeam",
   "version": "4.1.0",
   "description": "Highbeam KV-Cache & Context Governor for Claude Code",
+  "homepage": "https://gizzant.github.io/attention-horizon-antigravity/",
+  "repository": "https://github.com/Gizzant/attention-horizon-antigravity",
   "author": {
     "name": "Highbeam Contributors"
   },

@@ -1,0 +1,48 @@
+{
+  "startedAt": "2026-11-14T18:30:11.126Z",
+  "ruleVersion": "rule_v2",
+  "highbeamCommit": "b4e7502",
+  "pinnedRepoCommit": "19c51055902c545508af1979a392505355777d90",
+  "runs": {
+    "C2_L1_hb_rule_v2_r01": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L1_hb_rule_v2_r01",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.401633,
+      "totalCostUsdComputed": 0.401633,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T18:32:40.567Z"
+    },
+    "C2_L1_hb_rule_v2_r02": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L1_hb_rule_v2_r02",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.405936,
+      "totalCostUsdComputed": 0.405936,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T18:35:21.017Z"
+    },
+    "C2_L1_hb_rule_v2_r03": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L1_hb_rule_v2_r03",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.405078,
+      "totalCostUsdComputed": 0.405078,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T18:38:00.047Z"
+    },
+    "C2_L2_hb_rule_v2_r01": {
+      "completed": true,
+      "attempt": 1,
+      "sessionId": "sess_C2_L2_hb_rule_v2_r01",
+      "turnsCompleted": 30,
+      "totalCostUsdBilled": 0.555043,
+      "totalCostUsdComputed": 0.555043,
+      "abortedAttempts": [],
+      "finishedAt": "2026-11-14T18:40:59.399Z"
+    }
+  }
+}

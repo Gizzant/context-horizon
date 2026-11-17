@@ -35,15 +35,16 @@ export const PRO_PRICING_TIERS = Object.freeze({
 export const PLG_TIER_MATRIX = Object.freeze({
   free: Object.freeze({
     id: 'free',
-    name: 'Free Tier (Community Core)',
+    name: 'Free Tier (MIT Core + COACH Mode)',
     priceMonthlyUSD: 0,
-    installCommand: 'npx ctxtop',
+    installCommand: 'npx ctxtop init',
     features: Object.freeze([
       'Simple View HUD & 4-Rank Tufte Verdict Bar',
       '40-Cell Parabolic U-Curve Context Map',
       '5m/1h Live Prompt Cache TTL Countdown',
-      'HOLD_COMPACT Warm Cache Warning',
-      '6 Core Auditable Guards (32 rules)'
+      'SQLite FTS5 CLI & Test Output Compression (PostToolUse)',
+      'Automated PreToolUse Delta-Read & AST Signature Stub Interception (GUARD-4)',
+      'HOLD_COMPACT Warm Cache Warning & 32 Auditable Guards (COACH Default)'
     ])
   }),
   pro: Object.freeze({
@@ -52,11 +53,10 @@ export const PLG_TIER_MATRIX = Object.freeze({
     priceMonthlyUSD: 15,
     priceRangeMonthlyUSD: Object.freeze([12, 19]),
     features: Object.freeze([
-      'Automated PreToolUse Delta-Read & AST Signature Stub Interception',
-      'Cross-Session Chronic Offender Memory',
-      '30-Day Workspace Savings Ledger (#tufteBaselineStrip)',
-      'Signed Corporate PDF 1.4 Expense Receipt (/api/receipt/export?format=pdf)',
-      'AUTO_PILOT Hysteresis Lock & Algebraic C* Model Switch Hold'
+      'AUTO_PILOT Hands-Free Enforcement & Horizon-Calibrated C_max Model Switch Hold',
+      'Signed Corporate PDF 1.4 FinOps + GreenOps Expense Receipt (ctxtop receipt --pdf)',
+      'Cross-Session Chronic Offender Memory & 30-Day Workspace Savings Ledger (#tufteBaselineStrip)',
+      '14-Day Zero-Network Local Trial'
     ])
   }),
   team: Object.freeze({

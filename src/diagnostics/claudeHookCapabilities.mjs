@@ -200,6 +200,23 @@ function scanBinaryMarkersChunked(binPath) {
 }
 
 /**
+ * Formats `PreEffortChange` capability into a clear human-readable doctor status string
+ * without altering the boolean `preEffortChangeSupported` API contract.
+ *
+ * @param {{ preEffortChangeSupported?: boolean | null }} [cap={}]
+ * @returns {string}
+ */
+export function formatPreEffortChangeCapability(cap = {}) {
+  if (cap?.preEffortChangeSupported === true) {
+    return 'true';
+  }
+  if (cap?.preEffortChangeSupported === false) {
+    return 'n/a (ConfigChange + turn-boundary active; 5.5+ cache-safe)';
+  }
+  return 'unknown';
+}
+
+/**
  * Inspects the installed Claude Code CLI/bundle for `PreModelSwitch` support and contract parity.
  *
  * @param {object} [options={}]
@@ -210,6 +227,7 @@ function scanBinaryMarkersChunked(binPath) {
  *   preModelSwitchSupported: boolean | null,
  *   postModelSwitchSupported: boolean | null,
  *   preEffortChangeSupported: boolean | null,
+ *   preEffortChangeSummary: string | null,
  *   supportsAskDecision: boolean | null,
  *   sdkSetModelHooked: boolean | null,
  *   payloadKeys: { from_model: boolean, to_model: boolean, prompt_cache_warm: boolean, context_tokens: boolean } | null,
@@ -229,6 +247,7 @@ export function inspectClaudeBinaryCapabilities(options = {}) {
       preModelSwitchSupported: null,
       postModelSwitchSupported: null,
       preEffortChangeSupported: null,
+      preEffortChangeSummary: null,
       supportsAskDecision: null,
       sdkSetModelHooked: null,
       payloadKeys: null,
@@ -241,7 +260,8 @@ export function inspectClaudeBinaryCapabilities(options = {}) {
   let stat;
   try {
     stat = fs.statSync(binPath);
-  } catch {
+  } catch (err) {
+    void err;
     return {
       found: false,
       binaryPath: null,
@@ -249,6 +269,7 @@ export function inspectClaudeBinaryCapabilities(options = {}) {
       preModelSwitchSupported: null,
       postModelSwitchSupported: null,
       preEffortChangeSupported: null,
+      preEffortChangeSummary: null,
       supportsAskDecision: null,
       sdkSetModelHooked: null,
       payloadKeys: null,
@@ -272,7 +293,12 @@ export function inspectClaudeBinaryCapabilities(options = {}) {
       cached.result &&
       typeof cached.result.contractValid === 'boolean'
     ) {
-      return { ...cached.result, cached: true };
+      return {
+        ...cached.result,
+        preEffortChangeSummary:
+          cached.result.preEffortChangeSummary || formatPreEffortChangeCapability(cached.result),
+        cached: true
+      };
     }
   }
 
@@ -313,6 +339,9 @@ export function inspectClaudeBinaryCapabilities(options = {}) {
     preModelSwitchSupported: markers.preModelSwitchSupported,
     postModelSwitchSupported: markers.postModelSwitchSupported,
     preEffortChangeSupported: markers.preEffortChangeSupported,
+    preEffortChangeSummary: formatPreEffortChangeCapability({
+      preEffortChangeSupported: markers.preEffortChangeSupported
+    }),
     supportsAskDecision,
     sdkSetModelHooked: markers.sdkSetModelHooked,
     payloadKeys,
@@ -391,6 +420,7 @@ export function extractClaudeSelectableModelsFromBinary(binPath) {
 
 export default {
   resolveClaudeBinaryPath,
+  formatPreEffortChangeCapability,
   inspectClaudeBinaryCapabilities,
   extractClaudeSelectableModelsFromBinary
 };

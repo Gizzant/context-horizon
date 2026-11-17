@@ -1,0 +1,83 @@
+{
+  "tier": "small",
+  "description": "12 deterministic read-only prompts calibrated to ~11k-14k tokens at Turn 6 (8.8k unmodified Claude Code floor + ~4.5k file/chat tokens) using single bounded Read calls in Turns 1-3 and zero-tool analytical turns in Turns 4-12.",
+  "targetFiles": [
+    "src/core-isomorphic/economics/billingBlocks.mjs (lines 1-110)",
+    "src/core-isomorphic/economics/dualTtl.mjs (lines 1-100)",
+    "src/core-isomorphic/economics/cliffBreaker.mjs (lines 1-96)"
+  ],
+  "prompts": [
+    {
+      "turn": 1,
+      "phase": "load",
+      "expectToolUse": true,
+      "prompt": "Call the Read tool ONCE in a single tool call on `src/core-isomorphic/economics/billingBlocks.mjs` with offset=1, limit=110 (explicit benchmark override: do NOT split into multiple smaller reads). After reading it, list exactly 3 concise bullet points (under 70 words total) summarizing `BILLING_BLOCK_CONSTANTS` and `partitionBillingBlocks`."
+    },
+    {
+      "turn": 2,
+      "phase": "load",
+      "expectToolUse": true,
+      "prompt": "Call the Read tool ONCE in a single tool call on `src/core-isomorphic/economics/dualTtl.mjs` with offset=1, limit=100 (explicit benchmark override: do NOT split into multiple smaller reads). After reading it, list exactly 3 concise bullet points (under 70 words total) summarizing `DUAL_TTL_CONSTANTS` and `calculateDualTtlCountdown`."
+    },
+    {
+      "turn": 3,
+      "phase": "load",
+      "expectToolUse": true,
+      "prompt": "Call the Read tool ONCE in a single tool call on `src/core-isomorphic/economics/cliffBreaker.mjs` with offset=1, limit=96 (explicit benchmark override: do NOT split into multiple smaller reads). After reading it, list exactly 3 concise bullet points (under 70 words total) summarizing `HAIKU_CLIFF_THRESHOLDS` and `checkHaiku100kCliffBreaker`."
+    },
+    {
+      "turn": 4,
+      "phase": "measure",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, explain in 4 concise bullet points (under 100 words total) how `partitionBillingBlocks` handles null/invalid events, non-finite timestamps, and `burnRateUsdPerHour` calculation."
+    },
+    {
+      "turn": 5,
+      "phase": "pre_switch",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, locate every exact threshold constant in `DUAL_TTL_CONSTANTS` and explain in 4 concise bullet points (under 100 words total) how `calculateDualTtlCountdown` handles `{ rolling: true }`."
+    },
+    {
+      "turn": 6,
+      "phase": "switch_point",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, compare the 4 action levels in `checkHaiku100kCliffBreaker` (`allow`, `advisory`, `warn`, `halt`) and explain how non-Haiku models are handled in 4 concise bullet points (under 100 words total)."
+    },
+    {
+      "turn": 7,
+      "phase": "recovery_point",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, trace in 4 concise bullet points (under 100 words total) what all three modules share architecturally under the 'Claude Mod Laws 1-5' header comment and how `subagentId` defaults to `'main'` inside `partitionBillingBlocks`."
+    },
+    {
+      "turn": 8,
+      "phase": "return_point",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, identify all formatting and rounding calls (`formatMmSs`, `formatRemainingTtl`, `toFixed`, `Math.round`) across the 3 loaded slices in 4 concise bullet points (under 100 words total)."
+    },
+    {
+      "turn": 9,
+      "phase": "measure",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, explain in 4 concise bullet points (under 100 words total) the exact boundary checks (`>=`, `=== 0`, `<= 0`) in `calculateDualTtlCountdown` and `checkHaiku100kCliffBreaker`."
+    },
+    {
+      "turn": 10,
+      "phase": "measure",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, summarize in 4 concise bullet points (under 100 words total) all default parameter values used in the functions loaded across `billingBlocks.mjs`, `dualTtl.mjs`, and `cliffBreaker.mjs`."
+    },
+    {
+      "turn": 11,
+      "phase": "measure",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, list in 4 concise bullet points (under 100 words total) any imports vs frozen constant objects across the 3 loaded slices."
+    },
+    {
+      "turn": 12,
+      "phase": "measure",
+      "expectToolUse": false,
+      "prompt": "IMPORTANT: Do NOT call Read or any tool on this turn. Using ONLY the file contents already shown above, provide a final 4-bullet architectural synthesis (under 100 words total) connecting the 5h billing blocks, 5m vs 1h cache TTL countdowns, and Haiku 100k cliff breaker."
+    }
+  ]
+}

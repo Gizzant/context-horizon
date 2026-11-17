@@ -17,6 +17,8 @@ export {
   MicroIpcClient
 } from './client.mjs';
 
+export * from './fast_client.mjs';
+
 export {
   MicroIpcServer
 } from './server.mjs';

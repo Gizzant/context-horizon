@@ -15,12 +15,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readLiveStateSnapshot } from '../../../src/core-isomorphic/telemetry/telemetryBridge.mjs';
-import { getSavedQuotaReceiptSummary } from '../../../src/core-isomorphic/coach/savedQuotaLedger.mjs';
-import { generateCorporateExpenseReceipt } from '../../../src/core-isomorphic/ui/pdfReceiptGenerator.mjs';
-import { getProEntitlementStatus } from '../../../src/core/pro_license.mjs';
-import { CacheGravityScorer } from '../../../src/core/task_quota_router.mjs';
-import { ScopeLockRegistry, loadRegistry } from '../../../src/core/telemetry/scope_lock_registry.mjs';
+import { readLiveStateSnapshot } from './vendor/core-isomorphic/telemetry/telemetryBridge.mjs';
+import { getSavedQuotaReceiptSummary } from './vendor/core-isomorphic/coach/savedQuotaLedger.mjs';
+import { generateCorporateExpenseReceipt } from './vendor/core-isomorphic/ui/pdfReceiptGenerator.mjs';
+import { computeBreakEvenCachedTokens } from './vendor/core-isomorphic/coach/cacheGravityRouter.mjs';
+import { getProEntitlementStatus } from './vendor/pro/pro_license.mjs';
+import { ScopeLockRegistry, loadRegistry } from './vendor/core/telemetry/scope_lock_registry.mjs';
+import { compressCliOutputFts5, searchOffloadedContextFts5 } from './vendor/core/fts5_output_compressor.mjs';
+import { runSessionAudit, formatSessionAuditReport } from './vendor/core/session_auditor.mjs';
 
 export const MCP_SERVER_INFO = Object.freeze({
   name: '@ctxtop/mcp',
@@ -83,6 +85,52 @@ export const MCP_TOOLS = Object.freeze([
         allowPreview: { type: 'boolean', description: 'Allow writing/previewing receipt when on Free tier (default false)' }
       }
     }
+  },
+  {
+    name: 'horizon_compress_cli',
+    description: 'Compress verbose test, lint/build, git diff, or infra CLI outputs into <=25-line diagnostics while archiving raw text in local SQLite FTS5.',
+    inputSchema: {
+      type: 'object',
+      required: ['rawOutput'],
+      properties: {
+        command: { type: 'string', description: 'Command that produced the output (e.g. pytest, vitest, git diff, kubectl logs)' },
+        rawOutput: { type: 'string', description: 'Raw stdout/stderr output' },
+        exitCode: { type: 'number', description: 'Exit code of the command (default 0)' },
+        sessionId: { type: 'string', description: 'Optional session ID' },
+        turnId: { type: 'string', description: 'Optional turn ID handle' },
+        forceCompress: { type: 'boolean', description: 'Force compression below 80 lines (default false)' },
+        homeDir: { type: 'string', description: 'Optional home directory override' },
+        dbPath: { type: 'string', description: 'Optional FTS5 SQLite DB path override' }
+      }
+    }
+  },
+  {
+    name: 'horizon_search_logs',
+    description: 'Search local FTS5-archived CLI tool logs and offloaded artifacts by keyword or turnId (read-only).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        turnId: { type: 'string', description: 'Optional turn ID filter' },
+        keyword: { type: 'string', description: 'Keyword or error symbol to match' },
+        cwd: { type: 'string', description: 'Workspace root directory' },
+        homeDir: { type: 'string', description: 'Optional home directory override' },
+        dbPath: { type: 'string', description: 'Optional FTS5 SQLite DB path override' },
+        limit: { type: 'number', description: 'Maximum hits to return (default 10)' }
+      }
+    }
+  },
+  {
+    name: 'horizon_audit_sessions',
+    description: 'Run a strictly read-only 5-host Sludge Tax & ROI audit across Antigravity, Claude Code, Codex CLI, Gemini CLI, and Cursor transcripts.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        platform: { type: 'string', description: 'all | antigravity | claude | codex | gemini | cursor' },
+        days: { type: 'number', description: 'Lookback window in days (default 7)' },
+        limit: { type: 'number', description: 'Maximum sessions to inspect (default 10)' },
+        cwd: { type: 'string', description: 'Workspace root directory' }
+      }
+    }
   }
 ]);
 
@@ -116,25 +164,26 @@ function executeHorizonStatusTool(args = {}, options = {}) {
 }
 
 function executeCacheGravityCheckTool(args = {}) {
-  const scorer = new CacheGravityScorer();
-  const cachedTokens = Number(args.cachedTokens || 0);
+  const cachedTokens = Math.max(0, Number(args.cachedTokens || 0));
   const ttlRemainingSeconds = Number(args.ttlRemainingSeconds ?? 240);
   const expectedOutputTokens = Number(args.expectedOutputTokens ?? 1500);
   const remainingExpectedTurns = Math.max(1, Number(args.remainingExpectedTurns || 1));
 
-  const verdict = scorer.computeBreakEven({
+  const verdict = computeBreakEvenCachedTokens({
     currentModel: args.currentModel || 'claude-opus-5-5',
     targetModel: args.targetModel || 'claude-sonnet-5-5',
-    targetEffort: args.targetEffort || 'low',
     cachedTokens,
-    ttlRemainingSeconds,
-    expectedOutputTokens
+    cacheWarm: ttlRemainingSeconds > 0 && cachedTokens > 0,
+    expectedOutputTokens,
+    expectedRemainingTurns: remainingExpectedTurns
   });
 
   return {
     ok: true,
     remainingExpectedTurns,
-    ...verdict
+    ttlRemainingSeconds,
+    ...verdict,
+    shouldHoldWarmCache: Boolean(verdict.shouldHold ?? verdict.shouldHoldModel)
   };
 }
 
@@ -211,6 +260,52 @@ function executeExportReceiptPdfTool(args = {}, options = {}) {
   };
 }
 
+async function executeCompressCliTool(args = {}, options = {}) {
+  const res = await compressCliOutputFts5({
+    sessionId: args.sessionId || options.sessionId || 'mcp-session',
+    turnId: args.turnId || `turn-${Date.now()}`,
+    command: args.command || 'pytest',
+    exitCode: args.exitCode ?? 0,
+    rawOutput: String(args.rawOutput ?? ''),
+    dbPath: args.dbPath || options.dbPath || null,
+    ...(args.homeDir || options.homeDir ? { homeDir: args.homeDir || options.homeDir } : {}),
+    forceCompress: Boolean(args.forceCompress)
+  });
+  return { ok: true, ...res };
+}
+
+async function executeSearchLogsTool(args = {}, options = {}) {
+  const res = await searchOffloadedContextFts5({
+    turnId: args.turnId || '',
+    keyword: args.keyword || '',
+    cwd: args.cwd || options.cwd || process.cwd(),
+    ...(args.homeDir || options.homeDir ? { homeDir: args.homeDir || options.homeDir } : {}),
+    dbPath: args.dbPath || options.dbPath || null,
+    limit: Math.max(1, Number(args.limit || 10))
+  });
+  return res;
+}
+
+function executeAuditSessionsTool(args = {}, options = {}) {
+  const auditRes = runSessionAudit({
+    platform: args.platform || options.platform || 'all',
+    days: Number(args.days || options.days || 7),
+    limit: Number(args.limit || options.limit || 10),
+    cwd: args.cwd || options.cwd || process.cwd(),
+    ...(args.homeDir || options.homeDir ? { homeDir: args.homeDir || options.homeDir } : {}),
+    ...(args.antigravityDirs || options.antigravityDirs ? { antigravityDirs: args.antigravityDirs || options.antigravityDirs } : {}),
+    ...(args.claudeProjectsDir || options.claudeProjectsDir ? { claudeProjectsDir: args.claudeProjectsDir || options.claudeProjectsDir } : {}),
+    ...(args.codexSessionsDir || options.codexSessionsDir ? { codexSessionsDir: args.codexSessionsDir || options.codexSessionsDir } : {}),
+    ...(args.geminiTmpDir || options.geminiTmpDir ? { geminiTmpDir: args.geminiTmpDir || options.geminiTmpDir } : {}),
+    ...(args.cursorProjectsDir || options.cursorProjectsDir ? { cursorProjectsDir: args.cursorProjectsDir || options.cursorProjectsDir } : {}),
+    ...(args.nowMs !== undefined ? { nowMs: args.nowMs } : options.nowMs !== undefined ? { nowMs: options.nowMs } : {})
+  });
+  return {
+    ...auditRes,
+    reportText: formatSessionAuditReport(auditRes)
+  };
+}
+
 export async function handleMcpToolCall(name, args = {}, options = {}) {
   switch (String(name || '')) {
     case 'horizon_status':
@@ -221,6 +316,12 @@ export async function handleMcpToolCall(name, args = {}, options = {}) {
       return executeScopeLockClaimTool(args, options);
     case 'export_receipt_pdf':
       return executeExportReceiptPdfTool(args, options);
+    case 'horizon_compress_cli':
+      return executeCompressCliTool(args, options);
+    case 'horizon_search_logs':
+      return executeSearchLogsTool(args, options);
+    case 'horizon_audit_sessions':
+      return executeAuditSessionsTool(args, options);
     default: {
       const err = new Error(`Unknown MCP tool: ${name}`);
       err.code = -32601;

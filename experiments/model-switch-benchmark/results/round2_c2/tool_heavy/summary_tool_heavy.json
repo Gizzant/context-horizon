@@ -1,0 +1,449 @@
+{
+  "mode": "live",
+  "sampleSizeNote": "n=1 exploratory paired run; no statistical precision claim",
+  "preregisteredAtUtc": "2026-11-14T23:06:58.704Z",
+  "predicted": {
+    "requestsPerTurn": 5,
+    "holdCostUsd": 0.9816,
+    "allowCostUsd": 0.6915,
+    "diffUsd": 0.2901
+  },
+  "measured": {
+    "holdCostUsd": 1.11225,
+    "allowCostUsd": 0.790461,
+    "diffUsd": 0.321789,
+    "totalAllWireBilledUsd": 1.902879,
+    "keyDeltaUsd": 1.824811,
+    "reconciliationGapUsd": 0.078068,
+    "settledKeyDeltaUsd": 1.902878,
+    "settledReconciliationGapUsd": 0.000001
+  },
+  "openrouterBefore": {
+    "limit": 50,
+    "usage": 37.76052205,
+    "limitRemaining": 12.239477950000001,
+    "fetchedAtUtc": "2026-11-14T23:06:58.702Z"
+  },
+  "openrouterAfter": {
+    "limit": 50,
+    "usage": 39.58533315,
+    "limitRemaining": 10.414666850000003,
+    "fetchedAtUtc": "2026-11-14T23:12:20.977Z"
+  },
+  "openrouterSettled": {
+    "limit": 50,
+    "usage": 39.66340005,
+    "limitRemaining": 10.33659995,
+    "fetchedAtUtc": "2026-11-14T23:14:37.314Z"
+  },
+  "runs": [
+    {
+      "runId": "TH_hold_r01",
+      "arm": "TH_hold",
+      "condition": "hold_rule_v1",
+      "ruleVersion": "rule_v1",
+      "rep": 1,
+      "startedAtUtc": "2026-11-14T23:06:58.868Z",
+      "finishedAtUtc": "2026-11-14T23:09:41.256Z",
+      "turnsCompleted": 12,
+      "sessionId": "sess_TH_hold_r01",
+      "switchSummary": {
+        "run_id": "TH_hold_r01",
+        "arm": "TH_hold",
+        "condition": "hold_rule_v1",
+        "rule_version": "rule_v1",
+        "rep": 1,
+        "turn": 3,
+        "scheduled_model": "anthropic/claude-sonnet-4.6",
+        "effective_model": "anthropic/claude-opus-4.6",
+        "hook_event": "PreModelSwitch",
+        "hook_outcome": "success",
+        "permission_decision": "ask",
+        "control_subtype": "error",
+        "control_error_code": "blocked_by_hook",
+        "turns_completed_used": 2,
+        "api_calls_completed": 10,
+        "requests_per_turn": 2.6,
+        "raw_rolling_median_rpt": 5,
+        "rpt_sample_size": 2,
+        "rpt_estimate_source": "stop_hook_shrunk_rpt_median",
+        "rolling_output_median_raw": 593,
+        "rolling_output_sample_size": 2,
+        "expected_output_tokens": 537,
+        "prior_bucket": "",
+        "horizon_prior_source": "",
+        "expected_remaining_turns": "",
+        "cold_write_penalty_usd": 0.033215,
+        "per_turn_saving_usd": 0.012218,
+        "payback_warm_requests": 7.07,
+        "payback_turns": 2.7185,
+        "context_tokens": 13169,
+        "horizon_net_savings_usd": "",
+        "notable_allow_note": "",
+        "reason": "[DET-08 Warm KV-Cache Hold] Switching from claude-opus-4-6 to claude-sonnet-4-6 with 13,169 warm cached tokens exceeds single-turn break-even C* = 1,652 tokens and incurs a +$0.0332 cold 1.25x prefix rewrite penalty; payback ~7.1 post-switch warm requests (~2.7 turns) at +$0.0122/turn post-switch saving. Keep main thread on claude-opus-4-6 or confirm if this session will run past payback (in headless -p/SDK, override via \"DET-08\": \"warn\" in .attention-horizon/config.json or pass expectedRemainingTurns)."
+      },
+      "requestsPerTurn": [
+        {
+          "turn": 1,
+          "requests": 5,
+          "effectiveModel": "claude-opus-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6"
+          ]
+        },
+        {
+          "turn": 2,
+          "requests": 5,
+          "effectiveModel": "claude-opus-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6"
+          ]
+        },
+        {
+          "turn": 3,
+          "requests": 5,
+          "effectiveModel": "claude-opus-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6"
+          ]
+        },
+        {
+          "turn": 4,
+          "requests": 5,
+          "effectiveModel": "claude-opus-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6"
+          ]
+        },
+        {
+          "turn": 5,
+          "requests": 5,
+          "effectiveModel": "claude-opus-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6"
+          ]
+        },
+        {
+          "turn": 6,
+          "requests": 5,
+          "effectiveModel": "claude-opus-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6"
+          ]
+        },
+        {
+          "turn": 7,
+          "requests": 5,
+          "effectiveModel": "claude-opus-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6"
+          ]
+        },
+        {
+          "turn": 8,
+          "requests": 5,
+          "effectiveModel": "claude-opus-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6"
+          ]
+        },
+        {
+          "turn": 9,
+          "requests": 5,
+          "effectiveModel": "claude-opus-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6"
+          ]
+        },
+        {
+          "turn": 10,
+          "requests": 5,
+          "effectiveModel": "claude-opus-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6"
+          ]
+        },
+        {
+          "turn": 11,
+          "requests": 5,
+          "effectiveModel": "claude-opus-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6"
+          ]
+        },
+        {
+          "turn": 12,
+          "requests": 5,
+          "effectiveModel": "claude-opus-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6"
+          ]
+        }
+      ],
+      "meanR": 5,
+      "medianR": 5,
+      "minR": 5,
+      "maxR": 5,
+      "mainReqs": 60,
+      "sideReqs": 1,
+      "turnBeforeSwitchWireModel": "claude-opus-4-6",
+      "turnAtSwitchWireModel": "claude-opus-4-6",
+      "finalTurnWireModel": "claude-opus-4-6",
+      "totalMainComputedUsd": 1.11225,
+      "totalMainBilledUsd": 1.11225,
+      "totalAllWireBilledUsd": 1.112334
+    },
+    {
+      "runId": "TH_allow_r01",
+      "arm": "TH_allow",
+      "condition": "allow_rule_v2_calibrated",
+      "ruleVersion": "rule_v2_calibrated",
+      "rep": 1,
+      "startedAtUtc": "2026-11-14T23:09:41.463Z",
+      "finishedAtUtc": "2026-11-14T23:12:20.801Z",
+      "turnsCompleted": 12,
+      "sessionId": "sess_TH_allow_r01",
+      "switchSummary": {
+        "run_id": "TH_allow_r01",
+        "arm": "TH_allow",
+        "condition": "allow_rule_v2_calibrated",
+        "rule_version": "rule_v2_calibrated",
+        "rep": 1,
+        "turn": 3,
+        "scheduled_model": "anthropic/claude-sonnet-4.6",
+        "effective_model": "anthropic/claude-sonnet-4.6",
+        "hook_event": "PreModelSwitch",
+        "hook_outcome": "success",
+        "permission_decision": "allow",
+        "control_subtype": "success",
+        "control_error_code": "",
+        "turns_completed_used": 2,
+        "api_calls_completed": 10,
+        "requests_per_turn": 2.6,
+        "raw_rolling_median_rpt": 5,
+        "rpt_sample_size": 2,
+        "rpt_estimate_source": "stop_hook_shrunk_rpt_median",
+        "rolling_output_median_raw": 617,
+        "rolling_output_sample_size": 2,
+        "expected_output_tokens": 547,
+        "prior_bucket": "explicit_turns",
+        "horizon_prior_source": "explicit",
+        "expected_remaining_turns": 9,
+        "cold_write_penalty_usd": 0.033253,
+        "per_turn_saving_usd": 0.012342,
+        "payback_warm_requests": 7.01,
+        "payback_turns": 2.6943,
+        "context_tokens": 13216,
+        "horizon_net_savings_usd": "",
+        "notable_allow_note": "[Highbeam] Allowing claude-opus-4-6 -> claude-sonnet-4-6: +$0.0333 cold 1.25x cache rewrite penalty, saves ~$0.0123/turn, pays back in ~7.0 post-switch warm requests (~2.7 turns) (post-switch horizon ~9 turns, net +$0.0778; horizon limit C_max = unbounded).",
+        "reason": "[Highbeam] Allowing claude-opus-4-6 -> claude-sonnet-4-6: +$0.0333 cold 1.25x cache rewrite penalty, saves ~$0.0123/turn, pays back in ~7.0 post-switch warm requests (~2.7 turns) (post-switch horizon ~9 turns, net +$0.0778; horizon limit C_max = unbounded)."
+      },
+      "requestsPerTurn": [
+        {
+          "turn": 1,
+          "requests": 5,
+          "effectiveModel": "claude-opus-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6"
+          ]
+        },
+        {
+          "turn": 2,
+          "requests": 5,
+          "effectiveModel": "claude-opus-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6",
+            "anthropic/claude-opus-4.6"
+          ]
+        },
+        {
+          "turn": 3,
+          "requests": 5,
+          "effectiveModel": "claude-sonnet-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6"
+          ]
+        },
+        {
+          "turn": 4,
+          "requests": 5,
+          "effectiveModel": "claude-sonnet-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6"
+          ]
+        },
+        {
+          "turn": 5,
+          "requests": 5,
+          "effectiveModel": "claude-sonnet-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6"
+          ]
+        },
+        {
+          "turn": 6,
+          "requests": 5,
+          "effectiveModel": "claude-sonnet-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6"
+          ]
+        },
+        {
+          "turn": 7,
+          "requests": 5,
+          "effectiveModel": "claude-sonnet-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6"
+          ]
+        },
+        {
+          "turn": 8,
+          "requests": 5,
+          "effectiveModel": "claude-sonnet-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6"
+          ]
+        },
+        {
+          "turn": 9,
+          "requests": 5,
+          "effectiveModel": "claude-sonnet-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6"
+          ]
+        },
+        {
+          "turn": 10,
+          "requests": 5,
+          "effectiveModel": "claude-sonnet-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6"
+          ]
+        },
+        {
+          "turn": 11,
+          "requests": 5,
+          "effectiveModel": "claude-sonnet-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6"
+          ]
+        },
+        {
+          "turn": 12,
+          "requests": 5,
+          "effectiveModel": "claude-sonnet-4-6",
+          "wireModelsObserved": [
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6",
+            "anthropic/claude-sonnet-4.6"
+          ]
+        }
+      ],
+      "meanR": 5,
+      "medianR": 5,
+      "minR": 5,
+      "maxR": 5,
+      "mainReqs": 60,
+      "sideReqs": 1,
+      "turnBeforeSwitchWireModel": "claude-opus-4-6",
+      "turnAtSwitchWireModel": "claude-sonnet-4-6",
+      "finalTurnWireModel": "claude-sonnet-4-6",
+      "totalMainComputedUsd": 0.790461,
+      "totalMainBilledUsd": 0.790461,
+      "totalAllWireBilledUsd": 0.790545
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "startedAt": "2026-11-14T15:31:29.984Z",
+  "mode": "highbeam_auto",
+  "flightMode": "AUTO_PILOT",
+  "pinnedRepoCommit": "19c51055902c545508af1979a392505355777d90",
+  "claudeCodeVersion": "2.1.325 (Claude Code)",
+  "maxBudgetUsd": 6,
+  "runCount": 7,
+  "schedule": [
+    {
+      "orderIndex": 1,
+      "runId": "HB_E_S_r01",
+      "arm": "E",
+      "tier": "small",
+      "replicate": 1,
+      "turnsToRun": 12
+    },
+    {
+      "orderIndex": 2,
+      "runId": "HB_B_S_r01",
+      "arm": "B",
+      "tier": "small",
+      "replicate": 1,
+      "turnsToRun": 12
+    },
+    {
+      "orderIndex": 3,
+      "runId": "HB_C_S_r01",
+      "arm": "C",
+      "tier": "small",
+      "replicate": 1,
+      "turnsToRun": 12
+    },
+    {
+      "orderIndex": 4,
+      "runId": "HB_D_S_r01",
+      "arm": "D",
+      "tier": "small",
+      "replicate": 1,
+      "turnsToRun": 12
+    },
+    {
+      "orderIndex": 5,
+      "runId": "HB_F_S_r01",
+      "arm": "F",
+      "tier": "small",
+      "replicate": 1,
+      "turnsToRun": 12
+    },
+    {
+      "orderIndex": 6,
+      "runId": "HB_B_L_r01",
+      "arm": "B",
+      "tier": "large",
+      "replicate": 1,
+      "turnsToRun": 12
+    },
+    {
+      "orderIndex": 7,
+      "runId": "HB_F_L_r01",
+      "arm": "F",
+      "tier": "large",
+      "replicate": 1,
+      "turnsToRun": 12
+    }
+  ]
+}

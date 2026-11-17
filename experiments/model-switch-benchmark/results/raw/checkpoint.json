@@ -1,0 +1,410 @@
+{
+  "mode": "full",
+  "runs": {
+    "E_S_r03": {
+      "sessionId": "sess_E_S_r03",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: E_S_r03_35a9e8e7",
+      "turn5FinishedAtMs": 1794635271124,
+      "parkedUntilMs": 1794635601124,
+      "actualIdleSec": 348.74
+    },
+    "A_S_r05": {
+      "sessionId": "sess_A_S_r05",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: A_S_r05_634d3cfe",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "C_S_r01": {
+      "sessionId": "sess_C_S_r01",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: C_S_r01_52c989ad",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "E_S_r01": {
+      "sessionId": "sess_E_S_r01",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: E_S_r01_c54b76f2",
+      "turn5FinishedAtMs": 1794635490801,
+      "parkedUntilMs": 1794635820801,
+      "actualIdleSec": 414.35
+    },
+    "F_L_r03": {
+      "sessionId": "sess_F_L_r03",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: F_L_r03_f5bbb1bd",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "E_S_r04": {
+      "sessionId": "sess_E_S_r04",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: E_S_r04_d59e2589",
+      "turn5FinishedAtMs": 1794635704953,
+      "parkedUntilMs": 1794636034953,
+      "actualIdleSec": 439.04
+    },
+    "B_L_r03": {
+      "sessionId": "sess_B_L_r03",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: B_L_r03_aacfeb93",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "B_S_r03": {
+      "sessionId": "sess_B_S_r03",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: B_S_r03_3892f591",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "D_S_r05": {
+      "sessionId": "sess_D_S_r05",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: D_S_r05_13ad8c93",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "B_L_r05": {
+      "sessionId": "sess_B_L_r05",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: B_L_r05_b9b591b5",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "F_S_r05": {
+      "sessionId": "sess_F_S_r05",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: F_S_r05_6eb3ac75",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "A_L_r05": {
+      "sessionId": "sess_A_L_r05",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: A_L_r05_50fe0692",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "F_L_r04": {
+      "sessionId": "sess_F_L_r04",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: F_L_r04_1ae04ed0",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "B_L_r02": {
+      "sessionId": "sess_B_L_r02",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: B_L_r02_dc4db716",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "A_L_r01": {
+      "sessionId": "sess_A_L_r01",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: A_L_r01_4cd2c1ab",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "F_S_r01": {
+      "sessionId": "sess_F_S_r01",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: F_S_r01_853fda75",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "C_S_r04": {
+      "sessionId": "sess_C_S_r04",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: C_S_r04_1f8688ff",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "A_L_r04": {
+      "sessionId": "sess_A_L_r04",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: A_L_r04_5911aae6",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "A_S_r03": {
+      "sessionId": "sess_A_S_r03",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: A_S_r03_cb02500e",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "F_L_r01": {
+      "sessionId": "sess_F_L_r01",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: F_L_r01_4778ede0",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "B_S_r02": {
+      "sessionId": "sess_B_S_r02",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: B_S_r02_27b746dc",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "C_S_r02": {
+      "sessionId": "sess_C_S_r02",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: C_S_r02_b0a83b94",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "A_L_r02": {
+      "sessionId": "sess_A_L_r02",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: A_L_r02_0d6e578a",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "C_S_r03": {
+      "sessionId": "sess_C_S_r03",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: C_S_r03_058fc046",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "B_L_r04": {
+      "sessionId": "sess_B_L_r04",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: B_L_r04_c8641266",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "F_S_r02": {
+      "sessionId": "sess_F_S_r02",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: F_S_r02_94b474df",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "B_L_r01": {
+      "sessionId": "sess_B_L_r01",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: B_L_r01_d3e3019a",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "E_S_r02": {
+      "sessionId": "sess_E_S_r02",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: E_S_r02_0e3c0e1c",
+      "turn5FinishedAtMs": 1794664740844,
+      "parkedUntilMs": 1794665070844,
+      "actualIdleSec": 384.65
+    },
+    "D_S_r03": {
+      "sessionId": "sess_D_S_r03",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: D_S_r03_f9652e35",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "E_S_r05": {
+      "sessionId": "sess_E_S_r05",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: E_S_r05_9a5ec24c",
+      "turn5FinishedAtMs": 1794664865232,
+      "parkedUntilMs": 1794665195232,
+      "actualIdleSec": 394.54
+    },
+    "D_S_r04": {
+      "sessionId": "sess_D_S_r04",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: D_S_r04_42784162",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "C_S_r05": {
+      "sessionId": "sess_C_S_r05",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: C_S_r05_05dc85d4",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "A_S_r02": {
+      "sessionId": "sess_A_S_r02",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: A_S_r02_3ae84b86",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "A_S_r04": {
+      "sessionId": "sess_A_S_r04",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: A_S_r04_a621407b",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "A_S_r01": {
+      "sessionId": "sess_A_S_r01",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: A_S_r01_8d3a4d52",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "F_L_r05": {
+      "sessionId": "sess_F_L_r05",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: F_L_r05_cfc193ad",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "F_S_r03": {
+      "sessionId": "sess_F_S_r03",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: F_S_r03_eea2cbee",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "D_S_r01": {
+      "sessionId": "sess_D_S_r01",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: D_S_r01_ccf2fbe2",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "F_S_r04": {
+      "sessionId": "sess_F_S_r04",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: F_S_r04_2e954189",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "F_L_r02": {
+      "sessionId": "sess_F_L_r02",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: F_L_r02_19bddf30",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "B_S_r05": {
+      "sessionId": "sess_B_S_r05",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: B_S_r05_5c4f59eb",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "B_S_r04": {
+      "sessionId": "sess_B_S_r04",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: B_S_r04_017d6786",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "A_L_r03": {
+      "sessionId": "sess_A_L_r03",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: A_L_r03_dd84e036",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "D_S_r02": {
+      "sessionId": "sess_D_S_r02",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: D_S_r02_5f7c73ca",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    },
+    "B_S_r01": {
+      "sessionId": "sess_B_S_r01",
+      "nextTurn": 13,
+      "completed": true,
+      "salt": "Benchmark-Run-Salt: B_S_r01_1ceee33d",
+      "turn5FinishedAtMs": 0,
+      "parkedUntilMs": 0,
+      "actualIdleSec": null
+    }
+  }
+}

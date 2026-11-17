@@ -35,6 +35,63 @@ const CONVERSATIONAL_NON_DIRECTIVE_RE = /\b(?:i\s+(?:don'?t|do\s+not)\s+(?:see|k
 const SLASH_COMMAND_ONLY_RE = /^\/(?:plan|browser|compact|handoff|horizon|grill-me|boost|teamwork|learn|evolve|schedule)\b/i;
 const STRONG_DIRECTIVE_CORRECTION_RE = /\b(?:never\s+(?:use|run|modify|edit|read|write|commit|push|skip)|do\s+not\s+(?:use|run|modify|edit|read|write|touch)|instead\s+of|always\s+use|stop\s+using|must\s+(?:never|not|always))\b/i;
 
+export const RSL_ANTIGRAVITY_POST_TOOL_MATCHER =
+  'run_command|edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content';
+export const RSL_CLAUDE_POST_TOOL_MATCHER =
+  'Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit';
+
+const RSL_MUTATING_OR_EXEC_TOOL_RE =
+  /^(?:run_command|execute_bash|bash|powershell|edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content|edit|multiedit|multi_edit|write|notebookedit)$/i;
+
+/**
+ * Returns true only for shell/command or file-mutating tools needed for RSL contrastive recovery.
+ * @param {string} [toolName='']
+ * @returns {boolean}
+ */
+export function isMutatingOrExecRslTool(toolName = '') {
+  const cleaned = String(toolName || '')
+    .trim()
+    .replace(/^default_api:/i, '');
+  if (!cleaned) return false;
+  return RSL_MUTATING_OR_EXEC_TOOL_RE.test(cleaned);
+}
+
+/**
+ * Checks whether the final recorded step in `.agents/telemetry/<sessionId>.rsl_steps.jsonl`
+ * matches this event's stepIdx, toolName, failed status, targetFile, and command.
+ *
+ * @param {object} [rawPayload={}]
+ * @param {object} [options={}]
+ * @returns {boolean}
+ */
+export function isDuplicateRslStepEvent(rawPayload = {}, options = {}) {
+  try {
+    const normalized = normalizeRslToolEvent(rawPayload, options);
+    if (normalized.stepIdx === null || normalized.stepIdx < 0) return false;
+    const stepsPath = path.join(
+      normalized.workspaceRoot,
+      '.agents',
+      'telemetry',
+      `${normalized.sessionId}.rsl_steps.jsonl`
+    );
+    if (!fs.existsSync(stepsPath)) return false;
+    const tail = readFileBoundedReadOnly(stepsPath, 4096);
+    const lines = tail.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (lines.length === 0) return false;
+    const last = JSON.parse(lines[lines.length - 1]);
+    return Boolean(
+      last &&
+        last.stepIdx === normalized.stepIdx &&
+        last.toolName === normalized.toolName &&
+        last.failed === normalized.failed &&
+        last.targetFile === normalized.targetFile &&
+        last.command === normalized.command
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Strips injected prompt wrappers (`<CONTEXT_SUMMARY>`, `<ADDITIONAL_METADATA>`, etc.)
  * and extracts only raw `<USER_REQUEST>` body text before directive classification.

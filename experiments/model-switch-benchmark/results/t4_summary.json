@@ -1,0 +1,605 @@
+{
+  "generatedAtUtc": "2026-11-15T18:14:29.882Z",
+  "prefixCalibrationNote": "System block corpus slices: parser.mjs:1-560 + quota.mjs:1-520 + constants.mjs:1-415 (~19.8k tokens)",
+  "abortedRuns": [],
+  "repMetrics": [
+    {
+      "arm": "P0",
+      "rep": 1,
+      "route": "openrouter",
+      "nWorkers": 10,
+      "primerOutTokens": null,
+      "primerWrote": 0,
+      "workersWrote": 9,
+      "workersRead": 1,
+      "totalWroteAll": 9,
+      "totalReadAll": 1,
+      "barrierSpreadMs": 33.14,
+      "primerWallMs": 0,
+      "armWallMs": 3913.48,
+      "costSource": "billed",
+      "totalCostUsd": 0.683629,
+      "billedUsd": 0.683629,
+      "computedUsd": 0.683629
+    },
+    {
+      "arm": "P0",
+      "rep": 2,
+      "route": "openrouter",
+      "nWorkers": 10,
+      "primerOutTokens": null,
+      "primerWrote": 0,
+      "workersWrote": 10,
+      "workersRead": 0,
+      "totalWroteAll": 10,
+      "totalReadAll": 0,
+      "barrierSpreadMs": 9.66,
+      "primerWallMs": 0,
+      "armWallMs": 2801.93,
+      "costSource": "billed",
+      "totalCostUsd": 0.752452,
+      "billedUsd": 0.752452,
+      "computedUsd": 0.752452
+    },
+    {
+      "arm": "P0",
+      "rep": 3,
+      "route": "openrouter",
+      "nWorkers": 10,
+      "primerOutTokens": null,
+      "primerWrote": 0,
+      "workersWrote": 10,
+      "workersRead": 0,
+      "totalWroteAll": 10,
+      "totalReadAll": 0,
+      "barrierSpreadMs": 11.32,
+      "primerWallMs": 0,
+      "armWallMs": 3048.54,
+      "costSource": "billed",
+      "totalCostUsd": 0.751605,
+      "billedUsd": 0.751605,
+      "computedUsd": 0.751605
+    },
+    {
+      "arm": "P1",
+      "rep": 1,
+      "route": "anthropic_direct",
+      "nWorkers": 10,
+      "primerOutTokens": 0,
+      "primerWrote": 1,
+      "workersWrote": 0,
+      "workersRead": 10,
+      "totalWroteAll": 1,
+      "totalReadAll": 10,
+      "barrierSpreadMs": 13.65,
+      "primerWallMs": 1237.43,
+      "armWallMs": 3665.65,
+      "costSource": "computed",
+      "totalCostUsd": 0.141446,
+      "billedUsd": 0,
+      "computedUsd": 0.141446
+    },
+    {
+      "arm": "P1",
+      "rep": 2,
+      "route": "anthropic_direct",
+      "nWorkers": 10,
+      "primerOutTokens": 0,
+      "primerWrote": 1,
+      "workersWrote": 0,
+      "workersRead": 10,
+      "totalWroteAll": 1,
+      "totalReadAll": 10,
+      "barrierSpreadMs": 12.14,
+      "primerWallMs": 967.43,
+      "armWallMs": 3470.14,
+      "costSource": "computed",
+      "totalCostUsd": 0.141512,
+      "billedUsd": 0,
+      "computedUsd": 0.141512
+    },
+    {
+      "arm": "P1",
+      "rep": 3,
+      "route": "anthropic_direct",
+      "nWorkers": 10,
+      "primerOutTokens": 0,
+      "primerWrote": 1,
+      "workersWrote": 0,
+      "workersRead": 10,
+      "totalWroteAll": 1,
+      "totalReadAll": 10,
+      "barrierSpreadMs": 8.83,
+      "primerWallMs": 923.38,
+      "armWallMs": 3388.56,
+      "costSource": "computed",
+      "totalCostUsd": 0.141547,
+      "billedUsd": 0,
+      "computedUsd": 0.141547
+    },
+    {
+      "arm": "P2",
+      "rep": 1,
+      "route": "openrouter",
+      "nWorkers": 10,
+      "primerOutTokens": 1,
+      "primerWrote": 1,
+      "workersWrote": 0,
+      "workersRead": 10,
+      "totalWroteAll": 1,
+      "totalReadAll": 10,
+      "barrierSpreadMs": 14.84,
+      "primerWallMs": 1605.38,
+      "armWallMs": 4685.29,
+      "costSource": "billed",
+      "totalCostUsd": 0.141331,
+      "billedUsd": 0.141331,
+      "computedUsd": 0.141331
+    },
+    {
+      "arm": "P2",
+      "rep": 2,
+      "route": "openrouter",
+      "nWorkers": 10,
+      "primerOutTokens": 1,
+      "primerWrote": 1,
+      "workersWrote": 0,
+      "workersRead": 10,
+      "totalWroteAll": 1,
+      "totalReadAll": 10,
+      "barrierSpreadMs": 9,
+      "primerWallMs": 942.16,
+      "armWallMs": 3299.26,
+      "costSource": "billed",
+      "totalCostUsd": 0.141399,
+      "billedUsd": 0.141399,
+      "computedUsd": 0.141399
+    },
+    {
+      "arm": "P2",
+      "rep": 3,
+      "route": "openrouter",
+      "nWorkers": 10,
+      "primerOutTokens": 1,
+      "primerWrote": 1,
+      "workersWrote": 0,
+      "workersRead": 10,
+      "totalWroteAll": 1,
+      "totalReadAll": 10,
+      "barrierSpreadMs": 8.67,
+      "primerWallMs": 1023.6,
+      "armWallMs": 5248.68,
+      "costSource": "billed",
+      "totalCostUsd": 0.141586,
+      "billedUsd": 0.141586,
+      "computedUsd": 0.141586
+    },
+    {
+      "arm": "P3",
+      "rep": 1,
+      "route": "openrouter",
+      "nWorkers": 10,
+      "primerOutTokens": null,
+      "primerWrote": 0,
+      "workersWrote": 1,
+      "workersRead": 9,
+      "totalWroteAll": 1,
+      "totalReadAll": 9,
+      "barrierSpreadMs": 0,
+      "primerWallMs": 0,
+      "armWallMs": 30950.78,
+      "costSource": "billed",
+      "totalCostUsd": 0.135291,
+      "billedUsd": 0.135291,
+      "computedUsd": 0.135291
+    },
+    {
+      "arm": "P3",
+      "rep": 2,
+      "route": "openrouter",
+      "nWorkers": 10,
+      "primerOutTokens": null,
+      "primerWrote": 0,
+      "workersWrote": 1,
+      "workersRead": 9,
+      "totalWroteAll": 1,
+      "totalReadAll": 9,
+      "barrierSpreadMs": 0,
+      "primerWallMs": 0,
+      "armWallMs": 20899.6,
+      "costSource": "billed",
+      "totalCostUsd": 0.135359,
+      "billedUsd": 0.135359,
+      "computedUsd": 0.135359
+    },
+    {
+      "arm": "P3",
+      "rep": 3,
+      "route": "openrouter",
+      "nWorkers": 10,
+      "primerOutTokens": null,
+      "primerWrote": 0,
+      "workersWrote": 1,
+      "workersRead": 9,
+      "totalWroteAll": 1,
+      "totalReadAll": 9,
+      "barrierSpreadMs": 0,
+      "primerWallMs": 0,
+      "armWallMs": 19320.16,
+      "costSource": "billed",
+      "totalCostUsd": 0.135134,
+      "billedUsd": 0.135134,
+      "computedUsd": 0.135134
+    },
+    {
+      "arm": "P0_N25",
+      "rep": 1,
+      "route": "openrouter",
+      "nWorkers": 25,
+      "primerOutTokens": null,
+      "primerWrote": 0,
+      "workersWrote": 24,
+      "workersRead": 1,
+      "totalWroteAll": 24,
+      "totalReadAll": 1,
+      "barrierSpreadMs": 49.83,
+      "primerWallMs": 0,
+      "armWallMs": 3976.78,
+      "costSource": "billed",
+      "totalCostUsd": 1.813115,
+      "billedUsd": 1.813115,
+      "computedUsd": 1.813115
+    },
+    {
+      "arm": "P1_N25",
+      "rep": 1,
+      "route": "anthropic_direct",
+      "nWorkers": 25,
+      "primerOutTokens": 0,
+      "primerWrote": 1,
+      "workersWrote": 0,
+      "workersRead": 25,
+      "totalWroteAll": 1,
+      "totalReadAll": 25,
+      "barrierSpreadMs": 35.55,
+      "primerWallMs": 1048.09,
+      "armWallMs": 3901.41,
+      "costSource": "computed",
+      "totalCostUsd": 0.242618,
+      "billedUsd": 0,
+      "computedUsd": 0.242618
+    }
+  ],
+  "armSummaries": [
+    {
+      "arm": "P0",
+      "route": "openrouter",
+      "costSource": "billed",
+      "nWorkers": 10,
+      "n": 3,
+      "workersWrote": {
+        "n": 3,
+        "median": 10,
+        "min": 9,
+        "max": 10
+      },
+      "workersRead": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 1
+      },
+      "totalWroteAll": {
+        "n": 3,
+        "median": 10,
+        "min": 9,
+        "max": 10
+      },
+      "postPrimerScatterWrites": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "totalCostUsd": {
+        "n": 3,
+        "median": 0.751605,
+        "min": 0.683629,
+        "max": 0.752452
+      },
+      "armWallMs": {
+        "n": 3,
+        "median": 3048.54,
+        "min": 2801.93,
+        "max": 3913.48
+      },
+      "primerWallMs": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "barrierSpreadMs": {
+        "n": 3,
+        "median": 11.32,
+        "min": 9.66,
+        "max": 33.14
+      }
+    },
+    {
+      "arm": "P1",
+      "route": "anthropic_direct",
+      "costSource": "computed",
+      "nWorkers": 10,
+      "n": 3,
+      "workersWrote": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "workersRead": {
+        "n": 3,
+        "median": 10,
+        "min": 10,
+        "max": 10
+      },
+      "totalWroteAll": {
+        "n": 3,
+        "median": 1,
+        "min": 1,
+        "max": 1
+      },
+      "postPrimerScatterWrites": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "totalCostUsd": {
+        "n": 3,
+        "median": 0.141512,
+        "min": 0.141446,
+        "max": 0.141547
+      },
+      "armWallMs": {
+        "n": 3,
+        "median": 3470.14,
+        "min": 3388.56,
+        "max": 3665.65
+      },
+      "primerWallMs": {
+        "n": 3,
+        "median": 967.43,
+        "min": 923.38,
+        "max": 1237.43
+      },
+      "barrierSpreadMs": {
+        "n": 3,
+        "median": 12.14,
+        "min": 8.83,
+        "max": 13.65
+      }
+    },
+    {
+      "arm": "P2",
+      "route": "openrouter",
+      "costSource": "billed",
+      "nWorkers": 10,
+      "n": 3,
+      "workersWrote": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "workersRead": {
+        "n": 3,
+        "median": 10,
+        "min": 10,
+        "max": 10
+      },
+      "totalWroteAll": {
+        "n": 3,
+        "median": 1,
+        "min": 1,
+        "max": 1
+      },
+      "postPrimerScatterWrites": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "totalCostUsd": {
+        "n": 3,
+        "median": 0.141399,
+        "min": 0.141331,
+        "max": 0.141586
+      },
+      "armWallMs": {
+        "n": 3,
+        "median": 4685.29,
+        "min": 3299.26,
+        "max": 5248.68
+      },
+      "primerWallMs": {
+        "n": 3,
+        "median": 1023.6,
+        "min": 942.16,
+        "max": 1605.38
+      },
+      "barrierSpreadMs": {
+        "n": 3,
+        "median": 9,
+        "min": 8.67,
+        "max": 14.84
+      }
+    },
+    {
+      "arm": "P3",
+      "route": "openrouter",
+      "costSource": "billed",
+      "nWorkers": 10,
+      "n": 3,
+      "workersWrote": {
+        "n": 3,
+        "median": 1,
+        "min": 1,
+        "max": 1
+      },
+      "workersRead": {
+        "n": 3,
+        "median": 9,
+        "min": 9,
+        "max": 9
+      },
+      "totalWroteAll": {
+        "n": 3,
+        "median": 1,
+        "min": 1,
+        "max": 1
+      },
+      "postPrimerScatterWrites": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "totalCostUsd": {
+        "n": 3,
+        "median": 0.135291,
+        "min": 0.135134,
+        "max": 0.135359
+      },
+      "armWallMs": {
+        "n": 3,
+        "median": 20899.6,
+        "min": 19320.16,
+        "max": 30950.78
+      },
+      "primerWallMs": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "barrierSpreadMs": {
+        "n": 3,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      }
+    },
+    {
+      "arm": "P0_N25",
+      "route": "openrouter",
+      "costSource": "billed",
+      "nWorkers": 25,
+      "n": 1,
+      "workersWrote": {
+        "n": 1,
+        "median": 24,
+        "min": 24,
+        "max": 24
+      },
+      "workersRead": {
+        "n": 1,
+        "median": 1,
+        "min": 1,
+        "max": 1
+      },
+      "totalWroteAll": {
+        "n": 1,
+        "median": 24,
+        "min": 24,
+        "max": 24
+      },
+      "postPrimerScatterWrites": {
+        "n": 1,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "totalCostUsd": {
+        "n": 1,
+        "median": 1.813115,
+        "min": 1.813115,
+        "max": 1.813115
+      },
+      "armWallMs": {
+        "n": 1,
+        "median": 3976.78,
+        "min": 3976.78,
+        "max": 3976.78
+      },
+      "primerWallMs": {
+        "n": 1,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "barrierSpreadMs": {
+        "n": 1,
+        "median": 49.83,
+        "min": 49.83,
+        "max": 49.83
+      }
+    },
+    {
+      "arm": "P1_N25",
+      "route": "anthropic_direct",
+      "costSource": "computed",
+      "nWorkers": 25,
+      "n": 1,
+      "workersWrote": {
+        "n": 1,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "workersRead": {
+        "n": 1,
+        "median": 25,
+        "min": 25,
+        "max": 25
+      },
+      "totalWroteAll": {
+        "n": 1,
+        "median": 1,
+        "min": 1,
+        "max": 1
+      },
+      "postPrimerScatterWrites": {
+        "n": 1,
+        "median": 0,
+        "min": 0,
+        "max": 0
+      },
+      "totalCostUsd": {
+        "n": 1,
+        "median": 0.242618,
+        "min": 0.242618,
+        "max": 0.242618
+      },
+      "armWallMs": {
+        "n": 1,
+        "median": 3901.41,
+        "min": 3901.41,
+        "max": 3901.41
+      },
+      "primerWallMs": {
+        "n": 1,
+        "median": 1048.09,
+        "min": 1048.09,
+        "max": 1048.09
+      },
+      "barrierSpreadMs": {
+        "n": 1,
+        "median": 35.55,
+        "min": 35.55,
+        "max": 35.55
+      }
+    }
+  ]
+}

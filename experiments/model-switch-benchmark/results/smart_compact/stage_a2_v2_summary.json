@@ -1,0 +1,810 @@
+{
+  "status": "STAGE_A2_V2_COMPLETE",
+  "bothAtCeiling": false,
+  "decision": "LOSSES_OBSERVED_SEND_STAGE_B_ESTIMATE_AND_WAIT",
+  "ledger": {
+    "keyUsageBeforeStageUsd": 43.888886,
+    "keyUsageAfterStageSettledUsd": 47.883867,
+    "settledKeyUsageDeltaUsd": 3.994982,
+    "accountAvailableBeforeUsd": 75.45769,
+    "accountAvailableAfterUsd": 71.462708,
+    "settledAccountDeltaUsd": 3.994982,
+    "totalStageWireBilledUsd": 4.003761,
+    "keyUsageAfterStageFullySettledUsd": 47.892647,
+    "fullySettledKeyUsageDeltaUsd": 4.003761,
+    "accountAvailableFullySettledUsd": 71.453929,
+    "fullySettledAccountDeltaUsd": 4.003761
+  },
+  "runs": [
+    {
+      "runId": "C1_v2_r01",
+      "arm": "C1",
+      "rep": 1,
+      "autoMemoryEnabled": false,
+      "keyUsageBeforeUsd": 43.888886,
+      "keyUsageAfterUsd": 45.883165,
+      "keyDeltaUsd": 1.99428,
+      "totalBilledUsd": 2.02138,
+      "totalBilledTurns1To20Usd": 1.609937,
+      "compactCallCostBilledUsd": 0.170804,
+      "totalBilledTurns21To30Usd": 0.240639,
+      "totalRequestsAll": 66,
+      "totalRequestsTurns1To20": 44,
+      "totalRequestsTurns21To30": 21,
+      "wireMemoryAudit": {
+        "totalWireRequestsChecked": 66,
+        "requestsWithSystem2MemoryMd": 0,
+        "requestsWithAnySystemMemoryMd": 0
+      },
+      "contextAtT20LastPromptTokens": 139174,
+      "compactionCompressionRatio": 26.21,
+      "compactionCallUsage": {
+        "input_tokens": 1732,
+        "cache_creation_input_tokens": 131,
+        "cache_read_input_tokens": 138739,
+        "output_tokens": 8233,
+        "totalPromptTokens": 140602,
+        "billedCostUsd": 0.170804
+      },
+      "compactBoundaryMetadata": {
+        "trigger": "manual",
+        "preTokens": 139231,
+        "durationMs": 125975,
+        "preservedSegment": {
+          "headUuid": "[REDACTED_UUID]",
+          "anchorUuid": "[REDACTED_UUID]",
+          "tailUuid": "[REDACTED_UUID]"
+        },
+        "preservedMessages": {
+          "anchorUuid": "[REDACTED_UUID]",
+          "uuids": [
+            "[REDACTED_UUID]"
+          ],
+          "allUuids": [
+            "[REDACTED_UUID]"
+          ]
+        },
+        "postTokens": 5313,
+        "cumulativeDroppedTokens": 133918
+      },
+      "compactSummaryCharLength": 15796,
+      "postCompactionTurn21Split": {
+        "t21InputTokens": 3,
+        "t21CacheReadInputTokens": 7629,
+        "t21CacheCreationInputTokens": 7846,
+        "t21TotalPromptTokens": 15478,
+        "t21BilledCostUsd": 0.03784
+      },
+      "outcomes": {
+        "violationsByProbe": {
+          "C_P1_NO_DEPS_PROMPT": false,
+          "C_P2_NO_BUFFER_CONCAT_PROMPT": false,
+          "C_P3_SUPERSEDED_RETRY_DISTRACTOR_PROMPT": false,
+          "C_P4_NO_MAP_WEAKMAP_PROMPT": false,
+          "C_P5_PORT_4101_NOT_8080_FILE": false,
+          "C_P6_FROZEN_LEGACY_FILE": false
+        },
+        "promptConstraintViolationsCount": 0,
+        "fileConstraintViolationsCount": 0,
+        "constraintViolationsCount": 0,
+        "totalConstraintsTested": 6,
+        "reReadArchNotesPostCompact": false,
+        "unsignedShiftIntact": true,
+        "holdbackGuardIntact": true,
+        "finalTestsPass": true,
+        "turn6FixIntact": true,
+        "ghostRevertOccurred": false,
+        "recallQ1Correct": false,
+        "recallQ2Correct": true,
+        "recallQ3Correct": true,
+        "recallQ4Correct": true,
+        "recallQ5Correct": true,
+        "recallCorrectCount": 4,
+        "totalRecallQuestions": 5,
+        "recallFormat": "4/5 (Q1:0,Q2:1,Q3:1,Q4:1,Q5:1)",
+        "rawRecallResponses": {
+          "T26_Q1": "I don't have reliable recall of the exact CLI flags or any `ERR_DIAG_*` output from that command — the summary notes the command was run but records no stdout output from it, and I cannot fabricate those details.\n\nTo get the accurate answer, I'd need to either re-run the command or read the transcript file referenced in the summary.",
+          "T27_Q2_Q3": "**Q2:**\n- `\"exponential_full\"` was superseded; `\"decorrelated_jitter\"` replaced it (reason: thundering-herd burst collisions in staging).\n- `Map` and `WeakMap` are forbidden in `src/reconciler.mjs` because they caused V8 megamorphic inline-cache misses that regressed production p99 latency.\n\n**Q3:**\n1. `src/config.mjs`\n2. `src/reconciler.mjs`\n3. `src/validator.mjs`\n4. `src/parser.mjs`\n5. `src/exporter.mjs`\n6. `test/suite.test.mjs`",
+          "T28_Q4_Q5": "**Q4:**\n`[ITEM-3]` — `formatAuditFooter` in `src/exporter.mjs` needs an optional third parameter `schemaVersion = 2` included in its returned object.\n\n**Q5:**\n- CLI command: `node --test test/suite.test.mjs`\n- Error constants:\n  - `src/reconciler.mjs`: `ERR_SEQ_RING_OVERFLOW_508`\n  - `src/validator.mjs`: `ERR_EMPTY_BATCH_701`\n  - `src/parser.mjs`: `ERR_BATCH_CHECKSUM_704`"
+        }
+      },
+      "perTurnSummary": [
+        {
+          "turn": 1,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 0,
+          "firstCallCacheWriteTokens": 8463,
+          "firstCallTotalPromptTokens": 8466,
+          "lastCallTotalPromptTokens": 8925,
+          "turnOutputTokens": 249,
+          "turnBilledUsd": 0.039751
+        },
+        {
+          "turn": 2,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 8924,
+          "firstCallCacheWriteTokens": 135,
+          "firstCallTotalPromptTokens": 9062,
+          "lastCallTotalPromptTokens": 9615,
+          "turnOutputTokens": 254,
+          "turnBilledUsd": 0.011804
+        },
+        {
+          "turn": 3,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 9614,
+          "firstCallCacheWriteTokens": 169,
+          "firstCallTotalPromptTokens": 9786,
+          "lastCallTotalPromptTokens": 10498,
+          "turnOutputTokens": 371,
+          "turnBilledUsd": 0.014707
+        },
+        {
+          "turn": 4,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 10497,
+          "firstCallCacheWriteTokens": 170,
+          "firstCallTotalPromptTokens": 10670,
+          "lastCallTotalPromptTokens": 32154,
+          "turnOutputTokens": 310,
+          "turnBilledUsd": 0.092221
+        },
+        {
+          "turn": 5,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 32153,
+          "firstCallCacheWriteTokens": 172,
+          "firstCallTotalPromptTokens": 32328,
+          "lastCallTotalPromptTokens": 33410,
+          "turnOutputTokens": 313,
+          "turnBilledUsd": 0.02876
+        },
+        {
+          "turn": 6,
+          "requestsInTurn": 4,
+          "firstCallCacheReadTokens": 33409,
+          "firstCallCacheWriteTokens": 346,
+          "firstCallTotalPromptTokens": 33758,
+          "lastCallTotalPromptTokens": 34844,
+          "turnOutputTokens": 606,
+          "turnBilledUsd": 0.055183
+        },
+        {
+          "turn": 7,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 34843,
+          "firstCallCacheWriteTokens": 216,
+          "firstCallTotalPromptTokens": 35062,
+          "lastCallTotalPromptTokens": 35366,
+          "turnOutputTokens": 219,
+          "turnBilledUsd": 0.026225
+        },
+        {
+          "turn": 8,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 35365,
+          "firstCallCacheWriteTokens": 132,
+          "firstCallTotalPromptTokens": 35500,
+          "lastCallTotalPromptTokens": 68738,
+          "turnOutputTokens": 313,
+          "turnBilledUsd": 0.151111
+        },
+        {
+          "turn": 9,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 68737,
+          "firstCallCacheWriteTokens": 208,
+          "firstCallTotalPromptTokens": 68948,
+          "lastCallTotalPromptTokens": 92492,
+          "turnOutputTokens": 166,
+          "turnBilledUsd": 0.132884
+        },
+        {
+          "turn": 10,
+          "requestsInTurn": 1,
+          "firstCallCacheReadTokens": 92491,
+          "firstCallCacheWriteTokens": 374,
+          "firstCallTotalPromptTokens": 92868,
+          "lastCallTotalPromptTokens": 92868,
+          "turnOutputTokens": 30,
+          "turnBilledUsd": 0.029609
+        },
+        {
+          "turn": 11,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 92865,
+          "firstCallCacheWriteTokens": 130,
+          "firstCallTotalPromptTokens": 92998,
+          "lastCallTotalPromptTokens": 93434,
+          "turnOutputTokens": 345,
+          "turnBilledUsd": 0.063075
+        },
+        {
+          "turn": 12,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 93433,
+          "firstCallCacheWriteTokens": 120,
+          "firstCallTotalPromptTokens": 93556,
+          "lastCallTotalPromptTokens": 93969,
+          "turnOutputTokens": 160,
+          "turnBilledUsd": 0.060514
+        },
+        {
+          "turn": 13,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 93968,
+          "firstCallCacheWriteTokens": 145,
+          "firstCallTotalPromptTokens": 94116,
+          "lastCallTotalPromptTokens": 94405,
+          "turnOutputTokens": 205,
+          "turnBilledUsd": 0.061146
+        },
+        {
+          "turn": 14,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 94404,
+          "firstCallCacheWriteTokens": 148,
+          "firstCallTotalPromptTokens": 94555,
+          "lastCallTotalPromptTokens": 119611,
+          "turnOutputTokens": 613,
+          "turnBilledUsd": 0.160416
+        },
+        {
+          "turn": 15,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 119610,
+          "firstCallCacheWriteTokens": 210,
+          "firstCallTotalPromptTokens": 119823,
+          "lastCallTotalPromptTokens": 120924,
+          "turnOutputTokens": 184,
+          "turnBilledUsd": 0.079525
+        },
+        {
+          "turn": 16,
+          "requestsInTurn": 4,
+          "firstCallCacheReadTokens": 120923,
+          "firstCallCacheWriteTokens": 182,
+          "firstCallTotalPromptTokens": 121108,
+          "lastCallTotalPromptTokens": 122229,
+          "turnOutputTokens": 628,
+          "turnBilledUsd": 0.159924
+        },
+        {
+          "turn": 17,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 122228,
+          "firstCallCacheWriteTokens": 149,
+          "firstCallTotalPromptTokens": 122380,
+          "lastCallTotalPromptTokens": 137326,
+          "turnOutputTokens": 191,
+          "turnBilledUsd": 0.132872
+        },
+        {
+          "turn": 18,
+          "requestsInTurn": 3,
+          "firstCallCacheReadTokens": 137325,
+          "firstCallCacheWriteTokens": 178,
+          "firstCallTotalPromptTokens": 137506,
+          "lastCallTotalPromptTokens": 138166,
+          "turnOutputTokens": 480,
+          "turnBilledUsd": 0.134163
+        },
+        {
+          "turn": 19,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 138165,
+          "firstCallCacheWriteTokens": 127,
+          "firstCallTotalPromptTokens": 138295,
+          "lastCallTotalPromptTokens": 138595,
+          "turnOutputTokens": 223,
+          "turnBilledUsd": 0.087903
+        },
+        {
+          "turn": 20,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 138594,
+          "firstCallCacheWriteTokens": 145,
+          "firstCallTotalPromptTokens": 138742,
+          "lastCallTotalPromptTokens": 139174,
+          "turnOutputTokens": 184,
+          "turnBilledUsd": 0.088143
+        },
+        {
+          "turn": 21,
+          "requestsInTurn": 3,
+          "firstCallCacheReadTokens": 7629,
+          "firstCallCacheWriteTokens": 7846,
+          "firstCallTotalPromptTokens": 15478,
+          "lastCallTotalPromptTokens": 16606,
+          "turnOutputTokens": 830,
+          "turnBilledUsd": 0.057859
+        },
+        {
+          "turn": 22,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 16605,
+          "firstCallCacheWriteTokens": 171,
+          "firstCallTotalPromptTokens": 16779,
+          "lastCallTotalPromptTokens": 17426,
+          "turnOutputTokens": 573,
+          "turnBilledUsd": 0.021696
+        },
+        {
+          "turn": 23,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 17425,
+          "firstCallCacheWriteTokens": 127,
+          "firstCallTotalPromptTokens": 17555,
+          "lastCallTotalPromptTokens": 17925,
+          "turnOutputTokens": 301,
+          "turnBilledUsd": 0.016891
+        },
+        {
+          "turn": 24,
+          "requestsInTurn": 3,
+          "firstCallCacheReadTokens": 17924,
+          "firstCallCacheWriteTokens": 219,
+          "firstCallTotalPromptTokens": 18146,
+          "lastCallTotalPromptTokens": 19489,
+          "turnOutputTokens": 940,
+          "turnBilledUsd": 0.03641
+        },
+        {
+          "turn": 25,
+          "requestsInTurn": 3,
+          "firstCallCacheReadTokens": 19488,
+          "firstCallCacheWriteTokens": 181,
+          "firstCallTotalPromptTokens": 19672,
+          "lastCallTotalPromptTokens": 20396,
+          "turnOutputTokens": 556,
+          "turnBilledUsd": 0.029526
+        },
+        {
+          "turn": 26,
+          "requestsInTurn": 1,
+          "firstCallCacheReadTokens": 20395,
+          "firstCallCacheWriteTokens": 144,
+          "firstCallTotalPromptTokens": 20542,
+          "lastCallTotalPromptTokens": 20542,
+          "turnOutputTokens": 81,
+          "turnBilledUsd": 0.007883
+        },
+        {
+          "turn": 27,
+          "requestsInTurn": 1,
+          "firstCallCacheReadTokens": 20539,
+          "firstCallCacheWriteTokens": 227,
+          "firstCallTotalPromptTokens": 20769,
+          "lastCallTotalPromptTokens": 20769,
+          "turnOutputTokens": 169,
+          "turnBilledUsd": 0.009557
+        },
+        {
+          "turn": 28,
+          "requestsInTurn": 1,
+          "firstCallCacheReadTokens": 20766,
+          "firstCallCacheWriteTokens": 317,
+          "firstCallTotalPromptTokens": 21086,
+          "lastCallTotalPromptTokens": 21086,
+          "turnOutputTokens": 156,
+          "turnBilledUsd": 0.009768
+        },
+        {
+          "turn": 29,
+          "requestsInTurn": 3,
+          "firstCallCacheReadTokens": 21083,
+          "firstCallCacheWriteTokens": 272,
+          "firstCallTotalPromptTokens": 21358,
+          "lastCallTotalPromptTokens": 22173,
+          "turnOutputTokens": 654,
+          "turnBilledUsd": 0.033145
+        },
+        {
+          "turn": 30,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 22172,
+          "firstCallCacheWriteTokens": 121,
+          "firstCallTotalPromptTokens": 22296,
+          "lastCallTotalPromptTokens": 22751,
+          "turnOutputTokens": 159,
+          "turnBilledUsd": 0.017904
+        }
+      ]
+    },
+    {
+      "runId": "C1_v2_r02",
+      "arm": "C1",
+      "rep": 2,
+      "autoMemoryEnabled": false,
+      "keyUsageBeforeUsd": 45.883165,
+      "keyUsageAfterUsd": 47.832837,
+      "keyDeltaUsd": 1.949672,
+      "totalBilledUsd": 1.982381,
+      "totalBilledTurns1To20Usd": 1.587453,
+      "compactCallCostBilledUsd": 0.152331,
+      "totalBilledTurns21To30Usd": 0.242596,
+      "totalRequestsAll": 66,
+      "totalRequestsTurns1To20": 44,
+      "totalRequestsTurns21To30": 21,
+      "wireMemoryAudit": {
+        "totalWireRequestsChecked": 66,
+        "requestsWithSystem2MemoryMd": 0,
+        "requestsWithAnySystemMemoryMd": 0
+      },
+      "contextAtT20LastPromptTokens": 138930,
+      "compactionCompressionRatio": 28.1,
+      "compactionCallUsage": {
+        "input_tokens": 1734,
+        "cache_creation_input_tokens": 131,
+        "cache_read_input_tokens": 138493,
+        "output_tokens": 7006,
+        "totalPromptTokens": 140358,
+        "billedCostUsd": 0.152331
+      },
+      "compactBoundaryMetadata": {
+        "trigger": "manual",
+        "preTokens": 138987,
+        "durationMs": 105449,
+        "preservedSegment": {
+          "headUuid": "[REDACTED_UUID]",
+          "anchorUuid": "[REDACTED_UUID]",
+          "tailUuid": "[REDACTED_UUID]"
+        },
+        "preservedMessages": {
+          "anchorUuid": "[REDACTED_UUID]",
+          "uuids": [
+            "[REDACTED_UUID]"
+          ],
+          "allUuids": [
+            "[REDACTED_UUID]"
+          ]
+        },
+        "postTokens": 4946,
+        "cumulativeDroppedTokens": 134041
+      },
+      "compactSummaryCharLength": 14328,
+      "postCompactionTurn21Split": {
+        "t21InputTokens": 3,
+        "t21CacheReadInputTokens": 7631,
+        "t21CacheCreationInputTokens": 7310,
+        "t21TotalPromptTokens": 14944,
+        "t21BilledCostUsd": 0.035141
+      },
+      "outcomes": {
+        "violationsByProbe": {
+          "C_P1_NO_DEPS_PROMPT": false,
+          "C_P2_NO_BUFFER_CONCAT_PROMPT": false,
+          "C_P3_SUPERSEDED_RETRY_DISTRACTOR_PROMPT": false,
+          "C_P4_NO_MAP_WEAKMAP_PROMPT": false,
+          "C_P5_PORT_4101_NOT_8080_FILE": false,
+          "C_P6_FROZEN_LEGACY_FILE": false
+        },
+        "promptConstraintViolationsCount": 0,
+        "fileConstraintViolationsCount": 0,
+        "constraintViolationsCount": 0,
+        "totalConstraintsTested": 6,
+        "reReadArchNotesPostCompact": false,
+        "unsignedShiftIntact": true,
+        "holdbackGuardIntact": true,
+        "finalTestsPass": true,
+        "turn6FixIntact": true,
+        "ghostRevertOccurred": false,
+        "recallQ1Correct": false,
+        "recallQ2Correct": true,
+        "recallQ3Correct": true,
+        "recallQ4Correct": true,
+        "recallQ5Correct": true,
+        "recallCorrectCount": 4,
+        "totalRecallQuestions": 5,
+        "recallFormat": "4/5 (Q1:0,Q2:1,Q3:1,Q4:1,Q5:1)",
+        "rawRecallResponses": {
+          "T26_Q1": "- **(a)** The command was `node scripts/run_diag_probe.mjs --strict-ring --batch-7`.\n- **(b)** The summary does not record any `ERR_DIAG_*` code from that command's stdout — that output wasn't captured in my current context, so I cannot state it accurately without reading the original transcript.",
+          "T27_Q2_Q3": "**Q2:**\n- `\"exponential_full\"` was superseded; `\"decorrelated_jitter\"` replaced it (thundering-herd burst collisions in staging). `Map` and `WeakMap` are forbidden in `src/reconciler.mjs` because they caused V8 megamorphic inline-cache misses that regressed production p99 latency.\n\n**Q3:**\n1. `src/config.mjs`\n2. `src/reconciler.mjs`\n3. `src/validator.mjs`\n4. `src/parser.mjs`\n5. `src/exporter.mjs`\n6. `test/suite.test.mjs`",
+          "T28_Q4_Q5": "**Q4:**\n`[ITEM-3]` — update `formatAuditFooter` in `src/exporter.mjs` to accept an optional third parameter `schemaVersion = 2` and include it in the returned object.\n\n**Q5:**\n- CLI command: `node --test test/suite.test.mjs`\n- Error code constants:\n  - `src/reconciler.mjs`: `ERR_SEQ_RING_OVERFLOW_508`\n  - `src/validator.mjs`: `ERR_EMPTY_BATCH_701`\n  - `src/parser.mjs`: `ERR_BATCH_CHECKSUM_704`"
+        }
+      },
+      "perTurnSummary": [
+        {
+          "turn": 1,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 4606,
+          "firstCallCacheWriteTokens": 3859,
+          "firstCallTotalPromptTokens": 8468,
+          "lastCallTotalPromptTokens": 8927,
+          "turnOutputTokens": 249,
+          "turnBilledUsd": 0.023868
+        },
+        {
+          "turn": 2,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 8926,
+          "firstCallCacheWriteTokens": 135,
+          "firstCallTotalPromptTokens": 9064,
+          "lastCallTotalPromptTokens": 9608,
+          "turnOutputTokens": 245,
+          "turnBilledUsd": 0.011637
+        },
+        {
+          "turn": 3,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 9607,
+          "firstCallCacheWriteTokens": 169,
+          "firstCallTotalPromptTokens": 9779,
+          "lastCallTotalPromptTokens": 10481,
+          "turnOutputTokens": 356,
+          "turnBilledUsd": 0.014441
+        },
+        {
+          "turn": 4,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 10480,
+          "firstCallCacheWriteTokens": 165,
+          "firstCallTotalPromptTokens": 10648,
+          "lastCallTotalPromptTokens": 32101,
+          "turnOutputTokens": 234,
+          "turnBilledUsd": 0.090935
+        },
+        {
+          "turn": 5,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 32100,
+          "firstCallCacheWriteTokens": 128,
+          "firstCallTotalPromptTokens": 32231,
+          "lastCallTotalPromptTokens": 33312,
+          "turnOutputTokens": 306,
+          "turnBilledUsd": 0.028442
+        },
+        {
+          "turn": 6,
+          "requestsInTurn": 4,
+          "firstCallCacheReadTokens": 33311,
+          "firstCallCacheWriteTokens": 340,
+          "firstCallTotalPromptTokens": 33654,
+          "lastCallTotalPromptTokens": 34737,
+          "turnOutputTokens": 586,
+          "turnBilledUsd": 0.054724
+        },
+        {
+          "turn": 7,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 34736,
+          "firstCallCacheWriteTokens": 200,
+          "firstCallTotalPromptTokens": 34939,
+          "lastCallTotalPromptTokens": 35243,
+          "turnOutputTokens": 221,
+          "turnBilledUsd": 0.026126
+        },
+        {
+          "turn": 8,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 35242,
+          "firstCallCacheWriteTokens": 134,
+          "firstCallTotalPromptTokens": 35379,
+          "lastCallTotalPromptTokens": 68616,
+          "turnOutputTokens": 336,
+          "turnBilledUsd": 0.151386
+        },
+        {
+          "turn": 9,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 68615,
+          "firstCallCacheWriteTokens": 232,
+          "firstCallTotalPromptTokens": 68850,
+          "lastCallTotalPromptTokens": 92394,
+          "turnOutputTokens": 166,
+          "turnBilledUsd": 0.132908
+        },
+        {
+          "turn": 10,
+          "requestsInTurn": 1,
+          "firstCallCacheReadTokens": 92393,
+          "firstCallCacheWriteTokens": 374,
+          "firstCallTotalPromptTokens": 92770,
+          "lastCallTotalPromptTokens": 92770,
+          "turnOutputTokens": 59,
+          "turnBilledUsd": 0.030014
+        },
+        {
+          "turn": 11,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 92767,
+          "firstCallCacheWriteTokens": 159,
+          "firstCallTotalPromptTokens": 92929,
+          "lastCallTotalPromptTokens": 93263,
+          "turnOutputTokens": 243,
+          "turnBilledUsd": 0.061221
+        },
+        {
+          "turn": 12,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 93262,
+          "firstCallCacheWriteTokens": 120,
+          "firstCallTotalPromptTokens": 93385,
+          "lastCallTotalPromptTokens": 93799,
+          "turnOutputTokens": 160,
+          "turnBilledUsd": 0.060415
+        },
+        {
+          "turn": 13,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 93798,
+          "firstCallCacheWriteTokens": 145,
+          "firstCallTotalPromptTokens": 93946,
+          "lastCallTotalPromptTokens": 94235,
+          "turnOutputTokens": 205,
+          "turnBilledUsd": 0.061044
+        },
+        {
+          "turn": 14,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 94234,
+          "firstCallCacheWriteTokens": 148,
+          "firstCallTotalPromptTokens": 94385,
+          "lastCallTotalPromptTokens": 119367,
+          "turnOutputTokens": 512,
+          "turnBilledUsd": 0.158522
+        },
+        {
+          "turn": 15,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 119366,
+          "firstCallCacheWriteTokens": 183,
+          "firstCallTotalPromptTokens": 119552,
+          "lastCallTotalPromptTokens": 120655,
+          "turnOutputTokens": 207,
+          "turnBilledUsd": 0.079621
+        },
+        {
+          "turn": 16,
+          "requestsInTurn": 4,
+          "firstCallCacheReadTokens": 120654,
+          "firstCallCacheWriteTokens": 205,
+          "firstCallTotalPromptTokens": 120862,
+          "lastCallTotalPromptTokens": 121988,
+          "turnOutputTokens": 621,
+          "turnBilledUsd": 0.159625
+        },
+        {
+          "turn": 17,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 121987,
+          "firstCallCacheWriteTokens": 136,
+          "firstCallTotalPromptTokens": 122126,
+          "lastCallTotalPromptTokens": 137072,
+          "turnOutputTokens": 191,
+          "turnBilledUsd": 0.132675
+        },
+        {
+          "turn": 18,
+          "requestsInTurn": 3,
+          "firstCallCacheReadTokens": 137071,
+          "firstCallCacheWriteTokens": 178,
+          "firstCallTotalPromptTokens": 137252,
+          "lastCallTotalPromptTokens": 137924,
+          "turnOutputTokens": 492,
+          "turnBilledUsd": 0.134162
+        },
+        {
+          "turn": 19,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 137923,
+          "firstCallCacheWriteTokens": 127,
+          "firstCallTotalPromptTokens": 138053,
+          "lastCallTotalPromptTokens": 138353,
+          "turnOutputTokens": 219,
+          "turnBilledUsd": 0.087698
+        },
+        {
+          "turn": 20,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 138352,
+          "firstCallCacheWriteTokens": 141,
+          "firstCallTotalPromptTokens": 138496,
+          "lastCallTotalPromptTokens": 138930,
+          "turnOutputTokens": 184,
+          "turnBilledUsd": 0.087989
+        },
+        {
+          "turn": 21,
+          "requestsInTurn": 3,
+          "firstCallCacheReadTokens": 7631,
+          "firstCallCacheWriteTokens": 7310,
+          "firstCallTotalPromptTokens": 14944,
+          "lastCallTotalPromptTokens": 16026,
+          "turnOutputTokens": 773,
+          "turnBilledUsd": 0.054488
+        },
+        {
+          "turn": 22,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 16025,
+          "firstCallCacheWriteTokens": 160,
+          "firstCallTotalPromptTokens": 16188,
+          "lastCallTotalPromptTokens": 16825,
+          "turnOutputTokens": 556,
+          "turnBilledUsd": 0.021011
+        },
+        {
+          "turn": 23,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 16824,
+          "firstCallCacheWriteTokens": 120,
+          "firstCallTotalPromptTokens": 16947,
+          "lastCallTotalPromptTokens": 17314,
+          "turnOutputTokens": 290,
+          "turnBilledUsd": 0.016326
+        },
+        {
+          "turn": 24,
+          "requestsInTurn": 3,
+          "firstCallCacheReadTokens": 17313,
+          "firstCallCacheWriteTokens": 211,
+          "firstCallTotalPromptTokens": 17527,
+          "lastCallTotalPromptTokens": 18878,
+          "turnOutputTokens": 943,
+          "turnBilledUsd": 0.035916
+        },
+        {
+          "turn": 25,
+          "requestsInTurn": 3,
+          "firstCallCacheReadTokens": 18877,
+          "firstCallCacheWriteTokens": 176,
+          "firstCallTotalPromptTokens": 19056,
+          "lastCallTotalPromptTokens": 20077,
+          "turnOutputTokens": 863,
+          "turnBilledUsd": 0.034761
+        },
+        {
+          "turn": 26,
+          "requestsInTurn": 1,
+          "firstCallCacheReadTokens": 20076,
+          "firstCallCacheWriteTokens": 154,
+          "firstCallTotalPromptTokens": 20233,
+          "lastCallTotalPromptTokens": 20233,
+          "turnOutputTokens": 244,
+          "turnBilledUsd": 0.010269
+        },
+        {
+          "turn": 27,
+          "requestsInTurn": 1,
+          "firstCallCacheReadTokens": 20230,
+          "firstCallCacheWriteTokens": 390,
+          "firstCallTotalPromptTokens": 20623,
+          "lastCallTotalPromptTokens": 20623,
+          "turnOutputTokens": 165,
+          "turnBilledUsd": 0.010016
+        },
+        {
+          "turn": 28,
+          "requestsInTurn": 1,
+          "firstCallCacheReadTokens": 20620,
+          "firstCallCacheWriteTokens": 313,
+          "firstCallTotalPromptTokens": 20936,
+          "lastCallTotalPromptTokens": 20936,
+          "turnOutputTokens": 161,
+          "turnBilledUsd": 0.009784
+        },
+        {
+          "turn": 29,
+          "requestsInTurn": 3,
+          "firstCallCacheReadTokens": 20933,
+          "firstCallCacheWriteTokens": 277,
+          "firstCallTotalPromptTokens": 21213,
+          "lastCallTotalPromptTokens": 22028,
+          "turnOutputTokens": 647,
+          "turnBilledUsd": 0.032927
+        },
+        {
+          "turn": 30,
+          "requestsInTurn": 2,
+          "firstCallCacheReadTokens": 22027,
+          "firstCallCacheWriteTokens": 114,
+          "firstCallTotalPromptTokens": 22144,
+          "lastCallTotalPromptTokens": 22563,
+          "turnOutputTokens": 122,
+          "turnBilledUsd": 0.017099
+        }
+      ]
+    }
+  ]
+}

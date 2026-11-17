@@ -1,0 +1,3 @@
+{"event":"start","ok":true,"timestamp":"2026-11-14T05:47:09.745Z","usage":2.83381475,"limit":50,"limit_remaining":47.16618525}
+{"event":"start","ok":true,"timestamp":"2026-11-14T13:56:16.380Z","usage":17.5554765,"limit":50,"limit_remaining":32.4445235}
+{"event":"end","ok":true,"timestamp":"2026-11-14T14:26:45.982Z","usage":25.54940135,"limit":50,"limit_remaining":24.45059865}

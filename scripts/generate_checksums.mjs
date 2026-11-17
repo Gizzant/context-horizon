@@ -61,7 +61,25 @@ export function generateChecksumsManifest(rootDir = REPO_ROOT) {
     return `${hash}  ${rel}`;
   });
   const outPath = path.join(rootDir, 'CHECKSUMS.sha256');
-  fs.writeFileSync(outPath, lines.join('\n') + '\n', 'utf8');
+  const newContent = lines.join('\n') + '\n';
+  if (fs.existsSync(outPath)) {
+    try {
+      const existing = fs.readFileSync(outPath, 'utf8');
+      if (existing === newContent) {
+        return { outPath, fileCount: files.length };
+      }
+    } catch {}
+  }
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      fs.writeFileSync(outPath, newContent, 'utf8');
+      break;
+    } catch (err) {
+      if (attempt === 4) throw err;
+      const end = Date.now() + (attempt + 1) * 50;
+      while (Date.now() < end) {}
+    }
+  }
   return { outPath, fileCount: files.length };
 }
 

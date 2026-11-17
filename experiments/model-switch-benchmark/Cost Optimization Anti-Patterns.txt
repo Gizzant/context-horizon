@@ -1,0 +1,262 @@
+# Test procedures: the remaining token-wasting practices (items 3-8 of the Cost Optimization Anti-Patterns)
+
+
+Source list: <Cost Optimization Anti-Patterns>
+
+Treat every claim in that list as a **hypothesis to confirm or refute**. Report what you measure, even if it contradicts the list.
+
+## 0. Coverage map
+
+| # | Practice | Status | What this spec adds |
+|---|---|---|---|
+| 1 | Model ping-pong | Measured (Opus 4.6 <-> Sonnet 4.6, via OpenRouter) | R1: test the "isolated side call" remedy |
+| 2 | Changing effort mid-session | Measured (effort-only arm, same route) | R2: test the per-message-effort remedy |
+| 3 | Idle past the cache TTL / storage fees | Partly measured (one 420 s idle arm, confounded with a switch) | T3: TTL and keep-alive break-even; Gemini storage fee if a key exists |
+| 4 | Parallel swarm cold start | Not tested | T4 |
+| 5 | Trimming history one turn at a time / prose summaries | Not tested | T5 |
+| 6 | Changing tool schemas or RAG text near the top | Not tested | T6 |
+| 7 | Hundreds of rules in the system prompt | Not tested (this is an accuracy test, not a cost test) | T7 |
+| 8 | Shared prefix caches without a salt | Out of scope | Note only (section 9) |
+
+## 1. Facts already checked against Anthropic's docs (2026-11-14)
+
+Source: [prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) and [per-message effort](https://platform.claude.com/docs/en/build-with-claude/effort-per-message). Re-check them yourself in Phase 0; they may have changed.
+
+- Cache order is tools -> system -> messages. A change at one level invalidates that level and every level after it. Changing tool definitions invalidates all three. Changing `output_config.effort` can invalidate the message cache, and on some models the tools and system caches too ("model-specific").
+- 5-minute writes cost 1.25x base input; 1-hour writes cost 2x (`"ttl": "1h"`); each hit refreshes the TTL. Read price is 0.1x base input, but **0.05x on Opus 5.5 and Sonnet 5.5** and 0.025x on Fable/Mythos. Our earlier results used the 4.6 models, so they are not automatically valid for the 5.5 models.
+- A cache entry becomes available only after the first response starts. `max_tokens: 0` warms the cache without generating (rejected with `stream: true`, extended thinking, `output_config.format`, or forced `tool_choice`).
+- Minimum cacheable tokens: Sonnet 4.6 = 1,024, Opus 4.6 = 4,096, Opus/Sonnet 5.5 = 512.
+- Per-message effort (beta header `mid-conversation-output-config-2026-07-01`) changes effort through an empty `role: "system"` message with `output_config` inside `messages`, leaving the cached prefix intact. It is supported on some models only.
+
+**Claims in the attachment that are NOT confirmed** and must be measured or labelled unverified: the Gemini storage price (`$4.50/M tokens/hr`) and "2.5 queries/hour" break-even; "8 to 10 times" and "19 turns" for model switching (our own numbers were 5.7x on the long chat, 7.3x for effort, and 9-12 turns); "0% hit rate" for sliding windows; "90% to 95% hits" after a cliff trim; the "100 to 250 rules" accuracy knee; anything about OpenAI (out of scope).
+
+## 2. Common rules
+
+**Harness.** Write a small scripted Messages API client ("prefix lab") that goes through the same OpenRouter route, with the provider pinned to Anthropic and fallbacks disabled, as the earlier experiment. Use Claude Code only where a test says so. Mirror the cache breakpoint placement you see in the proxy logs of the existing control runs (tools, system, last message block).
+
+**Models.** Primary: `anthropic/claude-sonnet-4.6` (cheap, comparable to earlier work). Where a test says so, repeat on `anthropic/claude-sonnet-5.5` and confirm its price from the OpenRouter model listing first.
+
+**Cache isolation.** Put a random nonce in the first characters of the prefix for every repetition, so no earlier run can serve a cache hit. Never reuse a prefix across repetitions.
+
+**Content.** Use the three files and question text from the earlier experiment as prefix filler, so token counts are comparable. Keep outputs short (`max_tokens` 50-200) unless a test says otherwise.
+
+**Record per request:** `test`, `arm`, `rep`, `turn`, `model_slug`, `provider`, `prompt_tokens`, `cache_read_tokens`, `cache_write_tokens` (split 5m / 1h), `output_tokens`, `billed_cost_usd`, `cost_source` (billed or computed), `http_status`, `error_text`, `t_start`, `t_first_byte`, `t_end`.
+
+**Statistics.** Report n, and median [min-max] when n > 1. Never mix means and medians. Exclude and list aborted runs; rerun them from turn 1.
+
+**Phase 0 gate (no real tests until it passes).** Through OpenRouter, check which of these work: `max_tokens: 0`, `"ttl": "1h"`, the beta header and a `role: "system"` message with `output_config`, per-request usage with the 5m/1h split, and a billed-cost field. List any that do not pass through. Tests that need them become **direct-API-only** (T3a/T3b-keepalive, R2); ask me whether a direct Anthropic key exists. Do not substitute a different test.
+
+**Cost gate.** After Phase 0, send one cost estimate for the whole set (per test, per arm, with prices and their source and date) and **wait for my confirmation**. Abort any run that exceeds 3x its expected cost. My own rough upper bounds are in each test; recompute them.
+
+**Privacy.** No API keys, usernames or local paths in anything meant for publication.
+
+## 3. T4: parallel cold start (item 4). Run first; it is the cheapest.
+
+**Claim.** N workers fired at the same instant with a shared prefix each pay a full cache write, because the entry is only readable after the first response starts.
+
+**Setup.** Prefix about 20k tokens (a nonce first), breakpoint on the last shared block. Each worker adds a unique short question. `max_tokens` 50. N = 10.
+
+| Arm | Procedure |
+|---|---|
+| P0 | All N requests released together from a barrier (start times within 50 ms) |
+| P1 | One primer with `max_tokens: 0` (non-streaming), wait for it to return, then release the N workers |
+| P2 | Same as P1 but the primer uses `max_tokens: 1` |
+| P3 | N requests one after another (reference) |
+
+Repeat each arm 3 times with fresh nonces. Run P0 and P1 once more with N = 25 to see how the effect scales.
+
+**Report.** Per arm: number of requests that wrote vs read, total billed cost, total wall time (the primer adds latency; say how much), and whether OpenRouter's routing appears to scatter requests (any worker that writes after the primer has returned). Say whether `max_tokens: 0` worked through OpenRouter.
+
+**Rough cost.** Up to about $5-6 (P0 is the expensive arm if every worker writes).
+
+## 4. T6: prefix layer matrix (item 6)
+
+**Claim.** Changing tools or system text near the top invalidates everything after it; the same content placed at the tail does not.
+
+**Setup (API-level).** A 12-turn session, about 15k tokens by T6: about 6k tokens of tools (20 synthetic tools), about 3k of system, growing message history. The change is applied at T6 (or from T2 for the "every turn" arms). Compare cache read at T6 and T7 to the control.
+
+| Arm | Change |
+|---|---|
+| C | None (control) |
+| TS | Drop 5 tools at T6 |
+| TF | A different subset of tools every turn from T2 (dynamic filtering) |
+| TK | Same tools, JSON key order shuffled at T6 |
+| TA | Add one tool at the end of the list at T6 |
+| SY | Add one sentence to the system prompt at T6 |
+| SRAG | Retrieved passages placed in the system prompt, different every turn from T2 |
+| MRAG | The same passages appended to the latest user message instead (prefix-safe) |
+| TSTUB | Static tool-search stub up front, with the deferred schema appended in the last user message at T6 |
+| ME | Edit an early message (turn 2) at T6 |
+
+**Claude Code arms (existing harness, one changed flag at T6; n = 3, short chat, Sonnet 4.6).**
+- CC-T: resume with a different `--mcp-config` (add or remove an MCP server with 10 tools) or a different `--allowedTools`.
+- CC-M: edit CLAUDE.md between T5 and T6.
+- CC-S: change the text passed with `--append-system-prompt`.
+
+**Report.** For each arm, which layers survived (compare `cache_read` with the token size of each layer, measured separately), the cost of T6 vs the control, and whether the result matches the docs' invalidation table. Say what is surprising.
+
+**Rough cost.** API arms about $5-8 for n = 3; Claude Code arms about $1.5.
+
+## 5. T5: history trimming (item 5)
+
+**Claim.** Dropping the oldest turn every turn destroys the cache; trimming in a large "cliff" and keeping a structured state file preserves cache hits and constraints better than a prose summary.
+
+**Setup.** A 30-turn scripted session on Sonnet 4.6. Each turn: the user pastes about 1,000 tokens of corpus text and asks a question; `max_tokens` 150. The prompt budget is an artificial **W = 24k tokens**, so trimming starts around turn 20. Plant 5 negative constraints in turns 2-6 (for example: do not use library X; port 8080 is off-limits; approach Y was ruled out; do not edit file Z; use tabs). In turns 24-30, insert 5 prompts where violating a constraint would be natural, and check violations with a deterministic string check.
+
+| Arm | Policy when the prompt exceeds W |
+|---|---|
+| A | No trimming (append-only reference; will exceed W) |
+| B | Slide: drop the oldest user/assistant pair every turn |
+| C | Cliff: drop the oldest 50% of turns in one batch |
+| D | Prose summary: the model summarises the oldest 50% into at most 500 tokens, which replaces them |
+| E | Cliff (50%) plus a structured STATE file (constraints, verified paths, dead ends) kept in the system prefix and updated only at the cliff |
+
+n = 3 per arm (n = 2 for B if the estimate says it is too expensive).
+
+**Report.**
+- Per-turn cache-read share and cost; cumulative cost; number of rebuild events.
+- The steady-state hit rate after each cliff (the list claims 90-95%).
+- The hit rate under the sliding window. The static system and tools block should still hit, so the real figure is probably above 0%; measure it.
+- The number of constraint violations in turns 24-30 per arm, with the summary size for D.
+- Do not call a policy better on cost alone if it violates constraints.
+
+**Rough cost.** About $6-8 (B is the expensive arm).
+
+## 6. T3: idle gaps and TTL (item 3)
+
+Already covered: a 420 s idle with a model switch (arm E), plus the IS/IG and E2 arms in the other specs. Do not repeat those. New:
+
+**T3a. 5-minute vs 1-hour cache across gaps.** Mini-sessions of 2 requests: a write, then a second request after a gap. Prefix about 20k tokens, Sonnet 4.6.
+- Gaps: 4, 6, 12, 30 and 62 minutes.
+- Arms: TTL5 (default) and TTL1H (`"ttl": "1h"` on the breakpoint).
+- n = 3 per cell (n = 1 for 62 minutes). Run the waits in the background in parallel; wall-clock time is not money.
+- Report read vs rewrite at the second request, the billed cost, and the **break-even number of post-gap requests** at which the 2x write beats repeated rewrites. Compare with the list's "third turn".
+
+**T3b. Keep-alive pings.** Six requests 4.5 minutes apart on the default TTL, n = 2.
+- Arm KA-read: a real small request each time.
+- Arm KA-zero: a `max_tokens: 0` request each time. Does that refresh the TTL, or only the real read?
+- Report whether the entry survives all six and the cost per ping, then the gap beyond which a ping costs less than a rewrite.
+
+T3a and T3b may be direct-API-only (see the Phase 0 gate).
+
+**T3c. Gemini explicit cache storage.** Only if a direct Gemini key exists. Create an explicit cache of about 32k tokens with a 1-hour TTL, issue 0 and 3 queries, and read the billed storage from the usage data. If there is no key, mark this as paper-only and state the price **as unverified**; do not repeat the `$4.50/M tokens/hr` figure as fact.
+
+**Rough cost.** About $4-5 for T3a, under $1 for T3b.
+
+## 7. T7: rule stuffing (item 7). This measures accuracy, not just cost.
+
+**Claim.** Cached rules are cheap to read, but instruction-following drops sharply past roughly 100-250 rules.
+
+**Setup.**
+- Build a library of 500 mechanical rules, each with an id, about 20-30 tokens of text and a deterministic checker (for example: end the answer with the token [R37]; never use the word "basically"; snake_case identifiers; no line over 80 characters).
+- Build 20 short probe tasks where exactly 5 specific rules apply.
+- For each size S in {10, 50, 100, 250, 500}, the system prompt holds the 5 relevant rules plus S-5 distractors in random order. Record where each relevant rule sits (top, middle, bottom).
+- Use 3 random seeds (different rule sets and orders) per size.
+- Sonnet 4.6, `max_tokens` 400.
+
+**Report.**
+- Per-rule compliance rate by S, with 95% intervals (Wilson), and by position.
+- The cost of the rules block per call, split into cache read and write, next to the total cost.
+- Whether there is a knee, and where. If there is none, say so.
+- Optional realism check: a CLAUDE.md with 10, 100 and 500 of the same rules, 20 headless tasks each, n = 1 per size.
+
+**Rough cost.** About $4 for the API runs and $2-3 for the Claude Code check.
+
+## 8. Remedy tests for items 1 and 2
+
+**R1. Isolated side call (item 1's remedy).** The short-chat script, with 3 of the 9 question turns (T7, T9, T11) chosen as "lookup" questions with a deterministic answer.
+
+| Arm | Procedure |
+|---|---|
+| M | Opus 4.6 for every turn (control) |
+| SW | Switch to Sonnet 4.6 for the lookup turns and back (ping-pong; reuse our existing data if the matching arm exists) |
+| SC | Opus stays the main thread; each lookup is a standalone Sonnet call with only the relevant excerpt (at most 1k tokens), and the main history never sees it |
+
+n = 3. Report cost vs M and SW, and lookup correctness for each arm (SC must not lose accuracy). Rough cost: about $2.
+
+**R2. Per-message effort (item 2's remedy). Direct API only, with the beta header.**
+
+| Arm | Procedure |
+|---|---|
+| EF0 | Effort fixed (control) |
+| EF1 | Top-level effort changed at T6 (the bad practice) |
+| EF2 | Effort changed at T6 through the per-message system message |
+| EF3 | Effort set to the model's default explicitly (the docs say this is equivalent to omitting it) |
+
+Use a model the docs list as supported (Sonnet 5.5 or Opus 5.5); also run EF0 and EF1 on the 4.6 model for comparison with our earlier result. n = 3, short chat. Report T6 and T7 cache-read share, and check that EF2 actually changed behaviour (output length or reasoning tokens vs EF0). If it works, say so plainly: it removes the need for Highbeam's DET-09 "defer" for any client that builds its own requests. Also check whether Claude Code 2.1.x can send the beta header at all. Rough cost: about $1-2.
+
+## 9. Item 8 and a currency check
+
+**Item 8 (multi-tenant salt).** Not a cost problem, and it applies to self-hosted vLLM or SGLang clusters. Do not run it without such a cluster. If one exists, the protocol would be: tenant A sends a prefix; tenant B probes first-token latency for hit vs miss with and without `cache_salt`, n of at least 200 per condition; report how well the latency separates the two. Otherwise, write one paragraph labelling it a security note.
+
+**Currency check (optional, last).** Repeat the control, one-switch and effort-only arms on the short chat for the Opus 5.5 / Sonnet 5.5 pair (read price 0.05x), n = 3, so we know whether the article's numbers hold on current models. Rough cost: about $3-4.
+
+## 10. Order and deliverables
+
+Run order after the gates: T4, T6, T7, T5, T3, R1, R2, then the optional items. Stop and send me an interim summary after T4 and T6.
+
+Deliver: one CSV per test (`t4_parallel.csv`, `t6_layers.csv`, `t5_trim.csv`, `t3_idle.csv`, `t7_rules.csv`, `r1_sidecall.csv`, `r2_effort.csv`), `summary_tests_3_to_8.md` with one table per test and a limitations section first, and an updated `REDACTION_MANIFEST.md`. Label every figure billed or computed, label each claim from the attachment as confirmed, refuted or unverified, and say what was measured and what was inferred. If something here cannot be done as described, say what blocks it and stop.
+
+<Cost Optimization Anti-Patterns>
+
+#### 1. Switching Models Every Turn (Model Ping-Pong)
+* **The Bad Practice:** Routing "easy" turns to cheaper models (e.g., Claude Sonnet or Gemini Flash) and "hard" turns to frontier models (e.g., Opus or Argon) within a stateful session. Because prompt caches are tied to specific models, the cheaper model cannot reuse the frontier model's cache and must reprocess the entire context from scratch. A one-off detour can cost **8 to 10 times more** than staying on a warm frontier model, requiring up to 19 subsequent turns on the cheaper model just to break even. If the agent wanders back after the frontier model's cache time-to-live (TTL) expires, you pay full cache-rebuild fees again.
+* **How to Avoid:** **Pin each stateful session to a single primary model**. If you need cheaper models for auxiliary sub-tasks, execute them as **isolated side calls** and trim the history down to a short, standalone snippet rather than forwarding the full conversation.
+
+---
+
+#### 2. Changing Reasoning Effort Mid-Session via Top-Level Configs
+* **The Bad Practice:** Dynamically adjusting reasoning or thinking effort between turns via top-level request parameters. Because top-level parameters are rendered at the start of the prompt prefix, modifying them violates exact prefix matching and **invalidates the entire downstream cached history**.
+* **How to Avoid:** **Apply configuration changes at the end of the conversation** so earlier tokens remain undisturbed:
+  * **Anthropic:** Keep the top-level `output_config.effort` static and append a message with the `output_config` update using the `mid-conversation-output-config-2026-07-01` beta header.
+  * **OpenAI:** Keep the request-level `reasoning.effort` untouched and append a `configuration_update` item to the conversation (available in GPT-6 and later outside pro mode).
+
+---
+
+#### 3. Ignoring Cache TTLs and Hourly Storage Fees During Pauses
+* **The Bad Practice:** Leaving sessions idle during human reviews (e.g., code reviews or debugging). When reviews exceed cache TTLs (such as Anthropic's 5-minute default window), the subsequent turn incurs a cache write surcharge rather than a discounted read. Conversely, with explicit caching (e.g., Gemini 3.1 Pro or Flash), idle sessions accumulate hourly storage rent (\$4.50/M tokens/hr on 3.1 Pro), burning money when inactive.
+* **How to Avoid:**
+  * **Align cache policies with human workflow cadences:** If code reviews typically take 10 to 30 minutes, switch to longer TTL options (e.g., Anthropic's 1-hour cache), which breaks even by roughly the third turn.
+  * **Manage explicit caches actively:** Calculate query break-even rates (e.g., Gemini 3.1 Pro requires at least 2.5 queries per hour after the first hour to justify storage fees) and implement automated teardown/deletion steps when sessions complete.
+
+---
+
+#### 4. Launching Swarms of Parallel Workers Simultaneously
+* **The Bad Practice:** Firing dozens of parallel workers (e.g., 50 evaluation or coding tasks) against a shared prefix at the exact same millisecond. Because a cache entry cannot be read until the initial prefill finishes, all sibling requests miss the cache simultaneously, resulting in **50 full-cost cache writes**. Load balancers can further scatter requests across separate backend nodes lacking shared memory.
+* **How to Avoid:** **Use a staged two-step launch**:
+  1. Send a single **primer request** (e.g., using `max_tokens: 0` on non-streaming Anthropic calls or `max_tokens: 1` as a universal fallback) and wait until it begins responding to warm the cache.
+  2. Release the remaining parallel workers, attaching a shared routing key (e.g., OpenAI's `prompt_cache_key`) to ensure sibling requests route to the same physical machine.
+
+---
+
+### Prefix and Context Hygiene Anti-Patterns
+
+#### 5. Trimming History One Turn at a Time or Relying on Prose Summaries
+* **The Bad Practice:**
+  * **Sliding-window eviction:** Dropping the oldest message pair every turn forces a **0% cache hit rate** across the entire history. Because causal attention and Rotary Position Embeddings (RoPE) bind token states to their exact positions, deleting early tokens shifts all subsequent slots.
+  * **Prose summarization:** Condensing history into a narrative summary recomputes the prefix and discards critical negative constraints (e.g., forbidden dependencies, blacklisted ports, or ruled-out dead ends), leading agents into repeated mistakes.
+* **How to Avoid:**
+  * **Trim in "cliffs, not slices":** Let the history grow append-only, and when approaching context limits, prune the oldest **40% to 50% of turns in a single batch**, paying for one rebuild followed by a long run of 90% to 95% cache hits.
+  * **Isolate token-heavy noise:** Offload massive outputs (like compiler logs or 40k-token stack traces) to temporary subagents that report back concise 150-token summaries.
+  * **Maintain external state files:** Retain critical constraints, verified file paths, and dead ends in a structured `STATE.json` or `HANDOFF.md` baton rather than relying on prose summaries.
+
+---
+
+#### 6. Dynamically Filtering Tool Schemas and Top-Loading RAG Results
+* **The Bad Practice:** Injecting dynamically filtered tool schemas or top-ranked retrieval-augmented generation (RAG) passages near the system prompt on every turn. Because tool definitions and system instructions precede message history, altering a single schema or snippet **invalidates the cache for all subsequent conversation turns**. Inconsistent JSON serialization or differing key orders between workers triggers identical cache misses.
+* **How to Avoid:** **Adopt a prefix-safe layout**:
+  * Freeze static tool definitions, system instructions, and invariant documentation at the very top (index zero) with deterministic JSON key sorting.
+  * If the toolset is large, expose a static tool-search stub up front and append deferred tool schemas and turn-specific RAG context at the **uncached tail** alongside the latest user message.
+
+---
+
+#### 7. Stuffing Hundreds of Rules into System Prompts (AGENTS.md)
+* **The Bad Practice:** Treating cheap cached reads as "free" model attention and cramming hundreds of style, linting, and architectural rules into an always-on `AGENTS.md`. While cached tokens are computationally cheap, attention degradation is severe: benchmark evaluations show instruction-following accuracy drops sharply once rules exceed 100 to 250 instructions.
+* **How to Avoid:** **Keep core rulebooks lean**. Limit the always-on system prompt to universal commands and critical architectural requirements. Offload granular formatting, linting, and style enforcement to deterministic linters or separate post-generation verification passes.
+
+---
+
+#### 8. Sharing Multi-Tenant Prefix Caches Without a Salt
+* **The Bad Practice:** Sharing prefix caches across untrusted tenants on self-hosted inference servers (e.g., vLLM or SGLang clusters). Because cache hits bypass prefill, first-token latency differences allow attackers to infer whether another user sent a specific prefix or even reconstruct prompts via side-channel probes.
+* **How to Avoid:** When running multi-tenant self-hosted clusters, pass an explicit per-request tenant salt (such as vLLM's `cache_salt` parameter) to incorporate tenant IDs directly into cache hashing, guaranteeing total cache isolation between organizations.
+</Cost Optimization Anti-Patterns>

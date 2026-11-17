@@ -17,7 +17,10 @@ import {
   sanitizeRslSessionId,
   snapshotTestSuiteBaseline,
   recordStepOutcome,
-  buildContrastiveDigest
+  buildContrastiveDigest,
+  RSL_CLAUDE_POST_TOOL_MATCHER,
+  isMutatingOrExecRslTool,
+  isDuplicateRslStepEvent
 } from '../core/rsl_triage.mjs';
 import { distillContrastiveDigest } from '../core/rsl_distiller.mjs';
 import {
@@ -160,6 +163,23 @@ export function handleClaudeRslHook(payload = {}, options = {}) {
   }
 
   if (event === 'PostToolUse') {
+    const toolName = String(payload?.tool_name || payload?.toolName || '').trim();
+    if (toolName && !isMutatingOrExecRslTool(toolName)) {
+      return {
+        exitCode: 0,
+        stdoutJson: {},
+        event,
+        skippedReason: 'read_only_tool'
+      };
+    }
+    if (isDuplicateRslStepEvent(payload, { ...options, platform: 'claude' })) {
+      return {
+        exitCode: 0,
+        stdoutJson: {},
+        event,
+        deduplicated: true
+      };
+    }
     const recorded = recordStepOutcome(payload, { ...options, platform: 'claude' });
     return {
       exitCode: 0,
@@ -257,7 +277,7 @@ export function syncClaudeWorkspaceRslHooks(workspaceRoot, options = {}) {
       prevHooks[evName] = cleaned;
     };
     mergeEvent('SessionStart', 'startup|resume|clear|compact|fork', 'SessionStart');
-    mergeEvent('PostToolUse', 'Bash|PowerShell|Edit|MultiEdit|Write|Read|Grep|Glob', 'PostToolUse');
+    mergeEvent('PostToolUse', RSL_CLAUDE_POST_TOOL_MATCHER, 'PostToolUse');
     mergeEvent('Stop', null, 'Stop');
     mergeEvent('SessionEnd', null, 'SessionEnd');
   }

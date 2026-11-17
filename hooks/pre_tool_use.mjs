@@ -1,27 +1,46 @@
 #!/usr/bin/env node
+/**
+ * @file hooks/pre_tool_use.mjs
+ * Thin Fast-Shell for root `hooks.json` `PreToolUse`.
+ */
+
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { runStrictPreToolUse } from '../src/hooks/portfolio_runtime.mjs';
-import { readStdinSafe } from '../src/hooks/post_invocation.mjs';
 import {
-  parseControlFile,
-  serializeControlFile,
-  evaluateToolBoundaryLatch,
-  waitForSuspensionResume
-} from '../src/core-isomorphic/control/index.mjs';
-import { MicroIpcClient } from '../src/engine-node/ipc/client.mjs';
+  tryFastDaemonRpc,
+  canFastAllowBoundedRead,
+  readStdinFast
+} from '../src/hooks/fast_hook_ipc.mjs';
 
-async function checkControlLatchDirectOrIpc(input) {
+async function evaluateControlLatchOrFastIpc(input) {
   const sessionId = input?.sessionId || input?.session_id || 'default';
   const homeDir = process.env.USERPROFILE || process.env.HOME || os.homedir();
   const ctlPath = path.join(homeDir, '.ctxtop', 'runtime', `${sessionId}.ctl`);
   const hasCtlFile = fs.existsSync(ctlPath);
 
   if (!hasCtlFile && !input?.forceIpcCheck) {
-    return { decision: 'allow' };
+    if (process.env.CTXTOP_IPC_PATH) {
+      const ipcRes = await tryFastDaemonRpc('hook.antigravity.strictPreToolUse', { input });
+      if (ipcRes && ipcRes.fullVerdict === true && ipcRes.safeOut) {
+        return { fastHandled: true, safeOut: ipcRes.safeOut };
+      }
+    }
+    if (canFastAllowBoundedRead(input, { platform: 'antigravity' })) {
+      return { fastHandled: true, safeOut: { decision: 'allow' } };
+    }
+    return { fastHandled: false };
   }
 
+  const fastVerdict = await tryFastDaemonRpc('hook.antigravity.strictPreToolUse', { input });
+  if (fastVerdict && fastVerdict.fullVerdict === true && fastVerdict.safeOut) {
+    return { fastHandled: true, safeOut: fastVerdict.safeOut };
+  }
+
+  const [{ MicroIpcClient }, controlMod] = await Promise.all([
+    import('../src/engine-node/ipc/client.mjs'),
+    import('../src/core-isomorphic/control/index.mjs')
+  ]);
   const ipcClient = new MicroIpcClient({ connectTimeoutMs: 10, requestTimeoutMs: 600000 });
   try {
     const verdict = await ipcClient.call(
@@ -30,68 +49,79 @@ async function checkControlLatchDirectOrIpc(input) {
       { connectTimeoutMs: 10, requestTimeoutMs: 600000 }
     );
     if (verdict && verdict.decision) {
-      return verdict;
+      if (verdict.decision === 'deny' || verdict.decision === 'block') {
+        return {
+          fastHandled: true,
+          safeOut: { decision: 'deny', reason: verdict.reason || 'Execution halted by control latch' }
+        };
+      }
+      return { fastHandled: false };
     }
   } catch (_ipcErr) {
     void _ipcErr;
   }
 
-  if (!hasCtlFile) {
-    return { decision: 'allow' };
+  if (hasCtlFile) {
+    try {
+      const raw = fs.readFileSync(ctlPath, 'utf8');
+      const state = controlMod.parseControlFile(raw, sessionId);
+      const latch = controlMod.evaluateToolBoundaryLatch(state);
+
+      if (latch.decision === 'deny' || latch.decision === 'block') {
+        return {
+          fastHandled: true,
+          safeOut: { decision: 'deny', reason: latch.reason || 'Execution halted by control latch' }
+        };
+      }
+
+      if (latch.decision === 'suspend') {
+        const resume = await controlMod.waitForSuspensionResume({
+          checkControlStateFn: () => {
+            if (!fs.existsSync(ctlPath)) return { state: 'RUNNING' };
+            return controlMod.parseControlFile(fs.readFileSync(ctlPath, 'utf8'), sessionId);
+          },
+          pollIntervalMs: 50,
+          timeoutMs: 600000
+        });
+        if (resume && (resume.decision === 'deny' || resume.decision === 'block')) {
+          return {
+            fastHandled: true,
+            safeOut: { decision: 'deny', reason: resume.reason || 'Execution halted by control latch' }
+          };
+        }
+      }
+
+      if (latch.decision === 'allow' && latch.consumeStep) {
+        const next = { ...state, state: 'PAUSED', stepRemaining: 0, updatedAt: Date.now() };
+        fs.writeFileSync(ctlPath, controlMod.serializeControlFile(next), 'utf8');
+      }
+    } catch (_err) {
+      void _err;
+    }
   }
 
-  try {
-    const raw = fs.readFileSync(ctlPath, 'utf8');
-    const state = parseControlFile(raw, sessionId);
-    const latch = evaluateToolBoundaryLatch(state);
-
-    if (latch.decision === 'deny') {
-      return latch;
-    }
-
-    if (latch.decision === 'suspend') {
-      // Non-spinning wait loop checking .ctl file
-      const resume = await waitForSuspensionResume({
-        checkControlStateFn: () => {
-          if (!fs.existsSync(ctlPath)) return { state: 'RUNNING' };
-          return parseControlFile(fs.readFileSync(ctlPath, 'utf8'), sessionId);
-        },
-        pollIntervalMs: 50,
-        timeoutMs: 600000
-      });
-      return resume;
-    }
-
-    if (latch.decision === 'allow' && latch.consumeStep) {
-      // Transition state to PAUSED
-      const next = { ...state, state: 'PAUSED', stepRemaining: 0, updatedAt: Date.now() };
-      fs.writeFileSync(ctlPath, serializeControlFile(next), 'utf8');
-    }
-
-    return latch;
-  } catch (_err) {
-    void _err;
-    return { decision: 'allow' };
-  }
+  return { fastHandled: false };
 }
 
-readStdinSafe({ maxTimeoutMs: 250, settleMs: 2 })
+readStdinFast({ maxTimeoutMs: 250, settleMs: 2 })
   .then(async (input) => {
-    const controlVerdict = await checkControlLatchDirectOrIpc(input);
-    if (controlVerdict && (controlVerdict.decision === 'deny' || controlVerdict.decision === 'block')) {
-      return { decision: 'deny', reason: controlVerdict.reason || 'Execution halted by control latch' };
+    const preCheck = await evaluateControlLatchOrFastIpc(input);
+    if (preCheck.fastHandled) {
+      return preCheck.safeOut;
     }
-    return runStrictPreToolUse(input);
-  })
-  .then((out) => {
-    const safe = out && ['allow', 'ask', 'deny'].includes(out.decision)
-      ? (out.reason ? { decision: out.decision, reason: String(out.reason) } : { decision: out.decision })
+    const { runStrictPreToolUse } = await import('../src/hooks/portfolio_runtime.mjs');
+    const out = await runStrictPreToolUse(input);
+    return out && ['allow', 'ask', 'deny'].includes(out.decision)
+      ? out.reason
+        ? { decision: out.decision, reason: String(out.reason) }
+        : { decision: out.decision }
       : { decision: 'allow' };
+  })
+  .then((safe) => {
     process.stdout.write(JSON.stringify(safe) + '\n');
     process.exit(0);
   })
-  .catch((err) => {
-    void err;
+  .catch(() => {
     process.stdout.write('{"decision":"allow"}\n');
     process.exit(0);
   });

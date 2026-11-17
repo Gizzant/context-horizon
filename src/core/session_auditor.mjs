@@ -50,7 +50,8 @@ function listClaudeJsonlFiles(claudeRoot, cutoffMs) {
     let entries = [];
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
+    } catch (err) {
+      void err;
       return;
     }
     for (const ent of entries) {
@@ -65,13 +66,91 @@ function listClaudeJsonlFiles(claudeRoot, cutoffMs) {
           if (st.mtimeMs >= cutoffMs) {
             results.push({ path: full, mtimeMs: st.mtimeMs, sessionId: path.basename(ent.name, '.jsonl') });
           }
-        } catch {
-          // Ignore unreadable file
+        } catch (err) {
+          void err;
         }
       }
     }
   };
   walk(claudeRoot, 0);
+  return results.sort((a, b) => b.mtimeMs - a.mtimeMs);
+}
+
+function listCodexJsonlFiles(codexRoot, cutoffMs) {
+  return listClaudeJsonlFiles(codexRoot, cutoffMs);
+}
+
+function listCursorTranscriptFiles(cursorRoot, cutoffMs) {
+  const results = [];
+  if (!cursorRoot || !fs.existsSync(cursorRoot)) return results;
+  const walk = (dir, depth = 0) => {
+    if (depth > 5) return;
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (err) {
+      void err;
+      return;
+    }
+    for (const ent of entries) {
+      if (ent.name === 'node_modules' || ent.name === '.git' || ent.name === 'airlock') continue;
+      const full = path.join(dir, ent.name);
+      if (isForbiddenSkuPath(full)) continue;
+      if (ent.isDirectory()) {
+        walk(full, depth + 1);
+      } else if (ent.isFile() && ent.name.endsWith('.jsonl') && dir.toLowerCase().includes('transcript')) {
+        try {
+          const st = fs.statSync(full);
+          if (st.mtimeMs >= cutoffMs) {
+            results.push({ path: full, mtimeMs: st.mtimeMs, sessionId: path.basename(ent.name, '.jsonl') });
+          }
+        } catch (err) {
+          void err;
+        }
+      }
+    }
+  };
+  walk(cursorRoot, 0);
+  return results.sort((a, b) => b.mtimeMs - a.mtimeMs);
+}
+
+function listGeminiSessionJsonFiles(geminiTmpRoot, cutoffMs) {
+  const results = [];
+  if (!geminiTmpRoot || !fs.existsSync(geminiTmpRoot)) return results;
+  const walk = (dir, depth = 0) => {
+    if (depth > 5) return;
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (err) {
+      void err;
+      return;
+    }
+    for (const ent of entries) {
+      if (ent.name === 'oauth_creds.json' || ent.name === 'node_modules' || ent.name === '.git' || ent.name === 'airlock') {
+        continue;
+      }
+      const full = path.join(dir, ent.name);
+      if (isForbiddenSkuPath(full)) continue;
+      if (ent.isDirectory()) {
+        walk(full, depth + 1);
+      } else if (
+        ent.isFile() &&
+        /^session-.*\.json$/i.test(ent.name) &&
+        path.basename(dir).toLowerCase() === 'chats'
+      ) {
+        try {
+          const st = fs.statSync(full);
+          if (st.mtimeMs >= cutoffMs) {
+            results.push({ path: full, mtimeMs: st.mtimeMs, sessionId: path.basename(ent.name, '.json') });
+          }
+        } catch (err) {
+          void err;
+        }
+      }
+    }
+  };
+  walk(geminiTmpRoot, 0);
   return results.sort((a, b) => b.mtimeMs - a.mtimeMs);
 }
 
@@ -83,7 +162,8 @@ function listAntigravityTranscriptFiles(brainDirs, cutoffMs) {
     let convDirs = [];
     try {
       convDirs = fs.readdirSync(brainRoot, { withFileTypes: true }).filter((d) => d.isDirectory());
-    } catch {
+    } catch (err) {
+      void err;
       continue;
     }
     for (const d of convDirs) {
@@ -104,8 +184,8 @@ function listAntigravityTranscriptFiles(brainDirs, cutoffMs) {
             sessionId: d.name
           });
         }
-      } catch {
-        // Ignore unreadable transcript
+      } catch (err) {
+        void err;
       }
     }
   }
@@ -144,7 +224,8 @@ export function scoreClaudeTranscriptFile(item) {
     let row;
     try {
       row = JSON.parse(line);
-    } catch {
+    } catch (parseErr) {
+      void parseErr;
       continue;
     }
     if (!row || typeof row !== 'object') continue;
@@ -374,7 +455,8 @@ export function scoreAntigravityTranscriptFile(item) {
     let step;
     try {
       step = JSON.parse(line);
-    } catch {
+    } catch (parseErr) {
+      void parseErr;
       continue;
     }
     if (!step || typeof step !== 'object') continue;
@@ -525,21 +607,351 @@ export function scoreAntigravityTranscriptFile(item) {
   };
 }
 
+function scoreGenericJsonlEvents(item, platformName, defaultModelId) {
+  const lines = fs.readFileSync(item.path, 'utf8').split(/\r?\n/).filter(Boolean);
+  let turnIndex = 0;
+  let lastTurnTsMs = 0;
+  let consecutiveErrors = 0;
+  let thrashLoops = 0;
+  let coldCacheSpikes = 0;
+  let oversizedReads = 0;
+  let oversizedOutputs = 0;
+  let sludgeTaxTokens = 0;
+  let sludgeTaxUSD = 0;
+  let totalPromptTokens = 0;
+  let cumulativeContextTokens = 0;
+  let activeModelId = defaultModelId;
+  const callById = new Map();
+  const offendingTurns = [];
+
+  for (const line of lines) {
+    let row;
+    try {
+      row = JSON.parse(line);
+    } catch (parseErr) {
+      void parseErr;
+      continue;
+    }
+    if (!row || typeof row !== 'object') continue;
+    const tsMs = parseIsoOrNumMs(row.timestamp || row.created_at || row.createdAt);
+    const payload = row.payload && typeof row.payload === 'object' ? row.payload : row;
+    const rawModel = payload.model || row.model || payload.info?.model;
+    if (rawModel) {
+      activeModelId = normalizeModelKey(rawModel) || activeModelId;
+    }
+
+    const rowType = String(row.type || payload.type || '').toLowerCase();
+    const role = String(payload.role || row.role || '').toLowerCase();
+
+    if (rowType === 'token_count' && payload.info?.total_token_usage) {
+      const u = payload.info.total_token_usage;
+      const inTok = Number(u.input_tokens || 0) + Number(u.cached_input_tokens || 0);
+      if (inTok > cumulativeContextTokens) {
+        cumulativeContextTokens = inTok;
+        totalPromptTokens += inTok;
+      }
+      continue;
+    }
+
+    if (role === 'assistant' || rowType === 'assistant' || rowType === 'agent_message' || rowType === 'turn_started') {
+      turnIndex += 1;
+      const u = payload.usage || row.usage || {};
+      const stepIn = Number(u.input_tokens || 0) + Number(u.cache_read_input_tokens || 0) + Number(u.cache_creation_input_tokens || 0);
+      if (stepIn > 0) {
+        totalPromptTokens += stepIn;
+        cumulativeContextTokens = Math.max(cumulativeContextTokens, stepIn);
+      }
+      if (lastTurnTsMs > 0 && tsMs > 0 && tsMs - lastTurnTsMs > COLD_CACHE_IDLE_GAP_MS && cumulativeContextTokens >= 15_000) {
+        coldCacheSpikes += 1;
+        const usd = estimateSludgeCostUSD(activeModelId, cumulativeContextTokens, tsMs, true);
+        sludgeTaxTokens += cumulativeContextTokens;
+        sludgeTaxUSD += usd;
+        offendingTurns.push({
+          sessionId: item.sessionId,
+          platform: platformName,
+          turnIndex,
+          modelId: activeModelId,
+          category: 'COLD_CACHE_SPIKE',
+          wastedTokens: cumulativeContextTokens,
+          wastedUSD: usd,
+          citation: `${item.sessionId}#T${turnIndex} (${Math.round((tsMs - lastTurnTsMs) / 60000)}m idle gap on ~${cumulativeContextTokens.toLocaleString('en-US')}-tok context)`,
+          fix: 'Compact or save a handoff checkpoint before >5m idle pauses to avoid cold-prefix rebuilds.'
+        });
+      }
+      if (tsMs > 0) lastTurnTsMs = tsMs;
+    }
+
+    if (rowType === 'function_call' || rowType === 'tool_use') {
+      const cid = payload.call_id || payload.id || '';
+      const cname = String(payload.name || payload.tool_name || '');
+      let cargs = payload.arguments ?? payload.input ?? {};
+      if (typeof cargs === 'string') {
+        try {
+          cargs = JSON.parse(cargs);
+        } catch (argErr) {
+          void argErr;
+          cargs = {};
+        }
+      }
+      if (cid) callById.set(cid, { name: cname, args: cargs, turnIndex: Math.max(1, turnIndex) });
+      continue;
+    }
+
+    if (rowType === 'function_call_output' || rowType === 'tool_result' || role === 'tool') {
+      const cid = payload.call_id || payload.tool_use_id || '';
+      const linked = cid ? callById.get(cid) : null;
+      const toolName = String(linked?.name || payload.name || payload.tool_name || '');
+      const toolArgs = linked?.args || {};
+      const tIdx = linked?.turnIndex || Math.max(1, turnIndex);
+      const outputText = typeof payload.output === 'string'
+        ? payload.output
+        : typeof payload.content === 'string'
+          ? payload.content
+          : JSON.stringify(payload.output ?? payload.content ?? '');
+      const contentTok = Math.ceil(outputText.length / 4);
+      cumulativeContextTokens += contentTok;
+      totalPromptTokens += contentTok;
+
+      const failed = Boolean(payload.is_error || payload.error || /Exit code:\s*[1-9]|Command exited with code [1-9]/i.test(outputText));
+      if (failed) {
+        consecutiveErrors += 1;
+        if (consecutiveErrors === 3) {
+          thrashLoops += 1;
+          const thrashTok = 6_000;
+          const usd = estimateSludgeCostUSD(activeModelId, thrashTok, tsMs, false);
+          sludgeTaxTokens += thrashTok;
+          sludgeTaxUSD += usd;
+          offendingTurns.push({
+            sessionId: item.sessionId,
+            platform: platformName,
+            turnIndex: tIdx,
+            modelId: activeModelId,
+            category: 'THRASH_3X_LOOP',
+            wastedTokens: thrashTok,
+            wastedUSD: usd,
+            citation: `${item.sessionId}#T${tIdx} (3 consecutive ${toolName || 'tool'} failures)`,
+            fix: 'Inspect the failing assertion digest via Highbeam MCP or FTS5 search before retrying.'
+          });
+        }
+      } else {
+        consecutiveErrors = 0;
+      }
+
+      const isRead = /^(?:read_file|Read|view_file|cat)$/i.test(toolName);
+      const hasBounds = toolArgs.offset !== undefined || toolArgs.limit !== undefined || toolArgs.StartLine !== undefined || toolArgs.EndLine !== undefined;
+      if (isRead && !hasBounds && outputText.length >= OVERSIZED_READ_CHARS_THRESHOLD) {
+        oversizedReads += 1;
+        const estTok = Math.max(0, contentTok - 600);
+        const usd = estimateSludgeCostUSD(activeModelId, estTok, tsMs, false);
+        sludgeTaxTokens += estTok;
+        sludgeTaxUSD += usd;
+        offendingTurns.push({
+          sessionId: item.sessionId,
+          platform: platformName,
+          turnIndex: tIdx,
+          modelId: activeModelId,
+          category: 'UNSLICED_LARGE_READ',
+          wastedTokens: estTok,
+          wastedUSD: usd,
+          citation: `${item.sessionId}#T${tIdx} (un-sliced read of ${path.basename(String(toolArgs.file_path || toolArgs.path || 'file'))}, ~${estTok.toLocaleString('en-US')} excess tok)`,
+          fix: 'Read bounded line ranges (<=150 lines) instead of full large files.'
+        });
+      } else if (!isRead && outputText.length >= OVERSIZED_TOOL_OUTPUT_CHARS_THRESHOLD) {
+        oversizedOutputs += 1;
+        const estTok = Math.max(0, contentTok - 350);
+        const usd = estimateSludgeCostUSD(activeModelId, estTok, tsMs, false);
+        sludgeTaxTokens += estTok;
+        sludgeTaxUSD += usd;
+        offendingTurns.push({
+          sessionId: item.sessionId,
+          platform: platformName,
+          turnIndex: tIdx,
+          modelId: activeModelId,
+          category: 'OVERSIZED_TOOL_DUMP',
+          wastedTokens: estTok,
+          wastedUSD: usd,
+          citation: `${item.sessionId}#T${tIdx} (${toolName || 'CLI'} dumped ~${contentTok.toLocaleString('en-US')} raw tok)`,
+          fix: 'Compress noisy CLI dumps via Highbeam FTS5 compressor (`horizon_compress_cli`).'
+        });
+      }
+    }
+  }
+
+  return {
+    sessionId: item.sessionId,
+    platform: platformName,
+    transcriptPath: item.path,
+    turns: turnIndex,
+    totalPromptTokens,
+    sludgeTaxTokens,
+    sludgeTaxUSD: Number(sludgeTaxUSD.toFixed(4)),
+    coldCacheSpikes,
+    thrashLoops,
+    oversizedReads,
+    oversizedOutputs,
+    offendingTurns
+  };
+}
+
+export function scoreCodexTranscriptFile(item) {
+  return scoreGenericJsonlEvents(item, 'codex', 'claude-sonnet-4-6');
+}
+
+export function scoreCursorTranscriptFile(item) {
+  return scoreGenericJsonlEvents(item, 'cursor', 'claude-sonnet-4-6');
+}
+
 /**
- * Runs a zero-write cross-platform audit across historical Antigravity and Claude Code sessions.
+ * Audits a single Gemini CLI `~/.gemini/tmp/<hash>/chats/session-*.json` transcript read-only.
+ */
+export function scoreGeminiSessionFile(item) {
+  const raw = JSON.parse(fs.readFileSync(item.path, 'utf8'));
+  const messages = Array.isArray(raw?.messages) ? raw.messages : [];
+  let turnIndex = 0;
+  let lastTsMs = 0;
+  let consecutiveErrors = 0;
+  let thrashLoops = 0;
+  let coldCacheSpikes = 0;
+  let oversizedReads = 0;
+  let oversizedOutputs = 0;
+  let sludgeTaxTokens = 0;
+  let sludgeTaxUSD = 0;
+  let totalPromptTokens = 0;
+  let activeModelId = 'gemini-4-carbon';
+  const offendingTurns = [];
+
+  for (const msg of messages) {
+    if (!msg || typeof msg !== 'object') continue;
+    const tsMs = parseIsoOrNumMs(msg.timestamp || msg.createdAt);
+    if (msg.model) {
+      activeModelId = normalizeModelKey(msg.model) || activeModelId;
+    }
+    const msgType = String(msg.type || '').toLowerCase();
+    if (msgType === 'gemini' || msgType === 'model') {
+      turnIndex += 1;
+      const inTok = Number(msg.tokens?.input || 0);
+      totalPromptTokens += inTok;
+      if (lastTsMs > 0 && tsMs > 0 && tsMs - lastTsMs > COLD_CACHE_IDLE_GAP_MS && inTok >= 15_000) {
+        coldCacheSpikes += 1;
+        const usd = estimateSludgeCostUSD(activeModelId, inTok, tsMs, true);
+        sludgeTaxTokens += inTok;
+        sludgeTaxUSD += usd;
+        offendingTurns.push({
+          sessionId: item.sessionId,
+          platform: 'gemini',
+          turnIndex,
+          modelId: activeModelId,
+          category: 'COLD_CACHE_SPIKE',
+          wastedTokens: inTok,
+          wastedUSD: usd,
+          citation: `${item.sessionId}#T${turnIndex} (${Math.round((tsMs - lastTsMs) / 60000)}m idle gap on ~${inTok.toLocaleString('en-US')}-tok context)`,
+          fix: 'Compact or save checkpoint before >5m pauses to preserve warm KV prefix.'
+        });
+      }
+      if (tsMs > 0) lastTsMs = tsMs;
+    }
+
+    const toolCalls = Array.isArray(msg.toolCalls) ? msg.toolCalls : [];
+    for (const tc of toolCalls) {
+      const toolName = String(tc.name || '');
+      const toolArgs = tc.args && typeof tc.args === 'object' ? tc.args : {};
+      const outStr = typeof tc.result === 'string'
+        ? tc.result
+        : Array.isArray(tc.result)
+          ? tc.result.map((r) => (typeof r === 'string' ? r : JSON.stringify(r))).join('\n')
+          : JSON.stringify(tc.result ?? '');
+      const tok = Math.ceil(outStr.length / 4);
+      const isErr = String(tc.status || '').toLowerCase() === 'error';
+      if (isErr) {
+        consecutiveErrors += 1;
+        if (consecutiveErrors === 3) {
+          thrashLoops += 1;
+          const thrashTok = 6_000;
+          const usd = estimateSludgeCostUSD(activeModelId, thrashTok, tsMs, false);
+          sludgeTaxTokens += thrashTok;
+          sludgeTaxUSD += usd;
+          offendingTurns.push({
+            sessionId: item.sessionId,
+            platform: 'gemini',
+            turnIndex: Math.max(1, turnIndex),
+            modelId: activeModelId,
+            category: 'THRASH_3X_LOOP',
+            wastedTokens: thrashTok,
+            wastedUSD: usd,
+            citation: `${item.sessionId}#T${Math.max(1, turnIndex)} (3 consecutive ${toolName || 'tool'} failures)`,
+            fix: 'Pause retries and inspect root cause via FTS5 search.'
+          });
+        }
+      } else {
+        consecutiveErrors = 0;
+      }
+
+      const isRead = /^(?:read_file|Read|view_file)$/i.test(toolName);
+      const hasSlice = toolArgs.offset !== undefined || toolArgs.limit !== undefined || toolArgs.StartLine !== undefined;
+      if (isRead && !hasSlice && outStr.length >= OVERSIZED_READ_CHARS_THRESHOLD) {
+        oversizedReads += 1;
+        const estTok = Math.max(0, tok - 600);
+        const usd = estimateSludgeCostUSD(activeModelId, estTok, tsMs, false);
+        sludgeTaxTokens += estTok;
+        sludgeTaxUSD += usd;
+        offendingTurns.push({
+          sessionId: item.sessionId,
+          platform: 'gemini',
+          turnIndex: Math.max(1, turnIndex),
+          modelId: activeModelId,
+          category: 'UNSLICED_LARGE_READ',
+          wastedTokens: estTok,
+          wastedUSD: usd,
+          citation: `${item.sessionId}#T${Math.max(1, turnIndex)} (un-sliced read, ~${estTok.toLocaleString('en-US')} excess tok)`,
+          fix: 'Use bounded line offsets on large source files.'
+        });
+      } else if (!isRead && outStr.length >= OVERSIZED_TOOL_OUTPUT_CHARS_THRESHOLD) {
+        oversizedOutputs += 1;
+        const estTok = Math.max(0, tok - 350);
+        const usd = estimateSludgeCostUSD(activeModelId, estTok, tsMs, false);
+        sludgeTaxTokens += estTok;
+        sludgeTaxUSD += usd;
+        offendingTurns.push({
+          sessionId: item.sessionId,
+          platform: 'gemini',
+          turnIndex: Math.max(1, turnIndex),
+          modelId: activeModelId,
+          category: 'OVERSIZED_TOOL_DUMP',
+          wastedTokens: estTok,
+          wastedUSD: usd,
+          citation: `${item.sessionId}#T${Math.max(1, turnIndex)} (${toolName || 'shell'} dumped ~${tok.toLocaleString('en-US')} raw tok)`,
+          fix: 'Enable Highbeam MCP output compression (`horizon_compress_cli`).'
+        });
+      }
+    }
+  }
+
+  return {
+    sessionId: item.sessionId,
+    platform: 'gemini',
+    transcriptPath: item.path,
+    turns: turnIndex,
+    totalPromptTokens,
+    sludgeTaxTokens,
+    sludgeTaxUSD: Number(sludgeTaxUSD.toFixed(4)),
+    coldCacheSpikes,
+    thrashLoops,
+    oversizedReads,
+    oversizedOutputs,
+    offendingTurns
+  };
+}
+
+/**
+ * Runs a zero-write cross-platform audit across historical Antigravity, Claude Code, Codex CLI,
+ * Gemini CLI, and Cursor sessions.
  *
  * @param {object} [options={}]
- * @param {'all' | 'antigravity' | 'claude'} [options.platform='all']
- * @param {number} [options.days=7]
- * @param {number} [options.limit=10]
- * @param {string} [options.cwd]
- * @param {string} [options.homeDir]
- * @param {string[]} [options.antigravityDirs]
- * @param {string} [options.claudeProjectsDir]
- * @param {number} [options.nowMs]
+ * @param {'all' | 'antigravity' | 'claude' | 'codex' | 'gemini' | 'cursor'} [options.platform='all']
  */
 export function runSessionAudit(options = {}) {
-  const platform = String(options.platform || 'all').toLowerCase();
+  const rawPlatform = String(options.platform || 'all').toLowerCase();
+  const platform = rawPlatform === 'gemini-cli' ? 'gemini' : rawPlatform;
   const days = Math.max(1, Number(options.days) || 7);
   const limit = Math.max(1, Number(options.limit) || 10);
   const nowMs = Number(options.nowMs) || Date.now();
@@ -549,6 +961,9 @@ export function runSessionAudit(options = {}) {
 
   const includeAg = platform === 'all' || platform === 'antigravity';
   const includeClaude = platform === 'all' || platform === 'claude';
+  const includeCodex = platform === 'all' || platform === 'codex';
+  const includeGemini = platform === 'all' || platform === 'gemini';
+  const includeCursor = platform === 'all' || platform === 'cursor';
 
   const agDirs = Array.isArray(options.antigravityDirs)
     ? options.antigravityDirs
@@ -558,6 +973,12 @@ export function runSessionAudit(options = {}) {
       ];
   const claudeDir =
     options.claudeProjectsDir || path.join(home, '.claude', 'projects');
+  const codexDir =
+    options.codexSessionsDir || path.join(home, '.codex', 'sessions');
+  const geminiTmpDir =
+    options.geminiTmpDir || path.join(home, '.gemini', 'tmp');
+  const cursorDir =
+    options.cursorProjectsDir || path.join(home, '.cursor', 'projects');
 
   const candidates = [];
   if (includeAg) {
@@ -570,12 +991,28 @@ export function runSessionAudit(options = {}) {
       candidates.push({ ...f, platform: 'claude' });
     }
   }
+  if (includeCodex) {
+    for (const f of listCodexJsonlFiles(codexDir, cutoffMs)) {
+      candidates.push({ ...f, platform: 'codex' });
+    }
+  }
+  if (includeGemini) {
+    for (const f of listGeminiSessionJsonFiles(geminiTmpDir, cutoffMs)) {
+      candidates.push({ ...f, platform: 'gemini' });
+    }
+  }
+  if (includeCursor) {
+    for (const f of listCursorTranscriptFiles(cursorDir, cutoffMs)) {
+      candidates.push({ ...f, platform: 'cursor' });
+    }
+  }
 
   candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
   const selected = candidates.slice(0, limit);
 
   const sessions = [];
   const allOffendingTurns = [];
+  const platformsBreakdown = { antigravity: 0, claude: 0, codex: 0, gemini: 0, cursor: 0 };
   let totalSludgeTokens = 0;
   let totalSludgeUSD = 0;
   let totalColdCacheSpikes = 0;
@@ -585,11 +1022,20 @@ export function runSessionAudit(options = {}) {
 
   for (const item of selected) {
     try {
-      const scored =
-        item.platform === 'claude'
-          ? scoreClaudeTranscriptFile(item)
-          : scoreAntigravityTranscriptFile(item);
+      let scored;
+      if (item.platform === 'claude') {
+        scored = scoreClaudeTranscriptFile(item);
+      } else if (item.platform === 'codex') {
+        scored = scoreCodexTranscriptFile(item);
+      } else if (item.platform === 'gemini') {
+        scored = scoreGeminiSessionFile(item);
+      } else if (item.platform === 'cursor') {
+        scored = scoreCursorTranscriptFile(item);
+      } else {
+        scored = scoreAntigravityTranscriptFile(item);
+      }
       sessions.push(scored);
+      platformsBreakdown[item.platform] = (platformsBreakdown[item.platform] || 0) + 1;
       totalSludgeTokens += scored.sludgeTaxTokens;
       totalSludgeUSD += scored.sludgeTaxUSD;
       totalColdCacheSpikes += scored.coldCacheSpikes;
@@ -597,8 +1043,8 @@ export function runSessionAudit(options = {}) {
       totalOversizedReads += scored.oversizedReads;
       totalOversizedOutputs += scored.oversizedOutputs;
       allOffendingTurns.push(...scored.offendingTurns);
-    } catch {
-      // Skip unreadable transcript cleanly
+    } catch (err) {
+      void err;
     }
   }
 
@@ -616,6 +1062,7 @@ export function runSessionAudit(options = {}) {
     days,
     limit,
     sessionsScanned: sessions.length,
+    platformsBreakdown,
     sludgeTaxTokens: totalSludgeTokens,
     sludgeTaxUSD: Number(totalSludgeUSD.toFixed(2)),
     coldCacheSpikes: totalColdCacheSpikes,
@@ -636,8 +1083,12 @@ export function runSessionAudit(options = {}) {
  * @returns {string}
  */
 export function formatSessionAuditReport(res) {
+  const activePlatforms = Object.entries(res.platformsBreakdown || {})
+    .filter(([, count]) => count > 0)
+    .map(([name, count]) => `${name}=${count}`)
+    .join(', ');
   const lines = [
-    `[Highbeam Session ROI Audit] Window: ${res.days}d | Platform: ${res.platform} | Sessions: ${res.sessionsScanned}`,
+    `[Highbeam Session ROI Audit] Window: ${res.days}d | Platform: ${res.platform} | Sessions: ${res.sessionsScanned}${activePlatforms ? ` (${activePlatforms})` : ''}`,
     `  Sludge Tax Preventable : ${res.sludgeTaxTokens.toLocaleString('en-US')} tok ($${res.sludgeTaxUSD.toFixed(2)} USD)`,
     `  Cold-Cache Spikes (>5m): ${res.coldCacheSpikes} | 3x Thrash Loops: ${res.thrashLoops}`,
     `  Un-Sliced Large Reads  : ${res.oversizedReads} | Oversized Tool Dumps: ${res.oversizedOutputs}`,

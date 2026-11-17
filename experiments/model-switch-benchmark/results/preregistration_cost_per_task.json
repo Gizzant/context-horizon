@@ -1,0 +1,1055 @@
+{
+  "schemaVersion": "cost_per_task_prereg_v1",
+  "preregisteredAtUtc": "2026-11-16T21:25:42.025Z",
+  "preregisteredAtLocal": "2026-11-16T16:25:42-05:00",
+  "environment": {
+    "claudeCodeVersion": "2.1.325",
+    "route": "OpenRouter (/api/v1/messages), provider.only=[\"anthropic\"], allow_fallbacks=false",
+    "effort": "medium",
+    "autoMemory": "disabled (CLAUDE_CODE_DISABLE_AUTO_MEMORY=1, autoMemoryEnabled=false)",
+    "hooks": "{} (Highbeam disabled on wire; shadow runPreModelSwitchHook() evaluated offline on SWITCH)",
+    "toolsPinned": "Read,Edit,Write,Bash,Grep,Glob",
+    "turnProtocolOptionA": {
+      "turn1Mode": "plan (--permission-mode plan --allow-dangerously-skip-permissions --permission-prompts none)",
+      "turn2PlusMode": "bypassPermissions (via SDK control_request set_permission_mode)",
+      "switchAction": "SDK control_request set_model -> claude-sonnet-5-5 between Turn 1 and Turn 2 on 100% of SWITCH runs",
+      "shadowEvaluationNote": "runPreModelSwitchHook() evaluated offline at switch point and labeled \"computed offline; not shown to the model\""
+    }
+  },
+  "pricingConfirmedDayOfRun": {
+    "anthropic/claude-opus-5.5": {
+      "inputPer1M": 4,
+      "outputPer1M": 20,
+      "writePer1M": 5,
+      "readPer1M": 0.2,
+      "contextLength": 1000000
+    },
+    "anthropic/claude-sonnet-5.5": {
+      "inputPer1M": 2,
+      "outputPer1M": 10,
+      "writePer1M": 2.5,
+      "readPer1M": 0.1,
+      "contextLength": 1000000
+    }
+  },
+  "arms": {
+    "OPUS": "claude-opus-5-5 for Turn 1 (plan) and Turns 2..5 (implement + retries)",
+    "SONNET": "claude-sonnet-5-5 for Turn 1 (plan) and Turns 2..5 (implement + retries)",
+    "SWITCH": "claude-opus-5-5 for Turn 1 (plan), then set_model -> claude-sonnet-5-5 for Turns 2..5 (implement + retries)"
+  },
+  "caps": {
+    "maxRetries": 3,
+    "maxHarnessTurns": 5,
+    "maxRequestsPerTurn": 30,
+    "maxRequestsPerRun": 100,
+    "runCostCapUsd": 3,
+    "capPolicy": "Any run stopped by a cap counts as completed=no with cost_at_completion_usd blank and cap_reason recorded; its total_billed_usd counts in arm spend / completions."
+  },
+  "cacheIsolationMethod": {
+    "verifiedAtZeroSpend": true,
+    "phase0Finding": "tools + system[0..prefix] with cache_control precede --append-system-prompt; MUST enforce >=365s per-model idle cooldown in addition to per-run salt",
+    "enforcedMethod": "Per-run --append-system-prompt salt PLUS >= 365s same-model idle cooldown between consecutive requests on the same upstream model, verified via request[0].cache_read_input_tokens === 0."
+  },
+  "stage1TaskReplacementRule": "Keep pre-registered easy tasks even if all arms one-shot them in Stage 1. Replace a task with a pre-written spare (S01/S02) ONLY with user confirmation if: (a) a task fails 0/3 across every arm, (b) a spec or checker bug is found, or (c) >= 6 of the 8 tasks are one-shot in every arm.",
+  "prompts": {
+    "turn1PlanPrefix": "You are working in a read-only planning turn. Inspect the repository, read test/task_visible.test.mjs and the relevant source files, diagnose all gaps and edge cases for the task below, and produce a concise, concrete implementation plan listing exact files, functions, and changes needed. Do not edit files in this turn.",
+    "turn2ImplementPrompt": "Now implement your plan cleanly, satisfy every task requirement and constraint, preserve all existing baseline tests, and run `npm test` to verify all visible tests pass.",
+    "retryPromptHeader": "The task is not complete. These tests fail:",
+    "retryPromptFormat": "The task is not complete. These tests fail:\\n- <failing_test_names>\\n\\n<first_30_lines_of_sanitized_output>"
+  },
+  "repositoryHashes": {
+    "task_repo_template": {
+      "fileCount": 16,
+      "treeSha256": "be65e665257c71478e0a3debea6e6e7190122ec5a51dddf882867d38abb5156f",
+      "perFile": {
+        "README.md": "e65acfb1a63f807b544c5d2059d18048fa3536c9ceadacae3e2a3d73a1b814b2",
+        "package.json": "199d4b5215f28b3d51f61628b83784d52e7cd29547d3cf5632ae133778382830",
+        "src/batchIngestor.mjs": "43ecde44d15efa41f6a3556e60f63462d06ca7aac06b05b605dd1e1568cd7cb1",
+        "src/clock.mjs": "34ffa24a6a1e451f5a5d0bcc17c9a0b9086e37e87e2994de5d06087a225e2d69",
+        "src/constants.mjs": "25aec7fc36f68b3e71c495a215dafaabcf0ea2f51b52a96cd9f5812c79ea5d89",
+        "src/creditPool.mjs": "4194a3fe384ac590611ef3cdb3bb157960786ae1c440bd288ba2d981da7b3ff3",
+        "src/errors.mjs": "ffdcf392b978388c8fec1e3f9561e39270f5a12a1218704b8ded5ca488df4a42",
+        "src/frozenWire.mjs": "c86d6f4517450db0753fc721968d27af26efe17b01acba3904c99f8b21505325",
+        "src/idempotencyGuard.mjs": "11d9698a97f643069bb91d2828fc7cb517c3fcaede6b85e93d2dfd4fa7acd96e",
+        "src/invoiceBuilder.mjs": "3cb4392053459f3fd28df3038d5be83af6deae82d3e36e993138f01621f4654d",
+        "src/queryDsl.mjs": "19c331c87da6e8f3644ef90ebc206cb56e3e65e73f71bfbc7f13b2180176d46b",
+        "src/tierEngine.mjs": "1b91422145acf810b380914bd48a5c8b1274fe489ee7c06431635c9e027f2b57",
+        "test/ingestor_and_idempotency.test.mjs": "e6fa1e7db2bf0df870a8263641bf73a64bffb7c43de8c13734c204943c673fc0",
+        "test/invoice_and_wire.test.mjs": "c9d5d20bfe175c39c23a1ae7e9b14444a1aaa8bd1c2442575ec2c4f58ba29044",
+        "test/query_and_clock.test.mjs": "3315d190e76278c2ab171a1d4176d55615559568b82fb8c2fd52952319b0b285",
+        "test/tier_and_credits.test.mjs": "af55eaaaf46edeacd4c2b8638b9398ff94406f744f55aa687382ccb4b3a7512a"
+      }
+    },
+    "visible_suites": {
+      "fileCount": 10,
+      "treeSha256": "5191dc65da5e8ee8bfc3edd531c2c71c003b910f8d13242e06f811f59dd2a84b",
+      "perFile": {
+        "S01.visible.test.mjs": "42f189dcdbf8325bc2bde69f58fc377c17f7ed614f52a41faa52246a0b38aa02",
+        "S02.visible.test.mjs": "68ff61625b05dd02345b227171049b8ddba5f83ee391810dab070e12acb1c523",
+        "T01.visible.test.mjs": "784e1220cc67e2d7aa450586950dc17fc1dec6bfb0eb507e13b343ac1ec20a0b",
+        "T02.visible.test.mjs": "13d22547a7180fae6e196ce168f721afc2d1905de152cb49ebd1d1e964aff07f",
+        "T03.visible.test.mjs": "45e46edd7e704d1ccb7f3111e6645c76cc95362527a1af8033a291f2a27d0bb6",
+        "T04.visible.test.mjs": "9c0b9428cc87b05230ce947ea33e41a2e2654cf54cb747a2000a7d5631a66d6f",
+        "T05.visible.test.mjs": "7e2565b471d6ab5884dc282277b705807a9dc937c24967c57a55f660073e2a7f",
+        "T06.visible.test.mjs": "7a924e2f27b44e0adfb729aefa89d6be12bc2561814d1861c4340c9dc2d72a15",
+        "T07.visible.test.mjs": "b0f4bdc0e4f7bd64aaaeaffe52ae165cb062ab3fbaba2ea08e58babccbf9835f",
+        "T08.visible.test.mjs": "1d11f225bf004a9785abc0c0a17fb837014e6752ebbe7e534d5af1334bdf3d3a"
+      }
+    },
+    "hidden_suites": {
+      "fileCount": 10,
+      "treeSha256": "179f2d069ba98868210a97b3debb7d88f48353f3d0c2e1e10b6710606b16ded3",
+      "perFile": {
+        "S01.hidden.test.mjs": "bb1e24b2af69ffebe9b1bbc93625aa8a5d080e48c818532f1ff165221791dbd0",
+        "S02.hidden.test.mjs": "d3a2c0fb968a02d37ff6ae04cb5fc8a13bb7f35c97746a449a83fca8c1382a94",
+        "T01.hidden.test.mjs": "9292abf34e2f68d2ee230744f8db63dce326482f09291ea158404fc4663174ac",
+        "T02.hidden.test.mjs": "5202a3973a6e2ee22d10644a8fd38d2f2de37c44f84e671c5109081405d92992",
+        "T03.hidden.test.mjs": "33462e294fa0fd6bbb8bbff53908a7bcc30b6988eefff85979d2c460e45fa680",
+        "T04.hidden.test.mjs": "de321a75c7c21a0b0cbd5ca63a53479da1d44ce6772f63c1fab7f47b06a4d27b",
+        "T05.hidden.test.mjs": "08b6eeb6c6e8c9b70b5e58d1bbc20745802eafde20eeaca56f5c292880c8cf1a",
+        "T06.hidden.test.mjs": "eb0e607da757e5454ceed52fbd4782f0c0b2d48a072fad4e938bf26e76cec76f",
+        "T07.hidden.test.mjs": "da8e5f86f430f97a75827efbfb44cd00906b759e877c1ac805594ec245add6d4",
+        "T08.hidden.test.mjs": "ce0365d888e936e6893bc04c4c7e58f48cd6d4549c588e96ef855b256307faca"
+      }
+    }
+  },
+  "tasksActive": [
+    {
+      "task_id": "T01",
+      "difficulty": "easy",
+      "title": "Fix graduated tier boundary, sorting, rounding, and zero/negative units in tierEngine.mjs",
+      "target_files": [
+        "src/tierEngine.mjs"
+      ],
+      "constraints": [
+        "Do not add dependencies or devDependencies to package.json",
+        "Do not modify src/frozenWire.mjs or src/constants.mjs"
+      ],
+      "spec": "Fix `computeGraduatedCharge(units, tiers)` in `src/tierEngine.mjs`:\n1. Validate `tiers`: must be a non-empty array; every tier must have finite `unitRateCents >= 0` and either `upTo === null || upTo === Infinity` (at most one unbounded tier, sorted last) or a positive finite integer `upTo > 0`; duplicate finite `upTo` or invalid values must throw `LedgerError(ERROR_CODES.ERR_INVALID_TIERS)`.\n2. Sort tiers ascending by `upTo` (`null`/`Infinity` last) without mutating the caller `tiers` array.\n3. Validate `units`: if `!Number.isFinite(units) || units < 0`, throw `LedgerError(ERROR_CODES.ERR_NEGATIVE_UNITS)`.\n4. If `units === 0`, return `{ totalCents: 0, breakdown: [] }`.\n5. For `units > 0`, compute marginal units `bandUnits = Math.min(units, cap) - prevUpTo` (no `+1` double-counting), include only tiers with `bandUnits > 0` in `breakdown`, and compute `subtotalCents = Math.round(bandUnits * tier.unitRateCents)`.\nConstraints: (1) Zero dependencies in package.json. (2) Do not modify `src/frozenWire.mjs` or `src/constants.mjs`.",
+      "visibleSuiteSha256": "784e1220cc67e2d7aa450586950dc17fc1dec6bfb0eb507e13b343ac1ec20a0b",
+      "hiddenSuiteSha256": "9292abf34e2f68d2ee230744f8db63dce326482f09291ea158404fc4663174ac"
+    },
+    {
+      "task_id": "T02",
+      "difficulty": "easy",
+      "title": "Fix IdempotencyGuard TTL boundary, expiry-before-conflict check, and FIFO eviction",
+      "target_files": [
+        "src/idempotencyGuard.mjs"
+      ],
+      "constraints": [
+        "Do not modify src/errors.mjs or src/frozenWire.mjs",
+        "Do not add new files under src/"
+      ],
+      "spec": "Fix `IdempotencyGuard` in `src/idempotencyGuard.mjs`:\n1. Constructor must validate `Number.isFinite(ttlMs) && ttlMs > 0` (else throw `LedgerError(ERROR_CODES.ERR_INVALID_TTL)`) and `Number.isInteger(maxEntries) && maxEntries >= 1` (else throw `LedgerError(ERROR_CODES.ERR_INVALID_CONFIG)`).\n2. Validate `checkAndRecord(key, payloadHash, nowMs)`: non-empty string `key` and `payloadHash` and finite `nowMs` (else throw `LedgerError(ERROR_CODES.ERR_INVALID_EVENT)`).\n3. Expiry is inclusive (`nowMs >= entry.expiresAtMs` is expired; `nowMs < entry.expiresAtMs` is active). Check expiration BEFORE checking `payloadHash` mismatch so expired keys can be re-recorded with a new `payloadHash` as `status: \"accepted\"`.\n4. Enforce `maxEntries` with strict FIFO insertion-order eviction: prune expired entries at `nowMs` first, then if inserting a new key at capacity, evict the oldest-inserted entry. Duplicate hits must NOT refresh insertion order.\n5. `pruneExpired(nowMs)` validates finite `nowMs`, removes entries with `nowMs >= entry.expiresAtMs`, and returns the integer count removed.\nConstraints: (1) Do not modify `src/errors.mjs` or `src/frozenWire.mjs`. (2) Do not create any new files under `src/`.",
+      "visibleSuiteSha256": "13d22547a7180fae6e196ce168f721afc2d1905de152cb49ebd1d1e964aff07f",
+      "hiddenSuiteSha256": "5202a3973a6e2ee22d10644a8fd38d2f2de37c44f84e671c5109081405d92992"
+    },
+    {
+      "task_id": "T03",
+      "difficulty": "easy",
+      "title": "Fix creditPool.mjs expiry-window filtering, tie-break sorting, and non-mutation",
+      "target_files": [
+        "src/creditPool.mjs"
+      ],
+      "constraints": [
+        "No .toFixed() calls in src/creditPool.mjs",
+        "Do not modify src/frozenWire.mjs"
+      ],
+      "spec": "Fix `applyCredits(chargeCents, grants, asOfMs)` and `summarizePoolBalance(grants, asOfMs)` in `src/creditPool.mjs`:\n1. Validate `Number.isFinite(chargeCents) && chargeCents >= 0` (else throw `LedgerError(ERROR_CODES.ERR_INVALID_AMOUNT)`), finite `asOfMs`, and array `grants`.\n2. Never mutate the input `grants` array or any grant object inside it. Return `updatedGrants` as cloned objects in original array order with decremented `remainingCents`.\n3. A grant is eligible iff `grant.remainingCents > 0 && grant.effectiveFromMs <= asOfMs && asOfMs < grant.expiresAtMs`.\n4. Consume eligible grants ordered by `expiresAtMs` ascending, breaking ties by `grantId` ascending UTF-16 code-unit order (`a.grantId < b.grantId ? -1 : a.grantId > b.grantId ? 1 : 0`).\n5. When `chargeCents === 0`, return `{ appliedCents: 0, remainingChargeCents: 0, allocations: [], updatedGrants }` cleanly.\n6. Fix `summarizePoolBalance(grants, asOfMs)` to sum and count only active eligible grants at `asOfMs`.\nConstraints: (1) Do not use `.toFixed()` in `src/creditPool.mjs`. (2) Do not modify `src/frozenWire.mjs`.",
+      "visibleSuiteSha256": "45e46edd7e704d1ccb7f3111e6645c76cc95362527a1af8033a291f2a27d0bb6",
+      "hiddenSuiteSha256": "33462e294fa0fd6bbb8bbff53908a7bcc30b6988eefff85979d2c460e45fa680"
+    },
+    {
+      "task_id": "T04",
+      "difficulty": "medium",
+      "title": "Add minimumCommitCents true-up, true-up credit eligibility, and post-credit taxBps",
+      "target_files": [
+        "src/tierEngine.mjs",
+        "src/creditPool.mjs",
+        "src/invoiceBuilder.mjs"
+      ],
+      "constraints": [
+        "Do not add dependencies to package.json",
+        "Do not modify src/frozenWire.mjs or src/constants.mjs"
+      ],
+      "spec": "Extend `buildInvoice` in `src/invoiceBuilder.mjs` (and fix multi-tier graduated pricing in `src/tierEngine.mjs` plus active-window / non-mutating `applyCredits` in `src/creditPool.mjs`):\n1. Support optional `minimumCommitCents = 0`, `creditsEligibleForTrueUp = true`, and `taxBps = 0` on `buildInvoice`. Validate finite `minimumCommitCents >= 0` (else throw `LedgerError(ERROR_CODES.ERR_INVALID_AMOUNT)`) and integer/finite `0 <= taxBps <= MAX_BPS` (else throw `LedgerError(ERROR_CODES.ERR_INVALID_CONFIG)`).\n2. If `minimumCommitCents > usageSubtotalCents`, compute `trueUpCents = minimumCommitCents - usageSubtotalCents` and append line item `{ metric: \"COMMIT_TRUE_UP\", units: 1, amountCents: trueUpCents }`; otherwise `trueUpCents = 0`. Let `preCreditSubtotalCents = usageSubtotalCents + trueUpCents`.\n3. If `creditsEligibleForTrueUp === true`, credits may apply up to `preCreditSubtotalCents`; if `false`, credits cap at `usageSubtotalCents`.\n4. Compute `netAfterCreditsCents = preCreditSubtotalCents - appliedCreditsCents` and `taxCents = Math.round((netAfterCreditsCents * taxBps) / 10000)`.\n5. Set `totalDueCents = netAfterCreditsCents + taxCents`, pass `totalDueCents` to `encodeFrozenWireDigest`, and include `{ trueUpCents, preCreditSubtotalCents, netAfterCreditsCents, taxCents }` on the returned invoice.\nConstraints: (1) Zero dependencies in package.json. (2) Do not modify `src/frozenWire.mjs` or `src/constants.mjs`.",
+      "visibleSuiteSha256": "9c0b9428cc87b05230ce947ea33e41a2e2654cf54cb747a2000a7d5631a66d6f",
+      "hiddenSuiteSha256": "de321a75c7c21a0b0cbd5ca63a53479da1d44ce6772f63c1fab7f47b06a4d27b"
+    },
+    {
+      "task_id": "T05",
+      "difficulty": "medium",
+      "title": "Add IN / NOT IN filter operator in queryDsl.mjs and event grouping in invoiceBuilder.mjs",
+      "target_files": [
+        "src/queryDsl.mjs",
+        "src/tierEngine.mjs",
+        "src/invoiceBuilder.mjs"
+      ],
+      "constraints": [
+        "Zero eval() or new Function() in src/",
+        "Do not modify src/frozenWire.mjs"
+      ],
+      "spec": "Implement `IN (...)` filtering and grouped event invoicing across `src/queryDsl.mjs`, `src/tierEngine.mjs`, and `src/invoiceBuilder.mjs`:\n1. In `src/queryDsl.mjs`: add `field IN (lit1, lit2, ...)` and `NOT field IN (...)`, fixing operator precedence to `()` > `NOT` > `AND` > `OR`. Empty `IN ()` or trailing commas must throw `LedgerError(ERROR_CODES.ERR_DSL_SYNTAX)`. Literals support strings, numbers, booleans, and `null`.\n2. In `src/invoiceBuilder.mjs`: when `events` is passed to `buildInvoice`, support optional `metricTiers`, `filterExpr`, and `groupByTag`. Count non-matching events as `excludedEventCount` (default `0`).\n3. Sum matching event `units` by `(metric, groupValue)` where `groupValue = event.tags?.[groupByTag] ?? \"untagged\"` when `groupByTag` is set (else one row per `metric`). Price pooled `units` with `computeGraduatedCharge(totalUnits, metricTiers[metric])` (ensure multi-tier boundaries in `tierEngine.mjs` are accurate).\n4. Sort `lineItems` by `metric` ascending (code-unit), and when `groupByTag` is set, by `groupValue` ascending with `\"untagged\"` ALWAYS sorted LAST. Include `groupValue` on each line item when `groupByTag` is set.\nConstraints: (1) No `eval()` or `new Function()` anywhere under `src/`. (2) Do not modify `src/frozenWire.mjs`.",
+      "visibleSuiteSha256": "7e2565b471d6ab5884dc282277b705807a9dc937c24967c57a55f660073e2a7f",
+      "hiddenSuiteSha256": "08b6eeb6c6e8c9b70b5e58d1bbc20745802eafde20eeaca56f5c292880c8cf1a"
+    },
+    {
+      "task_id": "T06",
+      "difficulty": "medium",
+      "title": "Implement SettlementRegistry and invoice void credit reversal across errors, creditPool, invoiceBuilder",
+      "target_files": [
+        "src/errors.mjs",
+        "src/creditPool.mjs",
+        "src/invoiceBuilder.mjs"
+      ],
+      "constraints": [
+        "Preserve all existing ERROR_CODES keys and values in src/errors.mjs",
+        "Do not modify src/frozenWire.mjs or src/constants.mjs"
+      ],
+      "spec": "Implement stateful invoice settlement and void reversals across `src/errors.mjs`, `src/creditPool.mjs`, and `src/invoiceBuilder.mjs`:\n1. Add `ERR_UNKNOWN_INVOICE: \"ERR_UNKNOWN_INVOICE\"` and `ERR_ALREADY_VOIDED: \"ERR_ALREADY_VOIDED\"` to `ERROR_CODES` in `src/errors.mjs` without altering existing codes.\n2. Implement `createSettlementRegistry(initialGrants = [])` (cloning input grants so caller objects are never mutated), `settleInvoice(registry, invoiceParams)` (using active grants at `asOfMs` ordered by `expiresAtMs ASC, grantId ASC`, debiting consumed cents inside registry state, recording the finalized invoice), `voidInvoiceSettlement(registry, invoiceId, voidedAtMs)`, and `getRegistrySnapshot(registry, asOfMs = 0)` returning `{ invoices, grants, poolBalance }` where `invoices` is an array of stored invoice objects (`status: \"FINALIZED\"` or `\"VOIDED\"`).\n3. `voidInvoiceSettlement`: throw `ERR_UNKNOWN_INVOICE` if missing and `ERR_ALREADY_VOIDED` if already `VOIDED`. Otherwise mark the invoice `VOIDED`, restore each credit allocation to its grant in registry state, and return `{ invoiceId, status: \"VOIDED\", voidedAtMs, netDeltaCents, restoredActiveCents, restoredExpiredCents, reversalWireDigest }` where `netDeltaCents` is `invoice.totalDueCents === 0 ? 0 : -invoice.totalDueCents` (normalized `0`, never `-0`), splitting restored cents between grants with `voidedAtMs < grant.expiresAtMs` (`restoredActiveCents`) vs `voidedAtMs >= grant.expiresAtMs` (`restoredExpiredCents`). Restored expired grants must NOT be usable by subsequent `settleInvoice` calls.\n4. `reversalWireDigest` uses `encodeFrozenWireDigest({ ...invoice, status: \"VOIDED\" })`.\nConstraints: (1) Keep all existing `ERROR_CODES` unchanged. (2) Do not modify `src/frozenWire.mjs` or `src/constants.mjs`.",
+      "visibleSuiteSha256": "7a924e2f27b44e0adfb729aefa89d6be12bc2561814d1861c4340c9dc2d72a15",
+      "hiddenSuiteSha256": "eb0e607da757e5454ceed52fbd4782f0c0b2d48a072fad4e938bf26e76cec76f"
+    },
+    {
+      "task_id": "T07",
+      "difficulty": "hard",
+      "title": "Fix IANA DST spring-forward/fall-back/30m billing windows and buildDailyWindowInvoices",
+      "target_files": [
+        "src/clock.mjs",
+        "src/invoiceBuilder.mjs"
+      ],
+      "constraints": [
+        "Zero external dependencies (Node built-in Date/Intl only)",
+        "Do not modify src/frozenWire.mjs or src/constants.mjs"
+      ],
+      "spec": "Fix DST-aware billing windows in `src/clock.mjs` and add `buildDailyWindowInvoices` in `src/invoiceBuilder.mjs`:\n1. In `src/clock.mjs`: for any local calendar date `(Y, M, D)` in IANA `timeZone` and `anchorHourLocal` (`0..23`), define canonical anchor `anchorUtcMs(Y, M, D)` as:\n   - Unique occurrence if `(Y, M, D, anchorHourLocal:00:00)` exists once;\n   - Spring-forward gap (local hour skipped): exact first valid UTC instant at or after the transition (e.g. `2026-03-08 02:00` in `America/New_York` resolves to `03:00 EDT` = `2026-03-08T07:00:00.000Z`);\n   - Fall-back fold (local hour occurs twice): the FIRST (pre-transition) occurrence (e.g. `2026-11-01 01:00` in `America/New_York` resolves to `01:00 EDT` = `2026-11-01T05:00:00.000Z`).\n2. Each local day `d` spans `[anchorUtcMs(d), anchorUtcMs(d + 1 day))`. `getBillingWindowBounds(utcMs, timeZone, anchorHourLocal)` returns `{ startUtcMs, endUtcMs, localDate, timeZone }` containing `utcMs`, where `localDate` is `YYYY-MM-DD` of `d`. `enumerateDailyWindows(startUtcMs, endUtcMs, timeZone, anchorHourLocal)` returns contiguous windows (`windows[i].endUtcMs === windows[i+1].startUtcMs`) intersecting `[startUtcMs, endUtcMs)`, or `[]` when `startUtcMs === endUtcMs`. Must handle 30-min DST (`Australia/Lord_Howe`) and Southern Hemisphere (`Pacific/Auckland`).\n3. In `src/invoiceBuilder.mjs`: implement `buildDailyWindowInvoices({ accountId, currency = \"USD\", timeZone = \"UTC\", anchorHourLocal = 0, rangeStartUtcMs, rangeEndUtcMs, events = [], metricTiers = {}, grants = [] })` emitting one invoice per enumerated window (`invoiceId: `${accountId}:${w.localDate}``, `asOfMs: w.startUtcMs`), bucketing events with `rangeStartUtcMs <= evt.timestampMs < rangeEndUtcMs` into `[w.startUtcMs, w.endUtcMs)`, sorting `usageRows` by `metric` ascending, and carrying remaining active credit balances chronologically across windows without mutating input `grants`.\nConstraints: (1) Zero external dependencies in package.json. (2) Do not modify `src/frozenWire.mjs` or `src/constants.mjs`.",
+      "visibleSuiteSha256": "b0f4bdc0e4f7bd64aaaeaffe52ae165cb062ab3fbaba2ea08e58babccbf9835f",
+      "hiddenSuiteSha256": "da8e5f86f430f97a75827efbfb44cd00906b759e877c1ac805594ec245add6d4"
+    },
+    {
+      "task_id": "T08",
+      "difficulty": "hard",
+      "title": "Fix queryDsl escaping/precedence/nulls and BatchIngestor async concurrency + rollback",
+      "target_files": [
+        "src/queryDsl.mjs",
+        "src/batchIngestor.mjs"
+      ],
+      "constraints": [
+        "Zero eval() or new Function() in src/",
+        "Do not modify src/frozenWire.mjs or src/errors.mjs"
+      ],
+      "spec": "Fix coupled defects in `src/queryDsl.mjs` and `src/batchIngestor.mjs`:\n1. In `src/queryDsl.mjs`:\n   - Fix string literal scanning and unescaping (`\\\\`, `\\\"`, `\\n`, `\\t`) so `\"C:\\\\temp\\\\\"` ends cleanly as `C:\\temp\\` and dangling escapes or unterminated strings throw `LedgerError(ERROR_CODES.ERR_DSL_SYNTAX)`.\n   - Enforce strict precedence `()` > `NOT` > `AND` > `OR`.\n   - Fix null/undefined/missing-field comparison semantics: missing nested paths evaluate as `undefined`; `==` and `!=` treat `null` and `undefined` as equal (`missing == null` is `true`, `missing != \"x\"` is `true`), while `<, <=, >, >=` MUST return `false` whenever either side is `null`, `undefined`, or `NaN`.\n2. In `src/batchIngestor.mjs`:\n   - Serialize all `flush()` and `ingest()`-triggered flushes via an internal async queue/mutex so `sinkFn` never runs concurrently, mid-flight `ingest()` calls are never dropped or double-delivered, and events remain strictly ordered.\n   - If `sinkFn(batch)` rejects, restore the failed `batch` to the FRONT of the buffer (ahead of any newly ingested items that arrived while awaiting `sinkFn`), leave `committedWatermarkSeq` and `totalCommitted` unchanged, and rethrow the error so a retry `flush()` delivers all events in exact sequence order.\nConstraints: (1) Zero `eval()` or `new Function()` under `src/`. (2) Do not modify `src/frozenWire.mjs` or `src/errors.mjs`.",
+      "visibleSuiteSha256": "1d11f225bf004a9785abc0c0a17fb837014e6752ebbe7e534d5af1334bdf3d3a",
+      "hiddenSuiteSha256": "ce0365d888e936e6893bc04c4c7e58f48cd6d4549c588e96ef855b256307faca"
+    }
+  ],
+  "tasksSpares": [
+    {
+      "task_id": "S01",
+      "difficulty": "easy",
+      "title": "SPARE: Implement exportInvoiceCsv with RFC-4180 quoting and CSV formula-injection neutralization",
+      "target_files": [
+        "src/invoiceBuilder.mjs"
+      ],
+      "constraints": [
+        "Zero dependencies in package.json",
+        "Do not modify src/frozenWire.mjs"
+      ],
+      "spec": "Add `exportInvoiceCsv(invoice)` to `src/invoiceBuilder.mjs`:\n1. Emit header `invoiceId,accountId,currency,metric,units,amountCents,totalDueCents` followed by one line per `lineItem` in `invoice.lineItems` (LF-delimited).\n2. Neutralize spreadsheet formula injection on string fields (`invoiceId`, `accountId`, `currency`, `metric`) by prefixing a single quote `'` when the string starts with `=`, `+`, `-`, `@`, `\\t`, or `\\r`. Keep numeric columns (`units`, `amountCents`, `totalDueCents`) unprefixed integers.\n3. Apply RFC-4180 CSV quoting (wrap in `\"...\"` and double internal `\"` when a cell contains `,`, `\"`, `\\n`, or `\\r`).\nConstraints: (1) Zero dependencies in package.json. (2) Do not modify `src/frozenWire.mjs`.",
+      "visibleSuiteSha256": "42f189dcdbf8325bc2bde69f58fc377c17f7ed614f52a41faa52246a0b38aa02",
+      "hiddenSuiteSha256": "bb1e24b2af69ffebe9b1bbc93625aa8a5d080e48c818532f1ff165221791dbd0"
+    },
+    {
+      "task_id": "S02",
+      "difficulty": "hard",
+      "title": "SPARE: Atomic transactional batch ingestion with duplicate coalescing and full rollback",
+      "target_files": [
+        "src/idempotencyGuard.mjs",
+        "src/batchIngestor.mjs"
+      ],
+      "constraints": [
+        "Zero dependencies in package.json",
+        "Do not modify src/frozenWire.mjs or src/errors.mjs"
+      ],
+      "spec": "Implement atomic transactional batch ingestion across `src/idempotencyGuard.mjs` and `src/batchIngestor.mjs`:\n1. Add `snapshot()` / `restore(snap)` on `IdempotencyGuard` (fixing inclusive expiry/conflict precedence as needed) and `BatchIngestor` (preserving buffer, watermark, and committed counts).\n2. Implement `ingestTransactionalBatch(guard, ingestor, events, nowMs)` in `src/batchIngestor.mjs` where each element of `events` has shape `{ key, payloadHash, seq, metric, units }`:\n   - Coalesce identical `(key, payloadHash)` duplicates within the batch so only the first is queued into `ingestor`.\n   - If any event is invalid (`ERR_INVALID_EVENT`) or has an idempotency conflict (either against `guard` prior state OR against an earlier event in the same batch) or triggers a failing sink flush, roll back BOTH `guard` and `ingestor` atomically and rethrow.\nConstraints: (1) Zero dependencies in package.json. (2) Do not modify `src/frozenWire.mjs` or `src/errors.mjs`.",
+      "visibleSuiteSha256": "68ff61625b05dd02345b227171049b8ddba5f83ee391810dab070e12acb1c523",
+      "hiddenSuiteSha256": "d3a2c0fb968a02d37ff6ae04cb5fc8a13bb7f35c97746a449a83fca8c1382a94"
+    }
+  ],
+  "randomSeed": 20261116,
+  "schedules": {
+    "stage1": [
+      {
+        "run_id": "T07_OPUS_r01",
+        "task_id": "T07",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T07_SONNET_r01",
+        "task_id": "T07",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 1,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T04_SWITCH_r01",
+        "task_id": "T04",
+        "difficulty": "medium",
+        "arm": "SWITCH",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T08_SWITCH_r01",
+        "task_id": "T08",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T02_OPUS_r01",
+        "task_id": "T02",
+        "difficulty": "easy",
+        "arm": "OPUS",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T05_SONNET_r01",
+        "task_id": "T05",
+        "difficulty": "medium",
+        "arm": "SONNET",
+        "rep": 1,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T05_OPUS_r01",
+        "task_id": "T05",
+        "difficulty": "medium",
+        "arm": "OPUS",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T03_OPUS_r01",
+        "task_id": "T03",
+        "difficulty": "easy",
+        "arm": "OPUS",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T01_OPUS_r01",
+        "task_id": "T01",
+        "difficulty": "easy",
+        "arm": "OPUS",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T06_SWITCH_r01",
+        "task_id": "T06",
+        "difficulty": "medium",
+        "arm": "SWITCH",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T03_SONNET_r01",
+        "task_id": "T03",
+        "difficulty": "easy",
+        "arm": "SONNET",
+        "rep": 1,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T08_SONNET_r01",
+        "task_id": "T08",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 1,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T02_SONNET_r01",
+        "task_id": "T02",
+        "difficulty": "easy",
+        "arm": "SONNET",
+        "rep": 1,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T07_SWITCH_r01",
+        "task_id": "T07",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T06_OPUS_r01",
+        "task_id": "T06",
+        "difficulty": "medium",
+        "arm": "OPUS",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T05_SWITCH_r01",
+        "task_id": "T05",
+        "difficulty": "medium",
+        "arm": "SWITCH",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T04_OPUS_r01",
+        "task_id": "T04",
+        "difficulty": "medium",
+        "arm": "OPUS",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T01_SONNET_r01",
+        "task_id": "T01",
+        "difficulty": "easy",
+        "arm": "SONNET",
+        "rep": 1,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T06_SONNET_r01",
+        "task_id": "T06",
+        "difficulty": "medium",
+        "arm": "SONNET",
+        "rep": 1,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T08_OPUS_r01",
+        "task_id": "T08",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T03_SWITCH_r01",
+        "task_id": "T03",
+        "difficulty": "easy",
+        "arm": "SWITCH",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T04_SONNET_r01",
+        "task_id": "T04",
+        "difficulty": "medium",
+        "arm": "SONNET",
+        "rep": 1,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T01_SWITCH_r01",
+        "task_id": "T01",
+        "difficulty": "easy",
+        "arm": "SWITCH",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T02_SWITCH_r01",
+        "task_id": "T02",
+        "difficulty": "easy",
+        "arm": "SWITCH",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      }
+    ],
+    "stage2": [
+      {
+        "run_id": "T02_SONNET_r02",
+        "task_id": "T02",
+        "difficulty": "easy",
+        "arm": "SONNET",
+        "rep": 2,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T04_SWITCH_r02",
+        "task_id": "T04",
+        "difficulty": "medium",
+        "arm": "SWITCH",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T08_OPUS_r02",
+        "task_id": "T08",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T02_SWITCH_r02",
+        "task_id": "T02",
+        "difficulty": "easy",
+        "arm": "SWITCH",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T03_SONNET_r02",
+        "task_id": "T03",
+        "difficulty": "easy",
+        "arm": "SONNET",
+        "rep": 2,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T01_SONNET_r02",
+        "task_id": "T01",
+        "difficulty": "easy",
+        "arm": "SONNET",
+        "rep": 2,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T07_SONNET_r02",
+        "task_id": "T07",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 2,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T08_SONNET_r02",
+        "task_id": "T08",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 2,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T05_SONNET_r02",
+        "task_id": "T05",
+        "difficulty": "medium",
+        "arm": "SONNET",
+        "rep": 2,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T01_OPUS_r02",
+        "task_id": "T01",
+        "difficulty": "easy",
+        "arm": "OPUS",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T06_OPUS_r02",
+        "task_id": "T06",
+        "difficulty": "medium",
+        "arm": "OPUS",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T05_OPUS_r02",
+        "task_id": "T05",
+        "difficulty": "medium",
+        "arm": "OPUS",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T07_OPUS_r02",
+        "task_id": "T07",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T06_SONNET_r02",
+        "task_id": "T06",
+        "difficulty": "medium",
+        "arm": "SONNET",
+        "rep": 2,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T04_SONNET_r02",
+        "task_id": "T04",
+        "difficulty": "medium",
+        "arm": "SONNET",
+        "rep": 2,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T02_OPUS_r02",
+        "task_id": "T02",
+        "difficulty": "easy",
+        "arm": "OPUS",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T01_SWITCH_r02",
+        "task_id": "T01",
+        "difficulty": "easy",
+        "arm": "SWITCH",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T06_SWITCH_r02",
+        "task_id": "T06",
+        "difficulty": "medium",
+        "arm": "SWITCH",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T08_SWITCH_r02",
+        "task_id": "T08",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T07_SWITCH_r02",
+        "task_id": "T07",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T03_OPUS_r02",
+        "task_id": "T03",
+        "difficulty": "easy",
+        "arm": "OPUS",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T04_OPUS_r02",
+        "task_id": "T04",
+        "difficulty": "medium",
+        "arm": "OPUS",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T05_SWITCH_r02",
+        "task_id": "T05",
+        "difficulty": "medium",
+        "arm": "SWITCH",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T03_SWITCH_r02",
+        "task_id": "T03",
+        "difficulty": "easy",
+        "arm": "SWITCH",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T04_OPUS_r03",
+        "task_id": "T04",
+        "difficulty": "medium",
+        "arm": "OPUS",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T05_SONNET_r03",
+        "task_id": "T05",
+        "difficulty": "medium",
+        "arm": "SONNET",
+        "rep": 3,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T07_OPUS_r03",
+        "task_id": "T07",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T08_SONNET_r03",
+        "task_id": "T08",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 3,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T02_OPUS_r03",
+        "task_id": "T02",
+        "difficulty": "easy",
+        "arm": "OPUS",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T01_SONNET_r03",
+        "task_id": "T01",
+        "difficulty": "easy",
+        "arm": "SONNET",
+        "rep": 3,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T01_SWITCH_r03",
+        "task_id": "T01",
+        "difficulty": "easy",
+        "arm": "SWITCH",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T02_SWITCH_r03",
+        "task_id": "T02",
+        "difficulty": "easy",
+        "arm": "SWITCH",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T03_SWITCH_r03",
+        "task_id": "T03",
+        "difficulty": "easy",
+        "arm": "SWITCH",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T08_OPUS_r03",
+        "task_id": "T08",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T07_SWITCH_r03",
+        "task_id": "T07",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T05_SWITCH_r03",
+        "task_id": "T05",
+        "difficulty": "medium",
+        "arm": "SWITCH",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T07_SONNET_r03",
+        "task_id": "T07",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 3,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T06_SWITCH_r03",
+        "task_id": "T06",
+        "difficulty": "medium",
+        "arm": "SWITCH",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T08_SWITCH_r03",
+        "task_id": "T08",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "T01_OPUS_r03",
+        "task_id": "T01",
+        "difficulty": "easy",
+        "arm": "OPUS",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T06_SONNET_r03",
+        "task_id": "T06",
+        "difficulty": "medium",
+        "arm": "SONNET",
+        "rep": 3,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T03_OPUS_r03",
+        "task_id": "T03",
+        "difficulty": "easy",
+        "arm": "OPUS",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T05_OPUS_r03",
+        "task_id": "T05",
+        "difficulty": "medium",
+        "arm": "OPUS",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T04_SONNET_r03",
+        "task_id": "T04",
+        "difficulty": "medium",
+        "arm": "SONNET",
+        "rep": 3,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T03_SONNET_r03",
+        "task_id": "T03",
+        "difficulty": "easy",
+        "arm": "SONNET",
+        "rep": 3,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T02_SONNET_r03",
+        "task_id": "T02",
+        "difficulty": "easy",
+        "arm": "SONNET",
+        "rep": 3,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T06_OPUS_r03",
+        "task_id": "T06",
+        "difficulty": "medium",
+        "arm": "OPUS",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "T04_SWITCH_r03",
+        "task_id": "T04",
+        "difficulty": "medium",
+        "arm": "SWITCH",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      }
+    ]
+  },
+  "predictions": {
+    "Q1": "Per completed task, SONNET is lowest-cost on easy and most medium tasks (~45-55% lower token price than OPUS), while OPUS has a higher completion rate on hard tasks (T07 DST windows, T08 parser escaping + async mutex rollback).",
+    "Q2": "SONNET needs more retry attempts on medium/hard tasks (predicted +0.5 to +1.5 retries on hard tasks), partially narrowing its 2x price advantage, though its lower per-token rate keeps total spend/completion below OPUS on easy/medium unless hard-task failures dominate.",
+    "Q3": "Under Option A (Opus Turn-1 plan -> Sonnet Turn-2+ implement), SWITCH incurs a Turn-2 cold-write penalty (25x write/read ratio on Claude 5.5) on a ~15k-25k Turn-1 context (~$0.04-$0.06 surcharge). On easy 1-shot Turn-2 tasks, SWITCH likely costs MORE than SONNET and pays back only partially vs OPUS unless Opus-grade Turn-1 diagnosis cuts Sonnet retries on medium/hard tasks.",
+    "Q4": "Capping failures (retry_cap or turn_request_cap) will occur predominantly on hard tasks (T07/T08), highest on SONNET (1-3 capped runs), lowest on OPUS (0-1), and intermediate on SWITCH (0-2)."
+  },
+  "stage1CostEstimate": {
+    "pricingBasis": "2026-11-16 OpenRouter live /api/v1/models (Opus 5.5 $4/$20/$5/$0.20, Sonnet 5.5 $2/$10/$2.5/$0.10)",
+    "openRouterKeySnapshot": {
+      "timestampUtc": "2026-11-16T21:25:42.023Z",
+      "statusCode": 200,
+      "usage": 93.5161304,
+      "limit": 200,
+      "limitRemaining": 106.4838696
+    },
+    "byArmAndDifficulty": [
+      {
+        "arm": "OPUS",
+        "difficulty": "easy",
+        "stage1Runs": 3,
+        "expectedPlanPerRunUsd": 0.1064,
+        "expectedImplRetriesPerRunUsd": 0.0648,
+        "expectedPerRunUsd": 0.1712,
+        "expectedPerRunWith15PctUsd": 0.1969,
+        "stressPerRunUsd": 0.2557
+      },
+      {
+        "arm": "OPUS",
+        "difficulty": "medium",
+        "stage1Runs": 3,
+        "expectedPlanPerRunUsd": 0.126,
+        "expectedImplRetriesPerRunUsd": 0.1615,
+        "expectedPerRunUsd": 0.2875,
+        "expectedPerRunWith15PctUsd": 0.3306,
+        "stressPerRunUsd": 0.525
+      },
+      {
+        "arm": "OPUS",
+        "difficulty": "hard",
+        "stage1Runs": 2,
+        "expectedPlanPerRunUsd": 0.148,
+        "expectedImplRetriesPerRunUsd": 0.2952,
+        "expectedPerRunUsd": 0.4432,
+        "expectedPerRunWith15PctUsd": 0.5097,
+        "stressPerRunUsd": 0.8816
+      },
+      {
+        "arm": "SONNET",
+        "difficulty": "easy",
+        "stage1Runs": 3,
+        "expectedPlanPerRunUsd": 0.0532,
+        "expectedImplRetriesPerRunUsd": 0.0324,
+        "expectedPerRunUsd": 0.0856,
+        "expectedPerRunWith15PctUsd": 0.0984,
+        "stressPerRunUsd": 0.1278
+      },
+      {
+        "arm": "SONNET",
+        "difficulty": "medium",
+        "stage1Runs": 3,
+        "expectedPlanPerRunUsd": 0.063,
+        "expectedImplRetriesPerRunUsd": 0.0807,
+        "expectedPerRunUsd": 0.1437,
+        "expectedPerRunWith15PctUsd": 0.1653,
+        "stressPerRunUsd": 0.2625
+      },
+      {
+        "arm": "SONNET",
+        "difficulty": "hard",
+        "stage1Runs": 2,
+        "expectedPlanPerRunUsd": 0.074,
+        "expectedImplRetriesPerRunUsd": 0.1476,
+        "expectedPerRunUsd": 0.2216,
+        "expectedPerRunWith15PctUsd": 0.2548,
+        "stressPerRunUsd": 0.4408
+      },
+      {
+        "arm": "SWITCH",
+        "difficulty": "easy",
+        "stage1Runs": 3,
+        "expectedPlanPerRunUsd": 0.1064,
+        "expectedImplRetriesPerRunUsd": 0.0706,
+        "expectedPerRunUsd": 0.177,
+        "expectedPerRunWith15PctUsd": 0.2035,
+        "stressPerRunUsd": 0.234
+      },
+      {
+        "arm": "SWITCH",
+        "difficulty": "medium",
+        "stage1Runs": 3,
+        "expectedPlanPerRunUsd": 0.126,
+        "expectedImplRetriesPerRunUsd": 0.1236,
+        "expectedPerRunUsd": 0.2496,
+        "expectedPerRunWith15PctUsd": 0.287,
+        "stressPerRunUsd": 0.3911
+      },
+      {
+        "arm": "SWITCH",
+        "difficulty": "hard",
+        "stage1Runs": 2,
+        "expectedPlanPerRunUsd": 0.148,
+        "expectedImplRetriesPerRunUsd": 0.1951,
+        "expectedPerRunUsd": 0.3431,
+        "expectedPerRunWith15PctUsd": 0.3946,
+        "stressPerRunUsd": 0.5945
+      }
+    ],
+    "stage1Pilot24Runs": {
+      "expectedBaseUsd": 5.36,
+      "expectedWith15PctMarginUsd": 6.16,
+      "stressBaseUsd": 9.22,
+      "stressWith15PctMarginUsd": 10.61,
+      "hardAbortCeilingUsd": 72,
+      "fitsRemainingKeyCap": true
+    },
+    "fullStudy72Runs": {
+      "expectedWith15PctMarginUsd": 18.48,
+      "stressWith15PctMarginUsd": 31.83,
+      "fitsRemainingKeyCap": true
+    }
+  }
+}

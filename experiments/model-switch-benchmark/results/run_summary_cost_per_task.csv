@@ -1,0 +1,25 @@
+run_id,task_id,difficulty,arm,rep,completed,attempts,turns,requests,plan_turn_requests,total_billed_usd,plan_turn_billed_usd,impl_and_retries_billed_usd,cost_at_completion_usd,wall_time_s,cache_read_share,switch_turn,switch_turn_cost_usd,set_model_control_ok,shadow_pre_model_switch_decision,shadow_pre_model_switch_blocked,shadow_cold_write_penalty_usd,shadow_break_even_tokens,shadow_provenance,cap_reason,constraint_violations,diff_lines_changed,turn1_readonly_clean
+T01_OPUS_r01,T01,easy,OPUS,1,yes,1,2,9,5,0.29534340,0.18363940,0.11170400,0.29534340,76.79,0.8451,,,,,,,,,,0,87,true
+T01_SONNET_r01,T01,easy,SONNET,1,yes,1,2,5,3,0.09856290,0.06738670,0.03117620,0.09856290,37.67,0.7437,,,,,,,,,,0,51,true
+T01_SWITCH_r01,T01,easy,SWITCH,1,yes,1,2,8,5,0.27992210,0.19622540,0.08369670,0.27992210,382.54,0.6939,2,0.06489150,true,deny,true,0.026293,6902,computed offline; not shown to the model,,0,79,true
+T02_OPUS_r01,T02,easy,OPUS,1,yes,1,2,6,4,0.25643580,0.17112340,0.08531240,0.25643580,71.42,0.7693,,,,,,,,,,0,76,true
+T02_SONNET_r01,T02,easy,SONNET,1,yes,1,2,5,3,0.10239210,0.06652490,0.03586720,0.10239210,38.71,0.7387,,,,,,,,,,0,52,true
+T02_SWITCH_r01,T02,easy,SWITCH,1,yes,1,2,6,4,0.24816770,0.17292720,0.07524050,0.24816770,351.53,0.5888,2,0.06282900,true,deny,true,0.020603,6902,computed offline; not shown to the model,,0,53,true
+T03_OPUS_r01,T03,easy,OPUS,1,yes,1,2,7,5,0.26955660,0.18018160,0.08937500,0.26955660,76.39,0.7921,,,,,,,,,,0,77,true
+T03_SONNET_r01,T03,easy,SONNET,1,yes,1,2,7,5,0.11318560,0.08042900,0.03275660,0.11318560,42.77,0.8032,,,,,,,,,,0,54,true
+T03_SWITCH_r01,T03,easy,SWITCH,1,yes,1,2,7,5,0.24089450,0.17196280,0.06893170,0.24089450,55.83,0.6399,2,0.05857650,true,deny,true,0.020686,6902,computed offline; not shown to the model,,0,61,true
+T04_OPUS_r01,T04,medium,OPUS,1,yes,1,2,12,4,0.52157960,0.24694600,0.27463360,0.52157960,127.01,0.8864,,,,,,,,,,0,123,true
+T04_SONNET_r01,T04,medium,SONNET,1,yes,1,2,7,3,0.14714350,0.07016550,0.07697800,0.14714350,57.13,0.8085,,,,,,,,,,0,56,true
+T04_SWITCH_r01,T04,medium,SWITCH,1,yes,1,2,10,4,0.43770520,0.23524040,0.20246480,0.43770520,129.74,0.7676,2,0.07115650,true,deny,true,0.042830,6902,computed offline; not shown to the model,,0,98,true
+T05_OPUS_r01,T05,medium,OPUS,1,yes,1,2,12,5,0.51912700,0.26929160,0.24983540,0.51912700,147.10,0.8793,,,,,,,,,,0,239,true
+T05_SONNET_r01,T05,medium,SONNET,1,yes,1,2,5,2,0.13109200,0.07158530,0.05950670,0.13109200,53.11,0.7425,,,,,,,,,,0,133,true
+T05_SWITCH_r01,T05,medium,SWITCH,1,yes,1,2,12,5,0.44829970,0.27058700,0.17771270,0.44829970,138.03,0.8021,2,0.08256900,true,deny,true,0.041216,6902,computed offline; not shown to the model,,0,188,true
+T06_OPUS_r01,T06,medium,OPUS,1,yes,1,2,8,4,0.45177040,0.26543460,0.18633580,0.45177040,124.95,0.8215,,,,,,,,,,0,189,true
+T06_SONNET_r01,T06,medium,SONNET,1,yes,1,2,5,3,0.10857700,0.06153420,0.04704280,0.10857700,42.79,0.7277,,,,,,,,,,0,121,true
+T06_SWITCH_r01,T06,medium,SWITCH,1,yes,1,2,12,4,0.48016700,0.23541460,0.24475240,0.48016700,137.78,0.8084,2,0.09588650,true,deny,true,0.032250,6902,computed offline; not shown to the model,,0,155,true
+T07_OPUS_r01,T07,hard,OPUS,1,yes,1,2,12,6,0.59340900,0.33624320,0.25716580,0.59340900,171.85,0.8789,,,,,,,,,,0,242,true
+T07_SONNET_r01,T07,hard,SONNET,1,yes,1,2,8,4,0.18229380,0.09810950,0.08418430,0.18229380,76.03,0.8208,,,,,,,,,,0,139,true
+T07_SWITCH_r01,T07,hard,SWITCH,1,yes,1,2,9,5,0.51651690,0.32170780,0.19480910,0.51651690,423.83,0.6986,2,0.10686650,true,deny,true,0.043362,6902,computed offline; not shown to the model,,0,177,true
+T08_OPUS_r01,T08,hard,OPUS,1,yes,1,2,13,4,0.55538700,0.23639300,0.31899400,0.55538700,149.31,0.8921,,,,,,,,,,0,225,true
+T08_SONNET_r01,T08,hard,SONNET,1,yes,1,2,11,2,0.17565080,0.06378520,0.11186560,0.17565080,70.59,0.8797,,,,,,,,,,0,117,true
+T08_SWITCH_r01,T08,hard,SWITCH,1,yes,1,2,11,4,0.37963900,0.21998400,0.15965500,0.37963900,128.64,0.7946,2,0.08400650,true,deny,true,0.030047,6902,computed offline; not shown to the model,,0,133,true

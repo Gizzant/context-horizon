@@ -1,0 +1,816 @@
+{
+  "schemaVersion": "cost_per_task_hard_prereg_v1",
+  "studyId": "cost_per_completed_task_hard_tier_v1",
+  "tierLabel": "hard tier",
+  "lockedAtUtc": "2026-11-17T00:34:21.523Z",
+  "preregisteredAtUtc": "2026-11-17T00:34:21.523Z",
+  "preregisteredAtLocal": "2026-11-16T19:34:21-05:00",
+  "openRouterKeySnapshotAtLock": {
+    "timestampUtc": "2026-11-17T00:34:21.521Z",
+    "statusCode": 200,
+    "usage": 101.068949,
+    "limit": 200,
+    "limitRemaining": 98.931051,
+    "spendDeltaSinceRoutineStage1Usd": 0,
+    "hardTierLiveSpendPriorToLockUsd": 0
+  },
+  "environment": {
+    "claudeCodeVersion": "2.1.325",
+    "route": "OpenRouter (/api/v1/messages), provider.only=[\"anthropic\"], allow_fallbacks=false",
+    "effort": "medium",
+    "autoMemory": "disabled (CLAUDE_CODE_DISABLE_AUTO_MEMORY=1, autoMemoryEnabled=false)",
+    "hooks": "{} (Highbeam disabled on wire; shadow runPreModelSwitchHook() evaluated offline on SWITCH)",
+    "toolsPinned": "Read,Edit,Write,Bash,Grep,Glob",
+    "turnProtocolOptionA": {
+      "turn1Mode": "plan (--permission-mode plan --allow-dangerously-skip-permissions --permission-prompts none)",
+      "turn2PlusMode": "bypassPermissions (via SDK control_request set_permission_mode)",
+      "switchAction": "SDK control_request set_model -> claude-sonnet-5-5 between Turn 1 and Turn 2 on 100% of SWITCH runs",
+      "shadowEvaluationNote": "runPreModelSwitchHook() evaluated offline at switch point and labeled \"computed offline; not shown to the model\""
+    }
+  },
+  "pricingConfirmedDayOfRun": {
+    "anthropic/claude-opus-5.5": {
+      "inputPer1M": 4,
+      "outputPer1M": 20,
+      "writePer1M": 5,
+      "readPer1M": 0.2,
+      "contextLength": 1000000
+    },
+    "anthropic/claude-sonnet-5.5": {
+      "inputPer1M": 2,
+      "outputPer1M": 10,
+      "writePer1M": 2.5,
+      "readPer1M": 0.1,
+      "contextLength": 1000000
+    }
+  },
+  "arms": {
+    "OPUS": "claude-opus-5-5 for Turn 1 (plan) and Turns 2..5 (implement + retries)",
+    "SONNET": "claude-sonnet-5-5 for Turn 1 (plan) and Turns 2..5 (implement + retries)",
+    "SWITCH": "claude-opus-5-5 for Turn 1 (plan), then set_model -> claude-sonnet-5-5 for Turns 2..5 (implement + retries)"
+  },
+  "caps": {
+    "maxRetries": 3,
+    "maxHarnessTurns": 5,
+    "maxRequestsPerTurn": 30,
+    "maxRequestsPerRun": 100,
+    "maxRunCostUsd": 3,
+    "runCostCapUsd": 3,
+    "capPolicy": "Any run stopped by a cap counts as completed=no with cost_at_completion_usd blank and cap_reason recorded; its total_billed_usd counts in arm spend / completions."
+  },
+  "cacheIsolationMethod": {
+    "verifiedAtZeroSpend": true,
+    "phase0Finding": "tools + system[0..prefix] with cache_control precede --append-system-prompt; MUST enforce >=365s per-model idle cooldown in addition to per-run salt",
+    "enforcedMethod": "Per-run --append-system-prompt salt PLUS >= 365s same-model idle cooldown between consecutive requests on the same upstream model, verified via request[0].cache_read_input_tokens === 0."
+  },
+  "taskReplacementRule": "Keep all 6 pre-registered hard tasks (H01-H06) whatever the empirical outcome; never adjust tasks after seeing model results. The ONLY allowed replacement is a proven specification or checker bug, requiring explicit user confirmation.",
+  "executionStagingRule": "Run Pilot rep 1 (18 runs) first, then report updated cost estimate for reps 2-3 (36 runs) and await explicit user confirmation before executing Stage 2.",
+  "prompts": {
+    "turn1PlanPrefix": "You are working in a read-only planning turn. Inspect the repository, read test/task_visible.test.mjs and the relevant source files, diagnose all gaps and edge cases for the task below, and produce a concise, concrete implementation plan listing exact files, functions, and changes needed. Do not edit files in this turn.",
+    "turn2ImplementPrompt": "Now implement your plan cleanly, satisfy every task requirement and constraint, preserve all existing baseline tests, and run `npm test` to verify all visible tests pass.",
+    "retryPromptHeader": "The task is not complete. These tests fail:",
+    "retryPromptFormat": "The task is not complete. These tests fail:\\n- <failing_test_names>\\n\\n<first_30_lines_of_sanitized_output>"
+  },
+  "repositoryHashes": {
+    "task_repo_hard_template": {
+      "fileCount": 18,
+      "treeSha256": "8b029207d80bbfbd0c7f89d3d917d2f46fdbb2772905ab44e4d0ed4bf718fec7",
+      "perFile": {
+        "README.md": "56ffad376249ea7e8a839b1db7705c4374ad1f15c35b56b43fcc1bc70901e93b",
+        "package.json": "199d4b5215f28b3d51f61628b83784d52e7cd29547d3cf5632ae133778382830",
+        "src/batchIngestor.mjs": "43ecde44d15efa41f6a3556e60f63462d06ca7aac06b05b605dd1e1568cd7cb1",
+        "src/clock.mjs": "34ffa24a6a1e451f5a5d0bcc17c9a0b9086e37e87e2994de5d06087a225e2d69",
+        "src/constants.mjs": "25aec7fc36f68b3e71c495a215dafaabcf0ea2f51b52a96cd9f5812c79ea5d89",
+        "src/creditPool.mjs": "4194a3fe384ac590611ef3cdb3bb157960786ae1c440bd288ba2d981da7b3ff3",
+        "src/errors.mjs": "ffdcf392b978388c8fec1e3f9561e39270f5a12a1218704b8ded5ca488df4a42",
+        "src/frozenWire.mjs": "c86d6f4517450db0753fc721968d27af26efe17b01acba3904c99f8b21505325",
+        "src/fxConverter.mjs": "cb14a2aba6b424f67adc700bf479efe7812d7f31e0e251ba8a523e82557ee895",
+        "src/idempotencyGuard.mjs": "11d9698a97f643069bb91d2828fc7cb517c3fcaede6b85e93d2dfd4fa7acd96e",
+        "src/invoiceBuilder.mjs": "3cb4392053459f3fd28df3038d5be83af6deae82d3e36e993138f01621f4654d",
+        "src/queryDsl.mjs": "19c331c87da6e8f3644ef90ebc206cb56e3e65e73f71bfbc7f13b2180176d46b",
+        "src/tierEngine.mjs": "1b91422145acf810b380914bd48a5c8b1274fe489ee7c06431635c9e027f2b57",
+        "src/usageCursor.mjs": "e52f758e34c564a0861a8eadb70388dc95b46e7ce22c6888f47bb069a9653b0b",
+        "test/ingestor_and_idempotency.test.mjs": "87f36c2fce1e13ef9a577b77703352692302efc0c9cd9a8bbe77e6565fe972fd",
+        "test/invoice_and_wire.test.mjs": "c9d5d20bfe175c39c23a1ae7e9b14444a1aaa8bd1c2442575ec2c4f58ba29044",
+        "test/query_and_clock.test.mjs": "3315d190e76278c2ab171a1d4176d55615559568b82fb8c2fd52952319b0b285",
+        "test/tier_and_credits.test.mjs": "caae744e518e7f635f40615e48cdf4550fc34ee6ff6aa06c8da6d0efa8da9d3f"
+      }
+    },
+    "visible_suites": {
+      "fileCount": 6,
+      "treeSha256": "56feca16b4de1ccc642a363fbdaee816144c54293ae4e3f91455a161824296b8",
+      "perFile": {
+        "H01.visible.test.mjs": "e11836f0312bad96ab3006498ebebb345786bae809f9b0deca8aee12c9e8d31b",
+        "H02.visible.test.mjs": "bb8a142ac782342cc84ea1531805748fa71f01da7dec6061abd31babb0cf9604",
+        "H03.visible.test.mjs": "54d22cc04645014e3fae5fc36f20f3c94e97e7995e70d63fb9225f2c1620862c",
+        "H04.visible.test.mjs": "756a84162bdfde6ee4c39163685a30334f8f01352e57dab360118b8a1993fbab",
+        "H05.visible.test.mjs": "1b1f178590f904056bdd6970153050db9614346e424a6813df5f4317e917584f",
+        "H06.visible.test.mjs": "1476e19db6ce9a5124a1baad1870862810a5ca4cef5870b7e454b3d85e9e2948"
+      }
+    },
+    "hidden_suites": {
+      "fileCount": 6,
+      "treeSha256": "eb87bfcfd0200fcd7eead6eccda7d1510130cf0327de7e28bc7bc13ea42d958d",
+      "perFile": {
+        "H01.hidden.test.mjs": "2c697ea97dc6868e464312f4e8fac2c5ecf44bcb0bd820c761b90f4d72fc6de0",
+        "H02.hidden.test.mjs": "2675a8a4308dcdb5e45affb6c0c0ba40e397ceacb3ccf703c832d9d15af8135c",
+        "H03.hidden.test.mjs": "751dc39dfb457f5bb98f81a2689debdd3adf16bcd54c5ae131533edba8701ebc",
+        "H04.hidden.test.mjs": "02a5f4d76a57949a42b4343e9f742faa1b0df73353763c70a60f612127d3d9ee",
+        "H05.hidden.test.mjs": "74a503ba880fad61736ac849af0ad22165c81238cba4dd4f402af45e978d54af",
+        "H06.hidden.test.mjs": "7e894a52b83ea2214a01894c2d2b9b0441660a8316867d9d5cd0a79d59d89712"
+      }
+    },
+    "hard_tasks_manifest_sha256": "c2e9c20698a8ab8141a7dff7d5a030a62f18934682e6b376ee282dee939f0ce7"
+  },
+  "tasksActive": [
+    {
+      "task_id": "H01",
+      "difficulty": "hard",
+      "title": "DST-safe monthly anchor clamping, BigInt banker proration, and sub-period plan-change invoicing",
+      "target_files": [
+        "src/clock.mjs",
+        "src/tierEngine.mjs",
+        "src/creditPool.mjs",
+        "src/invoiceBuilder.mjs"
+      ],
+      "constraints": [
+        "Zero dependencies or devDependencies in package.json",
+        "Do not modify src/frozenWire.mjs or src/constants.mjs"
+      ],
+      "spec": "Implement DST-aware monthly anchor cycle bounds and exact BigInt banker-rounded sub-period proration across `src/clock.mjs`, `src/tierEngine.mjs`, `src/creditPool.mjs`, and `src/invoiceBuilder.mjs`:\n1. **`src/clock.mjs` (`getMonthlyCycleBounds` + DST-safe `getBillingWindowBounds`/`enumerateDailyWindows`):**\n   - Resolve local wall clock `(Y, M, D, anchorHourLocal, 0, 0)` in IANA `timeZone` using built-in `Intl`/`Date` only: unique wall times map directly; spring-forward missing hours resolve to the exact first valid post-transition UTC instant; fall-back repeated hours resolve to the FIRST (pre-transition) UTC occurrence. Handle 30-min DST (`Australia/Lord_Howe`) and Southern Hemisphere (`Pacific/Auckland`).\n   - Export `getMonthlyCycleBounds({ year, month, anchorDay, timeZone = \"UTC\", anchorHourLocal = 0 })` where `month` is `1..12` and `anchorDay` is `1..31` (invalid args throw `LedgerError(ERROR_CODES.ERR_INVALID_CONFIG)` or `ERR_INVALID_TIMEZONE`). Clamp `startDay = Math.min(anchorDay, daysInMonth(year, month))` and `endDay = Math.min(anchorDay, daysInMonth(nextYear, nextMonth))` from the original `anchorDay` (so `anchorDay=31` clamps Feb 28/29 -> Mar 31 without drifting).\n   - Return `{ startUtcMs, endUtcMs, startLocalDate, endLocalDate, timeZone }` with `YYYY-MM-DD` dates.\n2. **`src/tierEngine.mjs` (`roundHalfToEvenBigInt` + `computeProratedGraduatedCharge`):**\n   - Fix `computeGraduatedCharge` boundary/sorting/zero/negative rules (`ERR_NEGATIVE_UNITS`, `ERR_INVALID_TIERS`, non-mutation, `units === 0 -> { totalCents: 0, breakdown: [] }`).\n   - Export `roundHalfToEvenBigInt(numBig, denBig)` for `numBig >= 0n, denBig > 0n` (rounds ties `2n * rem === denBig` to the even integer quotient).\n   - Export `computeProratedGraduatedCharge(units, tiers, numMs, denMs)` validating integer `numMs >= 0`, `denMs > 0` (`ERR_INVALID_CONFIG`): scale each finite `tier.upTo` to `Number(roundHalfToEvenBigInt(BigInt(tier.upTo) * BigInt(numMs), BigInt(denMs)))`, keeping `null`/`Infinity` unbounded; collapse duplicate finite caps after scaling (keep the higher tier or skip 0-width bands cleanly), and price `units` via `computeGraduatedCharge`.\n3. **`src/creditPool.mjs` (`applyCredits`):**\n   - Fix `applyCredits(chargeCents, grants, asOfMs)` and `summarizePoolBalance`: filter `remainingCents > 0 && effectiveFromMs <= asOfMs && asOfMs < expiresAtMs`, sort by `expiresAtMs ASC, grantId ASC`, never mutate caller inputs.\n4. **`src/invoiceBuilder.mjs` (`buildProratedCycleInvoice`):**\n   - Export `buildProratedCycleInvoice({ invoiceId, accountId, currency = \"USD\", year, month, anchorDay, timeZone = \"UTC\", anchorHourLocal = 0, planChanges = [], events = [], grants = [] })`.\n   - Validate non-empty `planChanges` sorted ascending by `effectiveAtUtcMs` with first entry `effectiveAtUtcMs === cycle.startUtcMs` and all entries in `[cycle.startUtcMs, cycle.endUtcMs]` (else throw `LedgerError(ERROR_CODES.ERR_INVALID_CONFIG)`).\n   - Split `[cycle.startUtcMs, cycle.endUtcMs)` into segments; collapse zero-duration segments (`segStart === segEnd`, keeping the last change at an identical timestamp). For each non-empty segment: compute `segMs = segEnd - segStart`, `cycleMs = cycle.endUtcMs - cycle.startUtcMs`, `proratedFeeCents = Number(roundHalfToEvenBigInt(BigInt(seg.monthlyFeeCents) * BigInt(segMs), BigInt(cycleMs)))`, bucket events with `segStart <= evt.timestampMs < segEnd` sorted by `metric` ascending, and price each metric with `computeProratedGraduatedCharge(totalUnits, seg.metricTiers[metric], segMs, cycleMs)`.\n   - Emit segment fee line items `{ metric: `PLAN_FEE:${seg.planId}`, units: 1, amountCents: proratedFeeCents, segmentIndex }` followed by segment metric line items `{ metric, units, amountCents, segmentIndex }`. Sum into `usageSubtotalCents`, apply credits at `asOfMs = cycle.endUtcMs` (without mutating `grants`), and return `{ invoiceId, accountId, currency, status: \"FINALIZED\", cycle, segments, lineItems, usageSubtotalCents, appliedCreditsCents, creditAllocations, totalDueCents, wireDigest }`.\nConstraints: (1) Zero dependencies in package.json. (2) Do not modify `src/frozenWire.mjs` or `src/constants.mjs`.",
+      "visibleSuiteSha256": "e11836f0312bad96ab3006498ebebb345786bae809f9b0deca8aee12c9e8d31b",
+      "hiddenSuiteSha256": "2c697ea97dc6868e464312f4e8fac2c5ecf44bcb0bd820c761b90f4d72fc6de0"
+    },
+    {
+      "task_id": "H02",
+      "difficulty": "hard",
+      "title": "Unicode NFC escapes/matching in queryDsl, NFC collision-safe SHA-256 canonicalizer, and grapheme UTF-8 bounded audit formatter",
+      "target_files": [
+        "src/errors.mjs",
+        "src/queryDsl.mjs",
+        "src/idempotencyGuard.mjs",
+        "src/invoiceBuilder.mjs"
+      ],
+      "constraints": [
+        "Zero external dependencies and zero eval()/new Function() under src/",
+        "Do not modify src/frozenWire.mjs or src/constants.mjs"
+      ],
+      "spec": "Implement full Unicode NFC semantics, canonical hashing with NFC-collision rejection, and UTF-8 byte/grapheme-bounded formatting across `src/errors.mjs`, `src/queryDsl.mjs`, `src/idempotencyGuard.mjs`, and `src/invoiceBuilder.mjs`:\n1. **`src/errors.mjs`:** Add `ERR_CANONICAL_COLLISION: \"ERR_CANONICAL_COLLISION\"` to `ERROR_CODES` preserving all existing error codes.\n2. **`src/queryDsl.mjs`:**\n   - Fix string escapes (`\\\\`, `\\\"`, `\\n`, `\\t`) and add `\\uXXXX` (4 hex digits) and `\\u{XXXXXX}` (1–6 hex digits) Unicode escapes. Reject invalid hex, codepoints `> 0x10FFFF`, or lone surrogate codepoints `0xD800..0xDFFF` with `LedgerError(ERROR_CODES.ERR_DSL_SYNTAX)`.\n   - Support `==`, `!=`, `IN (...)`, `NOT`, `AND`, `OR` (`()` > `NOT` > `AND` > `OR`), null/missing safety, and add case-insensitive `~=` operator. Normalize string values on both sides with `.normalize(\"NFC\")` for `==`, `!=`, `IN (...)`, and compare `.normalize(\"NFC\").toLowerCase()` for `~=`.\n3. **`src/idempotencyGuard.mjs` (`computeCanonicalPayloadHash` + fixed `IdempotencyGuard`):**\n   - Export `computeCanonicalPayloadHash(payload)`: reject `undefined` (at top level or inside arrays), `NaN`, `Infinity`, `-Infinity`, `BigInt`, functions, symbols, and circular object/array references anywhere in `payload` with `LedgerError(ERROR_CODES.ERR_INVALID_EVENT)`. Omit object properties whose value is `undefined`. Normalize `-0` to `0`, strings to `NFC`, and object keys to `NFC`.\n   - If two distinct raw keys on the same object normalize to the exact same `NFC` string (e.g. `\"cafe\\u0301\"` and `\"caf\\u00e9\"`), throw `LedgerError(ERROR_CODES.ERR_CANONICAL_COLLISION)`. Sort object keys ascending by UTF-16 code unit, serialize deterministic JSON, and return lowercase hex SHA-256 (`node:crypto`).\n   - Also fix `IdempotencyGuard` (`ttlMs > 0`, `maxEntries >= 1`, `nowMs >= expiresAtMs` inclusive expiry checked before conflict, FIFO eviction).\n4. **`src/invoiceBuilder.mjs` (`formatBoundedAuditEntry`):**\n   - Export `formatBoundedAuditEntry(invoice, maxBytes)`: validate integer `maxBytes >= 16` (else throw `LedgerError(ERROR_CODES.ERR_INVALID_CONFIG)`).\n   - Normalize `invoiceId` and `memo` (`String(invoice.memo ?? \"\").normalize(\"NFC\")`) and build `prefix = `${id}|${Math.trunc(Number(invoice.totalDueCents || 0))}|``. Full string is `prefix + memo`. If `Buffer.byteLength(full, \"utf8\") <= maxBytes`, return `full`.\n   - Otherwise iterate grapheme clusters (`new Intl.Segmenter(\"en\", { granularity: \"grapheme\" })`): if `Buffer.byteLength(prefix + \"…\", \"utf8\") <= maxBytes`, keep as many whole grapheme clusters from `memo` as fit alongside `prefix + \"…\"` (`U+2026`, 3 UTF-8 bytes) so `Buffer.byteLength(result, \"utf8\") <= maxBytes` and zero grapheme clusters are ever split; otherwise truncate `full` itself on grapheme boundaries + `\"…\"` within `maxBytes`.\nConstraints: (1) Zero external dependencies and zero `eval()`/`new Function()` in `src/`. (2) Do not modify `src/frozenWire.mjs` or `src/constants.mjs`.",
+      "visibleSuiteSha256": "bb8a142ac782342cc84ea1531805748fa71f01da7dec6061abd31babb0cf9604",
+      "hiddenSuiteSha256": "2675a8a4308dcdb5e45affb6c0c0ba40e397ceacb3ccf703c832d9d15af8135c"
+    },
+    {
+      "task_id": "H03",
+      "difficulty": "hard",
+      "title": "Partitioned async batch coordinator with contiguous low-watermark cursor, bounded retry/DLQ, AbortSignal drain, and graceful shutdown",
+      "target_files": [
+        "src/errors.mjs",
+        "src/usageCursor.mjs",
+        "src/idempotencyGuard.mjs",
+        "src/batchIngestor.mjs"
+      ],
+      "constraints": [
+        "Zero dependencies in package.json",
+        "Do not modify src/frozenWire.mjs or src/constants.mjs"
+      ],
+      "spec": "Implement partitioned async event ingestion with out-of-order contiguous watermark tracking, bounded retry/DLQ, `AbortSignal` drain, and graceful shutdown across `src/errors.mjs`, `src/usageCursor.mjs`, `src/idempotencyGuard.mjs`, and `src/batchIngestor.mjs`:\n1. **`src/errors.mjs`:** Add `ERR_ABORTED: \"ERR_ABORTED\"` and `ERR_SHUTTING_DOWN: \"ERR_SHUTTING_DOWN\"` to `ERROR_CODES` preserving all existing codes.\n2. **`src/usageCursor.mjs` (`UsageCursor`):**\n   - Support out-of-order `markCommitted(seqs)` and `markSkipped(seqs)` (each element positive integer `>= 1`, else `ERR_INVALID_EVENT`).\n   - `getWatermarks()` returns `{ highestCommittedSeq, contiguousWatermarkSeq }`, where `highestCommittedSeq` is max committed seq (`0` initially) and `contiguousWatermarkSeq` is the largest integer `k >= 0` such that EVERY seq `1..k` is either committed or skipped.\n3. **`src/idempotencyGuard.mjs`:** Fix `IdempotencyGuard` (`ttlMs > 0`, `maxEntries >= 1`, `nowMs >= expiresAtMs` checked before conflict, FIFO eviction).\n4. **`src/batchIngestor.mjs` (`PartitionedBatchCoordinator` + fixed `BatchIngestor`):**\n   - Keep `BatchIngestor` fixed (serialized mutex + failed-batch front restoration).\n   - Export `PartitionedBatchCoordinator({ maxBatchSize = 50, maxConcurrentFlushes = 4, maxRetries = 2, ttlMs = 60_000, maxIdempotencyEntries = 10_000, sinkFn, onDeadLetter = null })` (validate positive integer bounds & function `sinkFn` with `ERR_INVALID_CONFIG`).\n   - `ingest(event)` expects `{ accountId, key, payloadHash, seq, metric, units, nowMs }`: if `shutdown()` has been called, throw `LedgerError(ERROR_CODES.ERR_SHUTTING_DOWN)`. Validate fields (`ERR_INVALID_EVENT`), check idempotency (`guard.checkAndRecord(key, payloadHash, nowMs)` — if `duplicate`, return `{ status: \"duplicate\", seq }` without buffering; if `accepted`, enqueue in `accountId` partition FIFO buffer and if partition buffer reaches `maxBatchSize`, trigger and await partition flush).\n   - Per-account flushes MUST run serially (FIFO within each `accountId`); flushes across distinct accounts MAY run concurrently up to `<= maxConcurrentFlushes` active `sinkFn` invocations globally.\n   - Retry & DLQ: if `sinkFn(batch)` rejects with `err?.retryable === false`, move directly to DLQ without retrying; otherwise retry up to `maxRetries` extra times (`1 + maxRetries` total attempts). On terminal failure, push `{ accountId, batch, error }` to internal dead-letter list, `await onDeadLetter(batch, error)` if provided, call `cursor.markSkipped(batch.map(e => e.seq))`, and resolve without losing other partitions or wedging `contiguousWatermarkSeq`. On success, call `cursor.markCommitted(batch.map(e => e.seq))`.\n   - `flushPartition(accountId)` flushes that account's buffer cleanly. `drain({ signal } = {})` triggers flushes for all partitions with buffered (`< maxBatchSize`) events AND waits for all active & queued partition flushes to finish; if `signal?.aborted` or `signal` aborts while draining, reject immediately with `LedgerError(ERROR_CODES.ERR_ABORTED)` without dropping or corrupting in-flight/buffered batches. `shutdown()` rejects future `ingest()` with `ERR_SHUTTING_DOWN`, flushes all buffered events via `drain()`, and returns `{ committedCount, deadLetterCount, watermarks }` where `committedCount` and `deadLetterCount` are event counts (not batch counts). Export `getDeadLetters()` and `getWatermarks()`.\nConstraints: (1) Zero dependencies in package.json. (2) Do not modify `src/frozenWire.mjs` or `src/constants.mjs`.",
+      "visibleSuiteSha256": "54d22cc04645014e3fae5fc36f20f3c94e97e7995e70d63fb9225f2c1620862c",
+      "hiddenSuiteSha256": "751dc39dfb457f5bb98f81a2689debdd3adf16bcd54c5ae131533edba8701ebc"
+    },
+    {
+      "task_id": "H04",
+      "difficulty": "hard",
+      "title": "Exact BigInt FX triangulation & staleness, micro-rate tiering, banker rounding, and Largest-Remainder tax/discount allocation",
+      "target_files": [
+        "src/errors.mjs",
+        "src/fxConverter.mjs",
+        "src/tierEngine.mjs",
+        "src/creditPool.mjs",
+        "src/invoiceBuilder.mjs"
+      ],
+      "constraints": [
+        "Zero dependencies in package.json",
+        "Do not modify src/frozenWire.mjs or src/constants.mjs"
+      ],
+      "spec": "Implement exact BigInt multi-currency FX triangulation, micro-rate pricing, and penny-exact Hamilton (Largest Remainder) invoice allocation across `src/errors.mjs`, `src/fxConverter.mjs`, `src/tierEngine.mjs`, `src/creditPool.mjs`, and `src/invoiceBuilder.mjs`:\n1. **`src/errors.mjs`:** Add `ERR_FX_RATE_UNAVAILABLE: \"ERR_FX_RATE_UNAVAILABLE\"` and `ERR_FX_QUOTE_STALE: \"ERR_FX_QUOTE_STALE\"` to `ERROR_CODES` preserving all existing codes.\n2. **`src/fxConverter.mjs` (`roundHalfToEvenBigInt` + `convertMinorUnitsExact`):**\n   - Export `roundHalfToEvenBigInt(numBig, denBig)` (works for both negative and non-negative `numBig`, `denBig > 0n`: rounds half ties `2n * absRem === denBig` to the nearest even integer).\n   - Export `convertMinorUnitsExact({ amountMinor, fromCurrency, toCurrency, quotes = [], asOfMs = 0, maxQuoteAgeMs = Infinity })`: validate safe integer `amountMinor` (`ERR_INVALID_AMOUNT`) and known `CURRENCY_MINOR_EXPONENTS` (`ERR_INVALID_CONFIG`). If `fromCurrency === toCurrency`, return `amountMinor`.\n   - A quote `{ from, to, rateNum, rateDen, quoteTimestampMs }` is valid if positive integer `rateNum, rateDen` (`ERR_INVALID_CONFIG` if `<= 0` or non-integer) and fresh iff `quoteTimestampMs <= asOfMs && (asOfMs - quoteTimestampMs) <= maxQuoteAgeMs`.\n   - Route selection (prefer fresh routes in priority order: (1) direct `from->to` newest timestamp, (2) reciprocal inverse `to->from` using `rateDen/rateNum` newest timestamp, (3) 1-hop `USD` pivot combining fresh `from->USD` and `USD->to` [each direct or reciprocal], picking max `min(ts1, ts2)`). If any path exists structurally in `quotes` (direct, inverse, or 1-hop `USD` pivot) yet no fresh path exists, throw `ERR_FX_QUOTE_STALE`; if no structural route exists at all, throw `ERR_FX_RATE_UNAVAILABLE`.\n   - Compute `amountMinor * pathRateNum * 10^toExp / (pathRateDen * 10^fromExp)` in exact `BigInt` before a SINGLE final `roundHalfToEvenBigInt` (zero intermediate rounding!).\n3. **`src/tierEngine.mjs` (`computeMicroTierCharge` + fixed `computeGraduatedCharge`):**\n   - Export `computeMicroTierCharge(units, tiers)`: validates `units >= 0` integer (`ERR_NEGATIVE_UNITS`) and sorted valid tiers. Uses `BigInt(tier.unitRateMicros ?? Math.round(tier.unitRateCents * 1_000_000))` per unit across all tiers, summing `totalMicros` in `BigInt` and rounding ONCE at the end via `Number(roundHalfToEvenBigInt(totalMicros, 1_000_000n))`.\n4. **`src/creditPool.mjs`:** Fix `applyCredits` (window inclusivity, `expiresAtMs ASC, grantId ASC`, non-mutation).\n5. **`src/invoiceBuilder.mjs` (`allocateByLargestRemainder` + `buildMultiCurrencyInvoice`):**\n   - Export `allocateByLargestRemainder(totalDeltaMinor, weights)`: allocate non-negative integer `totalDeltaMinor` proportionally across `weights` (`weights.every(w => w >= 0)`). If `sum(weights) === 0`, return all `0`s (when `totalDeltaMinor === 0`, else throw `ERR_INVALID_AMOUNT`). Otherwise floor each `Math.floor` (`BigInt` division `total * w / W`), distribute remaining `1`-minor-unit increments to items sorted by `remainder DESC`, breaking ties by `weight DESC`, then `index ASC` so `sum(allocations) === totalDeltaMinor` always holds.\n   - Export `buildMultiCurrencyInvoice({ invoiceId, accountId, targetCurrency = \"USD\", usageRows = [], quotes = [], asOfMs = 0, maxQuoteAgeMs = Infinity, discountBps = 0, taxBps = 0, grants = [] })`: validate `0 <= discountBps <= 10000` & `0 <= taxBps <= 10000` (`ERR_INVALID_CONFIG`), price each row via `computeMicroTierCharge`, convert each row amount from `fromCurrency = row.rowCurrency ?? row.currency ?? targetCurrency` to `targetCurrency` via `convertMinorUnitsExact`, sum `usageSubtotalMinor`, compute `discountMinor` (BigInt banker's rounding of `usageSubtotalMinor * discountBps / 10000`) and allocate across rows (`line.discountMinor`), apply active `grants` at `asOfMs` up to `usageSubtotalMinor - discountMinor`, compute `netAfterCreditsMinor = usageSubtotalMinor - discountMinor - appliedCreditsMinor`, compute `taxMinor` (BigInt banker's rounding of `netAfterCreditsMinor * taxBps / 10000`) and allocate across rows with weights `line.amountMinor - line.discountMinor` (`line.taxMinor`), and return `{ invoiceId, accountId, currency: targetCurrency, status: \"FINALIZED\", lineItems, usageSubtotalMinor, discountMinor, appliedCreditsMinor, creditAllocations, netAfterCreditsMinor, taxMinor, totalDueMinor, wireDigest }`.\nConstraints: (1) Zero dependencies in package.json. (2) Do not modify `src/frozenWire.mjs` or `src/constants.mjs`.",
+      "visibleSuiteSha256": "756a84162bdfde6ee4c39163685a30334f8f01352e57dab360118b8a1993fbab",
+      "hiddenSuiteSha256": "02a5f4d76a57949a42b4343e9f742faa1b0df73353763c70a60f612127d3d9ee"
+    },
+    {
+      "task_id": "H05",
+      "difficulty": "hard",
+      "title": "Multi-stage async payment settlement saga with IN_FLIGHT/COMPENSATION_FAILED idempotency and reverse-order compensation",
+      "target_files": [
+        "src/errors.mjs",
+        "src/idempotencyGuard.mjs",
+        "src/tierEngine.mjs",
+        "src/creditPool.mjs",
+        "src/invoiceBuilder.mjs"
+      ],
+      "constraints": [
+        "Zero dependencies in package.json",
+        "Do not modify src/frozenWire.mjs or src/constants.mjs"
+      ],
+      "spec": "Implement an async multi-stage payment settlement saga with strict idempotency state transitions and reverse-order compensation across `src/errors.mjs`, `src/idempotencyGuard.mjs`, `src/tierEngine.mjs`, `src/creditPool.mjs`, and `src/invoiceBuilder.mjs`:\n1. **`src/errors.mjs`:** Add `ERR_IDEMPOTENCY_IN_FLIGHT: \"ERR_IDEMPOTENCY_IN_FLIGHT\"`, `ERR_COMPENSATION_FAILED: \"ERR_COMPENSATION_FAILED\"`, `ERR_UNKNOWN_INVOICE: \"ERR_UNKNOWN_INVOICE\"`, and `ERR_ALREADY_VOIDED: \"ERR_ALREADY_VOIDED\"` to `ERROR_CODES` preserving all existing codes.\n2. **`src/idempotencyGuard.mjs` (Saga State Machine):**\n   - Extend `IdempotencyGuard` with `beginInFlight(key, payloadHash, nowMs)`, `markSucceeded(key, payloadHash, resultSnapshot, nowMs)`, `markFailedRelease(key, payloadHash)`, and `markCompensationFailed(key, payloadHash, info, nowMs)`.\n   - If an active (`nowMs < expiresAtMs`) entry is `IN_FLIGHT`: same `payloadHash` throws `LedgerError(ERROR_CODES.ERR_IDEMPOTENCY_IN_FLIGHT)`; different `payloadHash` throws `ERR_IDEMPOTENCY_CONFLICT`.\n   - If active `SUCCEEDED`: same `payloadHash` returns `{ status: \"replayed\", cachedResult: structuredClone(resultSnapshot) }`; different `payloadHash` throws `ERR_IDEMPOTENCY_CONFLICT`.\n   - If active `COMPENSATION_FAILED`: throws `LedgerError(ERROR_CODES.ERR_COMPENSATION_FAILED)` to block unsafe retries.\n   - Expired entries (`nowMs >= expiresAtMs`) are cleared cleanly before starting. `markFailedRelease` removes an `IN_FLIGHT` entry if `payloadHash` matches so transient failures are safely retryable.\n3. **`src/creditPool.mjs`, `src/tierEngine.mjs`, and `createSettlementRegistry`:** Fix `computeGraduatedCharge` and active non-mutating `applyCredits`; export `createSettlementRegistry(initialGrants = [])` from `src/invoiceBuilder.mjs` returning `{ grants, invoices: [], unreconciledGatewayCents: 0 }` with cloned grant objects whose `.remainingCents` update in place as credits are reserved or restored.\n4. **`src/invoiceBuilder.mjs` (`executeSettlementSaga`):**\n   - Export `async executeSettlementSaga(ctx, request)` where `ctx = { registry, guard, gateway, ledgerStore }` and `request = { idempotencyKey, invoiceId, accountId, currency = \"USD\", usageRows = [], asOfMs = 0 }`.\n   - Compute deterministic `payloadHash` via SHA-256 over canonical `{ invoiceId, accountId, currency, usageRows, asOfMs }` (using sorted keys).\n   - Step A: `guard.beginInFlight(idempotencyKey, payloadHash, asOfMs)` — if `replayed`, immediately return `{ ...cachedResult, replayed: true }` with ZERO credit mutations and ZERO gateway/ledger calls.\n   - Step B: Build invoice charges (`computeGraduatedCharge` with accurate multi-tier pricing) and reserve active credits from `registry.grants` (`applyCredits` at `asOfMs`, updating reserved grant `.remainingCents` in place). Let `remainingGatewayCents = invoice.totalDueCents`.\n   - Step C: If `remainingGatewayCents === 0`, skip `gateway.authorize` and `gateway.capture` (`authId = null`, `captureId = null`). Otherwise call `await gateway.authorize({ amountCents: remainingGatewayCents, currency, invoiceId, accountId })` returning `{ authId }`, then `await gateway.capture({ authId, amountCents: remainingGatewayCents, currency, invoiceId })` returning `{ captureId }`:\n     - If `authorize` throws: restore reserved credits, call `guard.markFailedRelease`, attach `err.compensationSteps = [\"restore_credits\"]`, and rethrow.\n     - If `capture` throws: `await gateway.release(authId)`, then restore credits, call `guard.markFailedRelease`, attach `err.compensationSteps = [\"release_auth\", \"restore_credits\"]`, and rethrow.\n   - Step D: Call `await ledgerStore.append(invoiceRecord)`. If `ledgerStore.append` throws:\n     - If `captureId` exists, call `await gateway.refund({ captureId, amountCents: remainingGatewayCents, invoiceId })`. If `refund` succeeds: restore credits, `guard.markFailedRelease`, attach `err.compensationSteps = [\"refund_capture\", \"restore_credits\"]`, and rethrow `err`.\n     - If `refund` ALSO throws (`compErr`): do **NOT** restore credits (prevent double-spend), add `remainingGatewayCents` to `registry.unreconciledGatewayCents`, call `guard.markCompensationFailed(...)`, and throw `new LedgerError(ERROR_CODES.ERR_COMPENSATION_FAILED, \"Refund compensation failed\", { primaryError: err, compensationError: compErr, captureId, compensationSteps: [\"refund_capture_failed\"] })`.\n     - If `captureId` was `null`: restore credits, `guard.markFailedRelease`, attach `err.compensationSteps = [\"restore_credits\"]`, and rethrow `err`.\n   - Step E: Persist finalized invoice in `registry.invoices`, call `guard.markSucceeded(...)`, and return `{ ...finalizedInvoice, replayed: false, authId, captureId }`.\nConstraints: (1) Zero dependencies in package.json. (2) Do not modify `src/frozenWire.mjs` or `src/constants.mjs`.",
+      "visibleSuiteSha256": "1b1f178590f904056bdd6970153050db9614346e424a6813df5f4317e917584f",
+      "hiddenSuiteSha256": "74a503ba880fad61736ac849af0ad22165c81238cba4dd4f402af45e978d54af"
+    },
+    {
+      "task_id": "H06",
+      "difficulty": "hard",
+      "title": "Retroactive closed-period billing amendments with multi-window credit re-waterfalling and immutable digest memos",
+      "target_files": [
+        "src/errors.mjs",
+        "src/clock.mjs",
+        "src/tierEngine.mjs",
+        "src/creditPool.mjs",
+        "src/queryDsl.mjs",
+        "src/invoiceBuilder.mjs"
+      ],
+      "constraints": [
+        "Zero dependencies in package.json and zero eval()/new Function() under src/",
+        "Do not modify src/frozenWire.mjs or src/constants.mjs"
+      ],
+      "spec": "Implement a closed-period billing ledger supporting retroactive amendments and multi-window credit re-waterfalling across `src/errors.mjs`, `src/clock.mjs`, `src/tierEngine.mjs`, `src/creditPool.mjs`, `src/queryDsl.mjs`, and `src/invoiceBuilder.mjs`:\n1. Ensure `clock.mjs` (`getMonthlyCycleBounds` / DST-safe windows), `tierEngine.mjs` (accurate multi-tier `computeGraduatedCharge`), `creditPool.mjs` (immutable active-window `applyCredits` ordered `expiresAtMs ASC, grantId ASC`), `queryDsl.mjs` (`IN` / `NOT` / `AND` / `OR` precedence + escaping), and `errors.mjs` (`ERR_UNKNOWN_INVOICE`, `ERR_INVALID_CONFIG`) are all sound.\n2. In `src/invoiceBuilder.mjs`, export `createClosedPeriodLedger({ accountId, currency = \"USD\", timeZone = \"UTC\", anchorHourLocal = 0, grants = [], metricTiers = {} })` (deep-cloning `grants` and `metricTiers` on construction so caller inputs are never mutated) with methods:\n   - `closePeriod({ periodKey, year, month, anchorDay, invoiceId = `inv-${periodKey}`, events = [] })`: computes `[startUtcMs, endUtcMs)` via `getMonthlyCycleBounds({ year, month, anchorDay, timeZone, anchorHourLocal })` (`ERR_INVALID_CONFIG` on duplicate `periodKey` or non-chronological `startUtcMs`), aggregates `events` inside `[startUtcMs, endUtcMs)` by `metric` (sorted ascending), prices with `computeGraduatedCharge` using `metricTiers[metric]`, applies active credits at `asOfMs = endUtcMs`, stores the immutable closed invoice (`wireDigest` NEVER mutated afterward!), advances remaining credits to the next period, and returns a cloned copy of the closed invoice.\n   - `applyRetroactiveAmendment({ amendmentId, targetPeriodKey, op, events = [], filterExpr = null })`:\n     - Validate `targetPeriodKey` is a closed period (`ERR_UNKNOWN_INVOICE` if missing) and `op` is `\"ADD\" | \"SUBTRACT\" | \"VOID_MATCHING\"` (`ERR_INVALID_CONFIG` otherwise).\n     - Update a trial copy of `targetPeriodKey`'s event list: `\"ADD\"` appends `events` directly to `targetPeriodKey` (even when `timestampMs` is omitted); `\"SUBTRACT\"` applies direct unit subtractions (`{ metric, units }` with `units >= 0`, even when `timestampMs` is omitted) to `targetPeriodKey`; `\"VOID_MATCHING\"` uses `compileFilter(filterExpr)` to drop matching events in `targetPeriodKey`.\n     - Re-simulate EVERY closed period chronologically from the earliest period (or from `targetPeriodKey` using exact pre-target remaining credits) through the latest closed period:\n       - If any metric's net summed units in `targetPeriodKey` drops `< 0`, throw `LedgerError(ERROR_CODES.ERR_NEGATIVE_UNITS)` and leave ALL ledger state completely unchanged!\n       - Otherwise recompute each period's `effectiveUsageSubtotalCents`, `effectiveAppliedCreditsCents`, and `effectiveTotalDueCents` using active credits at `period.endUtcMs`.\n       - For each period `[targetPeriodKey .. latestClosedPeriod]` whose `effectiveTotalDueCents !== prevEffectiveTotalDueCents` OR `effectiveAppliedCreditsCents !== prevEffectiveAppliedCreditsCents`, emit an amendment memo `{ memoId: `${origInv.invoiceId}:amend:${amendmentSeq}`, amendmentId, periodKey, type, deltaDueCents, deltaCreditsCents, effectiveTotalDueCents, effectiveAppliedCreditsCents, memoWireDigest }` where `type` is `\"CREDIT_MEMO\"` if `deltaDueCents < 0`, `\"DEBIT_MEMO\"` if `deltaDueCents > 0`, or `\"REALLOCATION_MEMO\"` if `deltaDueCents === 0`, and `memoWireDigest = encodeFrozenWireDigest({ invoiceId: memoId, accountId, currency, totalDueCents: deltaDueCents, status: \"FINALIZED\" })`. (Normalize any `-0` deltas to `0`.)\n     - Return `{ amendmentId, amendmentSeq, memos }` while keeping every original closed invoice's `totalDueCents` and `wireDigest` untouched!\n   - `getEffectiveLedgerSummary()`: returns `{ closedInvoices, memos, effectiveByPeriod, remainingGrants }` (deep-cloned).\nConstraints: (1) Zero dependencies in package.json and zero `eval()`/`new Function()` under `src/`. (2) Do not modify `src/frozenWire.mjs` or `src/constants.mjs`.",
+      "visibleSuiteSha256": "1476e19db6ce9a5124a1baad1870862810a5ca4cef5870b7e454b3d85e9e2948",
+      "hiddenSuiteSha256": "7e894a52b83ea2214a01894c2d2b9b0441660a8316867d9d5cd0a79d59d89712"
+    }
+  ],
+  "randomSeed": 20261117,
+  "totalRuns": 54,
+  "schedules": {
+    "stage1": [
+      {
+        "run_id": "H04_SWITCH_r01",
+        "task_id": "H04",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H02_SONNET_r01",
+        "task_id": "H02",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 1,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H05_OPUS_r01",
+        "task_id": "H05",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H04_OPUS_r01",
+        "task_id": "H04",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H03_SWITCH_r01",
+        "task_id": "H03",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H04_SONNET_r01",
+        "task_id": "H04",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 1,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H05_SWITCH_r01",
+        "task_id": "H05",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H02_OPUS_r01",
+        "task_id": "H02",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H02_SWITCH_r01",
+        "task_id": "H02",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H06_SONNET_r01",
+        "task_id": "H06",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 1,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H03_OPUS_r01",
+        "task_id": "H03",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H03_SONNET_r01",
+        "task_id": "H03",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 1,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H05_SONNET_r01",
+        "task_id": "H05",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 1,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H01_SWITCH_r01",
+        "task_id": "H01",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H01_OPUS_r01",
+        "task_id": "H01",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H06_SWITCH_r01",
+        "task_id": "H06",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H01_SONNET_r01",
+        "task_id": "H01",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 1,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H06_OPUS_r01",
+        "task_id": "H06",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 1,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      }
+    ],
+    "stage2": [
+      {
+        "run_id": "H05_OPUS_r02",
+        "task_id": "H05",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H02_SWITCH_r02",
+        "task_id": "H02",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H03_SWITCH_r02",
+        "task_id": "H03",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H05_SONNET_r02",
+        "task_id": "H05",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 2,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H01_SONNET_r02",
+        "task_id": "H01",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 2,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H04_OPUS_r02",
+        "task_id": "H04",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H02_OPUS_r02",
+        "task_id": "H02",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H05_SWITCH_r02",
+        "task_id": "H05",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H03_OPUS_r02",
+        "task_id": "H03",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H06_SONNET_r02",
+        "task_id": "H06",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 2,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H01_SWITCH_r02",
+        "task_id": "H01",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H06_OPUS_r02",
+        "task_id": "H06",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H06_SWITCH_r02",
+        "task_id": "H06",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H03_SONNET_r02",
+        "task_id": "H03",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 2,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H04_SWITCH_r02",
+        "task_id": "H04",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H01_OPUS_r02",
+        "task_id": "H01",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 2,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H02_SONNET_r02",
+        "task_id": "H02",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 2,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H04_SONNET_r02",
+        "task_id": "H04",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 2,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H02_SONNET_r03",
+        "task_id": "H02",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 3,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H01_OPUS_r03",
+        "task_id": "H01",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H03_SONNET_r03",
+        "task_id": "H03",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 3,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H05_SONNET_r03",
+        "task_id": "H05",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 3,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H03_SWITCH_r03",
+        "task_id": "H03",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H06_SWITCH_r03",
+        "task_id": "H06",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H04_OPUS_r03",
+        "task_id": "H04",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H02_OPUS_r03",
+        "task_id": "H02",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H01_SONNET_r03",
+        "task_id": "H01",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 3,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H03_OPUS_r03",
+        "task_id": "H03",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H04_SWITCH_r03",
+        "task_id": "H04",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H01_SWITCH_r03",
+        "task_id": "H01",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H06_OPUS_r03",
+        "task_id": "H06",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H05_OPUS_r03",
+        "task_id": "H05",
+        "difficulty": "hard",
+        "arm": "OPUS",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H06_SONNET_r03",
+        "task_id": "H06",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 3,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      },
+      {
+        "run_id": "H05_SWITCH_r03",
+        "task_id": "H05",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H02_SWITCH_r03",
+        "task_id": "H02",
+        "difficulty": "hard",
+        "arm": "SWITCH",
+        "rep": 3,
+        "initial_model": "claude-opus-5-5",
+        "switch_to_model": "claude-sonnet-5-5"
+      },
+      {
+        "run_id": "H04_SONNET_r03",
+        "task_id": "H04",
+        "difficulty": "hard",
+        "arm": "SONNET",
+        "rep": 3,
+        "initial_model": "claude-sonnet-5-5",
+        "switch_to_model": null
+      }
+    ]
+  },
+  "predictions": {
+    "Q1": "On multi-file 30-60 minute tasks with subtle edge cases, OPUS achieves higher completion rate and lower total retries than SONNET, while SONNET pays half rate per token on successful tokens.",
+    "Q2": "SONNET incurs substantially higher retry and request counts on hard multi-module state machines (H03 coordinator, H05 saga compensation, H06 retroactive re-waterfalling), eroding part or all of its 2x token rate advantage when amortized over completed tasks.",
+    "Q3": "Under Option A, Opus Turn-1 planning diagnoses subtle edge-case invariants cleanly into the context before Sonnet implements Turn 2+, potentially saving >=1 retry turn on multi-file hard tasks that offsets SWITCH cold-write overhead more often than on routine tasks.",
+    "Q4": "Guard halts (retry_cap or turn_request_cap) will concentrate on H03/H05/H06 and occur more frequently in SONNET than OPUS or SWITCH."
+  },
+  "pilotCostEstimate": {
+    "pricingBasis": "2026-11-16 OpenRouter live /api/v1/models (Opus 5.5 $4/$20/$5/$0.20, Sonnet 5.5 $2/$10/$2.5/$0.10)",
+    "calibrationBasis": "Claude Code 2.1.325 Stage-1 routine wire prefixes (~15k start, multi-file H01-H06 diagnosis 7 reqs / +9k / 2k out, Turn-2 12 reqs / +13k / 3.8k out, avgRetries O=1.2 / S=1.8 / SW=1.4)",
+    "openRouterKeySnapshot": {
+      "timestampUtc": "2026-11-17T00:34:21.521Z",
+      "statusCode": 200,
+      "usage": 101.068949,
+      "limit": 200,
+      "limitRemaining": 98.931051
+    },
+    "byArmPilot6RunsEach": {
+      "OPUS": {
+        "pilotRuns": 6,
+        "planTurnPerRunUsd": 0.1834,
+        "implAndRetriesPerRunUsd": 0.3443,
+        "totalPerRunUsd": 0.5277,
+        "pilotPlanTurnUsd": 1.1004,
+        "pilotImplAndRetriesUsd": 2.0658,
+        "pilotTotalBaseUsd": 3.1662,
+        "pilotTotalWith15PctUsd": 3.6411,
+        "stressPlanTurnPerRunUsd": 0.2214,
+        "stressImplAndRetriesPerRunUsd": 0.6998,
+        "stressTotalPerRunUsd": 0.9212,
+        "stressPilotTotalBaseUsd": 5.5272,
+        "stressPilotTotalWith15PctUsd": 6.3563
+      },
+      "SONNET": {
+        "pilotRuns": 6,
+        "planTurnPerRunUsd": 0.0917,
+        "implAndRetriesPerRunUsd": 0.2047,
+        "totalPerRunUsd": 0.2964,
+        "pilotPlanTurnUsd": 0.5502,
+        "pilotImplAndRetriesUsd": 1.2282,
+        "pilotTotalBaseUsd": 1.7784,
+        "pilotTotalWith15PctUsd": 2.0452,
+        "stressPlanTurnPerRunUsd": 0.1107,
+        "stressImplAndRetriesPerRunUsd": 0.3825,
+        "stressTotalPerRunUsd": 0.4932,
+        "stressPilotTotalBaseUsd": 2.9592,
+        "stressPilotTotalWith15PctUsd": 3.4031
+      },
+      "SWITCH": {
+        "pilotRuns": 6,
+        "planTurnPerRunUsd": 0.1834,
+        "implAndRetriesPerRunUsd": 0.2399,
+        "totalPerRunUsd": 0.4233,
+        "pilotPlanTurnUsd": 1.1004,
+        "pilotImplAndRetriesUsd": 1.4394,
+        "pilotTotalBaseUsd": 2.5398,
+        "pilotTotalWith15PctUsd": 2.9208,
+        "stressPlanTurnPerRunUsd": 0.2214,
+        "stressImplAndRetriesPerRunUsd": 0.4301,
+        "stressTotalPerRunUsd": 0.6515,
+        "stressPilotTotalBaseUsd": 3.909,
+        "stressPilotTotalWith15PctUsd": 4.4953
+      }
+    },
+    "pilot18Runs": {
+      "expectedBaseUsd": 7.48,
+      "expectedWith15PctMarginUsd": 8.61,
+      "stressBaseUsd": 12.4,
+      "stressWith15PctMarginUsd": 14.25,
+      "hardAbortCeilingUsd": 54,
+      "fitsRemainingKeyCap": true
+    },
+    "reps2And3_36Runs": {
+      "expectedBaseUsd": 14.97,
+      "expectedWith15PctMarginUsd": 17.22,
+      "stressWith15PctMarginUsd": 28.5,
+      "hardAbortCeilingUsd": 108
+    },
+    "fullHardStudy54Runs": {
+      "expectedWith15PctMarginUsd": 25.83,
+      "stressWith15PctMarginUsd": 42.75,
+      "hardAbortCeilingUsd": 162
+    }
+  }
+}

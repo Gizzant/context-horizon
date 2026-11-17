@@ -1,0 +1,623 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import {
+  readSidecarSync,
+  writeSidecarAtomicSync,
+  readToolUsageSync,
+  writeToolUsageAtomicSync
+} from '../core/sidecar_store.mjs';
+import { getHomeDir, getBrainStores } from '../core/paths.mjs';
+import { parseTranscriptIncremental } from '../core/parser.mjs';
+import { isCompactionCheckpointStep, evaluateSmartFileReReads } from '../core/layer5_hygiene.mjs';
+import { canonicalizePath } from '../core/path_canonicalizer.mjs';
+import { resolveModelCeiling, normalizeModelKey } from '../core/constants.mjs';
+import { SwarmIdleTtlTracker, computeSwarmRosterTtlBadges } from '../core/subagents.mjs';
+import { loadHorizonConfig } from '../core/horizon_config.mjs';
+import { recordHookDiagnostic } from '../core/hook_diagnostics.mjs';
+import { evaluateBetweenTurnEffortAdvisor } from '../core/coach/effort_advisor.mjs';
+import { runBucketBPostToolPass, runBucketBStopPass } from '../core/bucket_b_runtime.mjs';
+import { isMutatingOrExecRslTool } from '../core/rsl_triage.mjs';
+
+const requireFromHere = createRequire(import.meta.url);
+let _agRslMod = null;
+function getAgRslMod() {
+  if (!_agRslMod) _agRslMod = requireFromHere('./antigravity_rsl_hook.mjs');
+  return _agRslMod;
+}
+
+export async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {}) {
+  if (process.stdin.isTTY || process.stdin.readableEnded) return {};
+  return new Promise((resolve) => {
+    let raw = '';
+    let settled = false;
+    let settleTimer = null;
+
+    const finish = (val) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(maxTimer);
+      if (settleTimer) clearTimeout(settleTimer);
+      try {
+        process.stdin.pause();
+      } catch (err) {
+        recordHookDiagnostic('post_invocation', 'stdin.pause', err, { persist: false });
+      }
+      resolve(val);
+    };
+
+    const tryParse = () => {
+      try {
+        return raw ? JSON.parse(raw) : {};
+      } catch (err) {
+        recordHookDiagnostic('post_invocation', 'stdin.parse', err);
+        return {};
+      }
+    };
+
+    const maxTimer = setTimeout(() => finish(tryParse()), maxTimeoutMs);
+
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', chunk => {
+      raw += chunk;
+      if (settleTimer) clearTimeout(settleTimer);
+      if (raw.trim().endsWith('}')) {
+        settleTimer = setTimeout(() => {
+          try {
+            finish(JSON.parse(raw));
+          } catch (err) {
+            recordHookDiagnostic('post_invocation', 'stdin.settleParse', err, { persist: false });
+          }
+        }, settleMs);
+      }
+    });
+    process.stdin.on('end', () => finish(tryParse()));
+    process.stdin.on('error', (err) => {
+      recordHookDiagnostic('post_invocation', 'stdin.error', err);
+      finish({});
+    });
+  });
+}
+
+function resolveExactSessionDir(conversationId, inputData = {}) {
+  if (inputData.sessionDir && fs.existsSync(inputData.sessionDir)) {
+    return inputData.sessionDir;
+  }
+  if (!conversationId || conversationId === 'default_session') return null;
+  const homeDir = inputData.homeDir || getHomeDir();
+  for (const store of getBrainStores(homeDir)) {
+    const candidate = path.join(store.path, String(conversationId));
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+function syncTranscriptTelemetryToSidecar(sidecar, sessionDir, inputData = {}) {
+  const parsed = parseTranscriptIncremental(sessionDir, inputData.cacheDir || null);
+  const rawSteps = Array.isArray(parsed?.steps) ? parsed.steps : [];
+  if (rawSteps.length === 0) return;
+
+  let lastCheckpointIdx = -1;
+  for (let i = rawSteps.length - 1; i >= 0; i--) {
+    if (rawSteps[i] && isCompactionCheckpointStep(rawSteps[i])) {
+      lastCheckpointIdx = i;
+      break;
+    }
+  }
+  const activeSteps = lastCheckpointIdx >= 0 ? rawSteps.slice(lastCheckpointIdx) : rawSteps;
+  const smartReReads = evaluateSmartFileReReads(activeSteps);
+
+  let totalTokens = 0;
+  let wasteTokens = 0;
+  const activeSet = new Set(sidecar.fileState?.activeSetPaths || []);
+  const staleSet = new Set(sidecar.fileState?.staleDupPaths || []);
+
+  for (let idx = 0; idx < activeSteps.length; idx++) {
+    const step = activeSteps[idx] || {};
+    const estFromLength = Number(step.untruncatedLength) > 0 ? Math.round(Number(step.untruncatedLength) / 4) : 0;
+    const stepPromptEnvelope = Number(step.totalPromptTokens || 0) ||
+      (Number(step.inputTokens || 0) + Number(step.cacheReadTokens || 0) + Number(step.cacheCreationTokens || 0));
+    let tok = stepPromptEnvelope > 0 && Number(step.outputTokens || 0) > 0
+      ? Math.max(Number(step.outputTokens || 0), estFromLength)
+      : (Number(step.outputTokens || 0) || estFromLength || 0);
+    if (step.stepIndex === 0 && stepPromptEnvelope > 0) {
+      tok = stepPromptEnvelope;
+    }
+    totalTokens += tok;
+
+    const isError = step.status === 'ERROR' || (typeof step.exitCode === 'number' && step.exitCode !== 0);
+    if (isError || smartReReads.wasteTargetByStep.has(idx)) {
+      wasteTokens += tok;
+    }
+
+    for (const call of (step.toolCalls || [])) {
+      const rawArgs = call?.args || call?.arguments || call?.parameters || call?.Arguments || {};
+      const a = typeof rawArgs === 'string'
+        ? (() => {
+            try {
+              return JSON.parse(rawArgs);
+            } catch (err) {
+              recordHookDiagnostic('post_invocation', 'toolCallArgs.parse', err, { persist: false });
+              return {};
+            }
+          })()
+        : rawArgs;
+      const fp = a.Path || a.path || a.TargetFile || a.AbsolutePath;
+      if (fp && typeof fp === 'string') {
+        const canon = canonicalizePath(fp);
+        if (smartReReads.wasteTargetByStep.has(idx)) {
+          staleSet.add(canon);
+        } else {
+          activeSet.add(canon);
+        }
+      }
+    }
+  }
+
+  const stdinTotal = Number(inputData.context_window?.total_input_tokens || 0);
+  const effectiveTotal = Math.max(stdinTotal, totalTokens);
+  const activeModel = inputData.modelName || inputData.model?.id || sidecar.sessionMeta?.activeModel || 'gemini-3.8-flash';
+  const maxCeiling = resolveModelCeiling(activeModel, inputData.context_window);
+  const usedPct = maxCeiling > 0 ? Number(((effectiveTotal / maxCeiling) * 100).toFixed(1)) : 0;
+  const purityPct = effectiveTotal > 0
+    ? Number(Math.min(100, Math.max(0, (((effectiveTotal - wasteTokens) / effectiveTotal) * 100))).toFixed(1))
+    : 100.0;
+
+  sidecar.telemetry = sidecar.telemetry || {};
+  sidecar.telemetry.totalInputTokens = effectiveTotal;
+  sidecar.telemetry.usedPercentage = Number(inputData.context_window?.used_percentage || usedPct);
+  sidecar.telemetry.exceeds200kTokens = effectiveTotal > 200000;
+  sidecar.telemetry.signalPurityPct = purityPct;
+  sidecar.telemetry.amputationRisk = effectiveTotal >= 179000;
+
+  sidecar.fileState = sidecar.fileState || {};
+  sidecar.fileState.activeSetPaths = Array.from(activeSet).slice(-32);
+  sidecar.fileState.staleDupPaths = Array.from(staleSet).slice(-32);
+
+  if (parsed.filePath) {
+    sidecar.cursor = {
+      filePath: parsed.filePath,
+      byteOffset: Number(parsed.lastByteOffset || 0),
+      tier: Number(parsed.tier || 1)
+    };
+  }
+}
+
+export async function handlePostToolUse(inputData = {}) {
+  const conversationId = inputData.conversationId || inputData.session_id || inputData.conversation_id || 'default_session';
+  const sidecar = readSidecarSync(conversationId);
+  sidecar.sessionMeta = sidecar.sessionMeta || {};
+  sidecar.swarmRoster = sidecar.swarmRoster || {};
+
+  // Phase 3.2: Mid-turn model switch buffer — record pending_model_id without mutating active_model_id
+  const requestedMidTurnModel = inputData.requestedModel || inputData.newModel || inputData.pending_model_id || null;
+  if (requestedMidTurnModel) {
+    const normalizedNext = normalizeModelKey(requestedMidTurnModel);
+    if (!sidecar.sessionMeta.active_model_id) {
+      sidecar.sessionMeta.active_model_id = normalizeModelKey(
+        inputData.active_model_id || inputData.modelName || sidecar.sessionMeta.activeModel || 'gemini-3.8-flash'
+      );
+    }
+    if (normalizedNext !== sidecar.sessionMeta.active_model_id) {
+      sidecar.sessionMeta.pending_model_id = normalizedNext;
+    }
+  }
+
+  const nowMs = inputData.nowMs ?? inputData.eventTimestampUtc ?? Date.now();
+  const tracker = new SwarmIdleTtlTracker({
+    initialRoster: inputData.swarmRoster || sidecar.swarmRoster,
+    cacheTtlMs: inputData.cacheTtlMs ?? 300000
+  });
+
+  if (inputData.agent_id || inputData.agentId) {
+    const aid = String(inputData.agent_id || inputData.agentId).trim();
+    tracker.touchAgentActive(aid, {
+      modelId: inputData.modelId || inputData.modelName || sidecar.sessionMeta.active_model_id || 'gemini-4-carbon',
+      warmPrefixTokens: Number(inputData.warm_prefix_tokens ?? inputData.warmPrefixTokens ?? 0),
+      timestampMs: nowMs
+    });
+  }
+
+  sidecar.swarmRoster = tracker.getRosterSnapshot();
+  sidecar.swarmTtlBadges = computeSwarmRosterTtlBadges(sidecar.swarmRoster, {
+    nowMs,
+    cacheTtlMs: inputData.cacheTtlMs ?? 300000
+  });
+
+  const workspacePath = inputData.cwd || inputData.workspacePath || sidecar.workspacePath || process.cwd();
+  const horizonConfig = inputData.horizonConfig || loadHorizonConfig({
+    cwd: workspacePath,
+    ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {})
+  });
+  const flightMode = String(inputData.flightMode || horizonConfig.flightMode || 'COACH').toUpperCase();
+
+  const toolName = String(inputData.toolCall?.name || inputData.tool_name || inputData.toolName || '');
+  const toolInput = inputData.toolCall?.args || inputData.tool_input || inputData.toolInput || inputData.args || {};
+  const cmdStr = String(toolInput.CommandLine || toolInput.command || toolInput.cmd || inputData.command || '');
+
+  if (
+    inputData.enableRsl !== false &&
+    (inputData.workspacePaths?.[0] || inputData.cwd || inputData.workspacePath) &&
+    isMutatingOrExecRslTool(toolName)
+  ) {
+    try {
+      getAgRslMod().handleAntigravityRslHook(inputData, { event: 'PostToolUse' });
+    } catch {
+      // Fail open for RSL step telemetry
+    }
+  }
+  const rawOutput =
+    typeof (inputData.tool_output ?? inputData.toolOutput ?? inputData.output ?? inputData.tool_response) === 'string'
+      ? (inputData.tool_output ?? inputData.toolOutput ?? inputData.output ?? inputData.tool_response)
+      : String(
+          inputData.tool_output ??
+            inputData.toolOutput ??
+            inputData.output ??
+            inputData.tool_response?.output ??
+            inputData.tool_response?.content ??
+            ''
+        );
+  const didFail =
+    inputData.is_error === true ||
+    inputData.isError === true ||
+    inputData.succeeded === false ||
+    inputData.status === 'ERROR' ||
+    (typeof inputData.exitCode === 'number' && inputData.exitCode !== 0) ||
+    (typeof inputData.exit_code === 'number' && inputData.exit_code !== 0);
+
+  if (/^(?:run_command|execute_bash|Bash|PowerShell)$/i.test(toolName)) {
+    const isVerificationCmd =
+      /\b(?:node\s+--test|npm\s+(?:run\s+)?test|pnpm\s+(?:run\s+)?test|yarn\s+test|bun\s+test|vitest|jest|pytest|cargo\s+test|go\s+test|tsc(?:\s|$)|npx\s+tsc)\b/i.test(
+        cmdStr
+      );
+    if (!didFail && isVerificationCmd) {
+      if (sidecar.fileState) {
+        sidecar.fileState.unverifiedEdits = [];
+      }
+      if (sidecar.sessionMeta) {
+        sidecar.sessionMeta.lastFailingLocation = null;
+      }
+    } else if (didFail && rawOutput) {
+      const locMatch = rawOutput.match(
+        /([A-Za-z0-9_./\\-]+\.(?:[cm]?[jt]sx?|py|rs|go|rb|java|kt|swift|c|cpp|h|hpp)):(\d+)(?::\d+)?/
+      );
+      if (locMatch) {
+        sidecar.sessionMeta.lastFailingLocation = `${locMatch[1].replace(/\\/g, '/')}:${locMatch[2]}`;
+      }
+    }
+  }
+
+  let postPass = null;
+  if (flightMode !== 'OFF' && inputData.bucketBShadow !== false && toolName && rawOutput) {
+    try {
+      postPass = runBucketBPostToolPass({
+        platform: 'antigravity',
+        sessionId: conversationId,
+        cwd: workspacePath,
+        hasExplicitCwd: Boolean(inputData.cwd || inputData.workspacePath),
+        toolName,
+        toolInput: toolInput && typeof toolInput === 'object' ? toolInput : {},
+        rawOutput,
+        lastUserPrompt: String(inputData.lastUserPrompt || ''),
+        activeFiles: sidecar.fileState?.activeSetPaths || [],
+        webFetchesInTurn: Number(inputData.webFetchesInTurn || 1),
+        options: {
+          bucketBStage: inputData.bucketBStage,
+          bucketBAlphaStage: inputData.bucketBAlphaStage,
+          mode: flightMode,
+          horizonConfig
+        }
+      });
+    } catch (_postErr) {
+      postPass = null;
+    }
+  }
+
+  writeSidecarAtomicSync(conversationId, sidecar);
+  if (flightMode === 'OFF') {
+    return { flightMode };
+  }
+  const postToolOut = {
+    flightMode,
+    active_model_id: sidecar.sessionMeta.active_model_id || sidecar.sessionMeta.activeModel || null,
+    pending_model_id: sidecar.sessionMeta.pending_model_id || null,
+    swarmTtlBadges: sidecar.swarmTtlBadges
+  };
+  if (postPass?.triggered) {
+    postToolOut.updatedOutput = postPass.updatedOutput;
+    postToolOut.savedTokens = postPass.savedTokens;
+    postToolOut.guardrailId = postPass.guardrailId;
+    if (flightMode !== 'SILENT') {
+      postToolOut.systemMessage = postPass.reason;
+    }
+  }
+  return postToolOut;
+}
+
+export async function handlePostInvocation(inputData = {}) {
+  if (
+    inputData.hookEventName === 'PostToolUse' ||
+    inputData.hook_event_name === 'PostToolUse' ||
+    inputData.event === 'PostToolUse' ||
+    Boolean(inputData.toolCall)
+  ) {
+    return handlePostToolUse(inputData);
+  }
+
+  const conversationId = inputData.conversationId || inputData.session_id || inputData.conversation_id || 'default_session';
+  const sidecar = readSidecarSync(conversationId);
+
+  sidecar.sessionMeta = sidecar.sessionMeta || {};
+  sidecar.sessionMeta.turnCount = (sidecar.sessionMeta.turnCount || 0) + 1;
+
+  // Phase 3.2: Promote pending_model_id -> active_model_id strictly on turn completion (PostInvocation or Stop)
+  const pendingModel = inputData.pending_model_id || sidecar.sessionMeta.pending_model_id || null;
+  if (pendingModel) {
+    const promoted = normalizeModelKey(pendingModel);
+    sidecar.sessionMeta.active_model_id = promoted;
+    sidecar.sessionMeta.activeModel = promoted;
+    sidecar.sessionMeta.pending_model_id = null;
+  } else if (inputData.modelName || inputData.active_model_id) {
+    const current = normalizeModelKey(inputData.active_model_id || inputData.modelName);
+    sidecar.sessionMeta.active_model_id = current;
+    sidecar.sessionMeta.activeModel = current;
+  }
+
+  // Track subagent use
+  const toolsInvoked = Array.isArray(inputData.toolsInvoked)
+    ? inputData.toolsInvoked
+    : (inputData.tool_calls || []).map(c => c.name || c.tool);
+
+  const usedSubagent = toolsInvoked.some(t => t === 'invoke_subagent');
+  sidecar.sessionMeta.lastTurnUsedSubagent = usedSubagent;
+
+  // Update tool usage ledger for MCP tools
+  const toolLedger = readToolUsageSync();
+  toolLedger.servers = toolLedger.servers || {};
+  let ledgerChanged = false;
+
+  for (const t of toolsInvoked) {
+    if (typeof t === 'string' && t.startsWith('mcp_')) {
+      const parts = t.split('_');
+      const server = parts[1];
+      if (server) {
+        if (!toolLedger.servers[server]) {
+          toolLedger.servers[server] = { invocationsLast15Sessions: 1, lastUsedMs: Date.now() };
+        } else {
+          toolLedger.servers[server].invocationsLast15Sessions = (toolLedger.servers[server].invocationsLast15Sessions || 0) + 1;
+          toolLedger.servers[server].lastUsedMs = Date.now();
+        }
+        ledgerChanged = true;
+      }
+    }
+  }
+  if (ledgerChanged) {
+    writeToolUsageAtomicSync(toolLedger);
+  }
+
+  // Track consecutive trivial on max
+  const effort = inputData.effort || sidecar.sessionMeta.activeEffort || 'high';
+  const isMaxEffort = effort === 'max';
+  const rawPromptTokens = inputData.promptTokens ?? inputData.tokens ?? null;
+  const promptTokens = rawPromptTokens !== null && rawPromptTokens !== undefined
+    ? Number(rawPromptTokens)
+    : null;
+  if (isMaxEffort && promptTokens !== null && Number.isFinite(promptTokens) && promptTokens > 0 && promptTokens < 15) {
+    sidecar.sessionMeta.consecutiveTrivialOnMax = (sidecar.sessionMeta.consecutiveTrivialOnMax || 0) + 1;
+  } else {
+    sidecar.sessionMeta.consecutiveTrivialOnMax = 0;
+  }
+
+  // Track error streak
+  const hasError = inputData.exitCode !== undefined && inputData.exitCode !== null && inputData.exitCode !== 0;
+  if (hasError || inputData.status === 'ERROR') {
+    sidecar.sessionMeta.consecutiveErrorStreak = (sidecar.sessionMeta.consecutiveErrorStreak || 0) + 1;
+  } else {
+    sidecar.sessionMeta.consecutiveErrorStreak = 0;
+  }
+
+  // Track test runs (including TypeScript typecheck `tsc`)
+  const isTestRun = toolsInvoked.includes('run_command') && /\b(?:test|pytest|jest|vitest|cargo\s+test|go\s+test|tsc)\b/i.test(inputData.command || '');
+  if (isTestRun && inputData.exitCode === 0) {
+    sidecar.sessionMeta.turnsSinceLastPassingTest = 0;
+    if (sidecar.fileState) {
+      sidecar.fileState.unverifiedEdits = [];
+    }
+  } else {
+    sidecar.sessionMeta.turnsSinceLastPassingTest = (sidecar.sessionMeta.turnsSinceLastPassingTest || 0) + 1;
+  }
+
+  if (Array.isArray(inputData.activeBackgroundTasks)) {
+    sidecar.sessionMeta.activeBackgroundTasks = inputData.activeBackgroundTasks
+      .filter(Boolean)
+      .map((t) => (typeof t === 'string' ? t : String(t?.id || t?.command || 'bg_task')));
+  }
+
+  // Incremental transcript sync so sidecar.telemetry.totalInputTokens updates in standalone CLI/hook mode
+  try {
+    const resolvedSessionDir = resolveExactSessionDir(conversationId, inputData);
+    if (resolvedSessionDir) {
+      syncTranscriptTelemetryToSidecar(sidecar, resolvedSessionDir, inputData);
+    } else if (Number(inputData.context_window?.total_input_tokens || 0) > 0) {
+      sidecar.telemetry = sidecar.telemetry || {};
+      sidecar.telemetry.totalInputTokens = Number(inputData.context_window.total_input_tokens);
+    }
+  } catch (err) {
+    // Fail-open: never break hook execution if transcript file is temporarily unavailable
+    recordHookDiagnostic('post_invocation', 'syncTranscriptTelemetryToSidecar', err, { ignoreCodes: ['ENOENT'] });
+  }
+
+  // Phase 4.2: Transition completing /swarm agent to idle_zero_token and compute TTL cliff badges
+  const nowMs = inputData.nowMs ?? inputData.eventTimestampUtc ?? Date.now();
+  const tracker = new SwarmIdleTtlTracker({
+    initialRoster: inputData.swarmRoster || sidecar.swarmRoster || {},
+    cacheTtlMs: inputData.cacheTtlMs ?? 300000
+  });
+  const agentId = inputData.agent_id || inputData.agentId || null;
+  if (agentId) {
+    tracker.onTurnComplete(agentId, {
+      modelId: sidecar.sessionMeta.active_model_id || sidecar.sessionMeta.activeModel || inputData.modelName || 'gemini-4-carbon',
+      warmPrefixTokens: Number(
+        inputData.warm_prefix_tokens ??
+        inputData.warmPrefixTokens ??
+        sidecar.telemetry?.totalInputTokens ??
+        0
+      ),
+      timestampMs: nowMs,
+      parentSwarmLive: inputData.parentSwarmLive !== false
+    });
+  }
+  sidecar.swarmRoster = tracker.getRosterSnapshot();
+  sidecar.swarmTtlBadges = computeSwarmRosterTtlBadges(sidecar.swarmRoster, {
+    nowMs,
+    cacheTtlMs: inputData.cacheTtlMs ?? 300000
+  });
+
+  // Rank 7 (DET-08): Trigger between-turn EffortAdvisor from PostInvocation
+  try {
+    const cachedTok = Number(
+      inputData.cachedTokens ??
+      sidecar.telemetry?.cachedTokens ??
+      sidecar.telemetry?.cacheReadTokens ??
+      sidecar.telemetry?.totalInputTokens ??
+      0
+    );
+    const recentFailures = Number(
+      inputData.recentTestFailures ??
+      (typeof inputData.exitCode === 'number' && inputData.exitCode !== 0 ? 1 : 0)
+    );
+    const det05Osc = Boolean(
+      inputData.det05Oscillation ||
+      (sidecar.portfolio?.hudAlerts || []).some((a) => a.detectorId === 'DET-05' && /FLIP_FLOP/.test(String(a.message || '')))
+    );
+    sidecar.effortAdvisor = evaluateBetweenTurnEffortAdvisor(
+      {
+        sessionId: conversationId,
+        turnCount: Number(sidecar.sessionMeta?.turnCount || 0),
+        cachedTokens: cachedTok,
+        activeModel: sidecar.sessionMeta?.active_model_id || sidecar.sessionMeta?.activeModel || inputData.modelName || 'gemini-4-carbon',
+        activeEffort: inputData.effort || sidecar.sessionMeta?.activeEffort || 'high',
+        isSimpleTask: inputData.isSimpleTask !== false,
+        recentTestFailures: recentFailures,
+        det05Oscillation: det05Osc,
+        timestampUtc: inputData.eventTimestampUtc || new Date(typeof nowMs === 'number' ? nowMs : Date.now()).toISOString()
+      },
+      inputData.effortAdvisorDbPath ? { dbPath: inputData.effortAdvisorDbPath } : (inputData.homeDir ? { homeDir: inputData.homeDir } : {})
+    );
+  } catch (err) {
+    recordHookDiagnostic('post_invocation', 'effortAdvisor', err, { persist: false });
+  }
+
+  const bgTasks = Array.isArray(sidecar.sessionMeta?.activeBackgroundTasks)
+    ? sidecar.sessionMeta.activeBackgroundTasks
+    : [];
+  const orphanBackgroundWarning =
+    bgTasks.length > 0 && (inputData.sessionEnding === true || inputData.stop === true)
+      ? `[Highbeam Quota Shield — Orphan Background Drain (#10)] ${bgTasks.length} background daemon/task(s) still active (${bgTasks.slice(0, 3).join(', ')}). Kill via manage_task before ending session.`
+      : null;
+
+  const postToolName = String(inputData.tool_name || inputData.toolName || '');
+  const postRawOutput = inputData.tool_output ?? inputData.toolOutput ?? inputData.output;
+  let invPostPass = null;
+  let invPostFlightMode = 'COACH';
+  if (postToolName && postRawOutput && inputData.bucketBShadow !== false) {
+    try {
+      const postWorkspace = inputData.cwd || inputData.workspacePath || sidecar.workspacePath || process.cwd();
+      const postHorizonConfig = inputData.horizonConfig || loadHorizonConfig({
+        cwd: postWorkspace,
+        ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {})
+      });
+      invPostFlightMode = String(inputData.flightMode || postHorizonConfig.flightMode || 'COACH').toUpperCase();
+      if (invPostFlightMode !== 'OFF') {
+        invPostPass = runBucketBPostToolPass({
+          platform: 'antigravity',
+          sessionId: conversationId,
+          cwd: postWorkspace,
+          hasExplicitCwd: Boolean(inputData.cwd || inputData.workspacePath),
+          toolName: postToolName,
+          toolInput: inputData.tool_input || inputData.toolInput || {},
+          rawOutput: String(postRawOutput),
+          lastUserPrompt: String(inputData.lastUserPrompt || ''),
+          activeFiles: sidecar.fileState?.activeSetPaths || [],
+          webFetchesInTurn: Number(inputData.webFetchesInTurn || 1),
+          options: {
+            bucketBStage: inputData.bucketBStage,
+            bucketBAlphaStage: inputData.bucketBAlphaStage,
+            mode: invPostFlightMode,
+            horizonConfig: postHorizonConfig
+          }
+        });
+      }
+    } catch (_invPostErr) {
+      invPostPass = null;
+    }
+  }
+
+  const turnFileDiffs = Array.isArray(inputData.fileDiffs)
+    ? inputData.fileDiffs
+    : Array.isArray(sidecar.fileState?.turnFileDiffs)
+      ? sidecar.fileState.turnFileDiffs
+      : [];
+  let turnStopPass = null;
+  let turnFlightMode = invPostFlightMode;
+  if (turnFileDiffs.length > 0 && inputData.bucketBShadow !== false) {
+    try {
+      const turnWorkspace = inputData.cwd || inputData.workspacePath || sidecar.workspacePath || process.cwd();
+      const turnHorizonConfig = inputData.horizonConfig || loadHorizonConfig({
+        cwd: turnWorkspace,
+        ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {})
+      });
+      turnFlightMode = String(inputData.flightMode || turnHorizonConfig.flightMode || 'COACH').toUpperCase();
+      if (turnFlightMode !== 'OFF') {
+        turnStopPass = runBucketBStopPass({
+          platform: 'antigravity',
+          sessionId: conversationId,
+          cwd: turnWorkspace,
+          hasExplicitCwd: Boolean(inputData.cwd || inputData.workspacePath),
+          fileDiffs: turnFileDiffs,
+          lastUserPrompt: String(inputData.lastUserPrompt ?? inputData.prompt ?? sidecar.sessionMeta?.lastUserPrompt ?? ''),
+          options: {
+            bucketBStage: inputData.bucketBStage,
+            bucketBBetaStage: inputData.bucketBBetaStage,
+            mode: turnFlightMode,
+            horizonConfig: turnHorizonConfig
+          }
+        });
+      }
+    } catch (_turnStopErr) {
+      turnStopPass = null;
+    }
+  }
+  if (sidecar.fileState) {
+    sidecar.fileState.turnFileDiffs = [];
+  }
+
+  writeSidecarAtomicSync(conversationId, sidecar);
+  const out = {
+    active_model_id: sidecar.sessionMeta.active_model_id || sidecar.sessionMeta.activeModel || null,
+    pending_model_id: sidecar.sessionMeta.pending_model_id || null,
+    swarmRoster: sidecar.swarmRoster,
+    swarmTtlBadges: sidecar.swarmTtlBadges,
+    effortAdvisor: sidecar.effortAdvisor || null
+  };
+  if (invPostPass?.triggered) {
+    out.updatedOutput = invPostPass.updatedOutput;
+    out.savedTokens = invPostPass.savedTokens;
+    out.guardrailId = invPostPass.guardrailId;
+  }
+  if (turnStopPass?.triggered) {
+    out.overengineeringHint = turnStopPass.reason;
+    out.savedTokens = (out.savedTokens || 0) + (turnStopPass.savedTokens || 0);
+    out.guardrailId = out.guardrailId || turnStopPass.guardrailId;
+  }
+  if (orphanBackgroundWarning) {
+    out.orphanBackgroundWarning = orphanBackgroundWarning;
+    out.systemMessage = orphanBackgroundWarning;
+  } else if (invPostPass?.triggered && invPostFlightMode !== 'SILENT' && !out.systemMessage) {
+    out.systemMessage = invPostPass.reason;
+  } else if (turnStopPass?.triggered && turnFlightMode !== 'SILENT' && !out.systemMessage) {
+    out.systemMessage = turnStopPass.reason;
+  }
+  return out;
+}
+

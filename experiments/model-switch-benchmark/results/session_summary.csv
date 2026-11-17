@@ -1,0 +1,10 @@
+tier,arm,arm_name,n,median_session_cost_usd,min_session_cost_usd,max_session_cost_usd,median_session_penalty_vs_ctrl_usd,median_session_cache_hit_ratio,median_session_write_tokens,median_session_read_tokens,median_session_latency_ms
+large,A,Control,5,0.7789,0.76589,0.78114,0,0.9167,58810,647777,114341.9
+large,B,One Switch,5,0.86111,0.85849,0.86508,0.08222,0.8374,114671,590788,103597.4
+large,F,Ten Switches,5,0.913,0.90479,0.91621,0.13411,0.8341,117674,591624,108562.3
+small,A,Control,5,0.26994,0.26728,0.27342,0,0.9196,16993,194790,68632.5
+small,B,One Switch,5,0.2834,0.28214,0.28457,0.01345,0.8493,31969,180518,73496.1
+small,C,Switch & Back,5,0.31998,0.31597,0.32328,0.05004,0.8459,32772,180085,79204.7
+small,D,Effort Only,5,0.35602,0.35081,0.35719,0.08608,0.8495,31834,179935,67306.1
+small,E,Idle > TTL + Switch,5,0.2835,0.2809,0.2841,0.01355,0.8493,32010,180500,72554.9
+small,F,Ten Switches,5,0.3081,0.30426,0.31099,0.03815,0.8398,34469,180806,73561.4

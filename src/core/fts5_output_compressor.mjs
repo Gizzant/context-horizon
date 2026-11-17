@@ -21,7 +21,7 @@ import { SavedQuotaReceiptLedger, SAVINGS_EVENT_TYPES } from './coach/saved_quot
 export const FTS5_COMPRESSOR_CONSTANTS = Object.freeze({
   MIN_LINES_TO_COMPRESS: 80,
   MAX_SUMMARY_LINES: 25,
-  TARGET_COMMAND_REGEX: /\b(pytest|jest|vitest|cargo\s+test|tsc|node\s+--test|npm\s+test)\b/i
+  TARGET_COMMAND_REGEX: /\b(pytest|jest|vitest|cargo\s+(?:test|clippy|check|build)|tsc|node\s+--test|(?:npm|pnpm|yarn|bun)\s+(?:test|run\s+(?:test|lint|build|typecheck))|go\s+test|eslint|biome|ruff|next\s+build|vite\s+build|git\s+(?:diff|log|show|status)|docker\s+(?:build|logs)|kubectl\s+(?:logs|get|describe)|gh\s+(?:pr|run))\b/i
 });
 
 export function getDefaultToolLogsDbPath(homeDir = getHomeDir()) {
@@ -32,9 +32,25 @@ export function isCompressibleCliCommand(command = '') {
   return FTS5_COMPRESSOR_CONSTANTS.TARGET_COMMAND_REGEX.test(String(command || ''));
 }
 
+export function classifyCliCommandFamily(command = '') {
+  const cmd = String(command || '').toLowerCase();
+  if (/\bgit\s+(diff|log|show|status)\b/.test(cmd)) return 'git';
+  if (/\b(docker|kubectl|gh)\b/.test(cmd)) return 'infra';
+  if (/\b(eslint|biome|ruff|tsc|cargo\s+(clippy|check|build)|next\s+build|vite\s+build)\b/.test(cmd)) {
+    return 'lint_build';
+  }
+  return 'test';
+}
+
+function pushUniqueBounded(arr, item, maxLen, sliceLen = 140) {
+  const cleaned = String(item || '').trim().slice(0, sliceLen);
+  if (!cleaned || arr.includes(cleaned) || arr.length >= maxLen) return;
+  arr.push(cleaned);
+}
+
 /**
- * Extracts failing test names and exact `file:line` assertion tracebacks from raw CLI output
- * and formats a deterministic <= 25-line summary.
+ * Extracts failing test names, diagnostics, git hunks, or infra errors from raw CLI output
+ * and formats a deterministic <= 25-line summary with exact FTS5 query handle.
  */
 export function buildDeterministicSummary(rawOutput = '', {
   command = 'pytest',
@@ -43,6 +59,71 @@ export function buildDeterministicSummary(rawOutput = '', {
   maxLines = FTS5_COMPRESSOR_CONSTANTS.MAX_SUMMARY_LINES
 } = {}) {
   const lines = String(rawOutput || '').split(/\r?\n/);
+  const family = classifyCliCommandFamily(command);
+  const queryHandleLine = `FTS5 Query Handle: agy-log-search ${turnId} "<keyword>"`;
+
+  if (family === 'git') {
+    const fileHeaders = [];
+    const hunksOrMeta = [];
+    const conflictsOrErrors = [];
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      if (/^(diff --git |\+\+\+ [ab]\/|--- [ab]\/|commit [0-9a-f]{7,})/.test(line)) {
+        pushUniqueBounded(fileHeaders, line, 10);
+      } else if (/^\s*(M|A|D|R\d*|C\d*|UU|\?\?)\s+\S+/.test(rawLine)) {
+        pushUniqueBounded(fileHeaders, line, 10);
+      } else if (/^@@\s+.*\s+@@/.test(line) || /^(\d+\s+files?\s+changed|[\w./-]+\s+\|\s+\d+)/.test(line)) {
+        pushUniqueBounded(hunksOrMeta, line, 8);
+      } else if (/^(<{7}|={7}|>{7}|error:|fatal:)/i.test(line)) {
+        pushUniqueBounded(conflictsOrErrors, line, 4);
+      }
+    }
+    const out = [
+      `[FTS5 Compressed CLI Output] cmd="${command}" exit_code=${exitCode} raw_lines=${lines.length}`,
+      `Git Files & Hunks (${fileHeaders.length} files, ${hunksOrMeta.length} hunks):`
+    ];
+    for (const f of fileHeaders) out.push(`  ${f}`);
+    for (const h of hunksOrMeta) out.push(`  ${h}`);
+    for (const c of conflictsOrErrors) out.push(`  ${c}`);
+    if (out.length <= 2) {
+      for (const tailLine of lines.slice(-6)) {
+        if (tailLine.trim()) out.push(`  ${tailLine.trim().slice(0, 140)}`);
+      }
+    }
+    const bounded = out.slice(0, Math.max(1, maxLines - 1));
+    bounded.push(queryHandleLine);
+    return bounded.slice(0, maxLines).join('\n');
+  }
+
+  if (family === 'infra') {
+    const errors = [];
+    const stages = [];
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      if (/\b(ERROR|FATAL|panic:|CrashLoopBackOff|ImagePullBackOff|ErrImagePull|OOMKilled|FAILED|fail)\b/i.test(line) || /^[✗✖X]\s+/.test(line)) {
+        pushUniqueBounded(errors, line, 12);
+      } else if (/^(#\d+\s+(?:DONE|ERROR)|Step\s+\d+\/\d+|NAME\s+READY|Successfully\s+(?:built|tagged))/i.test(line)) {
+        pushUniqueBounded(stages, line, 6);
+      }
+    }
+    const out = [
+      `[FTS5 Compressed CLI Output] cmd="${command}" exit_code=${exitCode} raw_lines=${lines.length}`,
+      `Infra & Deploy Diagnostics (${errors.length} error(s), ${stages.length} stage(s)):`
+    ];
+    for (const e of errors) out.push(`  ${e}`);
+    for (const s of stages) out.push(`  ${s}`);
+    if (errors.length === 0 && stages.length === 0) {
+      for (const tailLine of lines.slice(-6)) {
+        if (tailLine.trim()) out.push(`  ${tailLine.trim().slice(0, 140)}`);
+      }
+    }
+    const bounded = out.slice(0, Math.max(1, maxLines - 1));
+    bounded.push(queryHandleLine);
+    return bounded.slice(0, maxLines).join('\n');
+  }
+
   const failingTests = [];
   const fileLineTraces = [];
   const assertionLines = [];
@@ -51,33 +132,28 @@ export function buildDeterministicSummary(rawOutput = '', {
     const line = rawLine.trim();
     if (!line) continue;
 
-    // Match pytest / jest / vitest / cargo / node --test failing test headers
     if (
-      /^(FAILED|FAIL|✖)\s+/.test(line) ||
+      /^(FAILED|FAIL|✖|✗|--- FAIL:)\s+/.test(line) ||
       /^_{3,}\s+.+\s+_{3,}$/.test(line) ||
-      /^test\s+[\w:./-]+\s+\.\.\.\s+FAILED/i.test(line)
+      /^test\s+[\w:./-]+\s+\.\.\.\s+FAILED/i.test(line) ||
+      /^FAIL\t\S+/.test(line)
     ) {
       const cleaned = line.replace(/^_{3,}\s*|\s*_{3,}$/g, '').trim();
-      if (cleaned && !failingTests.includes(cleaned) && failingTests.length < 6) {
-        failingTests.push(cleaned.slice(0, 120));
-      }
+      pushUniqueBounded(failingTests, cleaned, 6, 120);
     }
 
-    // Match exact file:line or TypeScript file(line,col) tracebacks
     if (
-      /\b[A-Za-z0-9_./\\-]+\.(?:py|ts|tsx|js|mjs|rs|go):\d+(?::\d+)?\b/.test(line) ||
-      /\b[A-Za-z0-9_./\\-]+\.(?:ts|tsx)\(\d+,\d+\):\s*error\s+TS\d+/i.test(line)
+      /\b[A-Za-z0-9_./\\-]+\.(?:py|ts|tsx|js|mjs|cjs|rs|go|java|cpp|c):\d+(?::\d+)?\b/.test(line) ||
+      /\b[A-Za-z0-9_./\\-]+\.(?:ts|tsx)\(\d+,\d+\):\s*error\s+TS\d+/i.test(line) ||
+      /^\d+:\d+\s+(?:error|warning)\s+/i.test(line) ||
+      /\berror\[E\d+\]:/i.test(line) ||
+      (family === 'lint_build' && /^[A-Za-z0-9_./\\-]+\.(?:py|ts|tsx|js|mjs|cjs|rs|go|jsx)$/.test(line))
     ) {
-      if (!fileLineTraces.includes(line) && fileLineTraces.length < 8) {
-        fileLineTraces.push(line.slice(0, 140));
-      }
+      pushUniqueBounded(fileLineTraces, line, 9, 140);
     }
 
-    // Match E   AssertionError / assert / expect() failure lines
-    if (/^(E\s+|AssertionError:|Error:|Expected\b|Received\b|assert\s+)/.test(line)) {
-      if (!assertionLines.includes(line) && assertionLines.length < 5) {
-        assertionLines.push(line.slice(0, 140));
-      }
+    if (/^(E\s+|AssertionError:|Error:|Expected\b|Received\b|assert\s+|error\s+)/i.test(line)) {
+      pushUniqueBounded(assertionLines, line, 5, 140);
     }
   }
 
@@ -93,7 +169,7 @@ export function buildDeterministicSummary(rawOutput = '', {
   }
 
   out.push(`File:Line Tracebacks & Assertions:`);
-  const combinedTraces = [...fileLineTraces, ...assertionLines].slice(0, 10);
+  const combinedTraces = [...fileLineTraces, ...assertionLines].slice(0, 12);
   if (combinedTraces.length > 0) {
     for (const tr of combinedTraces) {
       out.push(`  ${tr}`);
@@ -104,13 +180,8 @@ export function buildDeterministicSummary(rawOutput = '', {
     }
   }
 
-  out.push(`FTS5 Query Handle: agy-log-search ${turnId} "<keyword>"`);
-
-  // Strictly enforce <= maxLines (25 lines)
-  const bounded = out.slice(0, maxLines - 1);
-  if (bounded[bounded.length - 1] !== `FTS5 Query Handle: agy-log-search ${turnId} "<keyword>"`) {
-    bounded.push(`FTS5 Query Handle: agy-log-search ${turnId} "<keyword>"`);
-  }
+  const bounded = out.slice(0, Math.max(1, maxLines - 1));
+  bounded.push(queryHandleLine);
   return bounded.slice(0, maxLines).join('\n');
 }
 
@@ -237,7 +308,11 @@ export async function compressCliOutputFts5({
       queryHandle: null
     };
   } finally {
-    try { if (db) db.close(); } catch {}
+    try {
+      if (db) db.close();
+    } catch (closeErr) {
+      void closeErr;
+    }
   }
 }
 
@@ -248,9 +323,10 @@ export async function searchToolLogsFts5(dbPath, {
   turnId = '',
   keyword = '',
   limit = 10,
+  homeDir = getHomeDir(),
   DatabaseSync = null
 } = {}) {
-  const resolvedDbPath = dbPath || getDefaultToolLogsDbPath();
+  const resolvedDbPath = dbPath || getDefaultToolLogsDbPath(homeDir);
   if (!fs.existsSync(resolvedDbPath)) {
     return { hits: [], matchedLines: [] };
   }
@@ -293,19 +369,175 @@ export async function searchToolLogsFts5(dbPath, {
           matchedLines.push({
             turnId: r.turnId,
             lineNumber: i + 1,
-            text: lines[i]
+            text: lines[i],
+            source: 'tool_logs'
           });
           if (matchedLines.length >= 25) break;
         }
       }
+      if (matchedLines.length >= 25) break;
     }
 
     return { hits: rows, matchedLines };
-  } catch {
+  } catch (err) {
+    void err;
     return { hits: [], matchedLines: [] };
   } finally {
-    try { if (db) db.close(); } catch {}
+    try {
+      if (db) db.close();
+    } catch (closeErr) {
+      void closeErr;
+    }
   }
+}
+
+/**
+ * Searches BOTH `tool_logs_fts5.db` and workspace `.ctxtop/cache/artifacts_fts5.db` (plus JSONL fallback)
+ * in strictly read-only mode.
+ */
+export async function searchOffloadedContextFts5({
+  turnId = '',
+  keyword = '',
+  cwd = process.cwd(),
+  homeDir = getHomeDir(),
+  dbPath = null,
+  limit = 10,
+  DatabaseSync = null
+} = {}) {
+  const toolLogsRes = await searchToolLogsFts5(dbPath, {
+    turnId,
+    keyword,
+    limit,
+    homeDir,
+    DatabaseSync
+  });
+
+  const artifactHits = [];
+  const artifactLines = [];
+  const cacheDir = path.join(path.resolve(cwd), '.ctxtop', 'cache');
+  const artifactsDbPath = path.join(cacheDir, 'artifacts_fts5.db');
+  const cleanKeyword = String(keyword || '').replace(/[^A-Za-z0-9_./:-]/g, ' ').trim();
+  const kwLower = String(keyword || '').toLowerCase();
+
+  if (fs.existsSync(artifactsDbPath)) {
+    let artDb = null;
+    try {
+      artDb = openLocalHorizonDb(artifactsDbPath, { readOnly: true, DatabaseSync });
+      const rows = cleanKeyword
+        ? artDb.prepare('SELECT id, tool, content, filePath FROM artifacts WHERE artifacts MATCH ? LIMIT ?')
+            .all(cleanKeyword.split(/\s+/).filter(Boolean).map((t) => `"${t}"`).join(' AND '), Math.max(1, limit))
+        : artDb.prepare('SELECT id, tool, content, filePath FROM artifacts LIMIT ?').all(Math.max(1, limit));
+      for (const r of rows) {
+        if (turnId && String(r.id) !== String(turnId)) continue;
+        artifactHits.push(r);
+        const lines = String(r.content || '').split(/\r?\n/);
+        for (let i = 0; i < lines.length; i++) {
+          if (!kwLower || lines[i].toLowerCase().includes(kwLower)) {
+            artifactLines.push({
+              turnId: r.id,
+              lineNumber: i + 1,
+              text: lines[i],
+              source: 'artifacts',
+              tool: r.tool,
+              filePath: r.filePath
+            });
+            if (artifactLines.length >= 25) break;
+          }
+        }
+        if (artifactLines.length >= 25) break;
+      }
+    } catch (artErr) {
+      void artErr;
+    } finally {
+      try {
+        if (artDb) artDb.close();
+      } catch (closeErr) {
+        void closeErr;
+      }
+    }
+  } else {
+    const jsonlPath = path.join(cacheDir, 'artifacts_index.jsonl');
+    if (fs.existsSync(jsonlPath)) {
+      try {
+        const rows = fs.readFileSync(jsonlPath, 'utf8').split(/\r?\n/).filter(Boolean);
+        for (const rawLine of rows) {
+          const rec = JSON.parse(rawLine);
+          if (turnId && String(rec.id) !== String(turnId)) continue;
+          if (!kwLower || String(rec.snippet || '').toLowerCase().includes(kwLower)) {
+            artifactHits.push(rec);
+            artifactLines.push({
+              turnId: rec.id,
+              lineNumber: 1,
+              text: String(rec.snippet || '').slice(0, 140),
+              source: 'artifacts_jsonl',
+              tool: rec.tool
+            });
+          }
+          if (artifactLines.length >= limit) break;
+        }
+      } catch (jsonlErr) {
+        void jsonlErr;
+      }
+    }
+  }
+
+  const combinedMatchedLines = [...toolLogsRes.matchedLines, ...artifactLines].slice(0, Math.max(1, Math.min(50, limit * 5)));
+  return {
+    ok: true,
+    toolLogHits: toolLogsRes.hits.length,
+    artifactHits: artifactHits.length,
+    totalHits: toolLogsRes.hits.length + artifactHits.length,
+    hits: [...toolLogsRes.hits, ...artifactHits],
+    matchedLines: combinedMatchedLines
+  };
+}
+
+/**
+ * Returns read-only counts of indexed tool logs and offloaded artifacts.
+ */
+export function getOffloadIndexStats({ cwd = process.cwd(), homeDir = getHomeDir(), dbPath = null, DatabaseSync = null } = {}) {
+  const resolvedDbPath = dbPath || getDefaultToolLogsDbPath(homeDir);
+  const stats = {
+    indexedToolLogs: 0,
+    indexedArtifacts: 0,
+    dbExists: fs.existsSync(resolvedDbPath),
+    dbPath: resolvedDbPath
+  };
+
+  if (stats.dbExists) {
+    const toolStats = getFts5CompressionStats(resolvedDbPath, { DatabaseSync, homeDir });
+    stats.indexedToolLogs = Number(toolStats.logCount || 0);
+  }
+
+  const cacheDir = path.join(path.resolve(cwd), '.ctxtop', 'cache');
+  const artifactsDbPath = path.join(cacheDir, 'artifacts_fts5.db');
+  if (fs.existsSync(artifactsDbPath)) {
+    let artDb = null;
+    try {
+      artDb = openLocalHorizonDb(artifactsDbPath, { readOnly: true, DatabaseSync });
+      const row = artDb.prepare('SELECT count(*) as count FROM artifacts').get();
+      stats.indexedArtifacts = Number(row?.count || 0);
+    } catch (err) {
+      void err;
+    } finally {
+      try {
+        if (artDb) artDb.close();
+      } catch (closeErr) {
+        void closeErr;
+      }
+    }
+  } else {
+    const jsonlPath = path.join(cacheDir, 'artifacts_index.jsonl');
+    if (fs.existsSync(jsonlPath)) {
+      try {
+        stats.indexedArtifacts = fs.readFileSync(jsonlPath, 'utf8').split(/\r?\n/).filter(Boolean).length;
+      } catch (err) {
+        void err;
+      }
+    }
+  }
+
+  return stats;
 }
 
 /**
@@ -346,7 +578,8 @@ export function getFts5CompressionStats(dbPath = null, { DatabaseSync = null, ho
       savedTokens,
       formattedSavedK
     };
-  } catch {
+  } catch (err) {
+    void err;
     return {
       active: true,
       logCount: 0,
@@ -354,6 +587,10 @@ export function getFts5CompressionStats(dbPath = null, { DatabaseSync = null, ho
       formattedSavedK: '0.0k'
     };
   } finally {
-    try { if (db) db.close(); } catch {}
+    try {
+      if (db) db.close();
+    } catch (closeErr) {
+      void closeErr;
+    }
   }
 }

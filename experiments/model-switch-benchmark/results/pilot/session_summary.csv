@@ -1,0 +1,5 @@
+tier,arm,arm_name,n,median_session_cost_usd,min_session_cost_usd,max_session_cost_usd,median_session_penalty_vs_ctrl_usd,median_session_cache_hit_ratio,median_session_write_tokens,median_session_read_tokens,median_session_latency_ms
+large,B,One Switch,1,1.25255,1.25255,1.25255,1.25255,0.7222,179954,467912,106802.6
+small,A,Control,1,0.19842,0.19842,0.19842,0,0.8633,17156,108491,41884.7
+small,C,Switch & Back,1,0.2841,0.2841,0.2841,0.08568,0.7799,35489,125841,57593.8
+small,D,Effort Only,1,0.30835,0.30835,0.30835,0.10992,0.7607,34236,108904,46724.2

@@ -1,0 +1,23 @@
+{
+  "mode": "live",
+  "runs": {
+    "TH_hold_r01": {
+      "status": "completed",
+      "sessionId": "sess_TH_hold_r01",
+      "meanR": 5,
+      "medianR": 5,
+      "finalModel": "claude-opus-4-6",
+      "totalMainBilledUsd": 1.11225,
+      "totalMainComputedUsd": 1.11225
+    },
+    "TH_allow_r01": {
+      "status": "completed",
+      "sessionId": "sess_TH_allow_r01",
+      "meanR": 5,
+      "medianR": 5,
+      "finalModel": "claude-sonnet-4-6",
+      "totalMainBilledUsd": 0.790461,
+      "totalMainComputedUsd": 0.790461
+    }
+  }
+}
