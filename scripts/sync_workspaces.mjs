@@ -330,6 +330,9 @@ export * from '../workers/polar_webhook_worker.mjs';
     type: 'module',
     main: './src/server.mjs',
     mcpName: 'io.github.gizzant/highbeam',
+    publishConfig: {
+      access: 'public'
+    },
     bin: {
       '@ctxtop/mcp': './src/server.mjs',
       'ctxtop-mcp': './src/server.mjs'

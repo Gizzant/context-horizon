@@ -69,4 +69,4 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm publish --provenance --access public || echo "Root package publish skipped or already exists on npm"
-          npm publish ./packages/mcp --provenance --access public
+          cd packages/mcp && npm publish --provenance --access public
