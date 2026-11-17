@@ -25,8 +25,9 @@ export const PRO_PRICING_TIERS = Object.freeze({
   free: { id: 'free', label: 'Free Core (MIT)', priceUSD: 0, billing: 'forever' },
   pro_monthly: { id: 'pro', label: 'Highbeam Pro (Monthly)', priceUSD: 15, priceRangeUSD: [12, 19], billing: 'month' },
   pro_annual: { id: 'pro', label: 'Highbeam Pro (Annual)', priceUSD: 149, effectiveMonthlyUSD: 12.42, billing: 'year' },
-  pro_ltd: { id: 'ltd', label: 'Highbeam Pro (Founder Lifetime)', priceUSD: 199, billing: 'lifetime' },
-  team: { id: 'team', label: 'Highbeam Team (Annual 5-Seat Starter + OTel)', priceUSD: 299, seatMonthlyUSD: 39, billing: 'year' }
+  pro_ltd: { id: 'ltd', label: 'Highbeam Pro (Founder Lifetime)', priceUSD: 199, cap: 200, billing: 'lifetime' },
+  team: { id: 'team', label: 'Highbeam Team (Annual 5-Seat Starter + OTel)', priceUSD: 299, seats: 5, seatMonthlyUSD: 39, billing: 'year' },
+  team_seat_monthly: { id: 'team', label: 'Highbeam Team FinOps (Per-Seat Monthly)', priceUSD: 39, seatMonthlyUSD: 39, billing: 'month' }
 });
 
 /**
@@ -51,6 +52,9 @@ export const PLG_TIER_MATRIX = Object.freeze({
     id: 'pro',
     name: 'Pro Tier (Self-Expensing Solo Developer)',
     priceMonthlyUSD: 15,
+    priceAnnualUSD: 149,
+    priceLtdUSD: 199,
+    ltdCap: 200,
     priceRangeMonthlyUSD: Object.freeze([12, 19]),
     features: Object.freeze([
       'AUTO_PILOT Hands-Free Enforcement & Horizon-Calibrated C_max Model Switch Hold',
@@ -62,6 +66,8 @@ export const PLG_TIER_MATRIX = Object.freeze({
   team: Object.freeze({
     id: 'team',
     name: 'Team / Enterprise Tier (Zero-Cloud FinOps)',
+    starterAnnualUSD: 299,
+    starterSeats: 5,
     pricePerSeatMonthlyUSD: 39,
     features: Object.freeze([
       'Shared .agents/rules/ Primacy-Band Governance',

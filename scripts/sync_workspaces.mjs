@@ -265,6 +265,7 @@ export * from '../workers/polar_webhook_worker.mjs';
     files: [
       'src/',
       'workers/',
+      'wrangler.toml',
       'LICENSE-COMMERCIAL.md',
       'README-SIGNING.md'
     ],

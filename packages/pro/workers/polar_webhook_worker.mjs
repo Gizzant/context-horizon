@@ -70,8 +70,16 @@ export function verifyPolarWebhookSignature({
   return { valid: false, reason: 'INVALID_HMAC_SIGNATURE' };
 }
 
+export const POLAR_LIVE_SKU_CATALOG = Object.freeze({
+  pro_monthly: Object.freeze({ sku: 'pro_monthly', tier: 'pro', priceCents: 1500, billingInterval: 'month', defaultSeats: 1, durationDays: 32 }),
+  pro_annual: Object.freeze({ sku: 'pro_annual', tier: 'pro', priceCents: 14900, billingInterval: 'year', defaultSeats: 1, durationDays: 366 }),
+  pro_ltd: Object.freeze({ sku: 'pro_ltd', tier: 'ltd', priceCents: 19900, billingInterval: 'lifetime', defaultSeats: 1, durationDays: null, cap: 200 }),
+  team_starter: Object.freeze({ sku: 'team_starter', tier: 'team', priceCents: 29900, billingInterval: 'year', defaultSeats: 5, durationDays: 366 }),
+  team_seat_monthly: Object.freeze({ sku: 'team_seat_monthly', tier: 'team', priceCents: 3900, billingInterval: 'month', defaultSeats: 1, durationDays: 32 })
+});
+
 /**
- * Maps a Polar.sh order/subscription payload to an Highbeam Pro tier and seat count.
+ * Maps a Polar.sh order/subscription payload to a Highbeam Pro/Team SKU, tier, and seat count.
  * @param {object} eventPayload
  */
 export function mapPolarOrderToLicenseSpec(eventPayload = {}) {
@@ -79,7 +87,23 @@ export function mapPolarOrderToLicenseSpec(eventPayload = {}) {
   const productName = String(
     data.product?.name || data.product_name || data.price?.product_name || data.tier || 'pro'
   ).toLowerCase();
-  const amountCents = Number(data.amount || data.price_amount || 0);
+  const recurringInterval = String(
+    data.product?.recurring_interval ||
+      data.price?.recurring_interval ||
+      data.recurring_interval ||
+      data.billing_interval ||
+      ''
+  ).toLowerCase();
+  const skuHint = String(
+    data.metadata?.sku || data.product?.metadata?.sku || data.sku || ''
+  ).toLowerCase();
+  const amountCents = Number(
+    data.amount ?? data.total_amount ?? data.price_amount ?? data.price?.price_amount ?? 0
+  );
+  const rawSeats = Number(data.seats || data.quantity || data.metadata?.seats || 0);
+  const ltdEditionNumber = Number(
+    data.metadata?.ltd_edition_number ?? data.ltd_edition_number ?? data.ltd_count ?? 0
+  );
   const email =
     data.customer?.email ||
     data.user?.email ||
@@ -87,39 +111,90 @@ export function mapPolarOrderToLicenseSpec(eventPayload = {}) {
     data.email ||
     'customer@polar.sh';
 
+  let sku = 'pro_monthly';
   let tier = 'pro';
   let seats = 1;
   let expiresAt = null;
+  let cap = null;
   const issuedAt = new Date().toISOString();
 
-  if (productName.includes('team') || amountCents >= 25000) {
+  const isExplicitTeam = productName.includes('team') || skuHint.includes('team');
+  const isExplicitPerSeat =
+    skuHint === 'team_seat_monthly' ||
+    productName.includes('per-seat') ||
+    productName.includes('seat/mo') ||
+    productName.includes('finops');
+  const isTeamSeatMultiple =
+    amountCents > 0 && amountCents !== 29900 && amountCents % 3900 === 0;
+
+  if (
+    isExplicitPerSeat ||
+    (isExplicitTeam &&
+      skuHint !== 'team_starter' &&
+      (recurringInterval === 'month' || productName.includes('month') || isTeamSeatMultiple)) ||
+    (!productName.includes('pro') &&
+      !productName.includes('founder') &&
+      !productName.includes('ltd') &&
+      isTeamSeatMultiple &&
+      amountCents !== 19500)
+  ) {
+    sku = 'team_seat_monthly';
     tier = 'team';
-    seats = Number(data.seats || 5);
+    seats =
+      rawSeats > 0
+        ? rawSeats
+        : isTeamSeatMultiple
+          ? Math.max(1, Math.round(amountCents / 3900))
+          : 5;
+    const isAnnual =
+      recurringInterval === 'year' ||
+      productName.includes('annual') ||
+      productName.includes('year');
+    expiresAt = new Date(Date.now() + (isAnnual ? 366 : 32) * 86400 * 1000).toISOString();
+  } else if (skuHint === 'team_starter' || isExplicitTeam || amountCents >= 25000) {
+    sku = 'team_starter';
+    tier = 'team';
+    seats = rawSeats > 0 ? rawSeats : 5;
     expiresAt = new Date(Date.now() + 366 * 86400 * 1000).toISOString();
-  } else if (productName.includes('annual') || productName.includes('year')) {
-    tier = 'pro';
-    seats = 1;
-    expiresAt = new Date(Date.now() + 366 * 86400 * 1000).toISOString();
-  } else if (productName.includes('lifetime') || productName.includes('ltd') || (amountCents >= 18000 && amountCents < 25000)) {
+  } else if (
+    skuHint === 'pro_ltd' ||
+    productName.includes('lifetime') ||
+    productName.includes('ltd') ||
+    productName.includes('founder') ||
+    (amountCents >= 18000 && amountCents < 25000)
+  ) {
+    sku = 'pro_ltd';
     tier = 'ltd';
     seats = 1;
     expiresAt = null;
-  } else if (amountCents >= 10000 && amountCents < 18000) {
+    cap = 200;
+  } else if (
+    skuHint === 'pro_annual' ||
+    productName.includes('annual') ||
+    productName.includes('year') ||
+    recurringInterval === 'year' ||
+    (amountCents >= 10000 && amountCents < 18000)
+  ) {
+    sku = 'pro_annual';
     tier = 'pro';
     seats = 1;
     expiresAt = new Date(Date.now() + 366 * 86400 * 1000).toISOString();
   } else {
+    sku = 'pro_monthly';
     tier = 'pro';
     seats = 1;
     expiresAt = new Date(Date.now() + 32 * 86400 * 1000).toISOString();
   }
 
   return {
+    sku,
     tier,
     seats,
     email,
     issuedAt,
     expiresAt,
+    cap,
+    ltdEditionNumber: ltdEditionNumber || null,
     orderId: data.id || null,
     source: 'polar.sh'
   };
@@ -180,6 +255,23 @@ export function handlePolarWebhookRequest(reqInput = {}, env = {}) {
   }
 
   const spec = mapPolarOrderToLicenseSpec(parsed);
+  const maxLtdCap = Number(env.CTXTOP_LTD_MAX_CAP || 200);
+  const soldCount = Number(env.CTXTOP_LTD_SOLD_COUNT || 0);
+  if (
+    spec.tier === 'ltd' &&
+    ((spec.ltdEditionNumber !== null && spec.ltdEditionNumber > maxLtdCap) ||
+      soldCount >= maxLtdCap)
+  ) {
+    return {
+      status: 409,
+      body: {
+        ok: false,
+        error: 'LTD_CAP_200_EXCEEDED',
+        cap: maxLtdCap
+      }
+    };
+  }
+
   const licenseKey = signProLicensePayload(spec, privateKeyPem);
 
   return {
@@ -187,8 +279,10 @@ export function handlePolarWebhookRequest(reqInput = {}, env = {}) {
     body: {
       ok: true,
       eventType,
+      sku: spec.sku,
       tier: spec.tier,
       seats: spec.seats,
+      cap: spec.cap,
       email: spec.email,
       expiresAt: spec.expiresAt,
       licenseKey,

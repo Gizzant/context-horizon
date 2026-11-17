@@ -13,6 +13,7 @@
   "files": [
     "src/",
     "workers/",
+    "wrangler.toml",
     "LICENSE-COMMERCIAL.md",
     "README-SIGNING.md"
   ],

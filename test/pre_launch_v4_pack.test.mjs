@@ -253,10 +253,11 @@ describe('Pre-Launch v4.0 Finishing Pack (Dual-License, Lean Hooks, BYO-Grafana 
       assert.equal(verified.payload.email, 'buyer@acme.dev');
       assert.equal(verified.payload.tier, 'pro');
 
-      // Polar.sh $15 Monthly / $149 Annual / $199 LTD / $299 Team webhook mapping
+      // Polar.sh 5-SKU mapping: $15/mo Pro, $149/yr Pro, $199 Cap-200 LTD, $299/yr 5-Seat Team Starter, $39/seat/mo Team FinOps
       const monthly = mapPolarOrderToLicenseSpec({
         data: { amount: 1500, product: { name: 'Highbeam Pro' }, customer: { email: 'm@acme.dev' } }
       });
+      assert.equal(monthly.sku, 'pro_monthly');
       assert.equal(monthly.tier, 'pro');
       assert.equal(monthly.seats, 1);
       assert.ok(monthly.expiresAt !== null);
@@ -265,6 +266,7 @@ describe('Pre-Launch v4.0 Finishing Pack (Dual-License, Lean Hooks, BYO-Grafana 
       const annualUntitled = mapPolarOrderToLicenseSpec({
         data: { amount: 14900, product: { name: 'Highbeam Pro' }, customer: { email: 'a@acme.dev' } }
       });
+      assert.equal(annualUntitled.sku, 'pro_annual');
       assert.equal(annualUntitled.tier, 'pro');
       assert.equal(annualUntitled.seats, 1);
       assert.ok(annualUntitled.expiresAt !== null, '$149 Annual must set expiresAt (~366d), never lifetime ltd');
@@ -272,16 +274,94 @@ describe('Pre-Launch v4.0 Finishing Pack (Dual-License, Lean Hooks, BYO-Grafana 
       const ltd = mapPolarOrderToLicenseSpec({
         data: { amount: 19900, product: { name: 'Highbeam Founders' }, customer: { email: 'l@acme.dev' } }
       });
+      assert.equal(ltd.sku, 'pro_ltd');
       assert.equal(ltd.tier, 'ltd');
       assert.equal(ltd.seats, 1);
       assert.equal(ltd.expiresAt, null);
+      assert.equal(ltd.cap, 200);
+
+      // Cap-200 LTD enforcement on handlePolarWebhookRequest
+      const webhookSecret = 'whsec_' + Buffer.from('super-secret-polar-key-32-bytes!').toString('base64');
+      const nowMs = Date.now();
+      const tsSec = String(Math.floor(nowMs / 1000));
+      const ltdOverCapBody = JSON.stringify({
+        type: 'order.created',
+        data: {
+          id: 'ord_ltd_201',
+          amount: 19900,
+          product: { name: 'Highbeam Founders LTD' },
+          metadata: { ltd_edition_number: 201 },
+          customer: { email: 'late@acme.dev' }
+        }
+      });
+      const ltdOverCapSig = crypto
+        .createHmac('sha256', Buffer.from('super-secret-polar-key-32-bytes!'))
+        .update(`msg_ltd_201.${tsSec}.${ltdOverCapBody}`, 'utf8')
+        .digest('base64');
+      const ltdOverCapRes = handlePolarWebhookRequest(
+        {
+          rawBody: ltdOverCapBody,
+          headers: {
+            'webhook-id': 'msg_ltd_201',
+            'webhook-timestamp': tsSec,
+            'webhook-signature': `v1,${ltdOverCapSig}`
+          },
+          nowMs
+        },
+        {
+          CTXTOP_POLAR_WEBHOOK_SECRET: webhookSecret,
+          CTXTOP_ED25519_PRIVATE_KEY_PEM: fs.readFileSync(privKeyPath, 'utf8')
+        }
+      );
+      assert.equal(ltdOverCapRes.status, 409);
+      assert.equal(ltdOverCapRes.body.error, 'LTD_CAP_200_EXCEEDED');
 
       const team = mapPolarOrderToLicenseSpec({
         data: { amount: 29900, product: { name: 'Highbeam Team' }, customer: { email: 't@acme.dev' } }
       });
+      assert.equal(team.sku, 'team_starter');
       assert.equal(team.tier, 'team');
       assert.equal(team.seats, 5);
       assert.ok(team.expiresAt !== null);
+
+      const teamOneSeat = mapPolarOrderToLicenseSpec({
+        data: {
+          amount: 3900,
+          quantity: 1,
+          product: { name: 'Highbeam Team FinOps', recurring_interval: 'month' },
+          customer: { email: 't1@acme.dev' }
+        }
+      });
+      assert.equal(teamOneSeat.sku, 'team_seat_monthly');
+      assert.equal(teamOneSeat.tier, 'team');
+      assert.equal(teamOneSeat.seats, 1);
+      assert.ok(teamOneSeat.expiresAt !== null);
+
+      const teamThreeSeats = mapPolarOrderToLicenseSpec({
+        data: {
+          amount: 11700,
+          product: { name: 'Highbeam Team', recurring_interval: 'month' },
+          customer: { email: 't3@acme.dev' }
+        }
+      });
+      assert.equal(teamThreeSeats.sku, 'team_seat_monthly');
+      assert.equal(teamThreeSeats.tier, 'team');
+      assert.equal(teamThreeSeats.seats, 3);
+      assert.ok(teamThreeSeats.expiresAt !== null);
+
+      const teamTwelveSeats = mapPolarOrderToLicenseSpec({
+        data: {
+          amount: 46800,
+          quantity: 12,
+          product: { name: 'Highbeam Team FinOps ($39/seat/mo)', recurring_interval: 'month' },
+          customer: { email: 't12@acme.dev' }
+        }
+      });
+      assert.equal(teamTwelveSeats.sku, 'team_seat_monthly');
+      assert.equal(teamTwelveSeats.tier, 'team');
+      assert.equal(teamTwelveSeats.seats, 12);
+      const twelveSeatDays = (new Date(teamTwelveSeats.expiresAt).getTime() - Date.now()) / (86400 * 1000);
+      assert.ok(twelveSeatDays > 28 && twelveSeatDays < 35, 'Monthly $39/seat/mo must expire in ~32d, not 366d');
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

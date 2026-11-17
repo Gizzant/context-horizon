@@ -1,0 +1,7 @@
+name = "ctxtop-polar-webhook"
+main = "workers/polar_webhook_worker.mjs"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+CTXTOP_LTD_MAX_CAP = "200"
