@@ -313,7 +313,7 @@ For centralized organization deployment (Jamf / Intune / GPO), `CHECKSUMS.sha256
 
 ## 📦 Editions: Free (`MIT` Core + `COACH`) vs. Pro & Team
 
-| Feature / Capability | Free Core (`MIT`) | Highbeam Pro (`$15/mo` · `$149/yr` · `$199` Cap-200 LTD) | Team / FinOps (`$299/yr` 5-Seat Starter · `$39/seat/mo`) |
+| Feature / Capability | Free Core (`MIT`) | [Highbeam Pro](https://buy.polar.sh/polar_cl_NLMnqIdpws5nNivzb4SCF8v9QcGeu6mQMcxLu14RKvj) (`$15/mo` · `$149/yr` · `$199` Cap-200 LTD) | Team / FinOps (`$299/yr` 5-Seat Starter · `$39/seat/mo`) |
 | :--- | :---: | :---: | :---: |
 | Simple & Advanced 40-Cell HUD + `5m/1h` Live TTL Timer | ✅ | ✅ | ✅ |
 | Multi-Family FTS5 Compression (`test`, `lint`, `git`, `docker`/`kubectl`) & `ctxtop search` | ✅ | ✅ | ✅ |
@@ -325,7 +325,7 @@ For centralized organization deployment (Jamf / Intune / GPO), `CHECKSUMS.sha256
 | Shared `.agents/rules/` Governance, MDM Policy & OTel / Grafana Pack | — | — | ✅ |
 
 **Commercial SKU Summary (Offline Ed25519 `CTXP1` Activation via `npx ctxtop license activate <key>`):**
-- **Pro Monthly (`$15/mo`)** & **Pro Annual (`$149/yr`, `~$12.42/mo`)**: 1 developer seat, 14-day zero-network local trial (`npx ctxtop trial`), expensable via `npx ctxtop receipt --pdf`.
+- **[Pro Monthly (`$15/mo`)](https://buy.polar.sh/polar_cl_NLMnqIdpws5nNivzb4SCF8v9QcGeu6mQMcxLu14RKvj)** & **[Pro Annual (`$149/yr`, `~$12.42/mo`)](https://buy.polar.sh/polar_cl_NLMnqIdpws5nNivzb4SCF8v9QcGeu6mQMcxLu14RKvj)**: 1 developer seat, 14-day zero-network local trial (`npx ctxtop trial`), expensable via `npx ctxtop receipt --pdf`.
 - **Pro Founder Lifetime (`$199` one-time, capped at `200` seats)**: Lifetime solo Pro entitlement (`expiresAt: null`).
 - **Team Starter (`$299/yr` for 5 seats)** & **Team FinOps (`$39/seat/mo`)**: Multi-seat MDM rollout, shared `.agents/rules/` primacy governance, and BYO-Grafana OpenTelemetry pack (`npx ctxtop team-pack`).
 
