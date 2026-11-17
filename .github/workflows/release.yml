@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Tag to release (e.g. v4.1.1)'
+        description: 'Tag or branch to release (e.g. main or v4.1.1)'
         required: true
-        default: 'v4.1.1'
+        default: 'main'
       publish_npm:
-        description: 'Publish ctxtop package to npm registry'
+        description: 'Publish packages (ctxtop & @ctxtop/mcp) to npm registry'
         required: false
         type: boolean
-        default: false
+        default: true
 
 jobs:
   build-and-release:
@@ -50,6 +50,7 @@ jobs:
         run: npm run build:release
 
       - name: Create GitHub Release (Draft Only)
+        if: ${{ inputs.tag_name != 'main' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag_name }}
@@ -62,8 +63,10 @@ jobs:
           draft: true
           prerelease: false
 
-      - name: Publish Package to npm (with OIDC Provenance)
+      - name: Publish Packages to npm (with OIDC Provenance)
         if: ${{ inputs.publish_npm }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --provenance --access public
+        run: |
+          npm publish --provenance --access public || echo "Root package publish skipped or already exists on npm"
+          npm publish ./packages/mcp --provenance --access public
