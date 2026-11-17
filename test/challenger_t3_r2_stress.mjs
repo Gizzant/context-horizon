@@ -300,7 +300,7 @@ describe('Adversarial Challenge: Remediated Boundary Tests (Milestone T3 Iterati
       const testCases = [
         { ag: '4.0.0-rc1', cc: '4.0.0-rc2', pkg: '4.0.0-rc1', expectedError: true },
         { ag: '4.0.0', cc: '4.0.0', pkg: '3.9.9', expectedError: true },
-        { ag: '4.1.0', cc: '4.1.0', pkg: '4.1.0', expectedError: false }
+        { ag: '4.1.1', cc: '4.1.1', pkg: '4.1.1', expectedError: false }
       ];
 
       for (const tc of testCases) {

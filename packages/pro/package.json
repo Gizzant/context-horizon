@@ -1,6 +1,6 @@
 {
   "name": "@ctxtop/pro",
-  "version": "4.1.0",
+  "version": "4.1.1",
   "description": "Highbeam Pro — Offline Ed25519 License Verifier, Team FinOps Pack & Commercial Entitlements (Polar.sh)",
   "license": "SEE LICENSE IN LICENSE-COMMERCIAL.md",
   "type": "module",

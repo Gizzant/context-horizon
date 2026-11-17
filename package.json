@@ -1,7 +1,7 @@
 {
   "name": "ctxtop",
   "displayName": "Highbeam",
-  "version": "4.1.0",
+  "version": "4.1.1",
   "description": "Highbeam v4.1: Cross-platform AI Developer Assistant Extension for Google Antigravity and Claude Code: 40-cell context visualizer, KV-cache gravity router, and zero-token guardrails.",
   "type": "module",
   "workspaces": [

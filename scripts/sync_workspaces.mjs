@@ -12,6 +12,8 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
+const ROOT_PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+const VERSION = ROOT_PKG.version || '4.1.1';
 
 function writeFileIfChangedSync(filePath, content, encoding = 'utf8') {
   const nextBuf = Buffer.isBuffer(content) ? content : Buffer.from(String(content), encoding);
@@ -92,7 +94,7 @@ export * from './ui/horizonPanelHtml.mjs';
 
   const corePkg = {
     name: '@ctxtop/core',
-    version: '4.1.0',
+    version: VERSION,
     description: 'Highbeam isomorphic pure-JS core (DET-01..32 catalog, circuit breakers, economics, coach, UI renderers)',
     type: 'module',
     main: './src/index.mjs',
@@ -188,7 +190,7 @@ export * from './rsl/index.mjs';
 
   const enginePkg = {
     name: '@ctxtop/engine-node',
-    version: '4.1.0',
+    version: VERSION,
     description: 'Highbeam Node.js >=20 runtime engine (SQLite + JSONL fallback, Micro-IPC, lossless offloader, git sensors)',
     type: 'module',
     main: './src/index.mjs',
@@ -250,7 +252,7 @@ export * from '../workers/polar_webhook_worker.mjs';
 
   const proPkg = {
     name: '@ctxtop/pro',
-    version: '4.1.0',
+    version: VERSION,
     description: 'Highbeam Pro — Offline Ed25519 License Verifier, Team FinOps Pack & Commercial Entitlements (Polar.sh)',
     license: 'SEE LICENSE IN LICENSE-COMMERCIAL.md',
     type: 'module',
@@ -321,7 +323,7 @@ export * from '../workers/polar_webhook_worker.mjs';
 
   const mcpPkg = {
     name: '@ctxtop/mcp',
-    version: '4.1.0',
+    version: VERSION,
     description: 'Highbeam Zero-Dependency 7-Tool MCP Stdio Server for Cursor, Windsurf, Codex CLI, Gemini CLI, Claude Code & Antigravity',
     license: 'MIT',
     type: 'module',
@@ -372,7 +374,7 @@ export * from './adapter.mjs';
 
   const agyPkg = {
     name: '@ctxtop/antigravity',
-    version: '4.1.0',
+    version: VERSION,
     description: 'Highbeam Google Antigravity host adapter, daemon, hooks, and WebView HUD',
     type: 'module',
     main: './src/index.mjs',
@@ -385,8 +387,8 @@ export * from './adapter.mjs';
       node: '>=20.0.0'
     },
     dependencies: {
-      '@ctxtop/core': '^4.1.0',
-      '@ctxtop/engine-node': '^4.1.0'
+      '@ctxtop/core': `^${VERSION}`,
+      '@ctxtop/engine-node': `^${VERSION}`
     }
   };
   writeFileIfChangedSync(
@@ -432,7 +434,7 @@ export { default as register } from './register.js';
 
   const claudePkg = {
     name: '@ctxtop/claude-code',
-    version: '4.1.0',
+    version: VERSION,
     description: 'Highbeam Claude Code in-process V8 Mod, Tier-2 CLI hooks, and terminal statusLine adapter',
     type: 'module',
     main: './src/index.mjs',
@@ -445,8 +447,8 @@ export { default as register } from './register.js';
       node: '>=20.0.0'
     },
     dependencies: {
-      '@ctxtop/core': '^4.1.0',
-      '@ctxtop/engine-node': '^4.1.0'
+      '@ctxtop/core': `^${VERSION}`,
+      '@ctxtop/engine-node': `^${VERSION}`
     }
   };
   writeFileIfChangedSync(

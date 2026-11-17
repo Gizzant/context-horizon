@@ -26,7 +26,7 @@ import { runSessionAudit, formatSessionAuditReport } from './vendor/core/session
 
 export const MCP_SERVER_INFO = Object.freeze({
   name: '@ctxtop/mcp',
-  version: '4.1.0',
+  version: '4.1.1',
   protocolVersion: '2024-11-05'
 });
 
