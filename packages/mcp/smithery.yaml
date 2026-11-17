@@ -1,0 +1,21 @@
+# Smithery configuration file for @ctxtop/mcp
+# https://smithery.ai/docs/config
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      cwd:
+        type: string
+        description: "Workspace root directory path (defaults to current working directory)"
+      sessionId:
+        type: string
+        description: "Optional session ID for tracking telemetry"
+  commandFunction: |-
+    (config) => ({
+      command: 'npx',
+      args: ['-y', '@ctxtop/mcp'],
+      env: {}
+    })
+  exampleConfig:
+    cwd: "."

@@ -10,6 +10,8 @@ node_modules/
 .claude/skills/rsl-*/
 .attention-horizon/
 .ctxtop/
+.claude/
+experiments/**/transcripts/
 evaluation_bundles/
 dist/
 *.bak

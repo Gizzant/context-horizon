@@ -329,13 +329,15 @@ export * from '../workers/polar_webhook_worker.mjs';
     license: 'MIT',
     type: 'module',
     main: './src/server.mjs',
+    mcpName: 'io.github.gizzant/highbeam',
     bin: {
+      '@ctxtop/mcp': './src/server.mjs',
       'ctxtop-mcp': './src/server.mjs'
     },
     exports: {
       '.': './src/server.mjs'
     },
-    files: ['src/'],
+    files: ['src/', 'README.md', 'smithery.yaml', 'glama.json', 'server.json'],
     engines: {
       node: '>=20.0.0'
     },
