@@ -333,6 +333,11 @@ export * from '../workers/polar_webhook_worker.mjs';
     publishConfig: {
       access: 'public'
     },
+    repository: {
+      type: 'git',
+      url: 'git+https://github.com/Gizzant/context-horizon.git',
+      directory: 'packages/mcp'
+    },
     bin: {
       '@ctxtop/mcp': './src/server.mjs',
       'ctxtop-mcp': './src/server.mjs'
