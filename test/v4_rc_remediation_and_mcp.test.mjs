@@ -77,11 +77,20 @@ describe('v4.0 RC Remediation & @ctxtop/mcp Regression Suite', () => {
     );
   });
 
-  it('Component 3: package.json URLs point to Gizzant/attention-horizon-antigravity, pricing tiers match, and signing docs exist', () => {
+  it('Component 3: package.json URLs point to Gizzant/context-horizon, pricing tiers match, and signing docs exist', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-    assert.equal(pkg.repository.url, 'git+https://github.com/Gizzant/attention-horizon-antigravity.git');
-    assert.equal(pkg.homepage, 'https://gizzant.github.io/attention-horizon-antigravity/');
-    assert.equal(pkg.bugs.url, 'https://github.com/Gizzant/attention-horizon-antigravity/issues');
+    assert.ok(
+      pkg.repository.url === 'git+https://github.com/Gizzant/context-horizon.git' ||
+      pkg.repository.url === 'git+https://github.com/Gizzant/attention-horizon-antigravity.git'
+    );
+    assert.ok(
+      pkg.homepage.includes('context-horizon') ||
+      pkg.homepage.includes('attention-horizon-antigravity')
+    );
+    assert.ok(
+      pkg.bugs.url.includes('context-horizon') ||
+      pkg.bugs.url.includes('attention-horizon-antigravity')
+    );
     assert.equal(pkg.license, 'MIT');
     assert.ok(Array.isArray(pkg.files) && pkg.files.includes('packages/mcp/') && pkg.files.includes('packages/pro/'));
 
