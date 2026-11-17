@@ -547,12 +547,32 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
   const effectiveRpt = currentModel === targetModel ? 1 : Math.max(1, requestsPerTurnUsed);
   const extraWarmReadsOnSwitchTurn = Math.max(0, effectiveRpt - 1);
   const combinedReq1Tokens = cachedTokens + request1UncachedTokens;
-  const stayPrefixCostUSD = cacheWarm
+  // Intra-turn growth (cost-per-task study, highbeam_shadow_check.md): in an agentic turn each request after
+  // the first appends tool results and the previous output (delta tokens). Those are cache-written at the
+  // ACTIVE model's write rate and re-read by later requests, so a downshift also saves on them. Request k
+  // (k = 2..R) writes delta and reads combinedReq1Tokens + (k - 2) * delta.
+  const intraTurnDeltaRaw =
+    params.intraTurnDeltaTokensPerRequest ??
+    (effectiveRpt > 1 && Number(params.contextGrowthPerTurn) > 0
+      ? Number(params.contextGrowthPerTurn) / effectiveRpt
+      : 0);
+  const intraTurnDeltaTokens =
+    currentModel === targetModel ? 0 : Math.max(0, Number(intraTurnDeltaRaw) || 0);
+  const intraTurnWriteTokens = extraWarmReadsOnSwitchTurn * intraTurnDeltaTokens;
+  const intraTurnGrowthReadTokens =
+    (intraTurnDeltaTokens * extraWarmReadsOnSwitchTurn * Math.max(0, extraWarmReadsOnSwitchTurn - 1)) / 2;
+  const stayIntraTurnUSD =
+    (intraTurnWriteTokens / 1_000_000) * pWriteCurr +
+    (intraTurnGrowthReadTokens / 1_000_000) * pReadCurr;
+  const switchIntraTurnUSD =
+    (intraTurnWriteTokens / 1_000_000) * pWriteTarget +
+    (intraTurnGrowthReadTokens / 1_000_000) * targetRates.readPer1M;
+  const stayPrefixCostUSD = stayIntraTurnUSD + (cacheWarm
     ? (cachedTokens / 1_000_000) * pReadCurr +
       (request1UncachedTokens / 1_000_000) * pWriteCurr +
       extraWarmReadsOnSwitchTurn * (combinedReq1Tokens / 1_000_000) * pReadCurr
     : (combinedReq1Tokens / 1_000_000) * pWriteCurr +
-      extraWarmReadsOnSwitchTurn * (combinedReq1Tokens / 1_000_000) * pReadCurr;
+      extraWarmReadsOnSwitchTurn * (combinedReq1Tokens / 1_000_000) * pReadCurr);
   const stayOutputCostUSD = (expectedOutputTokens / 1_000_000) * pOutCurr;
   const stayOnCurrentModelUSD = stayPrefixCostUSD + stayOutputCostUSD;
 
@@ -560,7 +580,8 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
   const switchPrefixCostUSD =
     currentModel === targetModel && cacheWarm
       ? stayPrefixCostUSD
-      : (combinedReq1Tokens / 1_000_000) * pWriteTarget +
+      : switchIntraTurnUSD +
+        (combinedReq1Tokens / 1_000_000) * pWriteTarget +
         extraWarmReadsOnSwitchTurn * (combinedReq1Tokens / 1_000_000) * targetRates.readPer1M;
   const switchOutputCostUSD = (expectedOutputTokens / 1_000_000) * pOutTarget;
   const switchToTargetModelUSD = switchPrefixCostUSD + switchOutputCostUSD;
@@ -688,12 +709,16 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
       )
     : null;
 
+  // Hold only when the switch turn's net cost (all R requests, per-turn output, intra-turn writes) is positive.
+  // For R = 1 with no intra-turn growth the old `cachedTokens > breakEvenTokens` test is kept (identical up to
+  // rounding of C*); `breakEvenTokens` is a single-request figure and no longer gates multi-request turns
+  // (it denied 40/42 switches in the cost-per-task study while 39/42 saved money).
   const singleTurnShouldHold = Boolean(
     currentModel !== targetModel &&
       !isCapabilityUpshift &&
       cacheWarm &&
       coldWritePenaltyUSD > 0 &&
-      cachedTokens > breakEvenTokens
+      (effectiveRpt > 1 || intraTurnDeltaTokens > 0 || cachedTokens > breakEvenTokens)
   );
 
   // Never hold/deny on capability upshifts, coldWritePenaltyUSD <= 0, or unbounded horizon limit C_max = Infinity
@@ -740,6 +765,7 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
     totalWarmReadsToPayback,
     asymptoticWarmRequestRatio,
     contextGrowthPerTurn,
+    intraTurnDeltaTokensPerRequest: intraTurnDeltaTokens,
     expectedRemainingTurns,
     postSwitchRemainingTurns,
     expectedRemainingRequests,

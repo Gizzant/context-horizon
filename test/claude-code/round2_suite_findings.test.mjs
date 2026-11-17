@@ -220,7 +220,9 @@ test('Item 2.1-2.3: per-pair DET-08 economics reproduce L2, 5.5 pair, TH within 
     expectedRemainingTurns: 9,
     cacheWarm: true
   });
-  assert.ok(th.paybackWarmRequests >= 4.5 && th.paybackWarmRequests <= 7.0, `Expected TH paybackWarmRequests in 4.5..7.0, got ${th.paybackWarmRequests}`);
+  // Lower bound 4.0: the TH run's measured crossover was ~4-5 warm requests; the intra-turn write term
+  // (cost-per-task fix) moves the estimate from ~5 to ~4.3, closer to that measurement.
+  assert.ok(th.paybackWarmRequests >= 4.0 && th.paybackWarmRequests <= 7.0, `Expected TH paybackWarmRequests in 4.0..7.0, got ${th.paybackWarmRequests}`);
   assert.equal(th.shouldHoldModel, false);
 
   // Message format: payback in warm requests first, turns in parentheses, under-5-turns omits net $ figure
