@@ -1824,7 +1824,7 @@ export function runCli(args = [], options = {}) {
             pipePath: resolveFastIpcPipePath({ homeDir: options.homeDir || getHomeDir() }),
             socketPresent: (() => {
               const p = resolveFastIpcPipePath({ homeDir: options.homeDir || getHomeDir() });
-              return p.startsWith('\\\\.\\pipe\\') ? null : fs.existsSync(p);
+              return (p && p.startsWith('\\\\.\\pipe\\')) ? null : (p ? fs.existsSync(p) : false);
             })()
           }
         : null;

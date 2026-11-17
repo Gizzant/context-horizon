@@ -52,7 +52,6 @@
     "packages/claude-code/",
     "packages/pro/",
     "packages/mcp/",
-    "scripts/",
     "src/"
   ],
   "scripts": {

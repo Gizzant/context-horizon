@@ -879,6 +879,7 @@ async function refreshLiveState(force = false, explicitConvId = null) {
     (now - lastEvalMs) < 1000
   ) {
     if (cachedLiveState) {
+      cachedLiveState.pinnedConversationId = pinnedConversationId;
       cachedLiveState.uiMtimeMs = htmlMtimeMs;
       try {
         cachedLiveState.coachState = buildCoachState(cachedLiveState, targetConvId);
