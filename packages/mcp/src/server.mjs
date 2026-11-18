@@ -234,19 +234,22 @@ function executeExportReceiptPdfTool(args = {}, options = {}) {
 
   let tierLabel = 'Highbeam Pro Annual ($149.00/yr · ~$12.42/mo)';
   let subscriptionCostUSD = 12.42;
+  let costPeriodLabel = '/mo';
   if (entitled && entitlement.tier === 'team') {
-    tierLabel = `Highbeam Team Starter ($299.00/yr · ${entitlement.payload?.seats || 5} seats)`;
-    subscriptionCostUSD = 299.0;
+    tierLabel = `Highbeam Team Starter ($299.00/yr · ~$24.92/mo · ${entitlement.payload?.seats || 5} seats)`;
+    subscriptionCostUSD = 24.92; // $299/yr as a monthly equivalent, to match the /mo ROI line
   } else if (entitled && entitlement.tier === 'ltd') {
     tierLabel = 'Highbeam Pro Founder Lifetime ($199.00 one-time)';
     subscriptionCostUSD = 199.0;
+    costPeriodLabel = ' one-time';
   }
 
   const summary = getSavedQuotaReceiptSummary({ cwd, ...(homeDir ? { homeDir } : {}) });
   const receipt = generateCorporateExpenseReceipt(summary, {
     email: args.email || entitlement.payload?.email || 'developer@workspace.local',
     tierLabel,
-    subscriptionCostUSD
+    subscriptionCostUSD,
+    costPeriodLabel
   });
 
   let writtenPath = null;

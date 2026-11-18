@@ -314,3 +314,15 @@ describe('v4.0 RC Remediation & @ctxtop/mcp Regression Suite', () => {
     }
   });
 });
+
+describe('Receipt cost basis per plan', () => {
+  it('labels the ROI cost per month for recurring plans and one-time for Founder Lifetime', () => {
+    const base = { workspace30dSavedUSD: 100, sessionSavedUSD: 0 };
+    const team = generateCorporateExpenseReceipt(base, { tierLabel: 'Team', subscriptionCostUSD: 24.92 });
+    assert.ok(Buffer.from(team.pdfBytes).toString('utf8').includes('$24.92/mo License'));
+    const ltd = generateCorporateExpenseReceipt(base, { tierLabel: 'LTD', subscriptionCostUSD: 199, costPeriodLabel: ' one-time' });
+    const ltdPdf = Buffer.from(ltd.pdfBytes).toString('utf8');
+    assert.ok(ltdPdf.includes('$199.00 one-time License'));
+    assert.equal(ltdPdf.includes('$199.00/mo'), false);
+  });
+});

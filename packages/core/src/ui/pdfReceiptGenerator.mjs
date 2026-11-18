@@ -180,6 +180,8 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
   const employeeEmail = options.email || summary.email || 'developer@workspace.local';
   const tierLabel = options.tierLabel || 'Highbeam Pro Annual ($149.00/yr · ~$12.42/mo)';
   const subscriptionCostUSD = Number(options.subscriptionCostUSD ?? 12.42);
+  // '/mo' for recurring plans (cost is the monthly equivalent); ' one-time' for the Founder Lifetime license.
+  const costPeriodLabel = options.costPeriodLabel ?? '/mo';
 
   const sessionSavedTokens = Number(summary.sessionSavedTokens || 0);
   const sessionSavedUSD = Number(summary.sessionSavedUSD || 0);
@@ -229,7 +231,7 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
     '-'.repeat(86),
     `Current Session Verified Savings      : +${sessionSavedTokens.toLocaleString('en-US')} tokens ($${sessionSavedUSD.toFixed(2)} USD)`,
     `30-Day Cumulative Workspace Savings   : +${workspace30dSavedTokens.toLocaleString('en-US')} tokens ($${workspace30dSavedUSD.toFixed(2)} USD)`,
-    `Net FinOps ROI vs. $${subscriptionCostUSD.toFixed(2)}/mo License  : ${netRoiMultiplier}x Return on Investment`,
+    `Net FinOps ROI vs. $${subscriptionCostUSD.toFixed(2)}${costPeriodLabel} License  : ${netRoiMultiplier}x Return on Investment`,
     `GreenOps GPU Compute Energy Avoided   : ~${estimatedGpuWhSaved} Wh (~${estimatedCo2GramsSaved}g CO2e Scope 3)`,
     '-'.repeat(86),
     'Zero-Trust Privacy Attestation: Computed 100% locally from token counters.',

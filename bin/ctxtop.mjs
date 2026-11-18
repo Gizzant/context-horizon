@@ -712,11 +712,12 @@ export function generateReceiptReport(options = {}) {
       const ent = getProEntitlementStatus(options);
       if (ent && ent.entitled) {
         if (ent.tier === 'team') {
-          corpOptions.tierLabel = `Highbeam Team Starter ($299.00/yr · ${ent.seats || 5} seats)`;
-          corpOptions.subscriptionCostUSD = Number(corpOptions.subscriptionCostUSD ?? 299.0);
+          corpOptions.tierLabel = `Highbeam Team Starter ($299.00/yr · ~$24.92/mo · ${ent.seats || 5} seats)`;
+          corpOptions.subscriptionCostUSD = Number(corpOptions.subscriptionCostUSD ?? 24.92);
         } else if (ent.tier === 'ltd') {
           corpOptions.tierLabel = 'Highbeam Pro Founder Lifetime ($199.00 one-time)';
           corpOptions.subscriptionCostUSD = Number(corpOptions.subscriptionCostUSD ?? 199.0);
+          corpOptions.costPeriodLabel = corpOptions.costPeriodLabel ?? ' one-time';
         } else if (ent.tier === 'pro') {
           corpOptions.tierLabel = 'Highbeam Pro Annual ($149.00/yr · ~$12.42/mo)';
           corpOptions.subscriptionCostUSD = Number(corpOptions.subscriptionCostUSD ?? 12.42);
