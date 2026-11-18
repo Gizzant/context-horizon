@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Packaging, Registry Distribution & Pre-Launch Hardening
 
 #### Added
+- Trial results: after the 14-day trial ends, the status bar shows a one-time "Trial ended" notice (about 24 hours, or until you run `npx ctxtop mode` or `license status`), and `mode` / `license status` (and their `--json` output) report how much Highbeam saved in this project during the trial. The figure counts all Highbeam savings in the trial window, not only Auto's; the savings ledger starts at $0 and is not back-filled from older chats (`npx ctxtop audit` shows what past sessions wasted).
+- `ctxtop init` ends with a one-line teaser of what the last 7 days of your Claude Code, Antigravity, Codex, Gemini and Cursor sessions wasted that Highbeam would have caught (read-only scan of existing transcripts; silent when under $0.50; skip with `--no-audit`).
 - `@ctxtop/mcp` registry distribution manifests (`smithery.yaml`, `glama.json`, `server.json`) and automated publication alongside `ctxtop` on release.
 - Polar.sh license delivery: the webhook worker issues a key only on `order.paid` (every other event type is ignored, so one purchase can never email several keys), never emails a placeholder address when an order has no customer email (it answers 422 instead), and now emails the signed key to the buyer, de-duplicates retried webhooks, and enforces the 200-seat lifetime cap with a persistent counter. The key is never returned in the HTTP response.
 - CI now runs on Node 20.19.0 as well as 22.14.0.

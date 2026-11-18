@@ -20,6 +20,7 @@ import {
 import { renderStatusLine } from '../src/core-isomorphic/ui/modViews.mjs';
 import { inspectClaudeBinaryCapabilities } from '../src/diagnostics/claudeHookCapabilities.mjs';
 import { getRslLedgerPath, getRslSummary } from '../src/core/rsl_ledger.mjs';
+import { getTrialEndNotice } from '../src/core/trial_summary.mjs';
 
 /**
  * Programmatic entrypoint for the `statusLine` bridge.
@@ -82,8 +83,15 @@ export function executeStatusLineBridge(payload = {}, options = {}) {
     options.columns ||
     (payloadCols > 0 ? payloadCols : envCols > 0 ? envCols : stdoutCols > 0 ? stdoutCols : 110);
 
+  // One-time "trial ended" notice (cached after the first render, so this stays cheap).
+  let trialNotice = options.trialNotice;
+  if (trialNotice === undefined && options.checkTrialNotice !== false) {
+    trialNotice = getTrialEndNotice({ cwd: payload.cwd || options.cwd, nowMs: options.nowMs, homeDir: options.homeDir });
+  }
+
   const rendered = renderStatusLine(nextState, {
     ...options,
+    ...(trialNotice ? { trialNotice } : {}),
     columns,
     ansi: options.ansi !== false
   });

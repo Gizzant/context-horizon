@@ -74,6 +74,7 @@ import {
 } from '../src/core/pro_license.mjs';
 import { setHorizonFlightMode } from '../src/core/horizon_config.mjs';
 import { getShadowAutoSummary } from '../src/core/shadow_auto_ledger.mjs';
+import { getTrialSummary, formatTrialSummaryLines, dismissTrialEndNotice } from '../src/core/trial_summary.mjs';
 import { generateTeamFinopsPack } from '../packages/pro/src/team_finops_pack.mjs';
 import {
   computeSwarmSummary,
@@ -104,7 +105,7 @@ import {
 } from '../src/diagnostics/claudeHookCapabilities.mjs';
 import { installPlugin, runLiveOrDemoCli, openBrowserUrl } from '../src/cli/init.mjs';
 import { executeStatusLineBridge, runStatusLineCli } from './ah-statusline.mjs';
-import { runSessionAudit, formatSessionAuditReport } from '../src/core/session_auditor.mjs';
+import { runSessionAudit, formatSessionAuditReport, formatPastWasteLine } from '../src/core/session_auditor.mjs';
 import { configureShield, getShieldStatus } from '../src/core/shield_manager.mjs';
 import { buildContrastiveDigest, sanitizeRslSessionId } from '../src/core/rsl_triage.mjs';
 import { distillContrastiveDigest } from '../src/core/rsl_distiller.mjs';
@@ -1420,6 +1421,14 @@ export function runCli(args = [], options = {}) {
         data: initRes.data
       };
     }
+    if (initRes.exitCode === 0 && !args.includes('--no-audit') && options.pastWasteTeaser !== false) {
+      try {
+        const line = formatPastWasteLine(runSessionAudit({ ...options, platform: 'all', days: 7 }));
+        if (line) return { ...initRes, output: `${initRes.output}\n\n[Highbeam] ${line}` };
+      } catch (err) {
+        void err; // the teaser is optional; never break init
+      }
+    }
     return initRes;
   }
 
@@ -1598,14 +1607,18 @@ export function runCli(args = [], options = {}) {
       proEntitlement: status,
       ...options
     });
-    const outData = { ...status, shadowAuto };
+    const trialSummary = getTrialSummary({ ...options, cwd: options.cwd || process.cwd() });
+    dismissTrialEndNotice(options);
+    const outData = { ...status, shadowAuto, trialSummary };
     if (isJson) {
       return { exitCode: 0, output: JSON.stringify(outData, null, 2), data: outData };
     }
     const statusLines = [
       `[Highbeam Pro] Tier=${status.tier} | Entitled=${status.entitled} | Source=${status.source}`
     ];
-    if (status.trialExpired) {
+    if (trialSummary.state !== 'none') {
+      statusLines.push(...formatTrialSummaryLines(trialSummary));
+    } else if (status.trialExpired) {
       statusLines.push('  Trial ended: Auto is paused and Highbeam runs COACH (shows, changes nothing). Keep Auto: npx ctxtop license activate <CTXP1-KEY>');
     }
     if (!status.entitled && shadowAuto.incidentCount30d > 0) {
@@ -1660,12 +1673,15 @@ export function runCli(args = [], options = {}) {
     }
     const eff = resolveEffectiveAutoFlightMode(configured, options);
     const status = eff.proStatus || getProEntitlementStatus(options);
+    const trialSummary = getTrialSummary({ ...options, cwd: options.cwd || process.cwd() });
+    dismissTrialEndNotice(options);
     const data = {
       configuredMode: configured,
       effectiveMode: eff.effectiveFlightMode,
       steppedDown: Boolean(eff.steppedDown),
       tier: status?.tier || null,
       trialExpired: Boolean(status?.trialExpired),
+      trialSummary,
       configPath
     };
     if (isJson) return { exitCode: 0, output: JSON.stringify(data, null, 2), data };
@@ -1675,11 +1691,13 @@ export function runCli(args = [], options = {}) {
         : `[Highbeam] Flight mode: ${configured}${eff.steppedDown ? ' (running as COACH)' : ''}`
     ];
     if (eff.steppedDown) {
-      lines.push(
-        status?.trialExpired
-          ? '  Your 14-day trial has ended, so Auto is paused and Highbeam runs COACH: it shows what Auto would have saved but changes nothing. Keep Auto: npx ctxtop license activate <CTXP1-KEY>'
-          : '  Auto needs Highbeam Pro or the 14-day trial. Until then Highbeam runs COACH and shows what Auto would have saved. Try it: npx ctxtop license trial'
-      );
+      if (trialSummary.state !== 'ended') {
+        lines.push(
+          status?.trialExpired
+            ? '  Your 14-day trial has ended, so Auto is paused and Highbeam runs COACH: it shows what Auto would have saved but changes nothing. Keep Auto: npx ctxtop license activate <CTXP1-KEY>'
+            : '  Auto needs Highbeam Pro or the 14-day trial. Until then Highbeam runs COACH and shows what Auto would have saved. Try it: npx ctxtop license trial'
+        );
+      }
     } else if (eff.effectiveFlightMode === 'AUTO_PILOT' && status?.tier === 'trial' && status?.expiresAt) {
       const nowMs = Number(options.nowMs || Date.now());
       const daysLeft = Math.max(0, Math.ceil((Date.parse(status.expiresAt) - nowMs) / 86400000));
@@ -1687,6 +1705,7 @@ export function runCli(args = [], options = {}) {
     } else if (configured === 'COACH') {
       lines.push('  COACH shows savings and warnings and stops only destructive commands and repeat-failure loops. Let Highbeam act for you: npx ctxtop mode auto');
     }
+    if (trialSummary.state !== 'none') lines.push(...formatTrialSummaryLines(trialSummary));
     return { exitCode: 0, output: lines.join('\n'), data };
   }
 

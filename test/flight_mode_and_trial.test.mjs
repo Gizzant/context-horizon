@@ -66,8 +66,9 @@ test('expired trial: Auto pauses to COACH and says how to keep it', async () => 
     const res = await runCli(['mode'], later);
     assert.equal(res.data.effectiveMode, 'COACH');
     assert.equal(res.data.trialExpired, true);
-    assert.match(res.output, /trial has ended, so Auto is paused/);
+    assert.match(res.output, /Your trial ended/);
+    assert.match(res.output, /Auto is paused/);
     const st = await runCli(['license', 'status'], later);
-    assert.match(st.output, /Trial ended: Auto is paused/);
+    assert.match(st.output, /Your trial ended/);
   } finally { sb.cleanup(); }
 });
