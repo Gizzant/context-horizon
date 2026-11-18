@@ -171,3 +171,57 @@ test('past-waste teaser: shows dollars and tokens for real waste, stays silent o
   assert.equal(formatPastWasteLine({ ok: true, days: 7, sessionsScanned: 0, sludgeTaxUSD: 9, sludgeTaxTokens: 5 }), '');
   assert.equal(formatPastWasteLine(null), '');
 });
+
+// ---- Windows / hand-edit robustness ----------------------------------------------------------
+import { generateProKeyPair, signProLicensePayload, activateProLicense, resolveLicenseFilePath } from '../src/core/pro_license.mjs';
+
+test('a license.json written with a UTF-8 BOM is still read (PowerShell 5.1 Set-Content -Encoding utf8)', () => {
+  const sb = sandbox();
+  try {
+    const file = resolveLicenseFilePath(sb.opts);
+    const rec = JSON.parse(fs.readFileSync(file, 'utf8'));
+    fs.writeFileSync(file, '\uFEFF' + JSON.stringify(rec), 'utf8');
+    assert.equal(getTrialSummary(sb.opts).state, 'ended');
+    assert.ok(getTrialEndNotice(sb.opts));
+  } finally {
+    sb.cleanup();
+  }
+});
+
+test('a trial edited to end before it starts still counts the 14 days up to its end', () => {
+  const sb = sandbox();
+  try {
+    const file = resolveLicenseFilePath(sb.opts);
+    const rec = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const endMs = Date.now() - 1000;
+    rec.activatedAt = new Date(Date.now() + DAY).toISOString(); // later than expiresAt
+    rec.expiresAt = new Date(endMs).toISOString();
+    fs.writeFileSync(file, JSON.stringify(rec), 'utf8');
+    fs.writeFileSync(sb.ledger, JSON.stringify({ timestamp: endMs - 5000, sessionId: 's', category: 'x', savedTokens: 1000, savedUSD: 0.02 }) + '\n');
+    const s = getTrialSummary(sb.opts);
+    assert.equal(s.state, 'ended');
+    assert.equal(s.interventions, 1);
+    assert.equal(s.savedTokens, 1000);
+  } finally {
+    sb.cleanup();
+  }
+});
+
+test('`license trial` with a paid key already active says so instead of "Activated 14-day trial"', async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'hb-paid-home-'));
+  try {
+    const { publicKeyPem, privateKeyPem } = generateProKeyPair();
+    const key = signProLicensePayload(
+      { email: 'a@b.co', tier: 'pro', issuedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 300 * DAY).toISOString() },
+      privateKeyPem
+    );
+    const licensePath = path.join(home, '.ctxtop', 'license.json');
+    assert.equal(activateProLicense(key, { licensePath, publicKeyPem }).ok, true);
+    const res = await runCli(['license', 'trial'], { homeDir: home, cwd: home, licensePath, publicKeyPem, strict: true });
+    assert.equal(res.exitCode, 0);
+    assert.match(res.output, /paid PRO license is already active/);
+    assert.doesNotMatch(res.output, /Activated 14-day/);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});

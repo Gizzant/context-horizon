@@ -1065,7 +1065,9 @@ async function runPreInvocationChecks(inputData = {}) {
   }
 
   const config = inputData.configOverride || loadFlightcheckConfig();
-  const rawPrompt = String(inputData.prompt || inputData.user_input || inputData.message || '').trim();
+  const rawPrompt = String(
+    inputData.prompt || inputData.user_input || inputData.lastUserInput || inputData.message || ''
+  ).trim();
   const conversationId = inputData.conversationId || inputData.session_id || inputData.conversation_id || 'default_session';
   const sidecar = readSidecarSync(conversationId);
   const workspacePath = inputData.cwd || inputData.workspacePath || sidecar.workspacePath || process.cwd();
@@ -1373,7 +1375,8 @@ async function runPreInvocationChecks(inputData = {}) {
       }
     }
   }
-  if (telemetry.amputationRisk && isTelemetryReliable) {
+  // An explicit `#check` is answered by the scorecard below, so the context-crisis card does not shadow it.
+  if (telemetry.amputationRisk && isTelemetryReliable && !hasCheckTag) {
     const handoff = sidecar.handoff || {};
     const handoffAction = handoff.result === 'NEEDS_FIXES'
       ? `Handoff NEEDS FIXES: ${(handoff.failingChecks || []).slice(0, 2).join('; ') || 'update task.md'}`

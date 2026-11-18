@@ -1583,6 +1583,13 @@ export function runCli(args = [], options = {}) {
       if (isJson) {
         return { exitCode: 0, output: JSON.stringify(trRes, null, 2), data: trRes };
       }
+      if (trRes.alreadyLicensed) {
+        return {
+          exitCode: 0,
+          output: `[Highbeam Pro] A paid ${String(trRes.tier || 'pro').toUpperCase()} license is already active (${trRes.licensePath}); no trial needed.`,
+          data: trRes
+        };
+      }
       return {
         exitCode: 0,
         output: `[Highbeam Pro] Activated 14-day local trial (expires ${trRes.expiresAt}) -> ${trRes.licensePath}\n  ${

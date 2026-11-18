@@ -17,7 +17,7 @@ import os from 'node:os';
 import path from 'node:path';
 import '../utils/nodeIo.mjs';
 import { readLedgerEntries } from '../core-isomorphic/coach/savedQuotaLedger.mjs';
-import { resolveLicenseFilePath } from './pro_license.mjs';
+import { resolveLicenseFilePath, parseJsonText } from './pro_license.mjs';
 
 /** The notice stays in the status bar this long after it first appears, unless dismissed sooner. */
 export const TRIAL_NOTICE_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -39,7 +39,7 @@ function noticePath(options = {}) {
 export function readTrialRecord(options = {}) {
   try {
     const raw = fs.readFileSync(resolveLicenseFilePath(options), 'utf8');
-    const rec = JSON.parse(raw);
+    const rec = parseJsonText(raw);
     if (!rec || rec.trial !== true || rec.licenseKey) return null;
     const activatedAtMs = Date.parse(rec.activatedAt);
     const expiresAtMs = Date.parse(rec.expiresAt);
@@ -68,13 +68,15 @@ export function getTrialSummary(options = {}) {
   if (!rec) return empty;
   const nowMs = Number(options.nowMs || Date.now());
   const ended = nowMs > rec.expiresAtMs;
+  // A hand-edited record can end before it starts; then count the 14 days up to its end.
+  const windowStartMs = rec.activatedAtMs <= rec.expiresAtMs ? rec.activatedAtMs : rec.expiresAtMs - 14 * 86400000;
 
   let savedTokens = 0;
   let savedUSD = 0;
   let interventions = 0;
   for (const e of readLedgerEntries({ cwd: options.cwd || process.cwd(), ledgerPath: options.ledgerPath })) {
     const ts = Number(e.timestamp);
-    if (!Number.isFinite(ts) || ts < rec.activatedAtMs || ts > rec.expiresAtMs) continue;
+    if (!Number.isFinite(ts) || ts < windowStartMs || ts > rec.expiresAtMs) continue;
     const t = Math.max(0, Number(e.savedTokens || 0));
     if (t <= 0) continue;
     savedTokens += t;
@@ -138,7 +140,7 @@ export function getTrialEndNotice(options = {}) {
     const file = noticePath(options);
     let marker = null;
     try {
-      marker = JSON.parse(fs.readFileSync(file, 'utf8'));
+      marker = parseJsonText(fs.readFileSync(file, 'utf8'));
     } catch {
       marker = null;
     }
@@ -183,7 +185,7 @@ export function dismissTrialEndNotice(options = {}) {
     const file = noticePath(options);
     let marker = {};
     try {
-      marker = JSON.parse(fs.readFileSync(file, 'utf8'));
+      marker = parseJsonText(fs.readFileSync(file, 'utf8'));
     } catch {
       marker = {};
     }

@@ -33,6 +33,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `AUTO_PILOT` no longer blocks a model switch when its estimate rests mostly on default values; it shows an advisory instead.
 
 #### Fixed
+- A `#check` prompt now stops with the scorecard in Antigravity (which sends the prompt as `lastUserInput`) and is no longer shadowed by the context-crisis card when the chat is over 87% full.
+- `license.json` written with a UTF-8 byte-order mark (Windows PowerShell 5.1 `Set-Content -Encoding utf8`) is read correctly instead of silently falling back to Free.
+- `ctxtop license trial` with a paid key already active says so instead of reporting a new trial; a hand-edited trial that ends before it starts still reports the savings from its 14 days.
 - Claude Code installs no longer write `hooks.modules` into `settings.json` (Claude Code 2.1.325 has no such setting and reported the file as invalid on every start); reinstalling removes the entry an earlier version added while keeping other entries, and `hooks/hooks.json` drops it too.
 - Claude Code `PostToolUse` output offload now writes artifacts and savings lines when routed over IPC through the warm Highbeam daemon (`src/hooks/daemon_hook_bridge.mjs` now loads the Node file adapter).
 - `ctxtop receipt` (and `panel`, `roast`, `radar`, `cost-radar`) run from a project now read that project's `.claude/cache/horizon_ledger.jsonl`, where hooks write savings, instead of reading a home-folder ledger and showing `$0.00`.

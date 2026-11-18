@@ -296,6 +296,32 @@ describe('7. Router Ergonomics: Advisory Mode & Halt Cooldown', () => {
     assert.notEqual(res.terminationBehavior, 'terminate');
     assert.ok(res.systemMessage.includes('[Amputation Crisis]'));
   });
+
+  test('#check stops with the scorecard even over 87% context, and Antigravity sends it as lastUserInput', async () => {
+    const cid = `amp_check_${Date.now()}`;
+    const sidecar = createDefaultSidecar(cid);
+    sidecar.sessionMeta.turnCount = 2;
+    sidecar.telemetry.totalInputTokens = 279000;
+    sidecar.telemetry.amputationRisk = true;
+    sidecar.telemetry.confidence = 'HIGH';
+    writeSidecarAtomicSync(cid, sidecar);
+
+    const res = await handlePreInvocation({
+      conversationId: cid,
+      lastUserInput: '#check refactor the whole pipeline',
+      configOverride: { hook_level: 'guard', halt_cooldown_turns: 3 }
+    });
+    assert.equal(res.terminationBehavior, 'terminate');
+    assert.match(res.userMessage, /Sufficiency/);
+
+    // A normal prompt in the same crowded chat is still only a message.
+    const plain = await handlePreInvocation({
+      conversationId: cid,
+      lastUserInput: 'Continue with next task',
+      configOverride: { hook_level: 'guard', halt_cooldown_turns: 3 }
+    });
+    assert.notEqual(plain.terminationBehavior, 'terminate');
+  });
 });
 
 describe('8. Stage 3: PostInvocation Incremental Transcript Sync & Absolute Hook Pathing', () => {
