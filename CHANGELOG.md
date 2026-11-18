@@ -6,17 +6,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
-## [Unreleased]
-
-#### Fixed
-- Claude Code installs no longer write `hooks.modules` into `settings.json`. Claude Code (verified on 2.1.325) has no such setting and reported the file as invalid on every start. Reinstalling removes the entry an earlier version added; other entries you put there are kept. The plugin manifest `hooks/hooks.json` drops it too.
-- Repeat-read savings (GUARD-4 delta reads and signature stubs) work again in Claude Code: `Read` is back in the PreToolUse matcher. That check was assumed to run in the in-process module, which Claude Code never loads.
-- README latency figures now describe what runs: each hook call is a short Node process (about 60–80 ms on Linux, 200–275 ms measured on Windows), not a sub-millisecond in-process tier.
-- Claude Code output offload works when Antigravity's Highbeam daemon is running. PostToolUse is handed to the warm daemon over IPC, and the daemon never loaded the Node file adapter, so no artifact or savings line was written and the full output went back to the model. The daemon bridge now loads the adapter.
-- `ctxtop receipt` (and `panel`, `roast`, `radar`) run from a project now read that project's `.claude/cache/horizon_ledger.jsonl`, where the hooks write savings. Before, they read a home-folder ledger and showed $0.00.
-- Claude Code shell output that hits Claude Code's own 30,000-character cap (`BASH_MAX_OUTPUT_LENGTH`) is left alone. Claude Code has already saved the full output to its own file and shows the model a short preview, so Highbeam's copy would be incomplete and the savings it recorded were overstated. These calls now record no savings.
-- `ctxtop init --antigravity` warns when the Antigravity hooks are switched off (`"enabled": false` in `hooks.json`), and `--enable` turns them back on. `doctor` reports that state as WARN instead of Active.
-
 ## [4.1.2] - 2026-11-17
 
 ### Packaging, Registry Distribution & Pre-Launch Hardening
@@ -37,15 +26,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `ctxtop init` reports each host's real install scope (Claude Code defaults to this project, Antigravity to global), `--global` / `--project` now apply to every selected host, and passing both is rejected.
 - Test scripts run with an isolated temporary home folder, so running the suites no longer installs the Antigravity plugin or writes state into the real `~/.gemini`, `~/.claude` or `~/.ctxtop`.
 - Documentation and `doctor` now state one Node requirement: Node >= 20 (`node:sqlite` is used on Node >= 22.5, with a JSONL fallback otherwise).
-- The plugin's `PreToolUse` hook no longer runs on `Read`, matching the installer. Read-time guards (large-file firewall, lockfile/minified-bundle guard, `.ipynb` stripper, large-PDF blocker, blind-search guard, scope lock/quota brake, post-edit diff stubs) now run only with `--full-hooks` or the in-process mod.
+- `--lean-hooks` (the default Claude Code install) and `hooks/hooks.json` keep `Read` in the `PreToolUse` matcher (so `GUARD-4` repeat-read delta reads and signature stubs run) while stripping `Grep` and `Glob` unless `--full-hooks` is passed.
 - `AUTO_PILOT` no longer blocks a model switch when its estimate rests mostly on default values; it shows an advisory instead.
 
 #### Fixed
+- Claude Code installs no longer write `hooks.modules` into `settings.json` (Claude Code 2.1.325 has no such setting and reported the file as invalid on every start); reinstalling removes the entry an earlier version added while keeping other entries, and `hooks/hooks.json` drops it too.
+- Claude Code `PostToolUse` output offload now writes artifacts and savings lines when routed over IPC through the warm Highbeam daemon (`src/hooks/daemon_hook_bridge.mjs` now loads the Node file adapter).
+- `ctxtop receipt` (and `panel`, `roast`, `radar`, `cost-radar`) run from a project now read that project's `.claude/cache/horizon_ledger.jsonl`, where hooks write savings, instead of reading a home-folder ledger and showing `$0.00`.
+- `README.md` latency figures now describe what runs: each hook call is a short Node process (about 60–80 ms on Linux, 200–275 ms measured on Windows), not a sub-millisecond in-process tier.
+- Claude Code shell output that hits Claude Code's own 30,000-character cap (`BASH_MAX_OUTPUT_LENGTH`) is left alone and records no savings, since Claude Code has already saved the full output to its own file and shows a short preview.
+- `ctxtop init --antigravity` warns when the Antigravity hooks are switched off (`"enabled": false` in `hooks.json`), `--enable` turns them back on, and `doctor` reports that state as `WARN` instead of `Active`.
 - Model-switch cost (DET-08) now counts every request in a turn and the cache writes inside it; on 42 benchmark switches, wrong holds fell from 6 to 3.
 - `scripts/sync_mirrors.mjs` with `verifyOnly: true` no longer bootstraps missing plugin folders or writes into `.agents/` when run under an isolated test home (reports `not installed` instead).
 - Mirror parity checks (`10.1` and `test_mirror_boot_smoke.mjs`) now reflect which mirror roots are installed and check `notInstalledRoots` when a root is absent, and CI runs `scripts/sync_mirrors.mjs` before the test suites (skipping gitignored local-only docs when building evaluation bundles).
 - Updated clean-clone regression tests for `4.1.2` contracts: observed inputs + default-advisory coverage in Reverse Trial `AUTO_PILOT`, `updatedToolOutput` assertions for Bucket B `WebFetch`/`Grep` hooks, and optional gitignored doc checks in `D13`.
-- Naming-hygiene checks now allow the canonical `https://gizzant.github.io/context-horizon/` and `https://github.com/Gizzant/context-horizon` (or `.git`) URLs while rejecting all other occurrences, Proof 3 aligns `netRoiMultiplier` to the `$12.42/mo` Pro Annual default (`3.6x`), and CI restores the pre-test `scripts/sync_mirrors.mjs` step.
+- Naming-hygiene checks now allow the canonical `https://gizzant.github.io/context-horizon/` and `https://github.com/Gizzant/context-horizon` (or `.git`) URLs while rejecting all other occurrences, and Proof 3 aligns `netRoiMultiplier` to the `$12.42/mo` Pro Annual default (`3.6x`).
 - `ctxtop uninstall` now lists what it leaves behind (settings backups, artifact cache, `~/.ctxtop` incl. the `app/` runtime copy, Antigravity plugin folders, git exclude entry) instead of leaving them unmentioned.
 - One Claude Code install command everywhere (`npx ctxtop init --claude [--global]`), one trial command (`npx ctxtop license trial`), consistent test/detector counts, and a hardened manual release workflow (pinned actions, tag/version checks, no swallowed publish errors).
 - Claude Code hooks installed with `npx ctxtop install` / `init` no longer point into npm's temporary `_npx` cache (which npm prunes, silently breaking every hook). When run from a package-runner cache, ctxtop copies itself to `~/.ctxtop/app/<version>/` and wires the hooks there; git checkouts and global installs are used in place.
