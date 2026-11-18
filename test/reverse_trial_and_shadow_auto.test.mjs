@@ -131,11 +131,30 @@ describe('Option A (14-Day Reverse Trial -> Shadow Auto) & RSL Hook Path Fix', (
           current_model: 'claude-opus-5-5',
           target_model: 'claude-sonnet-5-5',
           cached_tokens: 90000,
-          cache_warm: true
+          cache_warm: true,
+          requests_per_turn: 1,
+          expected_output_tokens: 1500
         },
         { cwd: ws, licensePath: licPath, nowMs: t0, strict: true }
       );
       assert.equal(ccAutoRes.exitCode, 2, 'Active Reverse Trial must enforce AUTO_PILOT warm hold');
+
+      // Sibling: without observed R/O data, active trial AUTO_PILOT issues a non-blocking advisory
+      const ccAutoDefaults = runPreModelSwitchHook(
+        {
+          session_id: 'trial-defaults-active',
+          mode: 'AUTO_PILOT',
+          current_model: 'claude-opus-5-5',
+          target_model: 'claude-sonnet-5-5',
+          cached_tokens: 90000,
+          cache_warm: true
+        },
+        { cwd: ws, licensePath: licPath, nowMs: t0, strict: true }
+      );
+      assert.equal(ccAutoDefaults.exitCode, 0);
+      assert.equal(ccAutoDefaults.verdict.advisory, true);
+      assert.equal(ccAutoDefaults.verdict.blocked, false);
+      assert.equal(ccAutoDefaults.verdict.basedMostlyOnDefaults, true);
 
       // Active trial unlocks AUTO_PILOT on Antigravity PreToolUse (cold wake gate)
       const agAutoRes = resolveEffectiveAutoFlightMode('AUTO_PILOT', {
@@ -169,7 +188,9 @@ describe('Option A (14-Day Reverse Trial -> Shadow Auto) & RSL Hook Path Fix', (
           current_model: 'claude-opus-5-5',
           target_model: 'claude-sonnet-5-5',
           cached_tokens: 90000,
-          cache_warm: true
+          cache_warm: true,
+          requests_per_turn: 1,
+          expected_output_tokens: 1500
         },
         {
           cwd: ws,
@@ -202,11 +223,30 @@ describe('Option A (14-Day Reverse Trial -> Shadow Auto) & RSL Hook Path Fix', (
           current_model: 'claude-opus-5-5',
           target_model: 'claude-sonnet-5-5',
           cached_tokens: 90000,
-          cache_warm: true
+          cache_warm: true,
+          requests_per_turn: 1,
+          expected_output_tokens: 1500
         },
         { cwd: ws, licensePath: licPath, publicKeyPem, nowMs: t15, strict: true }
       );
       assert.equal(ccUnlocked.exitCode, 2, 'Verified Pro key restores AUTO_PILOT hold');
+
+      // Sibling: without observed R/O data, paid AUTO_PILOT issues a non-blocking advisory
+      const ccUnlockedDefaults = runPreModelSwitchHook(
+        {
+          session_id: 'trial-defaults-paid',
+          mode: 'AUTO_PILOT',
+          current_model: 'claude-opus-5-5',
+          target_model: 'claude-sonnet-5-5',
+          cached_tokens: 90000,
+          cache_warm: true
+        },
+        { cwd: ws, licensePath: licPath, publicKeyPem, nowMs: t15, strict: true }
+      );
+      assert.equal(ccUnlockedDefaults.exitCode, 0);
+      assert.equal(ccUnlockedDefaults.verdict.advisory, true);
+      assert.equal(ccUnlockedDefaults.verdict.blocked, false);
+      assert.equal(ccUnlockedDefaults.verdict.basedMostlyOnDefaults, true);
 
       const cliTrialFail = runCli(['license', 'trial'], {
         licensePath: licPath,

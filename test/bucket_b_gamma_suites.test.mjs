@@ -691,9 +691,9 @@ if (!process.env.CTXTOP_BENCH_IMPORT_ONLY) {
       );
       assert.equal(claudeWeb.exitCode, 0);
       const webOut = JSON.parse(claudeWeb.stdout);
-      assert.match(webOut.hookSpecificOutput.additionalContext, /const keepMe = 42;/);
-      assert.match(webOut.hookSpecificOutput.additionalContext, /\| Metric \| Value \|/);
-      assert.ok(!webOut.hookSpecificOutput.additionalContext.includes('window.track'));
+      assert.match(webOut.hookSpecificOutput.updatedToolOutput, /const keepMe = 42;/);
+      assert.match(webOut.hookSpecificOutput.updatedToolOutput, /\| Metric \| Value \|/);
+      assert.ok(!webOut.hookSpecificOutput.updatedToolOutput.includes('window.track'));
 
       const agWeb = await handlePostInvocation({
         hook_event_name: 'PostToolUse',
@@ -729,9 +729,9 @@ if (!process.env.CTXTOP_BENCH_IMPORT_ONLY) {
         { cwd: tmpDir, persistState: false }
       );
       const grepOut = JSON.parse(claudeGrep.stdout);
-      assert.match(grepOut.hookSpecificOutput.additionalContext, /Ranked 22 search matches -> Top 8/);
-      assert.match(grepOut.hookSpecificOutput.additionalContext, /src\/core\/shield_manager\.mjs/);
-      assert.ok(!grepOut.hookSpecificOutput.additionalContext.includes('noise_15.md'));
+      assert.match(grepOut.hookSpecificOutput.updatedToolOutput, /Ranked 22 search matches -> Top 8/);
+      assert.match(grepOut.hookSpecificOutput.updatedToolOutput, /src\/core\/shield_manager\.mjs/);
+      assert.ok(!grepOut.hookSpecificOutput.updatedToolOutput.includes('noise_15.md'));
 
       // 4. #4 BLAST_RADIUS_BREAKER in default COACH mode + reset on passing npm test (Claude + Antigravity)
       const blastSess = 'alpha-blast-claude';
