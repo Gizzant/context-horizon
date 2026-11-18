@@ -1029,8 +1029,9 @@ describe('Tier 3: Pairwise Interactions (Features 15 - 28)', () => {
       assert.ok(probe.conflictMessages.length >= 1);
       assert.ok(probe.latencyMs >= 0);
 
-      // Verify latency SLA (sub-250ms accounting for cold git subprocess spawn on shared CI VMs)
-      const maxLatencyMs = 250;
+      // Verify latency SLA (sub-250ms accounting for cold git subprocess spawn on shared CI VMs;
+      // Windows process creation for git is several times slower, so allow 1s there)
+      const maxLatencyMs = process.platform === 'win32' ? 1000 : 250;
       assert.ok(probe.latencyMs < maxLatencyMs, `Probe latency (${probe.latencyMs}ms) should meet performance threshold`);
 
       // Verify non-destructive invariant: working tree and index remain 100% clean
