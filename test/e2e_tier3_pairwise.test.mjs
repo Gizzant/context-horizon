@@ -404,6 +404,11 @@ describe('Tier 3: Pairwise Interactions (Features 1 - 14)', () => {
     assert.ok(!pkg.dependencies || Object.keys(pkg.dependencies).length === 0);
 
     for (const entry of pkg.files) {
+      if (String(entry).startsWith('!')) {
+        const excludedBase = String(entry).slice(1).replace(/\/?\*\*$/, '');
+        assert.ok(fs.existsSync(path.resolve(excludedBase)), `Excluded package target '${excludedBase}' must exist on disk`);
+        continue;
+      }
       const entryPath = path.resolve(entry);
       assert.ok(fs.existsSync(entryPath), `Declared package file/dir '${entry}' must exist on disk`);
     }

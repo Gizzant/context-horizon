@@ -31,3 +31,6 @@ EXHAUSTIVE_ISSUE_LEDGER.md
 CONTRIBUTING.md
 CHANGELOG.md
 AGENTS.md
+packages/pro/workers/
+packages/pro/wrangler.toml
+packages/pro/README-SIGNING.md

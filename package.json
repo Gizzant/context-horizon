@@ -54,6 +54,9 @@
     "packages/antigravity/",
     "packages/claude-code/",
     "packages/pro/",
+    "!packages/pro/workers/**",
+    "!packages/pro/wrangler.toml",
+    "!packages/pro/README-SIGNING.md",
     "packages/mcp/",
     "src/"
   ],

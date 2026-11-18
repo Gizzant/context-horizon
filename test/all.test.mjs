@@ -81,4 +81,5 @@ import './advanced_view_truth_audit.test.mjs';
 import './windows_hook_latency_and_rsl_opt.test.mjs';
 import './matrix_9plus_capabilities.test.mjs';
 import './claude-code/effort_shift_and_doctor.test.mjs';
+import './antigravity_hooks_switch.test.mjs';
 

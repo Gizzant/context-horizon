@@ -20,13 +20,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Internal `PreToolUse` faults now allow the tool call (fail-open, exit `0` with a stderr diagnostic); deliberate guard blocks are unchanged; `HIGHBEAM_PRETOOL_FAIL_MODE=closed` restores the strict mode.
 - Built-in tool output (Bash, etc.) is now **replaced** with the compacted version through `updatedToolOutput` instead of appended beside the original. The savings ledger records savings only when output was actually replaced.
 - Saved command output (`.claude/cache/artifacts/`) is written owner-only (`0600` files in `0700` directories) on POSIX systems.
-- `@ctxtop/pro` no longer publishes the webhook worker or `wrangler.toml`; they stay in the repository for the operator.
+- `@ctxtop/pro` and the root `ctxtop` package no longer publish the webhook worker or `wrangler.toml`; they stay in the repository for the operator.
 - Pro can no longer be unlocked with `CTXTOP_PRO_DEV=1` or `NODE_ENV=test`; the test bypass applies only inside Node's test runner.
 - **Breaking:** removed the `CTXTOP_ED25519_PUBLIC_KEY_PEM` override. License keys are verified only against the public key pinned in the release.
 - `ctxtop init` reports each host's real install scope (Claude Code defaults to this project, Antigravity to global), `--global` / `--project` now apply to every selected host, and passing both is rejected.
 - Test scripts run with an isolated temporary home folder, so running the suites no longer installs the Antigravity plugin or writes state into the real `~/.gemini`, `~/.claude` or `~/.ctxtop`.
 - Documentation and `doctor` now state one Node requirement: Node >= 20 (`node:sqlite` is used on Node >= 22.5, with a JSONL fallback otherwise).
 - `--lean-hooks` (the default Claude Code install) and `hooks/hooks.json` keep `Read` in the `PreToolUse` matcher (so `GUARD-4` repeat-read delta reads and signature stubs run) while stripping `Grep` and `Glob` unless `--full-hooks` is passed.
+- Launch tiers are limited to Pro Annual, Founder Lifetime, and Team Starter; corporate receipt tier labels and Polar checkout links are now dynamic, and the receipt ROI line shows the monthly equivalent for Team and one-time cost for Lifetime.
 - `AUTO_PILOT` no longer blocks a model switch when its estimate rests mostly on default values; it shows an advisory instead.
 
 #### Fixed
