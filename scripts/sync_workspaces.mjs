@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const ROOT_PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-const VERSION = ROOT_PKG.version || '4.1.3';
+const VERSION = ROOT_PKG.version || '4.1.4';
 
 function writeFileIfChangedSync(filePath, content, encoding = 'utf8') {
   const nextBuf = Buffer.isBuffer(content) ? content : Buffer.from(String(content), encoding);

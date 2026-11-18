@@ -184,9 +184,9 @@ describe('Feature 1: Single ctxtop Package', () => {
     assert.equal(pkg.name, 'ctxtop', 'Package name must be ctxtop');
   });
 
-  it('1.2 Single ctxtop Package: manifest version is 4.1.3', () => {
+  it('1.2 Single ctxtop Package: manifest version is 4.1.4', () => {
     const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-    assert.equal(pkg.version, '4.1.3', 'Package version must be 4.1.3');
+    assert.equal(pkg.version, '4.1.4', 'Package version must be 4.1.4');
   });
 
   it('1.3 Single ctxtop Package: type is "module"', () => {
@@ -241,13 +241,13 @@ describe('Feature 2: Dual Plugin Manifests', () => {
     assert.equal(cc.hooks, './hooks/hooks.json');
   });
 
-  it('2.4 Dual Plugin Manifests: manifest schema version matches v4.1.3 in both', () => {
+  it('2.4 Dual Plugin Manifests: manifest schema version matches v4.1.4 in both', () => {
     const ag = JSON.parse(fs.readFileSync('plugin.json', 'utf8'));
     const cc = JSON.parse(fs.readFileSync('.claude-plugin/plugin.json', 'utf8'));
     const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-    assert.equal(ag.version, '4.1.3');
-    assert.equal(cc.version, '4.1.3');
-    assert.equal(pkg.version, '4.1.3');
+    assert.equal(ag.version, '4.1.4');
+    assert.equal(cc.version, '4.1.4');
+    assert.equal(pkg.version, '4.1.4');
   });
 
   it('2.5 Dual Plugin Manifests: platform-specific capabilities declared', () => {
