@@ -34,7 +34,7 @@ function signedReq(orderId, body, nowMs = Date.now()) {
 }
 
 const order = (id, name, amount) => ({
-  type: 'order.created',
+  type: 'order.paid',
   data: { id, amount, product: { name }, customer: { email: 'buyer@acme.dev' } }
 });
 const baseEnv = (kv) => ({
@@ -138,4 +138,24 @@ test('order.paid issues a key; an unpaid order.created is ignored', async () => 
   assert.equal(r2.status, 200);
   assert.equal(r2.body.emailed, true);
   assert.equal(sent.length, 1);
+});
+
+test('only order.paid issues keys; benefit_grant/subscription events and orders without an email never email', async () => {
+  const kv = makeKv();
+  const sent = [];
+  const deps = { sendEmail: async (m) => void sent.push(m) };
+
+  for (const type of ['benefit_grant.created', 'subscription.created', 'subscription.active', 'order.created']) {
+    const evt = { type, data: { id: 'x_' + type, status: 'paid', amount: 1500, product: { name: 'Highbeam Pro Monthly' }, customer: { email: 'buyer@acme.dev' } } };
+    const r = await processPolarWebhook(signedReq('evt_' + type, evt), baseEnv(kv), deps);
+    assert.equal(r.status, 200);
+    assert.equal(r.body.ignored, true, `${type} must be ignored`);
+  }
+  assert.equal(sent.length, 0);
+
+  const noEmail = { type: 'order.paid', data: { id: 'ord_noemail', status: 'paid', amount: 1500, product: { name: 'Highbeam Pro Monthly' } } };
+  const r = await processPolarWebhook(signedReq('ord_noemail', noEmail), baseEnv(kv), deps);
+  assert.equal(r.status, 422);
+  assert.equal(r.body.error, 'MISSING_CUSTOMER_EMAIL');
+  assert.equal(sent.length, 0, 'never email a placeholder address');
 });

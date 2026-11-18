@@ -96,7 +96,7 @@ describe('Pre-Launch v4.0 Finishing Pack (Dual-License, Lean Hooks, BYO-Grafana 
       const tsSec = String(Math.floor(nowMs / 1000));
       const webhookId = 'msg_polar_001';
       const rawBody = JSON.stringify({
-        type: 'order.created',
+        type: 'order.paid',
         data: {
           id: 'ord_999',
           amount: 29900,
@@ -285,7 +285,7 @@ describe('Pre-Launch v4.0 Finishing Pack (Dual-License, Lean Hooks, BYO-Grafana 
       const nowMs = Date.now();
       const tsSec = String(Math.floor(nowMs / 1000));
       const ltdOverCapBody = JSON.stringify({
-        type: 'order.created',
+        type: 'order.paid',
         data: {
           id: 'ord_ltd_201',
           amount: 19900,

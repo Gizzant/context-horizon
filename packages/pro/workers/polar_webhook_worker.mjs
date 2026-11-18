@@ -109,7 +109,7 @@ export function mapPolarOrderToLicenseSpec(eventPayload = {}) {
     data.user?.email ||
     data.customer_email ||
     data.email ||
-    'customer@polar.sh';
+    '';
 
   let sku = 'pro_monthly';
   let tier = 'pro';
@@ -246,8 +246,11 @@ export function handlePolarWebhookRequest(reqInput = {}, env = {}) {
     };
   }
 
-  const eventType = String(parsed.type || 'order.created');
-  if (!/^(order\.paid|order\.created|subscription\.active|subscription\.created|benefit_grant\.created)$/i.test(eventType)) {
+  const eventType = String(parsed.type || 'order.paid');
+  // Only `order.paid` issues keys. It fires once per paid order (initial purchase and each renewal) and its
+  // `data.id` is the order id used for dedupe. Subscription/benefit events carry different ids and would
+  // email duplicate keys for one purchase.
+  if (!/^order\.paid$/i.test(eventType)) {
     return {
       status: 200,
       body: { ok: true, ignored: true, eventType }

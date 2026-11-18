@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 #### Added
 - `@ctxtop/mcp` registry distribution manifests (`smithery.yaml`, `glama.json`, `server.json`) and automated publication alongside `ctxtop` on release.
-- Polar.sh license delivery: the webhook worker handles `order.paid` (and ignores orders that are not yet paid), and now emails the signed key to the buyer, de-duplicates retried webhooks, and enforces the 200-seat lifetime cap with a persistent counter. The key is never returned in the HTTP response.
+- Polar.sh license delivery: the webhook worker issues a key only on `order.paid` (every other event type is ignored, so one purchase can never email several keys), never emails a placeholder address when an order has no customer email (it answers 422 instead), and now emails the signed key to the buyer, de-duplicates retried webhooks, and enforces the 200-seat lifetime cap with a persistent counter. The key is never returned in the HTTP response.
 - CI now runs on Node 20.19.0 as well as 22.14.0.
 - `HIGHBEAM_POST_OUTPUT_MODE=context` restores the previous add-only post-tool output behavior (records no savings).
 
