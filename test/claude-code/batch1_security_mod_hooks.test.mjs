@@ -128,9 +128,9 @@ test('ISS-018: hooks/hooks.json uses top-level "hooks" wrapper, nested command a
   }
 
   // Verify asymmetric lean tool matchers (v4.0: strips Grep|Glob subprocess spawns by default)
-  assert.equal(parsed.hooks.PreToolUse[0].matcher, 'Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Task|Agent|WebFetch|mcp__.*');
+  assert.equal(parsed.hooks.PreToolUse[0].matcher, 'Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Task|Agent|WebFetch|mcp__.*');
   assert.equal(parsed.hooks.PostToolUse[0].matcher, 'Bash|PowerShell|Task|Agent|WebFetch|mcp__.*');
-  for (const tool of ['MultiEdit', 'NotebookEdit', 'Read', 'Task', 'Agent']) {
+  for (const tool of ['MultiEdit', 'NotebookEdit', 'Task', 'Agent']) {
     assert.ok(
       new RegExp(`^(?:${parsed.hooks.PreToolUse[0].matcher})$`).test(tool),
       `PreToolUse matcher must match ${tool}`
@@ -672,7 +672,7 @@ test('ISS-034: plugin.json references ./commands/horizon.md and Stop, PreCompact
     assert.equal(preAdvisoryJson.hookSpecificOutput.permissionDecision, 'allow');
     assert.match(preAdvisoryJson.hookSpecificOutput.additionalContext, /DET-12/);
 
-    // 5. PostToolUse: MCP tools emit updatedMCPToolOutput; built-in tools emit additionalContext (never updatedToolOutput)
+    // 5. PostToolUse: MCP tools emit updatedMCPToolOutput; built-in tools emit updatedToolOutput in the tool's own response shape
     const mcpPost = runPostToolUseHook(
       {
         tool_name: 'mcp__github__list_issues',
@@ -693,9 +693,9 @@ test('ISS-034: plugin.json references ./commands/horizon.md and Stop, PreCompact
       { cwd: tmpDir }
     );
     const bashPostJson = JSON.parse(bashPost.stdout);
-    assert.equal('updatedToolOutput' in bashPostJson.hookSpecificOutput, false);
     assert.equal('updatedMCPToolOutput' in bashPostJson.hookSpecificOutput, false);
-    assert.equal(bashPostJson.hookSpecificOutput.additionalContext, 'OK build succeeded');
+    assert.equal('additionalContext' in bashPostJson.hookSpecificOutput, false);
+    assert.equal(bashPostJson.hookSpecificOutput.updatedToolOutput, 'OK build succeeded');
 
     // 6. Lossless Offload Fallback: if artifact disk write fails, full cleaned output MUST be preserved!
     const blockerFile = path.join(tmpDir, 'not-a-directory');
@@ -724,9 +724,14 @@ test('ISS-034: plugin.json references ./commands/horizon.md and Stop, PreCompact
 // 8. ISS-035: `isCliEntrypoint`, Bounded `readStdinJsonAsync` & Fail-Closed CLI `exit 2`
 // ============================================================================
 
-test('ISS-035: isCliEntrypoint resolves paths safely, readStdinJsonAsync bounds stalled stdin, and guard CLIs fail CLOSED with exit code 2', async () => {
+test('ISS-035: isCliEntrypoint resolves paths safely, readStdinJsonAsync bounds stalled stdin, and PreToolUse fails open while the billing guard fails CLOSED with exit code 2', async (t) => {
   const preHandlerPath = path.join(PROJECT_ROOT, 'hooks', 'handlers', 'pre-tool-use.mjs');
   const preHandlerUrl = pathToFileURL(preHandlerPath).href;
+
+  // The stdin watchdog timer is unref'd on purpose (it must not keep a real hook process alive), so a
+  // synthetic PassThrough has nothing else holding the event loop: keep it alive for this test only.
+  const keepAlive = setInterval(() => {}, 25);
+  t.after(() => clearInterval(keepAlive));
 
   assert.equal(isCliEntrypoint(preHandlerUrl, preHandlerPath), true);
   assert.equal(isCliEntrypoint(preHandlerUrl, path.join(PROJECT_ROOT, 'bin', 'cli.mjs')), false);
@@ -747,9 +752,30 @@ test('ISS-035: isCliEntrypoint resolves paths safely, readStdinJsonAsync bounds 
   const parsedStdin = await readPromise;
   assert.equal(parsedStdin.tool_name, 'Bash');
 
-  // Security & billing guards (`pre-tool-use.mjs` & `pre-model-switch.mjs`) MUST exit 2 on uncaught exception!
+  // PreToolUse fails OPEN on an internal fault (exit 0 + diagnostic): a Highbeam bug must not block work.
+  // Guard verdicts still block (see scope_and_entitlement/pretool_fail_open tests). The billing guard
+  // `pre-model-switch.mjs` still fails CLOSED with exit 2.
+  {
+    let exitCode = null;
+    let stderrText = '';
+    await executePreToolUseCli({
+      readPayload: async () => {
+        throw new Error('PreToolUse simulated crash');
+      },
+      ioOverride: {
+        writeStderr: (s) => {
+          stderrText += s;
+        },
+        exitFn: (code) => {
+          exitCode = code;
+        }
+      }
+    });
+    assert.equal(exitCode, 0, 'PreToolUse must fail OPEN with exit code 0 on an internal fault');
+    assert.match(stderrText, /Diagnostic\]/);
+    assert.match(stderrText, /fail-open/);
+  }
   for (const [label, runner] of [
-    ['PreToolUse', executePreToolUseCli],
     ['PreModelSwitch', executePreModelSwitchCli]
   ]) {
     let exitCode = null;

@@ -566,7 +566,7 @@ console.log('[6/7] Privacy Guard (no embedded session data) & Verifying 3-Way SH
     assert.ok(!privacyRe.test(m[1]), `Privacy guard: ${path.basename(p)} __PRECOMPUTED_SESSIONS__ must not contain local paths or session UUIDs`);
   }
 }
-const mirrorCheck = syncAndVerifyMirrors();
+const mirrorCheck = syncAndVerifyMirrors({ verifyOnly: true });
 assert.equal(mirrorCheck.parityOk, true, '3-Way SHA-256 parity must hold');
 console.log(`  âœ“ 3-Way SHA-256 mirror parity verified (${mirrorCheck.sha256.slice(0, 16)}...).\n`);
 

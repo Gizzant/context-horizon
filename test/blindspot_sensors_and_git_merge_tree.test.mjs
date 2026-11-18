@@ -17,6 +17,7 @@ import {
   runBlindspotSensors
 } from '../src/engine-node/sensors/blindspots.mjs';
 import {
+  gitSupportsMergeTreeWriteTree,
   probeGitMergeTree
 } from '../src/engine-node/sensors/git_merge_tree.mjs';
 
@@ -217,7 +218,8 @@ test('blindspots: handles null, undefined, primitives, and corrupted events with
   });
 });
 
-test('git_merge_tree: clean merge between HEAD and HEAD leaves tree 100% clean', () => {
+const GIT_MERGE_TREE_SKIP = gitSupportsMergeTreeWriteTree() ? false : 'needs git >= 2.38 (merge-tree --write-tree)';
+test('git_merge_tree: clean merge between HEAD and HEAD leaves tree 100% clean', { skip: GIT_MERGE_TREE_SKIP }, () => {
   // Check git status before
   const statusBefore = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' });
 
@@ -232,7 +234,7 @@ test('git_merge_tree: clean merge between HEAD and HEAD leaves tree 100% clean',
   assert.strictEqual(statusAfter, statusBefore, 'Working tree status must be untouched after probe');
 });
 
-test('git_merge_tree: detects conflicting branches without mutating working tree', () => {
+test('git_merge_tree: detects conflicting branches without mutating working tree', { skip: GIT_MERGE_TREE_SKIP }, () => {
   // Create a temporary git repo to test merge conflicts
   const tmpRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'ah_git_merge_test_'));
   try {

@@ -99,7 +99,8 @@ describe('v4.0 RC Remediation & @ctxtop/mcp Regression Suite', () => {
     assert.equal(PRO_PRICING_TIERS.team.seatMonthlyUSD, PLG_TIER_MATRIX.team.pricePerSeatMonthlyUSD);
 
     const signingDoc = fs.readFileSync(path.join(ROOT, 'packages', 'pro', 'README-SIGNING.md'), 'utf8');
-    assert.match(signingDoc, /CTXTOP_ED25519_PUBLIC_KEY_PEM/);
+    // The public-key env override was removed (it let anyone sign their own license); the doc must say so.
+    assert.match(signingDoc, /no environment-variable override/);
     assert.match(signingDoc, /CTXTOP_ED25519_PRIVATE_KEY_PEM/);
   });
 

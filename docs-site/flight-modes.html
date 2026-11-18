@@ -178,7 +178,7 @@
       <div class="callout safe">
         <p class="callout-title">Pro Entitlement Check &amp; Safe Fallback</p>
         <p>
-          In <code>hooks/handlers/pre-tool-use.mjs</code>, setting <code>flightMode: "AUTO_PILOT"</code> checks <code>requireProFeature("auto_pilot_locks")</code> against your offline Ed25519 key (<code>~/.ctxtop/license.json</code>) or 14-day local trial (<code>npx ctxtop pro trial</code>). If neither is found, Highbeam drops back to <code>"COACH"</code> in memory so hooks never crash or block your editor.
+          In <code>hooks/handlers/pre-tool-use.mjs</code>, setting <code>flightMode: "AUTO_PILOT"</code> checks <code>requireProFeature("auto_pilot_locks")</code> against your offline Ed25519 key (<code>~/.ctxtop/license.json</code>) or 14-day local trial (<code>npx ctxtop license trial</code>). If neither is found, Highbeam drops back to <code>"COACH"</code> in memory so hooks never crash or block your editor.
         </p>
       </div>
 

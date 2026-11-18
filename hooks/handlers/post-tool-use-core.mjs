@@ -84,6 +84,42 @@ function extractPostToolText(event = {}) {
 }
 
 /**
+ * Builds a replacement `tool_response` in the same shape the host sent, so Claude Code
+ * accepts it as `updatedToolOutput` (a value that does not match a built-in tool's output
+ * shape is ignored by the host). Returns `{ ok: false }` when the shape has no text field
+ * we can safely replace.
+ * @param {object} event
+ * @param {string} finalOutput
+ * @returns {{ ok: boolean, value?: string | object }}
+ */
+export function buildReplacementToolOutput(event = {}, finalOutput = '') {
+  const resp = event.tool_response ?? event.tool_output ?? event.toolOutput ?? event.output;
+  if (typeof resp === 'string') return { ok: true, value: finalOutput };
+  if (resp && typeof resp === 'object' && !Array.isArray(resp)) {
+    const textKeys = ['stdout', 'output', 'content', 'error', 'stderr'];
+    const primary = textKeys.find((k) => typeof resp[k] === 'string' && resp[k].length > 0);
+    if (!primary) return { ok: false };
+    const next = { ...resp };
+    for (const k of textKeys) {
+      if (typeof next[k] === 'string') next[k] = k === primary ? finalOutput : '';
+    }
+    return { ok: true, value: next };
+  }
+  return { ok: false };
+}
+
+/**
+ * `replace` (default): built-in tool output is replaced with `updatedToolOutput`.
+ * `context`: legacy behaviour, text is only added with `additionalContext` (no replacement,
+ * so no savings are recorded). Escape hatch for Claude Code versions that ignore replacement.
+ * @returns {'replace' | 'context'}
+ */
+function resolvePostOutputMode() {
+  const raw = String(globalThis.process?.env?.HIGHBEAM_POST_OUTPUT_MODE || 'replace').trim().toLowerCase();
+  return raw === 'context' ? 'context' : 'replace';
+}
+
+/**
  * Determines whether a completed tool call failed (`is_error`, non-zero `exit_code`, etc.).
  * @param {object} event
  * @returns {boolean}
@@ -324,7 +360,19 @@ export function runPostToolUseHook(event = {}, options = {}) {
     }
   }
 
-  const totalSavedTokens = sanitized.savedTokens + Number(bAlphaPost.savedTokens || 0);
+  const isMcpTool = /^mcp__/i.test(toolName);
+  const replacement =
+    !isMcpTool && wasModified && resolvePostOutputMode() === 'replace'
+      ? buildReplacementToolOutput(event, finalOutput)
+      : { ok: false };
+  // Savings are real only when the model's copy of the output is actually replaced
+  // (MCP tools via updatedMCPToolOutput, built-in tools via updatedToolOutput). Text that is
+  // only appended with additionalContext adds tokens, so it records nothing.
+  const outputReplaced = isMcpTool ? wasModified : replacement.ok;
+
+  const totalSavedTokens = outputReplaced
+    ? sanitized.savedTokens + Number(bAlphaPost.savedTokens || 0)
+    : 0;
   if (
     totalSavedTokens > 0 &&
     options.recordLedger !== false &&
@@ -372,17 +420,23 @@ export function runPostToolUseHook(event = {}, options = {}) {
     };
   }
 
-  // ISS-034: updatedMCPToolOutput applies strictly to MCP tools; built-in tools use additionalContext!
-  const isMcpTool = /^mcp__/i.test(toolName);
+  // MCP tools: updatedMCPToolOutput. Built-in tools: updatedToolOutput in the tool's own
+  // response shape (documented for all tools). If that shape cannot be rebuilt, fall back to
+  // additionalContext, which adds text beside the original output and records no savings.
   const hookSpecificOutput = isMcpTool
     ? {
         hookEventName: 'PostToolUse',
         updatedMCPToolOutput: finalOutput
       }
-    : {
-        hookEventName: 'PostToolUse',
-        additionalContext: finalOutput
-      };
+    : replacement.ok
+      ? {
+          hookEventName: 'PostToolUse',
+          updatedToolOutput: replacement.value
+        }
+      : {
+          hookEventName: 'PostToolUse',
+          additionalContext: finalOutput
+        };
 
   return {
     exitCode: 0,

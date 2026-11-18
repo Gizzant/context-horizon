@@ -2,15 +2,15 @@
 
 # Highbeam (`ctxtop` v4.1) — Active Context Surgeon, KV-Cache Shield & Token FinOps for Claude Code, Google Antigravity & MCP Hosts
 
-**Local Context Window Profiler, KV-Cache TTL Monitor, Multi-Family FTS5 Output Compressor & Deterministic PreInvocation / PreToolUse Surgeon (`~0.1–2.9ms` avg Tier-1 In-Process · `~58ms` Warm IPC / `~105ms` Cold Windows Tier-2 Hook) across Google Antigravity, Claude Code, Codex CLI, Gemini CLI & Cursor**
+**Local Context Window Profiler, KV-Cache TTL Monitor, Multi-Family FTS5 Output Compressor & Deterministic PreInvocation / PreToolUse Surgeon (`<1ms` in-process Tier-1 · `~60–80ms` median per spawned Tier-2 hook; method in [Verification & Benchmarks](#verification--benchmarks)) across Google Antigravity, Claude Code, Codex CLI, Gemini CLI & Cursor**
 
 [![Zero Runtime Dependencies](https://img.shields.io/badge/dependencies-0_runtime-brightgreen.svg)](#systems-architecture--zero-trust-security)
-[![Hook Latency](https://img.shields.io/badge/Tier--1_in--process-~2.9ms_avg_%7C_Tier--2_hook-~58ms_IPC%2F~105ms_cold-00e5ff.svg)](#deterministic-preinvocation-router--6-local-sensors)
+[![Hook Latency](https://img.shields.io/badge/Tier--1_in--process-%3C1ms_%7C_Tier--2_hook-~60--80ms_median-00e5ff.svg)](#deterministic-preinvocation-router--6-local-sensors)
 [![Node.js >= 20](https://img.shields.io/badge/node-%3E%3D20_zero_deps-339933.svg)](#try-in-10-seconds-zero-hooks--zero-writes)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Multi-Host Parity](https://img.shields.io/badge/Hosts-Antigravity_%7C_Claude_%7C_Codex_%7C_Gemini_%7C_Cursor-blueviolet.svg)](#-installation--quick-start)
 
-[**Live Interactive Demo**](https://gizzant.github.io/attention-horizon-antigravity/) • [**10-Second 5-Host Audit**](#try-in-10-seconds-zero-hooks--zero-writes) • [**Quick Start**](#-installation--quick-start) • [**Cookbook**](docs/COOKBOOK.md) • [**Benchmarks**](docs/ANTIGRAVITY_AND_COMPRESSION_BENCHMARK.md) • [**Enterprise MDM**](docs/ENTERPRISE_MDM.md)
+[**Live Interactive Demo**](https://gizzant.github.io/context-horizon/) • [**10-Second 5-Host Audit**](#try-in-10-seconds-zero-hooks--zero-writes) • [**Quick Start**](#-installation--quick-start) • [**Cookbook**](docs/COOKBOOK.md) • [**Benchmarks**](docs/ANTIGRAVITY_AND_COMPRESSION_BENCHMARK.md) • [**Enterprise MDM**](docs/ENTERPRISE_MDM.md)
 
 <br/>
 
@@ -48,9 +48,9 @@ npx ctxtop audit --days 7
 | **Google Antigravity** *(1-Line Install)* | **Claude Code** *(1-Line Install)* | **Cursor / Windsurf / Codex / Gemini CLI** |
 | :--- | :--- | :--- |
 | ```bash
-npx ctxtop init
+npx ctxtop init --antigravity
 ``` | ```bash
-npx ctxtop install --global
+npx ctxtop init --claude --global
 ``` | ```bash
 npx ctxtop init --cursor --windsurf --codex --gemini-cli
 ``` |
@@ -59,14 +59,14 @@ npx ctxtop init --cursor --windsurf --codex --gemini-cli
 ### Your First 5 Minutes After Installing
 
 #### 1. Google Antigravity Workflow
-1. **Install hooks & sidecar**: Run `npx ctxtop init` in your project root (or globally).
+1. **Install hooks & sidecar**: Run `npx ctxtop init --antigravity` in your project root (or globally).
 2. **Open the Highbeam Sidepane**: Launch the local telemetry WebView (`npx ctxtop ui` or via the Antigravity sidepane) to view real-time context health:
    - **Simple View (Default)**: 4 glanceable zones—**Zone A** (Safe Headroom & Warm KV Cache TTL), **Zone B** (`DO / AVOID / HOLD` Model & Effort switch guidance), **Zone C** (Live automated interventions), and **Zone D** (Verified tokens/USD saved + 1-click `/compact`).
    - **Advanced View (1-Click Toggle)**: Expands the **40-Cell Chrono-Positional Recall Grid** (`Primacy 0–30%`, `Mid-Trough 30–70%`, `Recency 70–100%`), top token consumer file table, `Off / Coach / Auto` mode switcher, and the full `DET-01..32` guard log.
 3. **Code normally**: Highbeam runs in **`COACH` mode** by default—automatically compressing verbose CLI test dumps via SQLite FTS5 and folding repeat file reads without interrupting your prompts.
 
 #### 2. Claude Code Workflow
-1. **Install plugin & hooks**: Run `npx ctxtop install --global` (or `npx ctxtop init --claude`) to wire `.claude-plugin/plugin.json`, `hooks/hooks.json`, and the live terminal `statusLine`.
+1. **Install plugin & hooks**: Run `npx ctxtop init --claude` (current project) or `npx ctxtop init --claude --global` (all projects) to wire `.claude-plugin/plugin.json`, `hooks/hooks.json`, and the live terminal `statusLine`.
 2. **Watch the Live Terminal `statusLine`**: At the bottom of your terminal, Highbeam renders an auto-adapting (`80 / 110 / 144` col) telemetry bar:
    ```text
    AH [SCCCCCCC................] sonnet-5-5 64k/200k (32%) · Cache 88% (4m12s) · COACH · Saved $1.84
@@ -325,7 +325,7 @@ For centralized organization deployment (Jamf / Intune / GPO), `CHECKSUMS.sha256
 | Shared `.agents/rules/` Governance, MDM Policy & OTel / Grafana Pack | — | — | ✅ |
 
 **Commercial SKU Summary (Offline Ed25519 `CTXP1` Activation via `npx ctxtop license activate <key>`):**
-- **[Pro Monthly (`$15/mo`)](https://buy.polar.sh/polar_cl_NLMnqIdpws5nNivzb4SCF8v9QcGeu6mQMcxLu14RKvj)** & **[Pro Annual (`$149/yr`, `~$12.42/mo`)](https://buy.polar.sh/polar_cl_NLMnqIdpws5nNivzb4SCF8v9QcGeu6mQMcxLu14RKvj)**: 1 developer seat, 14-day zero-network local trial (`npx ctxtop trial`), expensable via `npx ctxtop receipt --pdf`.
+- **[Pro Monthly (`$15/mo`)](https://buy.polar.sh/polar_cl_NLMnqIdpws5nNivzb4SCF8v9QcGeu6mQMcxLu14RKvj)** & **[Pro Annual (`$149/yr`, `~$12.42/mo`)](https://buy.polar.sh/polar_cl_NLMnqIdpws5nNivzb4SCF8v9QcGeu6mQMcxLu14RKvj)**: 1 developer seat, 14-day zero-network local trial (`npx ctxtop license trial`), expensable via `npx ctxtop receipt --pdf`.
 - **Pro Founder Lifetime (`$199` one-time, capped at `200` seats)**: Lifetime solo Pro entitlement (`expiresAt: null`).
 - **Team Starter (`$299/yr` for 5 seats)** & **Team FinOps (`$39/seat/mo`)**: Multi-seat MDM rollout, shared `.agents/rules/` primacy governance, and BYO-Grafana OpenTelemetry pack (`npx ctxtop team-pack`).
 
@@ -333,7 +333,7 @@ For centralized organization deployment (Jamf / Intune / GPO), `CHECKSUMS.sha256
 
 ## Deterministic `PreInvocation` Router & 6 Local Sensors
 
-When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incoming prompts across 8 deterministic router states (**Tier-1 In-Process `PreInvocation`: `~0.1–2.9ms` avg / `~3.4ms` p95** inside a warm V8 isolate; **Tier-2 CLI Hook End-to-End Wall Time on Windows: `~58ms` p50 warm daemon IPC / `~105ms` avg cold fallback (`~25–60ms` POSIX)** including Node process startup):
+When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incoming prompts across 8 deterministic router states (**Tier-1 In-Process: `<1ms` (≈0.2ms p95)** inside a warm V8 isolate, when your Claude Code build supports the in-process Mod; **Tier-2 spawned CLI hook: `~60–80ms` median wall time per call** including Node process startup (cold fallback with no warm daemon: roughly `100–450ms`, machine dependent)):
 
 1. `ALLOW_SILENT`: Immediate pass-through (`{}`) on `!` bypass prefix or healthy turns.
 2. `ALLOW_ACTIVE_SET`: Silent pass-through when referenced files are already warm in the last 5 turns.
@@ -353,7 +353,7 @@ When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incomi
 | `npx ctxtop audit [--platform all\|antigravity\|claude\|codex\|gemini\|cursor] [--days 7] [--json]` | Zero-write, hookless 5-host audit of Sludge Tax, cold-cache spikes, and oversized tool dumps. |
 | `npx ctxtop init [--cursor \| --windsurf \| --codex \| --gemini-cli \| --all-hosts]` | Installs Google Antigravity, Claude Code, and 1-command MCP configurations across editors & CLIs. |
 | `npx ctxtop search [<turn-id>] "<keyword>" [--json]` | Searches local SQLite FTS5 offloaded CLI dumps and artifacts via BM25 matching. |
-| `npx ctxtop install --global` | Installs Claude Code `.claude-plugin` manifest, Tier-1/Tier-2 hooks, and terminal `statusLine`. |
+| `npx ctxtop init --claude [--global]` | Installs only the Claude Code `.claude-plugin` manifest, Tier-1/Tier-2 hooks, and terminal `statusLine` (current project, or all projects with `--global`). |
 | `npx ctxtop ui [--demo]` | Launches the local HTTP/SSE telemetry daemon (`127.0.0.1`) and interactive WebView (`/` Simple, `/advanced` Advanced). |
 | `npx ctxtop mcp` | Starts the standalone zero-network 7-tool JSON-RPC stdio MCP server (`@ctxtop/mcp`). |
 | `npx ctxtop doctor [--diagnostic]` | Validates hook registration, FTS5 offload readiness, warm-IPC path, model ceilings, 3-way SHA-256 parity, and SQLite health. |
@@ -367,16 +367,16 @@ When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incomi
 
 ## Verification & Benchmarks
 
-Run the full zero-dependency test and verification suites (**1,060+ tests across 215+ suites** — see [**Empirical Benchmarks**](docs/EMPIRICAL_BENCHMARKS.md) & [**Compression & Antigravity Parity Report**](docs/ANTIGRAVITY_AND_COMPRESSION_BENCHMARK.md)):
+Run the full zero-dependency test and verification suites (**1,300+ tests** — see [**Empirical Benchmarks**](docs/EMPIRICAL_BENCHMARKS.md) & [**Compression & Antigravity Parity Report**](docs/ANTIGRAVITY_AND_COMPRESSION_BENCHMARK.md)):
 
 ```bash
 # Full Coach, UI, & 360° Capability-Proof suite
 npm run test:coach
 
-# Claude Code dual-tier Mod, CLI hooks, statusLine, and 5-category ledger suite (195 tests)
+# Claude Code dual-tier Mod, CLI hooks, statusLine, and 5-category ledger suite (~230 tests)
 npm run test:claude
 
-# Unit & Multi-Harness Wedge suite (89 tests across 31 suites)
+# Unit & Multi-Harness Wedge suite (~85 tests)
 npm run test:unit
 
 # Architectural verification suite (Gates 0-6 & Phases 1-7: SQLite read-only locks, JSDOM UI, MCP audit)
@@ -385,8 +385,8 @@ npm run test:gates && npm run test:phases
 # Reproducible 10-family CLI compression + 12-session Antigravity & 5-host parity benchmark
 npm run bench:parity
 
-# Latency benchmark (200 iterations/path: Tier-1 ~2.9ms avg, Tier-2 ~58ms warm IPC / ~105ms cold Windows, ~5.4ms HUD)
-npm run bench
+# Latency benchmark: prints p50/p95 per path (Tier-1: 200 iterations; Tier-2: 6 spawned-process samples, wall time incl. Node startup). Re-run on your machine; numbers vary by OS and load.
+node scripts/bench_hooks.mjs
 ```
 
 ---

@@ -1,9 +1,9 @@
 /**
  * @file packages/pro/workers/polar_webhook_worker.mjs
- * Zero-dependency, stateless Polar.sh Webhook Handler for minting offline `CTXP1` Ed25519 Pro licenses.
+ * Zero-dependency Polar.sh Webhook Handler for minting offline `CTXP1` Ed25519 Pro licenses.
  *
  * Compatible with Cloudflare Workers (`export default { fetch }`) and Node.js HTTP servers.
- * Requires zero database and $0.00/mo fixed infrastructure cost.
+ * Needs one Cloudflare KV namespace (retry dedupe + LTD counter) and an email sender (Resend by default).
  */
 
 import crypto from 'node:crypto';
@@ -247,10 +247,18 @@ export function handlePolarWebhookRequest(reqInput = {}, env = {}) {
   }
 
   const eventType = String(parsed.type || 'order.created');
-  if (!/^(order\.created|subscription\.active|subscription\.created|benefit_grant\.created)$/i.test(eventType)) {
+  if (!/^(order\.paid|order\.created|subscription\.active|subscription\.created|benefit_grant\.created)$/i.test(eventType)) {
     return {
       status: 200,
       body: { ok: true, ignored: true, eventType }
+    };
+  }
+  // Never issue a key for an order that is not paid yet (order.created can fire before payment).
+  const orderStatus = parsed?.data?.status;
+  if (/^order\./i.test(eventType) && orderStatus && String(orderStatus).toLowerCase() !== 'paid') {
+    return {
+      status: 200,
+      body: { ok: true, ignored: true, eventType, reason: 'ORDER_NOT_PAID', orderStatus }
     };
   }
 
@@ -291,23 +299,156 @@ export function handlePolarWebhookRequest(reqInput = {}, env = {}) {
   };
 }
 
+const LTD_COUNT_KEY = 'ltd:sold_count';
+
+function jsonResponse(status, body) {
+  return { status, body };
+}
+
+/**
+ * Builds the plain-text license email. The key is only ever sent here, never returned over HTTP.
+ */
+export function buildLicenseEmail({ licenseKey, activationCommand, sku, tier, seats }) {
+  const lines = [
+    'Thanks for buying Highbeam Pro.',
+    '',
+    `Plan: ${sku}${tier ? ` (${tier})` : ''}${seats ? `, ${seats} seat(s)` : ''}`,
+    '',
+    'Activate it with one command:',
+    activationCommand,
+    '',
+    'Your license key (keep it private):',
+    licenseKey,
+    '',
+    'Keys are verified offline; Highbeam makes no network call to check them.',
+    'Lost this email or need a replacement? Reply and we will reissue it.'
+  ];
+  return { subject: 'Your Highbeam Pro license key', text: lines.join('\n') };
+}
+
+/**
+ * Sends the email through Resend's REST API (https://resend.com/docs/api-reference/emails/send-email).
+ * Swap this function (or pass `deps.sendEmail`) to use another provider.
+ */
+export async function sendLicenseEmailViaResend({ to, subject, text }, env, fetchImpl = fetch) {
+  const apiKey = env.RESEND_API_KEY;
+  const from = env.CTXTOP_EMAIL_FROM;
+  if (!apiKey || !from) throw new Error('EMAIL_NOT_CONFIGURED');
+  const res = await fetchImpl('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ from, to: [to], subject, text })
+  });
+  if (!res.ok) throw new Error(`EMAIL_SEND_FAILED_${res.status}`);
+}
+
+/**
+ * Async Polar webhook pipeline used by the Worker:
+ *   verify signature -> dedupe retries -> enforce the real LTD counter -> sign key -> EMAIL it.
+ * The license key is never included in the HTTP response (anyone replaying a webhook could read it).
+ * A failed email returns 500 and records nothing, so Polar's retry delivers it later.
+ *
+ * @param {object} reqInput  { rawBody, headers, nowMs }
+ * @param {object} env       secrets/vars plus optional `LICENSE_KV` namespace binding
+ * @param {object} [deps]    { sendEmail } override for tests or another provider
+ */
+export async function processPolarWebhook(reqInput = {}, env = {}, deps = {}) {
+  const kv = env.LICENSE_KV;
+  if (!kv) {
+    return jsonResponse(500, { ok: false, error: 'LICENSE_KV_NOT_BOUND' });
+  }
+  const soldCount = Number((await kv.get(LTD_COUNT_KEY)) || 0);
+
+  let res;
+  try {
+    res = handlePolarWebhookRequest(reqInput, { ...env, CTXTOP_LTD_SOLD_COUNT: soldCount });
+  } catch (err) {
+    return jsonResponse(500, {
+      ok: false,
+      error: 'HANDLE_WEBHOOK_EXCEPTION',
+      detail: String(err?.message || err)
+    });
+  }
+  if (res.status !== 200 || res.body.ignored) return res;
+
+  const headers = reqInput.headers || {};
+  let orderId = '';
+  try {
+    orderId = String(JSON.parse(reqInput.rawBody || '{}')?.data?.id || '');
+  } catch {
+    // handlePolarWebhookRequest already validated the JSON
+  }
+  const dedupeId =
+    orderId || String(headers['webhook-id'] || headers['svix-id'] || '');
+  if (!dedupeId) {
+    return jsonResponse(400, { ok: false, error: 'MISSING_ORDER_ID' });
+  }
+  const orderKey = `order:${dedupeId}`;
+  if (await kv.get(orderKey)) {
+    return jsonResponse(200, { ok: true, duplicate: true, sku: res.body.sku });
+  }
+
+  const { licenseKey, activationCommand, ...publicBody } = res.body;
+  if (!publicBody.email) {
+    return jsonResponse(422, { ok: false, error: 'MISSING_CUSTOMER_EMAIL' });
+  }
+
+  const sendEmail =
+    deps.sendEmail || ((msg) => sendLicenseEmailViaResend(msg, env, deps.fetch || fetch));
+  try {
+    await sendEmail({
+      to: publicBody.email,
+      ...buildLicenseEmail({ licenseKey, activationCommand, ...publicBody })
+    });
+  } catch (err) {
+    return jsonResponse(500, {
+      ok: false,
+      error: 'LICENSE_EMAIL_FAILED',
+      detail: String(err?.message || err).slice(0, 80)
+    });
+  }
+
+  await kv.put(orderKey, JSON.stringify({ sku: publicBody.sku, at: Date.now() }));
+  if (publicBody.tier === 'ltd') {
+    // KV is not atomic; at a 200-unit cap with human-speed purchases the race window is negligible.
+    await kv.put(LTD_COUNT_KEY, String(soldCount + 1));
+  }
+  return jsonResponse(200, { ...publicBody, emailed: true });
+}
+
 export default {
   async fetch(request, env) {
-    if (request.method !== 'POST') {
-      return new Response(JSON.stringify({ ok: false, error: 'METHOD_NOT_ALLOWED' }), {
-        status: 405,
+    try {
+      if (request.method !== 'POST') {
+        return new Response(JSON.stringify({ ok: false, error: 'METHOD_NOT_ALLOWED' }), {
+          status: 405,
+          headers: { 'content-type': 'application/json' }
+        });
+      }
+      const rawBody = await request.text();
+      const headersObj = {};
+      request.headers.forEach((v, k) => {
+        headersObj[k.toLowerCase()] = v;
+      });
+      const res = await processPolarWebhook({ rawBody, headers: headersObj }, env);
+      return new Response(JSON.stringify(res.body), {
+        status: res.status,
         headers: { 'content-type': 'application/json' }
       });
+    } catch (err) {
+      console.error('WORKER_UNCAUGHT_EXCEPTION:', err);
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          error: 'WORKER_EXCEPTION',
+          message: err?.message || String(err),
+          stack: err?.stack || ''
+        }),
+        {
+          status: 500,
+          headers: { 'content-type': 'application/json' }
+        }
+      );
     }
-    const rawBody = await request.text();
-    const headersObj = {};
-    request.headers.forEach((v, k) => {
-      headersObj[k.toLowerCase()] = v;
-    });
-    const res = handlePolarWebhookRequest({ rawBody, headers: headersObj }, env);
-    return new Response(JSON.stringify(res.body), {
-      status: res.status,
-      headers: { 'content-type': 'application/json' }
-    });
   }
 };

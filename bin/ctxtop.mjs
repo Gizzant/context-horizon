@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @file bin/ctxtop.mjs
- * Highbeam v4.1.1 Unified Cross-Platform CLI (`ctxtop`).
+ * Highbeam v4.1.2 Unified Cross-Platform CLI (`ctxtop`).
  *
  * Commands:
  *   - `ctxtop init [--antigravity | --claude | --all | --workspace | --project | --dry-run | --dedupe]`
@@ -20,6 +20,7 @@ import {
   fs,
   path,
   os,
+  crypto,
   url,
   fileURLToPath,
   readJsonSafe,
@@ -371,14 +372,92 @@ export function ensureGitExcludeEntries(cwd) {
   }
 }
 
+/**
+ * True when ctxtop is running from a package-runner cache that can be pruned or replaced
+ * (npx `_npx`, npm-cache, pnpm/yarn `dlx`, bunx, or the OS temp folder). Hooks must never
+ * point there: once the cache is cleared every hook command would reference a missing file.
+ */
+export function isEphemeralPackageRoot(root, options = {}) {
+  const p = String(root || '').replace(/\\/g, '/');
+  if (!p) return false;
+  if (/\/_npx\//.test(p) || /\/npm-cache\//i.test(p) || /\/dlx[-/]/.test(p) || /\/bunx-/.test(p) || /\/\.bun\/install\/cache\//.test(p)) {
+    return true;
+  }
+  const tmp = String(options.tmpDir ?? os.tmpdir()).replace(/\\/g, '/').replace(/\/+$/, '');
+  return Boolean(tmp) && p.startsWith(`${tmp}/`);
+}
+
+/**
+ * Copies the published package (package.json `files`) into ~/.ctxtop/app/<version>/ so installed
+ * hooks keep working after the npx cache is cleared. Re-uses an existing complete copy of the same
+ * build (matched on CHECKSUMS.sha256); writes to a temp folder first and renames it into place.
+ *
+ * @returns {{ root: string, copied: boolean }}
+ */
+export function ensureStableRuntime(options = {}) {
+  const sourceRoot = path.resolve(options.sourceRoot || PKG_ROOT);
+  const homeDir = options.homeDir || os.homedir();
+  const pkg = readJsonSafe(path.join(sourceRoot, 'package.json'), {}) || {};
+  const version = String(pkg.version || 'dev').replace(/[^0-9A-Za-z._-]/g, '_');
+  const appDir = path.join(homeDir, '.ctxtop', 'app');
+  const target = path.join(appDir, version);
+  const toPosix = (x) => x.replace(/\\/g, '/');
+  const marker = path.join(target, '.ctxtop-runtime-complete');
+  const checksumsPath = path.join(sourceRoot, 'CHECKSUMS.sha256');
+  const buildId = fs.existsSync(checksumsPath)
+    ? crypto.createHash('sha256').update(fs.readFileSync(checksumsPath)).digest('hex')
+    : `${version}-no-checksums`;
+
+  if (options.dryRun) return { root: toPosix(target), copied: false };
+  try {
+    if (fs.existsSync(marker) && fs.readFileSync(marker, 'utf8').trim() === buildId) {
+      return { root: toPosix(target), copied: false };
+    }
+  } catch {
+    // fall through and re-copy
+  }
+
+  fs.mkdirSync(appDir, { recursive: true });
+  const staging = path.join(appDir, `.${version}.staging-${process.pid}-${Date.now()}`);
+  const entries = ['package.json', ...(Array.isArray(pkg.files) ? pkg.files : [])];
+  try {
+    for (const entry of entries) {
+      const rel = String(entry).replace(/\/+$/, '');
+      const from = path.join(sourceRoot, rel);
+      if (!rel || !fs.existsSync(from)) continue;
+      fs.cpSync(from, path.join(staging, rel), { recursive: true, dereference: true });
+    }
+    fs.writeFileSync(path.join(staging, '.ctxtop-runtime-complete'), `${buildId}\n`, 'utf8');
+    if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true });
+    fs.renameSync(staging, target);
+  } catch (err) {
+    try {
+      fs.rmSync(staging, { recursive: true, force: true });
+    } catch {
+      // best effort
+    }
+    throw err;
+  }
+  return { root: toPosix(target), copied: true };
+}
+
 export function installAttentionHorizon(options = {}) {
   const cwd = options.cwd || globalThis.process?.cwd?.() || '.';
-  const pkgRoot = options.pkgRoot
-    ? String(options.pkgRoot).replace(/\\/g, '/').replace(/\/+$/, '')
-    : PKG_ROOT;
   const settingsPath = resolveSettingsPath(options);
   const ts = options.timestamp || Date.now();
   const dryRun = Boolean(options.dryRun);
+  // Hooks must point at a location that outlives this process. When running from an npx/dlx cache,
+  // copy the package to ~/.ctxtop/app/<version>/ first and wire the hooks there.
+  const sourceRoot = options.sourceRoot || PKG_ROOT;
+  let stableRuntime = null;
+  if (!options.pkgRoot && options.stableRuntime !== false && isEphemeralPackageRoot(sourceRoot, options)) {
+    stableRuntime = ensureStableRuntime({ sourceRoot, homeDir: options.homeDir, dryRun });
+  }
+  const pkgRoot = options.pkgRoot
+    ? String(options.pkgRoot).replace(/\\/g, '/').replace(/\/+$/, '')
+    : stableRuntime
+      ? stableRuntime.root
+      : String(sourceRoot).replace(/\\/g, '/').replace(/\/+$/, '');
 
   let backupPath = null;
   let currentSettings = {};
@@ -498,8 +577,56 @@ export function installAttentionHorizon(options = {}) {
     backupPath,
     gitExcludeUpdated: gitExclude.updated,
     omittedUnsupportedHooks,
+    runtimeRoot: pkgRoot,
+    runtimeCopied: Boolean(stableRuntime?.copied),
     settings: currentSettings
   };
+}
+
+/**
+ * Lists what `uninstall` deliberately leaves behind (existing paths only) so the user can remove it by hand.
+ * Nothing here is deleted automatically: the stable runtime copy under ~/.ctxtop/app is shared by every
+ * project that installed Highbeam, and license/ledger files are the user's data.
+ *
+ * @returns {Array<{ path: string, note: string }>}
+ */
+export function listUninstallLeftovers(options = {}) {
+  const settingsPath = resolveSettingsPath(options);
+  const cwd = options.cwd || globalThis.process?.cwd?.() || '.';
+  const homeDir = options.homeDir || os.homedir();
+  const out = [];
+  const add = (p, note) => {
+    try {
+      if (p && fs.existsSync(p)) out.push({ path: String(p).replace(/\\/g, '/'), note });
+    } catch {
+      // ignore unreadable paths
+    }
+  };
+
+  try {
+    const dir = path.dirname(settingsPath);
+    const base = `${path.basename(settingsPath)}.ah-backup.`;
+    for (const name of fs.readdirSync(dir)) {
+      if (name.startsWith(base)) add(path.join(dir, name), 'settings backup made by install');
+    }
+  } catch {
+    // settings folder may not exist
+  }
+  add(path.join(cwd, '.claude', 'cache', 'artifacts'), 'saved command output from this project (may contain secrets)');
+  add(path.join(cwd, '.claude', 'cache'), 'Highbeam cache for this project');
+  add(path.join(homeDir, '.ctxtop', 'app'), 'copy of Highbeam that hooks in other projects may still use; delete only after uninstalling everywhere');
+  add(path.join(homeDir, '.ctxtop'), 'license, savings ledger and runtime state');
+  add(path.join(homeDir, '.gemini', 'config', 'plugins', 'agy-horizon-flightcheck'), 'Google Antigravity plugin (remove with the Antigravity plugin manager)');
+  add(path.join(homeDir, '.gemini', 'antigravity', 'agy-horizon'), 'Highbeam state databases');
+  const exclude = path.join(cwd, '.git', 'info', 'exclude');
+  try {
+    if (fs.existsSync(exclude) && /highbeam|attention-horizon|\.ah-backup|ctxtop/i.test(fs.readFileSync(exclude, 'utf8'))) {
+      add(exclude, 'contains Highbeam ignore entries added by install');
+    }
+  } catch {
+    // ignore
+  }
+  return out;
 }
 
 export function uninstallAttentionHorizon(options = {}) {
@@ -509,6 +636,7 @@ export function uninstallAttentionHorizon(options = {}) {
       ok: true,
       settingsPath,
       removedHooksCount: 0,
+      leftovers: listUninstallLeftovers(options),
       settings: {}
     };
   }
@@ -559,6 +687,7 @@ export function uninstallAttentionHorizon(options = {}) {
     ok,
     settingsPath,
     removedHooksCount,
+    leftovers: listUninstallLeftovers(options),
     settings: currentSettings
   };
 }
@@ -780,10 +909,29 @@ export function executeInitSubcommand(args = [], options = {}) {
   const targetLabel =
     targetParts.length === 2 && !hasMcpTarget ? targetParts.join(' & ') : targetParts.join(', ');
 
+  if (isWorkspace && isGlobal) {
+    return {
+      exitCode: 1,
+      output: '[Highbeam] Choose one scope: --global or --project (--workspace), not both.',
+      data: { ok: false, error: 'CONFLICTING_SCOPE_FLAGS' }
+    };
+  }
+  // Each host has its own default: Claude Code installs into this project unless --global;
+  // Antigravity installs globally unless --project/--workspace. Report each host's real scope.
+  const claudeScope = isGlobal ? 'global' : 'project';
+  const antigravityScope = isWorkspace ? 'project' : 'global';
+  const scopeParts = [];
+  if (isAll || isClaude) scopeParts.push(`Claude Code: ${claudeScope === 'global' ? 'Global (all projects)' : 'This project only'}`);
+  if (isAll || isAntigravity) scopeParts.push(`Antigravity: ${antigravityScope === 'global' ? 'Global' : 'This workspace only'}`);
+
   const lines = [
-    `\x1b[1m\x1b[38;5;51m⚡ Highbeam (ctxtop v4.1.1) — Zero-Config Unified Installer\x1b[0m`,
+    `\x1b[1m\x1b[38;5;51m⚡ Highbeam (ctxtop v4.1.2) — Zero-Config Unified Installer\x1b[0m`,
     `  • Target Harnesses : ${targetLabel}`,
-    `  • Installation Scope: ${isWorkspace ? 'Workspace' : 'Global'}${isDryRun ? ' [DRY RUN]' : ''}`
+    ...(scopeParts.length
+      ? [`  • Installation Scope: ${scopeParts.join(' · ')}${isDryRun ? ' [DRY RUN]' : ''}`]
+      : isDryRun
+        ? ['  • [DRY RUN]']
+        : [])
   ];
 
   let claudeResult = null;
@@ -792,7 +940,7 @@ export function executeInitSubcommand(args = [], options = {}) {
   let hostMcpResult = null;
 
   if (isClaude || isAll) {
-    const scope = isGlobal ? 'global' : 'project';
+    const scope = claudeScope;
     const hasExplicitLeanArg = args.includes('--lean-hooks') || options.leanHooks !== undefined;
     claudeResult = installAttentionHorizon({
       ...options,
@@ -808,6 +956,9 @@ export function executeInitSubcommand(args = [], options = {}) {
     lines.push(
       `  \x1b[38;5;82m✓\x1b[0m Claude Code   : ${isDryRun ? '[DRY RUN] Would configure' : 'Configured'} ${claudeResult.settingsPath}${backupNote}`
     );
+    if (claudeResult.runtimeCopied) {
+      lines.push(`  • Hooks run from a stable copy: ${claudeResult.runtimeRoot}`);
+    }
   }
 
   if (isAntigravity || isAll) {
@@ -894,7 +1045,45 @@ export function runCli(args = [], options = {}) {
   const scope = isGlobal ? 'global' : 'project';
 
   if (effectiveArgs.includes('--version') || effectiveArgs.includes('-v') || subcommand === 'version') {
-    return { exitCode: 0, output: '4.1.1', data: { version: '4.1.1' } };
+    return { exitCode: 0, output: '4.1.2', data: { version: '4.1.2' } };
+  }
+
+  // `<cmd> --help` must print help and never run the command (install/init/uninstall write files).
+  if (
+    ['install', 'init', 'uninstall'].includes(subcommand) &&
+    (effectiveArgs.includes('--help') || effectiveArgs.includes('-h'))
+  ) {
+    const lines = {
+      install: [
+        'Usage: ctxtop install [--global] [--full-hooks | --lean-hooks]',
+        '',
+        'Adds Highbeam hooks to Claude Code settings without removing existing entries.',
+        '  --global       write to ~/.claude/settings.json instead of this project',
+        '  --lean-hooks   register the small hook set (default)',
+        '  --full-hooks   register every hook',
+        'A backup of the settings file is saved before it is changed.'
+      ],
+      init: [
+        'Usage: ctxtop init [--antigravity|--claude|--cursor|--windsurf|--codex|--gemini-cli|--mcp|--all-hosts] [--global | --project]',
+        '',
+        'Zero-config installer: sets Highbeam up for the chosen host(s).',
+        'With no host flag it installs for Antigravity and Claude Code.',
+        'Default scope: Claude Code -> this project; Antigravity -> global.',
+        '  --global    install globally for every selected host',
+        '  --project   install into this project/workspace for every selected host (alias: --workspace)'
+      ],
+      uninstall: [
+        'Usage: ctxtop uninstall [--global | --project]',
+        '',
+        'Removes Highbeam hook entries from the Claude Code settings file.',
+        'It does not delete backups, saved output, licenses or the ~/.ctxtop folder; it lists what is left so you can remove it.'
+      ]
+    };
+    return {
+      exitCode: 0,
+      output: lines[subcommand].join('\n'),
+      data: { help: true, command: subcommand }
+    };
   }
 
   if (subcommand === 'search' || subcommand === 'log-search') {
@@ -1203,7 +1392,8 @@ export function runCli(args = [], options = {}) {
       args.includes('--lean-hooks') || options.leanHooks === true || !fullHooks;
     const res = installAttentionHorizon({ ...options, scope, leanHooks });
     const backupNote = res.backupPath ? `\nBackup saved: ${res.backupPath}` : '';
-    const output = `[Highbeam] Installed non-destructively into ${res.settingsPath}${backupNote}`;
+    const runtimeNote = res.runtimeCopied ? `\nHooks run from a stable copy: ${res.runtimeRoot}` : '';
+    const output = `[Highbeam] Installed non-destructively into ${res.settingsPath}${backupNote}${runtimeNote}`;
     return { exitCode: res.ok ? 0 : 1, output, data: res };
   }
 
@@ -1397,7 +1587,12 @@ export function runCli(args = [], options = {}) {
 
   if (subcommand === 'uninstall') {
     const res = uninstallAttentionHorizon({ ...options, scope });
-    const output = `[Highbeam] Uninstalled ${res.removedHooksCount} hook entries from ${res.settingsPath}`;
+    const leftoverLines = (res.leftovers || []).map((l) => `  - ${l.path}  (${l.note})`);
+    const output =
+      `[Highbeam] Uninstalled ${res.removedHooksCount} hook entries from ${res.settingsPath}` +
+      (leftoverLines.length
+        ? `\n\nNot removed (delete by hand if you want everything gone):\n${leftoverLines.join('\n')}`
+        : '');
     return { exitCode: res.ok ? 0 : 1, output, data: res };
   }
 

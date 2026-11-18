@@ -97,7 +97,7 @@
           <pre><code>ctxtop install [--global | -g | --project] [--lean-hooks | --full-hooks] [--json]
 ctxtop uninstall [--global | -g | --project] [--json]</code></pre>
         </div>
-        <p>Defaults to <code>--project</code> (<code>&lt;cwd&gt;/.claude/settings.json</code>) when you omit <code>--global</code>.</p>
+        <p>Defaults to <code>--project</code> (<code>&lt;cwd&gt;/.claude/settings.json</code>) when you omit <code>--global</code>. <code>uninstall</code> leaves backups and local data in place and lists them under &ldquo;Not removed&rdquo;: <code>settings.json.ah-backup.*</code>, <code>.claude/cache/artifacts</code>, <code>~/.ctxtop</code> (including the stable runtime copy in <code>~/.ctxtop/app</code>), and Antigravity plugin folders. Delete them by hand if you want a clean slate.</p>
       </div>
 
       <div class="cli-cmd-section" data-tags="setup">
@@ -140,7 +140,7 @@ ctxtop uninstall [--global | -g | --project] [--json]</code></pre>
                [--markdown | --md | --git | --html | --pdf | --json]
                [--out &lt;path&gt;]</code></pre>
         </div>
-        <p>Note: Running <code>--pdf</code> on the Free tier exits with code <code>2</code>. It shows your 30-day USD savings and explains how to start a local trial (<code>ctxtop pro trial</code>).</p>
+        <p>Note: Running <code>--pdf</code> on the Free tier exits with code <code>2</code>. It shows your 30-day USD savings and explains how to start a local trial (<code>ctxtop license trial</code>).</p>
       </div>
 
       <div class="cli-cmd-section" data-tags="telemetry">
@@ -239,7 +239,7 @@ ctxtop config reset [--global | -g]</code></pre>
         <div class="code-block terminal">
           <div class="code-header"><span>Synopsis</span></div>
           <pre><code>ctxtop tiers [--json]
-ctxtop pro [status | tiers | trial | activate &lt;ed25519-token&gt; | deactivate] [--json]
+ctxtop license [status | tiers | trial | activate &lt;ed25519-token&gt; | deactivate] [--json]
 ctxtop team-pack [--out &lt;dir&gt;] [--org "&lt;Org Name&gt;"] [--preview] [--json]</code></pre>
         </div>
       </div>

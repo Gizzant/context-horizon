@@ -52,7 +52,7 @@ npx ctxtop init --all</code></pre>
       <div class="code-block terminal">
         <div class="code-header"><span>Google Antigravity Setup Options</span></div>
         <pre><code># Option A: Workspace plugin installation
-npx attention-horizon-antigravity init --workspace
+npx ctxtop init --workspace
 
 # Option B: Global user installation via ctxtop
 npx ctxtop init --antigravity --global
@@ -66,12 +66,12 @@ node bin/ctxtop.mjs verify --json</code></pre>
 
       <h3 id="install-claude-code">3. Claude Code Installation (Lean vs. Full Hooks)</h3>
       <p>
-        For Claude Code, <code>ctxtop install</code> (or <code>ah-claude install</code>) merges hooks and the <code>ah-statusline</code> bar into <code>.claude/settings.json</code> (project scope) or <code>~/.claude/settings.json</code> (<code>--global</code> / <code>-g</code>). Your existing custom hooks stay untouched:
+        For Claude Code, <code>npx ctxtop init --claude</code> (project) or <code>--global</code> (all projects) merges hooks and the <code>ah-statusline</code> bar into <code>.claude/settings.json</code> (project scope) or <code>~/.claude/settings.json</code> (<code>--global</code>). Your existing custom hooks stay untouched:
       </p>
       <div class="code-block terminal">
         <div class="code-header"><span>Claude Code Project vs. Global Installation</span></div>
         <pre><code># Recommended: Lean hook profile in global ~/.claude/settings.json
-npx ah-claude install --global --lean-hooks
+npx ctxtop init --claude --global --lean-hooks
 
 # Project-local full hook profile (.claude/settings.json)
 npx ah-claude install --project --full-hooks</code></pre>
@@ -120,7 +120,7 @@ npx ctxtop init --mcp --global</code></pre>
   [PASS] hooks_manifest: hooks/hooks.json valid (nested hooks schema)
   [PASS] plugin_manifest: .claude-plugin/plugin.json valid
   [PASS] settings_status: Installed in ~/.claude/settings.json
-  [PASS] horizon_config: 20 detectors configured (FlightMode=COACH, overrides=0)
+  [PASS] horizon_config: 20 Claude Code detector toggles configured (of 32 total; FlightMode=COACH, overrides=0)
   [PASS] claude_pre_model_switch: Claude Code 2.1.x | PreModelSwitch=true | ask=true | PreEffortChange=false
   [PASS] hook_diagnostics: 0 recent non-fatal error(s)
 

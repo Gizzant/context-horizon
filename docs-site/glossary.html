@@ -161,7 +161,7 @@
 
         <div class="glossary-entry" data-tags="security core">
           <p class="glossary-term">Ring-0 Security Guard <span class="badge danger">Security &amp; Control</span></p>
-          <p class="glossary-def">Core safety guards that run before tools start: <code>DET-01</code> (unsafe shell/git), <code>DET-02</code> (secret/token reads), <code>DET-18</code> (untrusted repo hooks), and <code>DET-19</code> (subagent prompt injection). All four fail closed on bad input.</p>
+          <p class="glossary-def">Core safety guards that run before tools start: <code>DET-01</code> (unsafe shell/git), <code>DET-02</code> (secret/token reads), <code>DET-18</code> (untrusted repo hooks), and <code>DET-19</code> (subagent prompt injection). All four block with exit <code>2</code> when they match; an internal hook fault fails open by default.</p>
         </div>
 
         <div class="glossary-entry" data-tags="security antigravity claude">
@@ -198,7 +198,7 @@
 
         <div class="glossary-entry" data-tags="claude">
           <p class="glossary-term">Tier-1 V8 Mod vs. Tier-2 CLI Hook <span class="badge">Claude Code</span></p>
-          <p class="glossary-def">Tier-1 runs inside Claude Code's in-process V8 Mod via <code>hooks/register.js</code> in <code>~0.18ms p95</code> and sets <code>AH_TIER1_MOD_ACTIVE=1</code>. Tier-2 runs Node scripts in <code>hooks/handlers/*.mjs</code> whenever the V8 Mod is off.</p>
+          <p class="glossary-def">Tier-1 runs inside Claude Code's in-process V8 Mod via <code>hooks/register.js</code> in <code>~0.2ms p95</code> and sets <code>AH_TIER1_MOD_ACTIVE=1</code>. Tier-2 runs Node scripts in <code>hooks/handlers/*.mjs</code> whenever the V8 Mod is off.</p>
         </div>
 
         <div class="glossary-entry" data-tags="core antigravity">

@@ -6,6 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [4.1.2] - 2026-11-17
+
+### Packaging, Registry Distribution & Pre-Launch Hardening
+
+#### Added
+- `@ctxtop/mcp` registry distribution manifests (`smithery.yaml`, `glama.json`, `server.json`) and automated publication alongside `ctxtop` on release.
+- Polar.sh license delivery: the webhook worker handles `order.paid` (and ignores orders that are not yet paid), and now emails the signed key to the buyer, de-duplicates retried webhooks, and enforces the 200-seat lifetime cap with a persistent counter. The key is never returned in the HTTP response.
+- CI now runs on Node 20.19.0 as well as 22.14.0.
+- `HIGHBEAM_POST_OUTPUT_MODE=context` restores the previous add-only post-tool output behavior (records no savings).
+
+#### Changed
+- Internal `PreToolUse` faults now allow the tool call (fail-open, exit `0` with a stderr diagnostic); deliberate guard blocks are unchanged; `HIGHBEAM_PRETOOL_FAIL_MODE=closed` restores the strict mode.
+- Built-in tool output (Bash, etc.) is now **replaced** with the compacted version through `updatedToolOutput` instead of appended beside the original. The savings ledger records savings only when output was actually replaced.
+- Saved command output (`.claude/cache/artifacts/`) is written owner-only (`0600` files in `0700` directories) on POSIX systems.
+- `@ctxtop/pro` no longer publishes the webhook worker or `wrangler.toml`; they stay in the repository for the operator.
+- Pro can no longer be unlocked with `CTXTOP_PRO_DEV=1` or `NODE_ENV=test`; the test bypass applies only inside Node's test runner.
+- **Breaking:** removed the `CTXTOP_ED25519_PUBLIC_KEY_PEM` override. License keys are verified only against the public key pinned in the release.
+- `ctxtop init` reports each host's real install scope (Claude Code defaults to this project, Antigravity to global), `--global` / `--project` now apply to every selected host, and passing both is rejected.
+- Test scripts run with an isolated temporary home folder, so running the suites no longer installs the Antigravity plugin or writes state into the real `~/.gemini`, `~/.claude` or `~/.ctxtop`.
+- Documentation and `doctor` now state one Node requirement: Node >= 20 (`node:sqlite` is used on Node >= 22.5, with a JSONL fallback otherwise).
+- The plugin's `PreToolUse` hook no longer runs on `Read`, matching the installer. Read-time guards (large-file firewall, lockfile/minified-bundle guard, `.ipynb` stripper, large-PDF blocker, blind-search guard, scope lock/quota brake, post-edit diff stubs) now run only with `--full-hooks` or the in-process mod.
+
+#### Fixed
+- `scripts/sync_mirrors.mjs` with `verifyOnly: true` no longer bootstraps missing plugin folders or writes into `.agents/` when run under an isolated test home (reports `not installed` instead).
+- `ctxtop uninstall` now lists what it leaves behind (settings backups, artifact cache, `~/.ctxtop` incl. the `app/` runtime copy, Antigravity plugin folders, git exclude entry) instead of leaving them unmentioned.
+- One Claude Code install command everywhere (`npx ctxtop init --claude [--global]`), one trial command (`npx ctxtop license trial`), consistent test/detector counts, and a hardened manual release workflow (pinned actions, tag/version checks, no swallowed publish errors).
+- Claude Code hooks installed with `npx ctxtop install` / `init` no longer point into npm's temporary `_npx` cache (which npm prunes, silently breaking every hook). When run from a package-runner cache, ctxtop copies itself to `~/.ctxtop/app/<version>/` and wires the hooks there; git checkouts and global installs are used in place.
+- `ctxtop install --help`, `init --help` and `uninstall --help` print help instead of running the command.
+- The cross-worktree merge-conflict probe reports a clear `GIT_TOO_OLD` message on git < 2.38, and the related tests skip instead of failing.
+- Sigstore provenance metadata (`repository` field, repository URL) and Linux fast-IPC socket path resolution.
+
 ## [4.1.0] - 2026-11-15
 
 ### Dual-Platform RSL Engine, Spec Integrity, Guard Waves & Simple View Guard Roster

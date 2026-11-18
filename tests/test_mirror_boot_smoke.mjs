@@ -14,6 +14,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { syncAndVerifyMirrors, getSyncedPluginSubdirs } from '../scripts/sync_mirrors.mjs';
@@ -21,7 +22,12 @@ import { syncAndVerifyMirrors, getSyncedPluginSubdirs } from '../scripts/sync_mi
 const homeDir = process.env.USERPROFILE || process.env.HOME || os.homedir();
 const AGY_HORIZON_ROOT = path.join(homeDir, '.gemini', 'config', 'plugins', 'agy-horizon');
 const FLIGHTCHECK_ROOT = path.join(homeDir, '.gemini', 'config', 'plugins', 'agy-horizon-flightcheck');
-const ACTIVE_MIRRORS = [AGY_HORIZON_ROOT, FLIGHTCHECK_ROOT].filter(r => fs.existsSync(r));
+// In-repo mirror (.agents/plugins/...) is always checked, so isolated test homes keep boot coverage.
+const IN_REPO_FLIGHTCHECK_ROOT = path.resolve(
+  path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')),
+  '..', '.agents', 'plugins', 'agy-horizon-flightcheck'
+);
+const ACTIVE_MIRRORS = [AGY_HORIZON_ROOT, FLIGHTCHECK_ROOT, IN_REPO_FLIGHTCHECK_ROOT].filter(r => fs.existsSync(r));
 
 describe('Mirror Boot & ESM Import Resolution Smoke Suite', () => {
   test('discovers all v4 directories recursively under src, hooks, sidecars', () => {
@@ -43,6 +49,66 @@ describe('Mirror Boot & ESM Import Resolution Smoke Suite', () => {
     const result = syncAndVerifyMirrors({ verifyOnly: true });
     assert.equal(result.parityOk, true, 'Mirror verification must succeed');
     assert.ok(result.verifiedFilePairs >= 300, `Expected >= 300 verified file pairs, got ${result.verifiedFilePairs}`);
+  });
+
+  test('verifyOnly: true reports "not installed" under missing test home and leaves .agents/ unchanged', () => {
+    const repoAgentsDir = path.resolve(path.dirname(IN_REPO_FLIGHTCHECK_ROOT), '..');
+    const snapshotTree = (root) => {
+      if (!fs.existsSync(root)) return [];
+      const out = [];
+      const stack = [root];
+      while (stack.length > 0) {
+        const cur = stack.pop();
+        for (const ent of fs.readdirSync(cur, { withFileTypes: true })) {
+          const full = path.join(cur, ent.name);
+          const rel = path.relative(root, full).replace(/\\/g, '/');
+          // Skip live host IDE telemetry logs (.agents/telemetry/*.rsl_steps.jsonl) which append concurrently during tool calls.
+          if (rel === 'telemetry') continue;
+          if (ent.isDirectory()) {
+            stack.push(full);
+          } else if (ent.isFile()) {
+            const st = fs.statSync(full);
+            const sha256 = crypto.createHash('sha256').update(fs.readFileSync(full)).digest('hex');
+            out.push({ rel, mtimeMs: st.mtimeMs, sha256 });
+          }
+        }
+      }
+      return out.sort((a, b) => a.rel.localeCompare(b.rel));
+    };
+
+    const emptyHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ah-empty-home-'));
+    const beforeAgents = snapshotTree(repoAgentsDir);
+    const capturedLogs = [];
+    const origLog = console.log;
+    console.log = (...args) => capturedLogs.push(args.map(String).join(' '));
+    let verifyRes = null;
+    try {
+      try {
+        verifyRes = syncAndVerifyMirrors({ verifyOnly: true, homeDir: emptyHome });
+      } catch (err) {
+        if (!/Mirror SHA-256 Parity FAILED/.test(String(err?.message || ''))) {
+          throw err;
+        }
+      }
+      const combinedLog = capturedLogs.join('\n');
+      assert.match(combinedLog, /not installed/i, 'verifyOnly must report "not installed" when home plugin root is missing');
+      assert.equal(
+        fs.existsSync(path.join(emptyHome, '.gemini')),
+        false,
+        'verifyOnly must never bootstrap ~/.gemini under isolated test home'
+      );
+      if (verifyRes) {
+        assert.equal(verifyRes.pluginStatus, 'not installed');
+        assert.ok(
+          verifyRes.notInstalledRoots.includes(path.join(emptyHome, '.gemini', 'config', 'plugins', 'agy-horizon-flightcheck'))
+        );
+      }
+      const afterAgents = snapshotTree(repoAgentsDir);
+      assert.deepEqual(afterAgents, beforeAgents, 'verifyOnly must leave .agents/ files, mtimes, and hashes untouched');
+    } finally {
+      console.log = origLog;
+      fs.rmSync(emptyHome, { recursive: true, force: true });
+    }
   });
 
   for (const mirrorRoot of ACTIVE_MIRRORS) {

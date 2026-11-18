@@ -416,8 +416,9 @@ test('ISS-061b [spawnSync PostToolUse & StatusLine]: benign pass-through, ANSI s
     assert.equal(ipiPost.status, 0);
     const parsedPost = JSON.parse(ipiPost.stdout);
     assert.equal(parsedPost.hookSpecificOutput.hookEventName, 'PostToolUse');
+    assert.equal(typeof parsedPost.hookSpecificOutput.updatedToolOutput, 'string');
     assert.ok(
-      !parsedPost.hookSpecificOutput.additionalContext.includes('<!-- hidden prompt injection -->')
+      !parsedPost.hookSpecificOutput.updatedToolOutput.includes('<!-- hidden prompt injection -->')
     );
 
     // 3. `bin/ah-statusline.mjs` stdin JSON mode -> exit 0, prints single-line status bar and persists live state in tmpDir
@@ -600,12 +601,20 @@ test('ISS-061b [spawnSync CompactLifecycle]: covers PreCompact, SessionStart, Po
   });
 });
 
-test('ISS-061b [spawnSync Malformed Stdin]: guard hooks fail CLOSED (exit 2) while advisory hooks fail SAFE (exit 0)', () => {
+test('ISS-061b [spawnSync Malformed Stdin]: PreToolUse fails OPEN (exit 0), billing guard fails CLOSED (exit 2), advisory hooks fail SAFE (exit 0)', () => {
   withTempWorkspace(({ workDir, homeDir }) => {
     const malformed = '{malformed-json-payload-without-closing-brace';
 
-    // Guard hooks MUST fail CLOSED (`status === 2`, empty stdout)
-    for (const guardScript of [HANDLERS.preToolUse, HANDLERS.preModelSwitch]) {
+    // PreToolUse fails OPEN on internal faults (exit 0 + stderr diagnostic); guard verdicts still block.
+    {
+      const res = spawnHookProcess(HANDLERS.preToolUse, [], malformed, { workDir, homeDir });
+      assert.equal(res.status, 0, 'PreToolUse must exit 0 (fail-open) on malformed stdin');
+      assert.equal(res.stdout.trim(), '');
+      assert.match(res.stderr, /fail-open/);
+    }
+
+    // The PreModelSwitch billing guard MUST fail CLOSED (`status === 2`, empty stdout)
+    for (const guardScript of [HANDLERS.preModelSwitch]) {
       const res = spawnHookProcess(guardScript, [], malformed, { workDir, homeDir });
       assert.equal(
         res.status,

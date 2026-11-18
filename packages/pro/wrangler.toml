@@ -5,3 +5,17 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 CTXTOP_LTD_MAX_CAP = "200"
+CTXTOP_EMAIL_FROM = "Highbeam <licenses@highbeamdev.com>"
+
+# Required before deploy: create the namespace and paste its id here.
+#   npx wrangler kv namespace create LICENSE_KV
+# Holds processed order ids (retry dedupe) and the real LTD sold counter.
+[[kv_namespaces]]
+binding = "LICENSE_KV"
+id = "d328648882fb45e5b2f2dc7895d4dc6a"
+
+# Also required (secrets, never in this file):
+#   npx wrangler secret put RESEND_API_KEY
+#   npx wrangler secret put CTXTOP_POLAR_WEBHOOK_SECRET
+#   npx wrangler secret put CTXTOP_ED25519_PRIVATE_KEY_PEM
+# CTXTOP_EMAIL_FROM above must stay a Resend-verified sender on highbeamdev.com.

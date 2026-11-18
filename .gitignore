@@ -38,3 +38,28 @@ docs/archive/
 docs/specs/stage_*_prompt.md
 ~$*
 
+
+# Raw session-turn exports can contain pasted secrets; never commit them (fix #2)
+experiments/model-switch-benchmark/results/smart_compact/organic_h7_boundary_turns.csv
+# Local purge/cleanup scratch folders
+_purge/
+_to_delete/
+
+# Internal / not for the public repo (kept locally, untracked)
+TEST_INFRA.md
+docs/PRE_LAUNCH_BUGFIX_PLAN.md
+docs/implementation_plan.md
+docs/implementation_plan_2.md
+docs/vc_advisory_attention_horizon_evaluation.md
+docs/VIBE_GUARDRAIL_GAP_REPORT.md
+docs/UI_POLISH_HOTFIX_PLAN.md
+docs/PORT_ARCHITECTURE_MAP.md
+docs/RING1_SECURITY_AND_CONCURRENCY.md
+docs/CONTEXT_MEMORY_EVALUATION_GUIDE.md
+docs/specs/
+docs/marketing/
+.agents/mcp_config.json
+experiments/model-switch-benchmark/cost_per_task/hard_tier/hidden_suites/
+experiments/model-switch-benchmark/cost_per_task/hard_tier/reference_solutions/
+experiments/model-switch-benchmark/results/cost_per_task_raw/transcripts/
+experiments/model-switch-benchmark/results/cost_per_task_raw/proxy_wire_log.jsonl

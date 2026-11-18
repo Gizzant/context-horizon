@@ -222,55 +222,82 @@ function listSkillAndAssetFiles(relRootDir) {
 
 export function syncAndVerifyMirrors({
   verifyOnly = false,
+  silent = false,
+  homeDir: homeDirOverride,
   pluginRoots,
   retireLegacyMirror = false,
-  legacyRoot = AGY_HORIZON_ROOT
+  legacyRoot
 } = {}) {
   const canonicalHtml = path.join(CANONICAL_ROOT, 'src', 'webview', 'horizon_panel.html');
   if (!fs.existsSync(canonicalHtml)) {
     throw new Error(`Canonical WebView HTML missing: ${canonicalHtml}`);
   }
 
-  if (!verifyOnly) {
+  const isDefaultRoots = !Array.isArray(pluginRoots);
+  const effectiveHomeDir =
+    homeDirOverride ||
+    process.env.HIGHBEAM_TEST_HOME ||
+    process.env.USERPROFILE ||
+    process.env.HOME ||
+    os.homedir();
+  const defaultLegacyRoot =
+    legacyRoot ?? path.join(effectiveHomeDir, '.gemini', 'config', 'plugins', 'agy-horizon');
+  const defaultFlightcheckRoot = path.join(
+    effectiveHomeDir,
+    '.gemini',
+    'config',
+    'plugins',
+    'agy-horizon-flightcheck'
+  );
+
+  if (!verifyOnly && isDefaultRoots) {
     syncWorkspaces();
   }
 
-  if (retireLegacyMirror && legacyRoot && fs.existsSync(legacyRoot)) {
-    fs.rmSync(legacyRoot, { recursive: true, force: true });
+  if (!verifyOnly && retireLegacyMirror && defaultLegacyRoot && fs.existsSync(defaultLegacyRoot)) {
+    fs.rmSync(defaultLegacyRoot, { recursive: true, force: true });
   }
 
-  const isDefaultRoots = !Array.isArray(pluginRoots);
-  const bootstrapRoots = [FLIGHTCHECK_ROOT, IN_REPO_FLIGHTCHECK_ROOT];
+  const bootstrapRoots = [defaultFlightcheckRoot, IN_REPO_FLIGHTCHECK_ROOT];
   const candidateRoots = isDefaultRoots
-    ? (!retireLegacyMirror && fs.existsSync(AGY_HORIZON_ROOT)
-        ? [AGY_HORIZON_ROOT, ...bootstrapRoots]
+    ? (!retireLegacyMirror && fs.existsSync(defaultLegacyRoot)
+        ? [defaultLegacyRoot, ...bootstrapRoots]
         : bootstrapRoots)
     : pluginRoots;
 
-  // On clean CI runners where gitignored mirror directories or evaluation_bundles do not exist yet,
-  // auto-bootstrap active Flightcheck mirror directories (never recreating retired agy-horizon).
-  let effectiveVerifyOnly = verifyOnly;
-  if (isDefaultRoots) {
+  const notInstalledRoots = [];
+  if (verifyOnly) {
+    if (isDefaultRoots) {
+      if (!fs.existsSync(defaultFlightcheckRoot)) {
+        notInstalledRoots.push(defaultFlightcheckRoot);
+      }
+      if (!fs.existsSync(IN_REPO_FLIGHTCHECK_ROOT)) {
+        notInstalledRoots.push(IN_REPO_FLIGHTCHECK_ROOT);
+      }
+    }
+    if (!silent && notInstalledRoots.length > 0) {
+      console.log(`[Mirror Verify] Plugin root not installed (read-only check, skipped writes): ${notInstalledRoots.join(', ')}`);
+    }
+  } else if (isDefaultRoots) {
+    // Only non-verify sync runs bootstrap missing local Flightcheck mirror directories or evaluation bundles.
     const evalBundleTier2 = path.join(CANONICAL_ROOT, 'evaluation_bundles', 'tier_2_full', 'src', 'webview', 'horizon_panel.html');
     for (const r of bootstrapRoots) {
       const uiDir = path.join(r, 'src', 'ui');
       const sidepaneHtml = path.join(uiDir, 'sidepane.html');
       if (!fs.existsSync(sidepaneHtml)) {
         fs.mkdirSync(uiDir, { recursive: true });
-        effectiveVerifyOnly = false;
       }
     }
     if (!fs.existsSync(evalBundleTier2)) {
       fs.mkdirSync(path.join(CANONICAL_ROOT, 'evaluation_bundles', 'tier_1_essential'), { recursive: true });
       fs.mkdirSync(path.join(CANONICAL_ROOT, 'evaluation_bundles', 'tier_2_full'), { recursive: true });
-      effectiveVerifyOnly = false;
     }
   }
 
   const activePluginRoots = candidateRoots.filter(r => Boolean(r) && fs.existsSync(r));
   const syncedSubdirs = getSyncedPluginSubdirs(CANONICAL_ROOT);
 
-  if (!effectiveVerifyOnly) {
+  if (!verifyOnly) {
     // 0. Pre-flight ESM syntax gate on live hook entrypoints & core modules so a syntax typo never propagates into active plugin hooks
     const criticalSyntaxTargets = [
       'src/hooks/pre_invocation.mjs',
@@ -296,26 +323,28 @@ export function syncAndVerifyMirrors({
       }
     }
 
-    // 0b. Normalize canonical synced source text files to LF so raw-byte and checksum hashes match across Windows & POSIX
-    normalizeTextFileInPlaceSync(canonicalHtml);
-    for (const subDirParts of syncedSubdirs) {
-      const srcSubDir = path.join(CANONICAL_ROOT, ...subDirParts);
-      if (!fs.existsSync(srcSubDir)) continue;
-      for (const ent of fs.readdirSync(srcSubDir, { withFileTypes: true })) {
-        if (ent.isFile() && SYNCED_FILE_EXT_RE.test(ent.name)) {
-          normalizeTextFileInPlaceSync(path.join(srcSubDir, ent.name));
+    if (isDefaultRoots) {
+      // 0b. Normalize canonical synced source text files to LF so raw-byte and checksum hashes match across Windows & POSIX
+      normalizeTextFileInPlaceSync(canonicalHtml);
+      for (const subDirParts of syncedSubdirs) {
+        const srcSubDir = path.join(CANONICAL_ROOT, ...subDirParts);
+        if (!fs.existsSync(srcSubDir)) continue;
+        for (const ent of fs.readdirSync(srcSubDir, { withFileTypes: true })) {
+          if (ent.isFile() && SYNCED_FILE_EXT_RE.test(ent.name)) {
+            normalizeTextFileInPlaceSync(path.join(srcSubDir, ent.name));
+          }
         }
       }
-    }
-    for (const relAsset of [...listSkillAndAssetFiles('skills'), ...listSkillAndAssetFiles('assets')]) {
-      normalizeTextFileInPlaceSync(path.join(CANONICAL_ROOT, relAsset));
-    }
+      for (const relAsset of [...listSkillAndAssetFiles('skills'), ...listSkillAndAssetFiles('assets')]) {
+        normalizeTextFileInPlaceSync(path.join(CANONICAL_ROOT, relAsset));
+      }
 
-    // 1. Rebuild standalone docs/index.html & evaluation_bundles/ first so in-repo mirrors are current
-    buildDemoPage({ silent: false });
-    if (fs.existsSync(path.join(CANONICAL_ROOT, 'evaluation_bundles', 'tier_1_essential')) ||
-        fs.existsSync(path.join(CANONICAL_ROOT, 'evaluation_bundles', 'tier_2_full'))) {
-      buildEvaluationBundles({ silent: false });
+      // 1. Rebuild standalone docs/index.html & evaluation_bundles/ first so in-repo mirrors are current
+      buildDemoPage({ silent });
+      if (fs.existsSync(path.join(CANONICAL_ROOT, 'evaluation_bundles', 'tier_1_essential')) ||
+          fs.existsSync(path.join(CANONICAL_ROOT, 'evaluation_bundles', 'tier_2_full'))) {
+        buildEvaluationBundles({ silent });
+      }
     }
 
     // 2. Sync all module, config, rule, skill, asset, and sidecar subdirectories to active plugin mirrors
@@ -476,7 +505,7 @@ export function syncAndVerifyMirrors({
   const canonicalHtmlSha = htmlHashes[0].sha256;
 
   for (const h of htmlHashes) {
-    console.log(`[SHA-256] ${h.sha256}  ${h.path}`);
+    if (!silent) console.log(`[SHA-256] ${h.sha256}  ${h.path}`);
     if (h.sha256 !== canonicalHtmlSha) {
       mismatches.push(`HTML mismatch: ${h.path} (${h.sha256} !== ${canonicalHtmlSha})`);
     }
@@ -590,12 +619,16 @@ export function syncAndVerifyMirrors({
     throw new Error(`Mirror SHA-256 Parity FAILED (${mismatches.length} issue(s)):\n  - ${mismatches.join('\n  - ')}`);
   }
 
-  console.log(`✓ Mirror SHA-256 Parity VERIFIED (${htmlHashes.length} HTML targets, ${verifiedFilePairs} mirrored file pairs byte-for-byte identical).`);
+  if (!silent) {
+    console.log(`✓ Mirror SHA-256 Parity VERIFIED (${htmlHashes.length} HTML targets, ${verifiedFilePairs} mirrored file pairs byte-for-byte identical).`);
+  }
   return {
     parityOk: true,
     sha256: canonicalHtmlSha,
     targets: htmlHashes.length,
-    verifiedFilePairs
+    verifiedFilePairs,
+    pluginStatus: fs.existsSync(defaultFlightcheckRoot) ? 'installed' : 'not installed',
+    notInstalledRoots
   };
 }
 

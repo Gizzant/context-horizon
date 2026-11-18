@@ -354,7 +354,7 @@ console.log('  ✓ Attention-Aware Rule Promotion & 200-line MEMORY.md threshold
 // 6. JSDOM & Live Daemon Endpoint Verification + 3-Way Mirror Parity
 // ---------------------------------------------------------------------------
 console.log('[6/6] Verifying JSDOM Layer 5 Cards, Daemon Endpoints & 3-Way Mirror Parity...');
-const syncRes = syncAndVerifyMirrors();
+const syncRes = syncAndVerifyMirrors({ verifyOnly: true });
 assert.equal(syncRes.parityOk, true, '3-Way WebView Mirror SHA-256 parity must hold');
 
 const html = fs.readFileSync(path.join(REPO_ROOT, 'src', 'webview', 'horizon_panel.html'), 'utf8');

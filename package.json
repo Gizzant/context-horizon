@@ -1,7 +1,7 @@
 {
   "name": "ctxtop",
   "displayName": "Highbeam",
-  "version": "4.1.1",
+  "version": "4.1.2",
   "description": "Highbeam v4.1: Cross-platform AI Developer Assistant Extension for Google Antigravity and Claude Code: 40-cell context visualizer, KV-cache gravity router, and zero-token guardrails.",
   "type": "module",
   "workspaces": [
@@ -70,13 +70,13 @@
     "build:assets": "node --no-warnings scripts/generate_hero_svg.mjs && node --no-warnings scripts/build_demo_page.mjs",
     "build:release": "node scripts/build_release_bundle.mjs",
     "test": "npm run test:unit && npm run test:coach && npm run test:gates && npm run test:phases",
-    "test:unit": "node --test tests/test_router_and_sensors.mjs tests/test_wave1_wedge.mjs tests/test_wave2_wedge.mjs tests/test_wave3_wedge.mjs tests/test_carbon_swarm_patch.mjs tests/test_concurrency.mjs tests/test_postmortem_features.mjs tests/test_schema_drift.mjs tests/test_mirror_boot_smoke.mjs && node tests/test_regressions.cjs",
-    "test:coach": "node --test test/all.test.mjs",
-    "test:claude": "node --test test/claude-code/*.test.mjs",
-    "test:gates": "node --test tests/verify_gate_0.mjs tests/verify_gate_1.mjs tests/verify_gate_2.mjs tests/verify_gate_3.mjs tests/verify_gate_4.mjs tests/verify_gate_5.mjs tests/verify_gate_6.mjs",
-    "test:phases": "node tests/verify_phase_1.mjs && node tests/verify_phase_2.mjs && node tests/verify_phase_3.mjs && node tests/verify_phase_4.mjs && node tests/verify_phase_5.mjs && node tests/verify_phase_6.mjs && node tests/verify_phase_6_roadmap.mjs && node tests/verify_phase_7.mjs",
-    "test:e2e": "node tests/verify_e2e_context_memory.mjs",
-    "bench": "node tests/bench_latency.mjs",
+    "test:unit": "node --import ./test/setup/isolate-home.mjs --test tests/test_router_and_sensors.mjs tests/test_wave1_wedge.mjs tests/test_wave2_wedge.mjs tests/test_wave3_wedge.mjs tests/test_carbon_swarm_patch.mjs tests/test_concurrency.mjs tests/test_postmortem_features.mjs tests/test_schema_drift.mjs tests/test_mirror_boot_smoke.mjs && node --import ./test/setup/isolate-home.mjs tests/test_regressions.cjs",
+    "test:coach": "node --import ./test/setup/isolate-home.mjs --test test/all.test.mjs",
+    "test:claude": "node --import ./test/setup/isolate-home.mjs --test test/claude-code/*.test.mjs",
+    "test:gates": "node --import ./test/setup/isolate-home.mjs --test tests/verify_gate_0.mjs tests/verify_gate_1.mjs tests/verify_gate_2.mjs tests/verify_gate_3.mjs tests/verify_gate_4.mjs tests/verify_gate_5.mjs tests/verify_gate_6.mjs",
+    "test:phases": "node --import ./test/setup/isolate-home.mjs tests/verify_phase_1.mjs && node --import ./test/setup/isolate-home.mjs tests/verify_phase_2.mjs && node --import ./test/setup/isolate-home.mjs tests/verify_phase_3.mjs && node --import ./test/setup/isolate-home.mjs tests/verify_phase_4.mjs && node --import ./test/setup/isolate-home.mjs tests/verify_phase_5.mjs && node --import ./test/setup/isolate-home.mjs tests/verify_phase_6.mjs && node --import ./test/setup/isolate-home.mjs tests/verify_phase_6_roadmap.mjs && node --import ./test/setup/isolate-home.mjs tests/verify_phase_7.mjs",
+    "test:e2e": "node --import ./test/setup/isolate-home.mjs tests/verify_e2e_context_memory.mjs",
+    "bench": "node --import ./test/setup/isolate-home.mjs tests/bench_latency.mjs",
     "bench:scenario": "node --no-warnings tests/benchmark_context_scenario.mjs",
     "bench:composite": "node scripts/run_composite_benchmarks.mjs",
     "bench:bucket-b": "node scripts/run_bucket_b_harness.mjs",
@@ -107,7 +107,7 @@
     "tufte",
     "cli"
   ],
-  "author": "Gizzant <frankmiller@gmail.com>",
+  "author": "Gizzant <security@highbeamdev.com>",
   "license": "MIT",
   "commercialLicense": "SEE LICENSE IN packages/pro/LICENSE-COMMERCIAL.md",
   "devDependencies": {

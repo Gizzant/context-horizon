@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const ROOT_PKG = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-const VERSION = ROOT_PKG.version || '4.1.1';
+const VERSION = ROOT_PKG.version || '4.1.2';
 
 function writeFileIfChangedSync(filePath, content, encoding = 'utf8') {
   const nextBuf = Buffer.isBuffer(content) ? content : Buffer.from(String(content), encoding);
@@ -241,12 +241,12 @@ export * from './rsl/index.mjs';
   const proIndexContent = `/**
  * @file packages/pro/src/index.mjs
  * Highbeam Pro Commercial Entitlement Barrel (@ctxtop/pro).
- * Offline Ed25519 License Verifier, Team FinOps Pack & Polar.sh Webhook Worker.
+ * Offline Ed25519 License Verifier & Team FinOps Pack.
+ * The Polar.sh webhook worker (workers/) is operator-only infrastructure and is NOT published.
  */
 
 export * from './pro_license.mjs';
 export * from './team_finops_pack.mjs';
-export * from '../workers/polar_webhook_worker.mjs';
 `;
   writeFileIfChangedSync(path.join(proSrcDir, 'index.mjs'), proIndexContent, 'utf8');
 
@@ -259,15 +259,11 @@ export * from '../workers/polar_webhook_worker.mjs';
     main: './src/index.mjs',
     exports: {
       '.': './src/index.mjs',
-      './worker': './workers/polar_webhook_worker.mjs',
       './team-finops': './src/team_finops_pack.mjs'
     },
     files: [
       'src/',
-      'workers/',
-      'wrangler.toml',
-      'LICENSE-COMMERCIAL.md',
-      'README-SIGNING.md'
+      'LICENSE-COMMERCIAL.md'
     ],
     engines: {
       node: '>=20.0.0'

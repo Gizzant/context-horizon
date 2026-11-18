@@ -193,7 +193,7 @@ export function runDoctorDiagnostics(options = {}) {
   checks.push({
     id: 'horizon_config',
     ok: Boolean(config && config.detectors && Object.keys(config.detectors).length === 20),
-    detail: `20 detectors configured (FlightMode=${config.flightMode}, overrides=${customDetectors})`
+    detail: `20 Claude Code detector toggles configured (of 32 total; FlightMode=${config.flightMode}, overrides=${customDetectors})`
   });
 
   const agRulesAudit = auditAntigravityRulesIntegrity({ workspacePath: cwd });

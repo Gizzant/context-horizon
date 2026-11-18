@@ -168,7 +168,7 @@ assert.equal(hostEval.orphanCount, 2, 'Must detect multicall schedule leak and d
 console.log('✓ Check 7 (T3.2): Rank #3 Host Process & Zombie Watchdog verified.');
 
 // 8. T4.1 & T4.2: 3-Way Mirror Sync, SHA-256 Parity & UI Invariants
-const syncRes = syncAndVerifyMirrors();
+const syncRes = syncAndVerifyMirrors({ verifyOnly: true });
 assert.equal(syncRes.parityOk, true, '3-Way WebView Mirror SHA-256 parity must hold');
 const htmlContent = fs.readFileSync(path.join(REPO_ROOT, 'src', 'webview', 'horizon_panel.html'), 'utf8');
 assert.ok(htmlContent.includes('id="compactInstruction"'), 'Must retain #compactInstruction');

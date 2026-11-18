@@ -6,7 +6,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Task|Agent|WebFetch|mcp__.*",
+        "matcher": "Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Task|Agent|WebFetch|mcp__.*",
         "hooks": [
           {
             "type": "command",

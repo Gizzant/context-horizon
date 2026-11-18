@@ -55,7 +55,7 @@ describe('Full VC Teardown (Sections 1–4) & Claude Code Extension Parity Suite
       );
     });
 
-    it('registers all 6 slash commands in .claude-plugin/plugin.json and verifies lean hooks/hooks.json matchers', () => {
+    it('registers all 6 slash commands in .claude-plugin/plugin.json and verifies lean hooks/hooks.json matchers', async () => {
       const pluginJsonPath = path.join(REPO_ROOT, '.claude-plugin', 'plugin.json');
       const pluginManifest = JSON.parse(fs.readFileSync(pluginJsonPath, 'utf8'));
       const expectedCommands = [
@@ -83,7 +83,9 @@ describe('Full VC Teardown (Sections 1–4) & Claude Code Extension Parity Suite
       assert.ok(!preMatcher.includes('Glob'), 'Default PreToolUse matcher must exclude Glob');
       assert.ok(!postMatcher.includes('Grep'), 'Default PostToolUse matcher must exclude Grep');
       assert.ok(!postMatcher.includes('Glob'), 'Default PostToolUse matcher must exclude Glob');
-      assert.ok(preMatcher.includes('Read'), 'Default PreToolUse matcher must retain Read for GUARD-4');
+      const { LEAN_PRE_TOOL_USE_MATCHER, LEAN_POST_TOOL_USE_MATCHER } = await import('../bin/ctxtop.mjs');
+      assert.equal(preMatcher, LEAN_PRE_TOOL_USE_MATCHER, 'Plugin manifest PreToolUse matcher must equal the installer lean default');
+      assert.equal(postMatcher, LEAN_POST_TOOL_USE_MATCHER, 'Plugin manifest PostToolUse matcher must equal the installer lean default');
     });
 
     it('tracks unclipped Read calls in-process inside hooks/register.js and emits GUARD-4 advisory on 3rd Read', async () => {

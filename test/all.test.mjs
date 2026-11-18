@@ -13,6 +13,7 @@ import './horizon_config_and_diagnostics.test.mjs';
 import './phase1_checkpoint_and_breakers.test.mjs';
 import './phase2_reflector_and_contradiction.test.mjs';
 import './phase3_fenced_ttl_and_decomposer.test.mjs';
+import './polar_webhook_delivery.test.mjs';
 import './saved_quota_ledger.test.mjs';
 import './scope_lock_registry.test.mjs';
 import './sprint1_metrics_wedge.test.mjs';

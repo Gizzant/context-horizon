@@ -13,7 +13,9 @@ import os from 'node:os';
 
 /**
  * Default embedded Ed25519 public key (SPKI PEM) for Polar.sh / `@ctxtop/pro` offline license verification.
- * Can be overridden in tests or enterprise deployments via `options.publicKeyPem` or `CTXTOP_ED25519_PUBLIC_KEY_PEM`.
+ * Callers (tests, key-rotation checks) may pass `options.publicKeyPem`. There is deliberately NO
+ * environment-variable override: a shell variable that replaces the trust root would let anyone
+ * sign their own Pro license.
  */
 export const DEFAULT_PRO_PUBLIC_KEY_PEM = [
   '-----BEGIN PUBLIC KEY-----',
@@ -150,7 +152,6 @@ export function verifyProLicenseKey(licenseKey = '', options = {}) {
 
   const publicKeyPem =
     options.publicKeyPem ||
-    process.env.CTXTOP_ED25519_PUBLIC_KEY_PEM ||
     DEFAULT_PRO_PUBLIC_KEY_PEM;
 
   try {
@@ -300,20 +301,24 @@ export function deactivateProLicense(options = {}) {
 }
 
 /**
+ * True only inside Node's built-in test runner (`node --test`), so the suites can exercise Pro paths.
+ * Deliberately NOT driven by CTXTOP_PRO_DEV or NODE_ENV=test: those are ordinary shell variables
+ * (NODE_ENV=test is common in dev shells) and would unlock Pro for anyone who sets them.
+ */
+function isUnderNodeTestRunner() {
+  return Boolean(process.env.NODE_TEST_CONTEXT || process.execArgv?.includes('--test'));
+}
+
+/**
  * Evaluates current Pro entitlement across both Antigravity and Claude Code.
- * Supports automatic dev/test bypass unless `options.strict === true`.
+ * Inside `node --test` only, a test bypass applies unless `options.strict === true`.
  */
 export function getProEntitlementStatus(options = {}) {
   const licensePath = resolveLicenseFilePath(options);
   const nowMs = Number(options.nowMs || Date.now());
   const isDevOrTest =
     !options.strict &&
-    Boolean(
-      process.env.CTXTOP_PRO_DEV === '1' ||
-        process.env.NODE_ENV === 'test' ||
-        process.env.NODE_TEST_CONTEXT ||
-        process.execArgv?.includes('--test')
-    );
+    isUnderNodeTestRunner();
 
   if (isDevOrTest && !options.licensePath) {
     return {
@@ -404,7 +409,7 @@ export function getProEntitlementStatus(options = {}) {
 
 /**
  * Evaluates whether a specific commercial Pro or Team feature is permitted.
- * Preserves automatic dev/test bypass unless `options.strict === true`.
+ * Inside `node --test` only, a test bypass applies unless `options.strict === true`.
  *
  * @param {string} [featureId='pro_feature']
  * @param {object} [options={}]
@@ -414,12 +419,7 @@ export function requireProFeature(featureId = 'pro_feature', options = {}) {
   const needsTeamTier = featureId === 'team_finops_pack';
   const isDevOrTest =
     !options.strict &&
-    Boolean(
-      process.env.CTXTOP_PRO_DEV === '1' ||
-        process.env.NODE_ENV === 'test' ||
-        process.env.NODE_TEST_CONTEXT ||
-        process.execArgv?.includes('--test')
-    );
+    isUnderNodeTestRunner();
 
   const allowed = needsTeamTier
     ? Boolean(

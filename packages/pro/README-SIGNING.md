@@ -17,12 +17,9 @@ wrangler secret put CTXTOP_POLAR_WEBHOOK_SECRET
 ```
 Never commit `CTXTOP_ED25519_PRIVATE_KEY_PEM` to Git or npm tarballs.
 
-## 4. Embed or Override the SPKI Public Key
+## 4. Embed the SPKI Public Key
 1. Update `DEFAULT_PRO_PUBLIC_KEY_PEM` in `src/core/pro_license.mjs` with the corresponding SPKI PEM public key before tagging a release.
-2. Enterprise deployments or staged key-rotation tests can override the embedded public key via environment variable without modifying code:
-   ```bash
-   export CTXTOP_ED25519_PUBLIC_KEY_PEM="$(cat prod-ed25519-pub.pem)"
-   ```
+2. There is intentionally no environment-variable override (such as `CTXTOP_ED25519_PUBLIC_KEY_PEM`): replacing the trust root from the shell would let anyone sign their own Pro license. Staged key-rotation tests pass `{ publicKeyPem }` to `verifyProLicenseKey()` directly.
 
 ## 5. Key Rotation Checklist
 1. Generate a new keypair and deploy `CTXTOP_ED25519_PRIVATE_KEY_PEM` to the signing worker only after shipping the matching `DEFAULT_PRO_PUBLIC_KEY_PEM` in `ctxtop`.
@@ -30,13 +27,17 @@ Never commit `CTXTOP_ED25519_PRIVATE_KEY_PEM` to Git or npm tarballs.
 3. Confirm tampered and expired payloads return `INVALID_SIGNATURE` and `LICENSE_EXPIRED`.
 
 ## 6. Deploy Polar.sh Webhook Worker to Cloudflare Workers
-Deploy the stateless worker from `packages/pro` using `wrangler.toml` (`compatibility_flags = ["nodejs_compat"]`):
+The worker verifies the Polar webhook, signs the key, and **emails it to the buyer** (the key is never returned in the HTTP response). It needs a KV namespace for retry de-duplication and the real LTD sold counter, plus an email sender (Resend by default):
 ```bash
 cd packages/pro
+npx wrangler kv namespace create LICENSE_KV      # paste the id into wrangler.toml
 npx wrangler secret put CTXTOP_ED25519_PRIVATE_KEY_PEM < "$HOME/.ctxtop/keys/highbeam_pro_ed25519.pem"
 npx wrangler secret put CTXTOP_POLAR_WEBHOOK_SECRET
+npx wrangler secret put RESEND_API_KEY
+npx wrangler secret put CTXTOP_EMAIL_FROM        # e.g. Highbeam <licenses@your-verified-domain>
 npx wrangler deploy
 ```
+Behavior: a replayed/retried order id returns `{duplicate:true}` and sends nothing; if the email fails the worker returns `500` and records nothing, so Polar's retry delivers the key; LTD sales increment `ltd:sold_count` in KV and the 201st sale returns `409 LTD_CAP_200_EXCEEDED`. Before launch, do one real test purchase end to end and confirm the email arrives.
 
 ### Live Polar.sh SKU Mapping (`POLAR_LIVE_SKU_CATALOG`)
 | SKU | Price | Billing Interval | Tier & Seats | Expiry / Cap |

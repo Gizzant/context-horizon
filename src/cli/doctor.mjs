@@ -29,6 +29,14 @@ import { getHookDiagnosticSummary } from '../core/hook_diagnostics.mjs';
 /**
  * Parses CLI flags (`--prune-tools`, `--reap-orphans`, `--handoff`, `--storage-gc`, `--gc-cursor`, `--recover-brain`, `--diagnostic`, `--transcript <path>`, `--vscdb <path>`, `--dry-run`)
  */
+function nodeSupportsSqlite() {
+  const m = /^v?(\d+)\.(\d+)/.exec(String(globalThis.process?.version || ''));
+  if (!m) return false;
+  const major = Number(m[1]);
+  const minor = Number(m[2]);
+  return major > 22 || (major === 22 && minor >= 5);
+}
+
 export function parseDoctorArgs(argv = process.argv.slice(2)) {
   const pruneTools = argv.includes('--prune-tools') || argv.includes('--prune') || argv.includes('prune');
   const uncachedTail = argv.includes('--uncached-tail') || argv.includes('--tail');
@@ -119,7 +127,9 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
     const sqliteDetail =
       typeof process !== 'undefined' && process.env?.CTXTOP_FORCE_NO_SQLITE === '1'
         ? `${process.version} (Node >= 20.0.0 LTS JSONL fallback active)`
-        : `${process.version} (>= v22.5.0 built-in node:sqlite ready)`;
+        : nodeSupportsSqlite()
+          ? `${process.version} (built-in node:sqlite ready)`
+          : `${process.version} (Node >= 20.0.0 LTS; node:sqlite needs v22.5.0, JSONL fallback active)`;
     record('Node.js Runtime', 'PASS', sqliteDetail);
   } else {
     record('Node.js Runtime', 'FAIL', `${process.version} — Upgrade to Node >= 20.0.0 LTS required`);
@@ -188,7 +198,7 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
     if (mirrorsInSync) {
       record('Plugin Canonical Integrity', 'PASS', 'Canonical & mirror plugin directories synced (SHA-256 parity verified)');
     } else {
-      record('Plugin Canonical Integrity', 'WARN', 'Out-of-sync plugin mirrors detected (~/agy-horizon & ~/agy-horizon-flightcheck). Run `node scripts/sync_mirrors.mjs` or `npx ctxtop init --dedupe`.');
+      record('Plugin Canonical Integrity', 'WARN', 'Out-of-sync plugin mirrors detected (~/agy-horizon & ~/agy-horizon-flightcheck). Preview the repair with `npx ctxtop init --antigravity --dedupe --dry-run`, then run it without `--dry-run`: it re-copies Highbeam plugin files into ~/.gemini/config/plugins and removes duplicate Highbeam entries (it overwrites those plugin folders, so keep copies of any edits you made there). `node scripts/sync_mirrors.mjs` is for contributors working in a git checkout only.');
     }
   } else if (fs.existsSync(flightcheckDir)) {
     record('Plugin Canonical Integrity', 'PASS', 'Canonical plugin directory active (~/.gemini/config/plugins/agy-horizon-flightcheck)');

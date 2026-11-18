@@ -262,7 +262,7 @@ describe('Feature 1: Single ctxtop Package', () => {
     const parsed = JSON.parse(jsonStr);
 
     assert.equal(parsed.name, 'ctxtop');
-    assert.equal(parsed.version, '4.1.1');
+    assert.equal(parsed.version, '4.1.2');
     assert.equal(parsed.type, 'module');
     assert.ok(parsed.bin.ctxtop);
     assert.ok(parsed.bin['ah-statusline']);
@@ -507,7 +507,7 @@ describe('Feature 2: Dual Plugin Manifests', () => {
     // 1. Positive baseline: Production workspace dual manifests must maintain version parity
     const prodCheck = verifyDualManifestParity(process.cwd());
     assert.equal(prodCheck.verified, true, 'Production dual manifests must maintain parity');
-    assert.equal(prodCheck.version, '4.1.1', 'Production manifest version must be 4.1.1');
+    assert.equal(prodCheck.version, '4.1.2', 'Production manifest version must be 4.1.2');
 
     // 2. Negative boundary: Sandboxed workspace with conflicting versions must be detected
     const ws = createTempWorkspace({ prefix: 'manifest-version-conflict-' });
@@ -2231,10 +2231,7 @@ describe('Feature 28: Atomic Tool-Boundary Suspension', () => {
     }
   });
 
-  it('28.B4 Atomic Tool-Boundary Suspension: hook handler failure fails closed (deny)', async () => {
-    // Under Mod Law 5, hook handler failures, exceptions, and termination blocks
-    // at the tool boundary must fail closed to { decision: 'deny' } (or exitCode 2 in Claude Code CLI).
-
+  it('28.B4 Atomic Tool-Boundary Suspension: PreToolUse fails open (exit 0) by default and fails closed (exit 2) with HIGHBEAM_PRETOOL_FAIL_MODE=closed', async () => {
     // 1. Verify that proto-safe converter forces 'deny' decision on hook error/block payloads
     const hookErrorOutput = {
       decision: 'block',
@@ -2265,18 +2262,39 @@ describe('Feature 28: Atomic Tool-Boundary Suspension', () => {
     assert.equal(latchDecision.decision, 'deny', 'Control latch in aborted/error state must deny execution');
     assert.equal(latchDecision.reason, 'Hook handler failure: state latch aborted');
 
-    // 4. Verify Claude Code CLI runner exits 2 (hard block / fail-closed) on uncaught hook error
-    let exitCode = null;
-    let stderrMsg = '';
-    await executePreToolUseCli({
-      readPayload: async () => { throw new Error('Uncaught hook handler failure'); },
-      ioOverride: {
-        exitFn: (code) => { exitCode = code; },
-        stderrWrite: (msg) => { stderrMsg += msg; }
-      }
-    });
-    assert.equal(exitCode, 2, 'Claude Code CLI runner must exit 2 on hook handler failure per Mod Law 5');
-    assert.ok(stderrMsg.includes('[Highbeam Fail-Closed]'), 'Fail-closed diagnostic must be logged');
+    // 4. Verify Claude Code CLI runner fails open (exit 0 + diagnostic) by default on uncaught hook error,
+    //    and exits 2 ([Highbeam Fail-Closed]) when HIGHBEAM_PRETOOL_FAIL_MODE=closed
+    const prevFailMode = process.env.HIGHBEAM_PRETOOL_FAIL_MODE;
+    delete process.env.HIGHBEAM_PRETOOL_FAIL_MODE;
+    try {
+      let exitCodeDefault = null;
+      let stderrDefault = '';
+      await executePreToolUseCli({
+        readPayload: async () => { throw new Error('Uncaught hook handler failure'); },
+        ioOverride: {
+          exitFn: (code) => { exitCodeDefault = code; },
+          stderrWrite: (msg) => { stderrDefault += msg; }
+        }
+      });
+      assert.equal(exitCodeDefault, 0, 'Claude Code PreToolUse CLI runner must exit 0 (fail-open) by default on internal fault');
+      assert.match(stderrDefault, /\[Highbeam PreToolUse Diagnostic\].*fail-open/i, 'Fail-open diagnostic must be logged');
+
+      process.env.HIGHBEAM_PRETOOL_FAIL_MODE = 'closed';
+      let exitCodeClosed = null;
+      let stderrClosed = '';
+      await executePreToolUseCli({
+        readPayload: async () => { throw new Error('Uncaught hook handler failure'); },
+        ioOverride: {
+          exitFn: (code) => { exitCodeClosed = code; },
+          stderrWrite: (msg) => { stderrClosed += msg; }
+        }
+      });
+      assert.equal(exitCodeClosed, 2, 'Claude Code PreToolUse CLI runner must exit 2 when HIGHBEAM_PRETOOL_FAIL_MODE=closed');
+      assert.ok(stderrClosed.includes('[Highbeam Fail-Closed]'), 'Fail-closed diagnostic must be logged when strict mode is enabled');
+    } finally {
+      if (prevFailMode === undefined) delete process.env.HIGHBEAM_PRETOOL_FAIL_MODE;
+      else process.env.HIGHBEAM_PRETOOL_FAIL_MODE = prevFailMode;
+    }
   });
 
   it('28.B5 Atomic Tool-Boundary Suspension: abort during mid-suspension cancels tool execution cleanly', () => {
@@ -2492,14 +2510,14 @@ describe('Feature 31: Unified ctxtop CLI', () => {
     assert.ok(res2.output.includes('Usage: ctxtop'));
   });
 
-  it('31.B3 Unified ctxtop CLI: flag --version or -v outputs version 4.1.1 with exit code 0', async () => {
+  it('31.B3 Unified ctxtop CLI: flag --version or -v outputs version 4.1.2 with exit code 0', async () => {
     const res1 = await runCli(['--version']);
     assert.equal(res1.exitCode, 0);
-    assert.ok(res1.output.includes('4.1.1'));
+    assert.ok(res1.output.includes('4.1.2'));
 
     const res2 = await runCli(['-v']);
     assert.equal(res2.exitCode, 0);
-    assert.ok(res2.output.includes('4.1.1'));
+    assert.ok(res2.output.includes('4.1.2'));
   });
 
   it('31.B4 Unified ctxtop CLI: inspect with non-existent session handles missing state gracefully', async () => {

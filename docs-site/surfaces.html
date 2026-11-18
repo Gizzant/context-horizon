@@ -47,7 +47,7 @@
             <tr>
               <td><strong>Execution Path</strong></td>
               <td>CLI Hooks + Local HTTP/SSE Sidecar Server + Micro-IPC</td>
-              <td>Tier-1 In-Process V8 Mod (<code>~0.18ms p95</code>) + Tier-2 CLI Hooks</td>
+              <td>Tier-1 In-Process V8 Mod (<code>~0.2ms p95</code>) + Tier-2 CLI Hooks</td>
               <td>On-demand MCP tool calls (<code>ah-mcp</code> / <code>ctxtop-mcp</code>)</td>
             </tr>
             <tr>
@@ -118,7 +118,7 @@
 
           <rect x="20" y="24" width="240" height="166" rx="12" fill="var(--canvas)" stroke="var(--accent)" stroke-width="1.6" />
           <text x="38" y="50" font-family="var(--font-sans)" font-size="13" font-weight="700" fill="var(--ink)">Tier-1: In-Process V8 Mod</text>
-          <text x="38" y="70" font-family="var(--font-mono)" font-size="10.5" fill="var(--accent)">hooks/register.js (~0.18ms p95)</text>
+          <text x="38" y="70" font-family="var(--font-mono)" font-size="10.5" fill="var(--accent)">hooks/register.js (~0.2ms p95)</text>
           <text x="38" y="94" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">on('tool.call') / on('turn.step')</text>
           <text x="38" y="114" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">on('command.horizon') / ui.render</text>
           <text x="38" y="134" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">Zero node:* imports (Mod Laws 1-5)</text>
@@ -128,7 +128,7 @@
 
           <rect x="320" y="24" width="250" height="166" rx="12" fill="var(--canvas)" stroke="var(--border-strong)" />
           <text x="338" y="50" font-family="var(--font-sans)" font-size="13" font-weight="700" fill="var(--ink)">Tier-2: Spawned CLI Handlers</text>
-          <text x="338" y="70" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">hooks/handlers/*.mjs (~25-45ms)</text>
+          <text x="338" y="70" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">hooks/handlers/*.mjs (~60-80ms)</text>
           <text x="338" y="94" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">PreToolUse / PostToolUse / Stop</text>
           <text x="338" y="114" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">PreModelSwitch / PreCompact</text>
           <text x="338" y="134" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">Short-circuits if Tier-1 active</text>

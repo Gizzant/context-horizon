@@ -21,10 +21,7 @@ Highbeam (`ctxtop` v4.1) is designed for security-conscious engineering organiza
 ## 2. Open-Core License Boundary (`MIT` vs. Pro / Team)
 
 - **Free Core (`MIT`)**: Interactive HUD (`npx ctxtop`), 5-host read-only audit (`ctxtop audit`), FTS5 CLI compression + BM25 search (`ctxtop search`), repeat-read AST stubs (`GUARD-4`), non-blocking `COACH` mode, and `DET-01..32` guards run 100% under MIT with no license key required.
-- **Commercial (`packages/pro/`)**: `COACH` previews Pro value locally; `AUTO_PILOT` holds, 30-day persistent workspace ledgers, SHA-256 Corporate PDF FinOps receipts, and Team OTel bundles verify Ed25519 offline keys (`CTXP1.*`) against the pinned SPKI public key—or your organization's custom enterprise key overridden via environment variable:
-  ```bash
-  export CTXTOP_ED25519_PUBLIC_KEY_PEM="-----BEGIN PUBLIC KEY-----..."
-  ```
+- **Commercial (`packages/pro/`)**: `COACH` previews Pro value locally; `AUTO_PILOT` holds, 30-day persistent workspace ledgers, SHA-256 Corporate PDF FinOps receipts, and Team OTel bundles verify Ed25519 offline keys (`CTXP1.*`) against the SPKI public key pinned in the release. Team and enterprise licenses are issued by Highbeam and verified offline; the trust key cannot be replaced by configuration.
 
 ---
 

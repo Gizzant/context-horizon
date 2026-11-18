@@ -21,14 +21,14 @@ When a long coding session degrades at Turn 35, the root cause is almost always 
 4. **Local SQLite Bloat (`state.vscdb`):** Cursor's `cursorDiskKV` table accumulates 30GB–100GB of orphaned `bubbleId:*`, `checkpointId:*`, and `agentKv:blob:*` rows after composer sessions are deleted, and standard `VACUUM` fails on low-disk machines because it requires 2x free disk space and an exclusive write lock.
 
 **How `ctxtop` works under the hood:**
-- **Zero runtime npm dependencies (`.mjs` on Node 22.5+ built-ins):** Uses `node:sqlite`, `node:fs`, `node:http`, and `node:crypto`. Zero outbound network calls, zero telemetry beacons, and zero external API keys.
+- **Zero runtime npm dependencies (`.mjs`, Node 20+):** Uses Node built-ins (`node:fs`, `node:http`, `node:crypto`), plus `node:sqlite` when running on Node 22.5+ (older Node falls back to JSONL). Zero outbound network calls, zero telemetry beacons, and zero external API keys.
 - **Strict Read-Only SQLite & Protobuf Wire-Walking (`SQLITE_OPEN_READONLY`):** Opens `conversations/<uuid>.db`, `state.vscdb`, and `store.db` strictly with `Object.freeze({ readOnly: true })` so it can never contend for WAL/write locks with a live IDE. Includes a zero-dependency protobuf wire-format decoder (`decodeProtobufWire`) to walk binary `step_payload` blobs without `.proto` schemas, and a DAG stitcher for Claude Code `parentUuid -> uuid` `/rewind` trees.
 - **40-Cell Flamegraph & Parabolic Attention Trough:** Maps the context window into 40 chronological cells, computes U-shaped positional recall ($A_u(i) = (1 - \gamma) + 4\gamma(i/N - 0.5)^2$), and highlights the top 3–5 riskiest cells (e.g., `task.md` stranded in the 30%–70% low-attention trough or files read 6x without intermediate edits).
 - **Offline Prefix-Safe Tool-Output Surgeon (`--prune-tools`):** Pairs `tool_use` and `tool_result` across turns while pinning Turn 0 and the newest 6 turns. Truncates superseded file reads, unreferenced exploratory `grep` outputs, and resolved test `stderr` traces with an atomic `.pre_surgeon` backup.
 - **`<15ms` PreInvocation Flight Check Router:** Optional lifecycle hook that checks 6 local sensors (`fs.statSync` mtime drift, `<8ms` reverse-import scan for unseen callers, Turn-0 eager MCP schema tax, 3-strike identical command error loops) before a turn executes.
 
 Live interactive WebView demo (runs 8 precomputed crisis scenarios in-browser): https://gizzant.github.io/attention-horizon-antigravity/
-Repo (MIT): https://github.com/Gizzant/attention-horizon-antigravity
+Repo (MIT): https://github.com/Gizzant/context-horizon
 
 Happy to answer questions on the SQLite/protobuf formats across harnesses or prompt-cache invalidation mechanics.
 
@@ -54,13 +54,13 @@ I built **`ctxtop` (Highbeam v3.3.0)**—a zero-dependency local profiler and `<
 
 **Try it locally (0 npm dependencies):**
 ```bash
-git clone https://github.com/Gizzant/attention-horizon-antigravity.git
-cd attention-horizon-antigravity
+git clone https://github.com/Gizzant/context-horizon.git
+cd context-horizon
 node src/cli/doctor.mjs
 node src/cli/horizon_hud.mjs --demo
 ```
 - **Interactive WebView Demo:** https://gizzant.github.io/attention-horizon-antigravity/
-- **GitHub Repository:** https://github.com/Gizzant/attention-horizon-antigravity
+- **GitHub Repository:** https://github.com/Gizzant/context-horizon
 
 ---
 
@@ -85,11 +85,11 @@ I open-sourced **`ctxtop` (Highbeam)**, a 100% offline CLI and Edward Tufte WebV
 
 **Quick start:**
 ```bash
-npx attention-horizon-antigravity --demo
+npx ctxtop --demo-animate
 node src/cli/doctor.mjs --prune-tools --dry-run
 ```
 - **Live Browser Demo:** https://gizzant.github.io/attention-horizon-antigravity/
-- **GitHub (MIT, 0 dependencies):** https://github.com/Gizzant/attention-horizon-antigravity
+- **GitHub (MIT, 0 dependencies):** https://github.com/Gizzant/context-horizon
 
 ---
 
@@ -122,7 +122,7 @@ node src/cli/doctor.mjs --gc-cursor --vscdb "/path/to/Cursor/User/globalStorage/
 - Visualizes your 40-cell context window, highlights duplicate file reads and stale disk snapshots (`DIRTY_SNAP`), and lets you prune stale tool outputs offline (`--prune-tools`).
 
 - **Live Interactive Demo:** https://gizzant.github.io/attention-horizon-antigravity/
-- **GitHub Repo (MIT, 0 runtime dependencies):** https://github.com/Gizzant/attention-horizon-antigravity
+- **GitHub Repo (MIT, 0 runtime dependencies):** https://github.com/Gizzant/context-horizon
 
 ---
 

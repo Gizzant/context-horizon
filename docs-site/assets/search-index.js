@@ -21,7 +21,7 @@ window.AH_SEARCH_INDEX = [
     "title": "System Architecture & Internals",
     "section": "2. Claude Mod Laws 1-5 & Pure-JS Cryptography",
     "href": "architecture.html#isomorphic-laws",
-    "keywords": "src/core-isomorphic/ test/mod_static_compliance.test.mjs node:* node:fs node:path node:crypto node:child_process Buffer process globalThis fnv1a64.mjs sha256HexPure evaluatePreToolUse computeBreakEven ~0.18ms p95",
+    "keywords": "src/core-isomorphic/ test/mod_static_compliance.test.mjs node:* node:fs node:path node:crypto node:child_process Buffer process globalThis fnv1a64.mjs sha256HexPure evaluatePreToolUse computeBreakEven ~0.2ms p95",
     "body": "Claude Code's Tier-1 Mod runs inside a sandboxed V8 isolate without Node.js built-ins. Every file in src/core-isomorphic/ follows five strict rules checked by test/mod_static_compliance.test.mjs: Zero node:* Imports: No node:fs, node:path, node:crypto, or node:child_process imports anywhere in core. Zero Unguarded Node Globals: Never touches bare Buffer or process without safe globalThis checks. Zero External npm Dep"
   },
   {
@@ -109,8 +109,8 @@ window.AH_SEARCH_INDEX = [
     "title": "CLI & Binaries Reference",
     "section": "ctxtop receipt",
     "href": "cli-reference.html#cmd-receipt",
-    "keywords": "ctxtop receipt [--simple | --4-rank | --advanced] [--markdown | --md | --git | --html | --pdf | --json] [--out <path>] --pdf 2 ctxtop pro trial ctxtop receipt",
-    "body": "Prints your verified Tokens & USD Saved receipt as terminal text, Git Markdown, HTML, JSON, or a Pro SHA-256 PDF 1.4 file. Synopsis ctxtop receipt [--simple | --4-rank | --advanced] [--markdown | --md | --git | --html | --pdf | --json] [--out <path>] Note: Running --pdf on the Free tier exits with code 2. It shows your 30-day USD savings and explains how to start a local trial (ctxtop pro trial)."
+    "keywords": "ctxtop receipt [--simple | --4-rank | --advanced] [--markdown | --md | --git | --html | --pdf | --json] [--out <path>] --pdf 2 ctxtop license trial ctxtop receipt",
+    "body": "Prints your verified Tokens & USD Saved receipt as terminal text, Git Markdown, HTML, JSON, or a Pro SHA-256 PDF 1.4 file. Synopsis ctxtop receipt [--simple | --4-rank | --advanced] [--markdown | --md | --git | --html | --pdf | --json] [--out <path>] Note: Running --pdf on the Free tier exits with code 2. It shows your 30-day USD savings and explains how to start a local trial (ctxtop license trial)."
   },
   {
     "pageTitle": "CLI & Binaries Reference",
@@ -182,7 +182,7 @@ window.AH_SEARCH_INDEX = [
     "section": "ctxtop license (pro), tiers & team-pack",
     "href": "cli-reference.html#cmd-pro-team",
     "keywords": "ctxtop license pro tiers team-pack",
-    "body": "Manages offline Ed25519 Pro keys, 14-day local trials, and Grafana or Datadog OpenTelemetry packs. Synopsis ctxtop tiers [--json] ctxtop pro [status | tiers | trial | activate <ed25519-token> | deactivate] [--json] ctxtop team-pack [--out <dir>] [--org \"<Org Name>\"] [--preview] [--json]"
+    "body": "Manages offline Ed25519 Pro keys, 14-day local trials, and Grafana or Datadog OpenTelemetry packs. Synopsis ctxtop tiers [--json] ctxtop license [status | tiers | trial | activate <ed25519-token> | deactivate] [--json] ctxtop team-pack [--out <dir>] [--org \"<Org Name>\"] [--preview] [--json]"
   },
   {
     "pageTitle": "CLI & Binaries Reference",
@@ -453,7 +453,7 @@ window.AH_SEARCH_INDEX = [
     "title": "Flight Modes & Enforcement Levels",
     "section": "2. The Four Flight Modes (OFF, SILENT, COACH, AUTO_PILOT)",
     "href": "flight-modes.html#four-flight-modes",
-    "keywords": "flightMode normalizeConfiguredFlightMode() horizonConfig.mjs normalizeFlightMode() circuitBreakers.mjs DISABLED OFF QUIET MUTE SILENT AUTOPILOT AUTO AUTO_PILOT COACH DET-01 DET-02 DET-18 DET-19 scanWorkspaceSettings DET-03..05 DET-07 DET-12 DET-20 ask DET-04 DET-05 DET-08 PreModelSwitch cached > C* C_max allow Explore claude-haiku-5-5 notableAllowNote >= $0.02 \"ask\" \"deny\" DET-08: \"block\" H_post < paybackTurns DET-09 CLAUDE.md AGENTS.md .mcp.json PostCompactMutationQueue computeDet09BreakEvenTokens PostCompact TTL == 0s drip-feed vague-prompt-rubric DET-14 effort-overkill deny DET-06 PreInvocation src/hooks/pre_invocation.mjs {} hook_level guard advisory hookLevel = \"guard\" ah-statusline ah_live_state_<sessionId>.json hooks/handlers/pre-tool-use.mjs flightMode: \"AUTO_PILOT\" requireProFeature(\"auto_pilot_locks\") ~/.ctxtop/license.json npx ctxtop pro trial \"COACH\"",
+    "keywords": "flightMode normalizeConfiguredFlightMode() horizonConfig.mjs normalizeFlightMode() circuitBreakers.mjs DISABLED OFF QUIET MUTE SILENT AUTOPILOT AUTO AUTO_PILOT COACH DET-01 DET-02 DET-18 DET-19 scanWorkspaceSettings DET-03..05 DET-07 DET-12 DET-20 ask DET-04 DET-05 DET-08 PreModelSwitch cached > C* C_max allow Explore claude-haiku-5-5 notableAllowNote >= $0.02 \"ask\" \"deny\" DET-08: \"block\" H_post < paybackTurns DET-09 CLAUDE.md AGENTS.md .mcp.json PostCompactMutationQueue computeDet09BreakEvenTokens PostCompact TTL == 0s drip-feed vague-prompt-rubric DET-14 effort-overkill deny DET-06 PreInvocation src/hooks/pre_invocation.mjs {} hook_level guard advisory hookLevel = \"guard\" ah-statusline ah_live_state_<sessionId>.json hooks/handlers/pre-tool-use.mjs flightMode: \"AUTO_PILOT\" requireProFeature(\"auto_pilot_locks\") ~/.ctxtop/license.json npx ctxtop license trial \"COACH\"",
     "body": "Highbeam cleans up flightMode case, hyphens, and spaces in normalizeConfiguredFlightMode() (horizonConfig.mjs) and normalizeFlightMode() (circuitBreakers.mjs). Common aliases work too: DISABLED maps to OFF, QUIET and MUTE map to SILENT, and AUTOPILOT and AUTO map to AUTO_PILOT. Unknown values fall back safely to COACH. Subsystem / Rule OFF SILENT COACH Default AUTO_PILOT Pro Ring-0 Security GuardsDET-01, DET-02, DET-"
   },
   {
@@ -525,8 +525,8 @@ window.AH_SEARCH_INDEX = [
     "title": "Terminology & Glossary",
     "section": "T to W",
     "href": "glossary.html#terms-t-w",
-    "keywords": "hooks/register.js ~0.18ms p95 AH_TIER1_MOD_ACTIVE=1 hooks/handlers/*.mjs ctxtop doctor --prune-tools POST /api/surgeon .bak src/core-isomorphic/ustf/ ctxtop inspect inherit branch share",
-    "body": "Tier-1 V8 Mod vs. Tier-2 CLI Hook Claude Code Tier-1 runs inside Claude Code's in-process V8 Mod via hooks/register.js in ~0.18ms p95 and sets AH_TIER1_MOD_ACTIVE=1. Tier-2 runs Node scripts in hooks/handlers/*.mjs whenever the V8 Mod is off. Tool-Output Surgeon Core Physics An offline log trimmer (ctxtop doctor --prune-tools and POST /api/surgeon). It writes a .bak backup first, then trims old uncached tool outputs "
+    "keywords": "hooks/register.js ~0.2ms p95 AH_TIER1_MOD_ACTIVE=1 hooks/handlers/*.mjs ctxtop doctor --prune-tools POST /api/surgeon .bak src/core-isomorphic/ustf/ ctxtop inspect inherit branch share",
+    "body": "Tier-1 V8 Mod vs. Tier-2 CLI Hook Claude Code Tier-1 runs inside Claude Code's in-process V8 Mod via hooks/register.js in ~0.2ms p95 and sets AH_TIER1_MOD_ACTIVE=1. Tier-2 runs Node scripts in hooks/handlers/*.mjs whenever the V8 Mod is off. Tool-Output Surgeon Core Physics An offline log trimmer (ctxtop doctor --prune-tools and POST /api/surgeon). It writes a .bak backup first, then trims old uncached tool outputs "
   },
   {
     "pageTitle": "Lifecycle Hooks, V8 Mod & Runtime Control",
@@ -549,8 +549,8 @@ window.AH_SEARCH_INDEX = [
     "title": "Lifecycle Hooks, V8 Mod & Runtime Control",
     "section": "Claude Code Tier-1 In-Process V8 Mod (hooks/register.js)",
     "href": "hooks-lifecycle.html#claude-tier1-mod",
-    "keywords": "hooks.modules hooks/hooks.json hooks/register.js ~0.18ms p95 AH_TIER1_MOD_ACTIVE=1 on('file.changed') on('tool.call') CircuitBreakerEngine.evaluatePreToolUse on('turn.step') on('turn.complete') $.store on('classic.SessionStart') .claude/cache/HANDOFF_LATEST.md startup|resume|clear|compact|fork on('classic.PreCompact') on('classic.PostCompact') /compact TurnZeroGate on('classic.Stop') DET-14 DET-15 on('command.horizon') on('ui.render')",
-    "body": "Listed under hooks.modules in hooks/hooks.json, hooks/register.js runs straight inside Claude Code's V8 isolate with zero process startup cost (~0.18ms p95). It sets AH_TIER1_MOD_ACTIVE=1 and wires 10 handlers: on('file.changed'): Spots outside disk edits so stale in-chat file copies get flagged right away. on('tool.call'): Checks tool calls inside V8, running CircuitBreakerEngine.evaluatePreToolUse, 3rd-read AST stu"
+    "keywords": "hooks.modules hooks/hooks.json hooks/register.js ~0.2ms p95 AH_TIER1_MOD_ACTIVE=1 on('file.changed') on('tool.call') CircuitBreakerEngine.evaluatePreToolUse on('turn.step') on('turn.complete') $.store on('classic.SessionStart') .claude/cache/HANDOFF_LATEST.md startup|resume|clear|compact|fork on('classic.PreCompact') on('classic.PostCompact') /compact TurnZeroGate on('classic.Stop') DET-14 DET-15 on('command.horizon') on('ui.render')",
+    "body": "Listed under hooks.modules in hooks/hooks.json, hooks/register.js runs straight inside Claude Code's V8 isolate with zero process startup cost (~0.2ms p95). It sets AH_TIER1_MOD_ACTIVE=1 and wires 10 handlers: on('file.changed'): Spots outside disk edits so stale in-chat file copies get flagged right away. on('tool.call'): Checks tool calls inside V8, running CircuitBreakerEngine.evaluatePreToolUse, 3rd-read AST stu"
   },
   {
     "pageTitle": "Lifecycle Hooks, V8 Mod & Runtime Control",
@@ -782,7 +782,7 @@ window.AH_SEARCH_INDEX = [
     "section": "2. Offline Ed25519 Activation & 14-Day Trial",
     "href": "pro-troubleshooting.html#offline-ed25519-licensing",
     "keywords": "src/core/pro_license.mjs ~/.ctxtop/license.json",
-    "body": "Pro and Team keys never call a cloud server. Each key is an Ed25519 token checked locally against the public key in src/core/pro_license.mjs and saved to ~/.ctxtop/license.json: Manage Local Trial, License Token & Receipts # Start a 14-day local Pro evaluation (zero network calls, no credit card) npx ctxtop pro trial # Activate a signed Ed25519 license token npx ctxtop pro activate <ed25519-license-token> # Verify en"
+    "body": "Pro and Team keys never call a cloud server. Each key is an Ed25519 token checked locally against the public key in src/core/pro_license.mjs and saved to ~/.ctxtop/license.json: Manage Local Trial, License Token & Receipts # Start a 14-day local Pro evaluation (zero network calls, no credit card) npx ctxtop license trial # Activate a signed Ed25519 license token npx ctxtop license activate <ed25519-license-token> # Verify en"
   },
   {
     "pageTitle": "Pro Licensing, FinOps & Troubleshooting",
@@ -845,7 +845,7 @@ window.AH_SEARCH_INDEX = [
     "title": "Google Antigravity vs. Claude Code",
     "section": "Host Capability Matrix",
     "href": "surfaces.html#surface-comparison-matrix",
-    "keywords": "@ctxtop/mcp plugin.json .antigravity-plugin/plugin.json .claude-plugin/plugin.json settings.json .cursor/mcp.json .agents/plugins/ ~/.gemini/config/plugins/ .claude/settings.json ~/.claude/settings.json ~0.18ms p95 ah-mcp ctxtop-mcp 127.0.0.1:62935 <agent-embed> ah-statusline SQLITE_OPEN_READONLY conversations/*.db statusLine .claude/cache/ah_live_state_<id>.json @ah-flash-scout <200 /browser /swarm inherit|branch|share Task Agent DET-19 scope_lock_claim",
+    "keywords": "@ctxtop/mcp plugin.json .antigravity-plugin/plugin.json .claude-plugin/plugin.json settings.json .cursor/mcp.json .agents/plugins/ ~/.gemini/config/plugins/ .claude/settings.json ~/.claude/settings.json ~0.2ms p95 ah-mcp ctxtop-mcp 127.0.0.1:62935 <agent-embed> ah-statusline SQLITE_OPEN_READONLY conversations/*.db statusLine .claude/cache/ah_live_state_<id>.json @ah-flash-scout <200 /browser /swarm inherit|branch|share Task Agent DET-19 scope_lock_claim",
     "body": "Dimension Google Antigravity Claude Code Cursor / Windsurf (@ctxtop/mcp) Manifest Root plugin.json & .antigravity-plugin/plugin.json .claude-plugin/plugin.json & settings.json .cursor/mcp.json (stdio JSON-RPC 2.0) Install Locations .agents/plugins/ (workspace) or ~/.gemini/config/plugins/ (global) .claude/settings.json (project) or ~/.claude/settings.json (global) .cursor/mcp.json or global MCP config Execution Path "
   },
   {
@@ -878,7 +878,7 @@ window.AH_SEARCH_INDEX = [
     "section": "Claude Code Dual-Tier Architecture",
     "href": "surfaces.html#claude-code-integration",
     "keywords": "",
-    "body": "Claude Code supports two hook tiers. Highbeam ships both in one package and links them so no guard ever runs twice on the same turn. Claude Code Tier-1 In-Process V8 Mod and Tier-2 CLI Hook Architecture Tier-1: In-Process V8 Mod hooks/register.js (~0.18ms p95) on('tool.call') / on('turn.step') on('command.horizon') / ui.render Zero node:* imports (Mod Laws 1-5) Sets AH_TIER1_MOD_ACTIVE=1 Tier-2: Spawned CLI Handlers "
+    "body": "Claude Code supports two hook tiers. Highbeam ships both in one package and links them so no guard ever runs twice on the same turn. Claude Code Tier-1 In-Process V8 Mod and Tier-2 CLI Hook Architecture Tier-1: In-Process V8 Mod hooks/register.js (~0.2ms p95) on('tool.call') / on('turn.step') on('command.horizon') / ui.render Zero node:* imports (Mod Laws 1-5) Sets AH_TIER1_MOD_ACTIVE=1 Tier-2: Spawned CLI Handlers "
   },
   {
     "pageTitle": "Google Antigravity vs. Claude Code",

@@ -1,8 +1,8 @@
-# Security & Zero-Trust Open-Source Manifest (`attention-horizon-antigravity`)
+# Security & Zero-Trust Open-Source Manifest (Highbeam / `ctxtop`)
 
 ## 1. Zero-Trust Network Profile (100% Local In-Memory Telemetry)
 
-**Highbeam** (`attention-horizon-antigravity` / `agy-horizon-flightcheck`) inspects sensitive local engineering artifacts (conversation transcripts, file paths, and tool usage). To guarantee enterprise and individual security for the Antigravity and Hacker News developer community:
+**Highbeam** (`ctxtop` / `agy-horizon-flightcheck`) inspects sensitive local engineering artifacts (conversation transcripts, file paths, and tool usage). To guarantee enterprise and individual security for the Antigravity and Hacker News developer community:
 
 1. **100% In-Memory Local Telemetry Parsing:** All session token accounting, U-shaped attention curve modeling, and waste classification are computed 100% in-memory from local SQLite (`conversations/*.db`, `conversation_summaries.db`) and JSONL (`transcript_full.jsonl`) reads.
 2. **Zero Outbound Network Connections:** Neither the CLI HUD (`src/cli/horizon_hud.mjs`), the lifecycle hooks (`src/hooks/*.mjs`), nor the sidecar daemon (`sidecars/horizon-daemon/server.mjs`) opens any external HTTP, HTTPS, WebSocket, or DNS connections. There are **zero telemetry pings**, **zero analytics endpoints**, and **zero external LLM API keys required**.
@@ -21,8 +21,8 @@ To eliminate any risk of database lock contention or corruption while Google Ant
 
 1. **5-Host Read-Only Transcript Scoping (`ctxtop audit` & `horizon_audit_sessions`)**: When auditing sessions across Antigravity, Claude Code, Codex CLI, Gemini CLI, and Cursor, `ctxtop` reads solely completed/active conversation transcript files (e.g. Gemini CLI `~/.gemini/tmp/**/chats/session-*.json`). Highbeam never reads OAuth credential files (`~/.gemini/oauth_creds.json`, Keychain/Credential Manager tokens) and never spawns host CLIs against interactive OAuth seats.
 2. **Release Checksums & npm Provenance**: Tracked runtime files can be verified offline anytime via `npx ctxtop verify --json` (`CHECKSUMS.sha256`), and CI releases publish with `--provenance` OIDC attestation.
-3. **Offline Ed25519 Entitlement Verification (`@ctxtop/pro`)**: License verification runs locally using Node.js native `node:crypto` Ed25519 signature checks with zero license phone-home pings; enterprises may pin their own SPKI key via `CTXTOP_ED25519_PUBLIC_KEY_PEM`. For central MDM policy deployment see [docs/ENTERPRISE_MDM.md](docs/ENTERPRISE_MDM.md).
+3. **Offline Ed25519 Entitlement Verification (`@ctxtop/pro`)**: License verification runs locally using Node.js native `node:crypto` Ed25519 signature checks with zero license phone-home pings; the SPKI public key is pinned in the release and cannot be overridden by environment variables. For central MDM policy deployment see [docs/ENTERPRISE_MDM.md](docs/ENTERPRISE_MDM.md).
 
 ## 4. Reporting a Vulnerability
 
-If you discover a security or path-handling issue, please open a GitHub Security Advisory on the repository or contact `frankmiller@gmail.com`. We respond to security reports within 48 hours.
+If you discover a security or path-handling issue, please open a GitHub Security Advisory on the repository or contact `security@highbeamdev.com`. We respond to security reports within 48 hours.

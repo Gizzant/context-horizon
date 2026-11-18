@@ -22,7 +22,7 @@
 
       <h2 id="canonical-detectors">Canonical Detector Catalog (<code>DET-01</code> to <code>DET-32</code>)</h2>
       <p>
-        Four rules carry a <strong>Ring-0 Security</strong> tag (<code>DET-01</code>, <code>DET-02</code>, <code>DET-18</code>, <code>DET-19</code>). Ring-0 guards protect secrets, shell safety, repo settings, and subagent inputs, and fail closed on broken hook JSON.
+        Four rules carry a <strong>Ring-0 Security</strong> tag (<code>DET-01</code>, <code>DET-02</code>, <code>DET-18</code>, <code>DET-19</code>). Ring-0 guards protect secrets, shell safety, repo settings, and subagent inputs, and block unsafe calls with exit <code>2</code>. If the hook itself hits an internal fault it fails open by default (see Hooks Lifecycle).
       </p>
 
       <div class="filter-bar" data-filter-root=".det-row">

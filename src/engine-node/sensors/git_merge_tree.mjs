@@ -75,6 +75,39 @@ export function parseMergeTreeOutput(output = '') {
   };
 }
 
+let cachedGitVersion;
+
+/**
+ * Returns the installed git version as [major, minor] or null when git is missing/unparseable.
+ * Cached for the process lifetime (git does not change under a running hook).
+ */
+export function getGitVersion() {
+  if (cachedGitVersion !== undefined) return cachedGitVersion;
+  try {
+    const out = execFileSync('git', ['--version'], {
+      encoding: 'utf8',
+      timeout: 2000,
+      stdio: ['ignore', 'pipe', 'ignore']
+    });
+    const m = /(\d+)\.(\d+)/.exec(out);
+    cachedGitVersion = m ? [Number(m[1]), Number(m[2])] : null;
+  } catch {
+    cachedGitVersion = null;
+  }
+  return cachedGitVersion;
+}
+
+/** `git merge-tree --write-tree` exists only in git >= 2.38. */
+export function gitSupportsMergeTreeWriteTree() {
+  const v = getGitVersion();
+  return Boolean(v && (v[0] > 2 || (v[0] === 2 && v[1] >= 38)));
+}
+
+/** Test helper: forget the cached git version. */
+export function resetGitVersionCache() {
+  cachedGitVersion = undefined;
+}
+
 /**
  * Probes for merge conflicts between two commits or branch heads non-destructively.
  *
@@ -126,6 +159,22 @@ export function probeGitMergeTree(baseCommit, targetCommit, options = {}) {
       conflictMessages: [...cachedEntry.conflictMessages],
       latencyMs,
       cached: true
+    };
+  }
+
+  if (!options.skipVersionCheck && !gitSupportsMergeTreeWriteTree()) {
+    const v = getGitVersion();
+    return {
+      clean: false,
+      hasConflict: false,
+      treeHash: null,
+      conflictFiles: [],
+      conflictMessages: [],
+      latencyMs: Number((performance.now() - start).toFixed(3)),
+      error: v
+        ? `GIT_TOO_OLD: merge-conflict probe needs git >= 2.38 (found ${v[0]}.${v[1]})`
+        : 'GIT_NOT_FOUND: merge-conflict probe needs git >= 2.38',
+      degraded: true
     };
   }
 
@@ -219,5 +268,7 @@ export function probeGitMergeTree(baseCommit, targetCommit, options = {}) {
 
 export default {
   probeGitMergeTree,
+  getGitVersion,
+  gitSupportsMergeTreeWriteTree,
   clearGitMergeTreeCache
 };

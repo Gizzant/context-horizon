@@ -78,7 +78,7 @@
 
       <h2 id="claude-tier1-mod">Claude Code Tier-1 In-Process V8 Mod (<code>hooks/register.js</code>)</h2>
       <p>
-        Listed under <code>hooks.modules</code> in <code>hooks/hooks.json</code>, <code>hooks/register.js</code> runs straight inside Claude Code's V8 isolate with zero process startup cost (<code>~0.18ms p95</code>). It sets <code>AH_TIER1_MOD_ACTIVE=1</code> and wires 10 handlers:
+        Listed under <code>hooks.modules</code> in <code>hooks/hooks.json</code>, <code>hooks/register.js</code> runs straight inside Claude Code's V8 isolate with zero process startup cost (<code>~0.2ms p95</code>). It sets <code>AH_TIER1_MOD_ACTIVE=1</code> and wires 10 handlers:
       </p>
       <ul>
         <li><code>on('file.changed')</code>: Spots outside disk edits so stale in-chat file copies get flagged right away.</li>
@@ -109,7 +109,7 @@
             <tr>
               <td><code>PreToolUse</code></td>
               <td><code>handlers/pre-tool-use.mjs</code></td>
-              <td><code>Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Task|Agent|WebFetch|mcp__.*</code></td>
+              <td><code>Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Task|Agent|WebFetch|mcp__.*</code></td>
               <td>Runs <code>CircuitBreakerEngine</code>, saves strike counts across turns, folds 3rd full reads into stubs (Pro), and skips <code>Grep|Glob</code> when Tier-1 Mod is active.</td>
             </tr>
             <tr>
@@ -165,7 +165,7 @@
         <li><strong>Quiet Pass:</strong> Exit <code>0</code> with empty <code>stdout</code>.</li>
         <li><strong>JSON Decision:</strong> Print valid JSON (like <code>{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"..."}}</code> or <code>updatedInput</code>) to <code>stdout</code> and exit <code>0</code>.</li>
         <li><strong>Hard Block:</strong> Print one short note to <code>stderr</code> and exit <code>2</code> with empty <code>stdout</code>. Never wired on <code>WorktreeCreate</code> or <code>PermissionRequest</code>.</li>
-        <li><strong>Bad Input Handling:</strong> Guard hooks fail closed (exit <code>2</code>) on broken stdin JSON. Advisory stats hooks pass <code>{ allowMalformed: true }</code> and fail safe (exit <code>0</code>).</li>
+        <li><strong>Bad Input Handling:</strong> The PreToolUse hook <strong>fails open</strong> on its own internal faults, including broken stdin JSON: the tool call is allowed (exit <code>0</code>) and a one-line diagnostic is printed to stderr, so a Highbeam bug never stops your session. Guard verdicts (for example an unsafe shell command) still block with exit <code>2</code>. Set <code>HIGHBEAM_PRETOOL_FAIL_MODE=closed</code> to restore fail-closed behavior for managed environments. The model-switch billing guard (PreModelSwitch) intentionally stays fail-closed. Advisory stats hooks pass <code>{ allowMalformed: true }</code> and exit <code>0</code>.</li>
       </ol>
 
       <h2 id="runtime-control-fsm">5-State Runtime Control FSM (<code>.ctl</code>)</h2>

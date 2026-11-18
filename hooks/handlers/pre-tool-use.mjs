@@ -12,6 +12,7 @@ import {
   isCliEntrypoint,
   readStdinJsonAsync,
   exitPassThrough,
+  exitDiagnosticZero,
   exitHardBlockStderr,
   exitWithStdoutJson
 } from './hookIo.mjs';
@@ -41,8 +42,26 @@ export function runPreToolUseHook(event = {}, options = {}) {
 }
 
 /**
- * Fail-closed CLI runner for `PreToolUse` (`ISS-035`).
- * Any uncaught error exits `2` via `exitHardBlockStderr` so security/billing guards never fail open.
+ * Reports an internal PreToolUse fault. By default the tool call is ALLOWED (fail-open, exit 0 with a
+ * stderr diagnostic): a bug, crash or stalled stdin inside Highbeam must never stop someone's work.
+ * Deliberate guard verdicts (exit 2 from the detectors) are unaffected and still block.
+ * Set `HIGHBEAM_PRETOOL_FAIL_MODE=closed` to restore the strict behavior (internal faults block too).
+ */
+function exitOnInternalFault(err, ioOverride = {}) {
+  const msg = err?.message || String(err);
+  const strict =
+    String(globalThis.process?.env?.HIGHBEAM_PRETOOL_FAIL_MODE || '').toLowerCase() === 'closed';
+  if (strict) {
+    exitHardBlockStderr(`[Highbeam Fail-Closed] ${msg}`, 'PreToolUse', ioOverride);
+    return;
+  }
+  exitDiagnosticZero(`internal error, tool call allowed (fail-open): ${msg}`, 'PreToolUse', ioOverride);
+}
+
+/**
+ * CLI runner for `PreToolUse`.
+ * Guard verdicts (`exitCode === 2`) block via `exitHardBlockStderr`; any other internal fault
+ * fails OPEN (see `exitOnInternalFault`).
  *
  * @param {object} [cliOptions={}]
  */
@@ -104,19 +123,12 @@ export async function executePreToolUseCli(cliOptions = {}) {
       exitPassThrough(ioOverride.exitFn);
     }
   } catch (err) {
-    exitHardBlockStderr(
-      `[Highbeam Fail-Closed] ${err?.message || String(err)}`,
-      'PreToolUse',
-      ioOverride
-    );
+    exitOnInternalFault(err, ioOverride);
   }
 }
 
 if (isCliEntrypoint(import.meta.url)) {
   executePreToolUseCli().catch((err) => {
-    exitHardBlockStderr(
-      `[Highbeam Fail-Closed] ${err?.message || String(err)}`,
-      'PreToolUse'
-    );
+    exitOnInternalFault(err);
   });
 }

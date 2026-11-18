@@ -146,8 +146,8 @@ const BIND_HOST = '127.0.0.1';
 const clients = new Map();
 
 function getDaemonEntitlementOptions() {
-  const useDevBypass = process.env.CTXTOP_PRO_DEV === '1' || isDemoMode;
-  return { strict: !useDevBypass };
+  // Demo mode relaxes strict checking only; outside `node --test` that unlocks nothing.
+  return { strict: !isDemoMode };
 }
 
 const defaultCacheDir = path.join(getHomeDir(), '.gemini', 'antigravity', 'cache', 'agy-horizon');

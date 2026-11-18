@@ -23,7 +23,7 @@ Examples of unacceptable behavior include:
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the project maintainers at `frankmiller@gmail.com`. All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the project maintainers at `security@highbeamdev.com`. All complaints will be reviewed and investigated promptly and fairly.
 
 ## Attribution
 

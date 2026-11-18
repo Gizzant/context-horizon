@@ -685,11 +685,12 @@ export function writeTextAtomic(targetPath, content, options = {}) {
   try {
     const dir = dirnamePath(targetPath);
     if (dir && dir !== '.' && !fsMod.existsSync(dir)) {
-      fsMod.mkdirSync(dir, { recursive: true });
+      fsMod.mkdirSync(dir, options.dirMode ? { recursive: true, mode: options.dirMode } : { recursive: true });
     }
 
     if (typeof fsMod.openSync === 'function' && typeof fsMod.fsyncSync === 'function') {
-      const fd = fsMod.openSync(tempPath, 'w');
+      // `options.mode` (e.g. 0o600) keeps private output unreadable by other local users (POSIX; ignored on Windows).
+      const fd = options.mode ? fsMod.openSync(tempPath, 'w', options.mode) : fsMod.openSync(tempPath, 'w');
       try {
         fsMod.writeFileSync(fd, String(content ?? ''), 'utf8');
         fsMod.fsyncSync(fd);
@@ -701,7 +702,7 @@ export function writeTextAtomic(targetPath, content, options = {}) {
         }
       }
     } else {
-      fsMod.writeFileSync(tempPath, String(content ?? ''), 'utf8');
+      fsMod.writeFileSync(tempPath, String(content ?? ''), options.mode ? { encoding: 'utf8', mode: options.mode } : 'utf8');
     }
 
     for (let attempt = 0; attempt < 5; attempt++) {

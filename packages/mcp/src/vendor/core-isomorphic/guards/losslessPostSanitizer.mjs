@@ -231,7 +231,9 @@ export function sanitizePostToolOutput(params = {}, options = {}) {
     );
     const candidateIndexPath = `${candidateArtifactPath}.index.md`;
 
-    offloaded = writeTextAtomic(candidateArtifactPath, cleaned, options);
+    // Saved command output can contain secrets: owner-only file (0600) in an owner-only directory (0700).
+    const privateWrite = { ...options, mode: 0o600, dirMode: 0o700 };
+    offloaded = writeTextAtomic(candidateArtifactPath, cleaned, privateWrite);
 
     if (offloaded) {
       artifactPath = candidateArtifactPath;
@@ -241,7 +243,7 @@ export function sanitizePostToolOutput(params = {}, options = {}) {
         rawText: cleaned,
         sha256
       });
-      if (writeTextAtomic(candidateIndexPath, idxBuilt.markdown, options)) {
+      if (writeTextAtomic(candidateIndexPath, idxBuilt.markdown, privateWrite)) {
         artifactIndexPath = candidateIndexPath;
       }
       const nonEmptyLines = filteredLines.filter((l) => l.trim().length > 0);
