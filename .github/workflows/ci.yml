@@ -18,6 +18,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         node: ['22.14.0', '24.11.0']
+        # One macOS job (minimum supported Node) to limit exposure to macOS runner capacity queues
+        exclude:
+          - os: macos-latest
+            node: '24.11.0'
 
     steps:
       - name: Checkout repository
