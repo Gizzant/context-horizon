@@ -6,13 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [4.1.3] - 2026-11-18
+
+### Antigravity Guards, Flight Modes & Trial Results
+
+#### Added
+- Trial results: after the 14-day trial ends, the status bar shows a one-time "Trial ended" notice (about 24 hours, or until you run `npx ctxtop mode` or `license status`), and `mode` / `license status` (and their `--json` output) report how much Highbeam saved in this project during the trial. The figure counts all Highbeam savings in the trial window, not only Auto's; the savings ledger starts at $0 and is not back-filled from older chats (`npx ctxtop audit` shows what past sessions wasted).
+- `ctxtop init` ends with a one-line teaser of what the last 7 days of your Claude Code, Antigravity, Codex, Gemini and Cursor sessions wasted that Highbeam would have caught (read-only scan of existing transcripts; silent when under $0.50; skip with `--no-audit`).
+- Opt-in Antigravity hook trace: create `~/.ctxtop/hook_trace.on` to log each pre-tool hook call (event, tool, command, reply) to `~/.ctxtop/hook_trace.jsonl`.
+- New `ctxtop mode [coach|auto|silent|off]` shows or sets the flight mode, so Claude Code users can turn Auto on from the CLI. Without Pro or the trial, Auto runs as COACH and says so. `license trial` now says Auto stays off until you turn it on, and `mode` / `license status` say when the trial has ended and Auto is paused.
+
+#### Fixed
+- A `#check` prompt now stops with the scorecard in Antigravity (which sends the prompt as `lastUserInput`) and is no longer shadowed by the context-crisis card when the chat is over 87% full.
+- `license.json` written with a UTF-8 byte-order mark (Windows PowerShell 5.1 `Set-Content -Encoding utf8`) is read correctly instead of silently falling back to Free.
+- `ctxtop license trial` with a paid key already active says so instead of reporting a new trial; a hand-edited trial that ends before it starts still reports the savings from its 14 days.
+- Antigravity tool calls are now checked. Antigravity sends `toolCall: { name, args }` (and `hookEventName`), but the guards only read `tool_name` / `tool_input`, so every Antigravity tool call looked empty and was allowed, including `git push --force`. The hook now reads the documented shape.
+- Antigravity prompt stops use the documented reply (`injectSteps` + `terminationBehavior: "terminate"`); the old shape was ignored. In `COACH`, only a 3-strike error loop, an explicit `#check`, or a detector set to `block` stops a prompt, as the README states; other states (for example the context-limit card) show as a message. `AUTO_PILOT` keeps every stop.
+
 ## [4.1.2] - 2026-11-17
 
 ### Packaging, Registry Distribution & Pre-Launch Hardening
 
 #### Added
-- Trial results: after the 14-day trial ends, the status bar shows a one-time "Trial ended" notice (about 24 hours, or until you run `npx ctxtop mode` or `license status`), and `mode` / `license status` (and their `--json` output) report how much Highbeam saved in this project during the trial. The figure counts all Highbeam savings in the trial window, not only Auto's; the savings ledger starts at $0 and is not back-filled from older chats (`npx ctxtop audit` shows what past sessions wasted).
-- `ctxtop init` ends with a one-line teaser of what the last 7 days of your Claude Code, Antigravity, Codex, Gemini and Cursor sessions wasted that Highbeam would have caught (read-only scan of existing transcripts; silent when under $0.50; skip with `--no-audit`).
 - `@ctxtop/mcp` registry distribution manifests (`smithery.yaml`, `glama.json`, `server.json`) and automated publication alongside `ctxtop` on release.
 - Polar.sh license delivery: the webhook worker issues a key only on `order.paid` (every other event type is ignored, so one purchase can never email several keys), never emails a placeholder address when an order has no customer email (it answers 422 instead), and now emails the signed key to the buyer, de-duplicates retried webhooks, and enforces the 200-seat lifetime cap with a persistent counter. The key is never returned in the HTTP response.
 - CI now runs on Node 20.19.0 as well as 22.14.0.
@@ -33,19 +48,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `AUTO_PILOT` no longer blocks a model switch when its estimate rests mostly on default values; it shows an advisory instead.
 
 #### Fixed
-- A `#check` prompt now stops with the scorecard in Antigravity (which sends the prompt as `lastUserInput`) and is no longer shadowed by the context-crisis card when the chat is over 87% full.
-- `license.json` written with a UTF-8 byte-order mark (Windows PowerShell 5.1 `Set-Content -Encoding utf8`) is read correctly instead of silently falling back to Free.
-- `ctxtop license trial` with a paid key already active says so instead of reporting a new trial; a hand-edited trial that ends before it starts still reports the savings from its 14 days.
 - Claude Code installs no longer write `hooks.modules` into `settings.json` (Claude Code 2.1.325 has no such setting and reported the file as invalid on every start); reinstalling removes the entry an earlier version added while keeping other entries, and `hooks/hooks.json` drops it too.
 - Claude Code `PostToolUse` output offload now writes artifacts and savings lines when routed over IPC through the warm Highbeam daemon (`src/hooks/daemon_hook_bridge.mjs` now loads the Node file adapter).
 - `ctxtop receipt` (and `panel`, `roast`, `radar`, `cost-radar`) run from a project now read that project's `.claude/cache/horizon_ledger.jsonl`, where hooks write savings, instead of reading a home-folder ledger and showing `$0.00`.
 - `README.md` latency figures now describe what runs: each hook call is a short Node process (about 60–80 ms on Linux, 200–275 ms measured on Windows), not a sub-millisecond in-process tier.
 - Claude Code shell output that hits Claude Code's own 30,000-character cap (`BASH_MAX_OUTPUT_LENGTH`) is left alone and records no savings, since Claude Code has already saved the full output to its own file and shows a short preview.
 - `ctxtop init --antigravity` warns when the Antigravity hooks are switched off (`"enabled": false` in `hooks.json`), `--enable` turns them back on, and `doctor` reports that state as `WARN` instead of `Active`.
-- Antigravity tool calls are now checked. Antigravity sends `toolCall: { name, args }` (and `hookEventName`), but the guards only read `tool_name` / `tool_input`, so every Antigravity tool call looked empty and was allowed, including `git push --force`. The hook now reads the documented shape.
-- Antigravity prompt stops use the documented reply (`injectSteps` + `terminationBehavior: "terminate"`); the old shape was ignored. In `COACH`, only a 3-strike error loop, an explicit `#check`, or a detector set to `block` stops a prompt, as the README states; other states (for example the context-limit card) show as a message. `AUTO_PILOT` keeps every stop.
-- Opt-in Antigravity hook trace: create `~/.ctxtop/hook_trace.on` to log each pre-tool hook call (event, tool, command, reply) to `~/.ctxtop/hook_trace.jsonl`.
-- New `ctxtop mode [coach|auto|silent|off]` shows or sets the flight mode, so Claude Code users can turn Auto on from the CLI. Without Pro or the trial, Auto runs as COACH and says so. `license trial` now says Auto stays off until you turn it on, and `mode` / `license status` say when the trial has ended and Auto is paused.
 - Model-switch cost (DET-08) now counts every request in a turn and the cache writes inside it; on 42 benchmark switches, wrong holds fell from 6 to 3.
 - `scripts/sync_mirrors.mjs` with `verifyOnly: true` no longer bootstraps missing plugin folders or writes into `.agents/` when run under an isolated test home (reports `not installed` instead).
 - Mirror parity checks (`10.1` and `test_mirror_boot_smoke.mjs`) now reflect which mirror roots are installed and check `notInstalledRoots` when a root is absent, and CI runs `scripts/sync_mirrors.mjs` before the test suites (skipping gitignored local-only docs when building evaluation bundles).
