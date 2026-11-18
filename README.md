@@ -152,6 +152,7 @@ Highbeam's cache-economics engine is backed by **45 pre-registered randomized ru
 - **Changing `--effort` Busted `4.6` Caches (`+$0.0853`), Fixed in `5.5`:** Wire diffs caught `output_config.effort` invalidating `4.6` prompt caches while `claude-sonnet-5-5` preserved warm cache hits (`n = 3`).
 - **Stock `/compact` Scored `0/6` Violations Up to `28.10x` Compression:** Because default compaction preserved constraints cleanly without custom templates, Highbeam emits zero `PreCompact` bloat.
 - **MCP / Tool-List Swaps on `--resume` Wipe Cache; `CLAUDE.md` Edits Do Not:** Highbeam hashes `.mcp.json` / `.claude/settings*.json` across resumes and warns before uncached rebuilds.
+- AUTO_PILOT blocks a model switch only after the session has enough observed turns. Before that it warns, because blocks based on default estimates were wrong on 39 of 42 benchmark switches.
 
 👉 See full methodology, per-arm datasets, SDK `stream-json` `set_model` patterns, and explicit unverified boundaries in [**`docs/EMPIRICAL_BENCHMARKS.md`**](docs/EMPIRICAL_BENCHMARKS.md).
 

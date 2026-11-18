@@ -57,6 +57,8 @@ test('C1a & Ask Default: native PreModelSwitch records exact coldWritePenaltyUSD
         uncached_delta_tokens: 350,
         prompt_cache_warm: true,
         cache_ttl: '5m',
+        requests_per_turn: 1,
+        expected_output_tokens: 1500,
         mode: 'AUTO_PILOT'
       },
       {
@@ -102,6 +104,8 @@ test('C1a & Ask Default: native PreModelSwitch records exact coldWritePenaltyUSD
         uncached_delta_tokens: 350,
         prompt_cache_warm: true,
         cache_ttl: '5m',
+        requests_per_turn: 1,
+        expected_output_tokens: 1500,
         mode: 'AUTO_PILOT'
       },
       {
@@ -114,6 +118,30 @@ test('C1a & Ask Default: native PreModelSwitch records exact coldWritePenaltyUSD
     assert.equal(resDeny.exitCode, 2);
     assert.equal(resDeny.verdict.decision, 'deny');
     assert.match(resDeny.stderr, /payback ~\d+\.\d+ post-switch warm requests \(~\d+\.\d+ turns\)/);
+
+    // Sibling: without observed R/O data, AUTO_PILOT issues a non-blocking advisory
+    const resDefaults = runPreModelSwitchHook(
+      {
+        hook_event_name: 'PreModelSwitch',
+        session_id: 'sess-c1a-defaults',
+        from_model: 'claude-opus-4-6',
+        to_model: 'claude-sonnet-4-6',
+        context_tokens: 14840,
+        uncached_delta_tokens: 350,
+        prompt_cache_warm: true,
+        cache_ttl: '5m',
+        mode: 'AUTO_PILOT'
+      },
+      {
+        cwd: tmpDir,
+        recordLedger: false,
+        bypassLicense: true
+      }
+    );
+    assert.equal(resDefaults.exitCode, 0);
+    assert.equal(resDefaults.verdict.advisory, true);
+    assert.equal(resDefaults.verdict.blocked, false);
+    assert.equal(resDefaults.verdict.basedMostlyOnDefaults, true);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -121,51 +149,106 @@ test('C1a & Ask Default: native PreModelSwitch records exact coldWritePenaltyUSD
 
 test('C1b: runPreModelSwitchHook treats expired promptCache.expiresAt as cold even when warm=true', () => {
   const baseNow = 1_700_000_000_000;
-  const staleState = createInitialTelemetryState('sess-c1b', 'claude-opus-4-6');
-  staleState.flightMode = 'AUTO_PILOT';
-  staleState.contextWindow.cachedTokens = 25000;
-  staleState.promptCache.warm = true;
-  staleState.promptCache.ttlTier = '5m';
-  staleState.promptCache.ttlSeconds = 300;
-  staleState.promptCache.expiresAt = baseNow - 120_000;
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'c1b-home-'));
+  try {
+    const calDir = path.join(tmpHome, '.attention-horizon', 'cache', 'sessions');
+    fs.mkdirSync(calDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(calDir, 'cal_sess-c1b.json'),
+      JSON.stringify({
+        sessionId: 'sess-c1b',
+        turnsCompleted: 5,
+        apiCallsCompleted: 5,
+        requestsPerTurn: 1,
+        rptSampleSize: 5,
+        rollingMedianRequestsPerTurn: 1,
+        recentTurnRequestCounts: [1, 1, 1, 1, 1],
+        outputSampleSize: 5,
+        rollingMedianOutputTokens: 500,
+        recentTurnOutputs: [500, 500, 500, 500, 500]
+      }),
+      'utf8'
+    );
 
-  const resExpired = runPreModelSwitchHook(
-    {
-      hook_event_name: 'PreModelSwitch',
-      session_id: 'sess-c1b',
-      from_model: 'claude-opus-4-6',
-      to_model: 'claude-sonnet-4-6'
-    },
-    {
-      telemetryState: staleState,
-      nowMs: baseNow,
-      recordLedger: false,
-      bypassLicense: true
-    }
-  );
+    const staleState = createInitialTelemetryState('sess-c1b', 'claude-opus-4-6');
+    staleState.flightMode = 'AUTO_PILOT';
+    staleState.contextWindow.cachedTokens = 25000;
+    staleState.promptCache.warm = true;
+    staleState.promptCache.ttlTier = '5m';
+    staleState.promptCache.ttlSeconds = 300;
+    staleState.promptCache.expiresAt = baseNow - 120_000;
 
-  assert.equal(resExpired.exitCode, 0);
-  assert.equal(resExpired.verdict.blocked, false);
-  assert.equal(resExpired.verdict.decision, 'allow');
-  assert.equal(resExpired.verdict.breakEven.cacheWarm, false);
+    const resExpired = runPreModelSwitchHook(
+      {
+        hook_event_name: 'PreModelSwitch',
+        session_id: 'sess-c1b',
+        from_model: 'claude-opus-4-6',
+        to_model: 'claude-sonnet-4-6'
+      },
+      {
+        telemetryState: staleState,
+        homeDir: tmpHome,
+        nowMs: baseNow,
+        recordLedger: false,
+        bypassLicense: true
+      }
+    );
 
-  const resWarm = runPreModelSwitchHook(
-    {
-      hook_event_name: 'PreModelSwitch',
-      session_id: 'sess-c1b',
-      from_model: 'claude-opus-4-6',
-      to_model: 'claude-sonnet-4-6'
-    },
-    {
-      telemetryState: staleState,
-      nowMs: baseNow - 180_000,
-      recordLedger: false,
-      bypassLicense: true
-    }
-  );
-  assert.equal(resWarm.exitCode, 0);
-  assert.equal(resWarm.verdict.blocked, true);
-  assert.equal(resWarm.verdict.decision, 'ask');
+    assert.equal(resExpired.exitCode, 0);
+    assert.equal(resExpired.verdict.blocked, false);
+    assert.equal(resExpired.verdict.decision, 'allow');
+    assert.equal(resExpired.verdict.breakEven.cacheWarm, false);
+
+    const resWarm = runPreModelSwitchHook(
+      {
+        hook_event_name: 'PreModelSwitch',
+        session_id: 'sess-c1b',
+        from_model: 'claude-opus-4-6',
+        to_model: 'claude-sonnet-4-6'
+      },
+      {
+        telemetryState: staleState,
+        homeDir: tmpHome,
+        nowMs: baseNow - 180_000,
+        recordLedger: false,
+        bypassLicense: true
+      }
+    );
+    assert.equal(resWarm.exitCode, 0);
+    assert.equal(resWarm.verdict.blocked, true);
+    assert.equal(resWarm.verdict.decision, 'ask');
+
+    // Sibling: warm cache without observed calibration data -> advisory instead of blocking
+    const staleStateDefaults = createInitialTelemetryState('sess-c1b-defaults', 'claude-opus-4-6');
+    staleStateDefaults.flightMode = 'AUTO_PILOT';
+    staleStateDefaults.contextWindow.cachedTokens = 25000;
+    staleStateDefaults.promptCache.warm = true;
+    staleStateDefaults.promptCache.ttlTier = '5m';
+    staleStateDefaults.promptCache.ttlSeconds = 300;
+    staleStateDefaults.promptCache.expiresAt = baseNow - 120_000;
+
+    const resWarmDefaults = runPreModelSwitchHook(
+      {
+        hook_event_name: 'PreModelSwitch',
+        session_id: 'sess-c1b-defaults',
+        from_model: 'claude-opus-4-6',
+        to_model: 'claude-sonnet-4-6'
+      },
+      {
+        telemetryState: staleStateDefaults,
+        homeDir: tmpHome,
+        nowMs: baseNow - 180_000,
+        recordLedger: false,
+        bypassLicense: true
+      }
+    );
+    assert.equal(resWarmDefaults.exitCode, 0);
+    assert.equal(resWarmDefaults.verdict.advisory, true);
+    assert.equal(resWarmDefaults.verdict.blocked, false);
+    assert.equal(resWarmDefaults.verdict.basedMostlyOnDefaults, true);
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+  }
 });
 
 test('C1c: ingestModTurnEvent and ingestStatusLinePayload promote ttlTier to 1h when ephemeral_1h_input_tokens > 0', () => {
@@ -280,6 +363,8 @@ test('Offline S1 boundary: Opus 4.6 -> Sonnet 4.6 C* = 4,615 (delta=0) and 4,885
         context_tokens: tokens,
         uncached_delta_tokens: delta,
         prompt_cache_warm: true,
+        requests_per_turn: 1,
+        expected_output_tokens: 1500,
         mode: 'AUTO_PILOT'
       },
       { recordLedger: false, bypassLicense: true, minSwitchPenaltyUSD: 0 }
@@ -288,6 +373,24 @@ test('Offline S1 boundary: Opus 4.6 -> Sonnet 4.6 C* = 4,615 (delta=0) and 4,885
     assert.equal(res.verdict.blocked, expectHold, `tokens=${tokens}, delta=${delta}`);
     assert.equal(res.verdict.decision, expectHold ? 'ask' : 'allow');
   }
+
+  // Sibling: without explicit/observed R/O data above C*, warns with advisory instead of blocking
+  const resDefaults = runPreModelSwitchHook(
+    {
+      hook_event_name: 'PreModelSwitch',
+      session_id: 'sess-s1-defaults',
+      from_model: 'claude-opus-4-6',
+      to_model: 'claude-sonnet-4-6',
+      context_tokens: 5550,
+      uncached_delta_tokens: 350,
+      prompt_cache_warm: true,
+      mode: 'AUTO_PILOT'
+    },
+    { recordLedger: false, bypassLicense: true, minSwitchPenaltyUSD: 0 }
+  );
+  assert.equal(resDefaults.verdict.advisory, true);
+  assert.equal(resDefaults.verdict.blocked, false);
+  assert.equal(resDefaults.verdict.basedMostlyOnDefaults, true);
 });
 
 test('C1e & Empirical Horizon Prior: rule_v1 default preserved, explicit expectedRemainingTurns and 496-session prior supported', () => {

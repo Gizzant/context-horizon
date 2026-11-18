@@ -344,6 +344,7 @@ test('Item 4: pending_downshift recorded on DET-08 hold, surfaced once on Sessio
         from_model: 'claude-opus-4-6',
         to_model: 'claude-sonnet-4-6',
         cached_tokens: 90_000,
+        requests_per_turn: 1,
         expectedOutputTokens: 150,
         expected_remaining_turns: 4,
         cache_warm: true,
@@ -356,6 +357,24 @@ test('Item 4: pending_downshift recorded on DET-08 hold, surfaced once on Sessio
     assert.equal(held.verdict.pending_downshift.toModel, 'claude-sonnet-4-6');
     const snapAfterHold = readBreakerStateSnapshot('sess-downshift', hookOpts);
     assert.equal(snapAfterHold.pending_downshift.toModel, 'claude-sonnet-4-6');
+
+    // Sibling: without observed R/O data, AUTO_PILOT issues a non-blocking advisory
+    const heldDefaults = runPreModelSwitchHook(
+      {
+        session_id: 'sess-downshift-defaults',
+        cwd: ws.cwd,
+        hook_event_name: 'PreModelSwitch',
+        from_model: 'claude-opus-4-6',
+        to_model: 'claude-sonnet-4-6',
+        cached_tokens: 90_000,
+        cache_warm: true,
+        mode: 'AUTO_PILOT'
+      },
+      hookOpts
+    );
+    assert.equal(heldDefaults.verdict.advisory, true);
+    assert.equal(heldDefaults.verdict.blocked, false);
+    assert.equal(heldDefaults.verdict.basedMostlyOnDefaults, true);
 
     // 4.2 SessionStart:compact emits one-line systemMessage naming /model <target> and reason, without additionalContext leak, and clears pending_downshift
     const ssCompact = runCompactLifecycleHook(
@@ -434,6 +453,7 @@ test('Item 4: pending_downshift recorded on DET-08 hold, surfaced once on Sessio
         from_model: 'claude-opus-4-6',
         to_model: 'claude-sonnet-4-6',
         cached_tokens: 90_000,
+        requests_per_turn: 1,
         expectedOutputTokens: 150,
         expected_remaining_turns: 4,
         cache_warm: true,
@@ -453,6 +473,7 @@ test('Item 4: pending_downshift recorded on DET-08 hold, surfaced once on Sessio
         from_model: 'claude-opus-4-6',
         to_model: 'claude-sonnet-4-6',
         cached_tokens: 90_000,
+        requests_per_turn: 1,
         expectedOutputTokens: 150,
         expected_remaining_turns: 4,
         cache_warm: true,

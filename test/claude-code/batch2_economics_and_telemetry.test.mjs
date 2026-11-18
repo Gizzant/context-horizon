@@ -385,12 +385,29 @@ test('ISS-004: DET-12, DET-09, DET-10 (including 1h write rate), and PreModelSwi
     uncached_delta_tokens: 10_000,
     cache_ttl_tier: '1h',
     cacheWarm: true,
+    requests_per_turn: 1,
+    expected_output_tokens: 1500,
     mode: 'AUTO_PILOT'
   });
   assert.equal(preSwitch1h.exitCode, 2);
   assert.equal(preSwitch1h.verdict.breakEven.cacheTtlTier, '1h');
   assert.equal(preSwitch1h.verdict.breakEven.uncachedDeltaTokens, 10_000);
   assert.match(preSwitch1h.stderr, /2\.0x/);
+
+  // Sibling: without observed R/O data, AUTO_PILOT warns with advisory instead of blocking
+  const preSwitch1hDefaults = runPreModelSwitchHook({
+    currentModel: 'claude-opus-5-5',
+    targetModel: 'claude-sonnet-5-5',
+    cachedTokens: 40_000,
+    uncached_delta_tokens: 10_000,
+    cache_ttl_tier: '1h',
+    cacheWarm: true,
+    mode: 'AUTO_PILOT'
+  });
+  assert.equal(preSwitch1hDefaults.exitCode, 0);
+  assert.equal(preSwitch1hDefaults.verdict.advisory, true);
+  assert.equal(preSwitch1hDefaults.verdict.blocked, false);
+  assert.equal(preSwitch1hDefaults.verdict.basedMostlyOnDefaults, true);
 });
 
 // ============================================================================
