@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [Unreleased]
+
+### Changed
+- Smaller npm package: `ctxtop` no longer ships the `packages/core`, `packages/engine-node`, `packages/antigravity` and `packages/claude-code` workspace mirrors, which nothing in the installed package loads (509 → 351 files, 9.2 MB → 6.7 MB unpacked).
+
 ## [4.1.4] - 2026-11-18
 
 ### Node 22.13 Requirement
