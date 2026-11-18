@@ -206,10 +206,37 @@
   body[data-flight-mode="off"] .mode-hide-off,
   body[data-flight-mode="coach"] .mode-hide-coach,
   body[data-flight-mode="autopilot"] .mode-hide-auto,
+  body:not([data-flight-mode="off"]) .mode-only-off,
+  body:not([data-flight-mode="coach"]) .mode-only-coach,
+  body:not([data-flight-mode="autopilot"]) .mode-only-auto,
   body:not([data-auto-state="on"]) .auto-on-only,
   body:not([data-auto-state="preview"]) .auto-preview-only {
     display: none !important;
   }
+
+  /* Tokens-saved headline (all modes) */
+  .ts-saved-hero {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 10px 12px; margin-bottom: 8px;
+    border: 1px solid var(--hz-border, rgba(255,255,255,0.12)); border-radius: 8px;
+  }
+  .ts-saved-hero-label { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.7; }
+  .ts-saved-hero-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .ts-saved-hero-num { font-size: 28px; line-height: 1.1; font-variant-numeric: tabular-nums; font-weight: 650; color: var(--hz-useful, #30d158); }
+  .ts-saved-hero-usd { font-size: 14px; font-variant-numeric: tabular-nums; opacity: 0.85; }
+  .ts-saved-hero-sub { font-size: 11px; opacity: 0.65; }
+  .ts-mode-note { margin: 0 0 8px; font-size: 12px; opacity: 0.8; }
+  .ts-status-strip {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    padding: 6px 10px; font-size: 12px; border-radius: 6px;
+    border: 1px solid var(--hz-border, rgba(255,255,255,0.12));
+  }
+  .ts-needs-row {
+    display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px;
+    padding: 8px 10px; font-size: 12.5px; border-radius: 6px;
+    border: 1px solid var(--hz-border, rgba(255,255,255,0.12));
+  }
+  .ts-needs-row[data-tone="danger"] { border-color: var(--hz-danger, #ff453a); }
 
   .badge {
     font-size: 10.5px;
@@ -5359,9 +5386,8 @@
       <span class="badge mono advanced-only" id="workloadModeBadge">[Mode: Read-Heavy Audit]</span>
       <span class="badge" id="statusBadge">Healthy</span>
       <span class="badge warn advanced-only" id="confidenceBadge" hidden style="display:none;">Degraded</span>
-      <div class="shadcn-tabs-list" role="tablist" aria-label="Telemetry density mode" data-slot="tabs-list">
-        <button type="button" role="tab" class="shadcn-tab-trigger" id="tabSimple" data-view-tab="simple" aria-selected="true" title="Focused summary view">Simple</button>
-        <button type="button" role="tab" class="shadcn-tab-trigger" id="tabAdvanced" data-view-tab="advanced" aria-selected="false" title="Full diagnostic & timeline view">Advanced</button>
+      <div class="shadcn-tabs-list" role="group" aria-label="Advanced view" data-slot="tabs-list">
+        <button type="button" class="shadcn-tab-trigger" id="tabAdvanced" data-view-tab="advanced" aria-pressed="false" title="Open the full diagnostic & timeline view">Advanced</button>
       </div>
       <span class="tufte-top-host-badge" id="tufteTopHostBadge">Antigravity &middot; Auto</span>
       <button class="icon-btn" onclick="window.location.reload()" title="Reload panel" aria-label="Reload panel"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.35-3.6"/><path d="M13.5 2.5v3h-3"/></svg></button>
@@ -5405,9 +5431,31 @@
   <!-- =========================================================================
        LIVE EDWARD TUFTE "SIMPLE VIEW" SURFACE (4-Card Sketch Layout)
        ========================================================================= -->
-  <div id="argonSimpleSurface" aria-label="Highbeam Simple View">
+  <div id="argonSimpleSurface" aria-label="Highbeam main view">
+    <!-- MODE VIEWS: the same panel shows the view for the running mode (Off, Coach, Auto). -->
+    <section id="tsSavedHero" class="ts-saved-hero" aria-label="Estimated tokens saved">
+      <span class="ts-saved-hero-label">Est. tokens saved</span>
+      <span class="ts-saved-hero-row">
+        <strong id="tsHeroSaved" class="ts-saved-hero-num">+0</strong>
+        <span id="tsHeroUsd" class="ts-saved-hero-usd">~$0.00</span>
+      </span>
+      <span id="tsHeroSub" class="ts-saved-hero-sub">This chat &middot; nothing saved yet</span>
+    </section>
+
+    <p id="tsOffNote" class="ts-mode-note mode-only-off" role="status">Watching only. Highbeam tracks context and the cache timer but does not trim logs or give advice. Switch to Coach for advice.</p>
+
+    <div id="tsStatusStrip" class="ts-status-strip mode-hide-off" role="status" aria-live="polite" data-tone="nominal">
+      <span id="tsStripDot" class="ts-dot" data-tone="nominal"></span>
+      <span id="tsStripText">Healthy</span>
+    </div>
+
+    <section id="tsNeedsRow" class="ts-needs-row mode-only-auto" data-tone="ok" role="status" aria-live="polite">
+      <span id="tsNeedsTag" class="ts-tag">NEEDS YOU</span>
+      <span id="tsNeedsText">Nothing needed from you.</span>
+    </section>
+
     <!-- CARD 1: CONTEXT (scrollTop: 0) + Upper-Right Reversed "Glass of Water" Bar -->
-    <section id="tsMetricHeader" class="ts-card ts-metric-header" aria-label="Context usage and categories">
+    <section id="tsMetricHeader" class="ts-card ts-metric-header mode-hide-coach mode-hide-auto" aria-label="Context usage and categories">
       <div class="ts-card-head">
         <span class="ts-card-title" data-tip title="How full your AI's working memory is right now compared to the safe limit where it stays accurate and remembers early project rules.">CONTEXT</span>
         <div class="ts-status-badge" role="status" aria-live="polite" data-tip title="Current memory and prompt-cache health. Green or neutral means you have room to work cleanly; amber or red means it is time to compact or slow down.">
@@ -5503,7 +5551,7 @@
     </section>
 
     <!-- CARD 2: DIRECT GUIDANCE -->
-    <section id="tsGuidanceSection" class="ts-card" aria-label="Direct guidance">
+    <section id="tsGuidanceSection" class="ts-card mode-hide-off mode-hide-auto" aria-label="Direct guidance">
       <div class="ts-card-head">
         <span class="ts-card-title" data-tip title="Actionable next steps and warnings based on your current memory fill, cache warmth, active guards, and rule health.">DIRECT GUIDANCE</span>
         <span id="tsGuidanceBadge" class="ts-meta" data-tone="muted" data-tip title="Shows whether switching your AI model or reasoning effort right now is free (OK) or will force a costly cache rebuild (Hold).">Model: OK &middot; Effort: OK</span>
@@ -5544,7 +5592,7 @@
     </section>
 
     <!-- CARD 3: AUTOMATED ACTIVITY -->
-    <section id="tsActivitySection" class="ts-card" aria-label="Automated activity">
+    <section id="tsActivitySection" class="ts-card mode-hide-off mode-hide-coach" aria-label="Automated activity">
       <div class="ts-card-head">
         <span class="ts-card-title" data-tip title="What Highbeam does in the background: it trims long test logs, skips repeat file reads, protects your warm cache, and applies learned rules.">AUTOMATED ACTIVITY</span>
         <span id="tsGuardsSummary" class="ts-kpi-sub" data-tip title="Number of background interventions active in this chat and how many safety/efficiency guards are currently armed.">Guards armed</span>
@@ -5558,13 +5606,13 @@
         </li>
       </ul>
 
-      <details id="tsLearnedRulesDrawer" class="ts-drawer" hidden>
+      <details id="tsLearnedRulesDrawer" class="ts-drawer mode-hide-off mode-hide-coach mode-hide-auto" hidden>
         <summary title="Click to see the project rules and recovery steps Highbeam learned from your earlier coding sessions."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span><span id="tsLearnedRulesSummary">Applying learned rules</span></span><span id="tsLearnedRulesHint" class="ts-kpi-sub">Details</span></summary>
         <div id="tsLearnedRulesHead" class="ts-guard-head" hidden>Learned project rules</div>
         <ul id="tsLearnedRulesList" class="ts-ledger ts-guard-list" role="list" hidden></ul>
       </details>
 
-      <details id="tsActivityDrawer" class="ts-drawer">
+      <details id="tsActivityDrawer" class="ts-drawer mode-hide-off mode-hide-coach mode-hide-auto">
         <summary title="Click to see every guard, whether it needs attention now, and whether it blocks bad actions or only gives advice."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Active safety &amp; efficiency guards</span><span id="tsGuardRosterHint" class="ts-kpi-sub">Details</span></summary>
         <div id="tsGuardListHead" class="ts-guard-head" hidden>Live guards</div>
         <ul id="tsGuardList" class="ts-ledger ts-guard-list" role="list" hidden></ul>
@@ -5572,7 +5620,7 @@
     </section>
 
     <!-- CARD 4: SESSION OVERVIEW -->
-    <section id="tsSessionSection" class="ts-card" aria-label="Session overview">
+    <section id="tsSessionSection" class="ts-card mode-hide-coach mode-hide-auto" aria-label="Session overview">
       <div class="ts-card-head">
         <span class="ts-card-title" data-tip title="A big-picture look at your entire chat session from Turn 1 until now: how fast context is growing, how well the prompt cache is sticking, and total savings.">SESSION OVERVIEW</span>
         <span id="tsSessionTurnsMeta" class="ts-kpi-sub" data-tip title="Total turns recorded in this conversation so far, along with how many stayed lean vs. triggered a spike or warning.">Session start</span>
@@ -5617,7 +5665,7 @@
             <span id="tsKpi30d" class="ts-kpi-sub" title="Cumulative estimated savings across this workspace over the last 30 days.">30d: +0.0k (~$0.00)</span>
             <span id="tsSprintMeta" class="ts-kpi-sub" hidden title="Estimated share of your 5-hour rolling seat quota used so far."></span>
           </div>
-          <span id="tsSavedHint" class="ts-kpi-sub" title="All savings are counted once per turn from Highbeam's local ledger with zero estimates padded in.">verified</span>
+          <span id="tsSavedHint" class="ts-kpi-sub" title="All savings are counted once per turn from Highbeam's local ledger with zero estimates padded in.">estimated</span>
         </div>
 
         <!-- Row 4 (Conditional): v4.1 Multi-Agent Swarm, Learned Rules & Sharded Constraints -->
@@ -11650,14 +11698,20 @@
     btn.setAttribute('aria-expanded', String(open));
   };
 
-  // Simple / Advanced View Mode Tabs (shadcn/ui Tabs pattern)
+  // Main / Advanced view toggle. The main view follows the protection mode (Off, Coach, Auto);
+  // the header button swaps to the Advanced diagnostics view and back. `data-view-tab` always names
+  // the view a click opens next.
   const savedViewMode = (function() {
     try { return localStorage.getItem('ah.viewMode') || localStorage.getItem('ctxtop.viewMode') || 'simple'; } catch { return 'simple'; }
   })();
   function applyViewMode(mode) {
     document.body.setAttribute('data-view-mode', mode);
     document.querySelectorAll('[data-view-tab]').forEach(b => {
-      b.setAttribute('aria-selected', String(b.dataset.viewTab === mode));
+      const inAdvanced = mode === 'advanced';
+      b.dataset.viewTab = inAdvanced ? 'simple' : 'advanced';
+      b.setAttribute('aria-pressed', String(inAdvanced));
+      b.textContent = inAdvanced ? 'Back' : 'Advanced';
+      b.title = inAdvanced ? 'Return to the main view' : 'Open the full diagnostic & timeline view';
     });
     try {
       localStorage.setItem('ah.viewMode', mode);
@@ -12480,7 +12534,58 @@
     if (rightEl) rightEl.textContent = `${formatTokens(cell.tokens || 0)} / cell \u00B7 ${recall} recall`;
   }
 
+  // Mode views: after the shared surfaces are drawn, fill the elements only the mode views use
+  // (tokens-saved headline, one-line status, Auto "needs you" row). All text is copied from values the
+  // shared renderer already computed, so every mode tells the same story.
+  function renderModeViewContent(raw) {
+    const txtOf = (id) => (document.getElementById(id)?.textContent || '').trim();
+    const setIf = (id, text) => { const el = document.getElementById(id); if (el && el.textContent !== text) el.textContent = text; };
+    const mode = document.body?.dataset?.flightMode || 'coach';
+    const autoState = document.body?.dataset?.autoState || 'na';
+
+    // 1. Tokens-saved headline: same figures as the Session overview "Saved" row.
+    setIf('tsHeroSaved', txtOf('tsKpiSaved') || '+0');
+    const usdTxt = document.getElementById('tsKpiUsd');
+    setIf('tsHeroUsd', usdTxt && !usdTxt.hidden ? txtOf('tsKpiUsd') : '');
+    const d30 = document.getElementById('tsKpi30d');
+    const saved = txtOf('tsKpiSaved').replace(/[^0-9.]/g, '');
+    const hasSaved = Number(saved) > 0;
+    const d30Txt = d30 && !d30.hidden ? txtOf('tsKpi30d') : '';
+    setIf('tsHeroSub', hasSaved
+      ? `This chat${d30Txt ? ' \u00B7 ' + d30Txt : ''}`
+      : (d30Txt ? `Nothing saved in this chat yet \u00B7 ${d30Txt}` : 'This chat \u00B7 nothing saved yet'));
+
+    // 2. One-line status (Coach and Auto): health, context used, cache.
+    const strip = document.getElementById('tsStatusStrip');
+    if (strip) {
+      const tone = document.getElementById('tsStatusDot')?.dataset?.tone || 'nominal';
+      strip.dataset.tone = tone;
+      const stripDot = document.getElementById('tsStripDot');
+      if (stripDot) stripDot.dataset.tone = tone;
+      setIf('tsStripText', `${txtOf('tsStatusLabel') || 'Healthy'} \u00B7 ${txtOf('tsUsedLabel')} of ${txtOf('tsSafeLabel')} safe (${txtOf('tsUsedPct')}) \u00B7 Cache: ${txtOf('tsCacheMeta') || 'n/a'}`);
+    }
+
+    // 3. Auto "needs you" row: shows an instruction only where the shared guidance flags a stop-and-look case.
+    const needs = document.getElementById('tsNeedsRow');
+    if (needs) {
+      const doRow = document.getElementById('tsDoRow');
+      const flagged = doRow?.dataset?.tone === 'danger';
+      needs.dataset.tone = flagged ? 'danger' : 'ok';
+      setIf('tsNeedsTag', flagged ? 'NEEDS YOU' : (autoState === 'preview' ? 'PREVIEW' : 'AUTO'));
+      setIf('tsNeedsText', flagged
+        ? txtOf('tsDoText')
+        : (mode === 'autopilot' && autoState === 'preview'
+          ? 'Nothing needed from you. Auto is a preview: it advises like Coach and applies nothing until you start the trial or unlock Pro.'
+          : 'Nothing needed from you. Auto is handling it.'));
+    }
+  }
+
   function renderArgonTufteSurfaces(raw) {
+    renderArgonTufteSurfacesCore(raw);
+    try { renderModeViewContent(raw); } catch (err) { void err; }
+  }
+
+  function renderArgonTufteSurfacesCore(raw) {
     if (!raw || typeof raw !== 'object') return;
     const win = raw.window || {};
     const bd = win.breakdown || raw.categories || {};

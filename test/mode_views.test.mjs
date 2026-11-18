@@ -151,3 +151,141 @@ describe('Mode-driven main view: body mode attributes', () => {
     }
   });
 });
+
+describe('Header: one Advanced toggle replaces the Simple / Advanced tabs', () => {
+  it('opens the Advanced view, offers Back, and returns to the main view', async () => {
+    const { dom, d, jsdomErrors } = await mountPanel();
+    const btn = () => d.getElementById('tabAdvanced');
+    try {
+      assert.equal(d.getElementById('tabSimple'), null, 'no Simple tab');
+      assert.equal(d.querySelectorAll('.header-controls [data-view-tab]').length, 1, 'exactly one view control');
+      assert.equal(d.body.dataset.viewMode, 'simple');
+      assert.equal(btn().textContent, 'Advanced');
+      assert.equal(btn().getAttribute('aria-pressed'), 'false');
+
+      btn().click();
+      assert.equal(d.body.dataset.viewMode, 'advanced');
+      assert.equal(btn().textContent, 'Back');
+      assert.equal(btn().getAttribute('aria-pressed'), 'true');
+      assert.equal(btn().dataset.viewTab, 'simple', 'data-view-tab names the view a click opens next');
+
+      btn().click();
+      assert.equal(d.body.dataset.viewMode, 'simple');
+      assert.equal(btn().textContent, 'Advanced');
+      assert.deepEqual(jsdomErrors, []);
+    } finally {
+      dom.window.close();
+    }
+  });
+});
+
+describe('Mode views: what each mode shows', () => {
+  const visible = (win, d, id) => {
+    const el = d.getElementById(id);
+    return Boolean(el) && win.getComputedStyle(el).display !== 'none';
+  };
+  const snapshot = (win, d) => ({
+    hero: visible(win, d, 'tsSavedHero'),
+    offNote: visible(win, d, 'tsOffNote'),
+    strip: visible(win, d, 'tsStatusStrip'),
+    needs: visible(win, d, 'tsNeedsRow'),
+    context: visible(win, d, 'tsMetricHeader'),
+    guidance: visible(win, d, 'tsGuidanceSection'),
+    activity: visible(win, d, 'tsActivitySection'),
+    session: visible(win, d, 'tsSessionSection'),
+    guardDrawer: visible(win, d, 'tsActivityDrawer')
+  });
+  const saved = { savings: { session: { totalTokens: 18400 } } };
+
+  it('Off: context and session cards plus a watch-only note; no advice, no activity', async () => {
+    const { dom, win, d, jsdomErrors } = await mountPanel();
+    try {
+      win.renderState(baseState('off', { flightMode: 'OFF', ...saved }));
+      assert.deepEqual(snapshot(win, d), {
+        hero: true, offNote: true, strip: false, needs: false,
+        context: true, guidance: false, activity: false, session: true, guardDrawer: false
+      });
+      assert.match(d.getElementById('tsOffNote').textContent, /Watching only/);
+      assert.deepEqual(jsdomErrors, []);
+    } finally { dom.window.close(); }
+  });
+
+  it('Coach: status line and guidance only', async () => {
+    const { dom, win, d, jsdomErrors } = await mountPanel();
+    try {
+      win.renderState(baseState('coach', { flightMode: 'COACH', ...saved }));
+      assert.deepEqual(snapshot(win, d), {
+        hero: true, offNote: false, strip: true, needs: false,
+        context: false, guidance: true, activity: false, session: false, guardDrawer: false
+      });
+      assert.ok(d.getElementById('tsDoText').textContent.trim().length > 0, 'DO text present');
+      assert.ok(d.getElementById('tsAvoidText').textContent.trim().length > 0, 'AVOID text present');
+      assert.match(d.getElementById('tsStripText').textContent, /\bof\b.*safe.*Cache:/);
+      assert.deepEqual(jsdomErrors, []);
+    } finally { dom.window.close(); }
+  });
+
+  it('Auto (on): status line, what Auto did, and a needs-you row that says nothing is needed', async () => {
+    const { dom, win, d, jsdomErrors } = await mountPanel();
+    try {
+      win.renderState(baseState('auto-on', {
+        routerMode: 'autopilot', flightMode: 'AUTO_PILOT', autoShadow: false,
+        proEntitlement: { entitled: true, tier: 'trial', daysRemaining: 9 }, ...saved
+      }));
+      assert.deepEqual(snapshot(win, d), {
+        hero: true, offNote: false, strip: true, needs: true,
+        context: false, guidance: false, activity: true, session: false, guardDrawer: false
+      });
+      assert.equal(d.getElementById('tsNeedsRow').dataset.tone, 'ok');
+      assert.match(d.getElementById('tsNeedsText').textContent, /Nothing needed from you\. Auto is handling it/);
+      assert.deepEqual(jsdomErrors, []);
+    } finally { dom.window.close(); }
+  });
+
+  it('Auto (Free preview): same layout, and the wording never says Auto applied anything', async () => {
+    const { dom, win, d, jsdomErrors } = await mountPanel();
+    try {
+      win.renderState(baseState('auto-preview', {
+        routerMode: 'autopilot', flightMode: 'AUTO_PILOT', proEntitlement: { entitled: false, tier: 'free' }, ...saved
+      }));
+      assert.equal(snapshot(win, d).activity, true);
+      assert.equal(d.getElementById('tsNeedsTag').textContent, 'PREVIEW');
+      assert.match(d.getElementById('tsNeedsText').textContent, /preview.*applies nothing/i);
+      assert.deepEqual(jsdomErrors, []);
+    } finally { dom.window.close(); }
+  });
+
+  it('Auto: a flagged situation turns the needs-you row into an instruction', async () => {
+    const { dom, win, d, jsdomErrors } = await mountPanel();
+    try {
+      win.renderState(baseState('auto-flag', {
+        routerMode: 'autopilot', flightMode: 'AUTO_PILOT', autoShadow: false,
+        proEntitlement: { entitled: true, tier: 'pro' },
+        coachState: { circuitBreakerAlerts: [{ detectorId: 'DET-03', reason: 'Test assertion weakened in parser.test.mjs' }] }
+      }));
+      assert.equal(d.getElementById('tsNeedsRow').dataset.tone, 'danger');
+      assert.equal(d.getElementById('tsNeedsTag').textContent, 'NEEDS YOU');
+      assert.match(d.getElementById('tsNeedsText').textContent, /DET-03.*flagged your last step/);
+      assert.deepEqual(jsdomErrors, []);
+    } finally { dom.window.close(); }
+  });
+
+  it('Tokens saved is the visible headline in every mode and follows the ledger', async () => {
+    const { dom, win, d, jsdomErrors } = await mountPanel();
+    try {
+      for (const [label, extra] of [
+        ['off', { flightMode: 'OFF' }],
+        ['coach', { flightMode: 'COACH' }],
+        ['auto', { routerMode: 'autopilot', flightMode: 'AUTO_PILOT', autoShadow: false, proEntitlement: { entitled: true, tier: 'pro' } }]
+      ]) {
+        win.renderState(baseState(label, { ...extra, ...saved }));
+        assert.equal(visible(win, d, 'tsSavedHero'), true, `${label}: headline visible`);
+        assert.match(d.getElementById('tsHeroSaved').textContent, /^\+18\.4k$/, `${label}: tokens`);
+        assert.match(d.getElementById('tsSavedHero').textContent, /Est\. tokens saved/);
+      }
+      win.renderState(baseState('none', { flightMode: 'COACH' }));
+      assert.match(d.getElementById('tsHeroSub').textContent, /nothing saved yet/i);
+      assert.deepEqual(jsdomErrors, []);
+    } finally { dom.window.close(); }
+  });
+});

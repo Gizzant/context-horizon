@@ -566,7 +566,58 @@
     if (rightEl) rightEl.textContent = `${formatTokens(cell.tokens || 0)} / cell \u00B7 ${recall} recall`;
   }
 
+  // Mode views: after the shared surfaces are drawn, fill the elements only the mode views use
+  // (tokens-saved headline, one-line status, Auto "needs you" row). All text is copied from values the
+  // shared renderer already computed, so every mode tells the same story.
+  function renderModeViewContent(raw) {
+    const txtOf = (id) => (document.getElementById(id)?.textContent || '').trim();
+    const setIf = (id, text) => { const el = document.getElementById(id); if (el && el.textContent !== text) el.textContent = text; };
+    const mode = document.body?.dataset?.flightMode || 'coach';
+    const autoState = document.body?.dataset?.autoState || 'na';
+
+    // 1. Tokens-saved headline: same figures as the Session overview "Saved" row.
+    setIf('tsHeroSaved', txtOf('tsKpiSaved') || '+0');
+    const usdTxt = document.getElementById('tsKpiUsd');
+    setIf('tsHeroUsd', usdTxt && !usdTxt.hidden ? txtOf('tsKpiUsd') : '');
+    const d30 = document.getElementById('tsKpi30d');
+    const saved = txtOf('tsKpiSaved').replace(/[^0-9.]/g, '');
+    const hasSaved = Number(saved) > 0;
+    const d30Txt = d30 && !d30.hidden ? txtOf('tsKpi30d') : '';
+    setIf('tsHeroSub', hasSaved
+      ? `This chat${d30Txt ? ' \u00B7 ' + d30Txt : ''}`
+      : (d30Txt ? `Nothing saved in this chat yet \u00B7 ${d30Txt}` : 'This chat \u00B7 nothing saved yet'));
+
+    // 2. One-line status (Coach and Auto): health, context used, cache.
+    const strip = document.getElementById('tsStatusStrip');
+    if (strip) {
+      const tone = document.getElementById('tsStatusDot')?.dataset?.tone || 'nominal';
+      strip.dataset.tone = tone;
+      const stripDot = document.getElementById('tsStripDot');
+      if (stripDot) stripDot.dataset.tone = tone;
+      setIf('tsStripText', `${txtOf('tsStatusLabel') || 'Healthy'} \u00B7 ${txtOf('tsUsedLabel')} of ${txtOf('tsSafeLabel')} safe (${txtOf('tsUsedPct')}) \u00B7 Cache: ${txtOf('tsCacheMeta') || 'n/a'}`);
+    }
+
+    // 3. Auto "needs you" row: shows an instruction only where the shared guidance flags a stop-and-look case.
+    const needs = document.getElementById('tsNeedsRow');
+    if (needs) {
+      const doRow = document.getElementById('tsDoRow');
+      const flagged = doRow?.dataset?.tone === 'danger';
+      needs.dataset.tone = flagged ? 'danger' : 'ok';
+      setIf('tsNeedsTag', flagged ? 'NEEDS YOU' : (autoState === 'preview' ? 'PREVIEW' : 'AUTO'));
+      setIf('tsNeedsText', flagged
+        ? txtOf('tsDoText')
+        : (mode === 'autopilot' && autoState === 'preview'
+          ? 'Nothing needed from you. Auto is a preview: it advises like Coach and applies nothing until you start the trial or unlock Pro.'
+          : 'Nothing needed from you. Auto is handling it.'));
+    }
+  }
+
   function renderArgonTufteSurfaces(raw) {
+    renderArgonTufteSurfacesCore(raw);
+    try { renderModeViewContent(raw); } catch (err) { void err; }
+  }
+
+  function renderArgonTufteSurfacesCore(raw) {
     if (!raw || typeof raw !== 'object') return;
     const win = raw.window || {};
     const bd = win.breakdown || raw.categories || {};
