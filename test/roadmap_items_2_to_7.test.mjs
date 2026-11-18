@@ -59,12 +59,13 @@ test('Roadmap Item #2: GA post_tool_use skips per-tool transcript re-parse, pre_
   assert.equal(postRes.fastPath, 'tier1_mod_active');
   assert.ok(elapsedMs < 10, `Tier 1 fast-path must complete in <10ms (got ${elapsedMs.toFixed(2)}ms)`);
 
-  // --lean-hooks option strips Read|Grep|Glob while default preserves ISS-018 contract
+  // --lean-hooks option strips Grep|Glob (keeping Read for GUARD-4) while default preserves ISS-018 contract
   const defaultHooks = buildCanonicalAhHooks();
   const leanHooks = buildCanonicalAhHooks({ leanHooks: true });
   assert.equal(defaultHooks.PreToolUse[0].matcher, PRE_TOOL_USE_MATCHER);
   assert.equal(leanHooks.PreToolUse[0].matcher, LEAN_PRE_TOOL_USE_MATCHER);
-  assert.equal(/\b(Read|Grep|Glob)\b/.test(leanHooks.PreToolUse[0].matcher), false);
+  assert.equal(/\bRead\b/.test(leanHooks.PreToolUse[0].matcher), true);
+  assert.equal(/\b(Grep|Glob)\b/.test(leanHooks.PreToolUse[0].matcher), false);
 });
 
 test('Roadmap Item #3: promptHygieneGovernor passes short anchored prompts and HysteresisLock supports 1-click unlock & 3-turn auto-decay', () => {

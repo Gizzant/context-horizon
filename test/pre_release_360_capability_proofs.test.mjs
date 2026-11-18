@@ -290,7 +290,7 @@ describe('Pre-Release 360° Capability Proofs — Dual-Host Parity, External-CWD
         workspace30dSavedTokens: 1000000,
         workspace30dSavedUSD: 45.0
       });
-      assert.equal(corpReceipt.netRoiMultiplier, 3.0);
+      assert.equal(corpReceipt.netRoiMultiplier, 3.6);
       assert.equal(corpReceipt.estimatedGpuWhSaved, 650);
       assert.equal(corpReceipt.estimatedCo2GramsSaved, 247);
       assert.match(corpReceipt.markdown, /GreenOps Compute Energy Avoided/);

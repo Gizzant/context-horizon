@@ -17,6 +17,7 @@ if (process.env.HIGHBEAM_TEST_REAL_HOME !== '1' && !process.env.HIGHBEAM_TEST_HO
   process.env.HOME = dir;
   process.env.USERPROFILE = dir;
   process.env.ATTENTION_HORIZON_HOME_DIR = dir;
+  delete process.env.ANTIGRAVITY_CONVERSATION_ID;
   process.on('exit', () => {
     try {
       fs.rmSync(dir, { recursive: true, force: true });

@@ -54,8 +54,8 @@ I built **`ctxtop` (Highbeam v3.3.0)**—a zero-dependency local profiler and `<
 
 **Try it locally (0 npm dependencies):**
 ```bash
-git clone https://github.com/Gizzant/context-horizon.git
-cd context-horizon
+git clone https://github.com/Gizzant/context-horizon.git ctxtop
+cd ctxtop
 node src/cli/doctor.mjs
 node src/cli/horizon_hud.mjs --demo
 ```

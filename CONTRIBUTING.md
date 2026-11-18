@@ -9,9 +9,9 @@ Thank you for helping build Highbeam (`ctxtop`)! Our goal is to keep AI coding a
 Requires **Node.js 22.5.0+** (Windows, macOS, or Linux) for built-in `node:sqlite` (`DatabaseSync`). Because Highbeam has **zero external npm runtime dependencies**, you do not even need to run `npm install` to run the core engine, CLI tools, or test suite:
 
 ```bash
-# 1. Clone your fork
-git clone https://github.com/<your-username>/context-horizon.git
-cd context-horizon
+# 1. Clone the repository (or your fork) into ./ctxtop
+git clone https://github.com/Gizzant/context-horizon.git ctxtop
+cd ctxtop
 
 # 2. Preview the 40-cell ANSI HUD & Flight Check Scorecard
 npm start

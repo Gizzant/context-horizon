@@ -189,14 +189,35 @@ describe('Batch 4 Remediation — ISS-017: Public Documentation Cleanliness & Re
       ...walkFiles(path.join(ROOT, 'docs')).filter(f => f.endsWith('.md'))
     ];
     assert.ok(docFiles.length >= 10, 'Expected public markdown documentation files');
+    const ALLOWED_CONTEXT_HORIZON_URLS_RE =
+      /https:\/\/gizzant\.github\.io\/context-horizon\/(?![\w./-])|https:\/\/github\.com\/Gizzant\/context-horizon(?:\.git)?(?![/\w.-])/g;
+    const stripAllowedContextHorizonUrls = (s) => String(s).replace(ALLOWED_CONTEXT_HORIZON_URLS_RE, '');
+
     for (const f of docFiles) {
       const txt = fs.readFileSync(f, 'utf8');
+      const sanitizedTxt = stripAllowedContextHorizonUrls(txt);
       const rel = path.relative(ROOT, f);
       assert.ok(!/Context Horizon/i.test(txt), `${rel} must not contain legacy "Context Horizon"`);
-      assert.ok(!/context-horizon/i.test(txt), `${rel} must not contain legacy "context-horizon"`);
+      assert.ok(!/context-horizon/i.test(sanitizedTxt), `${rel} must not contain legacy "context-horizon"`);
       assert.ok(!INTERNAL_REPO_RE.test(txt), `${rel} must not leak internal repo folder name`);
       assert.ok(!/file:\/\/\/[cC]:\/Projects/i.test(txt), `${rel} must not contain machine-local file:///C:/Projects links`);
     }
+    assert.equal(
+      /context-horizon/i.test(
+        stripAllowedContextHorizonUrls(
+          'Links: https://gizzant.github.io/context-horizon/ and https://github.com/Gizzant/context-horizon and https://github.com/Gizzant/context-horizon.git'
+        )
+      ),
+      false,
+      'Exact canonical GitHub Pages and GitHub repo URLs must be allowed'
+    );
+    assert.equal(
+      /context-horizon/i.test(
+        stripAllowedContextHorizonUrls('Run the context-horizon CLI after https://github.com/Gizzant/context-horizon')
+      ),
+      true,
+      'Prose like "context-horizon CLI" must still fail after stripping allowed URLs'
+    );
   });
 });
 

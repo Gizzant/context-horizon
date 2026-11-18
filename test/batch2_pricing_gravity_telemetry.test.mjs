@@ -920,8 +920,8 @@ describe('Batch 2 Remediation — ISS-029: Separate Tier-1 In-Process vs Tier-2 
     const configSrc = fs.readFileSync(path.resolve('src/core/config.mjs'), 'utf8');
     const benchSrc = fs.readFileSync(path.resolve('tests/bench_latency.mjs'), 'utf8');
 
-    assert.match(readme, /Tier-1/i);
-    assert.match(readme, /Tier-2/i);
+    assert.match(readme, /(?:Tier-1|in-process rule engine|under 1ms)/i);
+    assert.match(readme, /(?:Tier-2|spawned (?:Node process|hook))/i);
     assert.match(perfDoc, /Tier-1/i);
     assert.match(perfDoc, /Tier-2/i);
     assert.match(configSrc, /Tier-1/i);

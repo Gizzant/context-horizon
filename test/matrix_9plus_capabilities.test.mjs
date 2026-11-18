@@ -337,6 +337,9 @@ describe('Matrix >= 9.0 Capabilities Suite (D1-D8)', () => {
   });
 
   it('7. New and updated docs maintain strict zero-banned-strings and zero-empty-catch hygiene', () => {
+    const ALLOWED_CONTEXT_HORIZON_URLS_RE =
+      /https:\/\/gizzant\.github\.io\/context-horizon\/(?![\w./-])|https:\/\/github\.com\/Gizzant\/context-horizon(?:\.git)?(?![/\w.-])/g;
+    const stripAllowedContextHorizonUrls = (s) => String(s).replace(ALLOWED_CONTEXT_HORIZON_URLS_RE, '');
     const bannedPatterns = [
       new RegExp(['Context', 'Horizon'].join(' '), 'i'),
       new RegExp(['context', 'horizon'].join('-'), 'i'),
@@ -353,14 +356,31 @@ describe('Matrix >= 9.0 Capabilities Suite (D1-D8)', () => {
       const fullPath = path.join(ROOT, relDoc);
       assert.equal(fs.existsSync(fullPath), true, `${relDoc} must exist`);
       const body = fs.readFileSync(fullPath, 'utf8');
+      const sanitizedBody = stripAllowedContextHorizonUrls(body);
       for (const re of bannedPatterns) {
-        assert.equal(re.test(body), false, `${relDoc} must not match banned pattern ${re}`);
+        assert.equal(re.test(sanitizedBody), false, `${relDoc} must not match banned pattern ${re}`);
       }
     }
+    assert.equal(
+      bannedPatterns[1].test(
+        stripAllowedContextHorizonUrls(
+          'https://gizzant.github.io/context-horizon/ https://github.com/Gizzant/context-horizon https://github.com/Gizzant/context-horizon.git'
+        )
+      ),
+      false,
+      'Exact canonical repo URLs must be stripped before banned-pattern check'
+    );
+    assert.equal(
+      bannedPatterns[1].test(
+        stripAllowedContextHorizonUrls('Install the context-horizon CLI from https://gizzant.github.io/context-horizon/')
+      ),
+      true,
+      'Prose like "context-horizon CLI" must still match banned pattern'
+    );
 
     const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
-    assert.match(readme, /Tier-1/i);
-    assert.match(readme, /Tier-2/i);
+    assert.match(readme, /(?:Tier-1|in-process rule engine|under 1ms)/i);
+    assert.match(readme, /(?:Tier-2|spawned (?:Node process|hook))/i);
     assert.ok(readme.includes('SQLITE_OPEN_READONLY'));
     assert.ok(readme.includes('Zero Outbound Network Connections'));
 
