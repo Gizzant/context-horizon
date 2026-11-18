@@ -38,7 +38,14 @@ import { runPassiveWalCheckpoint, inspectDatabaseWalHealth } from '../src/core/w
 import { auditCursorVscdbOrphans, compactCursorVscdbStreaming } from '../src/core/storage_doctor.mjs';
 
 const require = createRequire(import.meta.url);
-const { DatabaseSync } = require('node:sqlite');
+// node:sqlite exists only on Node >= 22.5; tests that need it are skipped on Node 20.
+let DatabaseSync = null;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch (err) {
+  void err;
+}
+const NO_SQLITE = DatabaseSync ? false : 'node:sqlite needs Node >= 22.5';
 
 function getFreeLoopbackPort() {
   return new Promise((resolve, reject) => {
@@ -606,7 +613,7 @@ describe('Batch 1 Remediation — ISS-044: Hardened agy_git_guard.mjs & Tokenize
 });
 
 describe('Batch 1 Remediation — ISS-045: Centralized openLocalHorizonDb (WAL + busy_timeout=3000) & Host DB Guards', () => {
-  it('configures WAL + busy_timeout=3000 on local DBs, enforces readOnly handles, and blocks RW opens on host DBs', async () => {
+  it('configures WAL + busy_timeout=3000 on local DBs, enforces readOnly handles, and blocks RW opens on host DBs', { skip: NO_SQLITE }, async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hz-iss045-sqlite-'));
     try {
       const localDbPath = path.join(tmpDir, '.agents', 'cache', 'plugin_store.sqlite');

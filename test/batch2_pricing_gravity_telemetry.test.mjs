@@ -70,7 +70,14 @@ import { DEMO_SCENARIOS, buildDemoHorizonState } from '../tests/fixtures/synthet
 import { JSDOM } from 'jsdom';
 
 const require = createRequire(import.meta.url);
-const { DatabaseSync } = require('node:sqlite');
+// node:sqlite exists only on Node >= 22.5; tests that need it are skipped on Node 20.
+let DatabaseSync = null;
+try {
+  ({ DatabaseSync } = require('node:sqlite'));
+} catch (err) {
+  void err;
+}
+const NO_SQLITE = DatabaseSync ? false : 'node:sqlite needs Node >= 22.5';
 
 describe('Batch 2 Remediation — ISS-007: Claude 5.5 / Haiku 5.5 100k 5x Cliff / Fable 5.x / Multi-Rate & Dynamic Cold Gate', () => {
   it('registers claude-haiku-5-5 with 1,000,000 ceiling and 100,000-token 5x prompt cliff across fresh + cacheRead + cacheCreate', () => {
@@ -533,7 +540,7 @@ describe('Batch 2 Remediation — ISS-012: Closed-Form C* (3529 / 4286 / 6522 / 
 });
 
 describe('Batch 2 Remediation — ISS-025: Zero Live Fabricated Telemetry Fallbacks', () => {
-  it('replaces fabricated Cursor tokens/timestamps, postmortem 14-session fallback, cold hitRatePct, and hook/subagent fallbacks with 0/null', async () => {
+  it('replaces fabricated Cursor tokens/timestamps, postmortem 14-session fallback, cold hitRatePct, and hook/subagent fallbacks with 0/null', { skip: NO_SQLITE }, async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hz-iss025-'));
     try {
       // 1. Cursor state.vscdb with zero token metadata must report 0 tokens and null createdAt (never 12000/54000/8000/250/500)
