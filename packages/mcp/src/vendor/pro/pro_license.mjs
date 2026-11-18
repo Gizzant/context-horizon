@@ -441,7 +441,7 @@ export function requireProFeature(featureId = 'pro_feature', options = {}) {
     status,
     upgradeHint: needsTeamTier
       ? 'Requires Highbeam Team ($299/yr for 5 seats — Commercial License: packages/pro/LICENSE-COMMERCIAL.md) or an active 14-day trial (`npx ctxtop license trial`).'
-      : 'Requires Highbeam Pro ($15/mo · $149/yr · $199 LTD — Commercial License: packages/pro/LICENSE-COMMERCIAL.md) or an active 14-day trial (`npx ctxtop license trial`).'
+      : 'Requires Highbeam Pro ($149/yr · $199 Founder Lifetime — Commercial License: packages/pro/LICENSE-COMMERCIAL.md) or an active 14-day trial (`npx ctxtop license trial`).'
   };
 }
 

@@ -1488,8 +1488,8 @@ export function runCli(args = [], options = {}) {
     const lines = [
       'Highbeam — 3-Tier Self-Expensing PLG Funnel:',
       `  • Free ($0/mo): ${PLG_TIER_MATRIX.free.features.join(', ')}`,
-      `  • Pro ($${PLG_TIER_MATRIX.pro.priceMonthlyUSD}/mo [$12-$19/mo]): ${PLG_TIER_MATRIX.pro.features.join(', ')}`,
-      `  • Team ($${PLG_TIER_MATRIX.team.pricePerSeatMonthlyUSD}/seat/mo): ${PLG_TIER_MATRIX.team.features.join(', ')}`
+      `  • Pro ($${PLG_TIER_MATRIX.pro.priceAnnualUSD}/yr, or $${PLG_TIER_MATRIX.pro.priceLtdUSD} one-time Founder Lifetime for the first ${PLG_TIER_MATRIX.pro.ltdCap}): ${PLG_TIER_MATRIX.pro.features.join(', ')}`,
+      `  • Team ($${PLG_TIER_MATRIX.team.starterAnnualUSD}/yr for ${PLG_TIER_MATRIX.team.starterSeats} seats; more seats: security@highbeamdev.com): ${PLG_TIER_MATRIX.team.features.join(', ')}`
     ];
     return { exitCode: 0, output: lines.join('\n'), data: PLG_TIER_MATRIX };
   }
@@ -1503,8 +1503,8 @@ export function runCli(args = [], options = {}) {
       const lines = [
         'Highbeam — 3-Tier Self-Expensing PLG Funnel:',
         `  • Free ($0/mo): ${PLG_TIER_MATRIX.free.features.join(', ')}`,
-        `  • Pro ($${PLG_TIER_MATRIX.pro.priceMonthlyUSD}/mo [$12-$19/mo]): ${PLG_TIER_MATRIX.pro.features.join(', ')}`,
-        `  • Team ($${PLG_TIER_MATRIX.team.pricePerSeatMonthlyUSD}/seat/mo): ${PLG_TIER_MATRIX.team.features.join(', ')}`
+        `  • Pro ($${PLG_TIER_MATRIX.pro.priceAnnualUSD}/yr, or $${PLG_TIER_MATRIX.pro.priceLtdUSD} one-time Founder Lifetime for the first ${PLG_TIER_MATRIX.pro.ltdCap}): ${PLG_TIER_MATRIX.pro.features.join(', ')}`,
+        `  • Team ($${PLG_TIER_MATRIX.team.starterAnnualUSD}/yr for ${PLG_TIER_MATRIX.team.starterSeats} seats; more seats: security@highbeamdev.com): ${PLG_TIER_MATRIX.team.features.join(', ')}`
       ];
       return { exitCode: 0, output: lines.join('\n'), data: PLG_TIER_MATRIX };
     }

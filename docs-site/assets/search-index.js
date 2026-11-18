@@ -773,8 +773,8 @@ window.AH_SEARCH_INDEX = [
     "title": "Pro Licensing, FinOps & Troubleshooting",
     "section": "1. Three-Tier Entitlement Matrix",
     "href": "pro-troubleshooting.html#tier-matrix",
-    "keywords": "npx ctxtop tiers src/core/pro_license.mjs $0/mo HOLD_COMPACT $15/mo $12-$19 PreToolUse #tufteBaselineStrip AUTO_PILOT C* $39/seat/mo .agents/rules/ POST /api/export/sanitized ctxtop team-pack",
-    "body": "Run npx ctxtop tiers anytime to view the plan table from src/core/pro_license.mjs: Tier Pricing Included Capabilities FreeMIT Core $0/mo Simple View HUD & 4-rank verdict bar, 40-cell U-curve context map, live 5m/1h cache timers, HOLD_COMPACT warm cache alerts, and all 32 guards. ProSolo Dev $15/mo($12-$19 range) Auto PreToolUse delta-reads & 3rd-read AST stubs, cross-chat waste tracking, 30-day savings ledger (#tufte"
+    "keywords": "npx ctxtop tiers src/core/pro_license.mjs $0/mo HOLD_COMPACT $149/yr $199 Founder Lifetime PreToolUse #tufteBaselineStrip AUTO_PILOT C* $299/yr 5 seats .agents/rules/ POST /api/export/sanitized ctxtop team-pack",
+    "body": "Run npx ctxtop tiers anytime to view the plan table from src/core/pro_license.mjs: Tier Pricing Included Capabilities FreeMIT Core $0/mo Simple View HUD & 4-rank verdict bar, 40-cell U-curve context map, live 5m/1h cache timers, HOLD_COMPACT warm cache alerts, and all 32 guards. ProSolo Dev $149/yr or $199 one-time Founder Lifetime (first 200) Auto PreToolUse delta-reads & 3rd-read AST stubs, cross-chat waste tracking, 30-day savings ledger (#tufte"
   },
   {
     "pageTitle": "Pro Licensing, FinOps & Troubleshooting",

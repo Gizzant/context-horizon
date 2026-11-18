@@ -65,8 +65,13 @@ describe('v4.0 RC Remediation & @ctxtop/mcp Regression Suite', () => {
     const hasLegacyAgyHorizon = fs.existsSync(
       path.join(homeDir, '.gemini', 'config', 'plugins', 'agy-horizon')
     );
-    const expectedTargets = hasLegacyAgyHorizon ? 8 : 6;
-    const minExpectedPairs = hasLegacyAgyHorizon ? 774 : 530;
+    // The home-folder plugin copy only exists on a machine where Highbeam is installed. Test runs use an
+    // isolated, empty home (test/setup/isolate-home.mjs), and CI starts from a fresh one.
+    const hasHomeFlightcheck = fs.existsSync(
+      path.join(homeDir, '.gemini', 'config', 'plugins', 'agy-horizon-flightcheck')
+    );
+    const expectedTargets = 4 + (hasHomeFlightcheck ? 2 : 0) + (hasLegacyAgyHorizon ? 2 : 0);
+    const minExpectedPairs = hasLegacyAgyHorizon ? 774 : hasHomeFlightcheck ? 530 : 300;
 
     const parity = syncAndVerifyMirrors({ verifyOnly: true });
     assert.equal(parity.parityOk, true);
