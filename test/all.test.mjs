@@ -83,3 +83,5 @@ import './matrix_9plus_capabilities.test.mjs';
 import './claude-code/effort_shift_and_doctor.test.mjs';
 import './antigravity_hooks_switch.test.mjs';
 
+import './antigravity_toolcall_payload.test.mjs';
+import './flight_mode_and_trial.test.mjs';

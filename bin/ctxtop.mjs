@@ -69,8 +69,10 @@ import {
   getProEntitlementStatus,
   requireProFeature,
   verifyProLicenseKey,
-  PLG_TIER_MATRIX
+  PLG_TIER_MATRIX,
+  resolveEffectiveAutoFlightMode
 } from '../src/core/pro_license.mjs';
+import { setHorizonFlightMode } from '../src/core/horizon_config.mjs';
 import { getShadowAutoSummary } from '../src/core/shadow_auto_ledger.mjs';
 import { generateTeamFinopsPack } from '../packages/pro/src/team_finops_pack.mjs';
 import {
@@ -1574,7 +1576,11 @@ export function runCli(args = [], options = {}) {
       }
       return {
         exitCode: 0,
-        output: `[Highbeam Pro] Activated 14-day local trial (expires ${trRes.expiresAt}) -> ${trRes.licensePath}`,
+        output: `[Highbeam Pro] Activated 14-day local trial (expires ${trRes.expiresAt}) -> ${trRes.licensePath}\n  ${
+          String(loadHorizonConfig({ ...options, cwd: options.cwd || process.cwd() })?.flightMode || '').toUpperCase() === 'AUTO_PILOT'
+            ? 'Auto is on for the trial.'
+            : 'Auto is available but stays off until you turn it on: npx ctxtop mode auto'
+        }`,
         data: trRes
       };
     }
@@ -1599,6 +1605,9 @@ export function runCli(args = [], options = {}) {
     const statusLines = [
       `[Highbeam Pro] Tier=${status.tier} | Entitled=${status.entitled} | Source=${status.source}`
     ];
+    if (status.trialExpired) {
+      statusLines.push('  Trial ended: Auto is paused and Highbeam runs COACH (shows, changes nothing). Keep Auto: npx ctxtop license activate <CTXP1-KEY>');
+    }
     if (!status.entitled && shadowAuto.incidentCount30d > 0) {
       statusLines.push(`  Auto preview (30d): ${shadowAuto.headlineText} — ${shadowAuto.sublineText}`);
     }
@@ -1630,6 +1639,55 @@ export function runCli(args = [], options = {}) {
         ? `\n\nNot removed (delete by hand if you want everything gone):\n${leftoverLines.join('\n')}`
         : '');
     return { exitCode: res.ok ? 0 : 1, output, data: res };
+  }
+
+  if (subcommand === 'mode') {
+    // Flight mode: COACH (default, shows and advises), AUTO_PILOT (acts; needs Pro or the trial),
+    // SILENT, OFF. Without Pro or the trial, AUTO_PILOT runs as COACH and only shows what it would do.
+    const requested = args[1] && !String(args[1]).startsWith('-') ? String(args[1]) : null;
+    const modeOpts = { ...options, cwd: options.cwd || process.cwd(), ...(args.includes('--project') ? { scope: 'project' } : {}) };
+    let configured;
+    let configPath = null;
+    if (requested) {
+      const setRes = setHorizonFlightMode(requested, modeOpts);
+      if (!setRes.ok) {
+        return { exitCode: 1, output: `[Highbeam] Could not save flight mode to ${setRes.configPath}`, data: setRes };
+      }
+      configured = setRes.flightMode;
+      configPath = setRes.configPath;
+    } else {
+      configured = String(loadHorizonConfig(modeOpts)?.flightMode || 'COACH').toUpperCase();
+    }
+    const eff = resolveEffectiveAutoFlightMode(configured, options);
+    const status = eff.proStatus || getProEntitlementStatus(options);
+    const data = {
+      configuredMode: configured,
+      effectiveMode: eff.effectiveFlightMode,
+      steppedDown: Boolean(eff.steppedDown),
+      tier: status?.tier || null,
+      trialExpired: Boolean(status?.trialExpired),
+      configPath
+    };
+    if (isJson) return { exitCode: 0, output: JSON.stringify(data, null, 2), data };
+    const lines = [
+      configPath
+        ? `[Highbeam] Flight mode set to ${configured} (${configPath})`
+        : `[Highbeam] Flight mode: ${configured}${eff.steppedDown ? ' (running as COACH)' : ''}`
+    ];
+    if (eff.steppedDown) {
+      lines.push(
+        status?.trialExpired
+          ? '  Your 14-day trial has ended, so Auto is paused and Highbeam runs COACH: it shows what Auto would have saved but changes nothing. Keep Auto: npx ctxtop license activate <CTXP1-KEY>'
+          : '  Auto needs Highbeam Pro or the 14-day trial. Until then Highbeam runs COACH and shows what Auto would have saved. Try it: npx ctxtop license trial'
+      );
+    } else if (eff.effectiveFlightMode === 'AUTO_PILOT' && status?.tier === 'trial' && status?.expiresAt) {
+      const nowMs = Number(options.nowMs || Date.now());
+      const daysLeft = Math.max(0, Math.ceil((Date.parse(status.expiresAt) - nowMs) / 86400000));
+      lines.push(`  Trial: ${daysLeft} day${daysLeft === 1 ? '' : 's'} left. After that Auto pauses and Highbeam runs COACH until you activate Pro.`);
+    } else if (configured === 'COACH') {
+      lines.push('  COACH shows savings and warnings and stops only destructive commands and repeat-failure loops. Let Highbeam act for you: npx ctxtop mode auto');
+    }
+    return { exitCode: 0, output: lines.join('\n'), data };
   }
 
   if (subcommand === 'config') {
@@ -2142,7 +2200,7 @@ export function runCli(args = [], options = {}) {
     'receipt', 'doctor', 'statusline', 'inspect', 'control', 'postmortem',
     'audit', 'shield', 'status', 'rsl', 'handoff', 'search', 'log-search',
     'mcp', 'ui', 'serve', 'license', 'pro', 'roast', 'tiers', 'team-pack',
-    'verify', 'verify-checksums', '--help', '-h', 'help', '--version', '-v', 'version'
+    'verify', 'verify-checksums', 'mode', '--help', '-h', 'help', '--version', '-v', 'version'
   ]);
   const hasHelp = args.length === 0 || args.includes('--help') || args.includes('-h') || subcommand === 'help';
   const isUnknown = !hasHelp && args.length > 0 && !knownSubcommands.has(subcommand);
@@ -2175,6 +2233,7 @@ export function runCli(args = [], options = {}) {
     '  rsl <status|list|run|promote|prune> [--platform ...] [--json]       Dual-platform RSL post-mortem & rule ledger',
     '  handoff [--consolidate] [--session <id>] [--write] [--json]         Consolidate sharded spec constraints & diff',
     '  receipt [--advanced | --markdown | --pdf | --json]                  Print Simple View, Git Receipt, or FinOps PDF',
+    '  mode [coach | auto | silent | off] [--project]                      Show or set the flight mode (auto needs Pro or the trial)',
     '  config [list | set <DET-ID> <mode> | reset]                         Configure per-detector overrides',
     '  control <pause|resume|step|abort|rewind|status>                     Execution control plane command',
     '  verify [--json] | uninstall [--global | --project]                  Verify checksums or remove Highbeam hooks'

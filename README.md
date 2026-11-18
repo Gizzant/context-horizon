@@ -325,6 +325,8 @@ For centralized organization deployment (Jamf / Intune / GPO), `CHECKSUMS.sha256
 | Signed Corporate PDF 1.4 FinOps + GreenOps Receipt (`ctxtop receipt --pdf`) | — | ✅ | ✅ |
 | Shared `.agents/rules/` Governance, MDM Policy & OTel / Grafana Pack | — | — | ✅ |
 
+**How Free, the trial and Pro differ:** Free shows what `AUTO_PILOT` would have done and what it would have saved, but changes nothing. The 14-day trial (`npx ctxtop license trial`) unlocks everything; Auto stays off until you turn it on with `npx ctxtop mode auto`. When the trial ends, Auto pauses and Highbeam goes back to showing what it would have saved until you activate Pro. `npx ctxtop mode` shows which mode is running.
+
 **Commercial SKU Summary (Offline Ed25519 `CTXP1` Activation via `npx ctxtop license activate <key>`):**
 - **[Pro Annual (`$149/yr`, `~$12.42/mo`)](https://buy.polar.sh/polar_cl_GYIDWrPsxnwsx58Ur6fIqMq3o1lrfK0o4hOFM4HOgpr)**: 1 developer seat, 14-day zero-network local trial (`npx ctxtop license trial`), expensable via `npx ctxtop receipt --pdf`.
 - **[Pro Founder Lifetime (`$199` one-time, capped at `200` seats)](https://buy.polar.sh/polar_cl_qVD4MYra8gIe9uDvkRtJUzv6Ou4PTES4Jp3nj1nAOff)**: Lifetime solo Pro entitlement (`expiresAt: null`).

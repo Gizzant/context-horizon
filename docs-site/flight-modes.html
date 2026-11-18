@@ -178,7 +178,7 @@
       <div class="callout safe">
         <p class="callout-title">Pro Entitlement Check &amp; Safe Fallback</p>
         <p>
-          In <code>hooks/handlers/pre-tool-use.mjs</code>, setting <code>flightMode: "AUTO_PILOT"</code> checks <code>requireProFeature("auto_pilot_locks")</code> against your offline Ed25519 key (<code>~/.ctxtop/license.json</code>) or 14-day local trial (<code>npx ctxtop license trial</code>). If neither is found, Highbeam drops back to <code>"COACH"</code> in memory so hooks never crash or block your editor.
+          In <code>hooks/handlers/pre-tool-use.mjs</code>, setting <code>flightMode: "AUTO_PILOT"</code> checks <code>requireProFeature("auto_pilot_locks")</code> against your offline Ed25519 key (<code>~/.ctxtop/license.json</code>) or 14-day local trial (<code>npx ctxtop license trial</code>). If neither is found, Highbeam drops back to <code>"COACH"</code> in memory so hooks never crash or block your editor, and shows what Auto would have saved. The trial unlocks Auto but does not turn it on: run <code>npx ctxtop mode auto</code>. <code>npx ctxtop mode</code> shows the configured and running mode; when the trial ends, Auto pauses until you activate Pro.
         </p>
       </div>
 
@@ -233,7 +233,7 @@ verdict: {
           <tbody>
             <tr>
               <td><code>"guard"</code> <span class="badge accent">Default</span></td>
-              <td>Stops vague or risky prompts with the 4-Line Scorecard (<code>Context Health</code>, <code>Cache Window</code>, <code>Risk Signal</code>, <code>Recommended Action</code>).</td>
+              <td>Stops vague or risky prompts with the 4-Line Scorecard (<code>Context Health</code>, <code>Cache Window</code>, <code>Risk Signal</code>, <code>Recommended Action</code>). In <code>COACH</code> (the default flight mode) only a 3-strike error loop, an explicit <code>#check</code>, or a detector you set to <code>block</code> stops a prompt; every other state shows the scorecard as a message. <code>AUTO_PILOT</code> stops on all of them.</td>
               <td>After one stop for a given state, repeats within 3 turns step down to a soft <code>{ systemMessage }</code> so you never get stuck in nag loops.</td>
             </tr>
             <tr>
@@ -252,7 +252,7 @@ verdict: {
 
       <h3>Cooldown Exemptions (Context &amp; Billing Crises)</h3>
       <p>
-        Three urgent limits carry <code>exemptFromCooldown: true</code> and always fire right away in <code>"guard"</code> mode even inside the 3-turn cooldown:
+        Three urgent limits carry <code>exemptFromCooldown: true</code> and always fire right away in <code>"guard"</code> mode even inside the 3-turn cooldown (as a message in <code>COACH</code>, as a stop in <code>AUTO_PILOT</code>):
       </p>
       <ol>
         <li><strong>Context Truncation Crisis (<code>amputationCrisis</code>):</strong> Active context passes <code>140,000</code> tokens, putting early <code>AGENTS.md</code> rules at risk of server-side cutoff.</li>
