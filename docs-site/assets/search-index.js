@@ -13,8 +13,8 @@ window.AH_SEARCH_INDEX = [
     "title": "System Architecture & Internals",
     "section": "1. Six-Package Workspace Topology",
     "href": "architecture.html#monorepo-topology",
-    "keywords": "package.json packages/* src/core-isomorphic/ src/engine-node/ src/core/ @ctxtop/core node:* DET-01..DET-32 CircuitBreakerEngine cacheGravity dualTtl cliffBreaker horizonGrid costRadarSvg modViews @ctxtop/engine-node >= 20.0.0 node:sqlite git merge-tree @ctxtop/antigravity PreInvocation horizon_panel.html @ctxtop/claude-code hooks/register.js hooks/handlers/*.mjs ah-statusline @ctxtop/mcp horizon_status cache_gravity_check scope_lock_claim export_receipt_pdf @ctxtop/pro team_finops_pack.mjs packages/airlock ctxvault packages/airlock/ npm run test:airlock ctxtop",
-    "body": "Root package.json defines six packages under packages/* backed by shared code in src/core-isomorphic/, src/engine-node/, and src/core/: Workspace Package Runtime Constraint Core Modules @ctxtop/core Pure ESM, zero node:* imports DET-01..DET-32 rules, CircuitBreakerEngine, cacheGravity, dualTtl, cliffBreaker, horizonGrid, costRadarSvg, modViews, USTF v1 parser. @ctxtop/engine-node Node.js >= 20.0.0 stdlib only node:sq"
+    "keywords": "package.json packages/* src/core-isomorphic/ src/engine-node/ src/core/ @ctxtop/core node:* DET-01..DET-32 CircuitBreakerEngine cacheGravity dualTtl cliffBreaker horizonGrid costRadarSvg modViews @ctxtop/engine-node >= 22.13.0 node:sqlite git merge-tree @ctxtop/antigravity PreInvocation horizon_panel.html @ctxtop/claude-code hooks/register.js hooks/handlers/*.mjs ah-statusline @ctxtop/mcp horizon_status cache_gravity_check scope_lock_claim export_receipt_pdf @ctxtop/pro team_finops_pack.mjs packages/airlock ctxvault packages/airlock/ npm run test:airlock ctxtop",
+    "body": "Root package.json defines six packages under packages/* backed by shared code in src/core-isomorphic/, src/engine-node/, and src/core/: Workspace Package Runtime Constraint Core Modules @ctxtop/core Pure ESM, zero node:* imports DET-01..DET-32 rules, CircuitBreakerEngine, cacheGravity, dualTtl, cliffBreaker, horizonGrid, costRadarSvg, modViews, USTF v1 parser. @ctxtop/engine-node Node.js >= 22.13.0 stdlib only node:sq"
   },
   {
     "pageTitle": "System Architecture & Internals",
@@ -629,8 +629,8 @@ window.AH_SEARCH_INDEX = [
     "title": "Installation, Verification & Migration",
     "section": "Prerequisites & Runtime Requirements",
     "href": "installation.html#prerequisites",
-    "keywords": ">= 20.0.0 PATH node node --version node:sqlite 22.14+ 22.5+ @ctxtop/engine-node SQLITE_OPEN_READONLY SQLITE_ENABLE_FTS5 src/engine-node/db/probe.mjs USING fts5(...) MATCH CTXTOP_FORCE_NO_SQLITE=1 DET-01 DET-03 DET-31 git merge-tree",
-    "body": "Node.js >= 20.0.0: Needed on your system PATH so host hooks can run node directly. Check with node --version. SQLite, FTS5 Polyfill & Fallback: On Node builds with built-in node:sqlite (default on Node 22.14+, Node 22.5+, and modern Node 20), @ctxtop/engine-node opens session databases with SQLITE_OPEN_READONLY and enables local FTS5 log search. If a Node 22 build lacks SQLITE_ENABLE_FTS5, src/engine-node/db/probe.mj"
+    "keywords": ">= 22.13.0 PATH node node --version node:sqlite 22.13+ @ctxtop/engine-node SQLITE_OPEN_READONLY SQLITE_ENABLE_FTS5 src/engine-node/db/probe.mjs USING fts5(...) MATCH CTXTOP_FORCE_NO_SQLITE=1 DET-01 DET-03 DET-31 git merge-tree",
+    "body": "Node.js >= 22.13.0: Needed on your system PATH so host hooks can run node directly. Check with node --version. SQLite, FTS5 Polyfill & Fallback: On the supported Node versions (22.13+, with built-in node:sqlite), @ctxtop/engine-node opens session databases with SQLITE_OPEN_READONLY and enables local FTS5 log search. If a Node 22 build lacks SQLITE_ENABLE_FTS5, src/engine-node/db/probe.mj"
   },
   {
     "pageTitle": "Installation, Verification & Migration",
@@ -830,7 +830,7 @@ window.AH_SEARCH_INDEX = [
     "section": "Missing node:sqlite / SQLITE_ENABLE_FTS5, Binary Capabilities & Bloated state.vscdb",
     "href": "pro-troubleshooting.html#quirk-sqlite-and-storage",
     "keywords": "SQLITE_ENABLE_FTS5 src/engine-node/db/probe.mjs CTXTOP_FORCE_FTS5_POLYFILL=1 node:sqlite CTXTOP_FORCE_NO_SQLITE=1 ctxtop doctor [WARN] claude_pre_model_switch npx ctxtop doctor --json CLAUDE_BIN PreModelSwitch PostModelSwitch supportsAskDecision npx ctxtop doctor --recover-brain --dry-run --dry-run npx ctxtop doctor --gc-cursor --vscdb <path-to-state.vscdb> --dry-run npx ctxtop doctor --diagnostic > diagnostic.md state.vscdb",
-    "body": "Automatic FTS5 Polyfill (Node 22): If your Node 22 binary lacks SQLITE_ENABLE_FTS5, src/engine-node/db/probe.mjs loads a built-in SQLite table and snippet polyfill automatically. Set CTXTOP_FORCE_FTS5_POLYFILL=1 to test it directly. Force JSONL Mode: If an older Node 20 build lacks node:sqlite, set CTXTOP_FORCE_NO_SQLITE=1. Highbeam switches cleanly to read-only JSONL offset reads. Claude Binary Capability Warnings: "
+    "body": "Automatic FTS5 Polyfill (Node 22): If your Node 22 binary lacks SQLITE_ENABLE_FTS5, src/engine-node/db/probe.mjs loads a built-in SQLite table and snippet polyfill automatically. Set CTXTOP_FORCE_FTS5_POLYFILL=1 to test it directly. Force JSONL Mode: Highbeam needs Node 22.13 or newer. If SQLite misbehaves on your build, set CTXTOP_FORCE_NO_SQLITE=1. Highbeam switches cleanly to read-only JSONL offset reads. Claude Binary Capability Warnings: "
   },
   {
     "pageTitle": "Google Antigravity vs. Claude Code",

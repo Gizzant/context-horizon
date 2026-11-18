@@ -50,7 +50,7 @@ Deploy a read-only or managed policy baseline to standardize flight mode, Turn-0
 | Platform | Target Path & Rollout Command |
 | :--- | :--- |
 | **macOS (Jamf / Kandji)** | Install via global npm/tarball, deploy `~/.attention-horizon.json` per logged-in user, and run:<br/>`npx ctxtop init --all --global && npx ctxtop doctor --json` |
-| **Windows (Intune / GPO)** | Push `%USERPROFILE%\.attention-horizon.json` via PowerShell logon/Intune script, pin global Node >= 20, and run:<br/>`npx ctxtop init --all-hosts --global` |
+| **Windows (Intune / GPO)** | Push `%USERPROFILE%\.attention-horizon.json` via PowerShell logon/Intune script, pin global Node >= 22.13, and run:<br/>`npx ctxtop init --all-hosts --global` |
 | **Linux / DevContainers** | Bake `npm install -g ctxtop` and `/etc/skel/.attention-horizon.json` into base image; verify with `ctxtop verify --json && ctxtop doctor`. |
 
 ---

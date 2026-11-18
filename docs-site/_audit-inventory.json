@@ -4,7 +4,7 @@
     "name": "ctxtop",
     "displayName": "Highbeam",
     "version": "4.0.0",
-    "nodeEngine": ">=20.0.0",
+    "nodeEngine": ">=22.13.0",
     "license": "MIT",
     "commercialLicense": "SEE LICENSE IN packages/pro/LICENSE-COMMERCIAL.md",
     "workspaces": [

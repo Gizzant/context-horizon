@@ -27,23 +27,25 @@ export function parseNodeVersion(versionStr = (typeof process !== 'undefined' &&
   return { major: parts[0] || 0, minor: parts[1] || 0, patch: parts[2] || 0 };
 }
 
+/** Minimum supported Node: node:sqlite is available without a flag from 22.13.0. */
+export const MIN_NODE_VERSION = '22.13.0';
+
 export function isSupportedNodeVersion(versionStr = (typeof process !== 'undefined' && process.versions?.node) || '0.0.0') {
-  const { major } = parseNodeVersion(versionStr);
-  return major >= 20;
+  const { major, minor } = parseNodeVersion(versionStr);
+  return major > 22 || (major === 22 && minor >= 13);
 }
 
 export function hasNativeNodeSqlite(versionStr = (typeof process !== 'undefined' && process.versions?.node) || '0.0.0') {
   if (typeof process !== 'undefined' && process.env?.CTXTOP_FORCE_NO_SQLITE === '1') {
     return false;
   }
-  const { major, minor } = parseNodeVersion(versionStr);
-  return major > 22 || (major === 22 && minor >= 5);
+  return isSupportedNodeVersion(versionStr);
 }
 
 export function formatNodeUpgradeHint(versionStr = (typeof process !== 'undefined' && process.versions?.node) || '0.0.0') {
   const cleanVer = String(versionStr || '0.0.0').replace(/^v/i, '');
   return [
-    `\x1b[33m▲ ctxtop requires Node.js >= 20.0.0 LTS (Node.js >= 22.5.0 for built-in zero-dependency SQLite; detected v${cleanVer}).\x1b[0m`,
+    `\x1b[33m▲ Highbeam requires Node.js >= ${MIN_NODE_VERSION} (built-in SQLite; detected v${cleanVer}).\x1b[0m`,
     `  Upgrade in 10s: \x1b[36mnvm install 22 && nvm use 22\x1b[0m (or download from https://nodejs.org)`
   ].join('\n');
 }

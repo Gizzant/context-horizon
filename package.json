@@ -94,7 +94,7 @@
     "url": "https://github.com/Gizzant/context-horizon/issues"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.13.0"
   },
   "keywords": [
     "ai-agents",

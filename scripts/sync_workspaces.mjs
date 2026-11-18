@@ -104,7 +104,7 @@ export * from './ui/horizonPanelHtml.mjs';
     },
     files: ['src/'],
     engines: {
-      node: '>=20.0.0'
+      node: '>=22.13.0'
     },
     dependencies: {}
   };
@@ -176,7 +176,7 @@ export * from './ui/horizonPanelHtml.mjs';
 
   const engineIndexContent = `/**
  * @file packages/engine-node/src/index.mjs
- * Highbeam Node.js >=20 runtime engine barrel (@ctxtop/engine-node).
+ * Highbeam Node.js >=22.13 runtime engine barrel (@ctxtop/engine-node).
  * Standalone publishable SQLite + JSONL fallback, Micro-IPC, offloader, git sensors & RSL.
  */
 
@@ -191,7 +191,7 @@ export * from './rsl/index.mjs';
   const enginePkg = {
     name: '@ctxtop/engine-node',
     version: VERSION,
-    description: 'Highbeam Node.js >=20 runtime engine (SQLite + JSONL fallback, Micro-IPC, lossless offloader, git sensors)',
+    description: 'Highbeam Node.js >=22.13 runtime engine (SQLite + JSONL fallback, Micro-IPC, lossless offloader, git sensors)',
     type: 'module',
     main: './src/index.mjs',
     exports: {
@@ -200,7 +200,7 @@ export * from './rsl/index.mjs';
     },
     files: ['src/'],
     engines: {
-      node: '>=20.0.0'
+      node: '>=22.13.0'
     },
     dependencies: {}
   };
@@ -266,7 +266,7 @@ export * from './team_finops_pack.mjs';
       'LICENSE-COMMERCIAL.md'
     ],
     engines: {
-      node: '>=20.0.0'
+      node: '>=22.13.0'
     },
     dependencies: {}
   };
@@ -343,7 +343,7 @@ export * from './team_finops_pack.mjs';
     },
     files: ['src/', 'README.md', 'smithery.yaml', 'glama.json', 'server.json'],
     engines: {
-      node: '>=20.0.0'
+      node: '>=22.13.0'
     },
     dependencies: {}
   };
@@ -391,7 +391,7 @@ export * from './adapter.mjs';
     },
     files: ['src/'],
     engines: {
-      node: '>=20.0.0'
+      node: '>=22.13.0'
     },
     dependencies: {
       '@ctxtop/core': `^${VERSION}`,
@@ -451,7 +451,7 @@ export { default as register } from './register.js';
     },
     files: ['src/'],
     engines: {
-      node: '>=20.0.0'
+      node: '>=22.13.0'
     },
     dependencies: {
       '@ctxtop/core': `^${VERSION}`,

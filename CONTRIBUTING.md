@@ -6,7 +6,7 @@ Thank you for helping build Highbeam (`ctxtop`)! Our goal is to keep AI coding a
 
 ## Quick Local Development Setup
 
-Requires **Node.js >= 20 (22.5+ uses built-in node:sqlite)** (Windows, macOS, or Linux). Because Highbeam has **zero external npm runtime dependencies**, you do not even need to run `npm install` to run the core engine, CLI tools, or test suite:
+Requires **Node.js >= 22.13 (built-in node:sqlite)** (Windows, macOS, or Linux). Because Highbeam has **zero external npm runtime dependencies**, you do not even need to run `npm install` to run the core engine, CLI tools, or test suite:
 
 ```bash
 # 1. Clone the repository (or your fork) into ./ctxtop
@@ -77,4 +77,4 @@ Run `npm test` and `npm run bench` to verify your sensor passes and total `PreIn
 - [ ] `npm run test:e2e` passes (all 7 End-to-End validation layers + 3-way SHA-256 mirror parity).
 - [ ] `npm run bench` confirms p95 `PreInvocation` latency `<15ms`.
 - [ ] Zero third-party runtime dependencies added to `package.json`, and all SQLite opens use `SQLITE_OPEN_READONLY_OPTIONS` (`{ readOnly: true }`).
-- [ ] Tested on Node.js >= 20 (22.5+ uses built-in node:sqlite).
+- [ ] Tested on Node.js 22 and 24.

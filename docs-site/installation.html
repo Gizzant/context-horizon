@@ -22,8 +22,8 @@
 
       <h2 id="prerequisites">Prerequisites &amp; Runtime Requirements</h2>
       <ul>
-        <li><strong>Node.js <code>&gt;= 20.0.0</code>:</strong> Needed on your system <code>PATH</code> so host hooks can run <code>node</code> directly. Check with <code>node --version</code>.</li>
-        <li><strong>SQLite, FTS5 Polyfill &amp; Fallback:</strong> On Node builds with built-in <code>node:sqlite</code> (default on Node <code>22.14+</code>, Node <code>22.5+</code>, and modern Node 20), <code>@ctxtop/engine-node</code> opens session databases with <code>SQLITE_OPEN_READONLY</code> and enables local FTS5 log search. If a Node 22 build lacks <code>SQLITE_ENABLE_FTS5</code>, <code>src/engine-node/db/probe.mjs</code> supplies a drop-in <code>USING fts5(...)</code> table and <code>MATCH</code> snippet polyfill. When <code>node:sqlite</code> is absent (or <code>CTXTOP_FORCE_NO_SQLITE=1</code> is set), Highbeam falls back to read-only JSONL byte-offset reads.</li>
+        <li><strong>Node.js <code>&gt;= 22.13.0</code>:</strong> Needed on your system <code>PATH</code> so host hooks can run <code>node</code> directly. Check with <code>node --version</code>.</li>
+        <li><strong>SQLite, FTS5 Polyfill &amp; Fallback:</strong> On the supported Node versions (<code>22.13+</code>, with built-in <code>node:sqlite</code>), <code>@ctxtop/engine-node</code> opens session databases with <code>SQLITE_OPEN_READONLY</code> and enables local FTS5 log search. If a Node 22 build lacks <code>SQLITE_ENABLE_FTS5</code>, <code>src/engine-node/db/probe.mjs</code> supplies a drop-in <code>USING fts5(...)</code> table and <code>MATCH</code> snippet polyfill. When <code>node:sqlite</code> is absent (or <code>CTXTOP_FORCE_NO_SQLITE=1</code> is set), Highbeam falls back to read-only JSONL byte-offset reads.</li>
         <li><strong>Git (Optional, Recommended):</strong> Powers <code>DET-01</code> git safety checks, <code>DET-03</code> lockfile drift checks, <code>DET-31</code> worktree <code>git merge-tree</code> conflict checks, and Cost Radar worktree maps.</li>
       </ul>
 
@@ -114,7 +114,7 @@ npx ctxtop init --mcp --global</code></pre>
         <div class="code-header"><span>Verify Contracts &amp; Release Checksums</span></div>
         <pre><code>$ npx ctxtop doctor
 [Highbeam Doctor] Status: HEALTHY
-  [PASS] node_version: Node.js v22.14.0 (requires >= 20.0.0)
+  [PASS] node_version: Node.js v22.14.0 (requires >= 22.13.0)
   [PASS] model_catalog: Loaded 28 Anthropic model rate cards (Haiku 5.5 100k cliff enabled)
   [PASS] mod_entrypoint: hooks/register.js present at .../hooks/register.js
   [PASS] hooks_manifest: hooks/hooks.json valid (nested hooks schema)

@@ -10,6 +10,7 @@
  *  - Markdown hygiene across `README.md`, `SECURITY.md`, `docs/ENTERPRISE_MDM.md`, and `docs/ANTIGRAVITY_AND_COMPRESSION_BENCHMARK.md`
  */
 
+import { SKIP_WITHOUT_SQLITE } from './helpers/sqlite_available.mjs';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -35,7 +36,7 @@ import { runParityBenchmarks } from '../scripts/run_antigravity_and_compression_
 const ROOT = path.resolve(import.meta.dirname, '..');
 
 describe('Matrix >= 9.0 Capabilities Suite (D1-D8)', () => {
-  it('1. Multi-family CLI compression + unified FTS5 search across tool_logs_fts5.db and artifacts_fts5.db', async () => {
+  it('1. Multi-family CLI compression + unified FTS5 search across tool_logs_fts5.db and artifacts_fts5.db', { skip: SKIP_WITHOUT_SQLITE }, async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'highbeam-ws1-'));
     try {
       const dbPath = path.join(tmpDir, 'tool_logs_fts5.db');

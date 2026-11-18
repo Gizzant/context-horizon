@@ -16,12 +16,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Opt-in Antigravity hook trace: create `~/.ctxtop/hook_trace.on` to log each pre-tool hook call (event, tool, command, reply) to `~/.ctxtop/hook_trace.jsonl`.
 - New `ctxtop mode [coach|auto|silent|off]` shows or sets the flight mode, so Claude Code users can turn Auto on from the CLI. Without Pro or the trial, Auto runs as COACH and says so. `license trial` now says Auto stays off until you turn it on, and `mode` / `license status` say when the trial has ended and Auto is paused.
 
+#### Changed
+- **Node.js 22.13 or newer is now required** (was 20). `node:sqlite` is available without a flag only from 22.13, and several features need it: instinct learning and the handoff checkpoint, the session timeline and Tokens Saved figures in the side pane, full-text search over saved output, and telling Antigravity subagent sessions apart. Node 20 reached end of life in April 2026 and never ran those features. `npm` warns on older Node (`engines`), `ctxtop doctor` reports it as a FAIL with the upgrade command, and `init` stops with a clear message. CI now tests Node 22 and 24.
+
 #### Fixed
 - A `#check` prompt now stops with the scorecard in Antigravity (which sends the prompt as `lastUserInput`) and is no longer shadowed by the context-crisis card when the chat is over 87% full.
 - `license.json` written with a UTF-8 byte-order mark (Windows PowerShell 5.1 `Set-Content -Encoding utf8`) is read correctly instead of silently falling back to Free.
 - `ctxtop license trial` with a paid key already active says so instead of reporting a new trial; a hand-edited trial that ends before it starts still reports the savings from its 14 days.
 - Antigravity tool calls are now checked. Antigravity sends `toolCall: { name, args }` (and `hookEventName`), but the guards only read `tool_name` / `tool_input`, so every Antigravity tool call looked empty and was allowed, including `git push --force`. The hook now reads the documented shape.
 - Antigravity prompt stops use the documented reply (`injectSteps` + `terminationBehavior: "terminate"`); the old shape was ignored. In `COACH`, only a 3-strike error loop, an explicit `#check`, or a detector set to `block` stops a prompt, as the README states; other states (for example the context-limit card) show as a message. `AUTO_PILOT` keeps every stop.
+- The pure-JavaScript database fallback no longer crashes when `all()` or `get()` is called without a query.
 
 ## [4.1.2] - 2026-11-17
 

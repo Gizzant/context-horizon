@@ -1,3 +1,4 @@
+import { SKIP_WITHOUT_SQLITE } from './helpers/sqlite_available.mjs';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -35,7 +36,7 @@ function createPanelDom() {
 }
 
 describe('UX Redesign & Verified Tokens Saved Pipeline', () => {
-  it('computes uninflated physical session & 30d workspace savings and wires FTS5 + PrefixCacheShield writers', async () => {
+  it('computes uninflated physical session & 30d workspace savings and wires FTS5 + PrefixCacheShield writers', { skip: SKIP_WITHOUT_SQLITE }, async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hz-ux-savings-'));
     try {
       const dbPath = path.join(tmpDir, 'tool_logs_fts5.db');

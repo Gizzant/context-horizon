@@ -1,3 +1,4 @@
+import { SKIP_WITHOUT_SQLITE } from './helpers/sqlite_available.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -156,7 +157,7 @@ test('Phase 2 (DET-16, #16, #18): ReflectorQueue stages learnings in learnings-q
   }
 });
 
-test('Phase 2 (Feature #18 & #19): RsiInstinctEngine enforces ContradictionAuditor on promotion and evaluates multi-repo global promotion (>= 0.80 across >= 2 repos)', () => {
+test('Phase 2 (Feature #18 & #19): RsiInstinctEngine enforces ContradictionAuditor on promotion and evaluates multi-repo global promotion (>= 0.80 across >= 2 repos)', { skip: SKIP_WITHOUT_SQLITE }, () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'horizon-rsi-p2-'));
   try {
     const dbPath = path.join(tmpDir, 'instincts.db');

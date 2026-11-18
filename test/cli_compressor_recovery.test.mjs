@@ -1,3 +1,4 @@
+import { SKIP_WITHOUT_SQLITE } from './helpers/sqlite_available.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -10,7 +11,7 @@ import {
 import { CircuitBreakers } from '../src/core/coach/circuit_breakers.mjs';
 import { SubagentPhantomAuditor } from '../src/core/coach/subagent_phantom_auditor.mjs';
 
-test('Phase 3.2: CLI Output Compressor archives >4KB stdout into .agents/cache/cli_logs.sqlite and recovers 100% of omitted Error/FAIL/AssertionError lines', async () => {
+test('Phase 3.2: CLI Output Compressor archives >4KB stdout into .agents/cache/cli_logs.sqlite and recovers 100% of omitted Error/FAIL/AssertionError lines', { skip: SKIP_WITHOUT_SQLITE }, async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hz-cli-shim-'));
   try {
     const fillerLines = Array.from(

@@ -198,16 +198,16 @@ test('Stage 7 (Tasks 7.1–7.5): Multi-harness Claude Code + Cursor + Antigravit
   } = await import('../src/core/parser.mjs');
   const { runLiveOrDemoCli } = await import('../src/cli/init.mjs');
 
-  // Task 7.3: Node >= 20.0.0 LTS version guard, native SQLite tier detection & friendly upgrade hint
+  // Task 7.3: Node >= 22.13.0 version guard, native SQLite tier detection & friendly upgrade hint
   assert.equal(isSupportedNodeVersion('v18.19.0'), false);
-  assert.equal(isSupportedNodeVersion('v20.11.0'), true);
-  assert.equal(hasNativeNodeSqlite('v20.11.0'), false);
-  assert.equal(hasNativeNodeSqlite('v22.4.9'), false);
-  assert.equal(hasNativeNodeSqlite('v22.5.0'), true);
-  assert.equal(isSupportedNodeVersion('v22.5.0'), true);
+  assert.equal(isSupportedNodeVersion('v20.19.0'), false);
+  assert.equal(isSupportedNodeVersion('v22.12.9'), false);
+  assert.equal(hasNativeNodeSqlite('v22.12.9'), false);
+  assert.equal(hasNativeNodeSqlite('v22.13.0'), true);
+  assert.equal(isSupportedNodeVersion('v22.13.0'), true);
   assert.equal(isSupportedNodeVersion('v25.6.0'), true);
   const hint = formatNodeUpgradeHint('v18.19.0');
-  assert.ok(hint.includes('Node.js >= 22.5.0'), 'Upgrade hint must state Node.js >= 22.5.0 requirement');
+  assert.ok(hint.includes('Node.js >= 22.13.0'), 'Upgrade hint must state Node.js >= 22.13.0 requirement');
   assert.ok(hint.includes('nvm install 22'), 'Upgrade hint must include actionable upgrade command');
 
   // Task 7.4: sidecar.json and daemon.port lockfile unification on 62935

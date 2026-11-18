@@ -11,6 +11,7 @@
  *   - Live `SHADOW` `.hints.jsonl` E2E verification across Claude Code & Antigravity hooks
  */
 
+import { SKIP_WITHOUT_SQLITE } from './helpers/sqlite_available.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -1225,7 +1226,7 @@ if (!process.env.CTXTOP_BENCH_IMPORT_ONLY) {
     }
   });
 
-  test('Sub-Wave B-Gamma selective promotion (#5, #13, capability-gated #16 -> COACH; #17 -> SHADOW; #20 -> DOCTOR_PREVIEW) across Claude & Antigravity', async () => {
+  test('Sub-Wave B-Gamma selective promotion (#5, #13, capability-gated #16 -> COACH; #17 -> SHADOW; #20 -> DOCTOR_PREVIEW) across Claude & Antigravity', { skip: SKIP_WITHOUT_SQLITE }, async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ctxtop-b-gamma-select-'));
     const agConvId = `b-gamma-ag-${Date.now()}`;
     try {

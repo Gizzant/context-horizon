@@ -92,12 +92,12 @@ export class JsonlDatabaseFallbackWrapper {
     }
   }
 
-  get(sql, params = []) {
+  get(sql = '', params = []) {
     const rows = this.all(sql, params);
     return rows.length > 0 ? rows[0] : null;
   }
 
-  all(sql, params = []) {
+  all(sql = '', params = []) {
     if (!this.isOpen) throw new Error('Database handle is closed');
     this._assertNotMutating(sql);
 

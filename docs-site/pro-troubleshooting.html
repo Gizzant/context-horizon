@@ -119,7 +119,7 @@ rm ~/.ctxtop/runtime/default.ctl</code></pre>
       <h3 id="quirk-sqlite-and-storage">Missing <code>node:sqlite</code> / <code>SQLITE_ENABLE_FTS5</code>, Binary Capabilities &amp; Bloated <code>state.vscdb</code></h3>
       <ul>
         <li><strong>Automatic FTS5 Polyfill (Node 22):</strong> If your Node 22 binary lacks <code>SQLITE_ENABLE_FTS5</code>, <code>src/engine-node/db/probe.mjs</code> loads a built-in SQLite table and snippet polyfill automatically. Set <code>CTXTOP_FORCE_FTS5_POLYFILL=1</code> to test it directly.</li>
-        <li><strong>Force JSONL Mode:</strong> If an older Node 20 build lacks <code>node:sqlite</code>, set <code>CTXTOP_FORCE_NO_SQLITE=1</code>. Highbeam switches cleanly to read-only JSONL offset reads.</li>
+        <li><strong>Force JSONL Mode:</strong> Highbeam needs Node 22.13 or newer. If SQLite misbehaves on your build, set <code>CTXTOP_FORCE_NO_SQLITE=1</code>. Highbeam switches cleanly to read-only JSONL offset reads.</li>
         <li><strong>Claude Binary Capability Warnings:</strong> If <code>ctxtop doctor</code> shows <code>[WARN] claude_pre_model_switch</code>, run <code>npx ctxtop doctor --json</code> (or set <code>CLAUDE_BIN</code> to your Claude Code binary path). That checks <code>PreModelSwitch</code>, <code>PostModelSwitch</code>, and <code>supportsAskDecision</code> support.</li>
         <li><strong>Relink Antigravity Brains:</strong> Run <code>npx ctxtop doctor --recover-brain --dry-run</code> first, then drop <code>--dry-run</code> to fix broken brain links after IDE profile upgrades.</li>
         <li><strong>Compact Cursor SQLite Storage:</strong> Run <code>npx ctxtop doctor --gc-cursor --vscdb &lt;path-to-state.vscdb&gt; --dry-run</code> to preview space savings before compacting.</li>

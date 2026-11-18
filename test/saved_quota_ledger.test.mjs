@@ -1,3 +1,4 @@
+import { SKIP_WITHOUT_SQLITE } from './helpers/sqlite_available.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -17,7 +18,7 @@ import {
   formatFiveMinTtlClock
 } from '../src/ui/horizon_panel.js';
 
-test('Phase 4.3: SavedQuotaReceiptLedger records SQLite savings events, formats Status Bar receipt, and exports Markdown table', () => {
+test('Phase 4.3: SavedQuotaReceiptLedger records SQLite savings events, formats Status Bar receipt, and exports Markdown table', { skip: SKIP_WITHOUT_SQLITE }, () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hz-ledger-'));
   try {
     const dbPath = path.join(tmpDir, 'saved_quota_ledger.sqlite');

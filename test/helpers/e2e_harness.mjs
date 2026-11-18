@@ -49,7 +49,7 @@ export function detectRuntimeEnv() {
   const major = parseInt(parts[0], 10);
   const minor = parseInt(parts[1], 10);
   const isNode20 = major === 20;
-  const isNode22Plus = major > 22 || (major === 22 && minor >= 5);
+  const isNode22Plus = major > 22 || (major === 22 && minor >= 13);
 
   return {
     nodeVersion: version,
@@ -814,9 +814,10 @@ export function executeJsonlQuery(records, sql, params = []) {
     filtered = filtered.slice(0, limit);
   }
 
-  // Apply SELECT projections
+  // Apply SELECT projections. Fixture rows are stored as { __table, __values }; return the row
+  // columns themselves, as SQLite would.
   if (columns === '*') {
-    return filtered;
+    return filtered.map((r) => (r && r.__values && typeof r.__values === 'object' ? { ...r.__values } : r));
   }
 
   const countMatch = columns.match(/^COUNT\s*\(\s*\*\s*\)(?:\s+AS\s+([a-zA-Z0-9_]+))?$/i);

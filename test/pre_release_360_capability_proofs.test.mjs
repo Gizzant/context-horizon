@@ -1,3 +1,4 @@
+import { SKIP_WITHOUT_SQLITE } from './helpers/sqlite_available.mjs';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -133,7 +134,7 @@ describe('Pre-Release 360° Capability Proofs — Dual-Host Parity, External-CWD
     }
   });
 
-  it('Proof 3: Actuarial "Tokens Saved" zero-inflation, idempotency, 10-event conservation, and model-rate fidelity', async () => {
+  it('Proof 3: Actuarial "Tokens Saved" zero-inflation, idempotency, 10-event conservation, and model-rate fidelity', { skip: SKIP_WITHOUT_SQLITE }, async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hb-actuarial-proof-'));
     try {
       const sqlitePath = path.join(tmpDir, 'saved_quota_ledger.sqlite');

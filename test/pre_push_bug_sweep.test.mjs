@@ -1,3 +1,4 @@
+import { SKIP_WITHOUT_SQLITE } from './helpers/sqlite_available.mjs';
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -418,7 +419,7 @@ describe('Pre-push 13-bug sweep regressions', () => {
     assert.notEqual(afterReload.json.pinnedConversationId, 'new-unmaterialized-conv');
   });
 
-  it('BUG-02 & BUG-03 (Parser/CLI): runCLI returns valid state on 0-step session and findSessionDirectory skips child subagents', async () => {
+  it('BUG-02 & BUG-03 (Parser/CLI): runCLI returns valid state on 0-step session and findSessionDirectory skips child subagents', { skip: SKIP_WITHOUT_SQLITE }, async () => {
     const parserRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'hz-parser-sub-'));
     try {
       const agDir = path.join(parserRoot, '.gemini', 'antigravity');

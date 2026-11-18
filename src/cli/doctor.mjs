@@ -30,11 +30,7 @@ import { getHookDiagnosticSummary } from '../core/hook_diagnostics.mjs';
  * Parses CLI flags (`--prune-tools`, `--reap-orphans`, `--handoff`, `--storage-gc`, `--gc-cursor`, `--recover-brain`, `--diagnostic`, `--transcript <path>`, `--vscdb <path>`, `--dry-run`)
  */
 function nodeSupportsSqlite() {
-  const m = /^v?(\d+)\.(\d+)/.exec(String(globalThis.process?.version || ''));
-  if (!m) return false;
-  const major = Number(m[1]);
-  const minor = Number(m[2]);
-  return major > 22 || (major === 22 && minor >= 5);
+  return isSupportedNodeVersion();
 }
 
 export function parseDoctorArgs(argv = process.argv.slice(2)) {
@@ -126,13 +122,13 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
   if (isSupportedNodeVersion()) {
     const sqliteDetail =
       typeof process !== 'undefined' && process.env?.CTXTOP_FORCE_NO_SQLITE === '1'
-        ? `${process.version} (Node >= 20.0.0 LTS JSONL fallback active)`
+        ? `${process.version} (JSONL fallback forced by CTXTOP_FORCE_NO_SQLITE)`
         : nodeSupportsSqlite()
           ? `${process.version} (built-in node:sqlite ready)`
-          : `${process.version} (Node >= 20.0.0 LTS; node:sqlite needs v22.5.0, JSONL fallback active)`;
+          : `${process.version} (JSONL fallback active)`;
     record('Node.js Runtime', 'PASS', sqliteDetail);
   } else {
-    record('Node.js Runtime', 'FAIL', `${process.version} — Upgrade to Node >= 20.0.0 LTS required`);
+    record('Node.js Runtime', 'FAIL', `${process.version} — Highbeam requires Node >= 22.13.0 (built-in SQLite). Upgrade: nvm install 22`);
   }
   const portFile = getDaemonPortFile(home);
   const resolvedPort = readDaemonPort(home, 62935);

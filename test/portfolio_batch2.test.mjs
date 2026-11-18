@@ -1,3 +1,4 @@
+import { SKIP_WITHOUT_SQLITE } from './helpers/sqlite_available.mjs';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -27,7 +28,7 @@ function makeTmp(prefix = 'ah-b2-') {
 }
 
 describe('Batch 2 — Rank 3 (DET-07): Exit-Safe CLI Compressor, 5 MB FTS5 Ring Archive & BM25 Query', () => {
-  it('propagates exact child exitCode via CLI shim, preserves 30 head + 45 tail + 100% errors, scrubs secrets, and records ledger savings', () => {
+  it('propagates exact child exitCode via CLI shim, preserves 30 head + 45 tail + 100% errors, scrubs secrets, and records ledger savings', { skip: SKIP_WITHOUT_SQLITE }, () => {
     const ws = makeTmp('ah-det07-');
     try {
       const ledgerDb = path.join(ws, 'ledger.sqlite');
@@ -90,7 +91,7 @@ describe('Batch 2 — Rank 3 (DET-07): Exit-Safe CLI Compressor, 5 MB FTS5 Ring 
     }
   });
 
-  it('enforces the 5 MB SQLite FTS5 ring cap by evicting oldest rows past cap', () => {
+  it('enforces the 5 MB SQLite FTS5 ring cap by evicting oldest rows past cap', { skip: SKIP_WITHOUT_SQLITE }, () => {
     const ws = makeTmp('ah-cap-');
     try {
       // Test ring eviction with a 256 KB test cap (and verify default constant === 5 MB)

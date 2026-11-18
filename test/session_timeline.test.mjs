@@ -1,3 +1,4 @@
+import { SKIP_WITHOUT_SQLITE } from './helpers/sqlite_available.mjs';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -177,7 +178,7 @@ describe('Session Timeline builder (Simple View Flight Recorder)', () => {
     assert.equal(tl.kpis.goodCount, 2);
   });
 
-  it('ledger.listRecentEvents is read-only, newest-first, per-session, and excludes passive cache preservation', () => {
+  it('ledger.listRecentEvents is read-only, newest-first, per-session, and excludes passive cache preservation', { skip: SKIP_WITHOUT_SQLITE }, () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hz-timeline-ledger-'));
     try {
       const ledger = new SavedQuotaReceiptLedger({ dbPath: path.join(dir, 'ledger.sqlite') });

@@ -119,8 +119,8 @@ export function runDoctorDiagnostics(options = {}) {
 
   checks.push({
     id: 'node_version',
-    ok: major >= 20,
-    detail: `Node.js v${nodeVersion} (requires >= 20.0.0)`
+    ok: major > 22 || (major === 22 && Number(nodeVersion.split('.')[1] || 0) >= 13),
+    detail: `Node.js v${nodeVersion} (requires >= 22.13.0)`
   });
 
   try {

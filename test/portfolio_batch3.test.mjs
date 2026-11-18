@@ -1,3 +1,4 @@
+import { SKIP_WITHOUT_SQLITE } from './helpers/sqlite_available.mjs';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -98,7 +99,7 @@ describe('Batch 3 — Rank 6 (DET-06B): Lean Flash Subagent Search Offloader (@a
 });
 
 describe('Batch 3 — Rank 7 (DET-08): KV-Cache Gravity, Carbon 2026-12-01 Rate Step, Dual-Trigger EffortAdvisor & Box 3 Chip', () => {
-  it('validates src/config/modelCatalog.json Carbon weights (3.2/6.0/10.0), 2026-12-01 rate step ($2->$4), Turn 0-2 vs Mid-Session math, HysteresisLock, and 3-strike SQLite muting', async () => {
+  it('validates src/config/modelCatalog.json Carbon weights (3.2/6.0/10.0), 2026-12-01 rate step ($2->$4), Turn 0-2 vs Mid-Session math, HysteresisLock, and 3-strike SQLite muting', { skip: SKIP_WITHOUT_SQLITE }, async () => {
     const srcCatalog = JSON.parse(fs.readFileSync(path.resolve('src/config/modelCatalog.json'), 'utf8'));
     const carbon = srcCatalog.models['gemini-4-carbon'];
     assert.equal(carbon.shared_pool_ceiling, 1048576);

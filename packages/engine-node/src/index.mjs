@@ -1,6 +1,6 @@
 /**
  * @file packages/engine-node/src/index.mjs
- * Highbeam Node.js >=20 runtime engine barrel (@ctxtop/engine-node).
+ * Highbeam Node.js >=22.13 runtime engine barrel (@ctxtop/engine-node).
  * Standalone publishable SQLite + JSONL fallback, Micro-IPC, offloader, git sensors & RSL.
  */
 
