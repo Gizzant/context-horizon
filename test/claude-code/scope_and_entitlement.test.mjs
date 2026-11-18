@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { runCli } from '../../bin/ctxtop.mjs';
 
@@ -58,7 +58,7 @@ for (const [name, value] of [['CTXTOP_PRO_DEV', '1'], ['NODE_ENV', 'test']]) {
       const env = { ...process.env, HOME: home, USERPROFILE: home, [name]: value };
       delete env.NODE_TEST_CONTEXT; // a real user's shell, not node --test
       const script =
-        `import(${JSON.stringify(path.join(ROOT, 'src', 'core', 'pro_license.mjs'))})` +
+        `import(${JSON.stringify(pathToFileURL(path.join(ROOT, 'src', 'core', 'pro_license.mjs')).href)})` +
         `.then((m) => process.stdout.write(JSON.stringify(m.getProEntitlementStatus({}))))`;
       const r = spawnSync(process.execPath, ['--input-type=module', '-e', script], { env, encoding: 'utf8' });
       assert.equal(r.status, 0, r.stderr);
@@ -76,7 +76,7 @@ test('CTXTOP_ED25519_PUBLIC_KEY_PEM cannot replace the trust root', () => {
   try {
     const script = `
       import crypto from 'node:crypto';
-      const m = await import(${JSON.stringify(path.join(ROOT, 'src', 'core', 'pro_license.mjs'))});
+      const m = await import(${JSON.stringify(pathToFileURL(path.join(ROOT, 'src', 'core', 'pro_license.mjs')).href)});
       const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
       process.env.CTXTOP_ED25519_PUBLIC_KEY_PEM = publicKey.export({ type: 'spki', format: 'pem' });
       const key = m.signProLicensePayload(

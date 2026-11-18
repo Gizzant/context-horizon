@@ -182,7 +182,8 @@ test('Audit Remediation 6: UI Invariants - Plain-text /compact and active source
 
 test('Stage 7 (Tasks 7.1–7.5): Multi-harness Claude Code + Cursor + Antigravity auto-discovery, Node >=22.5 check, and daemon.port lockfile', async () => {
   const os = await import('node:os');
-  const { DatabaseSync } = await import('node:sqlite');
+  // node:sqlite exists only on Node >= 22.5; the Cursor state.vscdb part below needs it.
+  const { DatabaseSync } = await import('node:sqlite').catch(() => ({ DatabaseSync: null }));
   const {
     isSupportedNodeVersion,
     hasNativeNodeSqlite,
@@ -313,66 +314,68 @@ test('Stage 7 (Tasks 7.1–7.5): Multi-harness Claude Code + Cursor + Antigravit
     assert.ok(claudeState.quota.cache.hitRatePct >= 75, `Expected high cache hit rate, got ${claudeState.quota.cache.hitRatePct}%`);
     assert.equal(claudeState.sessionRisk.isCacheTrulyWarm, true);
 
-    // Task 7.1 & 7.5 (B): Cursor workspaceStorage/<hash>/state.vscdb discovery & read-only SQLite parsing
-    const cursorWsDir = path.join(tmpHome, 'AppData', 'Roaming', 'Cursor', 'User', 'workspaceStorage', 'ws-hash-99');
-    fs.mkdirSync(cursorWsDir, { recursive: true });
-    fs.writeFileSync(path.join(cursorWsDir, 'workspace.json'), JSON.stringify({ folder: 'file:///c:/Projects/cursor-app' }), 'utf8');
-    const vscdbPath = path.join(cursorWsDir, 'state.vscdb');
-    const db = new DatabaseSync(vscdbPath);
-    db.exec('CREATE TABLE cursorDiskKV (key TEXT PRIMARY KEY, value TEXT);');
-    const ins = db.prepare('INSERT INTO cursorDiskKV (key, value) VALUES (?, ?)');
-    ins.run('composerData:comp-777', JSON.stringify({ name: 'Cursor Payment Refactor', model: 'claude-sonnet-4-5' }));
-    ins.run('bubbleId:comp-777:b1', JSON.stringify({
-      type: 1,
-      text: 'Inspect payment handler and optimize retries',
-      createdAt: nowIso
-    }));
-    ins.run('bubbleId:comp-777:b2', JSON.stringify({
-      type: 2,
-      text: 'Reading payment handler now.',
-      toolFormerData: [{ name: 'read_file', params: { target_file: 'src/payment.ts' } }],
-      inputTokens: 9500,
-      outputTokens: 1100,
-      cacheReadTokens: 56000,
-      createdAt: nowIso
-    }));
-    db.close();
+    if (DatabaseSync) {
+      // Task 7.1 & 7.5 (B): Cursor workspaceStorage/<hash>/state.vscdb discovery & read-only SQLite parsing
+      const cursorWsDir = path.join(tmpHome, 'AppData', 'Roaming', 'Cursor', 'User', 'workspaceStorage', 'ws-hash-99');
+      fs.mkdirSync(cursorWsDir, { recursive: true });
+      fs.writeFileSync(path.join(cursorWsDir, 'workspace.json'), JSON.stringify({ folder: 'file:///c:/Projects/cursor-app' }), 'utf8');
+      const vscdbPath = path.join(cursorWsDir, 'state.vscdb');
+      const db = new DatabaseSync(vscdbPath);
+      db.exec('CREATE TABLE cursorDiskKV (key TEXT PRIMARY KEY, value TEXT);');
+      const ins = db.prepare('INSERT INTO cursorDiskKV (key, value) VALUES (?, ?)');
+      ins.run('composerData:comp-777', JSON.stringify({ name: 'Cursor Payment Refactor', model: 'claude-sonnet-4-5' }));
+      ins.run('bubbleId:comp-777:b1', JSON.stringify({
+        type: 1,
+        text: 'Inspect payment handler and optimize retries',
+        createdAt: nowIso
+      }));
+      ins.run('bubbleId:comp-777:b2', JSON.stringify({
+        type: 2,
+        text: 'Reading payment handler now.',
+        toolFormerData: [{ name: 'read_file', params: { target_file: 'src/payment.ts' } }],
+        inputTokens: 9500,
+        outputTokens: 1100,
+        cacheReadTokens: 56000,
+        createdAt: nowIso
+      }));
+      db.close();
 
-    // Bump mtime on state.vscdb so Cursor is newest when testing auto-discovery
-    const futureTime = new Date(Date.now() + 5000);
-    fs.utimesSync(vscdbPath, futureTime, futureTime);
+      // Bump mtime on state.vscdb so Cursor is newest when testing auto-discovery
+      const futureTime = new Date(Date.now() + 5000);
+      fs.utimesSync(vscdbPath, futureTime, futureTime);
 
-    assert.equal(findSessionDirectory(null, tmpHome), null, 'Default Antigravity discovery must ignore cross-host Cursor state.vscdb unless --harness=cursor is specified');
-    const discoveredCursor = findSessionDirectory(null, tmpHome, { harness: 'cursor' });
-    assert.ok(discoveredCursor, 'findSessionDirectory must discover newest Cursor state.vscdb session when harness=cursor is passed');
-    assert.equal(discoveredCursor.storeName, 'cursor');
-    assert.equal(discoveredCursor.surfaceTag, '[Cursor]');
-    assert.equal(discoveredCursor.sessionId, 'comp-777');
+      assert.equal(findSessionDirectory(null, tmpHome), null, 'Default Antigravity discovery must ignore cross-host Cursor state.vscdb unless --harness=cursor is specified');
+      const discoveredCursor = findSessionDirectory(null, tmpHome, { harness: 'cursor' });
+      assert.ok(discoveredCursor, 'findSessionDirectory must discover newest Cursor state.vscdb session when harness=cursor is passed');
+      assert.equal(discoveredCursor.storeName, 'cursor');
+      assert.equal(discoveredCursor.surfaceTag, '[Cursor]');
+      assert.equal(discoveredCursor.sessionId, 'comp-777');
 
-    const parsedCursor = parseTranscriptIncremental(discoveredCursor.sessionDir, path.join(tmpHome, 'cache'));
-    assert.equal(parsedCursor.steps.length, 2);
-    assert.equal(parsedCursor.sessionTitle, 'Cursor Payment Refactor');
-    assert.equal(parsedCursor.genMetadata.cacheReadTokens, 56000);
+      const parsedCursor = parseTranscriptIncremental(discoveredCursor.sessionDir, path.join(tmpHome, 'cache'));
+      assert.equal(parsedCursor.steps.length, 2);
+      assert.equal(parsedCursor.sessionTitle, 'Cursor Payment Refactor');
+      assert.equal(parsedCursor.genMetadata.cacheReadTokens, 56000);
 
-    const cursorState = classifyHorizon(parsedCursor.steps, {
-      sessionId: discoveredCursor.sessionId,
-      storeSource: discoveredCursor.storeName,
-      logFilePath: parsedCursor.filePath,
-      genMetadata: parsedCursor.genMetadata,
-      modelId: parsedCursor.genMetadata.model
-    });
-    assert.equal(cursorState.surfaceTag, '[Cursor]');
+      const cursorState = classifyHorizon(parsedCursor.steps, {
+        sessionId: discoveredCursor.sessionId,
+        storeSource: discoveredCursor.storeName,
+        logFilePath: parsedCursor.filePath,
+        genMetadata: parsedCursor.genMetadata,
+        modelId: parsedCursor.genMetadata.model
+      });
+      assert.equal(cursorState.surfaceTag, '[Cursor]');
 
-    // Verify reconcileWorkspaceAndKIs lists both [Claude] and [Cursor] sessions when includeCrossHost is explicitly opted in
-    const recon = await reconcileWorkspaceAndKIs('comp-777', tmpHome, { includeCrossHost: true });
-    assert.equal(recon.sessionSurfaceTag, '[Cursor]');
-    assert.ok(recon.recentSessions.some(s => s.surfaceTag === '[Claude]'), 'recentSessions must include [Claude] session when opted in');
-    assert.ok(recon.recentSessions.some(s => s.surfaceTag === '[Cursor]'), 'recentSessions must include [Cursor] session when opted in');
+      // Verify reconcileWorkspaceAndKIs lists both [Claude] and [Cursor] sessions when includeCrossHost is explicitly opted in
+      const recon = await reconcileWorkspaceAndKIs('comp-777', tmpHome, { includeCrossHost: true });
+      assert.equal(recon.sessionSurfaceTag, '[Cursor]');
+      assert.ok(recon.recentSessions.some(s => s.surfaceTag === '[Claude]'), 'recentSessions must include [Claude] session when opted in');
+      assert.ok(recon.recentSessions.some(s => s.surfaceTag === '[Cursor]'), 'recentSessions must include [Cursor] session when opted in');
 
-    // Verify runLiveOrDemoCli picks up the live cross-host session when --harness=cursor is opted in
-    const liveCliRes = await runLiveOrDemoCli({ homeDir: tmpHome, harness: 'cursor' });
-    assert.equal(liveCliRes.mode, 'live');
-    assert.equal(liveCliRes.state.surfaceTag, '[Cursor]');
+      // Verify runLiveOrDemoCli picks up the live cross-host session when --harness=cursor is opted in
+      const liveCliRes = await runLiveOrDemoCli({ homeDir: tmpHome, harness: 'cursor' });
+      assert.equal(liveCliRes.mode, 'live');
+      assert.equal(liveCliRes.state.surfaceTag, '[Cursor]');
+    }
   } finally {
     fs.rmSync(tmpHome, { recursive: true, force: true });
   }
