@@ -51,6 +51,7 @@ import {
   parsePortableHandoffMarkdown
 } from '../../src/core-isomorphic/coach/stateBatonHydrator.mjs';
 import { inspectHookDiagnostics, runDoctorDiagnostics } from '../../src/diagnostics/doctorEngine.mjs';
+import { runPreModelSwitchHook } from '../../hooks/handlers/pre-model-switch.mjs';
 import { runCli } from '../../bin/cli.mjs';
 import register from '../../hooks/register.js';
 
@@ -475,7 +476,26 @@ test('ISS-061b [spawnSync AUTO_PILOT PreModelSwitch & Stop]: enforces active blo
     );
     assert.equal(coldSwitch.status, 0);
 
-    // 2. Warm Opus -> Sonnet downgrade above C* in AUTO_PILOT -> exit 2 hard hold, empty stdout, DET-08 stderr
+    // 2. Warm Opus -> Sonnet downgrade above C* in AUTO_PILOT with observed 5-turn calibration
+    //    -> exit 2 hard hold, empty stdout, DET-08 stderr
+    const calDir = path.join(homeDir, '.attention-horizon', 'cache', 'sessions');
+    fs.mkdirSync(calDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(calDir, 'cal_spawn-auto-1.json'),
+      JSON.stringify({
+        sessionId: 'spawn-auto-1',
+        turnsCompleted: 5,
+        apiCallsCompleted: 5,
+        requestsPerTurn: 1,
+        rptSampleSize: 5,
+        rollingMedianRequestsPerTurn: 1,
+        recentTurnRequestCounts: [1, 1, 1, 1, 1],
+        outputSampleSize: 5,
+        rollingMedianOutputTokens: 500,
+        recentTurnOutputs: [500, 500, 500, 500, 500]
+      }),
+      'utf8'
+    );
     const warmSwitch = spawnHookProcess(
       HANDLERS.preModelSwitch,
       [],
@@ -492,6 +512,38 @@ test('ISS-061b [spawnSync AUTO_PILOT PreModelSwitch & Stop]: enforces active blo
     assert.equal(warmSwitch.status, 2);
     assert.equal(warmSwitch.stdout.trim(), '');
     assert.match(warmSwitch.stderr, /DET-08/);
+
+    // Sibling: without observed R/O calibration data, spawnSync returns exit 0 advisory
+    // and runPreModelSwitchHook returns advisory: true, blocked: false, basedMostlyOnDefaults: true
+    const defaultsPayload = {
+      session_id: 'spawn-auto-defaults',
+      cwd: workDir,
+      current_model: 'claude-opus-5-5',
+      target_model: 'claude-sonnet-5-5',
+      cached_tokens: 85_000,
+      cache_warm: true
+    };
+    const warmDefaultsSpawn = spawnHookProcess(
+      HANDLERS.preModelSwitch,
+      [],
+      defaultsPayload,
+      { workDir, homeDir }
+    );
+    assert.equal(warmDefaultsSpawn.status, 0);
+    const warmDefaultsOut = JSON.parse(warmDefaultsSpawn.stdout);
+    assert.equal(warmDefaultsOut.hookSpecificOutput.permissionDecision, 'allow');
+    assert.match(warmDefaultsOut.hookSpecificOutput.additionalContext, /based mostly on defaults/i);
+
+    const warmDefaultsUnit = runPreModelSwitchHook(defaultsPayload, {
+      cwd: workDir,
+      homeDir,
+      recordLedger: false,
+      persistState: false
+    });
+    assert.equal(warmDefaultsUnit.exitCode, 0);
+    assert.equal(warmDefaultsUnit.verdict.advisory, true);
+    assert.equal(warmDefaultsUnit.verdict.blocked, false);
+    assert.equal(warmDefaultsUnit.verdict.basedMostlyOnDefaults, true);
 
     // 3. Stop gate in AUTO_PILOT with unverified source edit -> exit 0 with `{ decision: 'block', reason }` JSON
     const blockedStop = spawnHookProcess(

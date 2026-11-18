@@ -136,11 +136,29 @@ test('UX-2: PreModelSwitch (DET-08), PreToolUse (DET-09), and Subagent Isolation
         target_model: 'claude-sonnet-5-5',
         cached_tokens: 50_000,
         cache_warm: true,
+        requests_per_turn: 1,
+        expected_output_tokens: 1500,
         turn_id: 'turn-sw-1'
       },
       { cwd: tmpDir }
     );
     assert.equal(switchRes.verdict.blocked, true);
+
+    // Sibling: without observed R/O data, AUTO_PILOT issues a non-blocking advisory
+    const switchDefaultsRes = runPreModelSwitchHook(
+      {
+        session_id: 'sess-prod-defaults',
+        mode: 'AUTO_PILOT',
+        current_model: 'claude-opus-5-5',
+        target_model: 'claude-sonnet-5-5',
+        cached_tokens: 50_000,
+        cache_warm: true
+      },
+      { cwd: tmpDir, recordLedger: false }
+    );
+    assert.equal(switchDefaultsRes.verdict.advisory, true);
+    assert.equal(switchDefaultsRes.verdict.blocked, false);
+    assert.equal(switchDefaultsRes.verdict.basedMostlyOnDefaults, true);
 
     // 2. PreToolUse DET-09 warm-prefix CLAUDE.md edit in AUTO_PILOT records DET_09_PREFIX_FENCE
     const telemetryState = createInitialTelemetryState('sess-prod', 'claude-opus-5-5');

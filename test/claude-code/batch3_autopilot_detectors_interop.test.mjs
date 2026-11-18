@@ -152,13 +152,32 @@ test('ISS-038a: .attention-horizon.json flightMode="AUTO_PILOT" is enforced by P
         current_model: 'claude-opus-5-5',
         target_model: 'claude-sonnet-5-5',
         cached_tokens: 50000,
-        cache_warm: true
+        cache_warm: true,
+        requests_per_turn: 1,
+        expected_output_tokens: 1500
       },
       { globalConfigPath: ws.globalConfigPath }
     );
     assert.equal(switchRes.exitCode, 2, 'AUTO_PILOT PreModelSwitch must hard-block with exitCode 2');
     assert.equal(switchRes.verdict.blocked, true);
     assert.match(switchRes.stderr, /DET-08|Cache Gravity/i);
+
+    // Sibling: without observed R/O data, AUTO_PILOT issues a non-blocking advisory
+    const switchDefaultsRes = runPreModelSwitchHook(
+      {
+        cwd: ws.cwd,
+        session_id: 'sess-ap-defaults',
+        current_model: 'claude-opus-5-5',
+        target_model: 'claude-sonnet-5-5',
+        cached_tokens: 50000,
+        cache_warm: true
+      },
+      { globalConfigPath: ws.globalConfigPath }
+    );
+    assert.equal(switchDefaultsRes.exitCode, 0);
+    assert.equal(switchDefaultsRes.verdict.advisory, true);
+    assert.equal(switchDefaultsRes.verdict.blocked, false);
+    assert.equal(switchDefaultsRes.verdict.basedMostlyOnDefaults, true);
 
     // 2. Stop gate without explicit event.mode reads AUTO_PILOT from .attention-horizon.json
     //    and blocks premature stop when codeEditedSinceLastTest is true (!stop_hook_active)

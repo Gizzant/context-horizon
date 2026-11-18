@@ -27,8 +27,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Test scripts run with an isolated temporary home folder, so running the suites no longer installs the Antigravity plugin or writes state into the real `~/.gemini`, `~/.claude` or `~/.ctxtop`.
 - Documentation and `doctor` now state one Node requirement: Node >= 20 (`node:sqlite` is used on Node >= 22.5, with a JSONL fallback otherwise).
 - The plugin's `PreToolUse` hook no longer runs on `Read`, matching the installer. Read-time guards (large-file firewall, lockfile/minified-bundle guard, `.ipynb` stripper, large-PDF blocker, blind-search guard, scope lock/quota brake, post-edit diff stubs) now run only with `--full-hooks` or the in-process mod.
+- `AUTO_PILOT` no longer blocks a model switch when its estimate rests mostly on default values; it shows an advisory instead.
 
 #### Fixed
+- Model-switch cost (DET-08) now counts every request in a turn and the cache writes inside it; on 42 benchmark switches, wrong holds fell from 6 to 3.
 - `scripts/sync_mirrors.mjs` with `verifyOnly: true` no longer bootstraps missing plugin folders or writes into `.agents/` when run under an isolated test home (reports `not installed` instead).
 - `ctxtop uninstall` now lists what it leaves behind (settings backups, artifact cache, `~/.ctxtop` incl. the `app/` runtime copy, Antigravity plugin folders, git exclude entry) instead of leaving them unmentioned.
 - One Claude Code install command everywhere (`npx ctxtop init --claude [--global]`), one trial command (`npx ctxtop license trial`), consistent test/detector counts, and a hardened manual release workflow (pinned actions, tag/version checks, no swallowed publish errors).
