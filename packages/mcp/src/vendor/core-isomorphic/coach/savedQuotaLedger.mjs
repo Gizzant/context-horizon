@@ -73,7 +73,7 @@ export function readLedgerEntries(options = {}) {
 }
 
 /**
- * Appends a verified savings receipt entry to `horizon_ledger.jsonl`.
+ * Appends a estimated savings receipt entry to `horizon_ledger.jsonl`.
  *
  * @param {object} receipt
  * @param {string} [receipt.sessionId='default']

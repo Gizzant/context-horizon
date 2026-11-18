@@ -343,7 +343,7 @@ describe('Tier 4: Real-World Application Scenarios (Scenarios 1 - 7)', () => {
       assert.ok(pane.simpleText.includes('[Rank 1]'), 'Rank 1 status verdict present');
       assert.ok(pane.simpleText.includes('[Rank 2]'), 'Rank 2 capacity and shield present');
       assert.ok(pane.simpleText.includes('[Rank 3]'), 'Rank 3 priority action present');
-      assert.ok(pane.simpleText.includes('[Rank 4]'), 'Rank 4 verified savings present');
+      assert.ok(pane.simpleText.includes('[Rank 4]'), 'Rank 4 estimated savings present');
 
       // 5. Verify Simple HUD Pane
       const hud = renderSimpleHudPane(modState, { maxCols: 80 });

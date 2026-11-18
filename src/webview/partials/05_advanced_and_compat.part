@@ -185,14 +185,14 @@
       </details>
     </section>
 
-    <!-- Zone E: Verified Savings & Pre-Compact Surgery -->
+    <!-- Zone E: Estimated Savings & Pre-Compact Surgery -->
     <section class="ts-zone-last">
       <div class="ts-head">
-        <h2 class="ts-overline">Zone E &middot; Verified Savings &amp; Pre-Compact Surgery</h2>
+        <h2 class="ts-overline">Zone E &middot; Estimated Savings &amp; Pre-Compact Surgery</h2>
         <div style="display:inline-flex;gap:4px;">
           <button type="button" id="taBtnCopyCompact" class="ta-mini-btn" title="Copy focus preservation clause to append after /compact">Copy Focus Args</button>
           <button type="button" id="taBtnCopyReceipt" class="ta-mini-btn">Copy Receipt</button>
-          <button type="button" id="taBtnPdfReceipt" class="ta-mini-btn" title="Download PDF 1.4 verified savings receipt">PDF</button>
+          <button type="button" id="taBtnPdfReceipt" class="ta-mini-btn" title="Download PDF 1.4 estimated savings receipt">PDF</button>
         </div>
       </div>
       <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;">
@@ -670,7 +670,7 @@
       </div>
       <div class="adv-sub-ledger" id="advAccQuota" data-adv-id="quota" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--hz-border);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <span class="mono" style="font-size:10.5px;font-weight:600;color:var(--hz-fg);">Verified Savings Ledger</span>
+          <span class="mono" style="font-size:10.5px;font-weight:600;color:var(--hz-fg);">Estimated Savings Ledger</span>
           <span class="summary-status-pill mono" id="advQuotaSummaryPill">+0.0k saved</span>
         </div>
         <div class="savings-why-drawer mono" id="advSavingsBreakdownBox" style="border-top:none;padding-top:0;">
@@ -682,7 +682,7 @@
         <footer class="tier3-saved-quota-footer mono" id="savedQuotaFooterBar">
           <span class="tier3-receipt-text" id="savedQuotaReceiptText">Tokens Saved: +0.0k (0 Cold Prefills &middot; 0 Downshifts &middot; 0 CLI Compress)</span>
           <div style="display:flex;gap:6px;align-items:center;">
-            <button type="button" class="btn-copy-receipt mono" id="btnCopySavingsReceipt" title="Copy Markdown Verified Tokens Saved Receipt to clipboard">[Copy Receipt]</button>
+            <button type="button" class="btn-copy-receipt mono" id="btnCopySavingsReceipt" title="Copy Markdown Estimated Tokens Saved Receipt to clipboard">[Copy Receipt]</button>
             <a href="/api/receipt/export?format=pdf" download class="btn-copy-receipt mono" id="btnExportPdfReceipt" style="text-decoration:none;" title="Download Signed Corporate Expense Receipt (PDF 1.4)">[Export PDF Receipt]</a>
           </div>
         </footer>
@@ -831,7 +831,7 @@
   </section>
 
   <!-- Zone 4 & 5: Unified Session Activity, Canonical +Saved Pill & Git Auto-Guard Rail -->
-  <section class="flight-recorder simple-only" id="simpleFlightRecorder" aria-label="Session activity and verified tokens saved">
+  <section class="flight-recorder simple-only" id="simpleFlightRecorder" aria-label="Session activity and estimated tokens saved">
     <div class="fr-top-bar">
       <div class="fr-title-group">
         <span class="fr-main-title">Session Activity</span>
@@ -863,7 +863,7 @@
       <div class="savings-why-row"><span>Loops, re-reads &amp; trims avoided</span><strong id="savGuardsVal">+0.0k</strong></div>
       <div class="savings-why-foot">
         <span class="savings-scope-sub" id="savEstUsdLabel">Est. input value: $0.00</span>
-        <button type="button" class="btn-copy-receipt mono" id="btnCopySimpleSavingsReceipt" title="Copy plain-English Verified Tokens Saved Receipt">[Copy Receipt]</button>
+        <button type="button" class="btn-copy-receipt mono" id="btnCopySimpleSavingsReceipt" title="Copy plain-English Estimated Tokens Saved Receipt">[Copy Receipt]</button>
       </div>
     </div>
 

@@ -55,7 +55,7 @@ npx ctxtop audit --days 7
 #### 1. Google Antigravity Workflow
 1. **Install hooks & sidecar**: Run `npx ctxtop init --antigravity` in your project root (or globally).
 2. **Open the Highbeam Sidepane**: Launch the local telemetry WebView (`npx ctxtop ui` or via the Antigravity sidepane) to view real-time context health:
-   - **Simple View (Default)**: 4 glanceable zones—**Zone A** (Safe Headroom & Warm KV Cache TTL), **Zone B** (`DO / AVOID / HOLD` Model & Effort switch guidance), **Zone C** (Live automated interventions), and **Zone D** (Verified tokens/USD saved + 1-click `/compact`).
+   - **Simple View (Default)**: 4 glanceable zones—**Zone A** (Safe Headroom & Warm KV Cache TTL), **Zone B** (`DO / AVOID / HOLD` Model & Effort switch guidance), **Zone C** (Live automated interventions), and **Zone D** (Estimated tokens/USD saved + 1-click `/compact`).
    - **Advanced View (1-Click Toggle)**: Expands the **40-Cell Chrono-Positional Recall Grid** (`Primacy 0–30%`, `Mid-Trough 30–70%`, `Recency 70–100%`), top token consumer file table, `Off / Coach / Auto` mode switcher, and the full `DET-01..32` guard log.
 3. **Code normally**: Highbeam runs in **`COACH` mode** by default—automatically compressing verbose CLI test dumps via SQLite FTS5 and folding repeat file reads without interrupting your prompts.
 
@@ -94,15 +94,15 @@ All 6 slash skills are registered identically in both **Google Antigravity** (`p
 Most CLI trackers passively count tokens *after* your quota is already burned. Highbeam intercepts redundant reads, compresses noisy test dumps via local SQLite FTS5, and shields warm KV prefixes **before** they hit your billing meter:
 
 <div align="center">
-  <img src="assets/zone_c_step3_shield_full.png" alt="Highbeam Zone C Active Protection & Verified Token Receipt (+164.0k tokens saved)" width="460" />
+  <img src="assets/zone_c_step3_shield_full.png" alt="Highbeam Zone C Active Protection & Estimated Token Receipt (+164.0k tokens saved)" width="460" />
 </div>
 
-| Step in Coding Loop | Developer / Agent Action | Highbeam Active Intervention (Zone C) | Verified Incident Savings |
+| Step in Coding Loop | Developer / Agent Action | Highbeam Active Intervention (Zone C) | Estimated Incident Savings |
 | :--- | :--- | :--- | :---: |
 | **1. Warm KV Cache + Repeat Read** | Agent re-reads an unmodified 800-line source file on a `100k` warm cache | **GUARD-4** intercepts the duplicate read (`AST signature stub`) and preserves the `95%` warm KV cache discount | **`+95.0k` tok** *(KV cache)*<br/>**`+800` tok** *(deduped read)* |
 | **2. Failing Test Suite Dump** | `npm test` dumps `120+` lines of verbose stdout (`~11.4k` tokens) | **SQLite FTS5 BM25 Compressor** indexes raw stdout locally and injects only the 160-token failing assertion digest | **`+11.2k` tok** |
 | **3. Mid-Session Rule Edit** | Agent updates `AGENTS.md` / `CLAUDE.md` while `60k` prefix is warm (`2m 55s` TTL left) | **PrefixCacheShield** queues the rule delta until TTL expiry or `/compact`, preventing a cold prefix rebuild | **`+57.0k` tok** |
-| **Example Incident Receipt** | **4-Step Feature / Bugfix Loop** | **Zero context dilution · 100% critical error retention** | **`+164.0k` tok (`~$0.33`)** |
+| **Example Incident Receipt** | **4-Step Feature / Bugfix Loop** | **Failing assertion lines kept in the digest** | **`+164.0k` tok (`~$0.33`)** |
 
 > **Reconciled Monthly Expectation:** Across normal coding weeks without deliberate cache-busting, our bottom-up benchmark model estimates **`~$9.42/wk` (`~$40.79/mo`, `~6%–11%` of raw API spend)** saved for a full-time agentic developer, alongside **`30%–50%` longer 5-hour subscription sprints** by cutting `O(N²)` tool-log compounding.
 
@@ -124,11 +124,11 @@ In agentic coding, every turn re-sends the entire prior conversation history. A 
 
 ## ⚙️ What Runs Automatically (100% Free `COACH` Default)
 
-Highbeam defaults to **`COACH` mode**—performing lossless token surgery silently in the background while never blocking your chat prompt unless a 3-strike identical failure loop or destructive git command occurs:
+Highbeam defaults to **`COACH` mode**—trimming tokens silently in the background while never blocking your chat prompt unless a 3-strike identical failure loop or destructive git command occurs:
 
 | Automated Feature | How It Works Under the Hood | Developer Experience |
 | :--- | :--- | :--- |
-| **1. SQLite FTS5 CLI & Test Output Compression** (`PostToolUse`) | Strips ANSI/progress noise, indexes full stdout in local SQLite FTS5 (`porter unicode61`), and injects only the compact failing assertion digest | **100% automatic** — saves `50%–90%` of test/build log tokens with zero lost stack traces |
+| **1. SQLite FTS5 CLI & Test Output Compression** (`PostToolUse`) | Strips ANSI/progress noise, indexes full stdout in local SQLite FTS5 (`porter unicode61`), and injects only the compact failing assertion digest | **Automatic** — typically saves `50%–90%` of test/build log tokens while keeping failing assertions and error lines (full output stays searchable locally) |
 | **2. Post-Edit Delta Diffs & 3rd-Read AST Stubs** (`GUARD-4` in `PreToolUse`) | When the agent re-reads a file after editing 5 lines (or reads the same unclipped file `>=3` times), returns a unified line diff or function-signature AST stub | **100% automatic** — cuts repeat-read token burn by `80%+` without interrupting the agent |
 | **3. `PrefixCacheShield` Warm Rule & Effort Deferral** (`DET-09`) | Intercepts mid-session edits to `AGENTS.md` / `CLAUDE.md` while a KV cache is warm, and checks `MODEL_EFFORT_CACHE_CAPABILITIES` on effort changes (defers on `4.6`, silent on cache-preserving `5.5` models, warns on untested models) | **Model-aware cache protection** — prevents silent cold prefix rebuilds without false-positiving on `5.5` effort |
 | **4. Live Model & Effort Switch Verdict** (`Zone B`) | Evaluates remaining KV cache TTL (`5m`/`1h`) and horizon break-even (`C_max` & warm-request payback) across `MODEL / HOLD / SWITCH / LOCK` states | **Instant visual guidance** — tells you when to hold vs. switch models or lower thinking effort |
@@ -152,11 +152,11 @@ Highbeam's cache-economics engine is backed by **45 pre-registered randomized ru
 
 ---
 
-## 🌱 Zero-Waste AI Engineering: FinOps + GreenOps (Scope 3 Compute Efficiency)
+## 💵 FinOps: Expense Receipt
 
 For systems engineers, re-sending a 40,000-token test log 15 times is the AI equivalent of a memory leak—it wastes datacenter GPU prefill cycles, increases time-to-first-token (TTFT) latency, and degrades reasoning quality.
 
-For **Engineering Managers and Enterprise FinOps / Sustainability teams**, every `1,000,000` redundant frontier LLM tokens prevented avoids approximately **`~0.65 kWh` (`650 Wh`) of datacenter GPU prefill energy** (`~247g CO₂e` and associated cooling water). Highbeam's local **Corporate PDF 1.4 Expense Receipt** (`npx ctxtop receipt --pdf`) automatically reports both **Verified USD Saved (FinOps)** and **Estimated GPU Compute Energy Avoided (GreenOps / Scope 3)** with a cryptographic SHA-256 audit digest—giving teams a dual cost-and-sustainability justification with zero cloud telemetry.
+For **Engineering Managers and FinOps teams**, Highbeam's local expense receipt (`npx ctxtop receipt --pdf`) reports **estimated USD saved** from your own local ledger, with a SHA-256 digest of the report so it can be checked later. It is computed on your machine and sends nothing to the cloud. Figures are estimates based on published list prices and the token counts Highbeam records; they are not an invoice or a guarantee of savings.
 
 ---
 
@@ -240,7 +240,7 @@ node src/cli/init.mjs init --workspace
 
 1. **Zero Outbound Network Connections**:
    - **0 runtime `npm` dependencies** (`package.json` has no `dependencies` block).
-   - **0 external HTTP/HTTPS requests, telemetry beacons, or remote API calls**. All parsing, classification, and routing run 100% in-memory on the local machine.
+   - **No telemetry beacons or remote API calls by design.** Parsing, classification, and routing run locally on your machine.
    - The local WebView daemon (`sidecars/horizon-daemon/server.mjs`) binds strictly to `127.0.0.1` (loopback only) and rejects cross-origin `Origin` or non-local `Host` headers (`HTTP 403`) to prevent DNS rebinding and drive-by localhost CSRF.
 2. **Read-Only Database & Transcript Introspection (`SQLITE_OPEN_READONLY`)**:
    - Every connection to Antigravity or Cursor SQLite databases (`conversations/<uuid>.db`, `conversation_summaries.db`, `state.vscdb`, `store.db`) is opened via Node's native `node:sqlite` `DatabaseSync` with `Object.freeze({ readOnly: true })` (`SQLITE_OPEN_READONLY`). `ctxtop` can never contend for write locks with an active IDE or CLI.
@@ -355,7 +355,7 @@ When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incomi
 | `npx ctxtop mcp` | Starts the standalone zero-network 7-tool JSON-RPC stdio MCP server (`@ctxtop/mcp`). |
 | `npx ctxtop doctor [--diagnostic]` | Validates hook registration, FTS5 offload readiness, warm-IPC path, model ceilings, 3-way SHA-256 parity, and SQLite health. |
 | `npx ctxtop postmortem [--last N] [--json]` | Scans the last `N` local sessions, classifies root causes (`CONTEXT_ROT_DECAY`, `VERIFICATION_CHURN`, `SPEC_AMBIGUITY`, `CLEAN`), lists top duplicate-read files, and audits Turn-0 MCP schema overhead. |
-| `npx ctxtop receipt [--markdown \| --pdf]` | Exports a SHA-256 verified FinOps + GreenOps token/USD savings receipt for the active workspace. |
+| `npx ctxtop receipt [--markdown \| --pdf]` | Exports a SHA-256 estimated FinOps + GreenOps token/USD savings receipt for the active workspace. |
 | `npx ctxtop verify [--json]` | Verifies cryptographic SHA-256 integrity of all tracked release files against `CHECKSUMS.sha256`. |
 | `npx ctxtop --roast` | Prints a terminal forensic summary of recent sessions with top duplicate-read file offenders and copy-pasteable remediations. |
 | `npx ctxtop --demo-animate` | Plays the 5-stage terminal crisis simulation across synthetic fixtures. |

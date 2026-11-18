@@ -1042,7 +1042,7 @@ export function renderSimpleViewPane(state = {}, options = {}) {
     `Guide : ${priorityAction.instruction}`
   ];
   const rank4Lines = [
-    `[Rank 4] Verified Tokens & USD Saved`,
+    `[Rank 4] Estimated Tokens & USD Saved`,
     `Saved : +${formatTokensCompact(metrics.sessionSavedTokens)} (${formatUsd(metrics.sessionSavedUSD)}) this session · +${formatTokensCompact(metrics.workspace30dSavedTokens)} (${formatUsd(metrics.workspace30dSavedUSD)}) 30d`,
     `Driver: ${metrics.topSavingsDriver.shortLabel} (+${formatTokensCompact(metrics.topSavingsDriver.savedTokens)})`
   ];
@@ -1069,7 +1069,7 @@ export function renderSimpleViewPane(state = {}, options = {}) {
     {
       rankNumber: 4,
       id: 'tokens-usd-saved',
-      title: 'Verified Tokens & USD Saved',
+      title: 'Estimated Tokens & USD Saved',
       lines: rank4Lines
     }
   ];
@@ -1163,7 +1163,7 @@ export function renderSimpleViewPane(state = {}, options = {}) {
   // Box 5: Deterministic Saved-Quota Receipt in USD & Tokens
   const box5Lines = [
     `[Box 5] Deterministic Saved-Quota Receipt`,
-    `Verified Savings: ${formatUsd(metrics.savedUSD)} USD | ${metrics.savedTokens.toLocaleString('en-US')} tokens preserved`,
+    `Estimated Savings: ${formatUsd(metrics.savedUSD)} USD | ${metrics.savedTokens.toLocaleString('en-US')} tokens preserved`,
     `Session: +${formatTokensCompact(metrics.sessionSavedTokens)} (${formatUsd(metrics.sessionSavedUSD)}) | 30d: +${formatTokensCompact(metrics.workspace30dSavedTokens)} (${formatUsd(metrics.workspace30dSavedUSD)})`
   ];
 

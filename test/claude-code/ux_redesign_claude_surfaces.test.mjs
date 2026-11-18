@@ -233,7 +233,7 @@ test('UX-3: 4-Rank Simple View (renderSimpleHudPane) and 5-Section Advanced View
   assert.match(simpleHud.text, /\[Rank 1\]/);
   assert.match(simpleHud.text, /\[Rank 2\]/);
   assert.match(simpleHud.text, /\[Rank 3\]/);
-  assert.match(simpleHud.text, /\[Rank 4\] Verified Tokens & USD Saved/);
+  assert.match(simpleHud.text, /\[Rank 4\] Estimated Tokens & USD Saved/);
 
   for (const line of simpleHud.text.split('\n')) {
     const vis = stripAnsi(line).length;

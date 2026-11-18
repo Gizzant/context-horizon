@@ -35,7 +35,7 @@ function createPanelDom() {
   });
 }
 
-describe('UX Redesign & Verified Tokens Saved Pipeline', () => {
+describe('UX Redesign & Estimated Tokens Saved Pipeline', () => {
   it('computes uninflated physical session & 30d workspace savings and wires FTS5 + PrefixCacheShield writers', { skip: SKIP_WITHOUT_SQLITE }, async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hz-ux-savings-'));
     try {
@@ -183,7 +183,7 @@ describe('UX Redesign & Verified Tokens Saved Pipeline', () => {
     const w = dom.window;
     const d = w.document;
 
-    // State A: Healthy / Nominal on Turn 1 cold cache with verified savings
+    // State A: Healthy / Nominal on Turn 1 cold cache with estimated savings
     w.renderState({
       schemaVersion: '1.1.0',
       sessionId: 'ux-state-a',

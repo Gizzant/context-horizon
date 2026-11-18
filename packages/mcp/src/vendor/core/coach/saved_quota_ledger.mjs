@@ -7,7 +7,7 @@ import { openLocalHorizonDb } from '../sqlite_client.mjs';
  * Phase 4.3: Deterministic "Saved-Quota Receipt" Ledger (`src/core/coach/saved_quota_ledger.mjs`)
  *
  * - Initializes strictly at `$0.00` and `0` tokens (zero mock constants).
- * - Stores byte-verified deterministic savings events in SQLite:
+ * - Stores byte-counted deterministic savings events in SQLite:
  *   `EFFORT_DOWNSHIFT`, `COLD_PREFILL_AVOIDED`, `CLI_DUMP_COMPRESSED`, `LOOP_TURN_PREVENTED`
  * - Updates the VS Code Status Bar item and Horizon Footer from live SQLite rows only.
  * - Implements `[Copy Savings Receipt]` to export a clean Markdown telemetry table to the clipboard.
@@ -104,7 +104,7 @@ export class SavedQuotaReceiptLedger {
   }
 
   /**
-   * Records a verified deterministic savings event into SQLite.
+   * Records a estimated deterministic savings event into SQLite.
    */
   recordSaving({
     sessionId = 'default-session',
@@ -377,7 +377,7 @@ export class SavedQuotaReceiptLedger {
   }
 
   /**
-   * Exports a plain-English Markdown receipt of verified token savings.
+   * Exports a plain-English Markdown receipt of estimated token savings.
    */
   copyPlainSavingsReceipt(arg = {}) {
     const opts = typeof arg === 'string' ? { sessionId: arg } : (arg || {});
@@ -405,7 +405,7 @@ export class SavedQuotaReceiptLedger {
       estimatedUsd: ws.workspace30d.totalDollarsSaved
     };
     const lines = [
-      `### 🛡️ Highbeam — Verified Tokens Saved Receipt`,
+      `### 🛡️ Highbeam — Estimated Tokens Saved Receipt`,
       ``,
       `**This Chat:** \`+${formatTokensHuman(s.totalTokens)}\` (\`~$${Number(s.estimatedUsd || 0).toFixed(2)}\` est.) · **30-Day Workspace:** \`+${formatTokensHuman(w30.totalTokens)}\``,
       ``,

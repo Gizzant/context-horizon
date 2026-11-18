@@ -81,7 +81,7 @@ describe('Batch 2 — Rank 3 (DET-07): Exit-Safe CLI Compressor, 5 MB FTS5 Ring 
       assert.equal(queryRes.hits.length, 1);
       assert.match(queryRes.output, /AssertionError/);
 
-      // Verify exact byte-verified token savings recorded in SavedQuotaReceiptLedger
+      // Verify exact byte-estimated token savings recorded in SavedQuotaReceiptLedger
       const ledger = new SavedQuotaReceiptLedger({ dbPath: ledgerDb });
       const summary = ledger.getSummary('sess-det07');
       assert.equal(summary.totalArgonEquivTokensSaved, res.tokensSaved);

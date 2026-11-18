@@ -229,10 +229,10 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
     `3. Bounded File Reads (DET-11)        : +${readTok.toLocaleString('en-US').padStart(10)} tok   ($${readUsd.toFixed(2)})`,
     `4. Circuit Breaker Interventions      : +${breakerTok.toLocaleString('en-US').padStart(10)} tok   ($${breakerUsd.toFixed(2)})`,
     '-'.repeat(86),
-    `Current Session Verified Savings      : +${sessionSavedTokens.toLocaleString('en-US')} tokens ($${sessionSavedUSD.toFixed(2)} USD)`,
+    `Current Session Estimated Savings     : +${sessionSavedTokens.toLocaleString('en-US')} tokens ($${sessionSavedUSD.toFixed(2)} USD)`,
     `30-Day Cumulative Workspace Savings   : +${workspace30dSavedTokens.toLocaleString('en-US')} tokens ($${workspace30dSavedUSD.toFixed(2)} USD)`,
     `Net FinOps ROI vs. $${subscriptionCostUSD.toFixed(2)}${costPeriodLabel} License  : ${netRoiMultiplier}x Return on Investment`,
-    `GreenOps GPU Compute Energy Avoided   : ~${estimatedGpuWhSaved} Wh (~${estimatedCo2GramsSaved}g CO2e Scope 3)`,
+    `GreenOps GPU Compute Energy Avoided   : ~${estimatedGpuWhSaved} Wh (~${estimatedCo2GramsSaved}g CO2e, rough estimate)`,
     '-'.repeat(86),
     'Zero-Trust Privacy Attestation: Computed 100% locally from token counters.',
     'Zero prompt text, source code, or PII transmitted off-device.',
@@ -259,7 +259,7 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
     `| **30-Day Verified API Savings** | **+$${workspace30dSavedUSD.toFixed(2)} USD** (+${workspace30dSavedTokens.toLocaleString('en-US')} tokens) |`,
     `| **Current Session Savings** | **+$${sessionSavedUSD.toFixed(2)} USD** (+${sessionSavedTokens.toLocaleString('en-US')} tokens) |`,
     `| **Net FinOps ROI** | **${netRoiMultiplier}x** |`,
-    `| **GreenOps Compute Energy Avoided** | **~${estimatedGpuWhSaved} Wh** (~${estimatedCo2GramsSaved}g CO₂e Scope 3) |`,
+    `| **GreenOps Compute Energy Avoided** | **~${estimatedGpuWhSaved} Wh** (~${estimatedCo2GramsSaved}g CO₂e, rough estimate) |`,
     ``,
     `## Itemized Savings Breakdown`,
     `| Guard Category | Tokens Saved | USD Saved |`,
@@ -295,9 +295,9 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
   <div class="meta">Receipt ID: ${escapeHtml(receiptId)} &middot; Period: ${escapeHtml(periodLabel)} &middot; Issued: ${escapeHtml(issuedAt)}</div>
   <table>
     <tr><th>Product Tier</th><td>${escapeHtml(tierLabel)}</td><th class="num">Subscription Cost</th><td class="num">$${subscriptionCostUSD.toFixed(2)} USD</td></tr>
-    <tr><th>30-Day Verified Savings</th><td class="num">+${workspace30dSavedTokens.toLocaleString('en-US')} tok</td><th class="num">30-Day USD Saved</th><td class="num">+$${workspace30dSavedUSD.toFixed(2)} USD</td></tr>
-    <tr><th>Session Verified Savings</th><td class="num">+${sessionSavedTokens.toLocaleString('en-US')} tok</td><th class="num">Net FinOps ROI</th><td class="num">${netRoiMultiplier}x</td></tr>
-    <tr><th>GreenOps Energy Avoided</th><td class="num">~${estimatedGpuWhSaved} Wh</td><th class="num">Scope 3 CO2e Avoided</th><td class="num">~${estimatedCo2GramsSaved}g CO2e</td></tr>
+    <tr><th>30-Day Estimated Savings</th><td class="num">+${workspace30dSavedTokens.toLocaleString('en-US')} tok</td><th class="num">30-Day USD Saved</th><td class="num">+$${workspace30dSavedUSD.toFixed(2)} USD</td></tr>
+    <tr><th>Session Estimated Savings</th><td class="num">+${sessionSavedTokens.toLocaleString('en-US')} tok</td><th class="num">Net FinOps ROI</th><td class="num">${netRoiMultiplier}x</td></tr>
+    <tr><th>GreenOps Energy Avoided</th><td class="num">~${estimatedGpuWhSaved} Wh</td><th class="num">CO2e Avoided (rough est.)</th><td class="num">~${estimatedCo2GramsSaved}g CO2e</td></tr>
   </table>
   <table>
     <thead><tr><th>Guard Category</th><th class="num">Tokens Saved</th><th class="num">USD Saved</th></tr></thead>

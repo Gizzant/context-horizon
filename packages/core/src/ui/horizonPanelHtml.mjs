@@ -288,7 +288,7 @@ function renderSessionOverviewHtml(tl, metrics, catList, shadowAuto = null, proE
       <div class="ah-fr-topbar">
         <span class="ah-fr-title">SESSION OVERVIEW</span>
         <details class="ah-saved-pill-wrap${hasSessionSavings ? '' : ' ah-saved-zero'}" id="tokensSavedCard" data-rank="4">
-          <summary class="ah-saved-pill" id="savedSessionHeadline" title="View verified session savings breakdown">
+          <summary class="ah-saved-pill" id="savedSessionHeadline" title="View estimated session savings breakdown">
             <span class="ah-saved-kicker">Saved</span>
             <strong class="ah-saved-num">${escapeHtml(savedMainTxt)}</strong>
             <span class="ah-saved-30d" id="savedWorkspace30d" title="Tokens saved across all your chats in this workspace over the last 30 days">${escapeHtml(saved30dTxt)}</span>
@@ -299,7 +299,7 @@ function renderSessionOverviewHtml(tl, metrics, catList, shadowAuto = null, proE
           </div>
         </details>
       </div>
-      <div class="ah-sec-blurb">Session pace from Turn 1, turn-by-turn growth, and verified tokens saved.</div>
+      <div class="ah-sec-blurb">Session pace from Turn 1, turn-by-turn growth, and estimated tokens saved.</div>
       <div class="ah-fr-zones-body">
         <div class="ah-fr-zone">
           <div class="ah-fr-head"><span>TURN PULSE</span><span class="ah-fr-legend" aria-hidden="true"><i class="ah-lg ah-lg-good"></i>clean <i class="ah-lg ah-lg-bad"></i>waste <i class="ah-lg ah-lg-limit"></i>safe limit</span></div>
@@ -1395,7 +1395,7 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
     <!-- Accordion 1: Verified 5-Category Savings & Anthropic Cache ROI -->
     <details class="adv-accordion" id="advSavingsAccordion" open>
       <summary>
-        <span>1. Verified Savings Breakdown &amp; Cache ROI</span>
+        <span>1. Estimated Savings Breakdown &amp; Cache ROI</span>
         <span>+${escapeHtml(formatTokensCompact(metrics.sessionSavedTokens))} (${escapeHtml(formatUsd(metrics.sessionSavedUSD))})</span>
       </summary>
       <div class="adv-body">

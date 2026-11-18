@@ -277,7 +277,7 @@ test('Stage 7 (Tasks 7.1–7.5): Multi-harness Claude Code + Cursor + Antigravit
           model: 'claude-sonnet-4-5-20250929',
           content: [
             { type: 'tool_use', name: 'Read', input: { file_path: 'src/auth.ts' } },
-            { type: 'text', text: 'Re-read src/auth.ts and verified tokens.' }
+            { type: 'text', text: 'Re-read src/auth.ts and estimated tokens.' }
           ],
           usage: {
             input_tokens: 3800,

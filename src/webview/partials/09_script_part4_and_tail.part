@@ -22,7 +22,7 @@
       const guardVal = document.getElementById('savGuardsVal')?.textContent || '+0.0k';
       const usdVal = document.getElementById('savEstUsdLabel')?.textContent || 'Est. input value: ~$0.00';
       md = [
-        '### Highbeam — Verified Tokens Saved Receipt',
+        '### Highbeam — Estimated Tokens Saved Receipt',
         '',
         `- **This Chat:** ${sessVal} (${usdVal})`,
         `- **30-Day Workspace:** ${wsVal}`,
@@ -42,7 +42,7 @@
     } catch (err) {
       void err;
     }
-    showToast('&#x2713; <strong>Copied Verified Tokens Saved Receipt</strong> to clipboard.');
+    showToast('&#x2713; <strong>Copied Estimated Tokens Saved Receipt</strong> to clipboard.');
   }
 
   const btnCopySavingsReceipt = document.getElementById('btnCopySavingsReceipt');

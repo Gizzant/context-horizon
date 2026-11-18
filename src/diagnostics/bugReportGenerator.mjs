@@ -217,11 +217,11 @@ export function generateGitCommitEfficiencyReceipt(options = {}) {
     '| :--- | :--- |',
     `| **Git Context** | \`${git.branch}\` (\`${git.shortCommit}\`) |`,
     `| **Total Saved Tokens** | **${summary.totalSavedTokens.toLocaleString()} tok** |`,
-    `| **Total Verified Savings (USD)** | **\`$${summary.totalSavedUSD.toFixed(4)}\`** (${summary.entryCount} ledger events) |`,
+    `| **Total Estimated Savings (USD)** | **\`$${summary.totalSavedUSD.toFixed(4)}\`** (${summary.entryCount} ledger events) |`,
     `| **Empirical Cache-Hit Baseline** | \`${(calibration.cachePerformance.empiricalHitRatio * 100).toFixed(1)}%\` (${calibration.cachePerformance.warmHitTurns}/${calibration.cachePerformance.totalTurns} turns) |`,
     '',
     '#### Savings Breakdown by Ledger Category',
-    '| Category | Events | Saved Tokens | Verified USD |',
+    '| Category | Events | Saved Tokens | Estimated USD |',
     '| :--- | :---: | :---: | :---: |',
     ...catTableLines
   ];

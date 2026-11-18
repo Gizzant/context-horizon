@@ -440,7 +440,7 @@ export function getDefaultAhCliArchiveSqlitePath(workspaceDir = process.cwd()) {
  * Rank 3 (DET-07): Archives sanitized >4,096-char CLI output into a WAL-enabled,
  * 5 MB ring-capped SQLite FTS5 store (`.agents/cache/ah_cli_archive.sqlite`),
  * preserves 30 head + 45 tail + 100% of error lines, appends BM25 query hint,
- * and records exact byte-verified token savings in `SavedQuotaReceiptLedger`.
+ * and records exact byte-counted token savings in `SavedQuotaReceiptLedger`.
  */
 export function archiveAndCompressDet07Output(rawOutput = '', {
   command = '',

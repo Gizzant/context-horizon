@@ -110,7 +110,7 @@ window.AH_SEARCH_INDEX = [
     "section": "ctxtop receipt",
     "href": "cli-reference.html#cmd-receipt",
     "keywords": "ctxtop receipt [--simple | --4-rank | --advanced] [--markdown | --md | --git | --html | --pdf | --json] [--out <path>] --pdf 2 ctxtop license trial ctxtop receipt",
-    "body": "Prints your verified Tokens & USD Saved receipt as terminal text, Git Markdown, HTML, JSON, or a Pro SHA-256 PDF 1.4 file. Synopsis ctxtop receipt [--simple | --4-rank | --advanced] [--markdown | --md | --git | --html | --pdf | --json] [--out <path>] Note: Running --pdf on the Free tier exits with code 2. It shows your 30-day USD savings and explains how to start a local trial (ctxtop license trial)."
+    "body": "Prints your estimated Tokens & USD Saved receipt as terminal text, Git Markdown, HTML, JSON, or a Pro SHA-256 PDF 1.4 file. Synopsis ctxtop receipt [--simple | --4-rank | --advanced] [--markdown | --md | --git | --html | --pdf | --json] [--out <path>] Note: Running --pdf on the Free tier exits with code 2. It shows your 30-day USD savings and explains how to start a local trial (ctxtop license trial)."
   },
   {
     "pageTitle": "CLI & Binaries Reference",

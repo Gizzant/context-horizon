@@ -13,7 +13,7 @@ Practical, copy-paste workflows for managing AI coding agent context windows, re
 5. [Programmatic Node.js API: Context Profiling in Your Own Tools](#5-programmatic-nodejs-api-context-profiling-in-your-own-tools)
 6. [Continuous Context Health: CI & Git Pre-Push Automation](#6-continuous-context-health-ci--git-pre-push-automation)
 7. [Step-by-Step Zone C Walkthrough: Triggering Live Auto-Interventions](#7-step-by-step-zone-c-walkthrough-triggering-live-auto-interventions)
-8. [Exporting Verified FinOps & GreenOps Receipts (Markdown / PDF 1.4)](#8-exporting-verified-finops--greenops-receipts-markdown--pdf-14)
+8. [Exporting Estimated FinOps & GreenOps Receipts (Markdown / PDF 1.4)](#8-exporting-verified-finops--greenops-receipts-markdown--pdf-14)
 
 ---
 
@@ -40,7 +40,7 @@ node src/cli/doctor.mjs --gc-cursor --vscdb "$APPDATA/Cursor/User/globalStorage/
 node src/cli/doctor.mjs --gc-cursor --vscdb "$APPDATA/Cursor/User/globalStorage/state.vscdb"
 ```
 
-> **Safety Guarantee:** The original `state.vscdb` is never modified in-place until the compacted database is fully validated and checksummed.
+> **Safety note:** The original `state.vscdb` is never modified in-place until the compacted database is fully validated and checksummed.
 
 ---
 
@@ -191,7 +191,7 @@ echo "ctxtop: All pre-push checks passed."
 
 ## 7. Step-by-Step Zone C Walkthrough: Triggering Live Auto-Interventions
 
-Want to see Highbeam's **Zone C (Automated Activity)** and **Zone D (Verified Savings Receipt)** react in real time? Run this 4-step workflow in any workspace:
+Want to see Highbeam's **Zone C (Automated Activity)** and **Zone D (Estimated Savings Receipt)** react in real time? Run this 4-step workflow in any workspace:
 
 ### Step 0: Baseline State (`0.0k` Saved, 32 Guards Armed)
 Open the Highbeam Sidepane (`npx ctxtop --serve`). On a cold session start, Zone C displays:
@@ -219,9 +219,9 @@ When you or the agent attempts to edit `AGENTS.md` or `CLAUDE.md` while a `60k` 
 
 ---
 
-## 8. Exporting Verified FinOps & GreenOps Receipts (Markdown / PDF 1.4)
+## 8. Exporting Estimated FinOps & GreenOps Receipts (Markdown / PDF 1.4)
 
-To generate a cryptographically signed (`SHA-256`) savings receipt for engineering expense reports or Scope 3 sustainability audits:
+To generate a cryptographically signed (`SHA-256`) savings receipt for engineering expense reports:
 
 ```bash
 # Print Markdown FinOps + GreenOps receipt to terminal

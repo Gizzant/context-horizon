@@ -759,7 +759,7 @@ export function generateRoastCard(options = {}) {
     '╭── 🔥 HIGHBEAM CONTEXT ROAST (Claude Code + Antigravity) ──────────╮',
     `│ KV-Cache Retention : Grade ${retentionGrade} (${retentionPct}% prefix warmth retained)               │`,
     `│ Cold Prefill Leak  : $${leakedUsd.toFixed(2)} burned on avoidable cold-cache switches/edits    │`,
-    `│ Verified Savings   : +${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)} USD saved in 30d)            │`,
+    `│ Estimated Savings  : +${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)} USD saved in 30d)            │`,
     '│ Top Remediation    : Fence mid-session CLAUDE.md/AGENTS.md edits (DET-09)  │',
     '╰────────────────────────────────────────────────────────────────────────────╯',
     `Share: Shielded +${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)}) with npx ctxtop --roast #ClaudeCode #Antigravity`
@@ -769,7 +769,7 @@ export function generateRoastCard(options = {}) {
     '### 🔥 Highbeam Context Roast (`npx ctxtop --roast`)',
     `- **KV-Cache Retention**: Grade **${retentionGrade}** (${retentionPct}% warmth retained)`,
     `- **Cold Prefill Leak**: **$${leakedUsd.toFixed(2)}** burned on avoidable cold switches`,
-    `- **30-Day Verified Savings**: **+${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)} USD)**`,
+    `- **30-Day Estimated Savings**: **+${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)} USD)**`,
     `- **Top Fix**: Fence mid-session \`CLAUDE.md\` / \`AGENTS.md\` edits via \`DET-09\` & offload >4k CLI dumps.`
   ].join('\n');
 

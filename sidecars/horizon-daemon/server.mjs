@@ -2181,7 +2181,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Route: POST /api/savings/receipt (Export plain-English verified Tokens Saved receipt)
+  // Route: POST /api/savings/receipt (Export plain-English estimated Tokens Saved receipt)
   if (url.pathname === '/api/savings/receipt' && req.method === 'POST') {
     const bodyStr = await readRequestBody(req, res);
     if (bodyStr === null) return;

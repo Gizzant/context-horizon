@@ -792,7 +792,7 @@
       }
     }
 
-    // Zone E: Verified Savings (strictly measured attribution, zero fabricated splits) & Surgery
+    // Zone E: Estimated Savings (strictly measured attribution, zero fabricated splits) & Surgery
     setTxt('taKpiTokens', `+${formatTokens(sessionSaved)}`);
     setTxt('taKpiUsd', usdSaved > 0 ? `~$${usdSaved.toFixed(2)}` : '$0.00');
     setTxt('taKpi30d', `30d: +${formatTokens(lifetimeSaved)} (~$${usd30d.toFixed(2)})`);

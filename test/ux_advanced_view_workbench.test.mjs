@@ -205,7 +205,7 @@ describe('Advanced View Forensic Workbench (Google Argon / Edward Tufte Spec —
     await new Promise((r) => setTimeout(r, 20));
     assert.ok(apiCalls.some((c) => c.url.includes('/api/shield/flush')), 'Shield button must POST to /api/shield/flush');
 
-    // 5. Verified Savings Receipt -> POST /api/savings/receipt
+    // 5. Estimated Savings Receipt -> POST /api/savings/receipt
     d.getElementById('btnCopySavingsReceipt').click();
     await new Promise((r) => setTimeout(r, 20));
     assert.ok(apiCalls.some((c) => c.url.includes('/api/savings/receipt')), 'Copy Receipt must POST to /api/savings/receipt');
