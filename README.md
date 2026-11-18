@@ -47,13 +47,7 @@ npx ctxtop audit --days 7
 
 | **Google Antigravity** *(1-Line Install)* | **Claude Code** *(1-Line Install)* | **Cursor / Windsurf / Codex / Gemini CLI** |
 | :--- | :--- | :--- |
-| ```bash
-npx ctxtop init --antigravity
-``` | ```bash
-npx ctxtop init --claude --global
-``` | ```bash
-npx ctxtop init --cursor --windsurf --codex --gemini-cli
-``` |
+| `npx ctxtop init --antigravity` | `npx ctxtop init --claude --global` | `npx ctxtop init --cursor --windsurf --codex --gemini-cli` |
 | *Workspace-only*: `npx ctxtop init --workspace`<br/>*Health check*: `npx ctxtop doctor` | *StatusLine HUD*: `npx ctxtop statusline --demo`<br/>*In-chat pane*: `/horizon` · `/cost-radar` · `/handoff` | *Universal `.mcp.json`*: `npx ctxtop init --all-hosts`<br/>*FTS5 search*: `npx ctxtop search "<keyword>"` |
 
 ### Your First 5 Minutes After Installing
