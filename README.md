@@ -314,7 +314,7 @@ For centralized organization deployment (Jamf / Intune / GPO), `CHECKSUMS.sha256
 
 ## 📦 Editions: Free (`MIT` Core + `COACH`) vs. Pro & Team
 
-| Feature / Capability | Free Core (`MIT`) | [Highbeam Pro](https://buy.polar.sh/polar_cl_NLMnqIdpws5nNivzb4SCF8v9QcGeu6mQMcxLu14RKvj) (`$149/yr` · `$199` Cap-200 LTD) | Team (`$299/yr` 5-Seat Starter) |
+| Feature / Capability | Free Core (`MIT`) | [Highbeam Pro](https://buy.polar.sh/polar_cl_GYIDWrPsxnwsx58Ur6fIqMq3o1lrfK0o4hOFM4HOgpr) (`$149/yr` · `$199` Cap-200 LTD) | [Team Starter](https://buy.polar.sh/polar_cl_BDTd1Gru7L7BCE3jXBsqNpYmrATNtpgTfzAkQ2Emmt5) (`$299/yr` 5-Seat Starter) |
 | :--- | :---: | :---: | :---: |
 | Simple & Advanced 40-Cell HUD + `5m/1h` Live TTL Timer | ✅ | ✅ | ✅ |
 | Multi-Family FTS5 Compression (`test`, `lint`, `git`, `docker`/`kubectl`) & `ctxtop search` | ✅ | ✅ | ✅ |
@@ -326,9 +326,9 @@ For centralized organization deployment (Jamf / Intune / GPO), `CHECKSUMS.sha256
 | Shared `.agents/rules/` Governance, MDM Policy & OTel / Grafana Pack | — | — | ✅ |
 
 **Commercial SKU Summary (Offline Ed25519 `CTXP1` Activation via `npx ctxtop license activate <key>`):**
-- **[Pro Annual (`$149/yr`, `~$12.42/mo`)](https://buy.polar.sh/polar_cl_NLMnqIdpws5nNivzb4SCF8v9QcGeu6mQMcxLu14RKvj)**: 1 developer seat, 14-day zero-network local trial (`npx ctxtop license trial`), expensable via `npx ctxtop receipt --pdf`.
-- **Pro Founder Lifetime (`$199` one-time, capped at `200` seats)**: Lifetime solo Pro entitlement (`expiresAt: null`).
-- **Team Starter (`$299/yr` for 5 seats)**: Multi-seat MDM rollout, shared `.agents/rules/` primacy governance, and BYO-Grafana OpenTelemetry pack (`npx ctxtop team-pack`). More than 5 seats? Email `security@highbeamdev.com`.
+- **[Pro Annual (`$149/yr`, `~$12.42/mo`)](https://buy.polar.sh/polar_cl_GYIDWrPsxnwsx58Ur6fIqMq3o1lrfK0o4hOFM4HOgpr)**: 1 developer seat, 14-day zero-network local trial (`npx ctxtop license trial`), expensable via `npx ctxtop receipt --pdf`.
+- **[Pro Founder Lifetime (`$199` one-time, capped at `200` seats)](https://buy.polar.sh/polar_cl_qVD4MYra8gIe9uDvkRtJUzv6Ou4PTES4Jp3nj1nAOff)**: Lifetime solo Pro entitlement (`expiresAt: null`).
+- **[Team Starter (`$299/yr` for 5 seats)](https://buy.polar.sh/polar_cl_BDTd1Gru7L7BCE3jXBsqNpYmrATNtpgTfzAkQ2Emmt5)**: Multi-seat MDM rollout, shared `.agents/rules/` primacy governance, and BYO-Grafana OpenTelemetry pack (`npx ctxtop team-pack`). More than 5 seats? Email `sales@highbeamdev.com`.
 
 ---
 

@@ -706,7 +706,28 @@ export function generateReceiptReport(options = {}) {
       ? renderSimpleHudPane(state, renderOpts)
       : renderSimpleViewPane(state, renderOpts);
   const gitReceipt = generateGitCommitEfficiencyReceipt(options);
-  const corporateReceipt = generateCorporateExpenseReceipt(summary, options);
+  let corpOptions = { ...options };
+  if (!corpOptions.tierLabel && typeof getProEntitlementStatus === 'function') {
+    try {
+      const ent = getProEntitlementStatus(options);
+      if (ent && ent.entitled) {
+        if (ent.tier === 'team') {
+          corpOptions.tierLabel = `Highbeam Team Starter ($299.00/yr · ${ent.seats || 5} seats)`;
+          corpOptions.subscriptionCostUSD = Number(corpOptions.subscriptionCostUSD ?? 299.0);
+        } else if (ent.tier === 'ltd') {
+          corpOptions.tierLabel = 'Highbeam Pro Founder Lifetime ($199.00 one-time)';
+          corpOptions.subscriptionCostUSD = Number(corpOptions.subscriptionCostUSD ?? 199.0);
+        } else if (ent.tier === 'pro') {
+          corpOptions.tierLabel = 'Highbeam Pro Annual ($149.00/yr · ~$12.42/mo)';
+          corpOptions.subscriptionCostUSD = Number(corpOptions.subscriptionCostUSD ?? 12.42);
+        }
+        if (!corpOptions.email && ent.email) {
+          corpOptions.email = ent.email;
+        }
+      }
+    } catch {}
+  }
+  const corporateReceipt = generateCorporateExpenseReceipt(summary, corpOptions);
 
   return {
     summary,
@@ -1489,7 +1510,7 @@ export function runCli(args = [], options = {}) {
       'Highbeam — 3-Tier Self-Expensing PLG Funnel:',
       `  • Free ($0/mo): ${PLG_TIER_MATRIX.free.features.join(', ')}`,
       `  • Pro ($${PLG_TIER_MATRIX.pro.priceAnnualUSD}/yr, or $${PLG_TIER_MATRIX.pro.priceLtdUSD} one-time Founder Lifetime for the first ${PLG_TIER_MATRIX.pro.ltdCap}): ${PLG_TIER_MATRIX.pro.features.join(', ')}`,
-      `  • Team ($${PLG_TIER_MATRIX.team.starterAnnualUSD}/yr for ${PLG_TIER_MATRIX.team.starterSeats} seats; more seats: security@highbeamdev.com): ${PLG_TIER_MATRIX.team.features.join(', ')}`
+      `  • Team ($${PLG_TIER_MATRIX.team.starterAnnualUSD}/yr for ${PLG_TIER_MATRIX.team.starterSeats} seats; more seats: sales@highbeamdev.com): ${PLG_TIER_MATRIX.team.features.join(', ')}`
     ];
     return { exitCode: 0, output: lines.join('\n'), data: PLG_TIER_MATRIX };
   }
@@ -1504,7 +1525,7 @@ export function runCli(args = [], options = {}) {
         'Highbeam — 3-Tier Self-Expensing PLG Funnel:',
         `  • Free ($0/mo): ${PLG_TIER_MATRIX.free.features.join(', ')}`,
         `  • Pro ($${PLG_TIER_MATRIX.pro.priceAnnualUSD}/yr, or $${PLG_TIER_MATRIX.pro.priceLtdUSD} one-time Founder Lifetime for the first ${PLG_TIER_MATRIX.pro.ltdCap}): ${PLG_TIER_MATRIX.pro.features.join(', ')}`,
-        `  • Team ($${PLG_TIER_MATRIX.team.starterAnnualUSD}/yr for ${PLG_TIER_MATRIX.team.starterSeats} seats; more seats: security@highbeamdev.com): ${PLG_TIER_MATRIX.team.features.join(', ')}`
+        `  • Team ($${PLG_TIER_MATRIX.team.starterAnnualUSD}/yr for ${PLG_TIER_MATRIX.team.starterSeats} seats; more seats: sales@highbeamdev.com): ${PLG_TIER_MATRIX.team.features.join(', ')}`
       ];
       return { exitCode: 0, output: lines.join('\n'), data: PLG_TIER_MATRIX };
     }

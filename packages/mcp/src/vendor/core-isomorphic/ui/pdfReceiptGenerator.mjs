@@ -178,8 +178,8 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
   const issuedAt = options.issuedAt || new Date().toISOString();
   const periodLabel = options.periodLabel || issuedAt.slice(0, 7);
   const employeeEmail = options.email || summary.email || 'developer@workspace.local';
-  const tierLabel = options.tierLabel || 'Highbeam Pro ($15.00/mo)';
-  const subscriptionCostUSD = Number(options.subscriptionCostUSD ?? 15.0);
+  const tierLabel = options.tierLabel || 'Highbeam Pro Annual ($149.00/yr · ~$12.42/mo)';
+  const subscriptionCostUSD = Number(options.subscriptionCostUSD ?? 12.42);
 
   const sessionSavedTokens = Number(summary.sessionSavedTokens || 0);
   const sessionSavedUSD = Number(summary.sessionSavedUSD || 0);

@@ -240,18 +240,19 @@ describe('v4.0 RC Remediation & @ctxtop/mcp Regression Suite', () => {
     }
   });
 
-  it('Follow-up #1 & #2: pdfReceiptGenerator defaults to $15.00/mo, root bin exposes ah-mcp/ctxtop-mcp, and init --mcp merges .cursor/mcp.json', () => {
+  it('Follow-up #1 & #2: pdfReceiptGenerator defaults to the $149/yr annual plan (~$12.42/mo), root bin exposes ah-mcp/ctxtop-mcp, and init --mcp merges .cursor/mcp.json', () => {
     const rcpt = generateCorporateExpenseReceipt({
       workspace30dSavedUSD: 45,
       sessionSavedUSD: 15
     });
-    assert.equal(rcpt.netRoiMultiplier, 3);
-    assert.match(rcpt.markdown, /Highbeam Pro \(\$15\.00\/mo\)/);
-    assert.match(rcpt.markdown, /\$15\.00 USD/);
+    assert.equal(rcpt.netRoiMultiplier, 3.6);
+    assert.match(rcpt.markdown, /Highbeam Pro Annual \(\$149\.00\/yr/);
+    assert.match(rcpt.markdown, /\$12\.42 USD/);
+    assert.doesNotMatch(rcpt.markdown, /\$15\.00\/mo/);
     assert.doesNotMatch(rcpt.markdown, /\$9\.00/);
     assert.doesNotMatch(rcpt.html, /\$9\.00/);
     const pdfText = Buffer.from(rcpt.pdfBytes).toString('utf8');
-    assert.ok(pdfText.includes('$15.00/mo License'));
+    assert.ok(pdfText.includes('$12.42/mo License'));
     assert.equal(pdfText.includes('$9.00'), false);
 
     const rootPkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));

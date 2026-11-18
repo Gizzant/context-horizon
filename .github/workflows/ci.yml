@@ -32,9 +32,6 @@ jobs:
       - name: Install Dev Dependencies (jsdom)
         run: npm ci
 
-      - name: Sync Mirrors
-        run: node scripts/sync_mirrors.mjs
-
       - name: Verify Mirror SHA-256 Parity
         run: node scripts/sync_mirrors.mjs --verify-only
 
