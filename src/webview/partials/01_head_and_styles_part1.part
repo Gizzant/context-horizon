@@ -199,6 +199,18 @@
     display: none !important;
   }
 
+  /* Mode-driven main view: the body carries the running mode (data-flight-mode = off | coach | autopilot)
+     and, for Auto, whether it is enforced or a Free preview (data-auto-state = on | preview | na).
+     Tag an element with mode-hide-* to hide it in that mode; auto-on-only / auto-preview-only
+     show in exactly one Auto state. */
+  body[data-flight-mode="off"] .mode-hide-off,
+  body[data-flight-mode="coach"] .mode-hide-coach,
+  body[data-flight-mode="autopilot"] .mode-hide-auto,
+  body:not([data-auto-state="on"]) .auto-on-only,
+  body:not([data-auto-state="preview"]) .auto-preview-only {
+    display: none !important;
+  }
+
   .badge {
     font-size: 10.5px;
     font-weight: 600;

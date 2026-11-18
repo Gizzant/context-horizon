@@ -1,4 +1,4 @@
-﻿<body data-view-mode="simple">
+﻿<body data-view-mode="simple" data-flight-mode="coach" data-auto-state="na">
 
 <div class="wrap">
   <!-- 1. Header -->

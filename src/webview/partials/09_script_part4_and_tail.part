@@ -120,6 +120,15 @@
       btn.style.color = active ? 'var(--hz-useful)' : '';
     });
   }
+  // Mode-driven main view: mirror the running mode (and Auto's enforced / preview state) onto <body>
+  // so CSS can show each mode's own view. Uses the same race guard as the slider.
+  function syncModeViewAttrs(rawMode = 'coach', autoShadow = false, fromState = false) {
+    if (fromState && Date.now() < __modeSelectionPendingUntil) return;
+    if (!document.body) return;
+    const norm = normalizeHorizonUiMode(rawMode);
+    document.body.dataset.flightMode = norm;
+    document.body.dataset.autoState = norm === 'autopilot' ? (autoShadow ? 'preview' : 'on') : 'na';
+  }
   function setRouterModeActiveUI(mode) {
     const norm = normalizeHorizonUiMode(mode);
     document.querySelectorAll('.model-mode-switch .mode-btn, .tufte-mode-chip').forEach(b => {
@@ -284,6 +293,7 @@
     __modeSelectionPendingUntil = Date.now() + 3000;
 
     setRouterModeActiveUI(mode);
+    syncModeViewAttrs(mode, optimisticShadow);
     if (currentRenderedState && typeof currentRenderedState === 'object') {
       currentRenderedState.routerMode = mode;
       currentRenderedState.flightMode = mode === 'autopilot' ? 'AUTO_PILOT' : (mode === 'off' ? 'OFF' : 'COACH');
@@ -314,6 +324,9 @@
       void err;
     }
     __modeSelectionPendingUntil = 0;
+    if (modeResp && typeof modeResp.autoShadow === 'boolean') {
+      syncModeViewAttrs(mode, modeResp.autoShadow);
+    }
     if (modeResp?.state && typeof modeResp.state === 'object') {
       applyGlobalStateFromDaemon(modeResp.state);
     }
@@ -692,6 +705,7 @@
       (raw.autoShadow === undefined && raw.coachState?.autoShadow === undefined && raw.proEntitlement?.entitled === false)
     );
     const enforcementValue = effectiveMode === 'autopilot' ? (autoShadowFlag ? 'shadow' : 'enforced') : 'na';
+    syncModeViewAttrs(effectiveMode, autoShadowFlag, true);
     const tsSliderEl = document.getElementById('tsModeSlider');
     if (tsSliderEl) tsSliderEl.dataset.enforcement = enforcementValue;
     const tsModeHintEl = document.getElementById('tsModeHint');
