@@ -173,26 +173,28 @@ describe('5. The 8 PreInvocation Router States & Control Flags', () => {
     assert.ok(res.systemMessage?.includes('invoke_subagent'));
   });
 
-  test('State 6: HALT_HYGIENE_OR_SAFETY on amputation crisis & polluted context', async () => {
+  // COACH (default) never stops a prompt for these; it shows the card instead (README contract).
+  test('State 6: HALT_HYGIENE_OR_SAFETY on amputation crisis & polluted context (COACH: card, no stop)', async () => {
     const s1 = SCENARIO_5_AMPUTATION_CRISIS;
     writeSidecarAtomicSync(s1.conversationId, s1.sidecar);
     const res1 = await handlePreInvocation(s1);
-    assert.equal(res1.terminationBehavior, 'terminate');
-    assert.ok(res1.userMessage.includes('/clear'));
+    assert.notEqual(res1.terminationBehavior, 'terminate');
+    assert.equal(res1.coachAdvisory, true);
+    assert.ok(res1.systemMessage.includes('/clear'));
 
     const s2 = SCENARIO_4_POLLUTED_REFACTOR;
     writeSidecarAtomicSync(s2.conversationId, s2.sidecar);
     const res2 = await handlePreInvocation(s2);
-    assert.equal(res2.terminationBehavior, 'terminate');
-    assert.ok(res2.userMessage.includes('/compact'));
+    assert.notEqual(res2.terminationBehavior, 'terminate');
+    assert.ok(res2.systemMessage.includes('/compact'));
   });
 
   test('State 7: HALT_EFFORT_OR_QUOTA on quota breach', async () => {
     const s = SCENARIO_7_QUOTA_SHIELD;
     writeSidecarAtomicSync(s.conversationId, s.sidecar);
     const res = await handlePreInvocation(s);
-    assert.equal(res.terminationBehavior, 'terminate');
-    assert.ok(res.userMessage.includes('Quota Floor Breached'));
+    assert.notEqual(res.terminationBehavior, 'terminate');
+    assert.ok(res.systemMessage.includes('Quota Floor Breached'));
   });
 
   test('State 8: HALT_REWRITE_SCORECARD on #check or vague cold start', async () => {
@@ -205,8 +207,9 @@ describe('5. The 8 PreInvocation Router States & Control Flags', () => {
     const s2 = SCENARIO_1_COLD_VAGUE;
     writeSidecarAtomicSync(s2.conversationId, s2.sidecar);
     const res2 = await handlePreInvocation(s2);
-    assert.equal(res2.terminationBehavior, 'terminate');
-    assert.ok(res2.userMessage.includes('Flight Check v3.1'));
+    // A vague cold start is advice in COACH; an explicit #check (above) still stops the run.
+    assert.notEqual(res2.terminationBehavior, 'terminate');
+    assert.ok(res2.systemMessage.includes('Flight Check v3.1'));
   });
 });
 
@@ -273,7 +276,7 @@ describe('7. Router Ergonomics: Advisory Mode & Halt Cooldown', () => {
     assert.ok(res14.userMessage.includes('3-Strike Error Loop'));
   });
 
-  test('Amputation crisis is exempt from cooldown (always terminates to prevent rule loss)', async () => {
+  test('Amputation crisis is exempt from cooldown: card shown every turn (COACH shows, never stops)', async () => {
     const cid = `amp_exempt_${Date.now()}`;
     const sidecar = createDefaultSidecar(cid);
     sidecar.sessionMeta.turnCount = 20;
@@ -289,9 +292,9 @@ describe('7. Router Ergonomics: Advisory Mode & Halt Cooldown', () => {
       configOverride: { hook_level: 'guard', halt_cooldown_turns: 3 }
     });
 
-    // Must still terminate because amputation is exempt
-    assert.equal(res.terminationBehavior, 'terminate');
-    assert.ok(res.userMessage.includes('[Amputation Crisis]'));
+    // Exempt from cooldown, so the card is shown again; in COACH it is a message, not a stop.
+    assert.notEqual(res.terminationBehavior, 'terminate');
+    assert.ok(res.systemMessage.includes('[Amputation Crisis]'));
   });
 });
 

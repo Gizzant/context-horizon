@@ -17,6 +17,7 @@ import {
   canFastAllowBoundedRead,
   readStdinFast
 } from './fast_hook_ipc.mjs';
+import { normalizeAntigravityToolPayload } from './antigravity_payload.mjs';
 
 const requireFromHere = createRequire(import.meta.url);
 let _routerMod = null;
@@ -99,9 +100,10 @@ export function toProtoSafePreHookOutput(output, { isPreToolUse = false } = {}) 
         out.systemMessage ||
         'Halted by Highbeam Flightcheck'
     );
+    // Documented Antigravity PreInvocation stop: https://antigravity.google/docs/hooks
     return {
-      terminationBehavior: 'terminate',
-      errorMessage: { userMessage }
+      injectSteps: [{ errorMessage: { userMessage } }],
+      terminationBehavior: 'terminate'
     };
   }
   const advisory = out.ephemeralMessage || out.systemMessage;
@@ -116,6 +118,8 @@ export function toProtoSafePreHookOutput(output, { isPreToolUse = false } = {}) 
  * Off unless `~/.ctxtop/hook_trace.on` exists. Writes `~/.ctxtop/hook_trace.jsonl`
  * (event, tool, first 160 chars of the command, our reply, route). Never throws.
  */
+let traceWriteError = null;
+
 function traceHookCall(input, reply, route) {
   try {
     const dir = path.join(os.homedir(), '.ctxtop');
@@ -129,6 +133,7 @@ function traceHookCall(input, reply, route) {
         script: 'pre_invocation',
         argvEvent: process.argv.find((a) => a.startsWith('--event=')) || null,
         inputKeys: input && typeof input === 'object' ? Object.keys(input).slice(0, 40) : [],
+        toolCallKeys: input?.toolCall && typeof input.toolCall === 'object' ? Object.keys(input.toolCall) : null,
         hookEvent: input?.hook_event_name || input?.event || null,
         tool: input?.tool_name || input?.toolName || null,
         command: String(cmd || '').slice(0, 160),
@@ -136,8 +141,9 @@ function traceHookCall(input, reply, route) {
         reply
       }) + '\n'
     );
-  } catch {
-    // tracing must never affect the hook
+  } catch (err) {
+    // Tracing must never affect the hook: note the failure on the reply route and carry on.
+    traceWriteError = String(err?.code || err?.message || err).slice(0, 80);
   }
 }
 
@@ -152,7 +158,7 @@ if (isMain) {
   let route = 'core';
   readStdinFast({ maxTimeoutMs: 250, settleMs: 2 })
     .then(async (input) => {
-      const safeInput = input && typeof input === 'object' ? input : {};
+      const safeInput = normalizeAntigravityToolPayload(input && typeof input === 'object' ? input : {});
       tracedInput = safeInput;
       if (isPreToolUseCli && !safeInput.hook_event_name) {
         safeInput.hook_event_name = 'PreToolUse';

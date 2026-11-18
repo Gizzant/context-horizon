@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { normalizeAntigravityToolPayload } from './antigravity_payload.mjs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -216,6 +217,7 @@ function recordAntigravitySidecarSavings(sidecar, { category = 'BOUNDED_READ_ENF
 }
 
 export async function handlePreToolUse(inputData = {}) {
+  inputData = normalizeAntigravityToolPayload(inputData) || {};
   const conversationId = inputData.conversationId || inputData.session_id || inputData.conversation_id || 'default_session';
   const sidecar = readSidecarSync(conversationId);
   sidecar.sessionMeta = sidecar.sessionMeta || {};
@@ -982,7 +984,71 @@ export async function handlePreToolUse(inputData = {}) {
   return response;
 }
 
+/**
+ * Prompt halts that COACH keeps. The README promises COACH never stops a prompt except for a
+ * 3-strike error loop or a destructive command (the latter is a PreToolUse deny, not a prompt
+ * halt). Detectors the user explicitly set to `block`, and an explicit `#check`, also keep their halt.
+ */
+const COACH_KEPT_HALT_KEYS = new Set(['THREE_STRIKE_LOOP']);
+
+/**
+ * In COACH, turns a prompt halt into an on-screen message unless it is one COACH keeps.
+ * AUTO_PILOT and other modes are returned unchanged.
+ * @param {object} out
+ * @param {object} inputData
+ * @returns {object}
+ */
+export function applyCoachHaltPolicy(out, inputData = {}) {
+  if (!out || typeof out !== 'object' || out.terminationBehavior !== 'terminate') return out;
+  if (out.explicitBlock === true || out.userRequested === true || COACH_KEPT_HALT_KEYS.has(out.haltKey)) return out;
+  let effective = 'COACH';
+  try {
+    const workspacePath = inputData.cwd || inputData.workspacePath || inputData.workspacePaths?.[0] || process.cwd();
+    const horizonConfig = inputData.horizonConfig || loadHorizonConfig({
+      cwd: workspacePath,
+      ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {})
+    });
+    const rawFlightMode = String(inputData.flightMode || horizonConfig.flightMode || 'COACH').toUpperCase();
+    effective = AUTO_MODE_ALIAS_RE.test(rawFlightMode)
+      ? getProMod().resolveEffectiveAutoFlightMode(rawFlightMode, {
+          licensePath: inputData.licensePath,
+          homeDir: inputData.homeDir,
+          strict: Boolean(inputData.strictProGate)
+        }).effectiveFlightMode
+      : resolveSimpleAgMode(rawFlightMode);
+  } catch (err) {
+    recordHookDiagnostic('pre_invocation', 'applyCoachHaltPolicy.resolveMode', err);
+  }
+  if (effective !== 'COACH') return out;
+  const message = String(out.errorMessage?.userMessage || out.userMessage || out.reason || out.systemMessage || '');
+  const { terminationBehavior, decision, errorMessage, userMessage, ...rest } = out;
+  return { ...rest, systemMessage: message, ephemeralMessage: message, coachAdvisory: true };
+}
+
 export async function handlePreInvocation(inputData = {}) {
+  inputData = normalizeAntigravityToolPayload(inputData) || {};
+  // Tool calls never go through the COACH prompt-halt policy: a destructive command stays denied.
+  if (isPreToolUsePayload(inputData)) return handlePreToolUse(inputData);
+  const out = await runPreInvocationChecks(inputData);
+  return applyCoachHaltPolicy(out, inputData);
+}
+
+function isPreToolUsePayload(inputData = {}) {
+  return Boolean(
+    inputData.hook_event_name === 'PreToolUse' ||
+    inputData.event === 'PreToolUse' ||
+    inputData.tool_name ||
+    inputData.toolName ||
+    inputData.tool_input ||
+    inputData.args ||
+    inputData.parameters ||
+    inputData.Arguments ||
+    (typeof inputData.tool === 'string' && inputData.tool.length > 0) ||
+    (typeof inputData.name === 'string' && !inputData.prompt && !inputData.user_input)
+  );
+}
+
+async function runPreInvocationChecks(inputData = {}) {
   if (
     inputData.hook_event_name === 'PreToolUse' ||
     inputData.event === 'PreToolUse' ||
@@ -1154,7 +1220,7 @@ export async function handlePreInvocation(inputData = {}) {
     } catch (err) {
       recordHookDiagnostic('pre_invocation', 'haltOrAdvise.writeSidecar', err);
     }
-    return { terminationBehavior: 'terminate', userMessage: card };
+    return { terminationBehavior: 'terminate', userMessage: card, haltKey: stateKey };
   }
 
   function applyHabitOverride(slug, stateKey, card, { detectorId = null, defaultMode = 'haltOrAdvise', extraWarn = {}, extraBlock = {} } = {}) {
@@ -1177,6 +1243,7 @@ export async function handlePreInvocation(inputData = {}) {
         decision: 'block',
         ...(detectorId ? { detectorId } : {}),
         userMessage: card,
+        explicitBlock: true,
         ...extraBlock
       };
     }
@@ -1678,6 +1745,8 @@ export async function handlePreInvocation(inputData = {}) {
       rewriteSuggestion
     );
     const vagueRes = applyHabitOverride('vague-prompt-rubric', 'REWRITE_SCORECARD', card);
+    // `#check` is the user asking for the scorecard instead of a run, so its stop is kept in COACH.
+    if (vagueRes && hasCheckTag && vagueRes.terminationBehavior === 'terminate') vagueRes.userRequested = true;
     if (vagueRes) {
       if (!vagueRes.terminationBehavior && vagueRes.decision !== 'block') flushSidecarOnce();
       return vagueRes;
@@ -1816,9 +1885,10 @@ export function toProtoSafePreHookOutput(output, { isPreToolUse = false } = {}) 
       out.systemMessage ||
       'Halted by Highbeam Flightcheck'
     );
+    // Documented Antigravity PreInvocation stop: https://antigravity.google/docs/hooks
     return {
-      terminationBehavior: 'terminate',
-      errorMessage: { userMessage }
+      injectSteps: [{ errorMessage: { userMessage } }],
+      terminationBehavior: 'terminate'
     };
   }
   const advisory = out.ephemeralMessage || out.systemMessage;

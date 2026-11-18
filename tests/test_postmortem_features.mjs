@@ -204,13 +204,15 @@ describe('4. PreInvocation Router Integration & Invariants', () => {
       prompt: 'Implement billing endpoint'
     });
 
-    assert.strictEqual(res.terminationBehavior, 'terminate');
-    assert.ok(res.userMessage.includes('Amputation Crisis'));
-    assert.ok(res.userMessage.includes('Handoff NEEDS FIXES'));
+    // COACH shows the card as a message (no stop).
+    assert.notEqual(res.terminationBehavior, 'terminate');
+    const msg = res.systemMessage;
+    assert.ok(msg.includes('Amputation Crisis'));
+    assert.ok(msg.includes('Handoff NEEDS FIXES'));
     // User rule invariant: never render clickable button or Ctrl+V
-    assert.ok(!res.userMessage.includes('btnCompactPrimary'));
-    assert.ok(!res.userMessage.includes('Ctrl+V'));
-    assert.ok(res.userMessage.includes('/compact'));
+    assert.ok(!msg.includes('btnCompactPrimary'));
+    assert.ok(!msg.includes('Ctrl+V'));
+    assert.ok(msg.includes('/compact'));
   });
 });
 

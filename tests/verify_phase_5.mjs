@@ -100,8 +100,9 @@ const res3 = await handlePreInvocation({
 });
 const t5 = process.hrtime.bigint();
 const duration3 = Number(t5 - t4) / 1_000_000;
-assert.equal(res3.terminationBehavior, 'terminate', 'Must terminate execution');
-assert.ok(res3.userMessage.includes('Flight Check'), 'Must output Scorecard');
+// COACH shows the scorecard as a message instead of stopping the prompt.
+assert.notEqual(res3.terminationBehavior, 'terminate', 'COACH must not stop the prompt');
+assert.ok(String(res3.systemMessage || '').includes('Flight Check'), 'Must output Scorecard');
 
 const normalSidecar = {
   ...baseSidecar,
