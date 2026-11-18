@@ -69,13 +69,6 @@
         </table>
       </div>
 
-      <div class="callout">
-        <p class="callout-title">Decoupled Sister SKU: Highbeam Airlock (<code>packages/airlock</code> / <code>ctxvault</code> v1.0)</p>
-        <p>
-          Local secret and PII scrubbing lives in the separate <code>packages/airlock/</code> package (<code>ctxvault</code> v1.0, tested via <code>npm run test:airlock</code>). Keeping Airlock separate lets <code>ctxtop</code> stay focused on context health, KV-cache routing, and token savings.
-        </p>
-      </div>
-
       <h2 id="isomorphic-laws">2. Claude Mod Laws 1-5 &amp; Pure-JS Cryptography</h2>
       <p>
         Claude Code's in-process module (not loaded by current versions) would run inside a sandboxed V8 isolate without Node.js built-ins, so every file in <code>src/core-isomorphic/</code> follows five strict rules checked by <code>test/mod_static_compliance.test.mjs</code>:

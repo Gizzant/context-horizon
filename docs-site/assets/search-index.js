@@ -13,7 +13,7 @@ window.AH_SEARCH_INDEX = [
     "title": "System Architecture & Internals",
     "section": "1. Six-Package Workspace Topology",
     "href": "architecture.html#monorepo-topology",
-    "keywords": "package.json packages/* src/core-isomorphic/ src/engine-node/ src/core/ @ctxtop/core node:* DET-01..DET-32 CircuitBreakerEngine cacheGravity dualTtl cliffBreaker horizonGrid costRadarSvg modViews @ctxtop/engine-node >= 22.13.0 node:sqlite git merge-tree @ctxtop/antigravity PreInvocation horizon_panel.html @ctxtop/claude-code hooks/register.js hooks/handlers/*.mjs ah-statusline @ctxtop/mcp horizon_status cache_gravity_check scope_lock_claim export_receipt_pdf @ctxtop/pro team_finops_pack.mjs packages/airlock ctxvault packages/airlock/ npm run test:airlock ctxtop",
+    "keywords": "package.json packages/* src/core-isomorphic/ src/engine-node/ src/core/ @ctxtop/core node:* DET-01..DET-32 CircuitBreakerEngine cacheGravity dualTtl cliffBreaker horizonGrid costRadarSvg modViews @ctxtop/engine-node >= 22.13.0 node:sqlite git merge-tree @ctxtop/antigravity PreInvocation horizon_panel.html @ctxtop/claude-code hooks/register.js hooks/handlers/*.mjs ah-statusline @ctxtop/mcp horizon_status cache_gravity_check scope_lock_claim export_receipt_pdf @ctxtop/pro team_finops_pack.mjs ctxtop",
     "body": "Root package.json defines six packages under packages/* backed by shared code in src/core-isomorphic/, src/engine-node/, and src/core/: Workspace Package Runtime Constraint Core Modules @ctxtop/core Pure ESM, zero node:* imports DET-01..DET-32 rules, CircuitBreakerEngine, cacheGravity, dualTtl, cliffBreaker, horizonGrid, costRadarSvg, modViews, USTF v1 parser. @ctxtop/engine-node Node.js >= 22.13.0 stdlib only node:sq"
   },
   {
@@ -509,7 +509,7 @@ window.AH_SEARCH_INDEX = [
     "title": "Terminology & Glossary",
     "section": "E to M",
     "href": "glossary.html#terms-f-m",
-    "keywords": "cal_<sessionId>.json Stop src/utils/sessionCalibration.mjs ~/.attention-horizon/cache/sessions/ < 5 500 R = 2.0 .attention-horizon.json OFF SILENT COACH AUTO_PILOT MEMORY_BLEED projectPath DET-12 100,000 5x 90k 90k-98k 98k-100k >= 100k ctxvault packages/airlock/ ctxtop C_max rule_v2 C* cacheGravityRouter.mjs paybackWarmRequests paybackTurns H_post C_max = Infinity POST /api/router/unlock-hysteresis ctxtop install --lean-hooks --full-hooks src/engine-node/ipc/ 15ms 500ms 10MB",
+    "keywords": "cal_<sessionId>.json Stop src/utils/sessionCalibration.mjs ~/.attention-horizon/cache/sessions/ < 5 500 R = 2.0 .attention-horizon.json OFF SILENT COACH AUTO_PILOT MEMORY_BLEED projectPath DET-12 100,000 5x 90k 90k-98k 98k-100k >= 100k ctxtop C_max rule_v2 C* cacheGravityRouter.mjs paybackWarmRequests paybackTurns H_post C_max = Infinity POST /api/router/unlock-hysteresis ctxtop install --lean-hooks --full-hooks src/engine-node/ipc/ 15ms 500ms 10MB",
     "body": "Empirical Bayes Session Calibration (cal_<sessionId>.json) Core Physics A read-only Stop-hook tracker (src/utils/sessionCalibration.mjs) saved under ~/.attention-horizon/cache/sessions/. It logs finished turns, unique API calls, starting cache size, and your 10-turn median output length, blending early turns (< 5) toward safe defaults (500 output tokens, R = 2.0). Flight Mode Core Physics Top-level control mode in .a"
   },
   {
