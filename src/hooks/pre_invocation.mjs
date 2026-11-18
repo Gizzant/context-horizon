@@ -9,6 +9,9 @@
  */
 
 import { createRequire } from 'node:module';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
   tryFastDaemonRpc,
   canFastAllowBoundedRead,
@@ -108,6 +111,36 @@ export function toProtoSafePreHookOutput(output, { isPreToolUse = false } = {}) 
   return {};
 }
 
+/**
+ * Opt-in hook trace for diagnosing whether Antigravity fires this hook and what it gets back.
+ * Off unless `~/.ctxtop/hook_trace.on` exists. Writes `~/.ctxtop/hook_trace.jsonl`
+ * (event, tool, first 160 chars of the command, our reply, route). Never throws.
+ */
+function traceHookCall(input, reply, route) {
+  try {
+    const dir = path.join(os.homedir(), '.ctxtop');
+    if (!fs.existsSync(path.join(dir, 'hook_trace.on'))) return;
+    const ti = (input && (input.tool_input || input.toolInput || input.arguments)) || {};
+    const cmd = typeof ti === 'object' ? ti.command || ti.CommandLine || ti.cmd || '' : String(ti);
+    fs.appendFileSync(
+      path.join(dir, 'hook_trace.jsonl'),
+      JSON.stringify({
+        ts: new Date().toISOString(),
+        script: 'pre_invocation',
+        argvEvent: process.argv.find((a) => a.startsWith('--event=')) || null,
+        inputKeys: input && typeof input === 'object' ? Object.keys(input).slice(0, 40) : [],
+        hookEvent: input?.hook_event_name || input?.event || null,
+        tool: input?.tool_name || input?.toolName || null,
+        command: String(cmd || '').slice(0, 160),
+        route,
+        reply
+      }) + '\n'
+    );
+  } catch {
+    // tracing must never affect the hook
+  }
+}
+
 const isMain =
   process.argv[1] &&
   (process.argv[1].endsWith('pre_invocation.mjs') || process.argv[1].endsWith('pre_invocation.js'));
@@ -115,9 +148,12 @@ const isPreToolUseCli = process.argv.includes('--event=PreToolUse');
 
 if (isMain) {
   let detectedPreToolUse = isPreToolUseCli;
+  let tracedInput = null;
+  let route = 'core';
   readStdinFast({ maxTimeoutMs: 250, settleMs: 2 })
     .then(async (input) => {
       const safeInput = input && typeof input === 'object' ? input : {};
+      tracedInput = safeInput;
       if (isPreToolUseCli && !safeInput.hook_event_name) {
         safeInput.hook_event_name = 'PreToolUse';
       }
@@ -135,10 +171,12 @@ if (isMain) {
         isPreToolUse: detectedPreToolUse
       });
       if (ipcRes && ipcRes.fullVerdict === true && ipcRes.safeOut) {
+        route = 'daemon';
         return { _fastSafeOut: ipcRes.safeOut };
       }
 
       if (detectedPreToolUse && canFastAllowBoundedRead(safeInput, { platform: 'antigravity' })) {
+        route = 'fast-allow-read';
         return { _fastSafeOut: { decision: 'allow' } };
       }
 
@@ -150,11 +188,14 @@ if (isMain) {
         output && output._fastSafeOut
           ? output._fastSafeOut
           : toProtoSafePreHookOutput(output, { isPreToolUse: detectedPreToolUse });
+      traceHookCall(tracedInput, safeOut, route);
       console.log(JSON.stringify(safeOut));
       process.exit(0);
     })
-    .catch(() => {
-      console.log(JSON.stringify(detectedPreToolUse ? { decision: 'allow' } : {}));
+    .catch((err) => {
+      const fallback = detectedPreToolUse ? { decision: 'allow' } : {};
+      traceHookCall(tracedInput, fallback, `error-fail-open: ${String(err?.message || err).slice(0, 200)}`);
+      console.log(JSON.stringify(fallback));
       process.exit(0);
     });
 }
