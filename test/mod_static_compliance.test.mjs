@@ -28,6 +28,7 @@ import { getNodeIo, registerNodeIo } from '../src/core-isomorphic/utils/runtime.
 import { runPreToolUseHook } from '../hooks/handlers/pre-tool-use.mjs';
 import { runPostToolUseHook } from '../hooks/handlers/post-tool-use.mjs';
 import { runPreModelSwitchHook } from '../hooks/handlers/pre-model-switch.mjs';
+import { activateLocalTrial } from '../src/core/pro_license.mjs';
 import { runStopGateHook } from '../hooks/handlers/stop-gate.mjs';
 import register from '../hooks/register.js';
 
@@ -1343,15 +1344,44 @@ function registerComplianceTestSuite() {
       assert.equal(postRes.exitCode, 0);
       assert.ok(postRes.stdout.includes('SyntaxError: Unexpected token in app.mjs:14'));
 
+      const switchEvent = {
+        currentModel: 'claude-opus-5-5',
+        targetModel: 'claude-sonnet-5-5',
+        cachedTokens: 45000,
+        cacheWarm: true,
+        mode: 'AUTO_PILOT'
+      };
+      // Free: AUTO_PILOT steps down to COACH, so the switch is advised, not blocked.
+      const freeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ah-phase5-free-home-'));
+      const freeRes = runPreModelSwitchHook({ ...switchEvent, requestsPerTurn: 3, expectedOutputTokens: 1500 }, {
+        cwd: tmpDir,
+        mode: 'AUTO_PILOT',
+        homeDir: freeHome,
+        licensePath: path.join(freeHome, '.ctxtop', 'license.json'),
+        strict: true // no test-runner Pro bypass: behave like a real Free install
+      });
+      assert.equal(freeRes.exitCode, 0);
+      assert.equal(freeRes.verdict.blocked, false);
+
+      // Pro or trial, but only built-in placeholder priors: advisory, never a hard block (a2ca1b1).
+      const trialHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ah-phase5-trial-home-'));
+      activateLocalTrial({ homeDir: trialHome });
+      const trialOpts = {
+        cwd: tmpDir,
+        mode: 'AUTO_PILOT',
+        homeDir: trialHome,
+        licensePath: path.join(trialHome, '.ctxtop', 'license.json'),
+        strict: true
+      };
+      const placeholderRes = runPreModelSwitchHook(switchEvent, trialOpts);
+      assert.equal(placeholderRes.exitCode, 0);
+      assert.equal(placeholderRes.verdict.advisory, true);
+      assert.equal(placeholderRes.verdict.basedMostlyOnDefaults, true);
+
+      // Pro or trial with measured session data: AUTO_PILOT enforces the cache-gravity block.
       const switchRes = runPreModelSwitchHook(
-        {
-          currentModel: 'claude-opus-5-5',
-          targetModel: 'claude-sonnet-5-5',
-          cachedTokens: 45000,
-          cacheWarm: true,
-          mode: 'AUTO_PILOT'
-        },
-        { cwd: tmpDir, mode: 'AUTO_PILOT' }
+        { ...switchEvent, requestsPerTurn: 3, expectedOutputTokens: 1500 },
+        trialOpts
       );
       assert.equal(switchRes.exitCode, 2);
       assert.equal(switchRes.verdict.blocked, true);
