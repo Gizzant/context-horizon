@@ -114,6 +114,30 @@ export function buildReplacementToolOutput(event = {}, finalOutput = '') {
  * so no savings are recorded). Escape hatch for Claude Code versions that ignore replacement.
  * @returns {'replace' | 'context'}
  */
+/**
+ * Claude Code caps the shell output it hands to PostToolUse (default 30,000 chars,
+ * `BASH_MAX_OUTPUT_LENGTH` overrides). Above that it has already saved the full output
+ * to its own tool-results file and shows the model only a short preview.
+ * @returns {number}
+ */
+function resolveHostShellOutputCap() {
+  const n = Number(globalThis.process?.env?.BASH_MAX_OUTPUT_LENGTH);
+  return Number.isFinite(n) && n > 0 ? n : 30000;
+}
+
+/**
+ * True when a Bash/PowerShell output reached the host's cap, so the text we were given is a
+ * truncated copy. Offloading it would save an incomplete file, and replacing Claude Code's
+ * short preview would not save tokens, so the hook leaves it alone and records nothing.
+ * @param {string} toolName
+ * @param {string} rawOutput
+ * @returns {boolean}
+ */
+export function isHostTruncatedShellOutput(toolName, rawOutput) {
+  if (!/^(Bash|PowerShell)$/i.test(String(toolName || ''))) return false;
+  return String(rawOutput || '').length >= resolveHostShellOutputCap() - 100;
+}
+
 function resolvePostOutputMode() {
   const raw = String(globalThis.process?.env?.HIGHBEAM_POST_OUTPUT_MODE || 'replace').trim().toLowerCase();
   return raw === 'context' ? 'context' : 'replace';
@@ -297,6 +321,16 @@ export function runPostToolUseHook(event = {}, options = {}) {
         );
       }
     }
+  }
+
+  if (isHostTruncatedShellOutput(toolName, rawOutput)) {
+    return {
+      exitCode: 0,
+      stdout: '',
+      stderr: '',
+      hostTruncated: true,
+      sanitized: { modified: false, offloaded: false, savedTokens: 0 }
+    };
   }
 
   if (!loadedPriorSnap && options.bucketBShadow !== false && hasExplicitCwd && /^(?:Grep|Glob)$/i.test(toolName)) {

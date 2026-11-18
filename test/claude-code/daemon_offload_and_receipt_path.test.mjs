@@ -31,7 +31,7 @@ test('daemon bridge: hook.claude.postToolUse offloads and records savings withou
 
   const ws = makeWorkspace();
   try {
-    const stdout = Array.from({ length: 3000 }, (_, i) => `line ${i + 1}`).join('\n');
+    const stdout = Array.from({ length: 2000 }, (_, i) => `line ${i + 1}`).join('\n');
     const res = await post({
       event: {
         session_id: 'daemon-offload-1',

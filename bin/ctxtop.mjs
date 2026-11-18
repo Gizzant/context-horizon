@@ -991,6 +991,7 @@ export function executeInitSubcommand(args = [], options = {}) {
         dedupe: isDedupe,
         leanHooks: isLeanHooks,
         fullHooks: isFullHooks,
+        enable: args.includes('--enable') || Boolean(options.enable),
         cwd: options.cwd || process.cwd(),
         homeDir: options.homeDir || options.home
       });
@@ -1099,7 +1100,7 @@ export function runCli(args = [], options = {}) {
         'A backup of the settings file is saved before it is changed.'
       ],
       init: [
-        'Usage: ctxtop init [--antigravity|--claude|--cursor|--windsurf|--codex|--gemini-cli|--mcp|--all-hosts] [--global | --project]',
+        'Usage: ctxtop init [--antigravity|--claude|--cursor|--windsurf|--codex|--gemini-cli|--mcp|--all-hosts] [--global | --project] [--enable]',
         '',
         'Zero-config installer: sets Highbeam up for the chosen host(s).',
         'With no host flag it installs for Antigravity and Claude Code.',

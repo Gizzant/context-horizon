@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - README latency figures now describe what runs: each hook call is a short Node process (about 60–80 ms on Linux, 200–275 ms measured on Windows), not a sub-millisecond in-process tier.
 - Claude Code output offload works when Antigravity's Highbeam daemon is running. PostToolUse is handed to the warm daemon over IPC, and the daemon never loaded the Node file adapter, so no artifact or savings line was written and the full output went back to the model. The daemon bridge now loads the adapter.
 - `ctxtop receipt` (and `panel`, `roast`, `radar`) run from a project now read that project's `.claude/cache/horizon_ledger.jsonl`, where the hooks write savings. Before, they read a home-folder ledger and showed $0.00.
+- Claude Code shell output that hits Claude Code's own 30,000-character cap (`BASH_MAX_OUTPUT_LENGTH`) is left alone. Claude Code has already saved the full output to its own file and shows the model a short preview, so Highbeam's copy would be incomplete and the savings it recorded were overstated. These calls now record no savings.
+- `ctxtop init --antigravity` warns when the Antigravity hooks are switched off (`"enabled": false` in `hooks.json`), and `--enable` turns them back on. `doctor` reports that state as WARN instead of Active.
 
 ## [4.1.2] - 2026-11-17
 

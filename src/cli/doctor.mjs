@@ -168,7 +168,11 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
           const relLabel = hPath.startsWith(workspacePath)
             ? path.relative(workspacePath, hPath).replace(/\\/g, '/') || 'hooks.json'
             : hPath.replace(home, '~').replace(/\\/g, '/');
-          record('Antigravity Hooks', 'PASS', `Active at ${relLabel} (Pre:${pre ? '✔' : '✖'}, Post:${post ? '✔' : '✖'}, Start:${start ? '✔' : '✖'})`);
+          if (parsed?.['horizon-flightcheck-lifecycle']?.enabled === false) {
+            record('Antigravity Hooks', 'WARN', `Switched off at ${relLabel} ("enabled": false), so no Highbeam guard runs. Turn on: ctxtop init --antigravity --enable`);
+          } else {
+            record('Antigravity Hooks', 'PASS', `Active at ${relLabel} (Pre:${pre ? '✔' : '✖'}, Post:${post ? '✔' : '✖'}, Start:${start ? '✔' : '✖'})`);
+          }
           break;
         }
       } catch (err) {

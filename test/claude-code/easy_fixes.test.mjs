@@ -33,7 +33,7 @@ test('offloaded command output is written owner-only (0600 files, 0700 directory
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hb-perm-'));
   const prevUmask = process.umask(0o022);
   try {
-    const log = Array.from({ length: 3000 }, (_, i) => `line ${i} output text ${(i * 7919) % 1000}`).join('\n');
+    const log = Array.from({ length: 900 }, (_, i) => `line ${i} output text ${(i * 7919) % 1000}`).join('\n');
     runPostToolUseHook(
       {
         session_id: 'perm1',

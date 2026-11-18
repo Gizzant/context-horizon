@@ -126,6 +126,7 @@ export function installPlugin(options = {}) {
     dedupe = false,
     leanHooks = false,
     fullHooks = false,
+    enable = false,
     cwd = process.cwd(),
     homeDir = options.home || getHomeDir()
   } = options;
@@ -194,6 +195,12 @@ export function installPlugin(options = {}) {
       } catch {
         // Ignore corrupt prior hooks.json
       }
+    }
+    // Keep a user's off switch across upgrades, but say so loudly: with it off no guard runs.
+    if (enable) {
+      existingEnabled = true;
+    } else if (existingEnabled === false) {
+      console.log('  \x1b[38;5;214m▲\x1b[0m Highbeam hooks are switched off in hooks.json ("enabled": false), so Antigravity runs no Highbeam guards. Kept as you set it. To turn them on: ctxtop init --antigravity --enable');
     }
     const hooksOut = {
       ...resolvedHooks,
