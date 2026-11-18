@@ -237,9 +237,10 @@ describe('Tier 4: Real-World Application Scenarios (Scenarios 1 - 7)', () => {
         JSON.stringify(mergedSettings.hooks.PreToolUse).includes('pre-tool-use.mjs'),
         'Canonical Highbeam hook must be installed'
       );
-      assert.ok(
-        mergedSettings.hooks.modules.some(m => m.includes('register.js')),
-        'Claude Code Mod module register.js must be configured'
+      assert.equal(
+        (mergedSettings.hooks.modules || []).some(m => m.includes('register.js')),
+        false,
+        'Claude Code has no hooks.modules setting; register.js must not be written'
       );
       assert.equal(
         mergedSettings.ahPreviousStatusLine.command,

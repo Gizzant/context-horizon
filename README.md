@@ -2,10 +2,10 @@
 
 # Highbeam (`ctxtop` v4.1) — Active Context Surgeon, KV-Cache Shield & Token FinOps for Claude Code, Google Antigravity & MCP Hosts
 
-**Local Context Window Profiler, KV-Cache TTL Monitor, Multi-Family FTS5 Output Compressor & Deterministic PreInvocation / PreToolUse Surgeon (`<1ms` in-process Tier-1 · `~60–80ms` median per spawned Tier-2 hook; method in [Verification & Benchmarks](#verification--benchmarks)) across Google Antigravity, Claude Code, Codex CLI, Gemini CLI & Cursor**
+**Local Context Window Profiler, KV-Cache TTL Monitor, Multi-Family FTS5 Output Compressor & Deterministic PreInvocation / PreToolUse Surgeon (each hook call runs as a short Node process: `~60–80ms` on Linux, `~200–275ms` on Windows; method in [Verification & Benchmarks](#verification--benchmarks)) across Google Antigravity, Claude Code, Codex CLI, Gemini CLI & Cursor**
 
 [![Zero Runtime Dependencies](https://img.shields.io/badge/dependencies-0_runtime-brightgreen.svg)](#systems-architecture--zero-trust-security)
-[![Hook Latency](https://img.shields.io/badge/Tier--1_in--process-%3C1ms_%7C_Tier--2_hook-~60--80ms_median-00e5ff.svg)](#deterministic-preinvocation-router--6-local-sensors)
+[![Hook Latency](https://img.shields.io/badge/Hook_call-~60--80ms_Linux_%7C_~200--275ms_Windows-00e5ff.svg)](#deterministic-preinvocation-router--6-local-sensors)
 [![Node.js >= 20](https://img.shields.io/badge/node-%3E%3D20_zero_deps-339933.svg)](#try-in-10-seconds-zero-hooks--zero-writes)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Multi-Host Parity](https://img.shields.io/badge/Hosts-Antigravity_%7C_Claude_%7C_Codex_%7C_Gemini_%7C_Cursor-blueviolet.svg)](#-installation--quick-start)
@@ -334,7 +334,7 @@ For centralized organization deployment (Jamf / Intune / GPO), `CHECKSUMS.sha256
 
 ## Deterministic `PreInvocation` Router & 6 Local Sensors
 
-When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incoming prompts across 8 deterministic router states (**Tier-1 In-Process: `<1ms` (≈0.2ms p95)** inside a warm V8 isolate, when your Claude Code build supports the in-process Mod; **Tier-2 spawned CLI hook: `~60–80ms` median wall time per call** including Node process startup (cold fallback with no warm daemon: roughly `100–450ms`, machine dependent)):
+When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incoming prompts across 8 deterministic router states (**each hook call is a spawned Node process: `~60–80ms` median on Linux, `~200–275ms` measured on Windows (Claude Code 2.1.325, Node 25)**, wall time including Node process startup. The rule engine itself takes under 1ms of that (cold fallback with no warm daemon: roughly `100–450ms`, machine dependent)):
 
 1. `ALLOW_SILENT`: Immediate pass-through (`{}`) on `!` bypass prefix or healthy turns.
 2. `ALLOW_ACTIVE_SET`: Silent pass-through when referenced files are already warm in the last 5 turns.
@@ -354,7 +354,7 @@ When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incomi
 | `npx ctxtop audit [--platform all\|antigravity\|claude\|codex\|gemini\|cursor] [--days 7] [--json]` | Zero-write, hookless 5-host audit of Sludge Tax, cold-cache spikes, and oversized tool dumps. |
 | `npx ctxtop init [--cursor \| --windsurf \| --codex \| --gemini-cli \| --all-hosts]` | Installs Google Antigravity, Claude Code, and 1-command MCP configurations across editors & CLIs. |
 | `npx ctxtop search [<turn-id>] "<keyword>" [--json]` | Searches local SQLite FTS5 offloaded CLI dumps and artifacts via BM25 matching. |
-| `npx ctxtop init --claude [--global]` | Installs only the Claude Code `.claude-plugin` manifest, Tier-1/Tier-2 hooks, and terminal `statusLine` (current project, or all projects with `--global`). |
+| `npx ctxtop init --claude [--global]` | Installs only the Claude Code `.claude-plugin` manifest, command hooks, and terminal `statusLine` (current project, or all projects with `--global`). |
 | `npx ctxtop ui [--demo]` | Launches the local HTTP/SSE telemetry daemon (`127.0.0.1`) and interactive WebView (`/` Simple, `/advanced` Advanced). |
 | `npx ctxtop mcp` | Starts the standalone zero-network 7-tool JSON-RPC stdio MCP server (`@ctxtop/mcp`). |
 | `npx ctxtop doctor [--diagnostic]` | Validates hook registration, FTS5 offload readiness, warm-IPC path, model ceilings, 3-way SHA-256 parity, and SQLite health. |
@@ -374,7 +374,7 @@ Run the full zero-dependency test and verification suites (**1,300+ tests** — 
 # Full Coach, UI, & 360° Capability-Proof suite
 npm run test:coach
 
-# Claude Code dual-tier Mod, CLI hooks, statusLine, and 5-category ledger suite (~230 tests)
+# Claude Code hooks, statusLine, and 5-category ledger suite (~230 tests)
 npm run test:claude
 
 # Unit & Multi-Harness Wedge suite (~85 tests)
@@ -386,7 +386,7 @@ npm run test:gates && npm run test:phases
 # Reproducible 10-family CLI compression + 12-session Antigravity & 5-host parity benchmark
 npm run bench:parity
 
-# Latency benchmark: prints p50/p95 per path (Tier-1: 200 iterations; Tier-2: 6 spawned-process samples, wall time incl. Node startup). Re-run on your machine; numbers vary by OS and load.
+# Latency benchmark: prints p50/p95 per path (in-process rule engine: 200 iterations; spawned hook: 6 samples, wall time incl. Node startup). Re-run on your machine; numbers vary by OS and load.
 node scripts/bench_hooks.mjs
 ```
 

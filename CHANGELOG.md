@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [Unreleased]
+
+#### Fixed
+- Claude Code installs no longer write `hooks.modules` into `settings.json`. Claude Code (verified on 2.1.325) has no such setting and reported the file as invalid on every start. Reinstalling removes the entry an earlier version added; other entries you put there are kept. The plugin manifest `hooks/hooks.json` drops it too.
+- Repeat-read savings (GUARD-4 delta reads and signature stubs) work again in Claude Code: `Read` is back in the PreToolUse matcher. That check was assumed to run in the in-process module, which Claude Code never loads.
+- README latency figures now describe what runs: each hook call is a short Node process (about 60–80 ms on Linux, 200–275 ms measured on Windows), not a sub-millisecond in-process tier.
+- Claude Code output offload works when Antigravity's Highbeam daemon is running. PostToolUse is handed to the warm daemon over IPC, and the daemon never loaded the Node file adapter, so no artifact or savings line was written and the full output went back to the model. The daemon bridge now loads the adapter.
+- `ctxtop receipt` (and `panel`, `roast`, `radar`) run from a project now read that project's `.claude/cache/horizon_ledger.jsonl`, where the hooks write savings. Before, they read a home-folder ledger and showed $0.00.
+
 ## [4.1.2] - 2026-11-17
 
 ### Packaging, Registry Distribution & Pre-Launch Hardening

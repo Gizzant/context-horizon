@@ -7,6 +7,11 @@
  * adds 0ms startup latency, while keeping all subsequent hook RPCs (<1ms) in V8 memory.
  */
 
+// The daemon process never imports a Tier-2 CLI entrypoint, so register the Node
+// I/O adapter here. Without it writeTextAtomic()/appendJsonlSafe() return false and
+// PostToolUse cannot write artifacts or ledger lines over IPC.
+import '../utils/nodeIo.mjs';
+
 let cachedClaudePreMod = null;
 let cachedClaudePostMod = null;
 let cachedAgPreMod = null;

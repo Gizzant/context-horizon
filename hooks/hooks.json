@@ -1,12 +1,9 @@
 {
   "description": "Highbeam KV-Cache & Context Governor lifecycle hooks",
   "hooks": {
-    "modules": [
-      "${CLAUDE_PLUGIN_ROOT}/hooks/register.js"
-    ],
     "PreToolUse": [
       {
-        "matcher": "Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Task|Agent|WebFetch|mcp__.*",
+        "matcher": "Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Task|Agent|WebFetch|mcp__.*",
         "hooks": [
           {
             "type": "command",

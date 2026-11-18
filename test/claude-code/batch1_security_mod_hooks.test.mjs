@@ -101,7 +101,7 @@ test('ISS-018: hooks/hooks.json uses top-level "hooks" wrapper, nested command a
   assert.ok(parsed.hooks && typeof parsed.hooks === 'object');
   assert.equal('modules' in parsed, false, 'modules must live inside top-level "hooks" wrapper');
   assert.equal('PreToolUse' in parsed, false, 'events must live inside top-level "hooks" wrapper');
-  assert.deepEqual(parsed.hooks.modules, ['${CLAUDE_PLUGIN_ROOT}/hooks/register.js']);
+  assert.equal('modules' in parsed.hooks, false, 'Claude Code has no hooks.modules setting (2.1.325 rejects it)');
 
   const expectedEvents = [
     'PreToolUse',
@@ -128,9 +128,9 @@ test('ISS-018: hooks/hooks.json uses top-level "hooks" wrapper, nested command a
   }
 
   // Verify asymmetric lean tool matchers (v4.0: strips Grep|Glob subprocess spawns by default)
-  assert.equal(parsed.hooks.PreToolUse[0].matcher, 'Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Task|Agent|WebFetch|mcp__.*');
+  assert.equal(parsed.hooks.PreToolUse[0].matcher, 'Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Task|Agent|WebFetch|mcp__.*');
   assert.equal(parsed.hooks.PostToolUse[0].matcher, 'Bash|PowerShell|Task|Agent|WebFetch|mcp__.*');
-  for (const tool of ['MultiEdit', 'NotebookEdit', 'Task', 'Agent']) {
+  for (const tool of ['MultiEdit', 'NotebookEdit', 'Read', 'Task', 'Agent']) {
     assert.ok(
       new RegExp(`^(?:${parsed.hooks.PreToolUse[0].matcher})$`).test(tool),
       `PreToolUse matcher must match ${tool}`
@@ -202,7 +202,8 @@ test('ISS-019: installAttentionHorizon double-quotes paths with spaces and unins
 
     const merged = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
     assert.ok(merged.hooks.modules.includes('./my-team-mod.js'));
-    assert.ok(merged.hooks.modules.includes(`${spacedPkgRoot}/hooks/register.js`));
+    assert.equal(merged.hooks.modules.includes(`${spacedPkgRoot}/hooks/register.js`), false, 'install must not write hooks.modules');
+    assert.equal(merged.hooks.modules.includes('./hooks/register.js'), false, 'stale Highbeam module entry is removed');
     assert.equal(
       merged.statusLine.command,
       `node "${spacedPkgRoot}/bin/ah-statusline.mjs"`

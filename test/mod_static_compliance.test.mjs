@@ -1235,7 +1235,7 @@ function registerComplianceTestSuite() {
       assert.equal(merged.env.CUSTOM_FLAG, '1');
       assert.deepEqual(merged.permissions.allow, ['Read']);
       assert.ok(merged.hooks.modules.includes('./my-existing-mod.js'));
-      assert.ok(merged.hooks.modules.includes(`${PKG_ROOT}/hooks/register.js`));
+      assert.equal(merged.hooks.modules.includes(`${PKG_ROOT}/hooks/register.js`), false);
       assert.equal(merged.hooks.PreToolUse.length, 2);
       assert.equal(merged.hooks.PreToolUse[0].hooks[0].command, 'node ./my-company-audit-hook.js');
       assert.equal(
@@ -1251,7 +1251,7 @@ function registerComplianceTestSuite() {
 
       const secondInstall = installAttentionHorizon({ cwd: tmpDir, settingsPath });
       assert.equal(secondInstall.settings.hooks.PreToolUse.length, 2);
-      assert.equal(secondInstall.settings.hooks.modules.length, 2);
+      assert.deepEqual(secondInstall.settings.hooks.modules, ['./my-existing-mod.js']);
 
       const uninstallRes = uninstallAttentionHorizon({ cwd: tmpDir, settingsPath });
       assert.equal(uninstallRes.ok, true);

@@ -577,9 +577,9 @@ describe('Feature 3: Zero-Config Installer', () => {
       const finalSettings = JSON.parse(fs.readFileSync(res2.settingsPath, 'utf8'));
       assert.ok(finalSettings.hooks.modules.includes('custom-security-latch.js'));
       assert.equal(finalSettings.ahPreviousStatusLine.command, 'node ./user-statusline.js');
-      // No duplicate registration of Highbeam register.js
+      // Highbeam never writes hooks.modules (Claude Code rejects the key)
       const regCount = finalSettings.hooks.modules.filter(m => m.includes('register.js')).length;
-      assert.equal(regCount, 1, 'register.js must not be duplicated on successive runs');
+      assert.equal(regCount, 0, 'register.js must not be written to hooks.modules');
     } finally {
       ws.cleanup();
     }

@@ -132,7 +132,7 @@ test('CHALLENGE 1.1: Installer Anti-Clobber — Backup is byte-for-byte identica
     // Verify user hooks preserved alongside AH hooks
     assert.ok(merged.hooks.modules.includes('/opt/company/corporate-telemetry.js'));
     assert.ok(merged.hooks.modules.includes('./relative-mod.js'));
-    assert.ok(merged.hooks.modules.includes(`${PKG_ROOT}/hooks/register.js`));
+    assert.equal(merged.hooks.modules.includes(`${PKG_ROOT}/hooks/register.js`), false);
 
     // Custom PreToolUse hook preserved
     const customPreHook = merged.hooks.PreToolUse.find(
@@ -196,10 +196,10 @@ test('CHALLENGE 1.2: Installer Idempotency — 5 consecutive runs never duplicat
 
       const current = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
 
-      // Modules should have exactly 2 entries (user-mod + AH register), NOT grow to 6
+      // Only the user's own module stays; Highbeam never adds one, so nothing can accumulate
       assert.equal(
         current.hooks.modules.length,
-        2,
+        1,
         `Run #${run}: hooks.modules must not accumulate duplicates`
       );
 
@@ -249,7 +249,7 @@ test('CHALLENGE 1.3: Installer Resilience — Handles non-existent, empty, array
     assert.equal(resA.backupPath, null, 'No backup if settings.json did not exist');
     assert.ok(fs.existsSync(settingsPathA), 'New settings.json should be created');
     const parsedA = JSON.parse(fs.readFileSync(settingsPathA, 'utf-8'));
-    assert.ok(parsedA.hooks.modules.length >= 1);
+    assert.ok(Array.isArray(parsedA.hooks.PreToolUse) && parsedA.hooks.PreToolUse.length >= 1);
     assert.ok(parsedA.statusLine);
 
     // Edge Case B: settings.json is completely empty (0 bytes)
@@ -264,7 +264,7 @@ test('CHALLENGE 1.3: Installer Resilience — Handles non-existent, empty, array
     assert.ok(fs.existsSync(resB.backupPath));
     assert.equal(fs.readFileSync(resB.backupPath).length, 0, 'Backup of empty file is 0 bytes');
     const parsedB = JSON.parse(fs.readFileSync(settingsPathB, 'utf-8'));
-    assert.ok(parsedB.hooks.modules.length >= 1);
+    assert.ok(Array.isArray(parsedB.hooks.PreToolUse) && parsedB.hooks.PreToolUse.length >= 1);
 
     // Edge Case C: settings.json contains malformed / broken JSON
     const settingsPathC = path.join(claudeDir, 'settings_corrupted.json');
@@ -283,7 +283,7 @@ test('CHALLENGE 1.3: Installer Resilience — Handles non-existent, empty, array
       'Original corrupt file preserved byte-for-byte in backup'
     );
     const parsedC = JSON.parse(fs.readFileSync(settingsPathC, 'utf-8'));
-    assert.ok(parsedC.hooks.modules.length >= 1);
+    assert.ok(Array.isArray(parsedC.hooks.PreToolUse) && parsedC.hooks.PreToolUse.length >= 1);
 
     // Edge Case D: settings.json is a JSON array instead of object
     const settingsPathD = path.join(claudeDir, 'settings_array.json');

@@ -881,7 +881,7 @@ test('D03: hooks/hooks.json wraps events in top-level "hooks", uses nested comma
   assert.doesNotMatch(rawHooks, /\.gemini/i);
   const parsed = JSON.parse(rawHooks);
   assert.ok(parsed.hooks && typeof parsed.hooks === 'object');
-  assert.deepEqual(parsed.hooks.modules, ['${CLAUDE_PLUGIN_ROOT}/hooks/register.js']);
+  assert.equal('modules' in parsed.hooks, false);
   for (const eventName of [
     'PreToolUse',
     'PostToolUse',

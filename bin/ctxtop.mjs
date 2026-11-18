@@ -136,7 +136,7 @@ export const PRE_TOOL_USE_MATCHER =
 export const POST_TOOL_USE_MATCHER =
   'Bash|PowerShell|Grep|Glob|Task|Agent|WebFetch|mcp__.*';
 export const LEAN_PRE_TOOL_USE_MATCHER =
-  'Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Task|Agent|WebFetch|mcp__.*';
+  'Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Task|Agent|WebFetch|mcp__.*';
 export const LEAN_POST_TOOL_USE_MATCHER =
   'Bash|PowerShell|Task|Agent|WebFetch|mcp__.*';
 
@@ -477,17 +477,17 @@ export function installAttentionHorizon(options = {}) {
     currentSettings.hooks = {};
   }
 
-  const canonicalRegisterPath = `${pkgRoot}/hooks/register.js`;
-  const existingModules = Array.isArray(currentSettings.hooks.modules)
-    ? [...currentSettings.hooks.modules]
-    : [];
-  const modIdx = existingModules.findIndex((m) => AH_MOD_REGISTER_REGEX.test(String(m)));
-  if (modIdx >= 0) {
-    existingModules[modIdx] = canonicalRegisterPath;
-  } else {
-    existingModules.push(canonicalRegisterPath);
+  // Claude Code has no `hooks.modules` setting: it skips the key and reports the settings file as invalid
+  // (verified on Claude Code 2.1.325). Never write it; remove an entry an older Highbeam install added and keep
+  // anything else the user put there.
+  if (Array.isArray(currentSettings.hooks.modules)) {
+    currentSettings.hooks.modules = currentSettings.hooks.modules.filter(
+      (m) => !AH_MOD_REGISTER_REGEX.test(String(m))
+    );
+    if (currentSettings.hooks.modules.length === 0) {
+      delete currentSettings.hooks.modules;
+    }
   }
-  currentSettings.hooks.modules = existingModules;
 
   const useLeanHooks =
     options.leanHooks !== undefined ? Boolean(options.leanHooks) : !Boolean(options.fullHooks);
@@ -1065,6 +1065,19 @@ export function runCli(args = [], options = {}) {
   const isMarkdown = effectiveArgs.includes('--markdown') || effectiveArgs.includes('--md') || effectiveArgs.includes('--git');
   const isDiagnostic = effectiveArgs.includes('--diagnostic') || effectiveArgs.includes('--bug-report');
   const scope = isGlobal ? 'global' : 'project';
+
+  // Report commands read the savings ledger. Hooks write it to <project>/.claude/cache/,
+  // so when run from a project that has one, read it there instead of the home-store fallback.
+  if (
+    ['receipt', 'panel', 'roast', 'radar', 'cost-radar'].includes(subcommand) &&
+    !options.cwd &&
+    !options.ledgerPath
+  ) {
+    const projectCwd = globalThis.process?.cwd?.();
+    if (projectCwd && fs.existsSync(path.join(projectCwd, '.claude', 'cache', 'horizon_ledger.jsonl'))) {
+      options = { ...options, cwd: projectCwd };
+    }
+  }
 
   if (effectiveArgs.includes('--version') || effectiveArgs.includes('-v') || subcommand === 'version') {
     return { exitCode: 0, output: '4.1.2', data: { version: '4.1.2' } };
