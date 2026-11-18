@@ -197,8 +197,8 @@
         <h2 id="terms-t-w">T to W</h2>
 
         <div class="glossary-entry" data-tags="claude">
-          <p class="glossary-term">Tier-1 V8 Mod vs. Tier-2 CLI Hook <span class="badge">Claude Code</span></p>
-          <p class="glossary-def">Tier-1 runs inside Claude Code's in-process V8 Mod via <code>hooks/register.js</code> in <code>~0.2ms p95</code> and sets <code>AH_TIER1_MOD_ACTIVE=1</code>. Tier-2 runs Node scripts in <code>hooks/handlers/*.mjs</code> whenever the V8 Mod is off.</p>
+          <p class="glossary-term">Tier-1 In-Process Module vs. Tier-2 Command Hook <span class="badge">Claude Code</span></p>
+          <p class="glossary-def">Tier-1 is an in-process module (<code>hooks/register.js</code>) that current Claude Code does not load, so it is dormant. Tier-2 runs Node scripts in <code>hooks/handlers/*.mjs</code> as command hooks and is what executes in every session today.</p>
         </div>
 
         <div class="glossary-entry" data-tags="core antigravity">

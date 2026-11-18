@@ -22,7 +22,7 @@
 
       <h2 id="enforcement-hierarchy">1. The Three-Layer Enforcement Hierarchy</h2>
       <p>
-        Every hook event (<code>PreInvocation</code>, <code>PreToolUse</code>, <code>PreModelSwitch</code>, and <code>PostToolUse</code>) runs in sub-millisecond local JavaScript inside <code>horizonConfig.mjs</code>, <code>circuitBreakers.mjs</code>, <code>cacheGravityRouter.mjs</code>, and <code>pre_invocation.mjs</code> with zero LLM judge calls.
+        Every hook event (<code>PreInvocation</code>, <code>PreToolUse</code>, <code>PreModelSwitch</code>, and <code>PostToolUse</code>) runs as local JavaScript (rule engine under 1 ms; each hook call adds Node startup) inside <code>horizonConfig.mjs</code>, <code>circuitBreakers.mjs</code>, <code>cacheGravityRouter.mjs</code>, and <code>pre_invocation.mjs</code> with zero LLM judge calls.
       </p>
       <p>
         To pick a verdict (<code>allow</code>, soft <code>advisory warn</code>, interactive <code>ask</code>, or hard <code>deny</code>), Highbeam checks four layers from highest to lowest priority:
@@ -321,7 +321,7 @@ npx ctxtop config reset</code></pre>
 
       <h2 id="switching-modes">6. Switching Modes Across Surfaces</h2>
       <p>
-        Switch Flight Modes or router levels statically in JSON config files, interactively via CLI/V8 Mods, or live over the loopback daemon API.
+        Switch Flight Modes or router levels statically in JSON config files, interactively via the CLI, or live over the loopback daemon API.
       </p>
 
       <div class="tabs" data-sync-surface>
@@ -347,7 +347,7 @@ npx ctxtop config reset</code></pre>
 }</code></pre>
           </div>
           <p>
-            Inside Claude Code with the Tier-1 V8 Mod active, run <code>/horizon</code> to inspect <code>ah_flight_mode</code>, or manage per-detector rules directly with <code>npx ctxtop config set &lt;ID|slug&gt; &lt;default|off|warn|block&gt;</code>. See the <a href="configuration.html#horizon-json-schema">full config schema</a> for all threshold keys.
+            Inside Claude Code, run <code>/horizon</code> to inspect <code>ah_flight_mode</code>, or manage per-detector rules directly with <code>npx ctxtop config set &lt;ID|slug&gt; &lt;default|off|warn|block&gt;</code>. See the <a href="configuration.html#horizon-json-schema">full config schema</a> for all threshold keys.
           </p>
         </div>
 

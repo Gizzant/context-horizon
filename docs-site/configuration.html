@@ -215,7 +215,7 @@
             <tr>
               <td><code>AH_TIER1_MOD_ACTIVE</code></td>
               <td><code>hooks/register.js</code> &amp; Tier-2 handlers</td>
-              <td>Set to <code>"1"</code> by the in-process V8 Mod so Tier-2 CLI hooks do not run twice.</td>
+              <td>Set to <code>"1"</code> by the in-process module so command hooks skip duplicate work. Current Claude Code does not load that module, so this is not set today.</td>
             </tr>
             <tr>
               <td><code>CLAUDE_BIN</code></td>
@@ -316,7 +316,7 @@
         Backed by <code>SECURITY.md</code> and checked in <code>test/mod_static_compliance.test.mjs</code>, Highbeam enforces five strict safety rules:
       </p>
       <ol>
-        <li><strong>Zero Outbound Network Calls:</strong> The CLI, hooks, V8 Mod, MCP server, and local HTTP server never make external HTTP or DNS requests.</li>
+        <li><strong>Zero Outbound Network Calls:</strong> The CLI, hooks, MCP server, and local HTTP server never make external HTTP or DNS requests.</li>
         <li><strong>Localhost Binding &amp; Size Caps:</strong> <code>sidecars/horizon-daemon/server.mjs</code> binds only to <code>127.0.0.1</code> and drops POST bodies over <code>4,096</code> bytes.</li>
         <li><strong>Read-Only Session Reads:</strong> Every Antigravity SQLite database opens with <code>{ readOnly: true }</code> (<code>SQLITE_OPEN_READONLY</code>) inside <code>try / finally</code>, and JSONL files open with <code>'r'</code>.</li>
         <li><strong>No Self-Edits to Guard Configs:</strong> <code>DET-18</code> stops agents from editing <code>.claude/settings.json</code> or <code>hooks.json</code> to turn off safety checks mid-chat.</li>

@@ -43,8 +43,8 @@
           <!-- Left Host Bottom: Claude Code -->
           <rect x="16" y="176" width="236" height="128" rx="14" fill="var(--canvas)" stroke="var(--border-strong)" />
           <text x="34" y="204" font-family="var(--font-sans)" font-size="13" font-weight="700" fill="var(--ink)">Claude Code Host</text>
-          <text x="34" y="226" font-family="var(--font-mono)" font-size="11" fill="var(--ink-secondary)">Tier-1 V8 Mod (~0.2ms p95)</text>
-          <text x="34" y="246" font-family="var(--font-mono)" font-size="11" fill="var(--ink-secondary)">Tier-2 CLI Hooks (hooks.json)</text>
+          <text x="34" y="226" font-family="var(--font-mono)" font-size="11" fill="var(--ink-secondary)">In-process module (not loaded today)</text>
+          <text x="34" y="246" font-family="var(--font-mono)" font-size="11" fill="var(--ink-secondary)">Command hooks (hooks.json)</text>
           <text x="34" y="266" font-family="var(--font-mono)" font-size="11" fill="var(--ink-secondary)">ah-statusline (80/110/144 col)</text>
           <text x="34" y="286" font-family="var(--font-mono)" font-size="11" fill="var(--accent)">6 Slash Commands + Docked HUD</text>
 
@@ -130,7 +130,7 @@ npx ctxtop --serve</code></pre>
 npx ah-claude statusline --demo
 npx ah-claude receipt</code></pre>
           </div>
-          <p>Adds Highbeam hooks and <code>statusLine</code> to <code>~/.claude/settings.json</code>. It turns on the fast Tier-1 V8 Mod when supported and prints your live context receipt.</p>
+          <p>Adds Highbeam hooks and <code>statusLine</code> to <code>~/.claude/settings.json</code>. It registers the command hooks, which run every check, and prints your live context receipt.</p>
         </div>
 
         <div class="tab-panel" data-panel="mcp" hidden>
@@ -189,7 +189,7 @@ npx ctxtop doctor --json</code></pre>
           <div>
             <p class="bento-kicker">KV-Cache Gravity</p>
             <h3>C* &amp; Horizon C_max Switch Protection</h3>
-            <div class="bento-metric">~0.2ms p95</div>
+            <div class="bento-metric">~0.2ms p95 rule engine</div>
             <p>
               Checks single-turn <code>C*</code> and multi-turn <code>C_max</code> using live Stop-hook session stats. Asks before a model switch (<code>"ask"</code>) whenever rebuilding a warm cache would cost more than it saves.
             </p>
@@ -250,7 +250,7 @@ npx ctxtop doctor --json</code></pre>
         </a>
         <a class="goal-card" href="surfaces.html">
           <div class="goal-card-title"><span>Compare Host Surfaces</span><span>&rarr;</span></div>
-          <p class="goal-card-desc">See how Antigravity sidecar panels and Claude Code V8 Mods work together on the same repo.</p>
+          <p class="goal-card-desc">See how Antigravity sidecar panels and Claude Code command hooks work together on the same repo.</p>
         </a>
         <a class="goal-card" href="cli-reference.html">
           <div class="goal-card-title"><span>Look Up CLI Flags</span><span>&rarr;</span></div>

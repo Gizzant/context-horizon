@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Antigravity vs. Claude Code - Highbeam User Guide</title>
-  <meta name="description" content="How Highbeam bridges Google Antigravity sidecar WebViews, Claude Code V8 Mods, CLI lifecycle hooks, statusLine bars, and MCP clients." />
+  <meta name="description" content="How Highbeam bridges Google Antigravity sidecar WebViews, Claude Code command hooks, lifecycle hooks, statusLine bars, and MCP clients." />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body data-page="surfaces">
@@ -47,7 +47,7 @@
             <tr>
               <td><strong>Execution Path</strong></td>
               <td>CLI Hooks + Local HTTP/SSE Sidecar Server + Micro-IPC</td>
-              <td>Tier-1 In-Process V8 Mod (<code>~0.2ms p95</code>) + Tier-2 CLI Hooks</td>
+              <td>Command hooks (<code>hooks/handlers/*.mjs</code>, one short Node process per call)</td>
               <td>On-demand MCP tool calls (<code>ah-mcp</code> / <code>ctxtop-mcp</code>)</td>
             </tr>
             <tr>
@@ -109,29 +109,29 @@
 
       <h2 id="claude-code-integration">Claude Code Dual-Tier Architecture</h2>
       <p>
-        Claude Code supports two hook tiers. Highbeam ships both in one package and links them so no guard ever runs twice on the same turn.
+        Highbeam ships two hook paths for Claude Code. Today only the command hooks (Tier-2) run: Claude Code 2.1.325 has no <code>hooks.modules</code> setting, so the in-process module (Tier-1) is not loaded. It stays in the package for a future Claude Code in-process plugin API.
       </p>
 
-      <figure class="diagram-frame" aria-label="Claude Code Tier-1 V8 Mod vs Tier-2 CLI Hook deduplication">
+      <figure class="diagram-frame" aria-label="Claude Code in-process module (not loaded today) vs command hooks (active)">
         <svg viewBox="0 0 840 215" role="img" aria-labelledby="cc-tiers-title">
-          <title id="cc-tiers-title">Claude Code Tier-1 In-Process V8 Mod and Tier-2 CLI Hook Architecture</title>
+          <title id="cc-tiers-title">Claude Code in-process module (not loaded today) and command hook architecture</title>
 
           <rect x="20" y="24" width="240" height="166" rx="12" fill="var(--canvas)" stroke="var(--accent)" stroke-width="1.6" />
-          <text x="38" y="50" font-family="var(--font-sans)" font-size="13" font-weight="700" fill="var(--ink)">Tier-1: In-Process V8 Mod</text>
-          <text x="38" y="70" font-family="var(--font-mono)" font-size="10.5" fill="var(--accent)">hooks/register.js (~0.2ms p95)</text>
+          <text x="38" y="50" font-family="var(--font-sans)" font-size="13" font-weight="700" fill="var(--ink)">Tier-1: In-Process Module (not loaded)</text>
+          <text x="38" y="70" font-family="var(--font-mono)" font-size="10.5" fill="var(--accent)">hooks/register.js (dormant)</text>
           <text x="38" y="94" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">on('tool.call') / on('turn.step')</text>
           <text x="38" y="114" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">on('command.horizon') / ui.render</text>
           <text x="38" y="134" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">Zero node:* imports (Mod Laws 1-5)</text>
-          <text x="38" y="156" font-family="var(--font-mono)" font-size="10.5" fill="var(--status-safe)">Sets AH_TIER1_MOD_ACTIVE=1</text>
+          <text x="38" y="156" font-family="var(--font-mono)" font-size="10.5" fill="var(--status-safe)">Would set AH_TIER1_MOD_ACTIVE=1</text>
 
           <path d="M 260 107 L 320 107" stroke="var(--border-strong)" stroke-width="2" stroke-dasharray="5 4" />
 
           <rect x="320" y="24" width="250" height="166" rx="12" fill="var(--canvas)" stroke="var(--border-strong)" />
-          <text x="338" y="50" font-family="var(--font-sans)" font-size="13" font-weight="700" fill="var(--ink)">Tier-2: Spawned CLI Handlers</text>
-          <text x="338" y="70" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">hooks/handlers/*.mjs (~60-80ms)</text>
+          <text x="338" y="50" font-family="var(--font-sans)" font-size="13" font-weight="700" fill="var(--ink)">Tier-2: Command Hooks (active)</text>
+          <text x="338" y="70" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">hooks/handlers/*.mjs (~60-80ms Linux, ~200-275ms Win)</text>
           <text x="338" y="94" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">PreToolUse / PostToolUse / Stop</text>
           <text x="338" y="114" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">PreModelSwitch / PreCompact</text>
-          <text x="338" y="134" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">Short-circuits if Tier-1 active</text>
+          <text x="338" y="134" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">Runs every check itself</text>
           <text x="338" y="156" font-family="var(--font-mono)" font-size="10.5" fill="var(--accent)">Full filesystem &amp; IPC access</text>
 
           <path d="M 570 107 L 616 107" stroke="var(--accent)" stroke-width="2" />

@@ -52,8 +52,8 @@
             </tr>
             <tr>
               <td><code>@ctxtop/claude-code</code></td>
-              <td>V8 Mod isolate + Node CLI</td>
-              <td>Tier-1 Mod (<code>hooks/register.js</code>), Tier-2 CLI hooks (<code>hooks/handlers/*.mjs</code>), width-aware <code>ah-statusline</code> bar.</td>
+              <td>Node command hooks + CLI</td>
+              <td>Command hooks (<code>hooks/handlers/*.mjs</code>), an in-process module (<code>hooks/register.js</code>, not loaded by current Claude Code), width-aware <code>ah-statusline</code> bar.</td>
             </tr>
             <tr>
               <td><code>@ctxtop/mcp</code></td>
@@ -78,14 +78,14 @@
 
       <h2 id="isomorphic-laws">2. Claude Mod Laws 1-5 &amp; Pure-JS Cryptography</h2>
       <p>
-        Claude Code's Tier-1 Mod runs inside a sandboxed V8 isolate without Node.js built-ins. Every file in <code>src/core-isomorphic/</code> follows five strict rules checked by <code>test/mod_static_compliance.test.mjs</code>:
+        Claude Code's in-process module (not loaded by current versions) would run inside a sandboxed V8 isolate without Node.js built-ins, so every file in <code>src/core-isomorphic/</code> follows five strict rules checked by <code>test/mod_static_compliance.test.mjs</code>:
       </p>
       <ol>
         <li><strong>Zero <code>node:*</code> Imports:</strong> No <code>node:fs</code>, <code>node:path</code>, <code>node:crypto</code>, or <code>node:child_process</code> imports anywhere in core.</li>
         <li><strong>Zero Unguarded Node Globals:</strong> Never touches bare <code>Buffer</code> or <code>process</code> without safe <code>globalThis</code> checks.</li>
         <li><strong>Zero External npm Dependencies:</strong> No supply-chain risk and no bundler step needed.</li>
         <li><strong>Pure JS Hashing:</strong> Uses pure-JS 64-bit FNV-1a (<code>fnv1a64.mjs</code>) for fast fingerprints and pure-JS SHA-256 (<code>sha256HexPure</code>) for checksums and receipts.</li>
-        <li><strong>Sub-Millisecond Hot Path:</strong> Runs <code>evaluatePreToolUse</code> and <code>computeBreakEven</code> in <code>~0.2ms p95</code>.</li>
+        <li><strong>Fast Rule Engine:</strong> <code>evaluatePreToolUse</code> and <code>computeBreakEven</code> run in about <code>0.2ms p95</code> inside the process. Each hook call also pays Node startup, so end-to-end it is ~60-80ms on Linux and ~200-275ms on Windows.</li>
       </ol>
 
       <h2 id="fts5-compressor">3. Lossless FTS5 CLI Output Compressor</h2>

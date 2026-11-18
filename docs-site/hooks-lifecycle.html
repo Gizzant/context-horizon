@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Lifecycle Hooks, V8 Mod &amp; Runtime Control - Highbeam User Guide</title>
-  <meta name="description" content="Complete reference for Antigravity hooks, Claude Code Tier-1 V8 Mod events, Claude Code Tier-2 CLI hook contracts, exit codes, and the 5-state Runtime Control FSM." />
+  <title>Lifecycle Hooks &amp; Runtime Control - Highbeam User Guide</title>
+  <meta name="description" content="Complete reference for Antigravity hooks, Claude Code in-process module notes, Claude Code Tier-2 CLI hook contracts, exit codes, and the 5-state Runtime Control FSM." />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body data-page="hooks-lifecycle">
@@ -15,7 +15,7 @@
 
     <main class="doc-main prose">
       <p class="doc-eyebrow">Reference</p>
-      <h1 class="doc-title">Lifecycle Hooks, V8 Mod &amp; Runtime Control</h1>
+      <h1 class="doc-title">Lifecycle Hooks &amp; Runtime Control</h1>
       <p class="doc-lead">
         Highbeam runs zero-token guards and gathers turn stats through fast host hooks. This chapter lists every hook event, tool matcher, JSON format, timeout, and control state.
       </p>
@@ -76,9 +76,9 @@
         </table>
       </div>
 
-      <h2 id="claude-tier1-mod">Claude Code Tier-1 In-Process V8 Mod (<code>hooks/register.js</code>)</h2>
+      <h2 id="claude-tier1-mod">Claude Code In-Process Module (<code>hooks/register.js</code>): not loaded today</h2>
       <p>
-        Listed under <code>hooks.modules</code> in <code>hooks/hooks.json</code>, <code>hooks/register.js</code> runs straight inside Claude Code's V8 isolate with zero process startup cost (<code>~0.2ms p95</code>). It sets <code>AH_TIER1_MOD_ACTIVE=1</code> and wires 10 handlers:
+        <strong>Current Claude Code does not load this module.</strong> Claude Code 2.1.325 has no <code>hooks.modules</code> setting and reports it as invalid, so Highbeam no longer registers it. Every check below also runs in the command hooks listed above, which is what actually executes in your sessions. The module stays in the package for a future Claude Code in-process plugin API. When loaded, it would run inside Claude Code's V8 isolate without process startup cost, set <code>AH_TIER1_MOD_ACTIVE=1</code> and wire 10 handlers:
       </p>
       <ul>
         <li><code>on('file.changed')</code>: Spots outside disk edits so stale in-chat file copies get flagged right away.</li>
@@ -92,7 +92,7 @@
 
       <h2 id="claude-tier2-cli-hooks">Claude Code Tier-2 Spawned CLI Hooks (<code>hooks/hooks.json</code>)</h2>
       <p>
-        When Claude Code runs CLI hooks (or when Tier-1 Mod APIs are off), seven scripts in <code>hooks/handlers/</code> enforce the exact same rules (plus optional <code>user-prompt-submit.mjs</code>):
+        Claude Code runs these command hooks in every session. Seven scripts in <code>hooks/handlers/</code> enforce the exact same rules (plus optional <code>user-prompt-submit.mjs</code>):
       </p>
 
       <div class="table-wrap">
@@ -109,8 +109,8 @@
             <tr>
               <td><code>PreToolUse</code></td>
               <td><code>handlers/pre-tool-use.mjs</code></td>
-              <td><code>Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Task|Agent|WebFetch|mcp__.*</code></td>
-              <td>Runs <code>CircuitBreakerEngine</code>, saves strike counts across turns, folds 3rd full reads into stubs (Pro), and skips <code>Grep|Glob</code> when Tier-1 Mod is active.</td>
+              <td><code>Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Task|Agent|WebFetch|mcp__.*</code></td>
+              <td>Runs <code>CircuitBreakerEngine</code>, saves strike counts across turns, folds 3rd full reads into stubs (Pro), and skips <code>Grep|Glob</code> only if the in-process module has already handled them (not the case today).</td>
             </tr>
             <tr>
               <td><code>PostToolUse</code></td>

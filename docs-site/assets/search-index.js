@@ -22,7 +22,7 @@ window.AH_SEARCH_INDEX = [
     "section": "2. Claude Mod Laws 1-5 & Pure-JS Cryptography",
     "href": "architecture.html#isomorphic-laws",
     "keywords": "src/core-isomorphic/ test/mod_static_compliance.test.mjs node:* node:fs node:path node:crypto node:child_process Buffer process globalThis fnv1a64.mjs sha256HexPure evaluatePreToolUse computeBreakEven ~0.2ms p95",
-    "body": "Claude Code's Tier-1 Mod runs inside a sandboxed V8 isolate without Node.js built-ins. Every file in src/core-isomorphic/ follows five strict rules checked by test/mod_static_compliance.test.mjs: Zero node:* Imports: No node:fs, node:path, node:crypto, or node:child_process imports anywhere in core. Zero Unguarded Node Globals: Never touches bare Buffer or process without safe globalThis checks. Zero External npm Dep"
+    "body": "Claude Code's in-process module (not loaded by current versions) would run inside a sandboxed V8 isolate without Node.js built-ins. Every file in src/core-isomorphic/ follows five strict rules checked by test/mod_static_compliance.test.mjs: Zero node:* Imports: No node:fs, node:path, node:crypto, or node:child_process imports anywhere in core. Zero Unguarded Node Globals: Never touches bare Buffer or process without safe globalThis checks. Zero External npm Dep"
   },
   {
     "pageTitle": "System Architecture & Internals",
@@ -222,7 +222,7 @@ window.AH_SEARCH_INDEX = [
     "section": "1. /horizon",
     "href": "commands-skills.html#slash-horizon",
     "keywords": "attention-horizon advanced npx ah-claude receipt npx ah-claude panel --json node --no-warnings ./src/cli/horizon_hud.mjs --emit-widget <artifactDirectoryPath>/horizon_widget.html <agent-embed> sidecar://agy-horizon-flightcheck/horizon-daemon/ /horizon",
-    "body": "Shows your live context window health without changing any repo files. In Claude Code: Opens the side attention-horizon pane when the Tier-1 V8 Mod is on (pass advanced for the full workbench). Otherwise it runs npx ah-claude receipt or npx ah-claude panel --json. In Google Antigravity: Runs node --no-warnings ./src/cli/horizon_hud.mjs --emit-widget to write <artifactDirectoryPath>/horizon_widget.html. It shows the c"
+    "body": "Shows your live context window health without changing any repo files. In Claude Code: Runs npx ah-claude receipt or npx ah-claude panel --json. In Google Antigravity: Runs node --no-warnings ./src/cli/horizon_hud.mjs --emit-widget to write <artifactDirectoryPath>/horizon_widget.html. It shows the c"
   },
   {
     "pageTitle": "Slash Commands, Skills & Subagents",
@@ -398,7 +398,7 @@ window.AH_SEARCH_INDEX = [
     "section": "4. Zero-Trust Security Sandbox & Branch Isolation",
     "href": "configuration.html#security-sandbox",
     "keywords": "SECURITY.md test/mod_static_compliance.test.mjs sidecars/horizon-daemon/server.mjs 127.0.0.1 4,096 { readOnly: true } SQLITE_OPEN_READONLY try / finally 'r' DET-18 .claude/settings.json hooks.json workspace: \"share\" git worktree add .agents/locks/active_scopes.json DET-20",
-    "body": "Backed by SECURITY.md and checked in test/mod_static_compliance.test.mjs, Highbeam enforces five strict safety rules: Zero Outbound Network Calls: The CLI, hooks, V8 Mod, MCP server, and local HTTP server never make external HTTP or DNS requests. Localhost Binding & Size Caps: sidecars/horizon-daemon/server.mjs binds only to 127.0.0.1 and drops POST bodies over 4,096 bytes. Read-Only Session Reads: Every Antigravity "
+    "body": "Backed by SECURITY.md and checked in test/mod_static_compliance.test.mjs, Highbeam enforces five strict safety rules: Zero Outbound Network Calls: The CLI, hooks, MCP server, and local HTTP server never make external HTTP or DNS requests. Localhost Binding & Size Caps: sidecars/horizon-daemon/server.mjs binds only to 127.0.0.1 and drops POST bodies over 4,096 bytes. Read-Only Session Reads: Every Antigravity "
   },
   {
     "pageTitle": "Guardrails & Detector Catalog",
@@ -446,7 +446,7 @@ window.AH_SEARCH_INDEX = [
     "section": "1. The Three-Layer Enforcement Hierarchy",
     "href": "flight-modes.html#enforcement-hierarchy",
     "keywords": "PreInvocation PreToolUse PreModelSwitch PostToolUse horizonConfig.mjs circuitBreakers.mjs cacheGravityRouter.mjs pre_invocation.mjs allow advisory warn ask deny ~/.ctxtop/runtime/<sessionId>.ctl PAUSED STEP ABORTED detectors semanticDetectors <workspace>/.attention-horizon.json ~/.attention-horizon/config.json \"off\" \"warn\" \"block\" flightMode OFF SILENT COACH AUTO_PILOT .attention-horizon.json ah_flight_mode POST /api/router/mode hook_level guard advisory off default_flightcheck.json ! !force !lock #check DETECTOR_CATALOG",
-    "body": "Every hook event (PreInvocation, PreToolUse, PreModelSwitch, and PostToolUse) runs in sub-millisecond local JavaScript inside horizonConfig.mjs, circuitBreakers.mjs, cacheGravityRouter.mjs, and pre_invocation.mjs with zero LLM judge calls. To pick a verdict (allow, soft advisory warn, interactive ask, or hard deny), Highbeam checks four layers from highest to lowest priority: Runtime Control Latch (~/.ctxtop/runtime/"
+    "body": "Every hook event (PreInvocation, PreToolUse, PreModelSwitch, and PostToolUse) runs as local JavaScript (rule engine under 1 ms; each hook call adds Node startup) inside horizonConfig.mjs, circuitBreakers.mjs, cacheGravityRouter.mjs, and pre_invocation.mjs with zero LLM judge calls. To pick a verdict (allow, soft advisory warn, interactive ask, or hard deny), Highbeam checks four layers from highest to lowest priority: Runtime Control Latch (~/.ctxtop/runtime/"
   },
   {
     "pageTitle": "Flight Modes & Enforcement Levels",
@@ -486,7 +486,7 @@ window.AH_SEARCH_INDEX = [
     "section": "6. Switching Modes Across Surfaces",
     "href": "flight-modes.html#switching-modes",
     "keywords": "/horizon ah_flight_mode npx ctxtop config set <ID|slug> <default|off|warn|block> { \"hook_level\": \"guard\", \"halt_cooldown_turns\": 3, \"warm_cache_lock_tokens\": 50000, \"cache_amputation_tokens\": 140000 } flightMode: \"AUTO_PILOT\" .attention-horizon.json \"hook_level\": \"advisory\" \"guard\" http://127.0.0.1:62935 127.0.0.1",
-    "body": "Switch Flight Modes or router levels statically in JSON config files, interactively via CLI/V8 Mods, or live over the loopback daemon API. Claude Code & CLI Google Antigravity Loopback HTTP API <workspace>/.attention-horizon.json (or ~/.attention-horizon/config.json) { \"schemaVersion\": \"1.0.0\", \"flightMode\": \"COACH\", \"detectors\": { \"DET-08\": \"block\" }, \"semanticDetectors\": { \"drip-feed\": \"warn\", \"vague-prompt-rubric\""
+    "body": "Switch Flight Modes or router levels statically in JSON config files, interactively via the CLI, or live over the loopback daemon API. Claude Code & CLI Google Antigravity Loopback HTTP API <workspace>/.attention-horizon.json (or ~/.attention-horizon/config.json) { \"schemaVersion\": \"1.0.0\", \"flightMode\": \"COACH\", \"detectors\": { \"DET-08\": \"block\" }, \"semanticDetectors\": { \"drip-feed\": \"warn\", \"vague-prompt-rubric\""
   },
   {
     "pageTitle": "Terminology & Glossary",
@@ -526,59 +526,59 @@ window.AH_SEARCH_INDEX = [
     "section": "T to W",
     "href": "glossary.html#terms-t-w",
     "keywords": "hooks/register.js ~0.2ms p95 AH_TIER1_MOD_ACTIVE=1 hooks/handlers/*.mjs ctxtop doctor --prune-tools POST /api/surgeon .bak src/core-isomorphic/ustf/ ctxtop inspect inherit branch share",
-    "body": "Tier-1 V8 Mod vs. Tier-2 CLI Hook Claude Code Tier-1 runs inside Claude Code's in-process V8 Mod via hooks/register.js in ~0.2ms p95 and sets AH_TIER1_MOD_ACTIVE=1. Tier-2 runs Node scripts in hooks/handlers/*.mjs whenever the V8 Mod is off. Tool-Output Surgeon Core Physics An offline log trimmer (ctxtop doctor --prune-tools and POST /api/surgeon). It writes a .bak backup first, then trims old uncached tool outputs "
+    "body": "Tier-1 In-Process Module vs. Tier-2 Command Hook Claude Code Tier-1 is an in-process module (hooks/register.js) that current Claude Code does not load, so it is dormant. Tier-2 runs Node scripts in hooks/handlers/*.mjs as command hooks and is what executes in every session today. Tool-Output Surgeon Core Physics An offline log trimmer (ctxtop doctor --prune-tools and POST /api/surgeon). It writes a .bak backup first, then trims old uncached tool outputs "
   },
   {
-    "pageTitle": "Lifecycle Hooks, V8 Mod & Runtime Control",
-    "title": "Lifecycle Hooks, V8 Mod & Runtime Control",
-    "section": "Lifecycle Hooks, V8 Mod & Runtime Control",
+    "pageTitle": "Lifecycle Hooks & Runtime Control",
+    "title": "Lifecycle Hooks & Runtime Control",
+    "section": "Lifecycle Hooks & Runtime Control",
     "href": "hooks-lifecycle.html",
     "keywords": "hooks-lifecycle",
     "body": "Highbeam runs zero-token guards and gathers turn stats through fast host hooks. This chapter lists every hook event, tool matcher, JSON format, timeout, and control state."
   },
   {
-    "pageTitle": "Lifecycle Hooks, V8 Mod & Runtime Control",
-    "title": "Lifecycle Hooks, V8 Mod & Runtime Control",
+    "pageTitle": "Lifecycle Hooks & Runtime Control",
+    "title": "Lifecycle Hooks & Runtime Control",
     "section": "Google Antigravity Lifecycle Hooks (hooks.json)",
     "href": "hooks-lifecycle.html#antigravity-hooks",
     "keywords": "hooks.json 5 250ms SessionStart hooks/session_start.mjs src/hooks/session_start.mjs PreInvocation hooks/pre_invocation.mjs src/hooks/pre_invocation.mjs systemMessage PreToolUse hooks/pre_tool_use.mjs src/hooks/portfolio_runtime.mjs .ctl DET-01..DET-32 {\"decision\":\"allow|ask|deny\",\"reason\":\"...\"} stdout 0 PostToolUse hooks/post_tool_use.mjs DET-19 DET-04 PostInvocation hooks/post_invocation.mjs src/hooks/post_invocation.mjs ~/.gemini/flightcheck/sessions/<id>.sidecar.json Stop hooks/stop.mjs DET-14 DET-15",
     "body": "In Google Antigravity, hooks.json wires six command hooks. Each runs with a hard 5-second limit and a 250ms stdin read cap: Event Entry Script Tool Matcher Regex Runtime Contract SessionStart hooks/session_start.mjs → src/hooks/session_start.mjs (Session lifecycle) Loads sidecar chat info, measures Turn-0 MCP tool size, and preps resume notes. PreInvocation hooks/pre_invocation.mjs → src/hooks/pre_invocation.mjs (Use"
   },
   {
-    "pageTitle": "Lifecycle Hooks, V8 Mod & Runtime Control",
-    "title": "Lifecycle Hooks, V8 Mod & Runtime Control",
-    "section": "Claude Code Tier-1 In-Process V8 Mod (hooks/register.js)",
+    "pageTitle": "Lifecycle Hooks & Runtime Control",
+    "title": "Lifecycle Hooks & Runtime Control",
+    "section": "Claude Code In-Process Module (hooks/register.js): not loaded today",
     "href": "hooks-lifecycle.html#claude-tier1-mod",
     "keywords": "hooks.modules hooks/hooks.json hooks/register.js ~0.2ms p95 AH_TIER1_MOD_ACTIVE=1 on('file.changed') on('tool.call') CircuitBreakerEngine.evaluatePreToolUse on('turn.step') on('turn.complete') $.store on('classic.SessionStart') .claude/cache/HANDOFF_LATEST.md startup|resume|clear|compact|fork on('classic.PreCompact') on('classic.PostCompact') /compact TurnZeroGate on('classic.Stop') DET-14 DET-15 on('command.horizon') on('ui.render')",
     "body": "Listed under hooks.modules in hooks/hooks.json, hooks/register.js runs straight inside Claude Code's V8 isolate with zero process startup cost (~0.2ms p95). It sets AH_TIER1_MOD_ACTIVE=1 and wires 10 handlers: on('file.changed'): Spots outside disk edits so stale in-chat file copies get flagged right away. on('tool.call'): Checks tool calls inside V8, running CircuitBreakerEngine.evaluatePreToolUse, 3rd-read AST stu"
   },
   {
-    "pageTitle": "Lifecycle Hooks, V8 Mod & Runtime Control",
-    "title": "Lifecycle Hooks, V8 Mod & Runtime Control",
+    "pageTitle": "Lifecycle Hooks & Runtime Control",
+    "title": "Lifecycle Hooks & Runtime Control",
     "section": "Claude Code Tier-2 Spawned CLI Hooks (hooks/hooks.json)",
     "href": "hooks-lifecycle.html#claude-tier2-cli-hooks",
     "keywords": "hooks/handlers/ user-prompt-submit.mjs PreToolUse handlers/pre-tool-use.mjs Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Task|Agent|WebFetch|mcp__.* CircuitBreakerEngine Grep|Glob PostToolUse handlers/post-tool-use.mjs Bash|PowerShell|Task|Agent|WebFetch|mcp__.* DET-19 PreModelSwitch handlers/pre-model-switch.mjs cal_<sessionId>.json ah_session_prior.json C* C_max DET-08 \"ask\" \"deny\" \"allow\" coldWritePenaltyUSD SavedQuotaLedger PostModelSwitch handlers/post-model-switch.mjs 0 stdout stderr accepted_after_ask completed_after_allow bypassed_after_deny model_switch_telemetry.json PreCompact PostCompact handlers/compact-lifecycle.mjs --phase=pre --phase=post HOLD_COMPACT HANDOFF_LATEST.md TurnZeroGate SessionStart startup|resume|clear|compact|fork --phase=start DET-13 Stop handlers/stop-gate.mjs DET-14 DET-15 updateSessionCalibrationOnStop() hooks/hooks.json",
-    "body": "When Claude Code runs CLI hooks (or when Tier-1 Mod APIs are off), seven scripts in hooks/handlers/ enforce the exact same rules (plus optional user-prompt-submit.mjs): Hook Event Handler Script Matcher Primary Responsibility PreToolUse handlers/pre-tool-use.mjs Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Task|Agent|WebFetch|mcp__.* Runs CircuitBreakerEngine, saves strike counts across turns, folds 3rd ful"
+    "body": "Claude Code runs these command hooks in every session. Seven scripts in hooks/handlers/ enforce the exact same rules (plus optional user-prompt-submit.mjs): Hook Event Handler Script Matcher Primary Responsibility PreToolUse handlers/pre-tool-use.mjs Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Task|Agent|WebFetch|mcp__.* Runs CircuitBreakerEngine, saves strike counts across turns, folds 3rd ful"
   },
   {
-    "pageTitle": "Lifecycle Hooks, V8 Mod & Runtime Control",
-    "title": "Lifecycle Hooks, V8 Mod & Runtime Control",
+    "pageTitle": "Lifecycle Hooks & Runtime Control",
+    "title": "Lifecycle Hooks & Runtime Control",
     "section": "Chunked Binary Capability Probing (claudeHookCapabilities.mjs)",
     "href": "hooks-lifecycle.html#claude-binary-capabilities",
     "keywords": "src/diagnostics/claudeHookCapabilities.mjs inspectClaudeBinaryCapabilities() claude CLAUDE_BIN PATH .cmd 4 MB 256 PreModelSwitch PostModelSwitch PreEffortChange from_model to_model prompt_cache_warm context_tokens permissionBehavior===\"ask\" blocked_by_hook (binaryPath, size, mtimeMs) .claude/cache/ah_claude_capabilities.json ctxtop install omittedUnsupportedHooks claudeHookCapabilities.mjs",
     "body": "Built into src/diagnostics/claudeHookCapabilities.mjs, Highbeam checks Claude Code hook support on disk without spawning slow subshells or filling V8 memory. inspectClaudeBinaryCapabilities() streams your claude binary (found via CLAUDE_BIN or PATH, unwrapping Windows .cmd shims) in 4 MB chunks with a 256-byte overlap. It checks 10 markers: PreModelSwitch, PostModelSwitch, PreEffortChange, keys from_model, to_model, "
   },
   {
-    "pageTitle": "Lifecycle Hooks, V8 Mod & Runtime Control",
-    "title": "Lifecycle Hooks, V8 Mod & Runtime Control",
+    "pageTitle": "Lifecycle Hooks & Runtime Control",
+    "title": "Lifecycle Hooks & Runtime Control",
     "section": "Exit Code & JSON Wire Contract (hookIo.mjs)",
     "href": "hooks-lifecycle.html#hook-wire-contract",
     "keywords": "hooks/handlers/hookIo.mjs 0 stdout {\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"...\"}} updatedInput stderr 2 WorktreeCreate PermissionRequest { allowMalformed: true } hookIo.mjs",
     "body": "Claude Code Tier-2 scripts follow four strict wire rules in hooks/handlers/hookIo.mjs: Quiet Pass: Exit 0 with empty stdout. JSON Decision: Print valid JSON (like {\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"...\"}} or updatedInput) to stdout and exit 0. Hard Block: Print one short note to stderr and exit 2 with empty stdout. Never wired on WorktreeCreate "
   },
   {
-    "pageTitle": "Lifecycle Hooks, V8 Mod & Runtime Control",
-    "title": "Lifecycle Hooks, V8 Mod & Runtime Control",
+    "pageTitle": "Lifecycle Hooks & Runtime Control",
+    "title": "Lifecycle Hooks & Runtime Control",
     "section": "5-State Runtime Control FSM (.ctl)",
     "href": "hooks-lifecycle.html#runtime-control-fsm",
     "keywords": "src/core-isomorphic/control/controlStateMachine.mjs ~/.ctxtop/runtime/<sessionId>.ctl PAUSED PreToolUse 50ms 600,000ms resume step abort ABORTED .ctl",
@@ -878,7 +878,7 @@ window.AH_SEARCH_INDEX = [
     "section": "Claude Code Dual-Tier Architecture",
     "href": "surfaces.html#claude-code-integration",
     "keywords": "",
-    "body": "Claude Code supports two hook tiers. Highbeam ships both in one package and links them so no guard ever runs twice on the same turn. Claude Code Tier-1 In-Process V8 Mod and Tier-2 CLI Hook Architecture Tier-1: In-Process V8 Mod hooks/register.js (~0.2ms p95) on('tool.call') / on('turn.step') on('command.horizon') / ui.render Zero node:* imports (Mod Laws 1-5) Sets AH_TIER1_MOD_ACTIVE=1 Tier-2: Spawned CLI Handlers "
+    "body": "Highbeam ships two hook paths for Claude Code. Today only the command hooks (Tier-2) run: Claude Code 2.1.325 has no hooks.modules setting, so the in-process module (Tier-1) is not loaded. Claude Code in-process module (not loaded today) and command hook architecture Tier-1: In-Process Module (not loaded) hooks/register.js (dormant) on('tool.call') / on('turn.step') on('command.horizon') / ui.render Zero node:* imports (Mod Laws 1-5) Would set AH_TIER1_MOD_ACTIVE=1 Tier-2: Spawned CLI Handlers "
   },
   {
     "pageTitle": "Google Antigravity vs. Claude Code",
