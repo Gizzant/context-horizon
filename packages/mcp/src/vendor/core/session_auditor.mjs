@@ -1107,3 +1107,19 @@ export function formatSessionAuditReport(res) {
   }
   return lines.join('\n');
 }
+
+/**
+ * One-line "what you already wasted" teaser for the end of `ctxtop init`.
+ * Returns '' when there is nothing worth showing.
+ *
+ * @param {ReturnType<typeof runSessionAudit>} res
+ */
+export function formatPastWasteLine(res) {
+  if (!res || !res.ok || !(res.sludgeTaxUSD >= 0.5) || !(res.sessionsScanned > 0)) return '';
+  const n = res.sessionsScanned;
+  return (
+    `Last ${res.days} days: ~$${res.sludgeTaxUSD.toFixed(2)} (${res.sludgeTaxTokens.toLocaleString('en-US')} tokens) ` +
+    `across ${n} session${n === 1 ? '' : 's'} was preventable waste Highbeam would have caught. ` +
+    `Details: npx ctxtop audit`
+  );
+}

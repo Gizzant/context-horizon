@@ -213,6 +213,15 @@ export function activateProLicense(licenseKey = '', options = {}) {
 }
 
 /**
+ * JSON.parse that tolerates a leading UTF-8 byte-order mark (Windows PowerShell 5.1 writes one
+ * with `Set-Content -Encoding utf8`).
+ * @param {string} text
+ */
+export function parseJsonText(text) {
+  return JSON.parse(String(text).replace(/^\uFEFF/, ''));
+}
+
+/**
  * Starts a 14-day zero-network local trial stored in `~/.ctxtop/license.json`.
  */
 export function activateLocalTrial(options = {}) {
@@ -221,7 +230,7 @@ export function activateLocalTrial(options = {}) {
 
   if (fs.existsSync(licensePath)) {
     try {
-      const stored = JSON.parse(fs.readFileSync(licensePath, 'utf8'));
+      const stored = parseJsonText(fs.readFileSync(licensePath, 'utf8'));
       if (stored?.licenseKey) {
         const verified = verifyProLicenseKey(stored.licenseKey, options);
         if (verified.valid) {
@@ -333,7 +342,7 @@ export function getProEntitlementStatus(options = {}) {
 
   if (fs.existsSync(licensePath)) {
     try {
-      const stored = JSON.parse(fs.readFileSync(licensePath, 'utf8'));
+      const stored = parseJsonText(fs.readFileSync(licensePath, 'utf8'));
       if (stored.licenseKey) {
         const verified = verifyProLicenseKey(stored.licenseKey, options);
         if (verified.valid) {

@@ -1480,6 +1480,21 @@ export function renderStatusLine(state = {}, options = {}) {
   let ansiCandidate = '';
   let matchedFit = false;
 
+  // Optional one-line notice (for example "Trial ended: saved $4.12 ..."). It is dropped, longest
+  // first, before the bar shrinks or the line is cut, so it can never hide the core status.
+  const noticeIn = options.trialNotice;
+  const noticeVariants = [];
+  if (noticeIn && typeof noticeIn === 'object') {
+    if (noticeIn.full) noticeVariants.push(String(noticeIn.full));
+    if (noticeIn.short && noticeIn.short !== noticeIn.full) noticeVariants.push(String(noticeIn.short));
+  } else if (typeof noticeIn === 'string' && noticeIn) {
+    noticeVariants.push(noticeIn);
+  }
+  noticeVariants.push('');
+
+  for (const notice of noticeVariants) {
+  const noticeP = notice ? ` · ${notice}` : '';
+  const noticeA = notice ? ` · \x1b[38;5;214m${notice}\x1b[0m` : '';
   for (const pill of pillVariants) {
     for (const barWidth of candidateBarWidths) {
       const g = computeHorizonGrid(state, { ...options, cellCount: barWidth });
@@ -1498,12 +1513,12 @@ export function renderStatusLine(state = {}, options = {}) {
       let p = '';
       let a = '';
       if (layoutTier === 'compact-80') {
-        p = `${prefix} ${g.bracketedBar} ${tokStr} C:${metrics.cacheHitPct}% ${ttlStr} ${pill}${loopStr} ${savedStr}`;
-        a = `${prefix} ${g.ansiCodeBar} ${tokStr} C:${metrics.cacheHitPct}% ${ttlStr} ${pill}${loopStr} ${savedStr}`;
+        p = `${prefix} ${g.bracketedBar} ${tokStr} C:${metrics.cacheHitPct}% ${ttlStr} ${pill}${loopStr} ${savedStr}${noticeP}`;
+        a = `${prefix} ${g.ansiCodeBar} ${tokStr} C:${metrics.cacheHitPct}% ${ttlStr} ${pill}${loopStr} ${savedStr}${noticeA}`;
       } else {
         const shortModel = g.modelId.replace(/^claude-/, '');
-        p = `${prefix} ${g.bracketedBar} ${shortModel} ${tokStr} (${g.utilizationPct}%) · Cache ${metrics.cacheHitPct}% (${ttlStr})${retStr} · ${pill}${loopStr} · Saved ${savedStr}${swarmStr}${rslStr}`;
-        a = `${prefix} ${g.ansiCodeBar} ${shortModel} ${tokStr} (${g.utilizationPct}%) · Cache ${metrics.cacheHitPct}% (${ttlStr})${retStr} · ${pill}${loopStr} · Saved ${savedStr}${swarmStr}${rslStr}`;
+        p = `${prefix} ${g.bracketedBar} ${shortModel} ${tokStr} (${g.utilizationPct}%) · Cache ${metrics.cacheHitPct}% (${ttlStr})${retStr} · ${pill}${loopStr} · Saved ${savedStr}${swarmStr}${rslStr}${noticeP}`;
+        a = `${prefix} ${g.ansiCodeBar} ${shortModel} ${tokStr} (${g.utilizationPct}%) · Cache ${metrics.cacheHitPct}% (${ttlStr})${retStr} · ${pill}${loopStr} · Saved ${savedStr}${swarmStr}${rslStr}${noticeA}`;
       }
 
       chosenGrid = g;
@@ -1516,6 +1531,8 @@ export function renderStatusLine(state = {}, options = {}) {
       }
     }
     if (matchedFit) break;
+  }
+  if (matchedFit) break;
   }
 
   // Enforce strict column ceiling via ANSI-preserving truncation (never stripping ANSI colors!)
