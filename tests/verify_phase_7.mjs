@@ -127,8 +127,8 @@ console.log('=== Phase 7 Verification: Zero-Trust Security & Open-Source Manifes
   assert.ok(readme.includes('SQLITE_OPEN_READONLY'), 'README.md must document SQLITE_OPEN_READONLY');
   assert.ok(readme.includes('Zero Outbound Network Connections'), 'README.md must document Zero Outbound Network Connections');
   assert.ok(security.includes('SQLITE_OPEN_READONLY'), 'SECURITY.md must document SQLITE_OPEN_READONLY');
-  assert.ok(security.includes('Zero Outbound Network Connections'), 'SECURITY.md must document Zero Outbound Network Connections');
-  assert.ok(security.includes('100% In-Memory Local Telemetry Parsing'), 'SECURITY.md must document 100% In-Memory Local Telemetry Parsing');
+  assert.ok(security.includes('No Outbound Network Connections by Design'), 'SECURITY.md must document the no-outbound-connections design');
+  assert.ok(security.includes('Local Telemetry Parsing'), 'SECURITY.md must document local telemetry parsing');
 
   console.log('  [PASS] 3. Open-Source Manifest (README.md, SECURITY.md, package.json) verified');
 }
