@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 #### Fixed
 - Model-switch cost (DET-08) now counts every request in a turn and the cache writes inside it; on 42 benchmark switches, wrong holds fell from 6 to 3.
 - `scripts/sync_mirrors.mjs` with `verifyOnly: true` no longer bootstraps missing plugin folders or writes into `.agents/` when run under an isolated test home (reports `not installed` instead).
+- Mirror parity checks (`10.1` and `test_mirror_boot_smoke.mjs`) now reflect which mirror roots are installed and check `notInstalledRoots` when a root is absent, and CI runs `scripts/sync_mirrors.mjs` before the test suites (skipping gitignored local-only docs when building evaluation bundles).
 - `ctxtop uninstall` now lists what it leaves behind (settings backups, artifact cache, `~/.ctxtop` incl. the `app/` runtime copy, Antigravity plugin folders, git exclude entry) instead of leaving them unmentioned.
 - One Claude Code install command everywhere (`npx ctxtop init --claude [--global]`), one trial command (`npx ctxtop license trial`), consistent test/detector counts, and a hardened manual release workflow (pinned actions, tag/version checks, no swallowed publish errors).
 - Claude Code hooks installed with `npx ctxtop install` / `init` no longer point into npm's temporary `_npx` cache (which npm prunes, silently breaking every hook). When run from a package-runner cache, ctxtop copies itself to `~/.ctxtop/app/<version>/` and wires the hooks there; git checkouts and global installs are used in place.

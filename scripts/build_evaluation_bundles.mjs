@@ -7,6 +7,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const BUNDLES_DIR = path.join(ROOT, 'evaluation_bundles');
 
+export const OPTIONAL_UNTRACKED_BUNDLE_FILES = new Set([
+  'docs/CONTEXT_MEMORY_EVALUATION_GUIDE.md',
+  'docs/RING1_SECURITY_AND_CONCURRENCY.md'
+]);
+
 export const TIER_1_FILES = [
   'AGENTS.md',
   'README.md',
@@ -112,6 +117,7 @@ function syncBundle(bundleName, files, isNotebookLM = false) {
   for (const relPath of files) {
     const srcPath = path.join(ROOT, relPath);
     if (!fs.existsSync(srcPath)) {
+      if (OPTIONAL_UNTRACKED_BUNDLE_FILES.has(relPath)) continue;
       throw new Error(`[build_evaluation_bundles] Missing canonical source file: ${srcPath}`);
     }
 

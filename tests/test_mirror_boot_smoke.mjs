@@ -16,17 +16,15 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { syncAndVerifyMirrors, getSyncedPluginSubdirs } from '../scripts/sync_mirrors.mjs';
 
-const homeDir = process.env.USERPROFILE || process.env.HOME || os.homedir();
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const homeDir = process.env.HIGHBEAM_TEST_HOME || process.env.USERPROFILE || process.env.HOME || os.homedir();
 const AGY_HORIZON_ROOT = path.join(homeDir, '.gemini', 'config', 'plugins', 'agy-horizon');
 const FLIGHTCHECK_ROOT = path.join(homeDir, '.gemini', 'config', 'plugins', 'agy-horizon-flightcheck');
 // In-repo mirror (.agents/plugins/...) is always checked, so isolated test homes keep boot coverage.
-const IN_REPO_FLIGHTCHECK_ROOT = path.resolve(
-  path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')),
-  '..', '.agents', 'plugins', 'agy-horizon-flightcheck'
-);
+const IN_REPO_FLIGHTCHECK_ROOT = path.join(REPO_ROOT, '.agents', 'plugins', 'agy-horizon-flightcheck');
 const ACTIVE_MIRRORS = [AGY_HORIZON_ROOT, FLIGHTCHECK_ROOT, IN_REPO_FLIGHTCHECK_ROOT].filter(r => fs.existsSync(r));
 
 describe('Mirror Boot & ESM Import Resolution Smoke Suite', () => {
@@ -47,8 +45,80 @@ describe('Mirror Boot & ESM Import Resolution Smoke Suite', () => {
 
   test('sync_mirrors --verify-only verifies 100% SHA-256 parity', () => {
     const result = syncAndVerifyMirrors({ verifyOnly: true });
-    assert.equal(result.parityOk, true, 'Mirror verification must succeed');
-    assert.ok(result.verifiedFilePairs >= 300, `Expected >= 300 verified file pairs, got ${result.verifiedFilePairs}`);
+
+    if (result.pluginStatus === 'not installed' || result.notInstalledRoots.length > 0) {
+      assert.equal(result.parityOk, true, 'Every present mirror pair must match byte-for-byte');
+      assert.match(result.sha256, /^[a-f0-9]{64}$/, 'Canonical HTML SHA-256 digest must be returned');
+
+      const sha256Lf = (p) =>
+        crypto.createHash('sha256').update(fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n'), 'utf8').digest('hex');
+
+      const candidateHtmlTargets = [
+        path.join(REPO_ROOT, 'src', 'webview', 'horizon_panel.html'),
+        ...ACTIVE_MIRRORS.flatMap((r) => [
+          path.join(r, 'src', 'ui', 'sidepane.html'),
+          path.join(r, 'src', 'webview', 'horizon_panel.html')
+        ]),
+        path.join(REPO_ROOT, 'evaluation_bundles', 'tier_2_full', 'src', 'webview', 'horizon_panel.html')
+      ];
+      const presentHtmlTargets = Array.from(new Set(candidateHtmlTargets.map((p) => path.resolve(p)))).filter((p) =>
+        fs.existsSync(p)
+      );
+      assert.equal(result.targets, presentHtmlTargets.length, 'Verified HTML target count must match present targets');
+      for (const htmlTarget of presentHtmlTargets) {
+        assert.equal(sha256Lf(htmlTarget), result.sha256, `Present HTML target must match canonical SHA-256: ${htmlTarget}`);
+      }
+
+      const canonicalRouter = path.join(REPO_ROOT, 'src', 'core-isomorphic', 'coach', 'cacheGravityRouter.mjs');
+      const canonicalRouterSha = sha256Lf(canonicalRouter);
+      for (const wsMirror of [
+        path.join(REPO_ROOT, 'packages', 'core', 'src', 'coach', 'cacheGravityRouter.mjs'),
+        path.join(REPO_ROOT, 'packages', 'engine-node', 'src', 'vendor', 'core-isomorphic', 'coach', 'cacheGravityRouter.mjs'),
+        path.join(REPO_ROOT, 'packages', 'mcp', 'src', 'vendor', 'core-isomorphic', 'coach', 'cacheGravityRouter.mjs')
+      ]) {
+        assert.equal(sha256Lf(wsMirror), canonicalRouterSha, `Workspace mirror must match canonical SHA-256: ${wsMirror}`);
+      }
+
+      const hasEvalBundles =
+        fs.existsSync(path.join(REPO_ROOT, 'evaluation_bundles', 'tier_1_essential')) ||
+        fs.existsSync(path.join(REPO_ROOT, 'evaluation_bundles', 'tier_2_full'));
+      const expectedMinPairs = ACTIVE_MIRRORS.length * 200 + (hasEvalBundles ? 50 : 0);
+      assert.ok(
+        result.verifiedFilePairs >= expectedMinPairs,
+        `Expected >= ${expectedMinPairs} verified present mirror pairs, got ${result.verifiedFilePairs}`
+      );
+
+      const canonicalInRepoTargets = [
+        path.join(REPO_ROOT, 'src', 'webview', 'horizon_panel.html'),
+        path.join(REPO_ROOT, 'docs', 'index.html'),
+        path.join(REPO_ROOT, 'packages', 'core', 'src', 'coach', 'cacheGravityRouter.mjs'),
+        path.join(REPO_ROOT, 'packages', 'engine-node', 'src', 'vendor', 'core-isomorphic', 'coach', 'cacheGravityRouter.mjs'),
+        path.join(REPO_ROOT, 'packages', 'mcp', 'src', 'vendor', 'core-isomorphic', 'coach', 'cacheGravityRouter.mjs')
+      ];
+      if (fs.existsSync(IN_REPO_FLIGHTCHECK_ROOT)) {
+        canonicalInRepoTargets.push(
+          path.join(IN_REPO_FLIGHTCHECK_ROOT, 'src', 'webview', 'horizon_panel.html'),
+          path.join(IN_REPO_FLIGHTCHECK_ROOT, 'src', 'ui', 'sidepane.html')
+        );
+      }
+      for (const target of canonicalInRepoTargets) {
+        assert.equal(fs.existsSync(target), true, `Canonical in-repo target must be present: ${target}`);
+      }
+
+      const missingRoots = [FLIGHTCHECK_ROOT, IN_REPO_FLIGHTCHECK_ROOT].filter((r) => !fs.existsSync(r));
+      assert.ok(missingRoots.length > 0, 'At least one expected root must be missing');
+      for (const missingRoot of missingRoots) {
+        assert.ok(
+          result.notInstalledRoots.includes(missingRoot),
+          `Missing root must appear in notInstalledRoots: ${missingRoot}`
+        );
+      }
+      assert.equal(result.notInstalledRoots.length, missingRoots.length, 'notInstalledRoots must list every missing root');
+    } else {
+      assert.equal(result.parityOk, true, 'Mirror verification must succeed');
+      assert.ok([6, 8].includes(result.targets), `Expected 6 or 8 HTML targets, got ${result.targets}`);
+      assert.ok(result.verifiedFilePairs >= 500, `Expected >= 500 verified file pairs, got ${result.verifiedFilePairs}`);
+    }
   });
 
   test('verifyOnly: true reports "not installed" under missing test home and leaves .agents/ unchanged', () => {

@@ -12,7 +12,12 @@ import {
   ULTRA_LEAN_PRE_TOOL_HOOK_MATCHER
 } from '../src/core/layer5_hygiene.mjs';
 import { buildDemoPage } from './build_demo_page.mjs';
-import { buildEvaluationBundles, TIER_1_FILES, TIER_2_FILES } from './build_evaluation_bundles.mjs';
+import {
+  buildEvaluationBundles,
+  OPTIONAL_UNTRACKED_BUNDLE_FILES,
+  TIER_1_FILES,
+  TIER_2_FILES
+} from './build_evaluation_bundles.mjs';
 import { syncWorkspaces } from './sync_workspaces.mjs';
 
 /**
@@ -589,6 +594,9 @@ export function syncAndVerifyMirrors({
     }
     for (const relPath of fileList) {
       const srcFile = path.join(CANONICAL_ROOT, relPath);
+      if (!fs.existsSync(srcFile) && OPTIONAL_UNTRACKED_BUNDLE_FILES.has(relPath)) {
+        continue;
+      }
       const destFile = path.join(bundleRoot, relPath);
       if (!fs.existsSync(destFile)) {
         mismatches.push(`Missing evaluation bundle file: ${destFile}`);

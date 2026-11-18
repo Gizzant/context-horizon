@@ -1335,11 +1335,97 @@ describe('Tier 5 Suite 9: Telemetry Fuzzing & Malformed Event Stress', () => {
 // ============================================================================
 describe('Tier 5 Suite 10: Auxiliary Review Invariant Guards & Anti-Regression', () => {
 
-  it('10.1 Canonical Mirror Parity Check (6 or 8 HTML targets, >= 500 mirrored file pairs)', () => {
+  it('10.1 Canonical Mirror Parity Check (installed roots or full 6/8 HTML targets, >= 500 pairs)', () => {
+    const repoRoot = path.resolve(import.meta.dirname, '..');
+    const effectiveHomeDir =
+      process.env.HIGHBEAM_TEST_HOME ||
+      process.env.USERPROFILE ||
+      process.env.HOME ||
+      os.homedir();
+    const homeLegacyRoot = path.join(effectiveHomeDir, '.gemini', 'config', 'plugins', 'agy-horizon');
+    const homeFlightcheckRoot = path.join(effectiveHomeDir, '.gemini', 'config', 'plugins', 'agy-horizon-flightcheck');
+    const inRepoFlightcheckRoot = path.join(repoRoot, '.agents', 'plugins', 'agy-horizon-flightcheck');
+
     const parity = syncAndVerifyMirrors({ verifyOnly: true, silent: true });
-    assert.equal(parity.parityOk, true, 'Mirror parity must be 100% verified');
-    assert.ok([6, 8].includes(parity.targets), `Canonical repository must verify 6 or 8 HTML targets, got ${parity.targets}`);
-    assert.ok(parity.verifiedFilePairs >= 500, `Canonical repository must verify >= 500 mirrored file pairs, got ${parity.verifiedFilePairs}`);
+
+    if (parity.pluginStatus === 'not installed' || parity.notInstalledRoots.length > 0) {
+      // 1. Every present mirror pair matches byte-for-byte
+      assert.equal(parity.parityOk, true, 'Every present mirror pair must match byte-for-byte');
+      assert.match(parity.sha256, /^[a-f0-9]{64}$/, 'Canonical HTML SHA-256 digest must be returned');
+
+      const sha256Lf = (p) =>
+        crypto.createHash('sha256').update(fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n'), 'utf8').digest('hex');
+
+      const presentRoots = [homeLegacyRoot, homeFlightcheckRoot, inRepoFlightcheckRoot].filter((r) => fs.existsSync(r));
+      const candidateHtmlTargets = [
+        path.join(repoRoot, 'src', 'webview', 'horizon_panel.html'),
+        ...presentRoots.flatMap((r) => [
+          path.join(r, 'src', 'ui', 'sidepane.html'),
+          path.join(r, 'src', 'webview', 'horizon_panel.html')
+        ]),
+        path.join(repoRoot, 'evaluation_bundles', 'tier_2_full', 'src', 'webview', 'horizon_panel.html')
+      ];
+      const presentHtmlTargets = Array.from(new Set(candidateHtmlTargets.map((p) => path.resolve(p)))).filter((p) =>
+        fs.existsSync(p)
+      );
+      assert.equal(parity.targets, presentHtmlTargets.length, 'Verified HTML target count must match present targets');
+      for (const htmlTarget of presentHtmlTargets) {
+        assert.equal(sha256Lf(htmlTarget), parity.sha256, `Present HTML target must match canonical SHA-256: ${htmlTarget}`);
+      }
+
+      const canonicalRouter = path.join(repoRoot, 'src', 'core-isomorphic', 'coach', 'cacheGravityRouter.mjs');
+      const canonicalRouterSha = sha256Lf(canonicalRouter);
+      for (const wsMirror of [
+        path.join(repoRoot, 'packages', 'core', 'src', 'coach', 'cacheGravityRouter.mjs'),
+        path.join(repoRoot, 'packages', 'engine-node', 'src', 'vendor', 'core-isomorphic', 'coach', 'cacheGravityRouter.mjs'),
+        path.join(repoRoot, 'packages', 'mcp', 'src', 'vendor', 'core-isomorphic', 'coach', 'cacheGravityRouter.mjs')
+      ]) {
+        assert.equal(sha256Lf(wsMirror), canonicalRouterSha, `Workspace mirror must match canonical SHA-256: ${wsMirror}`);
+      }
+
+      const hasEvalBundles =
+        fs.existsSync(path.join(repoRoot, 'evaluation_bundles', 'tier_1_essential')) ||
+        fs.existsSync(path.join(repoRoot, 'evaluation_bundles', 'tier_2_full'));
+      const expectedMinPairs = presentRoots.length * 200 + (hasEvalBundles ? 50 : 0);
+      assert.ok(
+        parity.verifiedFilePairs >= expectedMinPairs,
+        `Expected >= ${expectedMinPairs} verified present mirror pairs, got ${parity.verifiedFilePairs}`
+      );
+
+      // 2. The canonical in-repo targets are present
+      const canonicalInRepoTargets = [
+        path.join(repoRoot, 'src', 'webview', 'horizon_panel.html'),
+        path.join(repoRoot, 'docs', 'index.html'),
+        path.join(repoRoot, 'packages', 'core', 'src', 'coach', 'cacheGravityRouter.mjs'),
+        path.join(repoRoot, 'packages', 'engine-node', 'src', 'vendor', 'core-isomorphic', 'coach', 'cacheGravityRouter.mjs'),
+        path.join(repoRoot, 'packages', 'mcp', 'src', 'vendor', 'core-isomorphic', 'coach', 'cacheGravityRouter.mjs')
+      ];
+      if (fs.existsSync(inRepoFlightcheckRoot)) {
+        canonicalInRepoTargets.push(
+          path.join(inRepoFlightcheckRoot, 'src', 'webview', 'horizon_panel.html'),
+          path.join(inRepoFlightcheckRoot, 'src', 'ui', 'sidepane.html')
+        );
+      }
+      for (const target of canonicalInRepoTargets) {
+        assert.equal(fs.existsSync(target), true, `Canonical in-repo target must be present: ${target}`);
+      }
+
+      // 3. Each missing root appears in notInstalledRoots
+      const expectedRoots = [homeFlightcheckRoot, inRepoFlightcheckRoot];
+      const missingRoots = expectedRoots.filter((r) => !fs.existsSync(r));
+      assert.ok(missingRoots.length > 0, 'At least one expected root must be missing');
+      for (const missingRoot of missingRoots) {
+        assert.ok(
+          parity.notInstalledRoots.includes(missingRoot),
+          `Missing root must appear in notInstalledRoots: ${missingRoot}`
+        );
+      }
+      assert.equal(parity.notInstalledRoots.length, missingRoots.length, 'notInstalledRoots must list every missing root');
+    } else {
+      assert.equal(parity.parityOk, true, 'Mirror parity must be 100% verified');
+      assert.ok([6, 8].includes(parity.targets), `Canonical repository must verify 6 or 8 HTML targets, got ${parity.targets}`);
+      assert.ok(parity.verifiedFilePairs >= 500, `Canonical repository must verify >= 500 mirrored file pairs, got ${parity.verifiedFilePairs}`);
+    }
   });
 
   it('10.2 Bare Catch Blocks Scanner in test/ suites (detects 3 blocks in challenger_m5_1)', () => {
