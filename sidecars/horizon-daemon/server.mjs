@@ -156,6 +156,14 @@ const stateFile = path.join(defaultCacheDir, 'latest.state.json');
 
 const sidePaneHtml = path.resolve(__dirname, '../../src/ui/sidepane.html');
 const horizonPanelHtml = path.resolve(__dirname, '../../src/webview/horizon_panel.html');
+const HIGHBEAM_VERSION = (() => {
+  try {
+    return String(JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8')).version || '');
+  } catch (err) {
+    void err;
+    return '';
+  }
+})();
 
 function getHtmlMtimeMs() {
   const target = fs.existsSync(horizonPanelHtml) ? horizonPanelHtml : (fs.existsSync(sidePaneHtml) ? sidePaneHtml : null);
@@ -1247,6 +1255,7 @@ const server = http.createServer(async (req, res) => {
       port: addr ? addr.port : 0,
       workspace: cachedLiveState?.workspace?.canonicalPath || process.cwd(),
       pinnedConversationId,
+      version: HIGHBEAM_VERSION,
       diagnostics: getDaemonDiagnostics()
     }));
     return;

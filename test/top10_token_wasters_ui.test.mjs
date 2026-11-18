@@ -397,8 +397,10 @@ describe('Top 10 Token Wasters — classifyHorizon + Horizon Panel UI Verificati
       // Simple <-> Advanced tab switcher check
       d.getElementById('tabAdvanced').click();
       assert.equal(d.body.dataset.viewMode, 'advanced');
-      d.getElementById('tabSimple').click();
+      assert.equal(d.getElementById('tabAdvanced').textContent, 'Back');
+      d.getElementById('tabAdvanced').click();
       assert.equal(d.body.dataset.viewMode, 'simple');
+      assert.equal(d.getElementById('tabAdvanced').textContent, 'Advanced');
 
       assert.deepEqual(jsdomErrors, [], `Expected 0 JSDOM errors, got: ${jsdomErrors.join('; ')}`);
     } finally {

@@ -238,6 +238,24 @@
   }
   .ts-needs-row[data-tone="danger"] { border-color: var(--hz-danger, #ff453a); }
 
+  /* Settings view (full-panel dialog) */
+  .settings-view {
+    position: fixed; inset: 0; z-index: 900; overflow-y: auto;
+    padding: 12px 14px 24px; background: var(--hz-bg) !important; color: var(--hz-fg) !important;
+  }
+  .settings-view[hidden] { display: none; }
+  .settings-view-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .settings-view-head h2 { margin: 0; font-size: 15px; }
+  .settings-section { padding: 10px 0; border-top: 1px solid var(--hz-border, rgba(255,255,255,0.12)); }
+  .settings-section h3 { margin: 0 0 6px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.75; }
+  .settings-help { margin: 6px 0; font-size: 11.5px; opacity: 0.75; }
+  .settings-form { display: flex; flex-direction: column; gap: 6px; }
+  .settings-form label { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; }
+  .settings-mode-group { display: inline-flex; gap: 4px; }
+  .set-mode-btn { padding: 4px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--hz-border, rgba(255,255,255,0.2)); background: transparent; color: inherit; cursor: pointer; }
+  .set-mode-btn[aria-checked="true"] { border-color: var(--hz-useful, #30d158); color: var(--hz-useful, #30d158); }
+  .settings-about { margin: 0; padding-left: 16px; font-size: 12px; line-height: 1.7; }
+
   .badge {
     font-size: 10.5px;
     font-weight: 600;
@@ -466,21 +484,7 @@
     transition: border-color 0.15s ease, color 0.15s ease;
   }
   .gear-btn:hover { border-color: #f59e0b; color: #f59e0b !important; }
-  .settings-pop {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin: 0 0 10px;
-    padding: 10px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--hz-border);
-    background: var(--hz-bg) !important;
-    font-size: 11.5px;
-    color: var(--hz-fg) !important;
-  }
-  .settings-pop[hidden] { display: none; }
-  .settings-pop label { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: #e2e8f0 !important; }
-  .settings-pop input {
+  .settings-form input {
     width: 110px;
     padding: 3px 6px;
     border-radius: 4px;

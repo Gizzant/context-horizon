@@ -238,6 +238,24 @@
   }
   .ts-needs-row[data-tone="danger"] { border-color: var(--hz-danger, #ff453a); }
 
+  /* Settings view (full-panel dialog) */
+  .settings-view {
+    position: fixed; inset: 0; z-index: 900; overflow-y: auto;
+    padding: 12px 14px 24px; background: var(--hz-bg) !important; color: var(--hz-fg) !important;
+  }
+  .settings-view[hidden] { display: none; }
+  .settings-view-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .settings-view-head h2 { margin: 0; font-size: 15px; }
+  .settings-section { padding: 10px 0; border-top: 1px solid var(--hz-border, rgba(255,255,255,0.12)); }
+  .settings-section h3 { margin: 0 0 6px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.75; }
+  .settings-help { margin: 6px 0; font-size: 11.5px; opacity: 0.75; }
+  .settings-form { display: flex; flex-direction: column; gap: 6px; }
+  .settings-form label { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; }
+  .settings-mode-group { display: inline-flex; gap: 4px; }
+  .set-mode-btn { padding: 4px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--hz-border, rgba(255,255,255,0.2)); background: transparent; color: inherit; cursor: pointer; }
+  .set-mode-btn[aria-checked="true"] { border-color: var(--hz-useful, #30d158); color: var(--hz-useful, #30d158); }
+  .settings-about { margin: 0; padding-left: 16px; font-size: 12px; line-height: 1.7; }
+
   .badge {
     font-size: 10.5px;
     font-weight: 600;
@@ -466,21 +484,7 @@
     transition: border-color 0.15s ease, color 0.15s ease;
   }
   .gear-btn:hover { border-color: #f59e0b; color: #f59e0b !important; }
-  .settings-pop {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin: 0 0 10px;
-    padding: 10px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--hz-border);
-    background: var(--hz-bg) !important;
-    font-size: 11.5px;
-    color: var(--hz-fg) !important;
-  }
-  .settings-pop[hidden] { display: none; }
-  .settings-pop label { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: #e2e8f0 !important; }
-  .settings-pop input {
+  .settings-form input {
     width: 110px;
     padding: 3px 6px;
     border-radius: 4px;
@@ -5389,6 +5393,7 @@
       <div class="shadcn-tabs-list" role="group" aria-label="Advanced view" data-slot="tabs-list">
         <button type="button" class="shadcn-tab-trigger" id="tabAdvanced" data-view-tab="advanced" aria-pressed="false" title="Open the full diagnostic & timeline view">Advanced</button>
       </div>
+      <button type="button" class="icon-btn" id="btnHeaderSettings" title="Settings" aria-label="Settings" aria-haspopup="dialog" aria-controls="settingsView" aria-expanded="false">&#x2699;</button>
       <span class="tufte-top-host-badge" id="tufteTopHostBadge">Antigravity &middot; Auto</span>
       <button class="icon-btn" onclick="window.location.reload()" title="Reload panel" aria-label="Reload panel"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.35-3.6"/><path d="M13.5 2.5v3h-3"/></svg></button>
     </div>
@@ -5431,6 +5436,70 @@
   <!-- =========================================================================
        LIVE EDWARD TUFTE "SIMPLE VIEW" SURFACE (4-Card Sketch Layout)
        ========================================================================= -->
+  <!-- SETTINGS VIEW: opened from the header gear (or the gear in Advanced); closing returns to the view underneath. -->
+  <div id="settingsView" class="settings-view" role="dialog" aria-modal="true" aria-labelledby="settingsViewTitle" hidden>
+    <div class="settings-view-head">
+      <h2 id="settingsViewTitle">Settings</h2>
+      <button type="button" class="icon-btn" id="btnSettingsClose" aria-label="Close settings" title="Close">&#x2715;</button>
+    </div>
+
+    <section class="settings-section" aria-labelledby="setModeHead">
+      <h3 id="setModeHead">Mode</h3>
+      <div id="setModeGroup" class="settings-mode-group" role="radiogroup" aria-label="Highbeam protection mode">
+        <button type="button" role="radio" class="set-mode-btn" data-mode="off" aria-checked="false">Off</button>
+        <button type="button" role="radio" class="set-mode-btn" data-mode="coach" aria-checked="true">Coach</button>
+        <button type="button" role="radio" class="set-mode-btn" data-mode="autopilot" aria-checked="false">Auto</button>
+      </div>
+      <p class="settings-help">Off watches only. Coach trims noisy logs and gives advice. Auto applies the guards and routing for you (Pro or trial).</p>
+    </section>
+
+    <section class="settings-section" aria-labelledby="setLimitsHead">
+      <h3 id="setLimitsHead">Limits</h3>
+      <form id="settingsPop" class="settings-form">
+        <label>Safe limit (tokens)
+          <input type="number" id="setSafeLimit" min="20000" max="1048576" step="1000" required>
+        </label>
+        <label>Remind me at (% of limit)
+          <input type="number" id="setReminderPct" min="50" max="99" step="1" required>
+        </label>
+        <div class="settings-row">
+          <button type="submit" class="settings-save">Save</button>
+          <button type="button" class="settings-cancel" id="btnSettingsCancel">Close</button>
+          <span class="settings-msg" id="settingsMsg"></span>
+        </div>
+      </form>
+    </section>
+
+    <section class="settings-section" aria-labelledby="setLicenceHead">
+      <h3 id="setLicenceHead">Licence</h3>
+      <p id="setLicenceStatus" class="settings-help">Free</p>
+      <div class="settings-row">
+        <button type="button" class="settings-save" id="setBtnTrial">Start 14-day trial</button>
+      </div>
+      <div class="settings-row">
+        <input id="setLicenceKey" type="text" class="ts-shadow-key-input" placeholder="CTXP1.eyJ..." aria-label="Highbeam Pro license key">
+        <button type="button" class="settings-save" id="setBtnActivate">Activate key</button>
+      </div>
+      <p id="setLicenceMsg" class="settings-msg" role="status"></p>
+    </section>
+
+    <section class="settings-section" aria-labelledby="setGuardsHead">
+      <h3 id="setGuardsHead">Guards</h3>
+      <p class="settings-help">Read-only here. To change one, run <code>npx ctxtop config set &lt;DET-id&gt; &lt;default|off|warn|block&gt;</code>.</p>
+      <ul id="setGuardList" class="ts-ledger" role="list"></ul>
+    </section>
+
+    <section class="settings-section" aria-labelledby="setAboutHead">
+      <h3 id="setAboutHead">About</h3>
+      <ul class="settings-about">
+        <li>Version: <span id="setAboutVersion">unknown</span></li>
+        <li>Project config: <code>.attention-horizon.json</code> &middot; User config: <code>~/.attention-horizon/config.json</code></li>
+        <li>Health check: <code>npx ctxtop doctor</code></li>
+        <li>Docs: <a href="https://gizzant.github.io/context-horizon/" target="_blank" rel="noopener noreferrer">gizzant.github.io/context-horizon</a></li>
+      </ul>
+    </section>
+  </div>
+
   <div id="argonSimpleSurface" aria-label="Highbeam main view">
     <!-- MODE VIEWS: the same panel shows the view for the running mode (Off, Coach, Auto). -->
     <section id="tsSavedHero" class="ts-saved-hero" aria-label="Estimated tokens saved">
@@ -5976,22 +6045,9 @@
         <span class="tufte-model-burn-pill mono" id="tufteModelBurnPill" title="Active Model &amp; Effort Burn Multiplier">Flash 3.8 &middot; Auto</span>
         <span class="tufte-sparkline-group mono" id="tufteTurnSparkline" title="16-turn token velocity sparkline"></span>
         <div class="free-label mono" id="freeLabel">140k safe limit</div>
-        <button class="gear-btn" id="btnSettings" type="button" title="Safe limit & reminder settings" aria-expanded="false" aria-controls="settingsPop">&#x2699;</button>
+        <button class="gear-btn" id="btnSettings" type="button" title="Settings" aria-expanded="false" aria-controls="settingsView">&#x2699;</button>
       </div>
     </div>
-    <form class="settings-pop" id="settingsPop" hidden>
-      <label>Safe limit (tokens)
-        <input type="number" id="setSafeLimit" min="20000" max="1048576" step="1000" required>
-      </label>
-      <label>Remind me at (% of limit)
-        <input type="number" id="setReminderPct" min="50" max="99" step="1" required>
-      </label>
-      <div class="settings-row">
-        <button type="submit" class="settings-save">Save</button>
-        <button type="button" class="settings-cancel" id="btnSettingsCancel">Cancel</button>
-        <span class="settings-msg" id="settingsMsg"></span>
-      </div>
-    </form>
     <div class="delta-line mono" id="deltaLine" style="display:none;"></div>
     <div class="tufte-delta-accounting mono" id="tufteDeltaAccounting" hidden></div>
 
@@ -7506,25 +7562,80 @@
     }
   }
 
-  // Settings popover (safe limit + reminder %), saved through the daemon's /api/settings
+  // Settings view (full-panel dialog): mode, limits, licence, read-only guards, about.
+  // Opened from the header gear or the gear inside Advanced; limits save through /api/settings.
   (function initSettings() {
-    const btn = document.getElementById('btnSettings');
+    const view = document.getElementById('settingsView');
     const pop = document.getElementById('settingsPop');
     const inLimit = document.getElementById('setSafeLimit');
     const inPct = document.getElementById('setReminderPct');
     const msg = document.getElementById('settingsMsg');
-    if (!btn || !pop) return;
+    const openers = ['btnHeaderSettings', 'btnSettings'].map((id) => document.getElementById(id)).filter(Boolean);
+    if (!view || !pop) return;
     const setMsg = (t, err) => { msg.textContent = t; msg.className = 'settings-msg' + (err ? ' err' : ''); };
-    const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
-    btn.onclick = async () => {
-      if (!pop.hidden) { close(); return; }
+    const licMsg = (t, err) => {
+      const el = document.getElementById('setLicenceMsg');
+      if (el) { el.textContent = t; el.className = 'settings-msg' + (err ? ' err' : ''); }
+    };
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    let lastOpener = null;
+
+    function renderSettingsState() {
+      const st = currentRenderedState || {};
+      // Mode
+      const fm = String(st.flightMode || st.coachState?.flightMode || '').toUpperCase();
+      const mode = String(st.routerMode || st.coachState?.routerMode || (fm === 'OFF' ? 'off' : (fm === 'AUTO_PILOT' ? 'autopilot' : (document.body?.dataset?.flightMode || 'coach')))).toLowerCase();
+      document.querySelectorAll('#setModeGroup .set-mode-btn').forEach((b) => {
+        b.setAttribute('aria-checked', String(b.dataset.mode === (mode === 'auto' ? 'autopilot' : mode)));
+      });
+      // Licence
+      const ent = st.proEntitlement || {};
+      const tier = String(ent.tier || (ent.entitled ? 'pro' : 'free')).toLowerCase();
+      const days = Number(ent.daysRemaining);
+      const statusEl = document.getElementById('setLicenceStatus');
+      if (statusEl) {
+        statusEl.textContent = tier === 'trial'
+          ? `Trial: ${Number.isFinite(days) ? (days <= 0 ? 'less than a day' : days + (days === 1 ? ' day' : ' days')) : '14 days'} left. Auto is unlocked; switch Mode to Auto to use it.`
+          : (ent.entitled ? `Pro licence active${ent.plan ? ' (' + ent.plan + ')' : ''}.` : 'Free. Auto runs as a preview until you start the trial or activate a key.');
+      }
+      const trialBtn = document.getElementById('setBtnTrial');
+      if (trialBtn) trialBtn.hidden = Boolean(ent.entitled);
+      // Guards (read-only)
+      const list = document.getElementById('setGuardList');
+      if (list) {
+        const guards = Array.isArray(st.coachState?.detectors?.list) ? st.coachState.detectors.list : [];
+        list.innerHTML = guards.length === 0
+          ? '<li class="ts-ledger-row"><span class="ts-ledger-age">info</span><span>Guard list appears once the live daemon reports it. Run <code>npx ctxtop config list</code> to see it now.</span><span class="ts-ledger-saved"></span></li>'
+          : guards.map((g) => {
+            const setting = g.tripped ? 'tripped' : (g.mode === 'guard' ? 'blocks' : (g.mode === 'advisory' ? 'advises' : String(g.mode || 'default')));
+            return `<li class="ts-ledger-row"><span class="ts-ledger-age">${esc(g.id)}</span><span>${esc(g.name || g.id)}</span><span class="ts-ledger-saved">${esc(setting)}</span></li>`;
+          }).join('');
+      }
+    }
+
+    async function loadVersion() {
+      try {
+        const r = await fetch('/api/health');
+        if (r && r.ok) {
+          const j = await r.json();
+          if (j && j.version) document.getElementById('setAboutVersion').textContent = String(j.version);
+        }
+      } catch (err) { void err; }
+    }
+
+    async function openSettings(opener) {
+      lastOpener = opener || null;
       const w = currentRenderedState?.window || {};
       const liveLim = Number(document.getElementById('limitLine')?.dataset?.tokens) || w.safeLimit || 179000;
       inLimit.value = liveLim;
       inPct.value = liveLim && w.reminderAt ? Math.round((w.reminderAt / liveLim) * 100) : 85;
       setMsg('');
-      pop.hidden = false;
-      btn.setAttribute('aria-expanded', 'true');
+      licMsg('');
+      renderSettingsState();
+      view.hidden = false;
+      openers.forEach((b) => b.setAttribute('aria-expanded', 'true'));
+      document.getElementById('btnSettingsClose')?.focus?.();
+      loadVersion();
       try {
         const r = await fetch('/api/settings');
         if (r.ok) {
@@ -7532,11 +7643,53 @@
           if (settings) { inLimit.value = settings.safeLimitTokens; inPct.value = settings.reminderAtPct; }
         }
       } catch { setMsg('Live daemon not reachable; saving is unavailable.', true); }
+    }
+    function closeSettings() {
+      view.hidden = true;
+      openers.forEach((b) => b.setAttribute('aria-expanded', 'false'));
+      lastOpener?.focus?.();
+    }
+    window.__hzRenderSettingsState = () => { if (!view.hidden) renderSettingsState(); };
+
+    openers.forEach((b) => { b.onclick = () => (view.hidden ? openSettings(b) : closeSettings()); });
+    document.getElementById('btnSettingsClose').onclick = closeSettings;
+    document.getElementById('btnSettingsCancel').onclick = closeSettings;
+    view.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSettings(); });
+
+    document.querySelectorAll('#setModeGroup .set-mode-btn').forEach((b) => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#setModeGroup .set-mode-btn').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+        document.getElementById(b.dataset.mode === 'off' ? 'tsModeBtnOff' : (b.dataset.mode === 'autopilot' ? 'tsModeBtnAuto' : 'tsModeBtnCoach'))?.click();
+      });
+    });
+
+    async function postLicence(body, okText) {
+      licMsg('Working…');
+      try {
+        const r = await fetch('/api/license/activate', { method: 'POST', headers: buildHorizonPostHeaders(), body: JSON.stringify(body) });
+        const j = r && typeof r.json === 'function' ? await r.json() : {};
+        if (j.ok || j.success) {
+          if (j.state && typeof applyGlobalStateFromDaemon === 'function') applyGlobalStateFromDaemon(j.state);
+          renderSettingsState();
+          licMsg(okText);
+        } else {
+          licMsg(j.reason || j.error || 'Could not activate.', true);
+        }
+      } catch (err) {
+        void err;
+        licMsg('Live daemon not reachable; activation is unavailable.', true);
+      }
+    }
+    document.getElementById('setBtnTrial').onclick = () => postLicence({ trial: true }, 'Trial started. Auto is unlocked; switch Mode to Auto to use it.');
+    document.getElementById('setBtnActivate').onclick = () => {
+      const key = String(document.getElementById('setLicenceKey')?.value || '').trim();
+      if (!key) { licMsg('Paste your CTXP1 licence key first.', true); return; }
+      postLicence({ licenseKey: key }, 'Licence activated.');
     };
-    document.getElementById('btnSettingsCancel').onclick = close;
+
     pop.onsubmit = async (e) => {
       e.preventDefault();
-      setMsg('Saving\u2026');
+      setMsg('Saving…');
       try {
         const r = await fetch('/api/settings', {
           method: 'POST',
@@ -7549,7 +7702,6 @@
         inPct.value = data.settings.reminderAtPct;
         if (data.state) renderState(data.state);
         setMsg(`Saved: ${fmtK(data.settings.safeLimitTokens)} limit, reminder at ${data.settings.reminderAtPct}%`);
-        setTimeout(close, 1200);
       } catch (err) {
         setMsg('Could not save: ' + (err?.message || err), true);
       }
@@ -12583,6 +12735,7 @@
   function renderArgonTufteSurfaces(raw) {
     renderArgonTufteSurfacesCore(raw);
     try { renderModeViewContent(raw); } catch (err) { void err; }
+    try { if (typeof window.__hzRenderSettingsState === 'function') window.__hzRenderSettingsState(); } catch (err) { void err; }
   }
 
   function renderArgonTufteSurfacesCore(raw) {

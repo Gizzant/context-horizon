@@ -287,22 +287,9 @@
         <span class="tufte-model-burn-pill mono" id="tufteModelBurnPill" title="Active Model &amp; Effort Burn Multiplier">Flash 3.8 &middot; Auto</span>
         <span class="tufte-sparkline-group mono" id="tufteTurnSparkline" title="16-turn token velocity sparkline"></span>
         <div class="free-label mono" id="freeLabel">140k safe limit</div>
-        <button class="gear-btn" id="btnSettings" type="button" title="Safe limit & reminder settings" aria-expanded="false" aria-controls="settingsPop">&#x2699;</button>
+        <button class="gear-btn" id="btnSettings" type="button" title="Settings" aria-expanded="false" aria-controls="settingsView">&#x2699;</button>
       </div>
     </div>
-    <form class="settings-pop" id="settingsPop" hidden>
-      <label>Safe limit (tokens)
-        <input type="number" id="setSafeLimit" min="20000" max="1048576" step="1000" required>
-      </label>
-      <label>Remind me at (% of limit)
-        <input type="number" id="setReminderPct" min="50" max="99" step="1" required>
-      </label>
-      <div class="settings-row">
-        <button type="submit" class="settings-save">Save</button>
-        <button type="button" class="settings-cancel" id="btnSettingsCancel">Cancel</button>
-        <span class="settings-msg" id="settingsMsg"></span>
-      </div>
-    </form>
     <div class="delta-line mono" id="deltaLine" style="display:none;"></div>
     <div class="tufte-delta-accounting mono" id="tufteDeltaAccounting" hidden></div>
 

@@ -18,6 +18,7 @@
       <div class="shadcn-tabs-list" role="group" aria-label="Advanced view" data-slot="tabs-list">
         <button type="button" class="shadcn-tab-trigger" id="tabAdvanced" data-view-tab="advanced" aria-pressed="false" title="Open the full diagnostic & timeline view">Advanced</button>
       </div>
+      <button type="button" class="icon-btn" id="btnHeaderSettings" title="Settings" aria-label="Settings" aria-haspopup="dialog" aria-controls="settingsView" aria-expanded="false">&#x2699;</button>
       <span class="tufte-top-host-badge" id="tufteTopHostBadge">Antigravity &middot; Auto</span>
       <button class="icon-btn" onclick="window.location.reload()" title="Reload panel" aria-label="Reload panel"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.35-3.6"/><path d="M13.5 2.5v3h-3"/></svg></button>
     </div>
@@ -60,6 +61,70 @@
   <!-- =========================================================================
        LIVE EDWARD TUFTE "SIMPLE VIEW" SURFACE (4-Card Sketch Layout)
        ========================================================================= -->
+  <!-- SETTINGS VIEW: opened from the header gear (or the gear in Advanced); closing returns to the view underneath. -->
+  <div id="settingsView" class="settings-view" role="dialog" aria-modal="true" aria-labelledby="settingsViewTitle" hidden>
+    <div class="settings-view-head">
+      <h2 id="settingsViewTitle">Settings</h2>
+      <button type="button" class="icon-btn" id="btnSettingsClose" aria-label="Close settings" title="Close">&#x2715;</button>
+    </div>
+
+    <section class="settings-section" aria-labelledby="setModeHead">
+      <h3 id="setModeHead">Mode</h3>
+      <div id="setModeGroup" class="settings-mode-group" role="radiogroup" aria-label="Highbeam protection mode">
+        <button type="button" role="radio" class="set-mode-btn" data-mode="off" aria-checked="false">Off</button>
+        <button type="button" role="radio" class="set-mode-btn" data-mode="coach" aria-checked="true">Coach</button>
+        <button type="button" role="radio" class="set-mode-btn" data-mode="autopilot" aria-checked="false">Auto</button>
+      </div>
+      <p class="settings-help">Off watches only. Coach trims noisy logs and gives advice. Auto applies the guards and routing for you (Pro or trial).</p>
+    </section>
+
+    <section class="settings-section" aria-labelledby="setLimitsHead">
+      <h3 id="setLimitsHead">Limits</h3>
+      <form id="settingsPop" class="settings-form">
+        <label>Safe limit (tokens)
+          <input type="number" id="setSafeLimit" min="20000" max="1048576" step="1000" required>
+        </label>
+        <label>Remind me at (% of limit)
+          <input type="number" id="setReminderPct" min="50" max="99" step="1" required>
+        </label>
+        <div class="settings-row">
+          <button type="submit" class="settings-save">Save</button>
+          <button type="button" class="settings-cancel" id="btnSettingsCancel">Close</button>
+          <span class="settings-msg" id="settingsMsg"></span>
+        </div>
+      </form>
+    </section>
+
+    <section class="settings-section" aria-labelledby="setLicenceHead">
+      <h3 id="setLicenceHead">Licence</h3>
+      <p id="setLicenceStatus" class="settings-help">Free</p>
+      <div class="settings-row">
+        <button type="button" class="settings-save" id="setBtnTrial">Start 14-day trial</button>
+      </div>
+      <div class="settings-row">
+        <input id="setLicenceKey" type="text" class="ts-shadow-key-input" placeholder="CTXP1.eyJ..." aria-label="Highbeam Pro license key">
+        <button type="button" class="settings-save" id="setBtnActivate">Activate key</button>
+      </div>
+      <p id="setLicenceMsg" class="settings-msg" role="status"></p>
+    </section>
+
+    <section class="settings-section" aria-labelledby="setGuardsHead">
+      <h3 id="setGuardsHead">Guards</h3>
+      <p class="settings-help">Read-only here. To change one, run <code>npx ctxtop config set &lt;DET-id&gt; &lt;default|off|warn|block&gt;</code>.</p>
+      <ul id="setGuardList" class="ts-ledger" role="list"></ul>
+    </section>
+
+    <section class="settings-section" aria-labelledby="setAboutHead">
+      <h3 id="setAboutHead">About</h3>
+      <ul class="settings-about">
+        <li>Version: <span id="setAboutVersion">unknown</span></li>
+        <li>Project config: <code>.attention-horizon.json</code> &middot; User config: <code>~/.attention-horizon/config.json</code></li>
+        <li>Health check: <code>npx ctxtop doctor</code></li>
+        <li>Docs: <a href="https://gizzant.github.io/context-horizon/" target="_blank" rel="noopener noreferrer">gizzant.github.io/context-horizon</a></li>
+      </ul>
+    </section>
+  </div>
+
   <div id="argonSimpleSurface" aria-label="Highbeam main view">
     <!-- MODE VIEWS: the same panel shows the view for the running mode (Off, Coach, Auto). -->
     <section id="tsSavedHero" class="ts-saved-hero" aria-label="Estimated tokens saved">

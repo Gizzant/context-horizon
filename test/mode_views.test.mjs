@@ -289,3 +289,76 @@ describe('Mode views: what each mode shows', () => {
     } finally { dom.window.close(); }
   });
 });
+
+describe('Settings view', () => {
+  it('opens from the header gear, shows mode, licence, guards and limits, saves limits, and closes', async () => {
+    const { dom, win, d, jsdomErrors, posts } = await mountPanel();
+    try {
+      win.renderState(baseState('settings', {
+        flightMode: 'COACH',
+        proEntitlement: { entitled: true, tier: 'trial', daysRemaining: 6 },
+        coachState: {
+          detectors: {
+            totalCount: 2,
+            list: [
+              { id: 'DET-01', name: 'Destructive Git/Shell Guard', mode: 'guard', tripped: false },
+              { id: 'DET-10', name: 'Idle 5m Implicit-Cache Watchdog', mode: 'advisory', tripped: false }
+            ]
+          }
+        }
+      }));
+      const view = d.getElementById('settingsView');
+      assert.equal(view.hidden, true, 'closed by default');
+      assert.equal(d.querySelectorAll('#settingsPop').length, 1, 'one settings form, no leftover pop-up');
+
+      d.getElementById('btnHeaderSettings').click();
+      await tick();
+      assert.equal(view.hidden, false);
+      assert.equal(d.getElementById('btnHeaderSettings').getAttribute('aria-expanded'), 'true');
+      assert.equal(d.querySelector('#setModeGroup [aria-checked="true"]').dataset.mode, 'coach');
+      assert.match(d.getElementById('setLicenceStatus').textContent, /Trial: 6 days left/);
+      assert.equal(d.getElementById('setBtnTrial').hidden, true, 'no trial button once entitled');
+      const guardRows = [...d.querySelectorAll('#setGuardList .ts-ledger-row')].map((li) => li.textContent.replace(/\s+/g, ' ').trim());
+      assert.deepEqual(guardRows, ['DET-01Destructive Git/Shell Guardblocks', 'DET-10Idle 5m Implicit-Cache Watchdogadvises']);
+      assert.match(d.getElementById('setGuardsHead').parentElement.textContent, /npx ctxtop config set/);
+
+      d.getElementById('setSafeLimit').value = '150000';
+      d.getElementById('setReminderPct').value = '80';
+      d.getElementById('settingsPop').dispatchEvent(new win.Event('submit', { cancelable: true }));
+      await tick();
+      const save = posts.find((p) => p.url.endsWith('/api/settings'));
+      assert.deepEqual(save?.body, { safeLimitTokens: 150000, reminderAtPct: 80 });
+
+      d.querySelector('#setModeGroup [data-mode="off"]').click();
+      await tick();
+      assert.equal(d.body.dataset.flightMode, 'off', 'Settings mode buttons drive the same mode switch');
+      assert.equal(posts.some((p) => p.url.endsWith('/api/router/mode') && p.body?.mode === 'off'), true);
+
+      d.getElementById('btnSettingsClose').click();
+      assert.equal(view.hidden, true);
+      assert.equal(d.getElementById('btnHeaderSettings').getAttribute('aria-expanded'), 'false');
+      assert.deepEqual(jsdomErrors, []);
+    } finally {
+      dom.window.close();
+    }
+  });
+
+  it('on Free, offers the trial, and starting it leaves the mode unchanged', async () => {
+    const { dom, win, d, jsdomErrors, posts } = await mountPanel();
+    try {
+      win.renderState(baseState('free', { flightMode: 'COACH', proEntitlement: { entitled: false, tier: 'free' } }));
+      d.getElementById('btnHeaderSettings').click();
+      await tick();
+      assert.match(d.getElementById('setLicenceStatus').textContent, /^Free\./);
+      assert.equal(d.getElementById('setBtnTrial').hidden, false);
+      d.getElementById('setBtnTrial').click();
+      await tick();
+      assert.equal(posts.some((p) => p.url.endsWith('/api/license/activate') && p.body?.trial === true), true);
+      assert.equal(posts.some((p) => p.url.endsWith('/api/router/mode')), false, 'trial unlocks Auto but does not turn it on');
+      assert.equal(d.body.dataset.flightMode, 'coach');
+      assert.deepEqual(jsdomErrors, []);
+    } finally {
+      dom.window.close();
+    }
+  });
+});

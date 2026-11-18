@@ -903,25 +903,80 @@
     }
   }
 
-  // Settings popover (safe limit + reminder %), saved through the daemon's /api/settings
+  // Settings view (full-panel dialog): mode, limits, licence, read-only guards, about.
+  // Opened from the header gear or the gear inside Advanced; limits save through /api/settings.
   (function initSettings() {
-    const btn = document.getElementById('btnSettings');
+    const view = document.getElementById('settingsView');
     const pop = document.getElementById('settingsPop');
     const inLimit = document.getElementById('setSafeLimit');
     const inPct = document.getElementById('setReminderPct');
     const msg = document.getElementById('settingsMsg');
-    if (!btn || !pop) return;
+    const openers = ['btnHeaderSettings', 'btnSettings'].map((id) => document.getElementById(id)).filter(Boolean);
+    if (!view || !pop) return;
     const setMsg = (t, err) => { msg.textContent = t; msg.className = 'settings-msg' + (err ? ' err' : ''); };
-    const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
-    btn.onclick = async () => {
-      if (!pop.hidden) { close(); return; }
+    const licMsg = (t, err) => {
+      const el = document.getElementById('setLicenceMsg');
+      if (el) { el.textContent = t; el.className = 'settings-msg' + (err ? ' err' : ''); }
+    };
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    let lastOpener = null;
+
+    function renderSettingsState() {
+      const st = currentRenderedState || {};
+      // Mode
+      const fm = String(st.flightMode || st.coachState?.flightMode || '').toUpperCase();
+      const mode = String(st.routerMode || st.coachState?.routerMode || (fm === 'OFF' ? 'off' : (fm === 'AUTO_PILOT' ? 'autopilot' : (document.body?.dataset?.flightMode || 'coach')))).toLowerCase();
+      document.querySelectorAll('#setModeGroup .set-mode-btn').forEach((b) => {
+        b.setAttribute('aria-checked', String(b.dataset.mode === (mode === 'auto' ? 'autopilot' : mode)));
+      });
+      // Licence
+      const ent = st.proEntitlement || {};
+      const tier = String(ent.tier || (ent.entitled ? 'pro' : 'free')).toLowerCase();
+      const days = Number(ent.daysRemaining);
+      const statusEl = document.getElementById('setLicenceStatus');
+      if (statusEl) {
+        statusEl.textContent = tier === 'trial'
+          ? `Trial: ${Number.isFinite(days) ? (days <= 0 ? 'less than a day' : days + (days === 1 ? ' day' : ' days')) : '14 days'} left. Auto is unlocked; switch Mode to Auto to use it.`
+          : (ent.entitled ? `Pro licence active${ent.plan ? ' (' + ent.plan + ')' : ''}.` : 'Free. Auto runs as a preview until you start the trial or activate a key.');
+      }
+      const trialBtn = document.getElementById('setBtnTrial');
+      if (trialBtn) trialBtn.hidden = Boolean(ent.entitled);
+      // Guards (read-only)
+      const list = document.getElementById('setGuardList');
+      if (list) {
+        const guards = Array.isArray(st.coachState?.detectors?.list) ? st.coachState.detectors.list : [];
+        list.innerHTML = guards.length === 0
+          ? '<li class="ts-ledger-row"><span class="ts-ledger-age">info</span><span>Guard list appears once the live daemon reports it. Run <code>npx ctxtop config list</code> to see it now.</span><span class="ts-ledger-saved"></span></li>'
+          : guards.map((g) => {
+            const setting = g.tripped ? 'tripped' : (g.mode === 'guard' ? 'blocks' : (g.mode === 'advisory' ? 'advises' : String(g.mode || 'default')));
+            return `<li class="ts-ledger-row"><span class="ts-ledger-age">${esc(g.id)}</span><span>${esc(g.name || g.id)}</span><span class="ts-ledger-saved">${esc(setting)}</span></li>`;
+          }).join('');
+      }
+    }
+
+    async function loadVersion() {
+      try {
+        const r = await fetch('/api/health');
+        if (r && r.ok) {
+          const j = await r.json();
+          if (j && j.version) document.getElementById('setAboutVersion').textContent = String(j.version);
+        }
+      } catch (err) { void err; }
+    }
+
+    async function openSettings(opener) {
+      lastOpener = opener || null;
       const w = currentRenderedState?.window || {};
       const liveLim = Number(document.getElementById('limitLine')?.dataset?.tokens) || w.safeLimit || 179000;
       inLimit.value = liveLim;
       inPct.value = liveLim && w.reminderAt ? Math.round((w.reminderAt / liveLim) * 100) : 85;
       setMsg('');
-      pop.hidden = false;
-      btn.setAttribute('aria-expanded', 'true');
+      licMsg('');
+      renderSettingsState();
+      view.hidden = false;
+      openers.forEach((b) => b.setAttribute('aria-expanded', 'true'));
+      document.getElementById('btnSettingsClose')?.focus?.();
+      loadVersion();
       try {
         const r = await fetch('/api/settings');
         if (r.ok) {
@@ -929,11 +984,53 @@
           if (settings) { inLimit.value = settings.safeLimitTokens; inPct.value = settings.reminderAtPct; }
         }
       } catch { setMsg('Live daemon not reachable; saving is unavailable.', true); }
+    }
+    function closeSettings() {
+      view.hidden = true;
+      openers.forEach((b) => b.setAttribute('aria-expanded', 'false'));
+      lastOpener?.focus?.();
+    }
+    window.__hzRenderSettingsState = () => { if (!view.hidden) renderSettingsState(); };
+
+    openers.forEach((b) => { b.onclick = () => (view.hidden ? openSettings(b) : closeSettings()); });
+    document.getElementById('btnSettingsClose').onclick = closeSettings;
+    document.getElementById('btnSettingsCancel').onclick = closeSettings;
+    view.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSettings(); });
+
+    document.querySelectorAll('#setModeGroup .set-mode-btn').forEach((b) => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#setModeGroup .set-mode-btn').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+        document.getElementById(b.dataset.mode === 'off' ? 'tsModeBtnOff' : (b.dataset.mode === 'autopilot' ? 'tsModeBtnAuto' : 'tsModeBtnCoach'))?.click();
+      });
+    });
+
+    async function postLicence(body, okText) {
+      licMsg('Working…');
+      try {
+        const r = await fetch('/api/license/activate', { method: 'POST', headers: buildHorizonPostHeaders(), body: JSON.stringify(body) });
+        const j = r && typeof r.json === 'function' ? await r.json() : {};
+        if (j.ok || j.success) {
+          if (j.state && typeof applyGlobalStateFromDaemon === 'function') applyGlobalStateFromDaemon(j.state);
+          renderSettingsState();
+          licMsg(okText);
+        } else {
+          licMsg(j.reason || j.error || 'Could not activate.', true);
+        }
+      } catch (err) {
+        void err;
+        licMsg('Live daemon not reachable; activation is unavailable.', true);
+      }
+    }
+    document.getElementById('setBtnTrial').onclick = () => postLicence({ trial: true }, 'Trial started. Auto is unlocked; switch Mode to Auto to use it.');
+    document.getElementById('setBtnActivate').onclick = () => {
+      const key = String(document.getElementById('setLicenceKey')?.value || '').trim();
+      if (!key) { licMsg('Paste your CTXP1 licence key first.', true); return; }
+      postLicence({ licenseKey: key }, 'Licence activated.');
     };
-    document.getElementById('btnSettingsCancel').onclick = close;
+
     pop.onsubmit = async (e) => {
       e.preventDefault();
-      setMsg('Saving\u2026');
+      setMsg('Saving…');
       try {
         const r = await fetch('/api/settings', {
           method: 'POST',
@@ -946,7 +1043,6 @@
         inPct.value = data.settings.reminderAtPct;
         if (data.state) renderState(data.state);
         setMsg(`Saved: ${fmtK(data.settings.safeLimitTokens)} limit, reminder at ${data.settings.reminderAtPct}%`);
-        setTimeout(close, 1200);
       } catch (err) {
         setMsg('Could not save: ' + (err?.message || err), true);
       }

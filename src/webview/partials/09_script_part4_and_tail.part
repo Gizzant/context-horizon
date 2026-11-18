@@ -615,6 +615,7 @@
   function renderArgonTufteSurfaces(raw) {
     renderArgonTufteSurfacesCore(raw);
     try { renderModeViewContent(raw); } catch (err) { void err; }
+    try { if (typeof window.__hzRenderSettingsState === 'function') window.__hzRenderSettingsState(); } catch (err) { void err; }
   }
 
   function renderArgonTufteSurfacesCore(raw) {

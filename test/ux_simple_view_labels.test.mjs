@@ -71,8 +71,8 @@ describe('Brand header: title left, logo right', () => {
     assert.ok(logo, 'logo exists');
     assert.match(logo.getAttribute('src'), /^data:image\/png;base64,/);
     assert.ok(wordmark.compareDocumentPosition(logo) & 4, 'logo follows the wordmark');
-    assert.equal(header.querySelector('#tabSimple'), null);
-    assert.ok(doc.querySelector('.header-controls #tabSimple'));
+    assert.equal(header.querySelector('#tabAdvanced'), null);
+    assert.equal(doc.querySelector('#tabSimple'), null, 'the Simple tab is replaced by the mode-driven main view');
     assert.ok(doc.querySelector('.header-controls #tabAdvanced'));
   });
 
