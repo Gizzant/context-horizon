@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [4.3.0] - 2026-11-19
+
+### Waves 1–3 Token-Savings Suite, Zero-Round-Trip Shield & Tarball Compaction
+
+#### Added
+- **Wave 1 (`OPT-2` + `OPT-3`) — Unified `PostToolUse` FTS5 Parity, Explicit-Slice Clamping, Read-Interval Ledger & `GUARD-4` Fix**:
+  - Reordered `hooks/handlers/post-tool-use-core.mjs` to run `stripAnsiAndSpinners` + `compressCliOutputFts5Sync` before flat `ARTIFACT_OFFLOAD_4K` file dumps (`CLI_FTS5_COMPRESSED`) without double-counting `totalSavedTokens` or duplicating unreplaced output into `additionalContext` in default `replace` mode.
+  - Added `compressAntigravityPostOutput` and `recordAntigravityPostSavings` in `src/hooks/post_invocation_core.mjs`, keeping FTS5 DBs and fallback artifacts under `~/.gemini/antigravity/agy-horizon`.
+  - Removed the `!hasLineBounds` bypass in `src/core/shield_manager.mjs`, `hooks/handlers/pre-tool-use-core.mjs`, and `src/hooks/pre_invocation_core.mjs`, enforcing explicit-slice bounds (`250L`/`20 KB` normal, `150L`/`8 KB` near cliff via `computeByteBoundedSliceWindow`), adding per-file read-interval overlap trimming/anchoring (`mergeLineIntervals`, `trimRequestedRangeAgainstIntervals`, auto-invalidated on `mtimeMs`/`size`/edits/mutating shell), and attaching bounded `updatedInput` slices on `GUARD-4` delta and AST stub reads.
+- **Wave 2 (`OPT-1` + `OPT-4`) — Task-Boundary Compaction, Durable `StateBaton` Staging, Idle-TTL Pre-Compact Gate & Warm-Prefix Cache Shield**:
+  - Extended `src/core-isomorphic/coach/smartCompactAdvisor.mjs` (`EDIT_TOOL_REGEX` now matches `edit_file|write_file`) and added `evaluateIdleTtlPreCompactGate` (`IDLE_TTL_PRE_COMPACT`, `>=60k` context after `>5m`/`>1h` idle expiry).
+  - Wired task-boundary edit tracking into `hooks/handlers/pre-tool-use-core.mjs` (`saveBreakerWithBoundaryPreserved`), `StateBaton` pre-staging on `Stop` (`hooks/handlers/stop-gate.mjs`), Antigravity `evaluateAntigravityTaskBoundaryCompact` (`src/hooks/post_invocation_core.mjs` under `~/.gemini/antigravity/agy-horizon/batons`), and warm-prefix `DET-09` edit delta auto-staging + automatic `PostCompact` flush (`hooks/handlers/compact-lifecycle.mjs`, `hooks/handlers/user-prompt-submit.mjs`, `src/hooks/pre_invocation_core.mjs`).
+- **Wave 3 (`OPT-5` + `OPT-6` Half) — Read-Only Subagent Auto-Tiering, Handoff Condenser & Terse `MCP_TOOLS`**:
+  - Auto-tiered read-only scout spawns (`Task`/`Agent` → `haiku`, `invoke_subagent` → `flash` via `updatedInput`) in `AUTO_PILOT` when no Frontier model is explicitly pinned by the prompt.
+  - Added `condenseSubagentHandoffOutput` in `src/core/coach/subagent_ipi_sanitizer.mjs` and wired `>1,200`-token subagent handoff condensing + raw FTS5 archiving + single-wrapper `DET-19` framing (`SUBAGENT_HANDOFF_CONDENSED`) into both Claude Code (`hooks/handlers/post-tool-use-core.mjs`) and Antigravity (`src/hooks/post_invocation_core.mjs`).
+  - Compacted `MCP_TOOLS` prose descriptions in `packages/mcp/src/server.mjs` (`2,493` chars serialized across all 7 tools).
+- **Paired Live OpenRouter A/B Benchmark (`experiments/model-switch-benchmark/results/highbeam_ab_results.json`)**:
+  - Verified **`8/8` (`100%`)** task completion across alternating `BASELINE` vs. `HIGHBEAM` runs (`anthropic/claude-sonnet-5.5`), achieving **`-16.18%` net USD** (`$1.8557` → `$1.5555`, `-$0.3002`), **`-23.43%`** total prompt billable tokens (`-36.12%` `cache_creation`, `-21.65%` `cache_read`), `12` zero-round-trip byte clamps (`0` byte-cap hard blocks vs. `12` in `v4.2.3`), and `29` hook savings receipts (`79,155` tokens saved).
+
+#### Changed & Packaged
+- **Tarball & Cross-Package Parity Trim (`scripts/build_webview_html.mjs`, `packages/pro/src/_license.mjs`, `package.json`, `.npmignore`)**:
+  - Added `packages/pro/src/_license.mjs` dual-resolver and excluded duplicate/legacy unreferenced assets from root `npm pack`, plus added ASI/template/regex-safe `<script>`/`<style>`/HTML build compaction (`src/webview/horizon_panel.html` `634,287` B, root `npm pack` `1,232,873` B / `270` entries).
+
 ## [4.2.3] - 2026-11-19
 
 ### Broad CLI FTS5 Compression, Byte-Width Read Clamping & Post-Edit Verify Fold

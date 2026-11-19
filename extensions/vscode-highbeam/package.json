@@ -3,7 +3,7 @@
   "displayName": "Highbeam — AI Context & KV-Cache HUD",
   "description": "40-cell AI context window visualizer, warm KV-cache TTL timer, and zero-token guardrails HUD for Google Antigravity, Claude Code, Cursor, Codex CLI, and Gemini CLI (100% local loopback).",
   "publisher": "gizzant",
-  "version": "4.2.3",
+  "version": "4.3.0",
   "license": "MIT",
   "icon": "media/icon.png",
   "repository": {

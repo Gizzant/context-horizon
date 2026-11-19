@@ -1,28 +1,29 @@
 {
-  "recordedAtUtc": "2026-11-19T16:02:32.508Z",
+  "recordedAtUtc": "2026-11-19T19:26:05.584Z",
   "model": "anthropic/claude-sonnet-5.5",
-  "keyDeltaUsd": 3.89955,
-  "summedRunUsd": 3.957731,
+  "keyDeltaUsd": 3.306362,
+  "summedRunUsd": 3.411159,
   "summary": {
     "baseline": {
       "runs": 8,
       "completed": 8,
       "completionPct": 100,
-      "totalBilledUsd": 2.120612,
-      "meanBilledUsdPerRun": 0.265076,
-      "costPerCompletedTaskUsd": 0.265076,
-      "inputTokens": 162,
-      "cacheCreateTokens": 406643,
-      "cacheReadTokens": 3176084,
-      "outputTokens": 78607,
-      "totalPromptBillTokens": 3582889,
-      "requests": 81,
+      "totalBilledUsd": 1.85566,
+      "meanBilledUsdPerRun": 0.231958,
+      "costPerCompletedTaskUsd": 0.231958,
+      "inputTokens": 152,
+      "cacheCreateTokens": 356967,
+      "cacheReadTokens": 2534584,
+      "outputTokens": 70948,
+      "totalPromptBillTokens": 2891703,
+      "requests": 76,
       "turns": 16,
-      "wallTimeS": 633.26,
+      "wallTimeS": 535.44,
       "highbeamHooks": {
         "totalReceipts": 0,
         "ledgerSavedTokens": 0,
         "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
         "shieldBlocksLineCap": 0
       }
     },
@@ -30,106 +31,171 @@
       "runs": 8,
       "completed": 8,
       "completionPct": 100,
-      "totalBilledUsd": 1.837119,
-      "meanBilledUsdPerRun": 0.22964,
-      "costPerCompletedTaskUsd": 0.22964,
-      "inputTokens": 218,
-      "cacheCreateTokens": 270081,
-      "cacheReadTokens": 2830597,
-      "outputTokens": 87842,
-      "totalPromptBillTokens": 3100896,
-      "requests": 109,
+      "totalBilledUsd": 1.555499,
+      "meanBilledUsdPerRun": 0.194437,
+      "costPerCompletedTaskUsd": 0.194437,
+      "inputTokens": 180,
+      "cacheCreateTokens": 228026,
+      "cacheReadTokens": 1985841,
+      "outputTokens": 78649,
+      "totalPromptBillTokens": 2214047,
+      "requests": 90,
       "turns": 16,
-      "wallTimeS": 719.73,
+      "wallTimeS": 647.7,
       "highbeamHooks": {
-        "totalReceipts": 33,
-        "ledgerSavedTokens": 105425,
-        "shieldBlocksByteCap": 12,
+        "totalReceipts": 29,
+        "ledgerSavedTokens": 79155,
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 12,
         "shieldBlocksLineCap": 0
       }
     },
-    "costDeltaUsd": -0.283493,
-    "costDeltaPct": -13.37
+    "costDeltaUsd": -0.300161,
+    "costDeltaPct": -16.18
   },
   "byTask": [
     {
       "task_id": "T01",
-      "baselineUsd": 0.256982,
-      "highbeamUsd": 0.194645,
-      "deltaUsd": -0.062337,
-      "baselineOk": true,
-      "highbeamOk": true,
-      "highbeamHooks": {
-        "totalReceipts": 5,
-        "byCategory": {
-          "BOUNDED_READ_ENFORCED": 3,
-          "LOSSLESS_POST_SANITIZER": 2
-        },
-        "ledgerSavedTokens": 14003,
-        "shieldBlocksByteCap": 2,
-        "shieldBlocksLineCap": 0
-      }
-    },
-    {
-      "task_id": "T02",
-      "baselineUsd": 0.221338,
-      "highbeamUsd": 0.147747,
-      "deltaUsd": -0.073591,
-      "baselineOk": true,
-      "highbeamOk": true,
-      "highbeamHooks": {
-        "totalReceipts": 3,
-        "byCategory": {
-          "BOUNDED_READ_ENFORCED": 2,
-          "LOSSLESS_POST_SANITIZER": 1
-        },
-        "ledgerSavedTokens": 12498,
-        "shieldBlocksByteCap": 2,
-        "shieldBlocksLineCap": 0
-      }
-    },
-    {
-      "task_id": "T03",
-      "baselineUsd": 0.229693,
-      "highbeamUsd": 0.197035,
-      "deltaUsd": -0.032658,
+      "baselineUsd": 0.230209,
+      "highbeamUsd": 0.138116,
+      "deltaUsd": -0.092093,
       "baselineOk": true,
       "highbeamOk": true,
       "highbeamHooks": {
         "totalReceipts": 4,
         "byCategory": {
           "BOUNDED_READ_ENFORCED": 2,
-          "LOSSLESS_POST_SANITIZER": 2
+          "CLI_FTS5_COMPRESSED": 1,
+          "LOSSLESS_POST_SANITIZER": 1
         },
-        "ledgerSavedTokens": 13539,
-        "shieldBlocksByteCap": 2,
+        "ledgerSavedTokens": 11806,
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 2,
+        "shieldBlocksLineCap": 0
+      }
+    },
+    {
+      "task_id": "T02",
+      "baselineUsd": 0.217623,
+      "highbeamUsd": 0.152783,
+      "deltaUsd": -0.06484,
+      "baselineOk": true,
+      "highbeamOk": true,
+      "highbeamHooks": {
+        "totalReceipts": 4,
+        "byCategory": {
+          "BOUNDED_READ_ENFORCED": 2,
+          "CLI_FTS5_COMPRESSED": 1,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 11663,
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 2,
+        "shieldBlocksLineCap": 0
+      }
+    },
+    {
+      "task_id": "T03",
+      "baselineUsd": 0.237603,
+      "highbeamUsd": 0.181494,
+      "deltaUsd": -0.056109,
+      "baselineOk": true,
+      "highbeamOk": true,
+      "highbeamHooks": {
+        "totalReceipts": 4,
+        "byCategory": {
+          "BOUNDED_READ_ENFORCED": 3,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 11280,
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 2,
         "shieldBlocksLineCap": 0
       }
     },
     {
       "task_id": "T04",
-      "baselineUsd": 0.199016,
-      "highbeamUsd": 0.214351,
-      "deltaUsd": 0.015335,
+      "baselineUsd": 0.217591,
+      "highbeamUsd": 0.15849,
+      "deltaUsd": -0.059101,
       "baselineOk": true,
       "highbeamOk": true,
       "highbeamHooks": {
-        "totalReceipts": 7,
+        "totalReceipts": 3,
         "byCategory": {
-          "BOUNDED_READ_ENFORCED": 3,
-          "ARTIFACT_OFFLOAD_4K": 2,
-          "LOSSLESS_POST_SANITIZER": 2
+          "ARTIFACT_OFFLOAD_4K": 1,
+          "BOUNDED_READ_ENFORCED": 1,
+          "LOSSLESS_POST_SANITIZER": 1
         },
-        "ledgerSavedTokens": 27110,
-        "shieldBlocksByteCap": 2,
+        "ledgerSavedTokens": 8907,
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 1,
         "shieldBlocksLineCap": 0
       }
     },
     {
       "task_id": "T05",
-      "baselineUsd": 0.277889,
-      "highbeamUsd": 0.287952,
-      "deltaUsd": 0.010063,
+      "baselineUsd": 0.1811,
+      "highbeamUsd": 0.218278,
+      "deltaUsd": 0.037178,
+      "baselineOk": true,
+      "highbeamOk": true,
+      "highbeamHooks": {
+        "totalReceipts": 2,
+        "byCategory": {
+          "BOUNDED_READ_ENFORCED": 1,
+          "CLI_FTS5_COMPRESSED": 1
+        },
+        "ledgerSavedTokens": 5895,
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 1,
+        "shieldBlocksLineCap": 0
+      }
+    },
+    {
+      "task_id": "T06",
+      "baselineUsd": 0.183272,
+      "highbeamUsd": 0.19065,
+      "deltaUsd": 0.007378,
+      "baselineOk": true,
+      "highbeamOk": true,
+      "highbeamHooks": {
+        "totalReceipts": 3,
+        "byCategory": {
+          "CLI_FTS5_COMPRESSED": 2,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 3493,
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldBlocksLineCap": 0
+      }
+    },
+    {
+      "task_id": "T07",
+      "baselineUsd": 0.34656,
+      "highbeamUsd": 0.314421,
+      "deltaUsd": -0.032139,
+      "baselineOk": true,
+      "highbeamOk": true,
+      "highbeamHooks": {
+        "totalReceipts": 4,
+        "byCategory": {
+          "BOUNDED_READ_ENFORCED": 2,
+          "CLI_FTS5_COMPRESSED": 1,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 11711,
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 2,
+        "shieldBlocksLineCap": 0
+      }
+    },
+    {
+      "task_id": "T08",
+      "baselineUsd": 0.241702,
+      "highbeamUsd": 0.201267,
+      "deltaUsd": -0.040435,
       "baselineOk": true,
       "highbeamOk": true,
       "highbeamHooks": {
@@ -139,63 +205,9 @@
           "CLI_FTS5_COMPRESSED": 2,
           "LOSSLESS_POST_SANITIZER": 1
         },
-        "ledgerSavedTokens": 16810,
-        "shieldBlocksByteCap": 2,
-        "shieldBlocksLineCap": 0
-      }
-    },
-    {
-      "task_id": "T06",
-      "baselineUsd": 0.171151,
-      "highbeamUsd": 0.193551,
-      "deltaUsd": 0.0224,
-      "baselineOk": true,
-      "highbeamOk": true,
-      "highbeamHooks": {
-        "totalReceipts": 3,
-        "byCategory": {
-          "CLI_FTS5_COMPRESSED": 1,
-          "ARTIFACT_OFFLOAD_4K": 1,
-          "LOSSLESS_POST_SANITIZER": 1
-        },
-        "ledgerSavedTokens": 7105,
+        "ledgerSavedTokens": 14400,
         "shieldBlocksByteCap": 0,
-        "shieldBlocksLineCap": 0
-      }
-    },
-    {
-      "task_id": "T07",
-      "baselineUsd": 0.475958,
-      "highbeamUsd": 0.390945,
-      "deltaUsd": -0.085013,
-      "baselineOk": true,
-      "highbeamOk": true,
-      "highbeamHooks": {
-        "totalReceipts": 3,
-        "byCategory": {
-          "CLI_FTS5_COMPRESSED": 2,
-          "LOSSLESS_POST_SANITIZER": 1
-        },
-        "ledgerSavedTokens": 1136,
-        "shieldBlocksByteCap": 0,
-        "shieldBlocksLineCap": 0
-      }
-    },
-    {
-      "task_id": "T08",
-      "baselineUsd": 0.288585,
-      "highbeamUsd": 0.210893,
-      "deltaUsd": -0.077692,
-      "baselineOk": true,
-      "highbeamOk": true,
-      "highbeamHooks": {
-        "totalReceipts": 3,
-        "byCategory": {
-          "BOUNDED_READ_ENFORCED": 2,
-          "LOSSLESS_POST_SANITIZER": 1
-        },
-        "ledgerSavedTokens": 13224,
-        "shieldBlocksByteCap": 2,
+        "shieldClampsByteCap": 2,
         "shieldBlocksLineCap": 0
       }
     }
@@ -210,12 +222,13 @@
       "turns": 2,
       "cap_reason": "",
       "constraint_violations": 0,
-      "wall_time_s": 60.49,
+      "wall_time_s": 52.16,
       "highbeamHooks": {
         "totalReceipts": 0,
         "byCategory": {},
         "ledgerSavedTokens": 0,
         "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
         "shieldBlocksLineCap": 0
       },
       "wireObs": {
@@ -224,6 +237,7 @@
         "finalMessagesChars": 0,
         "specReadResultChars": 0,
         "specShieldDenied": false,
+        "specShieldClamped": false,
         "bashDiagResultChars": 0,
         "postEditReadResultChars": 0,
         "postEditFoldContextInjected": false,
@@ -231,12 +245,12 @@
         "estFinalMessagesTok": 0
       },
       "billing": {
-        "requests": 10,
-        "billedUsd": 0.256982,
-        "inputTokens": 20,
-        "cacheCreateTokens": 57380,
-        "cacheReadTokens": 416217,
-        "outputTokens": 7187
+        "requests": 8,
+        "billedUsd": 0.230209,
+        "inputTokens": 16,
+        "cacheCreateTokens": 52988,
+        "cacheReadTokens": 302267,
+        "outputTokens": 6748
       }
     },
     {
@@ -248,15 +262,17 @@
       "turns": 2,
       "cap_reason": "",
       "constraint_violations": 0,
-      "wall_time_s": 71.32,
+      "wall_time_s": 50.15,
       "highbeamHooks": {
-        "totalReceipts": 5,
+        "totalReceipts": 4,
         "byCategory": {
-          "BOUNDED_READ_ENFORCED": 3,
-          "LOSSLESS_POST_SANITIZER": 2
+          "BOUNDED_READ_ENFORCED": 2,
+          "CLI_FTS5_COMPRESSED": 1,
+          "LOSSLESS_POST_SANITIZER": 1
         },
-        "ledgerSavedTokens": 14003,
-        "shieldBlocksByteCap": 2,
+        "ledgerSavedTokens": 11806,
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 2,
         "shieldBlocksLineCap": 0
       },
       "wireObs": {
@@ -265,6 +281,7 @@
         "finalMessagesChars": 0,
         "specReadResultChars": 0,
         "specShieldDenied": false,
+        "specShieldClamped": false,
         "bashDiagResultChars": 0,
         "postEditReadResultChars": 0,
         "postEditFoldContextInjected": false,
@@ -272,12 +289,12 @@
         "estFinalMessagesTok": 0
       },
       "billing": {
-        "requests": 12,
-        "billedUsd": 0.194645,
-        "inputTokens": 24,
-        "cacheCreateTokens": 30701,
-        "cacheReadTokens": 273143,
-        "outputTokens": 9053
+        "requests": 8,
+        "billedUsd": 0.138116,
+        "inputTokens": 16,
+        "cacheCreateTokens": 23177,
+        "cacheReadTokens": 152714,
+        "outputTokens": 6487
       }
     },
     {
@@ -289,15 +306,17 @@
       "turns": 2,
       "cap_reason": "",
       "constraint_violations": 0,
-      "wall_time_s": 52.33,
+      "wall_time_s": 55.63,
       "highbeamHooks": {
-        "totalReceipts": 3,
+        "totalReceipts": 4,
         "byCategory": {
           "BOUNDED_READ_ENFORCED": 2,
+          "CLI_FTS5_COMPRESSED": 1,
           "LOSSLESS_POST_SANITIZER": 1
         },
-        "ledgerSavedTokens": 12498,
-        "shieldBlocksByteCap": 2,
+        "ledgerSavedTokens": 11663,
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 2,
         "shieldBlocksLineCap": 0
       },
       "wireObs": {
@@ -306,6 +325,7 @@
         "finalMessagesChars": 0,
         "specReadResultChars": 0,
         "specShieldDenied": false,
+        "specShieldClamped": false,
         "bashDiagResultChars": 0,
         "postEditReadResultChars": 0,
         "postEditFoldContextInjected": false,
@@ -314,11 +334,11 @@
       },
       "billing": {
         "requests": 9,
-        "billedUsd": 0.147747,
+        "billedUsd": 0.152783,
         "inputTokens": 18,
-        "cacheCreateTokens": 26327,
-        "cacheReadTokens": 175434,
-        "outputTokens": 6435
+        "cacheCreateTokens": 24011,
+        "cacheReadTokens": 179700,
+        "outputTokens": 7475
       }
     },
     {
@@ -330,12 +350,13 @@
       "turns": 2,
       "cap_reason": "",
       "constraint_violations": 0,
-      "wall_time_s": 53.15,
+      "wall_time_s": 54.06,
       "highbeamHooks": {
         "totalReceipts": 0,
         "byCategory": {},
         "ledgerSavedTokens": 0,
         "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
         "shieldBlocksLineCap": 0
       },
       "wireObs": {
@@ -344,6 +365,7 @@
         "finalMessagesChars": 0,
         "specReadResultChars": 0,
         "specShieldDenied": false,
+        "specShieldClamped": false,
         "bashDiagResultChars": 0,
         "postEditReadResultChars": 0,
         "postEditFoldContextInjected": false,
@@ -351,12 +373,12 @@
         "estFinalMessagesTok": 0
       },
       "billing": {
-        "requests": 8,
-        "billedUsd": 0.221338,
-        "inputTokens": 16,
-        "cacheCreateTokens": 47896,
-        "cacheReadTokens": 303160,
-        "outputTokens": 7125
+        "requests": 9,
+        "billedUsd": 0.217623,
+        "inputTokens": 18,
+        "cacheCreateTokens": 47899,
+        "cacheReadTokens": 347097,
+        "outputTokens": 6313
       }
     },
     {
@@ -368,12 +390,13 @@
       "turns": 2,
       "cap_reason": "",
       "constraint_violations": 0,
-      "wall_time_s": 55.49,
+      "wall_time_s": 57.04,
       "highbeamHooks": {
         "totalReceipts": 0,
         "byCategory": {},
         "ledgerSavedTokens": 0,
         "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
         "shieldBlocksLineCap": 0
       },
       "wireObs": {
@@ -382,6 +405,7 @@
         "finalMessagesChars": 0,
         "specReadResultChars": 0,
         "specShieldDenied": false,
+        "specShieldClamped": false,
         "bashDiagResultChars": 0,
         "postEditReadResultChars": 0,
         "postEditFoldContextInjected": false,
@@ -390,11 +414,11 @@
       },
       "billing": {
         "requests": 9,
-        "billedUsd": 0.229693,
+        "billedUsd": 0.237603,
         "inputTokens": 18,
-        "cacheCreateTokens": 49669,
-        "cacheReadTokens": 346241,
-        "outputTokens": 7086
+        "cacheCreateTokens": 52673,
+        "cacheReadTokens": 352443,
+        "outputTokens": 7064
       }
     },
     {
@@ -406,15 +430,16 @@
       "turns": 2,
       "cap_reason": "",
       "constraint_violations": 0,
-      "wall_time_s": 75.55,
+      "wall_time_s": 60.75,
       "highbeamHooks": {
         "totalReceipts": 4,
         "byCategory": {
-          "BOUNDED_READ_ENFORCED": 2,
-          "LOSSLESS_POST_SANITIZER": 2
+          "BOUNDED_READ_ENFORCED": 3,
+          "LOSSLESS_POST_SANITIZER": 1
         },
-        "ledgerSavedTokens": 13539,
-        "shieldBlocksByteCap": 2,
+        "ledgerSavedTokens": 11280,
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 2,
         "shieldBlocksLineCap": 0
       },
       "wireObs": {
@@ -423,6 +448,7 @@
         "finalMessagesChars": 0,
         "specReadResultChars": 0,
         "specShieldDenied": false,
+        "specShieldClamped": false,
         "bashDiagResultChars": 0,
         "postEditReadResultChars": 0,
         "postEditFoldContextInjected": false,
@@ -430,12 +456,12 @@
         "estFinalMessagesTok": 0
       },
       "billing": {
-        "requests": 14,
-        "billedUsd": 0.197035,
-        "inputTokens": 28,
-        "cacheCreateTokens": 30132,
-        "cacheReadTokens": 333890,
-        "outputTokens": 8826
+        "requests": 10,
+        "billedUsd": 0.181494,
+        "inputTokens": 20,
+        "cacheCreateTokens": 31883,
+        "cacheReadTokens": 252467,
+        "outputTokens": 7650
       }
     },
     {
@@ -447,16 +473,17 @@
       "turns": 2,
       "cap_reason": "",
       "constraint_violations": 0,
-      "wall_time_s": 71.58,
+      "wall_time_s": 67.77,
       "highbeamHooks": {
-        "totalReceipts": 7,
+        "totalReceipts": 3,
         "byCategory": {
-          "BOUNDED_READ_ENFORCED": 3,
-          "ARTIFACT_OFFLOAD_4K": 2,
-          "LOSSLESS_POST_SANITIZER": 2
+          "ARTIFACT_OFFLOAD_4K": 1,
+          "BOUNDED_READ_ENFORCED": 1,
+          "LOSSLESS_POST_SANITIZER": 1
         },
-        "ledgerSavedTokens": 27110,
-        "shieldBlocksByteCap": 2,
+        "ledgerSavedTokens": 8907,
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 1,
         "shieldBlocksLineCap": 0
       },
       "wireObs": {
@@ -465,6 +492,7 @@
         "finalMessagesChars": 0,
         "specReadResultChars": 0,
         "specShieldDenied": false,
+        "specShieldClamped": false,
         "bashDiagResultChars": 0,
         "postEditReadResultChars": 0,
         "postEditFoldContextInjected": false,
@@ -472,12 +500,12 @@
         "estFinalMessagesTok": 0
       },
       "billing": {
-        "requests": 12,
-        "billedUsd": 0.214351,
-        "inputTokens": 24,
-        "cacheCreateTokens": 34399,
-        "cacheReadTokens": 289050,
-        "outputTokens": 9940
+        "requests": 10,
+        "billedUsd": 0.15849,
+        "inputTokens": 20,
+        "cacheCreateTokens": 24062,
+        "cacheReadTokens": 175555,
+        "outputTokens": 8074
       }
     },
     {
@@ -489,12 +517,13 @@
       "turns": 2,
       "cap_reason": "",
       "constraint_violations": 0,
-      "wall_time_s": 57.61,
+      "wall_time_s": 80.08,
       "highbeamHooks": {
         "totalReceipts": 0,
         "byCategory": {},
         "ledgerSavedTokens": 0,
         "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
         "shieldBlocksLineCap": 0
       },
       "wireObs": {
@@ -503,6 +532,7 @@
         "finalMessagesChars": 0,
         "specReadResultChars": 0,
         "specShieldDenied": false,
+        "specShieldClamped": false,
         "bashDiagResultChars": 0,
         "postEditReadResultChars": 0,
         "postEditFoldContextInjected": false,
@@ -510,12 +540,12 @@
         "estFinalMessagesTok": 0
       },
       "billing": {
-        "requests": 8,
-        "billedUsd": 0.199016,
-        "inputTokens": 16,
-        "cacheCreateTokens": 42839,
-        "cacheReadTokens": 203061,
-        "outputTokens": 7158
+        "requests": 12,
+        "billedUsd": 0.217591,
+        "inputTokens": 24,
+        "cacheCreateTokens": 32407,
+        "cacheReadTokens": 295455,
+        "outputTokens": 10698
       }
     },
     {
@@ -527,12 +557,13 @@
       "turns": 2,
       "cap_reason": "",
       "constraint_violations": 0,
-      "wall_time_s": 78.58,
+      "wall_time_s": 64.31,
       "highbeamHooks": {
         "totalReceipts": 0,
         "byCategory": {},
         "ledgerSavedTokens": 0,
         "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
         "shieldBlocksLineCap": 0
       },
       "wireObs": {
@@ -541,6 +572,7 @@
         "finalMessagesChars": 0,
         "specReadResultChars": 0,
         "specShieldDenied": false,
+        "specShieldClamped": false,
         "bashDiagResultChars": 0,
         "postEditReadResultChars": 0,
         "postEditFoldContextInjected": false,
@@ -548,12 +580,12 @@
         "estFinalMessagesTok": 0
       },
       "billing": {
-        "requests": 8,
-        "billedUsd": 0.277889,
-        "inputTokens": 16,
-        "cacheCreateTokens": 57174,
-        "cacheReadTokens": 323320,
-        "outputTokens": 10259
+        "requests": 9,
+        "billedUsd": 0.1811,
+        "inputTokens": 18,
+        "cacheCreateTokens": 29316,
+        "cacheReadTokens": 211344,
+        "outputTokens": 8664
       }
     },
     {
@@ -565,16 +597,16 @@
       "turns": 2,
       "cap_reason": "",
       "constraint_violations": 0,
-      "wall_time_s": 132.48,
+      "wall_time_s": 91.96,
       "highbeamHooks": {
-        "totalReceipts": 5,
+        "totalReceipts": 2,
         "byCategory": {
-          "BOUNDED_READ_ENFORCED": 2,
-          "CLI_FTS5_COMPRESSED": 2,
-          "LOSSLESS_POST_SANITIZER": 1
+          "BOUNDED_READ_ENFORCED": 1,
+          "CLI_FTS5_COMPRESSED": 1
         },
-        "ledgerSavedTokens": 16810,
-        "shieldBlocksByteCap": 2,
+        "ledgerSavedTokens": 5895,
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 1,
         "shieldBlocksLineCap": 0
       },
       "wireObs": {
@@ -583,6 +615,7 @@
         "finalMessagesChars": 0,
         "specReadResultChars": 0,
         "specShieldDenied": false,
+        "specShieldClamped": false,
         "bashDiagResultChars": 0,
         "postEditReadResultChars": 0,
         "postEditFoldContextInjected": false,
@@ -590,12 +623,12 @@
         "estFinalMessagesTok": 0
       },
       "billing": {
-        "requests": 16,
-        "billedUsd": 0.287952,
-        "inputTokens": 32,
-        "cacheCreateTokens": 38616,
-        "cacheReadTokens": 438678,
-        "outputTokens": 14748
+        "requests": 14,
+        "billedUsd": 0.218278,
+        "inputTokens": 28,
+        "cacheCreateTokens": 28437,
+        "cacheReadTokens": 306590,
+        "outputTokens": 11647
       }
     },
     {
@@ -607,16 +640,16 @@
       "turns": 2,
       "cap_reason": "",
       "constraint_violations": 0,
-      "wall_time_s": 86.34,
+      "wall_time_s": 89.57,
       "highbeamHooks": {
         "totalReceipts": 3,
         "byCategory": {
-          "CLI_FTS5_COMPRESSED": 1,
-          "ARTIFACT_OFFLOAD_4K": 1,
+          "CLI_FTS5_COMPRESSED": 2,
           "LOSSLESS_POST_SANITIZER": 1
         },
-        "ledgerSavedTokens": 7105,
+        "ledgerSavedTokens": 3493,
         "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
         "shieldBlocksLineCap": 0
       },
       "wireObs": {
@@ -625,6 +658,7 @@
         "finalMessagesChars": 0,
         "specReadResultChars": 0,
         "specShieldDenied": false,
+        "specShieldClamped": false,
         "bashDiagResultChars": 0,
         "postEditReadResultChars": 0,
         "postEditFoldContextInjected": false,
@@ -633,11 +667,11 @@
       },
       "billing": {
         "requests": 14,
-        "billedUsd": 0.193551,
+        "billedUsd": 0.19065,
         "inputTokens": 28,
-        "cacheCreateTokens": 23980,
-        "cacheReadTokens": 244951,
-        "outputTokens": 10905
+        "cacheCreateTokens": 25251,
+        "cacheReadTokens": 249662,
+        "outputTokens": 10250
       }
     },
     {
@@ -649,12 +683,13 @@
       "turns": 2,
       "cap_reason": "",
       "constraint_violations": 0,
-      "wall_time_s": 76.65,
+      "wall_time_s": 66.78,
       "highbeamHooks": {
         "totalReceipts": 0,
         "byCategory": {},
         "ledgerSavedTokens": 0,
         "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
         "shieldBlocksLineCap": 0
       },
       "wireObs": {
@@ -663,6 +698,7 @@
         "finalMessagesChars": 0,
         "specReadResultChars": 0,
         "specShieldDenied": false,
+        "specShieldClamped": false,
         "bashDiagResultChars": 0,
         "postEditReadResultChars": 0,
         "postEditFoldContextInjected": false,
@@ -671,11 +707,11 @@
       },
       "billing": {
         "requests": 11,
-        "billedUsd": 0.171151,
+        "billedUsd": 0.183272,
         "inputTokens": 22,
-        "cacheCreateTokens": 28758,
-        "cacheReadTokens": 235015,
-        "outputTokens": 7571
+        "cacheCreateTokens": 28772,
+        "cacheReadTokens": 247482,
+        "outputTokens": 8655
       }
     },
     {
@@ -687,12 +723,13 @@
       "turns": 2,
       "cap_reason": "",
       "constraint_violations": 0,
-      "wall_time_s": 168.84,
+      "wall_time_s": 102.15,
       "highbeamHooks": {
         "totalReceipts": 0,
         "byCategory": {},
         "ledgerSavedTokens": 0,
         "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
         "shieldBlocksLineCap": 0
       },
       "wireObs": {
@@ -701,6 +738,7 @@
         "finalMessagesChars": 0,
         "specReadResultChars": 0,
         "specShieldDenied": false,
+        "specShieldClamped": false,
         "bashDiagResultChars": 0,
         "postEditReadResultChars": 0,
         "postEditFoldContextInjected": false,
@@ -708,12 +746,12 @@
         "estFinalMessagesTok": 0
       },
       "billing": {
-        "requests": 17,
-        "billedUsd": 0.475958,
-        "inputTokens": 34,
-        "cacheCreateTokens": 67870,
-        "cacheReadTokens": 907049,
-        "outputTokens": 21551
+        "requests": 10,
+        "billedUsd": 0.34656,
+        "inputTokens": 20,
+        "cacheCreateTokens": 61202,
+        "cacheReadTokens": 450546,
+        "outputTokens": 14846
       }
     },
     {
@@ -725,15 +763,17 @@
       "turns": 2,
       "cap_reason": "",
       "constraint_violations": 0,
-      "wall_time_s": 155.42,
+      "wall_time_s": 142.84,
       "highbeamHooks": {
-        "totalReceipts": 3,
+        "totalReceipts": 4,
         "byCategory": {
-          "CLI_FTS5_COMPRESSED": 2,
+          "BOUNDED_READ_ENFORCED": 2,
+          "CLI_FTS5_COMPRESSED": 1,
           "LOSSLESS_POST_SANITIZER": 1
         },
-        "ledgerSavedTokens": 1136,
+        "ledgerSavedTokens": 11711,
         "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 2,
         "shieldBlocksLineCap": 0
       },
       "wireObs": {
@@ -742,6 +782,7 @@
         "finalMessagesChars": 0,
         "specReadResultChars": 0,
         "specShieldDenied": false,
+        "specShieldClamped": false,
         "bashDiagResultChars": 0,
         "postEditReadResultChars": 0,
         "postEditFoldContextInjected": false,
@@ -749,12 +790,12 @@
         "estFinalMessagesTok": 0
       },
       "billing": {
-        "requests": 21,
-        "billedUsd": 0.390945,
-        "inputTokens": 42,
-        "cacheCreateTokens": 53897,
-        "cacheReadTokens": 817982,
-        "outputTokens": 17432
+        "requests": 12,
+        "billedUsd": 0.314421,
+        "inputTokens": 24,
+        "cacheCreateTokens": 43535,
+        "cacheReadTokens": 370957,
+        "outputTokens": 16844
       }
     },
     {
@@ -766,15 +807,17 @@
       "turns": 2,
       "cap_reason": "",
       "constraint_violations": 0,
-      "wall_time_s": 74.71,
+      "wall_time_s": 89.03,
       "highbeamHooks": {
-        "totalReceipts": 3,
+        "totalReceipts": 5,
         "byCategory": {
           "BOUNDED_READ_ENFORCED": 2,
+          "CLI_FTS5_COMPRESSED": 2,
           "LOSSLESS_POST_SANITIZER": 1
         },
-        "ledgerSavedTokens": 13224,
-        "shieldBlocksByteCap": 2,
+        "ledgerSavedTokens": 14400,
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 2,
         "shieldBlocksLineCap": 0
       },
       "wireObs": {
@@ -783,6 +826,7 @@
         "finalMessagesChars": 0,
         "specReadResultChars": 0,
         "specShieldDenied": false,
+        "specShieldClamped": false,
         "bashDiagResultChars": 0,
         "postEditReadResultChars": 0,
         "postEditFoldContextInjected": false,
@@ -790,12 +834,12 @@
         "estFinalMessagesTok": 0
       },
       "billing": {
-        "requests": 11,
-        "billedUsd": 0.210893,
-        "inputTokens": 22,
-        "cacheCreateTokens": 32029,
-        "cacheReadTokens": 257469,
-        "outputTokens": 10503
+        "requests": 13,
+        "billedUsd": 0.201267,
+        "inputTokens": 26,
+        "cacheCreateTokens": 27670,
+        "cacheReadTokens": 298196,
+        "outputTokens": 10222
       }
     },
     {
@@ -807,12 +851,13 @@
       "turns": 2,
       "cap_reason": "",
       "constraint_violations": 0,
-      "wall_time_s": 82.45,
+      "wall_time_s": 58.86,
       "highbeamHooks": {
         "totalReceipts": 0,
         "byCategory": {},
         "ledgerSavedTokens": 0,
         "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
         "shieldBlocksLineCap": 0
       },
       "wireObs": {
@@ -821,6 +866,7 @@
         "finalMessagesChars": 0,
         "specReadResultChars": 0,
         "specShieldDenied": false,
+        "specShieldClamped": false,
         "bashDiagResultChars": 0,
         "postEditReadResultChars": 0,
         "postEditFoldContextInjected": false,
@@ -828,12 +874,12 @@
         "estFinalMessagesTok": 0
       },
       "billing": {
-        "requests": 10,
-        "billedUsd": 0.288585,
-        "inputTokens": 20,
-        "cacheCreateTokens": 55057,
-        "cacheReadTokens": 442021,
-        "outputTokens": 10670
+        "requests": 8,
+        "billedUsd": 0.241702,
+        "inputTokens": 16,
+        "cacheCreateTokens": 51710,
+        "cacheReadTokens": 327950,
+        "outputTokens": 7960
       }
     }
   ]

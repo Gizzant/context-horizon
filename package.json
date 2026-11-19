@@ -1,7 +1,7 @@
 {
   "name": "highbeam-cli",
   "displayName": "Highbeam",
-  "version": "4.2.3",
+  "version": "4.3.0",
   "description": "Highbeam v4.2: Local context window profiler, warm KV-cache guard, and token-efficiency CLI for Google Antigravity, Claude Code, and MCP hosts.",
   "type": "module",
   "workspaces": [

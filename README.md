@@ -76,7 +76,7 @@ npx highbeam-cli audit --days 7
 Package or install the thin zero-dependency IDE sidebar & status bar extension from [`extensions/vscode-highbeam/`](extensions/vscode-highbeam/README.md):
 ```bash
 npm run build:vsix
-code --install-extension extensions/vscode-highbeam/highbeam-4.2.3.vsix
+code --install-extension extensions/vscode-highbeam/highbeam-4.3.0.vsix
 ```
 
 ---

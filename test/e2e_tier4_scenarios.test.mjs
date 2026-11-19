@@ -188,7 +188,7 @@ describe('Tier 4: Real-World Application Scenarios (Scenarios 1 - 7)', () => {
       // 2. Verify unified CLI responds to --version
       const verRes = runCli(['--version']);
       assert.equal(verRes.exitCode, 0);
-      assert.ok(verRes.output.includes('4.2.3'));
+      assert.ok(verRes.output.includes('4.3.0'));
 
       // 3. Write pre-existing user settings to test non-destructive backup & merge
       const claudeDir = path.join(sandbox.workspaceDir, '.claude');
@@ -253,7 +253,7 @@ describe('Tier 4: Real-World Application Scenarios (Scenarios 1 - 7)', () => {
       assert.ok(fs.existsSync(path.join(agPluginDir, 'plugin.json')), 'Antigravity plugin.json must exist');
       const agManifest = JSON.parse(fs.readFileSync(path.join(agPluginDir, 'plugin.json'), 'utf8'));
       assert.equal(agManifest.name, 'attention-horizon-antigravity');
-      assert.equal(agManifest.version, '4.2.3');
+      assert.equal(agManifest.version, '4.3.0');
       assert.equal(agManifest.hooks, './hooks.json');
 
       const agHooks = JSON.parse(fs.readFileSync(path.join(agPluginDir, 'hooks.json'), 'utf8'));
