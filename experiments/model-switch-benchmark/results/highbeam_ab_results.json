@@ -1,0 +1,840 @@
+{
+  "recordedAtUtc": "2026-11-19T16:02:32.508Z",
+  "model": "anthropic/claude-sonnet-5.5",
+  "keyDeltaUsd": 3.89955,
+  "summedRunUsd": 3.957731,
+  "summary": {
+    "baseline": {
+      "runs": 8,
+      "completed": 8,
+      "completionPct": 100,
+      "totalBilledUsd": 2.120612,
+      "meanBilledUsdPerRun": 0.265076,
+      "costPerCompletedTaskUsd": 0.265076,
+      "inputTokens": 162,
+      "cacheCreateTokens": 406643,
+      "cacheReadTokens": 3176084,
+      "outputTokens": 78607,
+      "totalPromptBillTokens": 3582889,
+      "requests": 81,
+      "turns": 16,
+      "wallTimeS": 633.26,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "ledgerSavedTokens": 0,
+        "shieldBlocksByteCap": 0,
+        "shieldBlocksLineCap": 0
+      }
+    },
+    "highbeam": {
+      "runs": 8,
+      "completed": 8,
+      "completionPct": 100,
+      "totalBilledUsd": 1.837119,
+      "meanBilledUsdPerRun": 0.22964,
+      "costPerCompletedTaskUsd": 0.22964,
+      "inputTokens": 218,
+      "cacheCreateTokens": 270081,
+      "cacheReadTokens": 2830597,
+      "outputTokens": 87842,
+      "totalPromptBillTokens": 3100896,
+      "requests": 109,
+      "turns": 16,
+      "wallTimeS": 719.73,
+      "highbeamHooks": {
+        "totalReceipts": 33,
+        "ledgerSavedTokens": 105425,
+        "shieldBlocksByteCap": 12,
+        "shieldBlocksLineCap": 0
+      }
+    },
+    "costDeltaUsd": -0.283493,
+    "costDeltaPct": -13.37
+  },
+  "byTask": [
+    {
+      "task_id": "T01",
+      "baselineUsd": 0.256982,
+      "highbeamUsd": 0.194645,
+      "deltaUsd": -0.062337,
+      "baselineOk": true,
+      "highbeamOk": true,
+      "highbeamHooks": {
+        "totalReceipts": 5,
+        "byCategory": {
+          "BOUNDED_READ_ENFORCED": 3,
+          "LOSSLESS_POST_SANITIZER": 2
+        },
+        "ledgerSavedTokens": 14003,
+        "shieldBlocksByteCap": 2,
+        "shieldBlocksLineCap": 0
+      }
+    },
+    {
+      "task_id": "T02",
+      "baselineUsd": 0.221338,
+      "highbeamUsd": 0.147747,
+      "deltaUsd": -0.073591,
+      "baselineOk": true,
+      "highbeamOk": true,
+      "highbeamHooks": {
+        "totalReceipts": 3,
+        "byCategory": {
+          "BOUNDED_READ_ENFORCED": 2,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 12498,
+        "shieldBlocksByteCap": 2,
+        "shieldBlocksLineCap": 0
+      }
+    },
+    {
+      "task_id": "T03",
+      "baselineUsd": 0.229693,
+      "highbeamUsd": 0.197035,
+      "deltaUsd": -0.032658,
+      "baselineOk": true,
+      "highbeamOk": true,
+      "highbeamHooks": {
+        "totalReceipts": 4,
+        "byCategory": {
+          "BOUNDED_READ_ENFORCED": 2,
+          "LOSSLESS_POST_SANITIZER": 2
+        },
+        "ledgerSavedTokens": 13539,
+        "shieldBlocksByteCap": 2,
+        "shieldBlocksLineCap": 0
+      }
+    },
+    {
+      "task_id": "T04",
+      "baselineUsd": 0.199016,
+      "highbeamUsd": 0.214351,
+      "deltaUsd": 0.015335,
+      "baselineOk": true,
+      "highbeamOk": true,
+      "highbeamHooks": {
+        "totalReceipts": 7,
+        "byCategory": {
+          "BOUNDED_READ_ENFORCED": 3,
+          "ARTIFACT_OFFLOAD_4K": 2,
+          "LOSSLESS_POST_SANITIZER": 2
+        },
+        "ledgerSavedTokens": 27110,
+        "shieldBlocksByteCap": 2,
+        "shieldBlocksLineCap": 0
+      }
+    },
+    {
+      "task_id": "T05",
+      "baselineUsd": 0.277889,
+      "highbeamUsd": 0.287952,
+      "deltaUsd": 0.010063,
+      "baselineOk": true,
+      "highbeamOk": true,
+      "highbeamHooks": {
+        "totalReceipts": 5,
+        "byCategory": {
+          "BOUNDED_READ_ENFORCED": 2,
+          "CLI_FTS5_COMPRESSED": 2,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 16810,
+        "shieldBlocksByteCap": 2,
+        "shieldBlocksLineCap": 0
+      }
+    },
+    {
+      "task_id": "T06",
+      "baselineUsd": 0.171151,
+      "highbeamUsd": 0.193551,
+      "deltaUsd": 0.0224,
+      "baselineOk": true,
+      "highbeamOk": true,
+      "highbeamHooks": {
+        "totalReceipts": 3,
+        "byCategory": {
+          "CLI_FTS5_COMPRESSED": 1,
+          "ARTIFACT_OFFLOAD_4K": 1,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 7105,
+        "shieldBlocksByteCap": 0,
+        "shieldBlocksLineCap": 0
+      }
+    },
+    {
+      "task_id": "T07",
+      "baselineUsd": 0.475958,
+      "highbeamUsd": 0.390945,
+      "deltaUsd": -0.085013,
+      "baselineOk": true,
+      "highbeamOk": true,
+      "highbeamHooks": {
+        "totalReceipts": 3,
+        "byCategory": {
+          "CLI_FTS5_COMPRESSED": 2,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 1136,
+        "shieldBlocksByteCap": 0,
+        "shieldBlocksLineCap": 0
+      }
+    },
+    {
+      "task_id": "T08",
+      "baselineUsd": 0.288585,
+      "highbeamUsd": 0.210893,
+      "deltaUsd": -0.077692,
+      "baselineOk": true,
+      "highbeamOk": true,
+      "highbeamHooks": {
+        "totalReceipts": 3,
+        "byCategory": {
+          "BOUNDED_READ_ENFORCED": 2,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 13224,
+        "shieldBlocksByteCap": 2,
+        "shieldBlocksLineCap": 0
+      }
+    }
+  ],
+  "results": [
+    {
+      "run_id": "T01_BASELINE_live",
+      "arm": "BASELINE",
+      "task_id": "T01",
+      "difficulty": "easy",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 60.49,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "byCategory": {},
+        "ledgerSavedTokens": 0,
+        "shieldBlocksByteCap": 0,
+        "shieldBlocksLineCap": 0
+      },
+      "wireObs": {
+        "requests": 0,
+        "totalMessagesChars": 0,
+        "finalMessagesChars": 0,
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "bashDiagResultChars": 0,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 0,
+        "estFinalMessagesTok": 0
+      },
+      "billing": {
+        "requests": 10,
+        "billedUsd": 0.256982,
+        "inputTokens": 20,
+        "cacheCreateTokens": 57380,
+        "cacheReadTokens": 416217,
+        "outputTokens": 7187
+      }
+    },
+    {
+      "run_id": "T01_HIGHBEAM_live",
+      "arm": "HIGHBEAM",
+      "task_id": "T01",
+      "difficulty": "easy",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 71.32,
+      "highbeamHooks": {
+        "totalReceipts": 5,
+        "byCategory": {
+          "BOUNDED_READ_ENFORCED": 3,
+          "LOSSLESS_POST_SANITIZER": 2
+        },
+        "ledgerSavedTokens": 14003,
+        "shieldBlocksByteCap": 2,
+        "shieldBlocksLineCap": 0
+      },
+      "wireObs": {
+        "requests": 0,
+        "totalMessagesChars": 0,
+        "finalMessagesChars": 0,
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "bashDiagResultChars": 0,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 0,
+        "estFinalMessagesTok": 0
+      },
+      "billing": {
+        "requests": 12,
+        "billedUsd": 0.194645,
+        "inputTokens": 24,
+        "cacheCreateTokens": 30701,
+        "cacheReadTokens": 273143,
+        "outputTokens": 9053
+      }
+    },
+    {
+      "run_id": "T02_HIGHBEAM_live",
+      "arm": "HIGHBEAM",
+      "task_id": "T02",
+      "difficulty": "easy",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 52.33,
+      "highbeamHooks": {
+        "totalReceipts": 3,
+        "byCategory": {
+          "BOUNDED_READ_ENFORCED": 2,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 12498,
+        "shieldBlocksByteCap": 2,
+        "shieldBlocksLineCap": 0
+      },
+      "wireObs": {
+        "requests": 0,
+        "totalMessagesChars": 0,
+        "finalMessagesChars": 0,
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "bashDiagResultChars": 0,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 0,
+        "estFinalMessagesTok": 0
+      },
+      "billing": {
+        "requests": 9,
+        "billedUsd": 0.147747,
+        "inputTokens": 18,
+        "cacheCreateTokens": 26327,
+        "cacheReadTokens": 175434,
+        "outputTokens": 6435
+      }
+    },
+    {
+      "run_id": "T02_BASELINE_live",
+      "arm": "BASELINE",
+      "task_id": "T02",
+      "difficulty": "easy",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 53.15,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "byCategory": {},
+        "ledgerSavedTokens": 0,
+        "shieldBlocksByteCap": 0,
+        "shieldBlocksLineCap": 0
+      },
+      "wireObs": {
+        "requests": 0,
+        "totalMessagesChars": 0,
+        "finalMessagesChars": 0,
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "bashDiagResultChars": 0,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 0,
+        "estFinalMessagesTok": 0
+      },
+      "billing": {
+        "requests": 8,
+        "billedUsd": 0.221338,
+        "inputTokens": 16,
+        "cacheCreateTokens": 47896,
+        "cacheReadTokens": 303160,
+        "outputTokens": 7125
+      }
+    },
+    {
+      "run_id": "T03_BASELINE_live",
+      "arm": "BASELINE",
+      "task_id": "T03",
+      "difficulty": "easy",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 55.49,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "byCategory": {},
+        "ledgerSavedTokens": 0,
+        "shieldBlocksByteCap": 0,
+        "shieldBlocksLineCap": 0
+      },
+      "wireObs": {
+        "requests": 0,
+        "totalMessagesChars": 0,
+        "finalMessagesChars": 0,
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "bashDiagResultChars": 0,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 0,
+        "estFinalMessagesTok": 0
+      },
+      "billing": {
+        "requests": 9,
+        "billedUsd": 0.229693,
+        "inputTokens": 18,
+        "cacheCreateTokens": 49669,
+        "cacheReadTokens": 346241,
+        "outputTokens": 7086
+      }
+    },
+    {
+      "run_id": "T03_HIGHBEAM_live",
+      "arm": "HIGHBEAM",
+      "task_id": "T03",
+      "difficulty": "easy",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 75.55,
+      "highbeamHooks": {
+        "totalReceipts": 4,
+        "byCategory": {
+          "BOUNDED_READ_ENFORCED": 2,
+          "LOSSLESS_POST_SANITIZER": 2
+        },
+        "ledgerSavedTokens": 13539,
+        "shieldBlocksByteCap": 2,
+        "shieldBlocksLineCap": 0
+      },
+      "wireObs": {
+        "requests": 0,
+        "totalMessagesChars": 0,
+        "finalMessagesChars": 0,
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "bashDiagResultChars": 0,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 0,
+        "estFinalMessagesTok": 0
+      },
+      "billing": {
+        "requests": 14,
+        "billedUsd": 0.197035,
+        "inputTokens": 28,
+        "cacheCreateTokens": 30132,
+        "cacheReadTokens": 333890,
+        "outputTokens": 8826
+      }
+    },
+    {
+      "run_id": "T04_HIGHBEAM_live",
+      "arm": "HIGHBEAM",
+      "task_id": "T04",
+      "difficulty": "medium",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 71.58,
+      "highbeamHooks": {
+        "totalReceipts": 7,
+        "byCategory": {
+          "BOUNDED_READ_ENFORCED": 3,
+          "ARTIFACT_OFFLOAD_4K": 2,
+          "LOSSLESS_POST_SANITIZER": 2
+        },
+        "ledgerSavedTokens": 27110,
+        "shieldBlocksByteCap": 2,
+        "shieldBlocksLineCap": 0
+      },
+      "wireObs": {
+        "requests": 0,
+        "totalMessagesChars": 0,
+        "finalMessagesChars": 0,
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "bashDiagResultChars": 0,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 0,
+        "estFinalMessagesTok": 0
+      },
+      "billing": {
+        "requests": 12,
+        "billedUsd": 0.214351,
+        "inputTokens": 24,
+        "cacheCreateTokens": 34399,
+        "cacheReadTokens": 289050,
+        "outputTokens": 9940
+      }
+    },
+    {
+      "run_id": "T04_BASELINE_live",
+      "arm": "BASELINE",
+      "task_id": "T04",
+      "difficulty": "medium",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 57.61,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "byCategory": {},
+        "ledgerSavedTokens": 0,
+        "shieldBlocksByteCap": 0,
+        "shieldBlocksLineCap": 0
+      },
+      "wireObs": {
+        "requests": 0,
+        "totalMessagesChars": 0,
+        "finalMessagesChars": 0,
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "bashDiagResultChars": 0,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 0,
+        "estFinalMessagesTok": 0
+      },
+      "billing": {
+        "requests": 8,
+        "billedUsd": 0.199016,
+        "inputTokens": 16,
+        "cacheCreateTokens": 42839,
+        "cacheReadTokens": 203061,
+        "outputTokens": 7158
+      }
+    },
+    {
+      "run_id": "T05_BASELINE_live",
+      "arm": "BASELINE",
+      "task_id": "T05",
+      "difficulty": "medium",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 78.58,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "byCategory": {},
+        "ledgerSavedTokens": 0,
+        "shieldBlocksByteCap": 0,
+        "shieldBlocksLineCap": 0
+      },
+      "wireObs": {
+        "requests": 0,
+        "totalMessagesChars": 0,
+        "finalMessagesChars": 0,
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "bashDiagResultChars": 0,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 0,
+        "estFinalMessagesTok": 0
+      },
+      "billing": {
+        "requests": 8,
+        "billedUsd": 0.277889,
+        "inputTokens": 16,
+        "cacheCreateTokens": 57174,
+        "cacheReadTokens": 323320,
+        "outputTokens": 10259
+      }
+    },
+    {
+      "run_id": "T05_HIGHBEAM_live",
+      "arm": "HIGHBEAM",
+      "task_id": "T05",
+      "difficulty": "medium",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 132.48,
+      "highbeamHooks": {
+        "totalReceipts": 5,
+        "byCategory": {
+          "BOUNDED_READ_ENFORCED": 2,
+          "CLI_FTS5_COMPRESSED": 2,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 16810,
+        "shieldBlocksByteCap": 2,
+        "shieldBlocksLineCap": 0
+      },
+      "wireObs": {
+        "requests": 0,
+        "totalMessagesChars": 0,
+        "finalMessagesChars": 0,
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "bashDiagResultChars": 0,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 0,
+        "estFinalMessagesTok": 0
+      },
+      "billing": {
+        "requests": 16,
+        "billedUsd": 0.287952,
+        "inputTokens": 32,
+        "cacheCreateTokens": 38616,
+        "cacheReadTokens": 438678,
+        "outputTokens": 14748
+      }
+    },
+    {
+      "run_id": "T06_HIGHBEAM_live",
+      "arm": "HIGHBEAM",
+      "task_id": "T06",
+      "difficulty": "medium",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 86.34,
+      "highbeamHooks": {
+        "totalReceipts": 3,
+        "byCategory": {
+          "CLI_FTS5_COMPRESSED": 1,
+          "ARTIFACT_OFFLOAD_4K": 1,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 7105,
+        "shieldBlocksByteCap": 0,
+        "shieldBlocksLineCap": 0
+      },
+      "wireObs": {
+        "requests": 0,
+        "totalMessagesChars": 0,
+        "finalMessagesChars": 0,
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "bashDiagResultChars": 0,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 0,
+        "estFinalMessagesTok": 0
+      },
+      "billing": {
+        "requests": 14,
+        "billedUsd": 0.193551,
+        "inputTokens": 28,
+        "cacheCreateTokens": 23980,
+        "cacheReadTokens": 244951,
+        "outputTokens": 10905
+      }
+    },
+    {
+      "run_id": "T06_BASELINE_live",
+      "arm": "BASELINE",
+      "task_id": "T06",
+      "difficulty": "medium",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 76.65,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "byCategory": {},
+        "ledgerSavedTokens": 0,
+        "shieldBlocksByteCap": 0,
+        "shieldBlocksLineCap": 0
+      },
+      "wireObs": {
+        "requests": 0,
+        "totalMessagesChars": 0,
+        "finalMessagesChars": 0,
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "bashDiagResultChars": 0,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 0,
+        "estFinalMessagesTok": 0
+      },
+      "billing": {
+        "requests": 11,
+        "billedUsd": 0.171151,
+        "inputTokens": 22,
+        "cacheCreateTokens": 28758,
+        "cacheReadTokens": 235015,
+        "outputTokens": 7571
+      }
+    },
+    {
+      "run_id": "T07_BASELINE_live",
+      "arm": "BASELINE",
+      "task_id": "T07",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 168.84,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "byCategory": {},
+        "ledgerSavedTokens": 0,
+        "shieldBlocksByteCap": 0,
+        "shieldBlocksLineCap": 0
+      },
+      "wireObs": {
+        "requests": 0,
+        "totalMessagesChars": 0,
+        "finalMessagesChars": 0,
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "bashDiagResultChars": 0,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 0,
+        "estFinalMessagesTok": 0
+      },
+      "billing": {
+        "requests": 17,
+        "billedUsd": 0.475958,
+        "inputTokens": 34,
+        "cacheCreateTokens": 67870,
+        "cacheReadTokens": 907049,
+        "outputTokens": 21551
+      }
+    },
+    {
+      "run_id": "T07_HIGHBEAM_live",
+      "arm": "HIGHBEAM",
+      "task_id": "T07",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 155.42,
+      "highbeamHooks": {
+        "totalReceipts": 3,
+        "byCategory": {
+          "CLI_FTS5_COMPRESSED": 2,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 1136,
+        "shieldBlocksByteCap": 0,
+        "shieldBlocksLineCap": 0
+      },
+      "wireObs": {
+        "requests": 0,
+        "totalMessagesChars": 0,
+        "finalMessagesChars": 0,
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "bashDiagResultChars": 0,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 0,
+        "estFinalMessagesTok": 0
+      },
+      "billing": {
+        "requests": 21,
+        "billedUsd": 0.390945,
+        "inputTokens": 42,
+        "cacheCreateTokens": 53897,
+        "cacheReadTokens": 817982,
+        "outputTokens": 17432
+      }
+    },
+    {
+      "run_id": "T08_HIGHBEAM_live",
+      "arm": "HIGHBEAM",
+      "task_id": "T08",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 74.71,
+      "highbeamHooks": {
+        "totalReceipts": 3,
+        "byCategory": {
+          "BOUNDED_READ_ENFORCED": 2,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 13224,
+        "shieldBlocksByteCap": 2,
+        "shieldBlocksLineCap": 0
+      },
+      "wireObs": {
+        "requests": 0,
+        "totalMessagesChars": 0,
+        "finalMessagesChars": 0,
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "bashDiagResultChars": 0,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 0,
+        "estFinalMessagesTok": 0
+      },
+      "billing": {
+        "requests": 11,
+        "billedUsd": 0.210893,
+        "inputTokens": 22,
+        "cacheCreateTokens": 32029,
+        "cacheReadTokens": 257469,
+        "outputTokens": 10503
+      }
+    },
+    {
+      "run_id": "T08_BASELINE_live",
+      "arm": "BASELINE",
+      "task_id": "T08",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 82.45,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "byCategory": {},
+        "ledgerSavedTokens": 0,
+        "shieldBlocksByteCap": 0,
+        "shieldBlocksLineCap": 0
+      },
+      "wireObs": {
+        "requests": 0,
+        "totalMessagesChars": 0,
+        "finalMessagesChars": 0,
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "bashDiagResultChars": 0,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 0,
+        "estFinalMessagesTok": 0
+      },
+      "billing": {
+        "requests": 10,
+        "billedUsd": 0.288585,
+        "inputTokens": 20,
+        "cacheCreateTokens": 55057,
+        "cacheReadTokens": 442021,
+        "outputTokens": 10670
+      }
+    }
+  ]
+}

@@ -459,12 +459,15 @@ export async function handlePreToolUse(inputData = {}) {
       }
     }
   }
+  let postEditVerifyInfo = null;
   if (!isOffMode && /^(?:default_api:)?(?:read_file|view_file)$/i.test(toolName)) {
+    const startRaw = toolInput?.StartLine ?? toolInput?.start_line ?? toolInput?.offset;
+    const endRaw = toolInput?.EndLine ?? toolInput?.end_line;
+    const limitRaw = toolInput?.limit;
     const hasBounds =
-      toolInput?.StartLine !== undefined ||
-      toolInput?.EndLine !== undefined ||
-      toolInput?.offset !== undefined ||
-      toolInput?.limit !== undefined;
+      startRaw !== undefined ||
+      endRaw !== undefined ||
+      limitRaw !== undefined;
     const rawReadTarget = String(
       toolInput?.Path || toolInput?.AbsolutePath || toolInput?.file_path || toolInput?.path || ''
     ).trim();
@@ -497,7 +500,152 @@ export async function handlePreToolUse(inputData = {}) {
       }
     }
 
-    if (!hasBounds && rawReadTarget) {
+    // IMP-4B: Immediate post-Edit verify re-read fold (<= 2 ops/turns) before heavy Shield block
+    if (rawReadTarget) {
+      try {
+        const absFoldTarget = path.isAbsolute(rawReadTarget)
+          ? rawReadTarget
+          : path.resolve(workspacePath, rawReadTarget);
+        const normFoldKey = absFoldTarget.replace(/\\/g, '/').toLowerCase();
+        if (!sidecar.fileState || typeof sidecar.fileState !== 'object') sidecar.fileState = {};
+        sidecar.fileState.opSeq = Number(sidecar.fileState.opSeq || 0) + 1;
+        const curOpSeq = sidecar.fileState.opSeq;
+        const curTurnNum = Number(sidecar.sessionMeta?.turnCount || 0);
+        const readNowMs = inputData.nowMs ?? inputData.eventTimestampUtc ?? Date.now();
+        const recentEdit =
+          inputData.recentEdit || sidecar.fileState?.recentEdits?.[normFoldKey] || null;
+        const isRecentPostEdit = Boolean(
+          recentEdit &&
+            ((Number.isFinite(Number(recentEdit.opSeq)) &&
+              curOpSeq - Number(recentEdit.opSeq) <= 2) ||
+              (Number.isFinite(Number(recentEdit.turn)) &&
+                Math.abs(curTurnNum - Number(recentEdit.turn)) <= 2) ||
+              (Number.isFinite(Number(recentEdit.timestampMs)) &&
+                readNowMs - Number(recentEdit.timestampMs) <= 120_000))
+        );
+        if (
+          isRecentPostEdit &&
+          fs.existsSync(absFoldTarget) &&
+          fs.statSync(absFoldTarget).isFile()
+        ) {
+          const stFold = fs.statSync(absFoldTarget);
+          if (stFold.size > 256 && stFold.size <= 512 * 1024) {
+            const rawContent = fs.readFileSync(absFoldTarget, 'utf8');
+            const totalLines =
+              rawContent.length > 0 ? rawContent.replace(/\r\n/g, '\n').split('\n').length : 0;
+            const startN = Number(startRaw);
+            const endN = Number(endRaw);
+            const limitN = Number(limitRaw);
+            const explicitSpan =
+              Number.isFinite(endN) && Number.isFinite(startN)
+                ? endN - startN + 1
+                : Number.isFinite(limitN)
+                  ? limitN
+                  : totalLines;
+            const requestedSpan = hasBounds ? explicitSpan : totalLines;
+            if (totalLines > 150 && requestedSpan > 150) {
+              const prevSnap =
+                typeof inputData.priorContentSnapshot === 'string'
+                  ? inputData.priorContentSnapshot
+                  : typeof sidecar.fileState?.readSnapshots?.[normFoldKey] === 'string'
+                    ? sidecar.fileState.readSnapshots[normFoldKey]
+                    : '';
+              const win = getCodeFoldMod().computePostEditReadWindow({
+                prevContent: prevSnap,
+                nextContent: rawContent,
+                explicitStartLine: recentEdit.approxLineStart,
+                windowLines: 150
+              });
+              const delta =
+                prevSnap && prevSnap !== rawContent
+                  ? getCodeFoldMod().computeCompactLineDiff(
+                      prevSnap,
+                      rawContent,
+                      path.basename(absFoldTarget)
+                    )
+                  : { wasDiffed: false, diffText: '', savedTokens: 0 };
+              const clampedLines = Math.max(
+                1,
+                Math.min(requestedSpan, totalLines) - win.windowLimit
+              );
+              const estSliceSavings = Math.max(
+                1,
+                Math.round((rawContent.length / 4) * (clampedLines / Math.max(1, totalLines)))
+              );
+              const savedTokens = Math.max(Number(delta.savedTokens || 0), estSliceSavings);
+
+              if (!sidecar.fileState.readSnapshots || typeof sidecar.fileState.readSnapshots !== 'object') {
+                sidecar.fileState.readSnapshots = {};
+              }
+              if (rawContent.length <= 128 * 1024) {
+                sidecar.fileState.readSnapshots[normFoldKey] = rawContent;
+              }
+              try {
+                recordAntigravitySidecarSavings(sidecar, {
+                  category: 'BOUNDED_READ_ENFORCED',
+                  savedTokens,
+                  detail: `Post-edit verify fold L${win.windowStart}-L${win.windowEnd} of ${path.basename(absFoldTarget)}`,
+                  nowMs: readNowMs
+                });
+              } catch (saveErr) {
+                recordHookDiagnostic('pre_invocation', 'handlePreToolUse.postEditVerifyFold', saveErr);
+              }
+
+              const cfg =
+                inputData.shieldConfig || getShieldMod().loadShieldConfig({ cwd: workspacePath });
+              const shieldOn = Boolean(
+                inputData.shieldForceActive ||
+                  (cfg.enabled && cfg.platforms?.antigravity !== false)
+              );
+              const foldMsg =
+                `[Highbeam Post-Edit Verify Fold — ${path.basename(absFoldTarget)} (${totalLines} lines, +${savedTokens} tok saved)] Re-read near your edited hunk instead of reloading the full file: use StartLine: ${win.windowStart}, EndLine: ${win.windowEnd}.` +
+                (delta.wasDiffed ? `\n${delta.diffText}` : '');
+              const recommendedSlice = {
+                StartLine: win.windowStart,
+                EndLine: win.windowEnd
+              };
+
+              if (shieldOn) {
+                try {
+                  writeSidecarAtomicSync(conversationId, sidecar);
+                } catch (sidecarErr) {
+                  recordHookDiagnostic('pre_invocation', 'handlePreToolUse.postEditSidecar', sidecarErr);
+                }
+                return {
+                  decision: 'deny',
+                  permissionDecision: 'deny',
+                  terminationBehavior: 'terminate',
+                  blocked: true,
+                  flightMode,
+                  detectorId: 'DET-06',
+                  subType: 'POST_EDIT_VERIFY_FOLD',
+                  postEditVerifyFolded: true,
+                  recommendedSlice,
+                  ...(delta.wasDiffed ? { deltaDiffStub: delta.diffText } : {}),
+                  savedTokens,
+                  reason: foldMsg,
+                  userMessage: foldMsg,
+                  systemMessage: foldMsg
+                };
+              }
+
+              postEditVerifyInfo = {
+                recommendedSlice,
+                deltaDiffStub: delta.wasDiffed ? delta.diffText : null,
+                savedTokens,
+                message: foldMsg
+              };
+            }
+          }
+        }
+      } catch (agFoldErr) {
+        recordHookDiagnostic('pre_invocation', 'handlePreToolUse.postEditVerifyFoldEval', agFoldErr, {
+          persist: false
+        });
+      }
+    }
+
+    if (!hasBounds && rawReadTarget && !postEditVerifyInfo) {
       const shieldRes = getShieldMod().evaluateShieldReadGuard({
         platform: 'antigravity',
         sessionId: conversationId,
@@ -524,10 +672,13 @@ export async function handlePreToolUse(inputData = {}) {
           blocked: true,
           flightMode,
           detectorId: shieldRes.detectorId,
+          triggerReason: shieldRes.triggerReason,
           reason: shieldRes.reason,
           userMessage: shieldRes.reason,
           systemMessage: shieldRes.reason,
           indexPath: shieldRes.indexPath,
+          fileBytes: shieldRes.fileBytes,
+          maxBytes: shieldRes.maxBytes,
           savedTokens: shieldRes.savedTokens,
           savedUSD: shieldRes.savedUSD
         };
@@ -750,6 +901,52 @@ export async function handlePreToolUse(inputData = {}) {
       if (effectivePromptText) {
         sidecar.sessionMeta.lastUserPrompt = effectivePromptText;
       }
+
+      // Record pre-edit snapshot + recent-edit marker for IMP-4B verify re-read folding
+      try {
+        const absEdit = path.isAbsolute(editTarget)
+          ? editTarget
+          : path.resolve(workspacePath, editTarget);
+        const normEditKey = absEdit.replace(/\\/g, '/').toLowerCase();
+        sidecar.fileState.opSeq = Number(sidecar.fileState.opSeq || 0) + 1;
+        if (!sidecar.fileState.readSnapshots || typeof sidecar.fileState.readSnapshots !== 'object') {
+          sidecar.fileState.readSnapshots = {};
+        }
+        let preEditTxt = '';
+        if (fs.existsSync(absEdit) && fs.statSync(absEdit).isFile() && fs.statSync(absEdit).size <= 128 * 1024) {
+          preEditTxt = fs.readFileSync(absEdit, 'utf8');
+          const snapKeys = Object.keys(sidecar.fileState.readSnapshots);
+          if (!sidecar.fileState.readSnapshots[normEditKey] && snapKeys.length >= 12) {
+            delete sidecar.fileState.readSnapshots[snapKeys[0]];
+          }
+          sidecar.fileState.readSnapshots[normEditKey] = preEditTxt;
+        } else if (typeof sidecar.fileState.readSnapshots[normEditKey] === 'string') {
+          preEditTxt = sidecar.fileState.readSnapshots[normEditKey];
+        }
+        if (!sidecar.fileState.recentEdits || typeof sidecar.fileState.recentEdits !== 'object') {
+          sidecar.fileState.recentEdits = {};
+        }
+        const editKeys = Object.keys(sidecar.fileState.recentEdits);
+        if (!sidecar.fileState.recentEdits[normEditKey] && editKeys.length >= 16) {
+          delete sidecar.fileState.recentEdits[editKeys[0]];
+        }
+        let approxLineStart = Number(toolInput?.StartLine ?? toolInput?.start_line);
+        if (!Number.isFinite(approxLineStart) || approxLineStart < 1) {
+          const probe = String(oldTxt || '').split(/\r?\n/).find((l) => l.trim().length > 0) || '';
+          const idx = probe && preEditTxt ? preEditTxt.indexOf(probe) : -1;
+          approxLineStart = idx >= 0 ? preEditTxt.slice(0, idx).split(/\r?\n/).length : 1;
+        }
+        sidecar.fileState.recentEdits[normEditKey] = {
+          opSeq: sidecar.fileState.opSeq,
+          turn: Number(sidecar.sessionMeta?.turnCount || 0),
+          timestampMs: inputData.nowMs ?? inputData.eventTimestampUtc ?? Date.now(),
+          approxLineStart: Math.round(approxLineStart)
+        };
+      } catch (agEditSnapErr) {
+        recordHookDiagnostic('pre_invocation', 'handlePreToolUse.recentEditTrack', agEditSnapErr, {
+          persist: false
+        });
+      }
     }
   }
 
@@ -765,10 +962,13 @@ export async function handlePreToolUse(inputData = {}) {
   let coldCacheWakeup = null;
   let systemMessage = gateSystemMessage;
   let astSignatureStub = null;
-  let deltaDiffStub = null;
-  let astStubSavedTokens = 0;
+  let deltaDiffStub = postEditVerifyInfo?.deltaDiffStub || null;
+  let astStubSavedTokens = postEditVerifyInfo?.savedTokens || 0;
+  if (postEditVerifyInfo && !isSilentMode && !systemMessage) {
+    systemMessage = postEditVerifyInfo.message;
+  }
 
-  if (!isOffMode && (toolName === 'read_file' || toolName === 'Read' || toolName === 'view_file')) {
+  if (!isOffMode && !postEditVerifyInfo && (toolName === 'read_file' || toolName === 'Read' || toolName === 'view_file')) {
     const rawTarget = String(
       toolInput?.Path || toolInput?.path || toolInput?.file_path || toolInput?.TargetFile || toolInput?.AbsolutePath || ''
     ).trim();
@@ -975,6 +1175,11 @@ export async function handlePreToolUse(inputData = {}) {
   if (astSignatureStub) {
     response.astSignatureStub = astSignatureStub;
     response.savedTokens = astStubSavedTokens;
+  }
+  if (postEditVerifyInfo) {
+    response.postEditVerifyFolded = true;
+    response.recommendedSlice = postEditVerifyInfo.recommendedSlice;
+    response.savedTokens = postEditVerifyInfo.savedTokens;
   }
   if (deltaDiffStub) {
     response.deltaDiffStub = deltaDiffStub;

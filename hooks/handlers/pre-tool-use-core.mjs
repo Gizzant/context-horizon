@@ -56,6 +56,62 @@ function getBucketBMod() {
   return _bucketBMod;
 }
 
+function getSnapStorePath(baseCwd, sessionId) {
+  if (!baseCwd) return '';
+  const safeSid = String(sessionId || 'default').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
+  return path.join(baseCwd, '.claude', 'cache', `read_snapshots_${safeSid}.json`);
+}
+
+function loadReadSnapStore(baseCwd, sessionId) {
+  const snapFilePath = getSnapStorePath(baseCwd, sessionId);
+  let store = {};
+  if (snapFilePath && fs.existsSync(snapFilePath)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(snapFilePath, 'utf8'));
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) store = parsed;
+    } catch (readErr) {
+      void readErr;
+      store = {};
+    }
+  }
+  return { snapFilePath, store };
+}
+
+function saveReadSnapStore(snapFilePath, store) {
+  if (!snapFilePath) return;
+  try {
+    fs.mkdirSync(path.dirname(snapFilePath), { recursive: true });
+    const fileKeys = Object.keys(store).filter((k) => !k.startsWith('__'));
+    while (fileKeys.length > 12) {
+      const oldest = fileKeys.shift();
+      delete store[oldest];
+    }
+    if (store.__recentEdits && typeof store.__recentEdits === 'object') {
+      const editKeys = Object.keys(store.__recentEdits);
+      while (editKeys.length > 16) {
+        const oldestEdit = editKeys.shift();
+        delete store.__recentEdits[oldestEdit];
+      }
+    }
+    fs.writeFileSync(snapFilePath, JSON.stringify(store), 'utf8');
+  } catch (writeErr) {
+    void writeErr;
+  }
+}
+
+function resolveApproxEditLine(srcText = '', snippet = '', explicitStart = null) {
+  const parsed = Number(explicitStart);
+  if (Number.isFinite(parsed) && parsed >= 1) return Math.round(parsed);
+  if (srcText && snippet) {
+    const probe = String(snippet).split(/\r?\n/).find((l) => l.trim().length > 0) || '';
+    if (probe) {
+      const idx = srcText.indexOf(probe);
+      if (idx >= 0) return srcText.slice(0, idx).split(/\r?\n/).length;
+    }
+  }
+  return 1;
+}
+
 /**
  * Evaluates a `PreToolUse` hook payload and returns the contract response.
  * Persists stateful breaker counters atomically across separate CLI hook spawns (`ISS-038`).
@@ -240,6 +296,146 @@ export function runPreToolUseHook(event = {}, options = {}) {
     }
   }
 
+  // IMP-4B: Immediate post-Edit verify re-read fold (<= 2 turns) before heavy Shield block
+  if (
+    isReadTool &&
+    rawReadPath &&
+    verdict.decision !== 'deny' &&
+    verdict.decision !== 'ask' &&
+    verdict.decision !== 'defer'
+  ) {
+    try {
+      const baseCwdForEditFold = event.cwd || options.cwd || '';
+      const absFoldPath = path.isAbsolute(rawReadPath)
+        ? rawReadPath
+        : path.resolve(baseCwdForEditFold || process.cwd(), rawReadPath);
+      const normFoldKey = absFoldPath.replace(/\\/g, '/').toLowerCase();
+      const { snapFilePath: foldSnapPath, store: foldStore } =
+        baseCwdForEditFold && shouldPersistState
+          ? loadReadSnapStore(baseCwdForEditFold, sessionId)
+          : { snapFilePath: '', store: {} };
+      if (foldSnapPath) {
+        foldStore.__turnSeq = Number(foldStore.__turnSeq || 0) + 1;
+      }
+      const recentEdit = event.recentEdit || foldStore.__recentEdits?.[normFoldKey] || null;
+      const curTurnSeq = Number(foldStore.__turnSeq || 0);
+      const nowEpochMs = Date.now();
+      const isRecentEdit = Boolean(
+        recentEdit &&
+          ((Number.isFinite(Number(recentEdit.turn)) && curTurnSeq - Number(recentEdit.turn) <= 2) ||
+            (Number.isFinite(Number(recentEdit.timestampMs)) &&
+              nowEpochMs - Number(recentEdit.timestampMs) <= 120_000))
+      );
+      if (isRecentEdit && fs.existsSync(absFoldPath) && fs.statSync(absFoldPath).isFile()) {
+        const stFold = fs.statSync(absFoldPath);
+        if (stFold.size > 256 && stFold.size <= 512 * 1024) {
+          const rawNow = fs.readFileSync(absFoldPath, 'utf8');
+          const totalFoldLines = rawNow.length > 0 ? rawNow.replace(/\r\n/g, '\n').split('\n').length : 0;
+          const explicitSpan =
+            tIn.limit !== undefined
+              ? Number(tIn.limit)
+              : tIn.StartLine !== undefined && tIn.EndLine !== undefined
+                ? Number(tIn.EndLine) - Number(tIn.StartLine) + 1
+                : totalFoldLines;
+          const requestedSpan = hasLineBounds && Number.isFinite(explicitSpan) ? explicitSpan : totalFoldLines;
+          if (totalFoldLines > 150 && requestedSpan > 150) {
+            const prevForDiff =
+              typeof event.priorContentSnapshot === 'string'
+                ? event.priorContentSnapshot
+                : typeof foldStore[normFoldKey] === 'string'
+                  ? foldStore[normFoldKey]
+                  : '';
+            const win = getCodeFoldMod().computePostEditReadWindow({
+              prevContent: prevForDiff,
+              nextContent: rawNow,
+              explicitStartLine: recentEdit.approxLineStart,
+              windowLines: 150
+            });
+            const delta =
+              prevForDiff && prevForDiff !== rawNow
+                ? getCodeFoldMod().computeCompactLineDiff(prevForDiff, rawNow, path.basename(absFoldPath))
+                : { wasDiffed: false, diffText: '', savedTokens: 0 };
+            const clampedLinesSaved = Math.max(1, Math.min(requestedSpan, totalFoldLines) - win.windowLimit);
+            const estSliceSavings = Math.max(
+              1,
+              Math.round((rawNow.length / 4) * (clampedLinesSaved / Math.max(1, totalFoldLines)))
+            );
+            const savedTokens = Math.max(Number(delta.savedTokens || 0), estSliceSavings);
+            const updatedInput = { ...tIn };
+            delete updatedInput.StartLine;
+            delete updatedInput.EndLine;
+            updatedInput.offset = win.windowStart;
+            updatedInput.limit = win.windowLimit;
+
+            if (foldSnapPath) {
+              if (rawNow.length <= 128 * 1024) foldStore[normFoldKey] = rawNow;
+              saveReadSnapStore(foldSnapPath, foldStore);
+            }
+            if (shouldPersistState) {
+              writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
+            }
+            if (
+              options.recordLedger !== false &&
+              Boolean(event.cwd || options.cwd || options.ledgerPath || options.recordLedger)
+            ) {
+              getSavedQuotaMod().recordInterventionSavings(
+                {
+                  sessionId,
+                  category: 'BOUNDED_READ_ENFORCED',
+                  modelId: event.model || event.modelId || liveState?.modelId || 'claude-sonnet-4-6',
+                  savedTokens,
+                  dedupeId:
+                    event.tool_use_id ||
+                    event.toolUseId ||
+                    `post_edit_fold:${sessionId}:${path.basename(absFoldPath)}:${curTurnSeq}`,
+                  detail: `Post-edit verify re-read folded to L${win.windowStart}-L${win.windowEnd} of ${path.basename(absFoldPath)}`
+                },
+                cwdOptions
+              );
+            }
+            const foldReason =
+              `[GUARD-4 Post-Edit Verify Fold] Clamped immediate re-read of ${path.basename(absFoldPath)} (${totalFoldLines} lines) to L${win.windowStart}-L${win.windowEnd} (limit ${win.windowLimit}, +${savedTokens} tokens saved).` +
+              (delta.wasDiffed ? `\n${delta.diffText}` : '');
+            const allowOut = {
+              hookSpecificOutput: {
+                hookEventName: 'PreToolUse',
+                permissionDecision: 'allow',
+                updatedInput,
+                additionalContext: foldReason,
+                ...(delta.wasDiffed ? { deltaDiffStub: delta.diffText, savedTokens } : { savedTokens })
+              }
+            };
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify(allowOut),
+              stderr: '',
+              verdict: {
+                triggered: true,
+                detectorId: 'DET-06',
+                subType: 'POST_EDIT_VERIFY_FOLD',
+                decision: 'allow',
+                updatedInput,
+                recommendedSlice: {
+                  offset: win.windowStart,
+                  limit: win.windowLimit,
+                  StartLine: win.windowStart,
+                  EndLine: win.windowEnd
+                },
+                ...(delta.wasDiffed ? { deltaDiffStub: delta.diffText } : {}),
+                savedTokens,
+                reason: foldReason
+              }
+            };
+          }
+        }
+      } else if (foldSnapPath) {
+        saveReadSnapStore(foldSnapPath, foldStore);
+      }
+    } catch (foldErr) {
+      void foldErr;
+    }
+  }
+
   if (
     isReadTool &&
     !hasLineBounds &&
@@ -285,9 +481,52 @@ export function runPreToolUseHook(event = {}, options = {}) {
         verdict: {
           triggered: true,
           detectorId: shieldVerdict.detectorId,
+          triggerReason: shieldVerdict.triggerReason,
           decision: 'deny',
           reason: shieldVerdict.reason,
           indexPath: shieldVerdict.indexPath,
+          fileBytes: shieldVerdict.fileBytes,
+          maxBytes: shieldVerdict.maxBytes,
+          savedTokens: shieldVerdict.savedTokens,
+          savedUSD: shieldVerdict.savedUSD
+        }
+      };
+    }
+    if (shieldVerdict.action === 'clamp') {
+      if (shouldPersistState) {
+        writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
+      }
+      const updatedInput = { ...tIn };
+      delete updatedInput.StartLine;
+      delete updatedInput.EndLine;
+      updatedInput.offset = shieldVerdict.clampOffset || 1;
+      updatedInput.limit = shieldVerdict.clampLimit;
+      const clampOut = {
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'allow',
+          updatedInput,
+          additionalContext: shieldVerdict.reason
+        }
+      };
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify(clampOut),
+        stderr: '',
+        verdict: {
+          triggered: true,
+          detectorId: shieldVerdict.detectorId,
+          triggerReason: shieldVerdict.triggerReason,
+          subType: 'BYTE_WIDTH_CLAMP',
+          decision: 'allow',
+          updatedInput,
+          clampOffset: updatedInput.offset,
+          clampLimit: updatedInput.limit,
+          reason: shieldVerdict.reason,
+          indexPath: shieldVerdict.indexPath,
+          fileBytes: shieldVerdict.fileBytes,
+          maxBytes: shieldVerdict.maxBytes,
+          clampedBytes: shieldVerdict.clampedBytes,
           savedTokens: shieldVerdict.savedTokens,
           savedUSD: shieldVerdict.savedUSD
         }
@@ -311,18 +550,11 @@ export function runPreToolUseHook(event = {}, options = {}) {
           let snapMap = {};
 
           if (baseCwd && shouldPersistState) {
-            const safeSid = String(sessionId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
-            const cacheDir = path.join(baseCwd, '.claude', 'cache');
-            snapFilePath = path.join(cacheDir, `read_snapshots_${safeSid}.json`);
-            if (fs.existsSync(snapFilePath)) {
-              try {
-                snapMap = JSON.parse(fs.readFileSync(snapFilePath, 'utf8')) || {};
-                if (prevSrc === null && typeof snapMap[normKey] === 'string') {
-                  prevSrc = snapMap[normKey];
-                }
-              } catch (_e) {
-                snapMap = {};
-              }
+            const loadedSnap = loadReadSnapStore(baseCwd, sessionId);
+            snapFilePath = loadedSnap.snapFilePath;
+            snapMap = loadedSnap.store;
+            if (prevSrc === null && typeof snapMap[normKey] === 'string') {
+              prevSrc = snapMap[normKey];
             }
           }
 
@@ -350,17 +582,8 @@ export function runPreToolUseHook(event = {}, options = {}) {
           }
 
           if (snapFilePath && rawSrc.length <= 128 * 1024) {
-            try {
-              fs.mkdirSync(path.dirname(snapFilePath), { recursive: true });
-              const keys = Object.keys(snapMap);
-              if (!snapMap[normKey] && keys.length >= 12) {
-                delete snapMap[keys[0]];
-              }
-              snapMap[normKey] = rawSrc;
-              fs.writeFileSync(snapFilePath, JSON.stringify(snapMap), 'utf8');
-            } catch (_writeErr) {
-              void _writeErr;
-            }
+            snapMap[normKey] = rawSrc;
+            saveReadSnapStore(snapFilePath, snapMap);
           }
         }
       }
@@ -430,7 +653,7 @@ export function runPreToolUseHook(event = {}, options = {}) {
 
   if (
     shouldPersistState &&
-    /^(?:Edit|MultiEdit|Write)$/i.test(toolName) &&
+    /^(?:Edit|MultiEdit|Write|NotebookEdit)$/i.test(toolName) &&
     verdict.decision !== 'deny' &&
     verdict.decision !== 'ask'
   ) {
@@ -476,6 +699,37 @@ export function runPreToolUseHook(event = {}, options = {}) {
         engine.lastUserPrompt = String(event.prompt);
       }
       engine.codeEditedSinceLastTest = true;
+
+      // Record recent-edit marker + pre-edit file snapshot for IMP-4B immediate verify re-read fold
+      try {
+        const baseCwdForEdit = event.cwd || options.cwd || '';
+        if (baseCwdForEdit) {
+          const absEditPath = path.isAbsolute(rawEditPath)
+            ? rawEditPath
+            : path.resolve(baseCwdForEdit, rawEditPath);
+          const normEditKey = absEditPath.replace(/\\/g, '/').toLowerCase();
+          const { snapFilePath: editSnapPath, store: editStore } = loadReadSnapStore(baseCwdForEdit, sessionId);
+          editStore.__turnSeq = Number(editStore.__turnSeq || 0) + 1;
+          let preEditSrc = '';
+          if (fs.existsSync(absEditPath) && fs.statSync(absEditPath).isFile() && fs.statSync(absEditPath).size <= 128 * 1024) {
+            preEditSrc = fs.readFileSync(absEditPath, 'utf8');
+            editStore[normEditKey] = preEditSrc;
+          } else if (typeof editStore[normEditKey] === 'string') {
+            preEditSrc = editStore[normEditKey];
+          }
+          if (!editStore.__recentEdits || typeof editStore.__recentEdits !== 'object') {
+            editStore.__recentEdits = {};
+          }
+          editStore.__recentEdits[normEditKey] = {
+            turn: editStore.__turnSeq,
+            timestampMs: Date.now(),
+            approxLineStart: resolveApproxEditLine(preEditSrc, oldTxt, tIn.StartLine ?? tIn.start_line)
+          };
+          saveReadSnapStore(editSnapPath, editStore);
+        }
+      } catch (editSnapErr) {
+        void editSnapErr;
+      }
     }
   }
 

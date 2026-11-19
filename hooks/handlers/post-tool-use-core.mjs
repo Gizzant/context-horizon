@@ -6,6 +6,7 @@
  * and `DET-19` subagent IPI boundary & Unicode tag stripping (`ISS-034`, `ISS-053`).
  */
 
+import path from 'node:path';
 import { createRequire } from 'node:module';
 import { sanitizePostToolOutput } from '../../src/core-isomorphic/guards/losslessPostSanitizer.mjs';
 import {
@@ -57,6 +58,12 @@ let _claudeRslMod = null;
 function getClaudeRslMod() {
   if (!_claudeRslMod) _claudeRslMod = requireFromHere('../../src/hooks/claude_rsl_hook.mjs');
   return _claudeRslMod;
+}
+
+let _fts5Mod = null;
+function getFts5Mod() {
+  if (!_fts5Mod) _fts5Mod = requireFromHere('../../src/core/fts5_output_compressor.mjs');
+  return _fts5Mod;
 }
 
 function resolveSimpleFlightMode(rawMode = 'COACH') {
@@ -214,6 +221,15 @@ export function runPostToolUseHook(event = {}, options = {}) {
     : resolveSimpleFlightMode(rawMode);
 
   const hasExplicitCwd = Boolean(event.cwd || options.cwd);
+  const toolInput = event.tool_input || event.toolInput || {};
+  const cmdStr = String(
+    toolInput.command || toolInput.CommandLine || toolInput.cmd || event.command || ''
+  );
+  const rawExit =
+    event.exit_code ??
+    event.exitCode ??
+    event.tool_response?.exit_code ??
+    event.tool_response?.exitCode;
   let loadedPriorSnap = null;
   const shouldPersistState =
     options.persistState !== false &&
@@ -223,8 +239,8 @@ export function runPostToolUseHook(event = {}, options = {}) {
     if (hasExplicitCwd && options.enableRsl !== false && RSL_MUTATING_OR_EXEC_TOOL_RE.test(toolName)) {
       try {
         getClaudeRslMod().handleClaudeRslHook(event, { ...cwdOptions, event: 'PostToolUse' });
-      } catch {
-        // Fail open for RSL step telemetry
+      } catch (rslErr) {
+        void rslErr;
       }
     }
     const failed = didToolExecutionFail(event);
@@ -236,13 +252,6 @@ export function runPostToolUseHook(event = {}, options = {}) {
       mode: effectiveMode,
       initialState: priorSnap
     });
-    const toolInput = event.tool_input || event.toolInput || {};
-    const cmdStr = String(toolInput.command || toolInput.cmd || event.command || '');
-    const rawExit =
-      event.exit_code ??
-      event.exitCode ??
-      event.tool_response?.exit_code ??
-      event.tool_response?.exitCode;
     engine.recordToolOutcome(!failed, toolName);
     if (/^(Bash|PowerShell|pwsh|cmd|sh|run_command|execute_bash)$/i.test(toolName)) {
       engine.recordVerificationOutcome({
@@ -372,6 +381,40 @@ export function runPostToolUseHook(event = {}, options = {}) {
 
   let finalOutput = sanitized.updatedToolOutput;
   let wasModified = sanitized.sanitized || Boolean(bAlphaPost.triggered);
+  let ftsSavedTokens = 0;
+
+  if (
+    hasExplicitCwd &&
+    options.enableFts5CliCompression !== false &&
+    !sanitized.offloaded &&
+    cmdStr &&
+    /^(?:Bash|PowerShell|pwsh|cmd|sh|run_command|execute_bash)$/i.test(toolName)
+  ) {
+    try {
+      const ftsDbPath = path.join(
+        path.resolve(event.cwd || options.cwd),
+        '.claude',
+        'cache',
+        'tool_logs_fts5.db'
+      );
+      const ftsComp = getFts5Mod().compressCliOutputFts5Sync({
+        sessionId,
+        turnId: String(event.tool_use_id || event.turn_id || event.turnId || `turn-${Date.now()}`),
+        command: cmdStr,
+        exitCode: typeof rawExit === 'number' ? rawExit : (didToolExecutionFail(event) ? 1 : 0),
+        rawOutput: finalOutput,
+        dbPath: ftsDbPath,
+        recordLedger: false
+      });
+      if (ftsComp.compressed && ftsComp.tokensSaved > 0) {
+        finalOutput = ftsComp.output;
+        ftsSavedTokens = ftsComp.tokensSaved;
+        wasModified = true;
+      }
+    } catch (ftsErr) {
+      void ftsErr;
+    }
+  }
 
   // Apply DET-19 IPI sanitizer if output comes from a subagent (Task/Agent/agentId) or external WebFetch/MCP tool
   const isSubagentSource =
@@ -405,12 +448,12 @@ export function runPostToolUseHook(event = {}, options = {}) {
   const outputReplaced = isMcpTool ? wasModified : replacement.ok;
 
   const totalSavedTokens = outputReplaced
-    ? sanitized.savedTokens + Number(bAlphaPost.savedTokens || 0)
+    ? sanitized.savedTokens + ftsSavedTokens + Number(bAlphaPost.savedTokens || 0)
     : 0;
   if (
     totalSavedTokens > 0 &&
     options.recordLedger !== false &&
-    (sanitized.savedTokens > 0 || hasExplicitCwd || options.ledgerPath || options.recordLedger === true)
+    (sanitized.savedTokens > 0 || ftsSavedTokens > 0 || hasExplicitCwd || options.ledgerPath || options.recordLedger === true)
   ) {
     const liveState = options.telemetryState || getTelemetryMod().readLiveStateSnapshot(sessionId, cwdOptions);
     const rawEventModel =
@@ -434,9 +477,11 @@ export function runPostToolUseHook(event = {}, options = {}) {
         modelId: rates.unknownModel ? (rates.rawModelId || modelId) : rates.modelId,
         category: sanitized.offloaded
           ? 'ARTIFACT_OFFLOAD_4K'
-          : sanitized.savedTokens > 0
-            ? 'LOSSLESS_POST_SANITIZER'
-            : bAlphaPost.code || 'BUCKET_B_POST_SHIELD',
+          : ftsSavedTokens > 0 && sanitized.savedTokens === 0
+            ? 'CLI_FTS5_COMPRESSED'
+            : sanitized.savedTokens > 0
+              ? 'LOSSLESS_POST_SANITIZER'
+              : bAlphaPost.code || 'BUCKET_B_POST_SHIELD',
         savedTokens: totalSavedTokens,
         savedUSD: computedSavedUSD,
         detail: `${toolName} output compressed (+${totalSavedTokens} tokens saved)`

@@ -44,7 +44,7 @@ export function isToolEligibleForSanitization(toolName = '') {
   if (/^(Read|read_file|view_file|View|Edit|edit_file|Write|write_file|write_to_file|replace_file_content|MultiEdit|NotebookEdit)$/i.test(unprefixed)) {
     return false;
   }
-  return /^(Bash|PowerShell|pwsh|cmd|sh|WebFetch|Grep|Glob|Task|Agent|mcp__.+)$/i.test(cleaned);
+  return /^(Bash|PowerShell|pwsh|cmd|sh|run_command|execute_bash|WebFetch|Grep|Glob|Task|Agent|mcp__.+)$/i.test(cleaned);
 }
 
 /**

@@ -167,3 +167,77 @@ export function computeCompactLineDiff(prevContent = '', nextContent = '', targe
     wasDiffed: true
   };
 }
+
+/**
+ * Computes a bounded verification slice window (`<= windowLines`, default `150`) centered around
+ * the most recent edit hunk so immediate post-edit verify re-reads avoid reloading whole files.
+ *
+ * @param {object} [params={}]
+ * @returns {{
+ *   totalLines: number,
+ *   hunkStartLine: number,
+ *   windowStart: number,
+ *   windowEnd: number,
+ *   windowLimit: number,
+ *   shouldFold: boolean
+ * }}
+ */
+export function computePostEditReadWindow({
+  prevContent = '',
+  nextContent = '',
+  oldSnippet = '',
+  explicitStartLine = null,
+  windowLines = 150,
+  contextBefore = 25
+} = {}) {
+  const safeWindow = Math.max(20, Math.round(Number(windowLines) || 150));
+  const safeBefore = Math.max(0, Math.round(Number(contextBefore) || 25));
+  const nextStr = String(nextContent ?? '');
+  const prevStr = String(prevContent ?? '');
+  const newLines = nextStr.length > 0 ? nextStr.split(/\r?\n/) : [];
+  const totalLines = newLines.length;
+
+  let hunkStartLine = 1;
+  const parsedExplicit = Number(explicitStartLine);
+  if (Number.isFinite(parsedExplicit) && parsedExplicit >= 1) {
+    hunkStartLine = Math.min(Math.max(1, totalLines), Math.round(parsedExplicit));
+  } else if (prevStr && nextStr && prevStr !== nextStr) {
+    const oldLines = prevStr.split(/\r?\n/);
+    const minLen = Math.min(oldLines.length, newLines.length);
+    let diffIdx = 0;
+    while (diffIdx < minLen && oldLines[diffIdx] === newLines[diffIdx]) {
+      diffIdx += 1;
+    }
+    hunkStartLine = Math.min(Math.max(1, totalLines), diffIdx + 1);
+  } else if (oldSnippet) {
+    const probe = String(oldSnippet).split(/\r?\n/).find((l) => l.trim().length > 0) || '';
+    const idx = probe ? (nextStr.indexOf(probe) >= 0 ? nextStr.indexOf(probe) : prevStr.indexOf(probe)) : -1;
+    if (idx >= 0) {
+      const targetStr = nextStr.indexOf(probe) >= 0 ? nextStr : prevStr;
+      hunkStartLine = targetStr.slice(0, idx).split(/\r?\n/).length;
+    }
+  }
+
+  if (totalLines <= safeWindow) {
+    return {
+      totalLines,
+      hunkStartLine,
+      windowStart: 1,
+      windowEnd: totalLines,
+      windowLimit: totalLines,
+      shouldFold: false
+    };
+  }
+
+  const maxStart = Math.max(1, totalLines - safeWindow + 1);
+  const windowStart = Math.min(maxStart, Math.max(1, hunkStartLine - safeBefore));
+  const windowEnd = Math.min(totalLines, windowStart + safeWindow - 1);
+  return {
+    totalLines,
+    hunkStartLine,
+    windowStart,
+    windowEnd,
+    windowLimit: Math.max(1, windowEnd - windowStart + 1),
+    shouldFold: true
+  };
+}

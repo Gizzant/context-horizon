@@ -67,6 +67,16 @@ export function canFastAllowBoundedRead(
     (tIn.limit !== undefined && tIn.limit !== null);
   if (!hasBounds) return false;
 
+  const limitNum = Number(tIn.limit);
+  const startNum = Number(tIn.StartLine ?? tIn.start_line);
+  const endNum = Number(tIn.EndLine ?? tIn.end_line);
+  if (
+    (Number.isFinite(limitNum) && limitNum > 150) ||
+    (Number.isFinite(startNum) && Number.isFinite(endNum) && endNum - startNum + 1 > 150)
+  ) {
+    return false;
+  }
+
   const rawPath = String(
     tIn.file_path || tIn.Path || tIn.AbsolutePath || tIn.path || tIn.TargetFile || ''
   ).trim();
@@ -123,6 +133,9 @@ export function canFastAllowBoundedRead(
 
   if (platform === 'claude') {
     if (fs.existsSync(path.join(baseCwd, '.claude', 'horizon-state', `${safeSid}.json`))) {
+      return false;
+    }
+    if (fs.existsSync(path.join(baseCwd, '.claude', 'cache', `read_snapshots_${safeSid}.json`))) {
       return false;
     }
     if (effHome && fs.existsSync(path.join(effHome, '.claude', 'horizon-state', `${safeSid}.json`))) {

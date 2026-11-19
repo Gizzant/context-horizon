@@ -7,11 +7,13 @@ import { SavedQuotaReceiptLedger, SAVINGS_EVENT_TYPES } from './coach/saved_quot
 /**
  * Phase 1: Fail-Open CLI Output Compressor & Local SQLite FTS5 Index (`fts5_output_compressor.mjs`)
  *
- * When `pytest`, `jest`, `vitest`, `cargo test`, `tsc`, or `node --test` produces >80 lines
- * of output, archives the complete raw stdout/stderr into `~/.gemini/antigravity/agy-horizon/tool_logs_fts5.db`:
+ * When a supported CLI/PowerShell command produces >40 lines or >=4,096 bytes of output
+ * (`pytest`, `jest`, `vitest`, `cargo`, `tsc`, `node`, `python`, `Select-String`,
+ * `Get-ChildItem`, `@'` heredocs, `powershell`/`pwsh`, `npm/pnpm/pip install`, `git`, `gh`, `docker`, `kubectl`),
+ * archives the complete raw stdout/stderr into `~/.gemini/antigravity/agy-horizon/tool_logs_fts5.db`:
  *   CREATE VIRTUAL TABLE IF NOT EXISTS tool_logs USING fts5(session_id, turn_id, command, exit_code, raw_output, created_at)
  * and returns a deterministic <=25-line structured summary containing only the exit code,
- * failing test names, exact file:line assertion tracebacks, and an FTS5 query handle:
+ * failing test names, diagnostics or grouped search hits, and an FTS5 query handle:
  *   `agy-log-search <turn_id> "<keyword>"`
  *
  * Strictly FAIL-OPEN: if any exception occurs during SQLite indexing or parsing, returns
@@ -19,9 +21,10 @@ import { SavedQuotaReceiptLedger, SAVINGS_EVENT_TYPES } from './coach/saved_quot
  */
 
 export const FTS5_COMPRESSOR_CONSTANTS = Object.freeze({
-  MIN_LINES_TO_COMPRESS: 80,
+  MIN_LINES_TO_COMPRESS: 40,
+  MIN_BYTES_TO_COMPRESS: 4096,
   MAX_SUMMARY_LINES: 25,
-  TARGET_COMMAND_REGEX: /\b(pytest|jest|vitest|cargo\s+(?:test|clippy|check|build)|tsc|node\s+--test|(?:npm|pnpm|yarn|bun)\s+(?:test|run\s+(?:test|lint|build|typecheck))|go\s+test|eslint|biome|ruff|next\s+build|vite\s+build|git\s+(?:diff|log|show|status)|docker\s+(?:build|logs)|kubectl\s+(?:logs|get|describe)|gh\s+(?:pr|run))\b/i
+  TARGET_COMMAND_REGEX: /(?:(?:^|[\s;|&])@['"]|\b(?:pytest|jest|vitest|cargo\s+(?:test|clippy|check|build)|tsc|go\s+test|eslint|biome|ruff|next\s+build|vite\s+build|docker\s+(?:build|logs)|kubectl\s+(?:logs|get|describe)|gh\s+(?:pr|run|api|issue|release|workflow)|git\s+(?:diff|log|show|status|grep|ls-files|blame|branch|tag|stash|reflog|cherry-pick)|(?:npm|pnpm|yarn|bun)\s+(?:test|run\s+(?:test|lint|build|typecheck)|install|ci|add|update|audit|outdated|pack|publish)|(?:pip3?|uv|poetry)\s+(?:install|sync|audit|list|show)|node(?:\.exe)?|python3?(?:\.exe)?|select-string|get-childitem|gci|get-content|write-output|powershell|pwsh|rg|ripgrep|grep|find|fd|tree|curl|wget|aws|gcloud|terraform)\b)/i
 });
 
 export function getDefaultToolLogsDbPath(homeDir = getHomeDir()) {
@@ -35,11 +38,25 @@ export function isCompressibleCliCommand(command = '') {
 export function classifyCliCommandFamily(command = '') {
   const cmd = String(command || '').toLowerCase();
   if (/\bgit\s+(diff|log|show|status)\b/.test(cmd)) return 'git';
-  if (/\b(docker|kubectl|gh)\b/.test(cmd)) return 'infra';
+  if (/\b(docker|kubectl)\b/.test(cmd) || /\bgh\s+(pr|run)\b/.test(cmd)) return 'infra';
   if (/\b(eslint|biome|ruff|tsc|cargo\s+(clippy|check|build)|next\s+build|vite\s+build)\b/.test(cmd)) {
     return 'lint_build';
   }
-  return 'test';
+  if (
+    /\b(pytest|jest|vitest|cargo\s+test|node\s+--test|(?:npm|pnpm|yarn|bun)\s+(?:test|run\s+(?:test|lint|build|typecheck))|go\s+test)\b/.test(
+      cmd
+    )
+  ) {
+    return 'test';
+  }
+  if (
+    /\b(select-string|get-childitem|gci|rg|ripgrep|grep|find|fd|tree)\b/.test(cmd) ||
+    /\bgit\s+(grep|ls-files)\b/.test(cmd)
+  ) {
+    return 'search_list';
+  }
+  if (/\bgh\b/.test(cmd) && !/\bgh\s+(api|issue|release|workflow)\b/.test(cmd)) return 'infra';
+  return 'generic_cli';
 }
 
 function pushUniqueBounded(arr, item, maxLen, sliceLen = 140) {
@@ -124,6 +141,76 @@ export function buildDeterministicSummary(rawOutput = '', {
     return bounded.slice(0, maxLines).join('\n');
   }
 
+  if (family === 'search_list') {
+    const groups = new Map();
+    const samples = [];
+    const errors = [];
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      if (/\b(ERROR|FATAL|Exception|AccessDenied|UnauthorizedAccess)\b/i.test(line)) {
+        pushUniqueBounded(errors, line, 4, 140);
+        continue;
+      }
+      const grepMatch = line.match(/^((?:[A-Za-z]:)?[./\\\w-]+?\.[a-zA-Z0-9]{1,8}):(\d+):(.*)$/);
+      if (grepMatch) {
+        const key = grepMatch[1];
+        if (!groups.has(key)) groups.set(key, { count: 0, first: `L${grepMatch[2]}: ${grepMatch[3].trim()}` });
+        groups.get(key).count += 1;
+      } else {
+        pushUniqueBounded(samples, line, 12, 140);
+      }
+    }
+    const rawBytes = Buffer.byteLength(String(rawOutput || ''), 'utf8');
+    const out = [
+      `[FTS5 Compressed CLI Output] cmd="${String(command).slice(0, 80)}" exit_code=${exitCode} raw_lines=${lines.length} raw_bytes=${rawBytes}`,
+      `Search/List Summary (${groups.size} matched file(s), ${samples.length} other line(s)):`
+    ];
+    for (const e of errors) out.push(`  ! ${e}`);
+    let shown = 0;
+    for (const [fileKey, info] of groups.entries()) {
+      shown += 1;
+      if (shown > 10) {
+        out.push(`  ... +${groups.size - 10} more matched files indexed`);
+        break;
+      }
+      out.push(`  ${fileKey} (${info.count}): ${info.first}`.slice(0, 140));
+    }
+    if (groups.size === 0) {
+      for (const s of samples.slice(0, 10)) out.push(`  ${s}`);
+      if (lines.length > 10) out.push(`  ... +${lines.length - 10} more lines indexed`);
+    }
+    const bounded = out.slice(0, Math.max(1, maxLines - 1));
+    bounded.push(queryHandleLine);
+    return bounded.slice(0, maxLines).join('\n');
+  }
+
+  if (family === 'generic_cli') {
+    const errors = [];
+    const nonEmpty = [];
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (!line) continue;
+      if (/\b(ERROR|FATAL|Exception|AssertionError|TypeError|ReferenceError|SyntaxError|ERR!|FAILED|fail)\b/i.test(line)) {
+        pushUniqueBounded(errors, line, 8, 140);
+      }
+      nonEmpty.push(line);
+    }
+    const rawBytes = Buffer.byteLength(String(rawOutput || ''), 'utf8');
+    const out = [
+      `[FTS5 Compressed CLI Output] cmd="${String(command).slice(0, 80)}" exit_code=${exitCode} raw_lines=${lines.length} raw_bytes=${rawBytes}`,
+      `Diagnostics & Head/Tail Preview (${errors.length} error/warn line(s)):`
+    ];
+    for (const e of errors) out.push(`  ${e}`);
+    for (const h of nonEmpty.slice(0, 5)) pushUniqueBounded(out, `  ${h}`, maxLines - 1, 140);
+    if (nonEmpty.length > 5) {
+      for (const t of nonEmpty.slice(-5)) pushUniqueBounded(out, `  ${t}`, maxLines - 1, 140);
+    }
+    const bounded = out.slice(0, Math.max(1, maxLines - 1));
+    bounded.push(queryHandleLine);
+    return bounded.slice(0, maxLines).join('\n');
+  }
+
   const failingTests = [];
   const fileLineTraces = [];
   const assertionLines = [];
@@ -186,10 +273,11 @@ export function buildDeterministicSummary(rawOutput = '', {
 }
 
 /**
- * Compresses CLI output > 80 lines into `tool_logs_fts5.db` and returns a 25-line summary.
+ * Compresses CLI output (>40 lines OR >=4,096 bytes) into `tool_logs_fts5.db` and returns
+ * a <=25-line summary synchronously so both `PostToolUse` hooks and async wrappers share one engine.
  * Fails open (returns rawOutput) if any exception is thrown.
  */
-export async function compressCliOutputFts5({
+export function compressCliOutputFts5Sync({
   sessionId = 'default-session',
   turnId = 'turn-1',
   command = 'pytest',
@@ -198,13 +286,18 @@ export async function compressCliOutputFts5({
   dbPath = null,
   homeDir = getHomeDir(),
   DatabaseSync = null,
-  forceCompress = false
+  forceCompress = false,
+  recordLedger = true
 } = {}) {
   const rawStr = String(rawOutput || '');
   const rawLines = rawStr.split(/\r?\n/);
+  const rawBytes = Buffer.byteLength(rawStr, 'utf8');
   const rawTokens = Math.ceil(rawStr.length / 4);
+  const meetsSizeThreshold =
+    rawLines.length > FTS5_COMPRESSOR_CONSTANTS.MIN_LINES_TO_COMPRESS ||
+    rawBytes >= FTS5_COMPRESSOR_CONSTANTS.MIN_BYTES_TO_COMPRESS;
 
-  if (!forceCompress && (rawLines.length <= FTS5_COMPRESSOR_CONSTANTS.MIN_LINES_TO_COMPRESS || !isCompressibleCliCommand(command))) {
+  if (!forceCompress && (!meetsSizeThreshold || !isCompressibleCliCommand(command))) {
     return {
       compressed: false,
       failOpen: false,
@@ -254,6 +347,21 @@ export async function compressCliOutputFts5({
       turnId,
       maxLines: FTS5_COMPRESSOR_CONSTANTS.MAX_SUMMARY_LINES
     });
+    if (!forceCompress && summary.length >= rawStr.length) {
+      return {
+        compressed: false,
+        failOpen: false,
+        dbPath: resolvedDbPath,
+        output: rawStr,
+        lineCount: rawLines.length,
+        rawTokens,
+        compressedTokens: rawTokens,
+        tokensSaved: 0,
+        reductionPct: 0,
+        turnId: String(turnId),
+        queryHandle: null
+      };
+    }
     const summaryLines = summary.split(/\r?\n/);
     const compressedTokens = Math.ceil(summary.length / 4);
     const tokensSaved = Math.max(0, rawTokens - compressedTokens);
@@ -261,7 +369,7 @@ export async function compressCliOutputFts5({
       ? Number(((tokensSaved / rawTokens) * 100).toFixed(1))
       : 0;
 
-    if (tokensSaved > 0 && !DatabaseSync) {
+    if (recordLedger && tokensSaved > 0 && !DatabaseSync) {
       try {
         const ledgerDbPath = path.join(path.dirname(resolvedDbPath), 'saved_quota_ledger.sqlite');
         const ledger = new SavedQuotaReceiptLedger({ homeDir, dbPath: ledgerDbPath });
@@ -269,7 +377,7 @@ export async function compressCliOutputFts5({
           sessionId: String(sessionId),
           eventType: SAVINGS_EVENT_TYPES.CLI_DUMP_COMPRESSED,
           tokensSaved,
-          rawBytesSaved: Math.max(0, Buffer.byteLength(rawStr, 'utf8') - Buffer.byteLength(summary, 'utf8')),
+          rawBytesSaved: Math.max(0, rawBytes - Buffer.byteLength(summary, 'utf8')),
           dedupeKey: `fts5:${sessionId}:${turnId}:${command}`,
           detail: `FTS5 compressed "${String(command).slice(0, 60)}" (${rawLines.length} -> ${summaryLines.length} lines)`
         });
@@ -314,6 +422,13 @@ export async function compressCliOutputFts5({
       void closeErr;
     }
   }
+}
+
+/**
+ * Async wrapper for `compressCliOutputFts5Sync`.
+ */
+export async function compressCliOutputFts5(options = {}) {
+  return compressCliOutputFts5Sync(options);
 }
 
 /**
