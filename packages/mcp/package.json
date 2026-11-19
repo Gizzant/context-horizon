@@ -1,6 +1,6 @@
 {
   "name": "@ctxtop/mcp",
-  "version": "4.2.2",
+  "version": "4.2.3",
   "description": "Highbeam Zero-Dependency 7-Tool MCP Stdio Server for Cursor, Windsurf, Codex CLI, Gemini CLI, Claude Code & Antigravity",
   "license": "MIT",
   "type": "module",

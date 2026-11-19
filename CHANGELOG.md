@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [4.2.3] - 2026-11-19
+
+### Broad CLI FTS5 Compression, Byte-Width Read Clamping & Post-Edit Verify Fold
+
+#### Added
+- **Broad CLI FTS5 Compression (`IMP-1`, `src/core/fts5_output_compressor.mjs`, `hooks/handlers/post-tool-use-core.mjs`, `src/core-isomorphic/guards/losslessPostSanitizer.mjs`)**: Lowered compression threshold to `>=40` lines or `>=4,096` bytes, expanded command coverage across PowerShell (`Select-String`, `Get-ChildItem`/`gci`, `Get-Content`, `Write-Output`, `powershell`/`pwsh`, `@'` heredocs), `node`, `python`, `rg`/`grep`/`find`/`fd`/`tree`, `curl`/`wget`/`aws`/`gcloud`/`terraform`, `npm`/`pnpm`/`yarn`/`bun`/`pip`/`uv`/`poetry`, and `gh` / extra `git` verbs, added `search_list` and `generic_cli` families, and wired live `compressCliOutputFts5Sync` receipts (`CLI_FTS5_COMPRESSED`) into `runPostToolUseHook`.
+- **Byte-Width Read Guard (`IMP-4D`, `src/core/shield_manager.mjs`, `hooks/handlers/pre-tool-use-core.mjs`)**: Guards unsliced reads exceeding `16 KB` (`6 KB` near pricing cliffs). On Claude Code, wide `>=20`-line files clamp in-place via `updatedInput` (`offset: 1`, bounded `limit`, inline `.index.md` map) with zero extra model turn; Antigravity, `line_cap` overflows, and `<20`-line minified blobs retain fail-closed structural index guidance.
+- **Post-Edit Verify Re-Read Fold (`IMP-4B`, `src/core/code_fold_lite.mjs`, `hooks/handlers/pre-tool-use-core.mjs`, `src/hooks/pre_invocation_core.mjs`, `src/hooks/fast_hook_ipc.mjs`)**: Folds immediate post-Edit full-file verification re-reads (`>150` lines) into a `<=150`-line window centered on the edited hunk across Claude Code and Antigravity.
+- **Paired Live OpenRouter A/B Benchmark (`experiments/model-switch-benchmark/cost_per_task/run_highbeam_ab.mjs`, `results/highbeam_ab_results.json`)**: Verified `8/8` (`100%`) task completion across alternating Highbeam-OFF vs. Highbeam-ON arms with `-13.37%` net USD reduction (`-33.58%` `cache_creation`, `-10.88%` `cache_read`).
+
+#### Fixed
+- **CI Suite Wiring & Flake Elimination**: Wired `test/imp1_and_imp4_token_guards.test.mjs` into `test/all.test.mjs` and replaced the 1-in-64 base64 flake in `test/pro_team_anchors.test.mjs` (`Pro Anchor #1`) with a deterministic `'A' <-> 'B'` tamper flip.
+- **`@ctxtop/mcp` Packaging (`scripts/sync_workspaces.mjs`, `packages/mcp/package.json`)**: Normalized `bin` entries to `{ "mcp": "src/server.mjs", "ctxtop-mcp": "src/server.mjs" }`, eliminating all `npm publish` bin-renaming and path-normalization warnings while preserving `npx @ctxtop/mcp`.
+
 ## [4.2.2] - 2026-11-19
 
 ### Launch Polish, Unified Pricing, Split Receipt Units & Node 20 CI Matrix

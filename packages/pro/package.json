@@ -1,6 +1,6 @@
 {
   "name": "@ctxtop/pro",
-  "version": "4.2.2",
+  "version": "4.2.3",
   "description": "Highbeam Pro — Offline Ed25519 License Verifier, Encrypted Sync, PR Cost Attribution, ZK Org FinOps Rollup & CI Budget Gate",
   "license": "SEE LICENSE IN LICENSE-COMMERCIAL.md",
   "type": "module",
