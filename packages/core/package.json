@@ -1,6 +1,6 @@
 {
   "name": "@ctxtop/core",
-  "version": "4.1.5",
+  "version": "4.1.6",
   "description": "Highbeam isomorphic pure-JS core (DET-01..32 catalog, circuit breakers, economics, coach, UI renderers)",
   "type": "module",
   "main": "./src/index.mjs",
