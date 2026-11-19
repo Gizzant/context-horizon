@@ -1,0 +1,6 @@
+*.vsix
+*.log
+*.tmp
+test/**
+.DS_Store
+node_modules/**

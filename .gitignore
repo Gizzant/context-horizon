@@ -19,6 +19,7 @@ dist/
 *.tmp
 *.tgz
 *.zip
+*.vsix
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm

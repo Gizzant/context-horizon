@@ -67,6 +67,13 @@ npx ctxtop audit --days 7
    ```
 3. **Open the In-Chat Docked HUD**: Type `/horizon` in chat (or run `npx ctxtop panel` for the standalone HTML workbench) to inspect cache gravity, active guards, and reclaimable tokens.
 
+#### 3. VS Code / Cursor / Antigravity (`.vsix` Extension)
+Package or install the thin zero-dependency IDE sidebar & status bar extension from [`extensions/vscode-highbeam/`](extensions/vscode-highbeam/README.md):
+```bash
+npm run build:vsix
+code --install-extension extensions/vscode-highbeam/highbeam-ctxtop-4.1.4.vsix
+```
+
 ---
 
 ## 🧭 Built-In Slash Skills & In-Chat Commands (Both Hosts)
