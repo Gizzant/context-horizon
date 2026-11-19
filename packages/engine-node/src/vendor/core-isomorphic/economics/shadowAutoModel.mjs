@@ -72,9 +72,16 @@ function parseEntryTimestampMs(entry, fallbackMs) {
   return fallbackMs;
 }
 
+function formatCompactTokens(tokens) {
+  const n = Math.max(0, Math.round(Number(tokens || 0)));
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}k`;
+  return String(n);
+}
+
 /**
  * Summarizes rolling 30-day counterfactual incidents and applies the Reverse-ROI Guard
- * so free/expired-trial users never see small dollar figures contrasted against Pro pricing.
+ * so individual developers see tokens & frontier quota turns saved rather than micro-dollars.
  *
  * @param {Array<object>} [entries=[]]
  * @param {object} [options={}]
@@ -180,7 +187,7 @@ export function computeShadowAutoSummary(entries = [], options = {}) {
     ctaLabel =
       ctaMode === 'start_trial'
         ? 'Start 14-day free Auto trial'
-        : 'Unlock Highbeam Pro ($149/yr \u00B7 $15/mo)';
+        : 'Unlock Highbeam Pro';
 
     if (incidentCount30d === 0) {
       displayMode = 'shadow_quiet';
@@ -192,12 +199,10 @@ export function computeShadowAutoSummary(entries = [], options = {}) {
         : 'Start a 14-day local trial to let Highbeam hold warm caches and stop runaway loops automatically.';
     } else if (exceedsBreakEvenThreshold) {
       displayMode = 'shadow_roi_proven';
-      headlineText =
-        missedUsd30d >= PRO_ANNUAL_MONTHLY_EQUIV_USD
-          ? `Auto would have prevented $${missedUsd30d.toFixed(2)} in wasted cache rewrites & loops (30d)`
-          : `Auto would have blocked a $${maxSingleIncidentUsd.toFixed(2)} cold rewrite ($${missedUsd30d.toFixed(2)} missed over 30d)`;
+      const incidentNoun = incidentCount30d === 1 ? 'incident' : 'incidents';
+      headlineText = `Auto would have saved ${formatCompactTokens(wastedTokens30d)} wasted tokens across ${incidentCount30d} cache/loop ${incidentNoun} (30d)`;
       const turnLabel = Math.max(1, Math.round(wastedFrontierTurns30d));
-      sublineText = `~${turnLabel} frontier quota turns \u00B7 ${avoidedPrompts30d} manual prompts \u00B7 Pro is $12.42/mo annual`;
+      sublineText = `~${turnLabel} frontier quota turns \u00B7 ${avoidedPrompts30d} manual prompt${avoidedPrompts30d === 1 ? '' : 's'} avoided`;
     } else {
       displayMode = 'shadow_incidents_only';
       const incidentNoun = incidentCount30d === 1 ? 'incident' : 'incidents';

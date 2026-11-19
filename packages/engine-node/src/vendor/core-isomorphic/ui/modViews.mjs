@@ -883,7 +883,7 @@ export function renderAbovePromptBand(state = {}, options = {}) {
 }
 
 /**
- * 2. Renders the `Spinner` suffix appended during active turns (`· Cache 95% (4m12s) · Saved $1.84`).
+ * 2. Renders the `Spinner` suffix appended during active turns (`· Cache 95% (4m12s) · Saved +95k`).
  *
  * @param {object} [state={}]
  * @param {object} [options={}]
@@ -898,7 +898,7 @@ export function renderSpinnerSuffix(state = {}, options = {}) {
   const metrics = deriveSurfaceMetrics(state, options);
   const ttlText = metrics.cacheWarm ? metrics.ttlCompact : 'cold';
   const savedUSDText = formatUsd(metrics.savedUSD);
-  let suffix = `· Cache ${metrics.cacheHitPct}% (${ttlText}) · Saved ${savedUSDText}`;
+  let suffix = `· Cache ${metrics.cacheHitPct}% (${ttlText}) · Saved +${formatTokensCompact(metrics.savedTokens)}`;
   if (state.prefixRetention?.measured) suffix += ` · ${formatRetentionCompact(state.prefixRetention)}`;
   if (state.thinkingDrift?.loop?.triggered) suffix += ` · ${formatDriftCompact(state.thinkingDrift)}`;
 
@@ -1042,8 +1042,8 @@ export function renderSimpleViewPane(state = {}, options = {}) {
     `Guide : ${priorityAction.instruction}`
   ];
   const rank4Lines = [
-    `[Rank 4] Estimated Tokens & USD Saved`,
-    `Saved : +${formatTokensCompact(metrics.sessionSavedTokens)} (${formatUsd(metrics.sessionSavedUSD)}) this session · +${formatTokensCompact(metrics.workspace30dSavedTokens)} (${formatUsd(metrics.workspace30dSavedUSD)}) 30d`,
+    `[Rank 4] Estimated Tokens Saved`,
+    `Saved : +${formatTokensCompact(metrics.sessionSavedTokens)} this session · +${formatTokensCompact(metrics.workspace30dSavedTokens)} (30d)`,
     `Driver: ${metrics.topSavingsDriver.shortLabel} (+${formatTokensCompact(metrics.topSavingsDriver.savedTokens)})`
   ];
 
@@ -1069,7 +1069,7 @@ export function renderSimpleViewPane(state = {}, options = {}) {
     {
       rankNumber: 4,
       id: 'tokens-usd-saved',
-      title: 'Estimated Tokens & USD Saved',
+      title: 'Estimated Tokens Saved',
       lines: rank4Lines
     }
   ];
@@ -1160,11 +1160,11 @@ export function renderSimpleViewPane(state = {}, options = {}) {
   });
   const box4Lines = [`[Box 4] Top Context Offenders`, ...offenderLines];
 
-  // Box 5: Deterministic Saved-Quota Receipt in USD & Tokens
+  // Box 5: Deterministic Saved-Quota Receipt in Tokens
   const box5Lines = [
     `[Box 5] Deterministic Saved-Quota Receipt`,
-    `Estimated Savings: ${formatUsd(metrics.savedUSD)} USD | ${metrics.savedTokens.toLocaleString('en-US')} tokens preserved`,
-    `Session: +${formatTokensCompact(metrics.sessionSavedTokens)} (${formatUsd(metrics.sessionSavedUSD)}) | 30d: +${formatTokensCompact(metrics.workspace30dSavedTokens)} (${formatUsd(metrics.workspace30dSavedUSD)})`
+    `Estimated Savings: ${metrics.savedTokens.toLocaleString('en-US')} tokens preserved`,
+    `Session: +${formatTokensCompact(metrics.sessionSavedTokens)} tok | 30d: +${formatTokensCompact(metrics.workspace30dSavedTokens)} tok`
   ];
 
   const rawBoxes = [
@@ -1278,11 +1278,11 @@ export function renderAdvancedViewPane(state = {}, options = {}) {
     metrics.savingsCategories.subagentIsolated
   ];
   const sec1Lines = [
-    `[Section 1] Verified 5-Category Savings & Anthropic Cache ROI`,
-    `Headline: +${formatTokensCompact(metrics.sessionSavedTokens)} (${formatUsd(metrics.sessionSavedUSD)}) session · +${formatTokensCompact(metrics.workspace30dSavedTokens)} (${formatUsd(metrics.workspace30dSavedUSD)}) 30d`,
+    `[Section 1] Verified 5-Category Token Savings & Cache Efficiency`,
+    `Headline: +${formatTokensCompact(metrics.sessionSavedTokens)} tok session · +${formatTokensCompact(metrics.workspace30dSavedTokens)} tok (30d)`,
     ...catOrder.map(
       (c, idx) =>
-        `  ${idx + 1}. ${c.shortLabel}: +${formatTokensCompact(c.savedTokens)} (${formatUsd(c.savedUSD)}) [${c.count}x]`
+        `  ${idx + 1}. ${c.shortLabel}: +${formatTokensCompact(c.savedTokens)} tok [${c.count}x]`
     ),
     `Break-Even Gravity C*: ${breakEven.breakEvenTokens.toLocaleString('en-US')} cached tok (${grid.modelId} -> ${peerModel})`,
     `Reads/Write Ratio: ${metrics.readsPerWriteRatio.toFixed(2)} (target >= ${metrics.breakEvenReadsPerWrite} for ${metrics.ttlTier} TTL)`
@@ -1330,7 +1330,7 @@ export function renderAdvancedViewPane(state = {}, options = {}) {
     for (const w of swarmSummary.workers.slice(0, 6)) {
       const loc = w.branch || w.worktree ? ` @${w.branch || w.worktree}` : '';
       sec4Lines.push(
-        `  · ${w.agentId} [${w.state}${w.state === 'waiting' ? ' $0' : ''}] ${formatTokensCompact(w.totalTokens)} (${w.turns}t)${loc}`
+        `  · ${w.agentId} [${w.state}${w.state === 'waiting' ? ' 0 tok' : ''}] ${formatTokensCompact(w.totalTokens)} (${w.turns}t)${loc}`
       );
     }
   }
@@ -1480,7 +1480,7 @@ export function renderStatusLine(state = {}, options = {}) {
   let ansiCandidate = '';
   let matchedFit = false;
 
-  // Optional one-line notice (for example "Trial ended: saved $4.12 ..."). It is dropped, longest
+  // Optional one-line notice (for example "Trial ended: saved 13.2k tokens ..."). It is dropped, longest
   // first, before the bar shrinks or the line is cut, so it can never hide the core status.
   const noticeIn = options.trialNotice;
   const noticeVariants = [];
@@ -1500,7 +1500,7 @@ export function renderStatusLine(state = {}, options = {}) {
       const g = computeHorizonGrid(state, { ...options, cellCount: barWidth });
       const tokStr = `${formatTokensCompact(g.totalInputTokens)}/${g.zoomTier.id}`;
       const ttlStr = metrics.cacheWarm ? metrics.ttlCompact : 'COLD';
-      const savedStr = formatUsd(metrics.savedUSD);
+      const savedStr = `+${formatTokensCompact(metrics.savedTokens)}`;
       const loopStr = state.thinkingDrift?.loop?.triggered ? ` ${formatDriftCompact(state.thinkingDrift)}` : '';
       const retStr = state.prefixRetention?.measured ? ` · ${formatRetentionCompact(state.prefixRetention)}` : '';
       const swarmTok = layoutTier === 'wide-144' ? formatSwarmCompact(computeSwarmSummary(state, { nowMs: options.nowMs || Date.now() })) : '';

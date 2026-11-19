@@ -50,7 +50,8 @@ test('summary counts only savings recorded inside the trial window', () => {
     assert.equal(s.interventions, 2);
     assert.ok(Math.abs(s.savedUSD - (0.014674 + 0.01177)) < 1e-6);
     const text = formatTrialSummaryLines(s).join('\n');
-    assert.match(text, /Highbeam saved you \$0\.03 \(13,222 tokens\) across 2 interventions/);
+    assert.match(text, /Highbeam saved you 13,222 tokens across 2 interventions/);
+    assert.doesNotMatch(text, /\$\d/);
     assert.match(text, /license activate/);
   } finally { sb.cleanup(); }
 });
@@ -79,12 +80,12 @@ test('notice: appears after the trial, caches its numbers, expires after 24 hour
   const sb = sandbox();
   try {
     const n1 = getTrialEndNotice(sb.opts);
-    assert.equal(n1.full, 'Trial ended: saved $0.03 in 14 days, Auto paused. Keep it: highbeam license activate');
+    assert.equal(n1.full, 'Trial ended: saved 13.2k tokens in 14 days, Auto paused. Keep it: highbeam license activate');
     assert.equal(n1.short, 'Trial ended · Auto paused');
 
     // Numbers come from the cache, so a later ledger change does not rewrite the notice.
     fs.appendFileSync(sb.ledger, JSON.stringify({ timestamp: sb.start + DAY, savedTokens: 99999, savedUSD: 50, category: 'X' }) + '\n');
-    assert.match(getTrialEndNotice(sb.opts).full, /saved \$0\.03 in 14 days/);
+    assert.match(getTrialEndNotice(sb.opts).full, /saved 13\.2k tokens in 14 days/);
 
     // Past the 24-hour window it goes quiet.
     assert.equal(getTrialEndNotice({ ...sb.opts, nowMs: Date.now() + TRIAL_NOTICE_WINDOW_MS + 1000 }), null);
@@ -98,13 +99,13 @@ test('notice: appears after the trial, caches its numbers, expires after 24 hour
   } finally { sb2.cleanup(); }
 });
 
-test('a trial with no savings says "Trial ended" without a dollar figure', () => {
+test('a trial with no savings says "Trial ended" without a token figure', () => {
   const sb = sandbox();
   try {
     fs.writeFileSync(sb.ledger, '');
     const n = getTrialEndNotice(sb.opts);
     assert.equal(n.full, 'Trial ended, Auto paused. Keep it: highbeam license activate');
-    assert.doesNotMatch(n.full, /saved \$/);
+    assert.doesNotMatch(n.full, /saved \d/);
     assert.match(formatTrialSummaryLines(getTrialSummary(sb.opts)).join('\n'), /npx highbeam-cli audit/);
   } finally { sb.cleanup(); }
 });
@@ -112,12 +113,12 @@ test('a trial with no savings says "Trial ended" without a dollar figure', () =>
 test('status bar: notice is shown, fits the width, and never hides the core status', () => {
   const state = createInitialTelemetryState('s', 'claude-sonnet-5-5');
   state.contextWindow.totalInputTokens = 64000;
-  const notice = { full: 'Trial ended: saved $4.12 in 14 days, Auto paused. Keep it: highbeam license activate', short: 'Trial ended · Auto paused' };
+  const notice = { full: 'Trial ended: saved 184k tokens in 14 days, Auto paused. Keep it: highbeam license activate', short: 'Trial ended · Auto paused' };
   for (const columns of [60, 80, 110, 144, 200]) {
     const withN = renderStatusLine(state, { columns, ansi: false, trialNotice: notice });
     const without = renderStatusLine(state, { columns, ansi: false });
     assert.ok(withN.visibleLength <= columns, `fits ${columns}`);
-    assert.ok(/Saved|\$/.test(withN.plainLine), 'core savings stay visible');
+    assert.ok(/Saved|\+\d/.test(withN.plainLine), 'core savings stay visible');
     if (columns >= 144) assert.match(withN.plainLine, /Trial ended/);
     if (withN.plainLine.includes('Trial ended')) {
       assert.ok(withN.plainLine.startsWith('HB '), 'bar still first');
@@ -134,12 +135,12 @@ test('status bar bridge: shows the notice until the user runs `license status`',
       { session_id: 'tn-1', cwd: sb.cwd, model: { id: 'claude-sonnet-5-5' } },
       { cwd: sb.cwd, homeDir: sb.home, columns: 200, ansi: false, checkCapabilities: false }
     );
-    assert.match(run().plainLine, /Trial ended: saved \$0\.03 in 14 days/);
+    assert.match(run().plainLine, /Trial ended: saved 13\.2k tokens in 14 days/);
     assert.match(run().plainLine, /Trial ended/, 'still there on the next render');
 
     const st = await runCli(['license', 'status'], { homeDir: sb.home, cwd: sb.cwd, licensePath: path.join(sb.home, '.ctxtop', 'license.json'), strict: true });
     assert.match(st.output, /Your trial ended/);
-    assert.match(st.output, /saved you \$0\.03/);
+    assert.match(st.output, /saved you 13,222 tokens/);
     assert.equal(st.data.trialSummary.interventions, 2);
 
     assert.doesNotMatch(run().plainLine, /Trial ended/, 'gone once the user has looked');
@@ -153,7 +154,7 @@ test('`ctxtop mode` after the trial shows the summary instead of repeating itsel
     const res = await runCli(['mode'], { homeDir: sb.home, cwd: sb.cwd, licensePath: path.join(sb.home, '.ctxtop', 'license.json'), strict: true });
     assert.equal(res.data.effectiveMode, 'COACH');
     assert.match(res.output, /Your trial ended/);
-    assert.match(res.output, /Highbeam saved you \$0\.03/);
+    assert.match(res.output, /Highbeam saved you 13,222 tokens/);
     assert.equal((res.output.match(/Auto is paused/g) || []).length, 1, 'said once');
   } finally { sb.cleanup(); }
 });
@@ -161,11 +162,12 @@ test('`ctxtop mode` after the trial shows the summary instead of repeating itsel
 // ---- Past-waste teaser at the end of `init` -------------------------------------------------
 import { formatPastWasteLine } from '../src/core/session_auditor.mjs';
 
-test('past-waste teaser: shows dollars and tokens for real waste, stays silent otherwise', () => {
+test('past-waste teaser: shows tokens for real waste, stays silent otherwise', () => {
   const line = formatPastWasteLine({
     ok: true, days: 7, sessionsScanned: 10, sludgeTaxUSD: 35.86, sludgeTaxTokens: 2400000
   });
-  assert.match(line, /^Last 7 days: ~\$35\.86 \(2,400,000 tokens\) across 10 sessions/);
+  assert.match(line, /^Last 7 days: 2,400,000 wasted tokens across 10 sessions/);
+  assert.doesNotMatch(line, /\$/);
   assert.match(line, /npx highbeam-cli audit/);
   assert.equal(formatPastWasteLine({ ok: true, days: 7, sessionsScanned: 3, sludgeTaxUSD: 0.1, sludgeTaxTokens: 5 }), '');
   assert.equal(formatPastWasteLine({ ok: true, days: 7, sessionsScanned: 0, sludgeTaxUSD: 9, sludgeTaxTokens: 5 }), '');

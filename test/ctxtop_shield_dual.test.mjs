@@ -539,7 +539,7 @@ test('6. P1-1 audit accuracy: Antigravity step_type=23 checkpoints & >5m idle pa
 
     const report = formatSessionAuditReport(auditRes);
     assert.match(report, /Not active yet.*npx highbeam-cli init/);
-    assert.doesNotMatch(report, /\+\$?0 tok \(\$0\.00 USD\)/);
+    assert.doesNotMatch(report, /\bUSD\b|\$0\.00|\+\$?0 tok/);
   } finally {
     fs.rmSync(tmpHome, { recursive: true, force: true });
     fs.rmSync(tmpCwd, { recursive: true, force: true });

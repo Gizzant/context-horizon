@@ -436,7 +436,9 @@ describe('Google UX & Edward Tufte Simple View Invariants', () => {
     assert.match(d.getElementById('simpleRunwaySub').textContent, /safe/);
     assert.match(d.getElementById('simpleBurnRateLbl').textContent, /\/turn/);
     assert.match(d.getElementById('simpleCacheRingPct').textContent, /(?:\d+% hit|Cold)/);
-    assert.match(d.getElementById('tufteSavedUsd').textContent, /^~\$/);
+    assert.equal(d.getElementById('tufteSavedUsd').hidden, true);
+    assert.equal(d.getElementById('tufteSavedUsd').textContent, '');
+    assert.match(d.getElementById('tufteSavedTokensLabel').textContent, /^\+/);
     assert.ok(html.includes('clamp(56px, 12vh, 84px)'), 'timeline scales cleanly within compact bounds');
 
     dom.window.close();

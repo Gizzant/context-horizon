@@ -199,8 +199,7 @@
       if (ret && ret.measured) {
         const causes = Object.entries(ret.bustCauses || {}).map(([k, v]) => `${k.replace(/_/g, ' ')} \u00d7${v}`).join(', ');
         retEl.title = `Prefix-Cache Retention ${ret.retentionIndexPct}% (grade ${ret.grade}) over ${ret.measuredTurns} warm-eligible turn(s). ` +
-          `Retained ${Number(ret.retainedPrefixTokens || 0).toLocaleString()} / ${Number(ret.eligiblePrefixTokens || 0).toLocaleString()} prefix tokens. ` +
-          `Discount captured $${Number(ret.retainedDiscountSavingsUSD || 0).toFixed(2)} · cold re-prefill leaked $${Number(ret.leakedColdPrefillUSD || 0).toFixed(2)}.` +
+          `Retained ${Number(ret.retainedPrefixTokens || 0).toLocaleString()} / ${Number(ret.eligiblePrefixTokens || 0).toLocaleString()} prefix tokens (${Number(ret.retentionIndexPct || 0)}% retained).` +
           (causes ? ` Bust causes: ${causes}.` : '') +
           (ret.ttlExpiredTurns ? ` ${ret.ttlExpiredTurns} turn(s) excluded (TTL expired while idle).` : '');
       }
@@ -255,7 +254,7 @@
         const tr = document.createElement('tr');
         const cells = [
           w.name,
-          w.state + (w.parked ? ' ($0)' : ''),
+          w.state + (w.parked ? ' (0 tok)' : ''),
           w.model || 'inherit',
           w.workspace || 'inherit',
           w.ttlRemainingSec > 0 ? Math.floor(w.ttlRemainingSec / 60) + 'm' + String(w.ttlRemainingSec % 60).padStart(2, '0') + 's' : '\u2014'

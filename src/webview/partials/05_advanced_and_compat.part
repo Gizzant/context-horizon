@@ -199,9 +199,9 @@
         <div>
           <span id="taKpiTokens" class="ts-kpi-num">+0.0k</span>
           <span style="font-size:11px;color:var(--hz-muted);margin-left:4px;">saved</span>
-          <span id="taKpiUsd" style="font-size:11.5px;color:var(--hz-useful);margin-left:5px;font-weight:600;">$0.00</span>
+          <span id="taKpiUsd" style="font-size:11.5px;color:var(--hz-useful);margin-left:5px;font-weight:600;" hidden></span>
         </div>
-        <span id="taKpi30d" class="ts-meta">30d: +0.0k ($0.00)</span>
+        <span id="taKpi30d" class="ts-meta">30d: +0.0k</span>
       </div>
       <div class="ta-source-grid">
         <div><span style="color:var(--hz-muted);">Warm KV</span><br><strong id="taSrcCache">+0.0k</strong></div>
@@ -396,7 +396,7 @@
         <span class="sprint-metric drift" id="thinkingDriftDisplay" data-drift="n/a" title="Thinking vs. Generation Drift: reasoning tokens / visible output tokens on the latest turn, plus time-to-first-token.">Think &mdash; &middot; TTFT &mdash;</span>
       </div>
       <details class="swarm-topology-drawer mono" id="swarmTopologyDrawer" data-mode="solo" data-collision="false">
-        <summary id="swarmTopologySummary" title="Subagent /swarm roster, git worktrees and scope-lock overlaps (DET-20). Parked (waiting) workers cost $0 until messaged.">Solo agent</summary>
+        <summary id="swarmTopologySummary" title="Subagent /swarm roster, git worktrees and scope-lock overlaps (DET-20). Parked (waiting) workers burn 0 tokens until messaged.">Solo agent</summary>
         <div class="swarm-topology-body" id="swarmTopologyBody"></div>
       </details>
       <div class="cache-timer-bar-track" title="5-Minute Prompt Cache Timer">
@@ -832,7 +832,7 @@
               <strong class="savings-primary-val" id="tufteSavedTokensLabel">+0.0k</strong>
               <span>saved this chat</span>
             </span>
-            <span class="savings-scope-sub" id="tufteSavedUsd"></span>
+            <span class="savings-scope-sub" id="tufteSavedUsd" hidden></span>
             <span class="savings-scope-sub">&middot;</span>
             <span class="savings-scope-sub" id="tufteWorkspaceSavedLabel">+0.0k</span>
             <span class="savings-scope-sub" title="Tokens saved across all your chats in this workspace over the last 30 days">30d</span>
@@ -849,7 +849,7 @@
       <div class="savings-why-row"><span>CLI &amp; log compression</span><strong id="savCliVal">+0.0k</strong></div>
       <div class="savings-why-row"><span>Loops, re-reads &amp; trims avoided</span><strong id="savGuardsVal">+0.0k</strong></div>
       <div class="savings-why-foot">
-        <span class="savings-scope-sub" id="savEstUsdLabel">Est. input value: $0.00</span>
+        <span class="savings-scope-sub" id="savEstUsdLabel">30d workspace: +0.0k</span>
         <button type="button" class="btn-copy-receipt mono" id="btnCopySimpleSavingsReceipt" title="Copy plain-English Estimated Tokens Saved Receipt">[Copy Receipt]</button>
       </div>
     </div>

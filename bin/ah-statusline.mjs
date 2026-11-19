@@ -154,6 +154,7 @@ export async function runStatusLineCli(args = globalThis.process?.argv?.slice(2)
       const demoRendered = renderStatusLine(demoState, {
         columns,
         includeDiskLedger: false,
+        savedTokens: 164000,
         savedUSD: 1.84
       });
       globalThis.process?.stdout?.write?.(`${demoRendered.line}\n`);

@@ -273,8 +273,9 @@ describe('Panel: Auto selection is sticky and Simple follows the displayed conve
       );
       const ledger = d.getElementById('tsLedgerList').textContent;
       assert.match(ledger, /Would have: hold the cold swarm wake-up/);
-      assert.match(ledger, /\$0\.65/);
-      assert.match(ledger, /Potential savings/);
+      assert.match(ledger, /\+150\.0k/);
+      assert.match(ledger, /Potential tokens saved/);
+      assert.doesNotMatch(ledger, /\$/);
       assert.doesNotMatch(d.getElementById('tsGuardsSummary').textContent, /Auto-enforcing/);
       assert.match(d.getElementById('tsGuardsSummary').textContent, /would have fixed 1/);
       assert.match(d.getElementById('tsModeHint').textContent, /Preview/);

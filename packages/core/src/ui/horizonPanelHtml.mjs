@@ -175,7 +175,7 @@ function renderAutomatedActivityHtml(log, breakerVerdict, shieldData, rslData) {
   const hiddenCount = Math.max(0, items.length - visibleItems.length);
   const renderRow = (it) => {
     const mult = it.count > 1 ? `<span class="ah-fx-mult">\u00D7${it.count}</span>` : '';
-    const extra = `${it.detail || it.label} \u00B7 ${formatTokensCompact(it.tokensSaved)} tokens${Number(it.usd) > 0 ? ` \u00B7 ~${formatUsd(it.usd)}` : ''}`;
+    const extra = `${it.detail || it.label} \u00B7 ${formatTokensCompact(it.tokensSaved)} tokens`;
     return `<details class="ah-fx-row"><summary><span class="ah-fx-turn">${it.turn ? `T${escapeHtml(it.turn)}` : '\u00B7'}</span><span class="ah-fx-label">\u2713 ${escapeHtml(it.label)}${mult}</span><span class="ah-fx-detail">${escapeHtml(it.detail || '')}</span><span class="ah-fx-saved">+${escapeHtml(formatTokensCompact(it.tokensSaved))}</span></summary><div class="ah-fx-more">${escapeHtml(extra)}</div></details>`;
   };
   const rowsHtml = items.length === 0
@@ -279,9 +279,9 @@ function renderSessionOverviewHtml(tl, metrics, catList, shadowAuto = null, proE
 
   const hasSessionSavings = Number(metrics.sessionSavedTokens || 0) > 0;
   const savedMainTxt = hasSessionSavings
-    ? `+${formatTokensCompact(metrics.sessionSavedTokens)} (${formatUsd(metrics.sessionSavedUSD)})`
+    ? `+${formatTokensCompact(metrics.sessionSavedTokens)} tokens`
     : 'Tracking ready';
-  const saved30dTxt = `+${formatTokensCompact(metrics.workspace30dSavedTokens)} (${formatUsd(metrics.workspace30dSavedUSD)}) 30d`;
+  const saved30dTxt = `+${formatTokensCompact(metrics.workspace30dSavedTokens)} tokens (30d)`;
   const driverTxt = `${metrics.topSavingsDriver.label} (+${formatTokensCompact(metrics.topSavingsDriver.savedTokens)})`;
 
   return `<section class="ah-card ts-card ah-flight" id="simpleFlightRecorder" aria-label="Session overview and savings">
@@ -295,7 +295,7 @@ function renderSessionOverviewHtml(tl, metrics, catList, shadowAuto = null, proE
           </summary>
           <div class="ah-saved-why">
             <div class="ah-saved-driver" id="savedTopDriver">Top driver: ${escapeHtml(driverTxt)}</div>
-            ${catList.map((c) => `<div class="ah-saved-cat-row"><span>${escapeHtml(c.label)}</span><strong>+${escapeHtml(formatTokensCompact(c.savedTokens))} (${escapeHtml(formatUsd(c.savedUSD))})</strong></div>`).join('')}
+            ${catList.map((c) => `<div class="ah-saved-cat-row"><span>${escapeHtml(c.label)}</span><strong>+${escapeHtml(formatTokensCompact(c.savedTokens))} tok</strong></div>`).join('')}
           </div>
         </details>
       </div>
@@ -1395,14 +1395,14 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
     <!-- Accordion 1: Verified 5-Category Savings & Anthropic Cache ROI -->
     <details class="adv-accordion" id="advSavingsAccordion" open>
       <summary>
-        <span>1. Estimated Savings Breakdown &amp; Cache ROI</span>
-        <span>+${escapeHtml(formatTokensCompact(metrics.sessionSavedTokens))} (${escapeHtml(formatUsd(metrics.sessionSavedUSD))})</span>
+        <span>1. Estimated Token Savings &amp; Cache Efficiency</span>
+        <span>+${escapeHtml(formatTokensCompact(metrics.sessionSavedTokens))} tokens</span>
       </summary>
       <div class="adv-body">
         ${catList
           .map(
             (c) =>
-              `<div class="adv-row"><span>${escapeHtml(c.label)}</span><strong>+${escapeHtml(formatTokensCompact(c.savedTokens))} (${escapeHtml(formatUsd(c.savedUSD))})</strong></div>`
+              `<div class="adv-row"><span>${escapeHtml(c.label)}</span><strong>+${escapeHtml(formatTokensCompact(c.savedTokens))} tok</strong></div>`
           )
           .join('')}
         <div class="adv-row"><span>Break-Even Gravity C* (${escapeHtml(grid.modelId)} &rarr; ${escapeHtml(peerModel)})</span><strong>${escapeHtml(breakEven.breakEvenTokens.toLocaleString('en-US'))} tok</strong></div>
@@ -1458,7 +1458,7 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
             ? swarmSummary.workers
                 .map(
                   (w) =>
-                    `<div class="adv-row"><span>${escapeHtml(w.agentId)} (${escapeHtml(w.state)}${w.state === 'waiting' ? ' $0' : ''})</span><strong>${escapeHtml(formatTokensCompact(w.totalTokens))} · ${w.turns}t</strong></div>`
+                    `<div class="adv-row"><span>${escapeHtml(w.agentId)} (${escapeHtml(w.state)}${w.state === 'waiting' ? ' 0 tok' : ''})</span><strong>${escapeHtml(formatTokensCompact(w.totalTokens))} · ${w.turns}t</strong></div>`
                 )
                 .join('')
             : '<div class="adv-row"><span>Isolated Subagent Tokens</span><strong>0</strong></div>'

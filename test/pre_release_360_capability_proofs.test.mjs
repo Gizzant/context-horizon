@@ -69,7 +69,8 @@ describe('Pre-Release 360° Capability Proofs — Dual-Host Parity, External-CWD
         { cwd: extWorkspace, encoding: 'utf8' }
       );
       assert.match(statusOut, /HB \[/, 'Claude ah-statusline must render cleanly from external CWD');
-      assert.match(statusOut, /Saved \$/, 'Claude ah-statusline must display Saved USD');
+      assert.match(statusOut, /Saved \+/, 'Claude ah-statusline must display tokens saved');
+      assert.doesNotMatch(statusOut, /Saved \$\d/, 'Claude ah-statusline must not display dollar savings');
 
       // 2. Claude Code PreToolUse & PostToolUse handlers executed against external workspace
       const ccPre1 = runPreToolUseHook(

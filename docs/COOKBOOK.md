@@ -215,7 +215,7 @@ When you or the agent attempts to edit `AGENTS.md` or `CLAUDE.md` while a `60k` 
 - **What Highbeam Does Automatically**: `PrefixCacheShield` stages the rule delta in `.agents/cache/pending_rule_deltas.json` until TTL expiry or `/compact`, preventing an immediate cold-prefill rebuild of the entire `60k` prefix.
 - **Zone C & Zone D Output**:
   - `live · Staged 1 rule edit via PrefixCacheShield until TTL expiry · shielded`
-  - **Zone D Total**: **`+164.0k tokens saved (~$0.33)`**
+  - **Zone D Total**: **`+164.0k tokens saved`**
 
 ---
 

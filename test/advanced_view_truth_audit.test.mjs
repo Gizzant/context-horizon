@@ -368,8 +368,10 @@ describe('AV-BUG-01..14: Primary Advanced View Math Parity, Honesty & Zero-Dead-
       });
 
       assert.match(txt('taDualTtl'), /^88% hit · 5m KV 03:15 · 1h 35:00 · 92% kept \(A\)$/);
-      assert.match(txt('taEconModelLine'), /Claude Sonnet 4\.6.*High \(3x burn\).*Pool: 200\.0k.*\$3\.00\/1M in/);
-      assert.match(txt('taEconCacheLine'), /busts whole prefix \(EF1_46\).*Switch rewrite: ~\$0\.12/);
+      assert.match(txt('taEconModelLine'), /Claude Sonnet 4\.6.*High \(3x burn\).*Pool: 200\.0k/);
+      assert.doesNotMatch(txt('taEconModelLine'), /\$3\.00\/1M in/);
+      assert.match(txt('taEconCacheLine'), /busts whole prefix \(EF1_46\).*(?:Switch rewrites 40\.0k warm tok|Mid-turn switch breaks warm KV)/);
+      assert.doesNotMatch(txt('taEconCacheLine'), /\$/);
 
       // 40-cell default #1, safe boundary marker, DIRTY_SNAP clutter cell with turn tag, keyboard navigation
       const domCells = d.querySelectorAll('#taHorizonGrid .ta-cell');
@@ -412,7 +414,8 @@ describe('AV-BUG-01..14: Primary Advanced View Math Parity, Honesty & Zero-Dead-
           isClamped1MModel: true
         }
       });
-      assert.match(txt('taEconModelLine'), /Pool: 256\.0k IDE cap \/ 1\.0M native · \$1\.50\/1M in/);
+      assert.match(txt('taEconModelLine'), /Pool: 256\.0k IDE cap \/ 1\.0M native$/);
+      assert.doesNotMatch(txt('taEconModelLine'), /\$/);
       assert.match(txt('taEconCacheLine'), /Thinking change: outside cached prefix \(safe\)/);
       assert.deepEqual(jsdomErrors, []);
     } finally {

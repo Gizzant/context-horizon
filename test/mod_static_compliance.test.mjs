@@ -1287,7 +1287,8 @@ function registerComplianceTestSuite() {
       assert.equal(receiptOut.exitCode, 0);
       assert.match(receiptOut.output, /\[Box 1\] Capacity & Horizon Bar/);
       assert.match(receiptOut.output, /\[Box 5\] Deterministic Saved-Quota Receipt/);
-      assert.match(receiptOut.output, /\$0\.00 USD \| 0 tokens preserved/);
+      assert.match(receiptOut.output, /0 tokens preserved/);
+      assert.doesNotMatch(receiptOut.output, /\$0\.00 USD/);
 
       const report = generateReceiptReport({ cwd: tmpDir });
       assert.equal(report.summary.totalSavedTokens, 0);

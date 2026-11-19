@@ -65,7 +65,25 @@ function formatStatusBar(state = null, daemonInfo = { connected: false }) {
   }
 
   const modelId = state?.model?.rawLabel || state?.model?.id || state?.activeModel || 'unknown';
-  const savedUsd = Number(state?.savings?.workspace30dSavedUSD ?? state?.savings?.totalSavedUSD ?? 0);
+  const sessionSavedTok = Math.max(
+    0,
+    Number(
+      state?.savings?.session?.totalTokens ??
+        state?.savings?.session?.totalPhysicalTokens ??
+        state?.savings?.sessionSavedTokens ??
+        0
+    )
+  );
+  const saved30dTok = Math.max(
+    sessionSavedTok,
+    Number(
+      state?.savings?.workspace30d?.totalTokens ??
+        state?.savings?.workspace30d?.totalPhysicalTokens ??
+        state?.savings?.workspace30dSavedTokens ??
+        state?.savings?.totalSavedTokens ??
+        0
+    )
+  );
   const portLabel = daemonInfo.port ? `http://127.0.0.1:${daemonInfo.port}/` : 'loopback';
 
   const lines = [
@@ -79,8 +97,10 @@ function formatStatusBar(state = null, daemonInfo = { connected: false }) {
     `- **Flight Mode**: \`${flightMode}\``
   ];
 
-  if (savedUsd > 0) {
-    lines.push(`- **Est. 30d Saved**: \`$${savedUsd.toFixed(2)} USD\``);
+  if (sessionSavedTok > 0 && saved30dTok > 0) {
+    lines.push(`- **Tokens Saved**: \`+${formatTokensCompact(sessionSavedTok)} chat\` · \`+${formatTokensCompact(saved30dTok)} (30d)\``);
+  } else if (saved30dTok > 0) {
+    lines.push(`- **Est. 30d Saved**: \`+${formatTokensCompact(saved30dTok)} tokens\``);
   }
   lines.push(`- **Loopback**: \`${portLabel}\``);
   lines.push('', '_Click to open Highbeam sidebar._');

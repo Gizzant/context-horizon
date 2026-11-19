@@ -95,8 +95,11 @@ export function getTrialSummary(options = {}) {
   };
 }
 
-function usd(n) {
-  return `$${Number(n || 0).toFixed(2)}`;
+function formatCompactTokens(n) {
+  const num = Math.max(0, Number(n || 0));
+  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (num >= 1_000) return `${(num / 1_000).toFixed(1).replace(/\.0$/, '')}k`;
+  return String(Math.round(num));
 }
 
 /**
@@ -106,7 +109,7 @@ function usd(n) {
  */
 export function formatTrialSummaryLines(s) {
   if (!s || s.state === 'none') return [];
-  const saved = `${usd(s.savedUSD)} (${s.savedTokens.toLocaleString('en-US')} tokens) across ${s.interventions} intervention${s.interventions === 1 ? '' : 's'} in this project`;
+  const saved = `${s.savedTokens.toLocaleString('en-US')} tokens across ${s.interventions} intervention${s.interventions === 1 ? '' : 's'} in this project`;
   if (s.state === 'active') {
     return [
       s.interventions > 0
@@ -163,8 +166,8 @@ export function getTrialEndNotice(options = {}) {
     }
     if (nowMs - Number(marker.firstShownAt || nowMs) > TRIAL_NOTICE_WINDOW_MS) return null;
 
-    // The bar already shows total savings (`Saved $X`), so only the widest variant repeats a figure.
-    const withSavings = marker.interventions > 0 ? `: saved ${usd(marker.savedUSD)} in 14 days,` : ',';
+    // The bar already shows total tokens saved, so only the widest variant repeats a figure.
+    const withSavings = marker.interventions > 0 ? `: saved ${formatCompactTokens(marker.savedTokens)} tokens in 14 days,` : ',';
     return {
       full: `Trial ended${withSavings} Auto paused. Keep it: highbeam license activate`,
       short: 'Trial ended · Auto paused'

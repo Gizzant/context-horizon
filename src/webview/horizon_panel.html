@@ -5506,7 +5506,7 @@
       <span class="ts-saved-hero-label">Est. tokens saved</span>
       <span class="ts-saved-hero-row">
         <strong id="tsHeroSaved" class="ts-saved-hero-num">+0</strong>
-        <span id="tsHeroUsd" class="ts-saved-hero-usd">~$0.00</span>
+        <span id="tsHeroUsd" class="ts-saved-hero-usd" hidden></span>
       </span>
       <span id="tsHeroSub" class="ts-saved-hero-sub">This chat &middot; nothing saved yet</span>
     </section>
@@ -5725,13 +5725,13 @@
         </div>
 
         <!-- Row 3: Estimated Savings & 5h Quota Pacing -->
-        <div class="ts-metric-row" title="Tokens and estimated spend saved locally by trimming verbose logs, skipping duplicate reads, and keeping your prompt cache warm.">
+        <div class="ts-metric-row" title="Tokens saved locally by trimming verbose logs, skipping duplicate reads, and keeping your prompt cache warm.">
           <div class="ts-metric-main">
             <span class="ts-metric-label">Saved</span>
             <span id="tsKpiSaved" class="ts-kpi-inline" title="Estimated tokens saved during this active chat session.">+0.0k</span>
-            <span id="tsKpiUsd" class="ts-kpi-sub" title="Estimated input cost avoided in this chat based on your active model rate.">~$0.00</span>
+            <span id="tsKpiUsd" class="ts-kpi-sub" hidden></span>
             <span class="ts-kpi-sub" aria-hidden="true">&middot;</span>
-            <span id="tsKpi30d" class="ts-kpi-sub" title="Cumulative estimated savings across this workspace over the last 30 days.">30d: +0.0k (~$0.00)</span>
+            <span id="tsKpi30d" class="ts-kpi-sub" title="Cumulative estimated tokens saved across this workspace over the last 30 days.">30d: +0.0k</span>
             <span id="tsSprintMeta" class="ts-kpi-sub" hidden title="Estimated share of your 5-hour rolling seat quota used so far."></span>
           </div>
           <span id="tsSavedHint" class="ts-kpi-sub" title="All savings are counted once per turn from Highbeam's local ledger with zero estimates padded in.">estimated</span>
@@ -5957,9 +5957,9 @@
         <div>
           <span id="taKpiTokens" class="ts-kpi-num">+0.0k</span>
           <span style="font-size:11px;color:var(--hz-muted);margin-left:4px;">saved</span>
-          <span id="taKpiUsd" style="font-size:11.5px;color:var(--hz-useful);margin-left:5px;font-weight:600;">$0.00</span>
+          <span id="taKpiUsd" style="font-size:11.5px;color:var(--hz-useful);margin-left:5px;font-weight:600;" hidden></span>
         </div>
-        <span id="taKpi30d" class="ts-meta">30d: +0.0k ($0.00)</span>
+        <span id="taKpi30d" class="ts-meta">30d: +0.0k</span>
       </div>
       <div class="ta-source-grid">
         <div><span style="color:var(--hz-muted);">Warm KV</span><br><strong id="taSrcCache">+0.0k</strong></div>
@@ -6154,7 +6154,7 @@
         <span class="sprint-metric drift" id="thinkingDriftDisplay" data-drift="n/a" title="Thinking vs. Generation Drift: reasoning tokens / visible output tokens on the latest turn, plus time-to-first-token.">Think &mdash; &middot; TTFT &mdash;</span>
       </div>
       <details class="swarm-topology-drawer mono" id="swarmTopologyDrawer" data-mode="solo" data-collision="false">
-        <summary id="swarmTopologySummary" title="Subagent /swarm roster, git worktrees and scope-lock overlaps (DET-20). Parked (waiting) workers cost $0 until messaged.">Solo agent</summary>
+        <summary id="swarmTopologySummary" title="Subagent /swarm roster, git worktrees and scope-lock overlaps (DET-20). Parked (waiting) workers burn 0 tokens until messaged.">Solo agent</summary>
         <div class="swarm-topology-body" id="swarmTopologyBody"></div>
       </details>
       <div class="cache-timer-bar-track" title="5-Minute Prompt Cache Timer">
@@ -6590,7 +6590,7 @@
               <strong class="savings-primary-val" id="tufteSavedTokensLabel">+0.0k</strong>
               <span>saved this chat</span>
             </span>
-            <span class="savings-scope-sub" id="tufteSavedUsd"></span>
+            <span class="savings-scope-sub" id="tufteSavedUsd" hidden></span>
             <span class="savings-scope-sub">&middot;</span>
             <span class="savings-scope-sub" id="tufteWorkspaceSavedLabel">+0.0k</span>
             <span class="savings-scope-sub" title="Tokens saved across all your chats in this workspace over the last 30 days">30d</span>
@@ -6607,7 +6607,7 @@
       <div class="savings-why-row"><span>CLI &amp; log compression</span><strong id="savCliVal">+0.0k</strong></div>
       <div class="savings-why-row"><span>Loops, re-reads &amp; trims avoided</span><strong id="savGuardsVal">+0.0k</strong></div>
       <div class="savings-why-foot">
-        <span class="savings-scope-sub" id="savEstUsdLabel">Est. input value: $0.00</span>
+        <span class="savings-scope-sub" id="savEstUsdLabel">30d workspace: +0.0k</span>
         <button type="button" class="btn-copy-receipt mono" id="btnCopySimpleSavingsReceipt" title="Copy plain-English Estimated Tokens Saved Receipt">[Copy Receipt]</button>
       </div>
     </div>
@@ -6858,8 +6858,7 @@
       if (ret && ret.measured) {
         const causes = Object.entries(ret.bustCauses || {}).map(([k, v]) => `${k.replace(/_/g, ' ')} \u00d7${v}`).join(', ');
         retEl.title = `Prefix-Cache Retention ${ret.retentionIndexPct}% (grade ${ret.grade}) over ${ret.measuredTurns} warm-eligible turn(s). ` +
-          `Retained ${Number(ret.retainedPrefixTokens || 0).toLocaleString()} / ${Number(ret.eligiblePrefixTokens || 0).toLocaleString()} prefix tokens. ` +
-          `Discount captured $${Number(ret.retainedDiscountSavingsUSD || 0).toFixed(2)} · cold re-prefill leaked $${Number(ret.leakedColdPrefillUSD || 0).toFixed(2)}.` +
+          `Retained ${Number(ret.retainedPrefixTokens || 0).toLocaleString()} / ${Number(ret.eligiblePrefixTokens || 0).toLocaleString()} prefix tokens (${Number(ret.retentionIndexPct || 0)}% retained).` +
           (causes ? ` Bust causes: ${causes}.` : '') +
           (ret.ttlExpiredTurns ? ` ${ret.ttlExpiredTurns} turn(s) excluded (TTL expired while idle).` : '');
       }
@@ -6914,7 +6913,7 @@
         const tr = document.createElement('tr');
         const cells = [
           w.name,
-          w.state + (w.parked ? ' ($0)' : ''),
+          w.state + (w.parked ? ' (0 tok)' : ''),
           w.model || 'inherit',
           w.workspace || 'inherit',
           w.ttlRemainingSec > 0 ? Math.floor(w.ttlRemainingSec / 60) + 'm' + String(w.ttlRemainingSec % 60).padStart(2, '0') + 's' : '\u2014'
@@ -10177,7 +10176,6 @@
   }
 
   function renderAutoFixRow(it, idx) {
-    const usd = it.usd > 0 ? ` \u00B7 ~$${it.usd.toFixed(4)}` : '';
     const when = it.at ? String(it.at).replace('T', ' ').replace(/\.\d+Z?$/, 'Z') : '';
     const repeatBadge = it.repeatCount > 1 ? `<span class="fx-repeat">\u00D7${it.repeatCount}</span>` : '';
     return `<div class="fx-row" role="listitem">` +
@@ -10187,7 +10185,7 @@
         `<span class="fx-detail">${escAttr(it.detail || '')}</span>` +
         `<span class="fx-saved">+${flightFmtK(it.tokensSaved)}</span>` +
       `</button>` +
-      `<div class="fx-more" hidden>${escAttr((it.detail || it.label) + ' \u00B7 ' + flightFmtK(it.tokensSaved) + ' tokens' + usd + (when ? ' \u00B7 ' + when : ''))}</div>` +
+      `<div class="fx-more" hidden>${escAttr((it.detail || it.label) + ' \u00B7 ' + flightFmtK(it.tokensSaved) + ' tokens' + (when ? ' \u00B7 ' + when : ''))}</div>` +
     `</div>`;
   }
 
@@ -10297,7 +10295,7 @@
         const m = Math.floor(ttl / 60);
         ringTtl.textContent = `${m > 0 ? m + 'm ' : ''}${ttl % 60}s warm`;
       } else {
-        ringTtl.textContent = lost > 0 ? `lost -$${lost.toFixed(2)}` : 'uncached';
+        ringTtl.textContent = lost > 0 ? 'cold restart' : 'uncached';
       }
     }
 
@@ -10520,7 +10518,7 @@
       } else {
         let cachePart = '';
         if (isTrulyWarm) {
-          cachePart = `Prompt cache is warm (${cHit}% hit \u00B7 ${ttlSec}s TTL, 95% token cost discount).`;
+          cachePart = `Prompt cache is warm (${cHit}% hit \u00B7 ${ttlSec}s TTL, 95% cached token savings).`;
         } else if (isNextWarm) {
           const standbyStr = (standby && standby.modelName) ? ` (${standby.modelName} pool warm: ${standby.remainingTtl}s)` : '';
           cachePart = `Last turn missed cache and wrote a fresh prefix (${ttlSec}s window${standbyStr}).`;
@@ -10620,7 +10618,10 @@
     const tufteSavedEl = document.getElementById('tufteSavedTokensLabel');
     if (tufteSavedEl) tufteSavedEl.textContent = fmtPlusTok(sessSavedTotal);
     const tufteSavedUsdEl = document.getElementById('tufteSavedUsd');
-    if (tufteSavedUsdEl) tufteSavedUsdEl.textContent = sessEstUsd > 0 ? `~$${sessEstUsd.toFixed(2)}` : '';
+    if (tufteSavedUsdEl) {
+      tufteSavedUsdEl.textContent = '';
+      tufteSavedUsdEl.hidden = true;
+    }
     const tufteWsSavedEl = document.getElementById('tufteWorkspaceSavedLabel');
     if (tufteWsSavedEl) tufteWsSavedEl.textContent = fmtPlusTok(wsSavedTotal);
     const setById = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
@@ -10628,7 +10629,7 @@
     setById('savCacheVal', fmtPlusTok(savCache));
     setById('savCliVal', fmtPlusTok(savCli));
     setById('savGuardsVal', fmtPlusTok(savGuards));
-    setById('savEstUsdLabel', `Est. input value: ~$${sessEstUsd.toFixed(2)}`);
+    setById('savEstUsdLabel', `30d workspace: ${fmtPlusTok(wsSavedTotal)}`);
     setById('advSavSubagentVal', fmtPlusTok(savSubagent));
     setById('advSavCacheVal', fmtPlusTok(savCache));
     setById('advSavCliVal', fmtPlusTok(savCli));
@@ -12141,11 +12142,10 @@
       const cacheVal = document.getElementById('savCacheVal')?.textContent || '+0.0k';
       const cliVal = document.getElementById('savCliVal')?.textContent || '+0.0k';
       const guardVal = document.getElementById('savGuardsVal')?.textContent || '+0.0k';
-      const usdVal = document.getElementById('savEstUsdLabel')?.textContent || 'Est. input value: ~$0.00';
       md = [
         '### Highbeam — Estimated Tokens Saved Receipt',
         '',
-        `- **This Chat:** ${sessVal} (${usdVal})`,
+        `- **This Chat:** ${sessVal}`,
         `- **30-Day Workspace:** ${wsVal}`,
         '',
         '| Savings Source | Physical Tokens Saved |',
@@ -12698,8 +12698,13 @@
 
     // 1. Tokens-saved headline: same figures as the Session overview "Saved" row.
     setIf('tsHeroSaved', txtOf('tsKpiSaved') || '+0');
-    const usdTxt = document.getElementById('tsKpiUsd');
-    setIf('tsHeroUsd', usdTxt && !usdTxt.hidden ? txtOf('tsKpiUsd') : '');
+    {
+      const heroUsd = document.getElementById('tsHeroUsd');
+      if (heroUsd) {
+        heroUsd.textContent = '';
+        heroUsd.hidden = true;
+      }
+    }
     const d30 = document.getElementById('tsKpi30d');
     const saved = txtOf('tsKpiSaved').replace(/[^0-9.]/g, '');
     const hasSaved = Number(saved) > 0;
@@ -13335,11 +13340,8 @@
       setTxt('tsAvoidText', 'Avoid starting broad multi-file changes without naming which files can be edited and how to test them.');
     } else if (raw.coachState?.smartCompactSuggestion?.shouldSuggest) {
       const sc = raw.coachState.smartCompactSuggestion;
-      const savedUsdTxt = Number(sc.estimatedNetSavingsUsd) > 0
-        ? ` (saves ~$${Number(sc.estimatedNetSavingsUsd).toFixed(2)} net over the next ${sc.horizonTurns || 6} turns)`
-        : '';
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `Task complete — run /compact now before starting your next task${savedUsdTxt} while ${formatTokens(dispStaleT || sc.reclaimableTokens || 0)} of finished work can be cleanly summarized.`);
+      setTxt('tsDoText', `Task complete — run /compact now before starting your next task while ${formatTokens(dispStaleT || sc.reclaimableTokens || 0)} of finished work can be cleanly summarized.`);
       setTxt('tsAvoidText', 'Avoid carrying completed-task file reads and test logs into an unrelated next task.');
     } else {
       if (tsDoRow) tsDoRow.dataset.tone = 'do';
@@ -13383,10 +13385,8 @@
       const otherFamily = modelProvider === 'Claude' ? 'Gemini' : (modelProvider === 'Gemini' ? 'Claude' : 'another family');
       const familyHint = modelProvider === 'Claude' ? 'Fable/Opus/Sonnet/Haiku' : (modelProvider === 'Gemini' ? 'Neon/Carbon/Argon/Hydrogen/Flash' : 'same provider');
       const cg = cache.costGate || {};
-      const rewriteUsd = Number(cg.coldRewriteCostUsd) || 0;
       const quotaUnits = Number(cg.quotaPenaltyUnits) || 0;
-      const usdTxt = rewriteUsd >= 0.01 ? `$${rewriteUsd.toFixed(2)}` : '<$0.01';
-      const costTxt = rewriteUsd > 0 ? ` (\u2248 ${usdTxt}${quotaUnits > 0 ? ` \u00B7 ${formatTokens(quotaUnits)} quota units` : ''})` : '';
+      const costTxt = quotaUnits > 0 ? ` (\u2248 ${formatTokens(quotaUnits)} quota units)` : '';
       const targetWindowTxt = otherFamily === 'Claude'
         ? "switches to Claude's 200.0k window (140.0k safe limit)"
         : (otherFamily === 'Gemini'
@@ -13656,7 +13656,6 @@
         let ledgerRows = rows;
         if (autoShadowFlag) {
           // Shadow Auto (Free): list what Auto WOULD have done (from the recorded shadow ledger) — never claims enforcement.
-          const money = (n) => '\u2248\u0024' + Number(n || 0).toFixed(2);
           const ageLabel = (ts) => {
             const mins = Math.max(0, Math.round((Date.now() - Number(ts || 0)) / 60000));
             return mins < 1 ? 'now' : (mins < 60 ? mins + 'm' : (mins < 1440 ? Math.round(mins / 60) + 'h' : Math.round(mins / 1440) + 'd'));
@@ -13664,7 +13663,7 @@
           ledgerRows = shadowCorrections.slice(0, 3).map(c => ({
             age: ageLabel(c.ts),
             action: 'Would have: ' + (c.detail || String(c.category || 'correction').replace(/_/g, ' ').toLowerCase()),
-            saved: c.missedUsd > 0 ? money(c.missedUsd) : 'preview',
+            saved: Number(c.wastedTokens) > 0 ? `+${formatTokens(c.wastedTokens)}` : 'preview',
             tip: 'Auto is in preview \u2014 this correction was not applied. Start the 14-day trial or unlock Pro to apply it.'
           }));
           if (ledgerRows.length === 0) {
@@ -13675,12 +13674,12 @@
               tip: 'Highbeam advises like Coach; Auto corrections are previewed until a trial or license is active.'
             }];
           }
-          const potentialUsd = Number(raw.shadowAuto?.missedUsd30d || 0);
-          if (potentialUsd > 0) {
+          const potentialTok = Number(raw.shadowAuto?.wastedTokens30d || 0);
+          if (potentialTok > 0) {
             ledgerRows.push({
               age: '30d',
-              action: 'Potential savings if Auto were applied (this workspace)',
-              saved: money(potentialUsd),
+              action: 'Potential tokens saved if Auto were applied (this workspace)',
+              saved: `+${formatTokens(potentialTok)}`,
               tip: 'Estimated from recorded Auto-preview incidents over the last 30 days.'
             });
           }
@@ -13844,32 +13843,15 @@
         raw.thirtyDayTokensSaved
       ) || 0
     );
-    const modelRateUsd = Number(raw.model?.inputPricePerMillionUsd) || 2.0;
-    const usdSaved = Number(
-      raw.savings?.session?.estimatedUsd ??
-      raw.savings?.session?.estimatedInputValueUsd ??
-      raw.savings?.session?.estimatedCostSavedUsd ??
-      raw.sessionCostSavedUsd ??
-      ((sessionSaved / 1000000) * modelRateUsd)
-    ) || 0;
-    const usd30dRaw = Number(
-      raw.savings?.workspace30d?.estimatedUsd ??
-      raw.savings?.workspace30d?.estimatedInputValueUsd ??
-      raw.savings?.thirtyDay?.estimatedCostSavedUsd ??
-      raw.lifetimeCostSavedUsd ??
-      ((lifetimeSaved / 1000000) * modelRateUsd)
-    ) || 0;
-    const usd30d = Math.max(usdSaved, usd30dRaw);
     setTxt('tsKpiSaved', `+${formatTokens(sessionSaved)}`);
-    setTxt('tsKpiUsd', `~$${usdSaved.toFixed(2)}`);
-    setTxt('tsKpi30d', `30d: +${formatTokens(lifetimeSaved)} (~$${usd30d.toFixed(2)})`);
+    setTxt('tsKpiUsd', '');
+    setTxt('tsKpi30d', `30d: +${formatTokens(lifetimeSaved)}`);
     {
       const usdEl = document.getElementById('tsKpiUsd');
       const d30El = document.getElementById('tsKpi30d');
       const sepEl = d30El ? d30El.previousElementSibling : null;
-      const hideUsd = usdSaved < 0.005;
       const hide30d = lifetimeSaved <= 0;
-      if (usdEl) usdEl.hidden = hideUsd;
+      if (usdEl) usdEl.hidden = true;
       if (d30El) d30El.hidden = hide30d;
       if (sepEl && sepEl.getAttribute('aria-hidden') === 'true') sepEl.hidden = hide30d;
     }
@@ -14560,8 +14542,7 @@
       const poolDesc = mdl.isClamped1MModel && Number(mdl.nativeCeilingTokens || 0) > maxCap
         ? `${formatTokens(maxCap)} IDE cap / ${formatTokens(mdl.nativeCeilingTokens)} native`
         : formatTokens(maxCap);
-      const rateIn = Number(mdl.inputPricePerMillionUsd || 0);
-      const rateTxt = rateIn > 0 ? ` \u00B7 $${rateIn.toFixed(2)}/1M in` : '';
+      const rateTxt = '';
       const cidTag = mdl.canonicalId && String(mdl.canonicalId).toLowerCase() !== String(activeModel).toLowerCase()
         ? ` [${mdl.canonicalId}]`
         : '';
@@ -14581,10 +14562,10 @@
         effKvRule = 'Effort change: unverified for host model';
       }
       const cgAdv = cache.costGate || {};
-      const advRewriteUsd = Number(cgAdv.coldRewriteCostUsd) || 0;
+      const warmTok = Math.max(0, Number(cache.cacheReadTokens || cgAdv.cachedTokens || raw.window?.cachedTokens || 0));
       const rewriteTxt = isWarm
-        ? (advRewriteUsd > 0 ? `Switch rewrite: ~$${advRewriteUsd.toFixed(2)}` : 'Mid-turn switch breaks warm KV')
-        : 'Cache cold ($0 switch rewrite)';
+        ? (warmTok > 0 ? `Switch rewrites ${formatTokens(warmTok)} warm tok` : 'Mid-turn switch breaks warm KV')
+        : 'Cache cold (clean switch)';
       setTxt('taEconCacheLine', `${effKvRule} \u00B7 ${rewriteTxt}`);
     }
 
@@ -14643,7 +14624,7 @@
         if (!c || typeof c !== 'object') return;
         const code = c.detectorId || 'AUTO';
         const desc = `Preview: ${c.detail || String(c.category || 'correction').replace(/_/g, ' ').toLowerCase()}`;
-        const imp = c.missedUsd > 0 ? `~$${Number(c.missedUsd).toFixed(2)}` : 'preview';
+        const imp = Number(c.wastedTokens) > 0 ? `+${formatTokens(c.wastedTokens)}` : 'preview';
         pushGuardEvent('sim', code, desc, imp, 'var(--hz-clutter)');
       });
     }
@@ -14833,7 +14814,7 @@
               const wLines = swarmWorkers.slice(0, 6).map(w => {
                 const loc = w.worktree || w.branch ? ` @ ${w.worktree || w.branch}` : '';
                 const tok = w.totalTokens != null ? ` (${formatTokens(w.totalTokens)})` : '';
-                return `<div><strong>${escAttr(w.agentId || w.role || 'worker')}</strong> [${escAttr(w.state || 'active')}${w.state === 'waiting' ? ' $0' : ''}]${escAttr(tok)}${escAttr(loc)}</div>`;
+                return `<div><strong>${escAttr(w.agentId || w.role || 'worker')}</strong> [${escAttr(w.state || 'active')}${w.state === 'waiting' ? ' 0 tok' : ''}]${escAttr(tok)}${escAttr(loc)}</div>`;
               }).join('');
               const cLines = scopeCollisions.map(c => `<div style="color:var(--status-critical);">Collision: ${escAttr(c?.file || c?.path || (Array.isArray(c?.overlappingPaths) ? c.overlappingPaths.join(', ') : '') || 'shared file')}</div>`).join('');
               swarmBlock.innerHTML = `${wLines || `<div>${swarmWorktrees.length} git worktrees tracked</div>`}${cLines}`;
@@ -14866,8 +14847,14 @@
 
     // Zone E: Estimated Savings (strictly measured attribution, zero fabricated splits) & Surgery
     setTxt('taKpiTokens', `+${formatTokens(sessionSaved)}`);
-    setTxt('taKpiUsd', usdSaved > 0 ? `~$${usdSaved.toFixed(2)}` : '$0.00');
-    setTxt('taKpi30d', `30d: +${formatTokens(lifetimeSaved)} (~$${usd30d.toFixed(2)})`);
+    {
+      const taUsdEl = document.getElementById('taKpiUsd');
+      if (taUsdEl) {
+        taUsdEl.textContent = '';
+        taUsdEl.hidden = true;
+      }
+    }
+    setTxt('taKpi30d', `30d: +${formatTokens(lifetimeSaved)}`);
 
     const savedCache = Math.max(0, savCache || Number(raw.savingsLedger?.prefixCacheTokens) || 0);
     const savedSub = Math.max(0, savSubagent || Number(raw.savingsLedger?.subagentTokens) || 0);

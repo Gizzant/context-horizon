@@ -173,7 +173,7 @@
       } else {
         let cachePart = '';
         if (isTrulyWarm) {
-          cachePart = `Prompt cache is warm (${cHit}% hit \u00B7 ${ttlSec}s TTL, 95% token cost discount).`;
+          cachePart = `Prompt cache is warm (${cHit}% hit \u00B7 ${ttlSec}s TTL, 95% cached token savings).`;
         } else if (isNextWarm) {
           const standbyStr = (standby && standby.modelName) ? ` (${standby.modelName} pool warm: ${standby.remainingTtl}s)` : '';
           cachePart = `Last turn missed cache and wrote a fresh prefix (${ttlSec}s window${standbyStr}).`;
@@ -273,7 +273,10 @@
     const tufteSavedEl = document.getElementById('tufteSavedTokensLabel');
     if (tufteSavedEl) tufteSavedEl.textContent = fmtPlusTok(sessSavedTotal);
     const tufteSavedUsdEl = document.getElementById('tufteSavedUsd');
-    if (tufteSavedUsdEl) tufteSavedUsdEl.textContent = sessEstUsd > 0 ? `~$${sessEstUsd.toFixed(2)}` : '';
+    if (tufteSavedUsdEl) {
+      tufteSavedUsdEl.textContent = '';
+      tufteSavedUsdEl.hidden = true;
+    }
     const tufteWsSavedEl = document.getElementById('tufteWorkspaceSavedLabel');
     if (tufteWsSavedEl) tufteWsSavedEl.textContent = fmtPlusTok(wsSavedTotal);
     const setById = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
@@ -281,7 +284,7 @@
     setById('savCacheVal', fmtPlusTok(savCache));
     setById('savCliVal', fmtPlusTok(savCli));
     setById('savGuardsVal', fmtPlusTok(savGuards));
-    setById('savEstUsdLabel', `Est. input value: ~$${sessEstUsd.toFixed(2)}`);
+    setById('savEstUsdLabel', `30d workspace: ${fmtPlusTok(wsSavedTotal)}`);
     setById('advSavSubagentVal', fmtPlusTok(savSubagent));
     setById('advSavCacheVal', fmtPlusTok(savCache));
     setById('advSavCliVal', fmtPlusTok(savCli));

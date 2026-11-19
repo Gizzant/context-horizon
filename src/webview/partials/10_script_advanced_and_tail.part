@@ -488,8 +488,7 @@
       const poolDesc = mdl.isClamped1MModel && Number(mdl.nativeCeilingTokens || 0) > maxCap
         ? `${formatTokens(maxCap)} IDE cap / ${formatTokens(mdl.nativeCeilingTokens)} native`
         : formatTokens(maxCap);
-      const rateIn = Number(mdl.inputPricePerMillionUsd || 0);
-      const rateTxt = rateIn > 0 ? ` \u00B7 $${rateIn.toFixed(2)}/1M in` : '';
+      const rateTxt = '';
       const cidTag = mdl.canonicalId && String(mdl.canonicalId).toLowerCase() !== String(activeModel).toLowerCase()
         ? ` [${mdl.canonicalId}]`
         : '';
@@ -509,10 +508,10 @@
         effKvRule = 'Effort change: unverified for host model';
       }
       const cgAdv = cache.costGate || {};
-      const advRewriteUsd = Number(cgAdv.coldRewriteCostUsd) || 0;
+      const warmTok = Math.max(0, Number(cache.cacheReadTokens || cgAdv.cachedTokens || raw.window?.cachedTokens || 0));
       const rewriteTxt = isWarm
-        ? (advRewriteUsd > 0 ? `Switch rewrite: ~$${advRewriteUsd.toFixed(2)}` : 'Mid-turn switch breaks warm KV')
-        : 'Cache cold ($0 switch rewrite)';
+        ? (warmTok > 0 ? `Switch rewrites ${formatTokens(warmTok)} warm tok` : 'Mid-turn switch breaks warm KV')
+        : 'Cache cold (clean switch)';
       setTxt('taEconCacheLine', `${effKvRule} \u00B7 ${rewriteTxt}`);
     }
 
@@ -571,7 +570,7 @@
         if (!c || typeof c !== 'object') return;
         const code = c.detectorId || 'AUTO';
         const desc = `Preview: ${c.detail || String(c.category || 'correction').replace(/_/g, ' ').toLowerCase()}`;
-        const imp = c.missedUsd > 0 ? `~$${Number(c.missedUsd).toFixed(2)}` : 'preview';
+        const imp = Number(c.wastedTokens) > 0 ? `+${formatTokens(c.wastedTokens)}` : 'preview';
         pushGuardEvent('sim', code, desc, imp, 'var(--hz-clutter)');
       });
     }
@@ -761,7 +760,7 @@
               const wLines = swarmWorkers.slice(0, 6).map(w => {
                 const loc = w.worktree || w.branch ? ` @ ${w.worktree || w.branch}` : '';
                 const tok = w.totalTokens != null ? ` (${formatTokens(w.totalTokens)})` : '';
-                return `<div><strong>${escAttr(w.agentId || w.role || 'worker')}</strong> [${escAttr(w.state || 'active')}${w.state === 'waiting' ? ' $0' : ''}]${escAttr(tok)}${escAttr(loc)}</div>`;
+                return `<div><strong>${escAttr(w.agentId || w.role || 'worker')}</strong> [${escAttr(w.state || 'active')}${w.state === 'waiting' ? ' 0 tok' : ''}]${escAttr(tok)}${escAttr(loc)}</div>`;
               }).join('');
               const cLines = scopeCollisions.map(c => `<div style="color:var(--status-critical);">Collision: ${escAttr(c?.file || c?.path || (Array.isArray(c?.overlappingPaths) ? c.overlappingPaths.join(', ') : '') || 'shared file')}</div>`).join('');
               swarmBlock.innerHTML = `${wLines || `<div>${swarmWorktrees.length} git worktrees tracked</div>`}${cLines}`;
@@ -794,8 +793,14 @@
 
     // Zone E: Estimated Savings (strictly measured attribution, zero fabricated splits) & Surgery
     setTxt('taKpiTokens', `+${formatTokens(sessionSaved)}`);
-    setTxt('taKpiUsd', usdSaved > 0 ? `~$${usdSaved.toFixed(2)}` : '$0.00');
-    setTxt('taKpi30d', `30d: +${formatTokens(lifetimeSaved)} (~$${usd30d.toFixed(2)})`);
+    {
+      const taUsdEl = document.getElementById('taKpiUsd');
+      if (taUsdEl) {
+        taUsdEl.textContent = '';
+        taUsdEl.hidden = true;
+      }
+    }
+    setTxt('taKpi30d', `30d: +${formatTokens(lifetimeSaved)}`);
 
     const savedCache = Math.max(0, savCache || Number(raw.savingsLedger?.prefixCacheTokens) || 0);
     const savedSub = Math.max(0, savSubagent || Number(raw.savingsLedger?.subagentTokens) || 0);

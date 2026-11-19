@@ -36,7 +36,7 @@ npx highbeam-cli audit --days 7
 
 ```text
 [Highbeam Session ROI Audit] Window: 7d | Platform: all | Sessions: 12
-  Sludge Tax Preventable : 1,420,850 tok ($2.84 USD)
+  Sludge Tax Preventable : 1,420,850 tok
   Cold-Cache Spikes (>5m): 14 | 3x Thrash Loops: 4
   Un-Sliced Large Reads  : 11 | Oversized Tool Dumps: 38
 ```
@@ -57,7 +57,7 @@ npx highbeam-cli audit --days 7
 #### 1. Google Antigravity Workflow
 1. **Install hooks & sidecar**: Run `npx highbeam-cli init --antigravity` in your project root (or globally).
 2. **Open the Highbeam Sidepane**: Launch the local telemetry WebView (`npx highbeam-cli ui` or via the Antigravity sidepane) to view real-time context health:
-   - **Simple View (Default)**: 4 glanceable zones—**Zone A** (Safe Headroom & Warm KV Cache TTL), **Zone B** (`DO / AVOID / HOLD` Model & Effort switch guidance), **Zone C** (Live automated interventions), and **Zone D** (Estimated tokens/USD saved + 1-click `/compact`).
+   - **Simple View (Default)**: 4 glanceable zones—**Zone A** (Safe Headroom & Warm KV Cache TTL), **Zone B** (`DO / AVOID / HOLD` Model & Effort switch guidance), **Zone C** (Live automated interventions), and **Zone D** (Estimated tokens saved + 1-click `/compact`).
    - **Advanced View (1-Click Toggle)**: Expands the **40-Cell Chrono-Positional Recall Grid** (`Primacy 0–30%`, `Mid-Trough 30–70%`, `Recency 70–100%`), top token consumer file table, `Off / Coach / Auto` mode switcher, and the full `DET-01..32` guard log.
 3. **Code normally**: Highbeam runs in **`COACH` mode** by default—automatically compressing verbose CLI test dumps via SQLite FTS5 and folding repeat file reads without interrupting your prompts.
 
@@ -65,7 +65,7 @@ npx highbeam-cli audit --days 7
 1. **Install plugin & hooks**: Run `npx highbeam-cli init --claude` (current project) or `npx highbeam-cli init --claude --global` (all projects) to wire `.claude-plugin/plugin.json`, `hooks/hooks.json`, and the live terminal `statusLine`.
 2. **Watch the Live Terminal `statusLine`**: At the bottom of your terminal, Highbeam renders an auto-adapting (`80 / 110 / 144` col) telemetry bar:
    ```text
-   AH [SCCCCCCC................] sonnet-5-5 64k/200k (32%) · Cache 88% (4m12s) · COACH · Saved $1.84
+   HB [SCCCCCCC................] sonnet-5-5 64k/200k (32%) · Cache 88% (4m12s) · COACH · Saved +164k
    ```
 3. **Open the In-Chat Docked HUD**: Type `/horizon` in chat (or run `npx highbeam-cli panel` for the standalone HTML workbench) to inspect cache gravity, active guards, and reclaimable tokens.
 
@@ -100,7 +100,7 @@ All 6 slash skills are registered identically in both **Google Antigravity** (`p
 
 ## 🛡️ Example Session Receipt: `+164.0k` Tokens Saved in One 4-Step Loop
 
-Most CLI trackers passively count tokens *after* your quota is already burned. Highbeam intercepts redundant reads, compresses noisy test dumps via local SQLite FTS5, and shields warm KV prefixes **before** they hit your billing meter:
+Most CLI trackers passively count tokens *after* your quota is already burned. Highbeam intercepts redundant reads, compresses noisy test dumps via local SQLite FTS5, and shields warm KV prefixes **before** they burn your context window and rate-limit quota:
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/Gizzant/context-horizon/main/assets/zone_c_step3_shield_full.png" alt="Highbeam Zone C Active Protection & Estimated Token Receipt (+164.0k tokens saved)" width="460" />
@@ -111,9 +111,9 @@ Most CLI trackers passively count tokens *after* your quota is already burned. H
 | **1. Warm KV Cache + Repeat Read** | Agent re-reads an unmodified 800-line source file on a `100k` warm cache | **GUARD-4** intercepts the duplicate read (`AST signature stub`) and preserves the `95%` warm KV cache discount | **`+95.0k` tok** *(KV cache)*<br/>**`+800` tok** *(deduped read)* |
 | **2. Failing Test Suite Dump** | `npm test` dumps `120+` lines of verbose stdout (`~11.4k` tokens) | **SQLite FTS5 BM25 Compressor** indexes raw stdout locally and injects only the 160-token failing assertion digest | **`+11.2k` tok** |
 | **3. Mid-Session Rule Edit** | Agent updates `AGENTS.md` / `CLAUDE.md` while `60k` prefix is warm (`2m 55s` TTL left) | **PrefixCacheShield** queues the rule delta until TTL expiry or `/compact`, preventing a cold prefix rebuild | **`+57.0k` tok** |
-| **Example Incident Receipt** | **4-Step Feature / Bugfix Loop** | **Failing assertion lines kept in the digest** | **`+164.0k` tok (`~$0.33`)** |
+| **Example Incident Receipt** | **4-Step Feature / Bugfix Loop** | **Failing assertion lines kept in the digest** | **`+164.0k` tok saved** |
 
-> **Reconciled Monthly Expectation:** Across normal coding weeks without deliberate cache-busting, our bottom-up benchmark model estimates **`~$9.42/wk` (`~$40.79/mo`, `~6%–11%` of raw API spend)** saved for a full-time agentic developer, alongside **`30%–50%` longer 5-hour subscription sprints** by cutting `O(N²)` tool-log compounding.
+> **Reconciled Weekly Expectation:** Across normal coding weeks without deliberate cache-busting, our bottom-up benchmark model estimates **`~2.5M–6M` redundant tokens stripped per week** (`~6%–11%` lower raw API input volume for metered org teams), translating into **`30%–50%` longer 5-hour subscription sprints** by cutting `O(N²)` tool-log compounding and cold prefix rebuilds.
 
 ---
 
@@ -124,8 +124,8 @@ In agentic coding, every turn re-sends the entire prior conversation history. A 
 1. **For Fixed-Subscription Users (`Claude Pro / Max`, `Antigravity OAuth Seats`) — Stop 2:00 PM Quota Lockouts & Context Rot**:
    - Compressing noisy tool outputs and duplicate file reads on early turns prevents `O(N²)` history compounding, **stretching 5-hour sprint quotas by `30%–50%`**.
    - Staying below the **70% Safe Horizon** prevents **Context Rot** (middle-window attention decay where the model starts overlooking `AGENTS.md`/`CLAUDE.md` rules or hallucinating imports).
-2. **For Metered API & Enterprise Teams — Self-Expensing FinOps ROI**:
-   - Preventing accidental warm-cache busts plus automatic FTS5 log compression saves **`~$40.79/mo` (`$9.42/wk`)** for average full-time API devs (`~$149/mo` for heavy 100k–200k Opus swarm users).
+2. **For Metered API & Enterprise FinOps Teams (`Bedrock / Vertex / Anthropic API`)**:
+   - Preventing accidental warm-cache busts plus automatic FTS5 log compression reduces raw API input volume by **`~6%–11%`** across multi-seat engineering orgs and adds per-PR token & budget guardrails (`pr-cost`, `team-rollup`, `ci-gate`, `receipt --pdf`).
 3. **Daily Cockpit Decisions No Human Can Calculate in Their Head (Zone B)**:
    - *"If I downshift from Opus to Sonnet right now, will I save quota or pay a 10x cold-prefill penalty?"* — Highbeam computes the horizon-aware KV-cache break-even limit (`C_max`) and post-switch warm-request payback in real time and displays a 1-line verdict: **`Model: Hold (03:34) — switching busts warm cache`**.
 
@@ -143,7 +143,7 @@ Highbeam defaults to **`COACH` mode**—trimming tokens silently in the backgrou
 | **4. Live Model & Effort Switch Verdict** (`Zone B`) | Evaluates remaining KV cache TTL (`5m`/`1h`) and horizon break-even (`C_max` & warm-request payback) across `MODEL / HOLD / SWITCH / LOCK` states | **Instant visual guidance** — tells you when to hold vs. switch models or lower thinking effort |
 | **5. Held Downshift & Boundary Lifecycle** (`SessionStart:compact` / `Stop`) | Surfaces held `pending_downshift` after compaction via a zero-token `SessionStart:compact` `systemMessage` reminder (`/model <target>`), with optional boundary prompts disabled by default | **Post-compact downshift handoff** — reminds `/model <target>` cleanly right after compaction |
 | **6. Git Hook-Bypass & Destructive Shell Guard** (`DET-18` / `DET-19`) | Blocks `git commit --no-verify`, `-n`, `core.hooksPath` tampering, and unconfirmed `git reset --hard` | **Zero-config repo safety** — keeps frustrated agents from bypassing your pre-commit linters |
-| **7. `PreModelSwitch` Warm KV-Cache Guard** (`DET-08`) | Computes break-even (`C*`, `C_max`), cold-write penalties, and warm-request paybacks directly from `anthropicModelCatalog.json` using rolling session turns (`R`, `g`), returning explicit `unknownModel: true` without fallback price guesses | **Protects mid-session switches** — prevents losing money on short-horizon downgrades while allowing profitable early switches |
+| **7. `PreModelSwitch` Warm KV-Cache Guard** (`DET-08`) | Computes break-even (`C*`, `C_max`), cold-write penalties, and warm-request paybacks directly from `anthropicModelCatalog.json` using rolling session turns (`R`, `g`), returning explicit `unknownModel: true` without fallback price guesses | **Protects mid-session switches** — prevents wasting quota and warm cache on short-horizon downgrades while allowing clean early switches |
 
 ---
 

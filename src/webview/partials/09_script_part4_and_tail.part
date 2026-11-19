@@ -20,11 +20,10 @@
       const cacheVal = document.getElementById('savCacheVal')?.textContent || '+0.0k';
       const cliVal = document.getElementById('savCliVal')?.textContent || '+0.0k';
       const guardVal = document.getElementById('savGuardsVal')?.textContent || '+0.0k';
-      const usdVal = document.getElementById('savEstUsdLabel')?.textContent || 'Est. input value: ~$0.00';
       md = [
         '### Highbeam — Estimated Tokens Saved Receipt',
         '',
-        `- **This Chat:** ${sessVal} (${usdVal})`,
+        `- **This Chat:** ${sessVal}`,
         `- **30-Day Workspace:** ${wsVal}`,
         '',
         '| Savings Source | Physical Tokens Saved |',
@@ -577,8 +576,13 @@
 
     // 1. Tokens-saved headline: same figures as the Session overview "Saved" row.
     setIf('tsHeroSaved', txtOf('tsKpiSaved') || '+0');
-    const usdTxt = document.getElementById('tsKpiUsd');
-    setIf('tsHeroUsd', usdTxt && !usdTxt.hidden ? txtOf('tsKpiUsd') : '');
+    {
+      const heroUsd = document.getElementById('tsHeroUsd');
+      if (heroUsd) {
+        heroUsd.textContent = '';
+        heroUsd.hidden = true;
+      }
+    }
     const d30 = document.getElementById('tsKpi30d');
     const saved = txtOf('tsKpiSaved').replace(/[^0-9.]/g, '');
     const hasSaved = Number(saved) > 0;
@@ -1214,11 +1218,8 @@
       setTxt('tsAvoidText', 'Avoid starting broad multi-file changes without naming which files can be edited and how to test them.');
     } else if (raw.coachState?.smartCompactSuggestion?.shouldSuggest) {
       const sc = raw.coachState.smartCompactSuggestion;
-      const savedUsdTxt = Number(sc.estimatedNetSavingsUsd) > 0
-        ? ` (saves ~$${Number(sc.estimatedNetSavingsUsd).toFixed(2)} net over the next ${sc.horizonTurns || 6} turns)`
-        : '';
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `Task complete — run /compact now before starting your next task${savedUsdTxt} while ${formatTokens(dispStaleT || sc.reclaimableTokens || 0)} of finished work can be cleanly summarized.`);
+      setTxt('tsDoText', `Task complete — run /compact now before starting your next task while ${formatTokens(dispStaleT || sc.reclaimableTokens || 0)} of finished work can be cleanly summarized.`);
       setTxt('tsAvoidText', 'Avoid carrying completed-task file reads and test logs into an unrelated next task.');
     } else {
       if (tsDoRow) tsDoRow.dataset.tone = 'do';
@@ -1262,10 +1263,8 @@
       const otherFamily = modelProvider === 'Claude' ? 'Gemini' : (modelProvider === 'Gemini' ? 'Claude' : 'another family');
       const familyHint = modelProvider === 'Claude' ? 'Fable/Opus/Sonnet/Haiku' : (modelProvider === 'Gemini' ? 'Neon/Carbon/Argon/Hydrogen/Flash' : 'same provider');
       const cg = cache.costGate || {};
-      const rewriteUsd = Number(cg.coldRewriteCostUsd) || 0;
       const quotaUnits = Number(cg.quotaPenaltyUnits) || 0;
-      const usdTxt = rewriteUsd >= 0.01 ? `$${rewriteUsd.toFixed(2)}` : '<$0.01';
-      const costTxt = rewriteUsd > 0 ? ` (\u2248 ${usdTxt}${quotaUnits > 0 ? ` \u00B7 ${formatTokens(quotaUnits)} quota units` : ''})` : '';
+      const costTxt = quotaUnits > 0 ? ` (\u2248 ${formatTokens(quotaUnits)} quota units)` : '';
       const targetWindowTxt = otherFamily === 'Claude'
         ? "switches to Claude's 200.0k window (140.0k safe limit)"
         : (otherFamily === 'Gemini'
@@ -1535,7 +1534,6 @@
         let ledgerRows = rows;
         if (autoShadowFlag) {
           // Shadow Auto (Free): list what Auto WOULD have done (from the recorded shadow ledger) — never claims enforcement.
-          const money = (n) => '\u2248\u0024' + Number(n || 0).toFixed(2);
           const ageLabel = (ts) => {
             const mins = Math.max(0, Math.round((Date.now() - Number(ts || 0)) / 60000));
             return mins < 1 ? 'now' : (mins < 60 ? mins + 'm' : (mins < 1440 ? Math.round(mins / 60) + 'h' : Math.round(mins / 1440) + 'd'));
@@ -1543,7 +1541,7 @@
           ledgerRows = shadowCorrections.slice(0, 3).map(c => ({
             age: ageLabel(c.ts),
             action: 'Would have: ' + (c.detail || String(c.category || 'correction').replace(/_/g, ' ').toLowerCase()),
-            saved: c.missedUsd > 0 ? money(c.missedUsd) : 'preview',
+            saved: Number(c.wastedTokens) > 0 ? `+${formatTokens(c.wastedTokens)}` : 'preview',
             tip: 'Auto is in preview \u2014 this correction was not applied. Start the 14-day trial or unlock Pro to apply it.'
           }));
           if (ledgerRows.length === 0) {
@@ -1554,12 +1552,12 @@
               tip: 'Highbeam advises like Coach; Auto corrections are previewed until a trial or license is active.'
             }];
           }
-          const potentialUsd = Number(raw.shadowAuto?.missedUsd30d || 0);
-          if (potentialUsd > 0) {
+          const potentialTok = Number(raw.shadowAuto?.wastedTokens30d || 0);
+          if (potentialTok > 0) {
             ledgerRows.push({
               age: '30d',
-              action: 'Potential savings if Auto were applied (this workspace)',
-              saved: money(potentialUsd),
+              action: 'Potential tokens saved if Auto were applied (this workspace)',
+              saved: `+${formatTokens(potentialTok)}`,
               tip: 'Estimated from recorded Auto-preview incidents over the last 30 days.'
             });
           }
@@ -1723,32 +1721,15 @@
         raw.thirtyDayTokensSaved
       ) || 0
     );
-    const modelRateUsd = Number(raw.model?.inputPricePerMillionUsd) || 2.0;
-    const usdSaved = Number(
-      raw.savings?.session?.estimatedUsd ??
-      raw.savings?.session?.estimatedInputValueUsd ??
-      raw.savings?.session?.estimatedCostSavedUsd ??
-      raw.sessionCostSavedUsd ??
-      ((sessionSaved / 1000000) * modelRateUsd)
-    ) || 0;
-    const usd30dRaw = Number(
-      raw.savings?.workspace30d?.estimatedUsd ??
-      raw.savings?.workspace30d?.estimatedInputValueUsd ??
-      raw.savings?.thirtyDay?.estimatedCostSavedUsd ??
-      raw.lifetimeCostSavedUsd ??
-      ((lifetimeSaved / 1000000) * modelRateUsd)
-    ) || 0;
-    const usd30d = Math.max(usdSaved, usd30dRaw);
     setTxt('tsKpiSaved', `+${formatTokens(sessionSaved)}`);
-    setTxt('tsKpiUsd', `~$${usdSaved.toFixed(2)}`);
-    setTxt('tsKpi30d', `30d: +${formatTokens(lifetimeSaved)} (~$${usd30d.toFixed(2)})`);
+    setTxt('tsKpiUsd', '');
+    setTxt('tsKpi30d', `30d: +${formatTokens(lifetimeSaved)}`);
     {
       const usdEl = document.getElementById('tsKpiUsd');
       const d30El = document.getElementById('tsKpi30d');
       const sepEl = d30El ? d30El.previousElementSibling : null;
-      const hideUsd = usdSaved < 0.005;
       const hide30d = lifetimeSaved <= 0;
-      if (usdEl) usdEl.hidden = hideUsd;
+      if (usdEl) usdEl.hidden = true;
       if (d30El) d30El.hidden = hide30d;
       if (sepEl && sepEl.getAttribute('aria-hidden') === 'true') sepEl.hidden = hide30d;
     }

@@ -275,13 +275,13 @@ export async function runContextRoast() {
   const errCount = result.totalDeadErrors;
   const ampCount = result.amputationSessionsCount;
   const worstPurity = `${result.worstPurityPct}%`;
-  const sludgeUsd = result.sludgeUsdFormatted;
+  const wastedTokensStr = result.wastedTokensFormatted || '0 tok';
 
   console.log(`\n\x1b[1m\x1b[38;5;208m╭── HIGHBEAM FORENSIC AUDIT (ctxtop v${VERSION}) ───────────────────────╮\x1b[0m`);
   console.log(`\x1b[38;5;208m│\x1b[0m Sessions Audited : \x1b[1m${auditedSessions} sessions\x1b[0m (${estTokensM} cumulative tokens inspected)${isSynthetic ? ' [Demo]' : ''}`);
   console.log(`\x1b[38;5;208m│\x1b[0m Useful Context % : \x1b[38;5;196m\x1b[1m${worstPurity} worst\x1b[0m (${result.avgPurityPct}% avg across sessions)`);
   console.log(`\x1b[38;5;208m│\x1b[0m Redundant Reads  : \x1b[38;5;214m${dupCount} duplicate file reads\x1b[0m + \x1b[38;5;196m${errCount} dead stack traces\x1b[0m kept in memory`);
-  console.log(`\x1b[38;5;208m│\x1b[0m Wasted Tokens    : \x1b[38;5;214m\x1b[1m${sludgeUsd}\x1b[0m wasted re-sending stale context to the model`);
+  console.log(`\x1b[38;5;208m│\x1b[0m Wasted Tokens    : \x1b[38;5;214m\x1b[1m${wastedTokensStr}\x1b[0m wasted re-sending stale context to the model`);
   console.log(`\x1b[38;5;208m│\x1b[0m Truncation Risk  : \x1b[38;5;196m${ampCount} sessions crossed safe horizon\x1b[0m (oldest rules at risk)`);
   console.log('\x1b[1m\x1b[38;5;208m╰───────────────────────────────────────────────────────────────────────────╯\x1b[0m');
 

@@ -390,7 +390,8 @@ describe('Option A (14-Day Reverse Trial -> Shadow Auto) & RSL Hook Path Fix', (
       assert.equal(highImpactSummary.displayMode, 'shadow_roi_proven');
       assert.equal(highImpactSummary.exceedsBreakEvenThreshold, true);
       assert.equal(highImpactSummary.ctaMode, 'upgrade_pro');
-      assert.match(highImpactSummary.headlineText, /\$0\.65/);
+      assert.match(highImpactSummary.headlineText, /150k wasted tokens/);
+      assert.equal(/\$/.test(`${highImpactSummary.headlineText} ${highImpactSummary.sublineText}`), false);
       assert.match(highImpactSummary.sublineText, /frontier quota turns/);
 
       // g) Break-even 30d total >= $12.42 flips to shadow_roi_proven
@@ -407,7 +408,8 @@ describe('Option A (14-Day Reverse Trial -> Shadow Auto) & RSL Hook Path Fix', (
         }
       );
       assert.equal(breakEvenSummary.displayMode, 'shadow_roi_proven');
-      assert.match(breakEvenSummary.headlineText, /\$16\.80/);
+      assert.match(breakEvenSummary.headlineText, /2M wasted tokens/);
+      assert.equal(/\$/.test(`${breakEvenSummary.headlineText} ${breakEvenSummary.sublineText}`), false);
 
       // h) CLI license status exposes shadowAuto summary safely
       const statusCli = runCli(['license', 'status', '--cwd', ws, '--json'], {
@@ -471,7 +473,8 @@ describe('Option A (14-Day Reverse Trial -> Shadow Auto) & RSL Hook Path Fix', (
 
       dom.window.renderState(expState);
       assert.equal(d.getElementById('tsShadowAutoRow').hidden, false);
-      assert.match(d.getElementById('tsShadowAutoMeta').textContent, /\$0\.65/);
+      assert.match(d.getElementById('tsShadowAutoMeta').textContent, /150k wasted tokens/);
+      assert.equal(/\$/.test(d.getElementById('tsShadowAutoMeta').textContent), false);
 
       d.getElementById('tsModeBtnAuto').click();
       await new Promise((r) => setTimeout(r, 20));
@@ -484,7 +487,8 @@ describe('Option A (14-Day Reverse Trial -> Shadow Auto) & RSL Hook Path Fix', (
       assert.match(d.getElementById('tsGuardsSummary').textContent, /Auto preview/);
       assert.equal(d.getElementById('tsShadowAutoBanner').hidden, false);
       assert.equal(d.getElementById('tsShadowBtnTrial').hidden, true);
-      assert.match(d.getElementById('tsShadowAutoHeadline').textContent, /\$0\.65/);
+      assert.match(d.getElementById('tsShadowAutoHeadline').textContent, /150k wasted tokens/);
+      assert.equal(/\$/.test(d.getElementById('tsShadowAutoHeadline').textContent), false);
       assert.deepEqual(jsdomErrors, []);
 
       // Verify Claude Code 4-Card Glass HUD renders Shadow Auto row without UX-4 leaks
@@ -503,7 +507,8 @@ describe('Option A (14-Day Reverse Trial -> Shadow Auto) & RSL Hook Path Fix', (
       const ccDom = new JSDOM(ccExpired.html);
       const shadowEl = ccDom.window.document.getElementById('claudeShadowAutoRow');
       assert.ok(shadowEl, 'Claude HUD must render #claudeShadowAutoRow when unentitled & incidents > 0');
-      assert.match(shadowEl.textContent, /\$0\.65/);
+      assert.match(shadowEl.textContent, /150k wasted tokens/);
+      assert.equal(/\$/.test(shadowEl.textContent), false);
       assert.match(shadowEl.textContent, /npx highbeam-cli license activate/);
       const visibleSimpleText =
         ccDom.window.document.getElementById('simpleViewContainer')?.textContent || '';

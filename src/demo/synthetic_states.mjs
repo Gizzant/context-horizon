@@ -161,7 +161,7 @@ export const DEMO_SCENARIOS = [
   {
     id: 4,
     slug: 'polluted-sludge',
-    title: 'Scenario 4: Polluted Context & Duplicate File Sludge ($0.07/turn)',
+    title: 'Scenario 4: Polluted Context & Duplicate File Sludge (~58k wasted tok/turn)',
     complaint: 'The agent read the same 600-line file 7 times and kept 5 old stack traces in memory!',
     fixture: SCENARIO_4_POLLUTED_REFACTOR,
     routerState: 'HALT_HYGIENE_OR_SAFETY',

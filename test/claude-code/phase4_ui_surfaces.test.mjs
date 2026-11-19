@@ -120,8 +120,9 @@ test('Phase 4.2: Docked Simple View Pane 5-Box vertical hierarchy, zero promotio
   assert.match(paneEmpty.boxes[3].title, /Top Context Offenders/);
   assert.match(paneEmpty.boxes[4].title, /Deterministic Saved-Quota Receipt/);
 
-  // Verify Box 5 starts strictly at $0.00 and 0 tokens (never legacy 142,400 fallback)
-  assert.match(paneEmpty.boxes[4].text, /\$0\.00 USD \| 0 tokens preserved/);
+  // Verify Box 5 starts strictly at 0 tokens (never legacy 142,400 fallback) and hides micro-dollars
+  assert.match(paneEmpty.boxes[4].text, /0 tokens preserved/);
+  assert.doesNotMatch(paneEmpty.boxes[4].text, /\$0\.00/);
   assert.doesNotMatch(paneEmpty.text, /142,400|142400/);
 
   // Verify zero self-promotional taglines or marketing banners
@@ -131,7 +132,7 @@ test('Phase 4.2: Docked Simple View Pane 5-Box vertical hierarchy, zero promotio
   );
 });
 
-test('Phase 4.3: AbovePrompt Band, Spinner Suffix (`· Cache 95% (4m12s) · Saved $1.84`), and Mod `ui.render` integration', async () => {
+test('Phase 4.3: AbovePrompt Band, Spinner Suffix (`· Cache 95% (4m12s) · Saved +95k`), and Mod `ui.render` integration', async () => {
   const nowMs = 1_760_000_000_000;
   const state = createInitialTelemetryState('sess-render', 'claude-opus-5-5');
   state.contextWindow.totalInputTokens = 100000;
@@ -142,6 +143,7 @@ test('Phase 4.3: AbovePrompt Band, Spinner Suffix (`· Cache 95% (4m12s) · Save
   state.promptCache.warm = true;
   state.promptCache.expiresAt = nowMs + 252 * 1000; // 4m12s = 252 seconds
   state.cacheRoi.cacheHitRatio = 0.95;
+  state.cumulative.cacheReadTokens = 95000;
   state.cumulative.netCacheSavingsUSD = 1.84;
 
   // Test Spinner suffix directly
@@ -149,7 +151,7 @@ test('Phase 4.3: AbovePrompt Band, Spinner Suffix (`· Cache 95% (4m12s) · Save
     nowMs,
     includeDiskLedger: false
   });
-  assert.equal(spinner.suffix, '· Cache 95% (4m12s) · Saved $1.84');
+  assert.equal(spinner.suffix, '· Cache 95% (4m12s) · Saved +95k');
 
   // Test AbovePrompt band directly
   const band = renderAbovePromptBand(state, {
@@ -188,7 +190,7 @@ test('Phase 4.3: AbovePrompt Band, Spinner Suffix (`· Cache 95% (4m12s) · Save
     mockContext,
     async () => ({ text: 'Thinking...' })
   );
-  assert.match(spinnerOut.text, /^Thinking\.\.\. · Cache 95% \(4m12s\) · Saved \$1\.84$/);
+  assert.match(spinnerOut.text, /^Thinking\.\.\. · Cache 95% \(4m12s\) · Saved \+95k$/);
 
   // 2. Pane render (`id: 'attention-horizon'`)
   const paneOut = await handlers['ui.render'](

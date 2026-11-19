@@ -87,6 +87,7 @@ export async function runPostmortem(options = {}) {
   let latestSessionSteps = [];
   let totalTokensInspected = 0;
   let totalSludgeUsd = 0;
+  let totalWastedTokens = 0;
   let amputationSessionsCount = 0;
   let strongProofCount = 0;
   let totalPlanRevisions = 0;
@@ -131,11 +132,13 @@ export async function runPostmortem(options = {}) {
       const purity = horizon.metrics?.signalPurityPct ?? 100;
       const tokens = horizon.window?.totalActiveTokens || 0;
       const sludgeUsd = horizon.metrics?.sludgeTaxPerTurnUsd || 0;
+      const sludgeTokens = horizon.metrics?.sludgeTokens || 0;
       const isAmputation = Boolean(horizon.amputation?.inAmputationZone);
       const signals = horizon.brainSignals || {};
 
       totalTokensInspected += tokens;
       totalSludgeUsd += sludgeUsd;
+      totalWastedTokens += sludgeTokens;
       if (isAmputation) amputationSessionsCount++;
 
       const planChurn = signals.planChurn || { planRevisions: 0, warn: false };
@@ -289,6 +292,13 @@ export async function runPostmortem(options = {}) {
   const totalSludgeFormatted = isSynthetic
     ? '$1.92'
     : `$${totalSludgeUsd.toFixed(2)}`;
+  const wastedTokensFormatted = isSynthetic
+    ? '384k tok'
+    : (totalWastedTokens >= 1_000_000
+      ? `${(totalWastedTokens / 1_000_000).toFixed(2)}M tok`
+      : (totalWastedTokens >= 1_000
+        ? `${Math.round(totalWastedTokens / 1_000)}k tok`
+        : `${Math.round(totalWastedTokens)} tok`));
 
   const recommendations = [];
   const allHotspots = Array.from(hotspotMap.values()).sort((a, b) => b.wastedTokens - a.wastedTokens);
@@ -444,6 +454,7 @@ export async function runPostmortem(options = {}) {
     totalDuplicateReads: isSynthetic ? 47 : Math.max(0, totalDuplicateReadsCount),
     totalDeadErrors: isSynthetic ? 19 : Math.max(0, totalDeadErrorsCount),
     sludgeUsdFormatted: totalSludgeFormatted,
+    wastedTokensFormatted,
     errorLoopCount,
     hotspots: hotspotsSummary,
     worstSessionOffender,
@@ -464,7 +475,7 @@ export function printPostmortemSummary(res) {
   console.log(`\n\x1b[1mHighbeam Forensic Postmortem (${res.sessionCount} sessions${res.isSynthetic ? ' [Demo]' : ''})\x1b[0m`);
   console.log('='.repeat(76));
   console.log(`  Tokens Inspected : ${res.estTokensM}   | Avg Purity : ${res.avgPurityPct}% (Worst: ${res.worstPurityPct}%)`);
-  console.log(`  Duplicate Reads  : ${res.totalDuplicateReads} reads  | Dead Errors: ${res.totalDeadErrors} traces | Est. Waste: ${res.sludgeUsdFormatted}`);
+  console.log(`  Duplicate Reads  : ${res.totalDuplicateReads} reads  | Dead Errors: ${res.totalDeadErrors} traces | Est. Waste: ${res.wastedTokensFormatted || res.sludgeUsdFormatted}`);
   console.log(`  Over Safe Limit  : ${res.amputationSessionsCount} sessions | Error Loops: ${res.errorLoopCount}        | Proof Rate: ${res.strongProofRatePct}%`);
 
   if (res.hotspots && res.hotspots.length > 0) {

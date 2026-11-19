@@ -235,7 +235,7 @@ test('UX-3: 4-Rank Simple View (renderSimpleHudPane) and 5-Section Advanced View
   assert.match(simpleHud.text, /\[Rank 1\]/);
   assert.match(simpleHud.text, /\[Rank 2\]/);
   assert.match(simpleHud.text, /\[Rank 3\]/);
-  assert.match(simpleHud.text, /\[Rank 4\] Estimated Tokens & USD Saved/);
+  assert.match(simpleHud.text, /\[Rank 4\] Estimated Tokens Saved/);
 
   for (const line of simpleHud.text.split('\n')) {
     const vis = stripAnsi(line).length;
@@ -393,7 +393,7 @@ test('UX-4: Self-contained Claude Code HTML HUD (renderHorizonPanelHtml & npx ah
       state
     });
     assert.equal(cliAdvReceipt.exitCode, 0);
-    assert.match(cliAdvReceipt.output, /\[Section 1\] Verified 5-Category Savings/);
+    assert.match(cliAdvReceipt.output, /\[Section 1\] Verified 5-Category Token Savings/);
     assert.match(cliAdvReceipt.output, /\[Section 5\] PreCompact State Baton/);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });

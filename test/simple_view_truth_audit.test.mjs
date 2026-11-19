@@ -311,15 +311,17 @@ describe('SV-BUG-07..14 & SV-BUG-18: XSS escaping, Orchestrator, Cross-Family, S
       assert.match(txt('tsDoText'), /try\/catch/);
       assert.doesNotMatch(txt('tsDoText'), /src09_script\.part/);
 
-      // SV-BUG-18: usd30d >= usdSaved and 1-turn sparkline is flat (not fabricated upward ramp)
+      // SV-BUG-18: usd30d >= usdSaved hidden in UI; token-first readout + flat 1-turn sparkline
       win.renderState({
         sessionId: 'usd-spark',
         window: { totalActiveTokens: 30000, safeLimit: 179000, maxTokens: 256000 },
         breakdown: { ANCHOR: 5000, ACTIVE_WORKING_SET: 25000 },
         savings: { session: { totalTokens: 45000, estimatedUsd: 0.18 }, workspace30d: { totalTokens: 45000, estimatedUsd: 0.04 } }
       });
-      assert.equal(txt('tsKpiUsd'), '~$0.18');
-      assert.equal(txt('tsKpi30d'), '30d: +45.0k (~$0.18)');
+      assert.equal(d.getElementById('tsKpiUsd').hidden, true);
+      assert.equal(txt('tsKpiUsd'), '');
+      assert.equal(txt('tsKpiSaved'), '+45.0k');
+      assert.equal(txt('tsKpi30d'), '30d: +45.0k');
       const pts = d.getElementById('tsSparklinePath').getAttribute('points').split(' ').map((p) => Number(p.split(',')[1]));
       assert.equal(pts.length, 2);
       assert.equal(pts[0], pts[1], '1-turn sparkline must stay flat instead of fabricating a ramp');

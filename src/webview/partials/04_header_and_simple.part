@@ -131,7 +131,7 @@
       <span class="ts-saved-hero-label">Est. tokens saved</span>
       <span class="ts-saved-hero-row">
         <strong id="tsHeroSaved" class="ts-saved-hero-num">+0</strong>
-        <span id="tsHeroUsd" class="ts-saved-hero-usd">~$0.00</span>
+        <span id="tsHeroUsd" class="ts-saved-hero-usd" hidden></span>
       </span>
       <span id="tsHeroSub" class="ts-saved-hero-sub">This chat &middot; nothing saved yet</span>
     </section>
@@ -350,13 +350,13 @@
         </div>
 
         <!-- Row 3: Estimated Savings & 5h Quota Pacing -->
-        <div class="ts-metric-row" title="Tokens and estimated spend saved locally by trimming verbose logs, skipping duplicate reads, and keeping your prompt cache warm.">
+        <div class="ts-metric-row" title="Tokens saved locally by trimming verbose logs, skipping duplicate reads, and keeping your prompt cache warm.">
           <div class="ts-metric-main">
             <span class="ts-metric-label">Saved</span>
             <span id="tsKpiSaved" class="ts-kpi-inline" title="Estimated tokens saved during this active chat session.">+0.0k</span>
-            <span id="tsKpiUsd" class="ts-kpi-sub" title="Estimated input cost avoided in this chat based on your active model rate.">~$0.00</span>
+            <span id="tsKpiUsd" class="ts-kpi-sub" hidden></span>
             <span class="ts-kpi-sub" aria-hidden="true">&middot;</span>
-            <span id="tsKpi30d" class="ts-kpi-sub" title="Cumulative estimated savings across this workspace over the last 30 days.">30d: +0.0k (~$0.00)</span>
+            <span id="tsKpi30d" class="ts-kpi-sub" title="Cumulative estimated tokens saved across this workspace over the last 30 days.">30d: +0.0k</span>
             <span id="tsSprintMeta" class="ts-kpi-sub" hidden title="Estimated share of your 5-hour rolling seat quota used so far."></span>
           </div>
           <span id="tsSavedHint" class="ts-kpi-sub" title="All savings are counted once per turn from Highbeam's local ledger with zero estimates padded in.">estimated</span>

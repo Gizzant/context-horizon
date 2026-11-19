@@ -747,10 +747,10 @@
         <div>
           <span id="advKpiTokens" class="adv-kpi-big">0.0k</span>
           <span style="color:var(--hz-muted);">tokens saved</span>
-          <span id="advKpiUsd" style="color:var(--hz-signal);margin-left:6px;font-weight:500;">$0.00</span>
+          <span id="advKpiUsd" style="color:var(--hz-signal);margin-left:6px;font-weight:500;" hidden></span>
         </div>
         <div id="advKpi30d" style="color:var(--hz-muted);font-size:11px;">
-          30d Workspace: <strong style="color:var(--hz-fg);">0.0k</strong> ($0.00)
+          30d Workspace: <strong style="color:var(--hz-fg);">0.0k</strong> tokens
         </div>
       </div>
 
@@ -1498,13 +1498,14 @@
         const wsSav = state.savings?.workspace30d || {};
         const bySrc = sessSav.bySource || {};
         const sessTok = Math.max(0, Number(sessSav.totalPhysicalTokens ?? sessSav.totalTokens ?? 0));
-        const sessUsd = Math.max(0, Number(sessSav.estimatedInputValueUsd ?? sessSav.estimatedUsd ?? 0));
         const wsTok = Math.max(sessTok, Number(wsSav.totalPhysicalTokens ?? wsSav.totalTokens ?? 0));
-        const wsUsd = Math.max(sessUsd, Number(wsSav.estimatedInputValueUsd ?? wsSav.estimatedUsd ?? 0));
 
         kpiTokens.textContent = fmtHumanTokens(sessTok);
-        kpiUsd.textContent = sessUsd > 0 ? `~$${sessUsd.toFixed(2)}` : '$0.00';
-        kpi30d.innerHTML = `30d Workspace: <strong style="color:var(--hz-fg);">${fmtHumanTokens(wsTok)}</strong> ($${wsUsd.toFixed(2)})`;
+        if (kpiUsd) {
+          kpiUsd.textContent = '';
+          kpiUsd.hidden = true;
+        }
+        kpi30d.innerHTML = `30d Workspace: <strong style="color:var(--hz-fg);">+${fmtHumanTokens(wsTok)}</strong> tokens`;
 
         savSrcCache.textContent = `+${fmtHumanTokens(bySrc.cachePreserved || bySrc.cachePreservation || 0)}`;
         savSrcSub.textContent = `+${fmtHumanTokens(bySrc.subagentIsolated || bySrc.subagentIsolation || 0)}`;

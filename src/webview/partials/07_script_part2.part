@@ -1664,7 +1664,6 @@
   }
 
   function renderAutoFixRow(it, idx) {
-    const usd = it.usd > 0 ? ` \u00B7 ~$${it.usd.toFixed(4)}` : '';
     const when = it.at ? String(it.at).replace('T', ' ').replace(/\.\d+Z?$/, 'Z') : '';
     const repeatBadge = it.repeatCount > 1 ? `<span class="fx-repeat">\u00D7${it.repeatCount}</span>` : '';
     return `<div class="fx-row" role="listitem">` +
@@ -1674,7 +1673,7 @@
         `<span class="fx-detail">${escAttr(it.detail || '')}</span>` +
         `<span class="fx-saved">+${flightFmtK(it.tokensSaved)}</span>` +
       `</button>` +
-      `<div class="fx-more" hidden>${escAttr((it.detail || it.label) + ' \u00B7 ' + flightFmtK(it.tokensSaved) + ' tokens' + usd + (when ? ' \u00B7 ' + when : ''))}</div>` +
+      `<div class="fx-more" hidden>${escAttr((it.detail || it.label) + ' \u00B7 ' + flightFmtK(it.tokensSaved) + ' tokens' + (when ? ' \u00B7 ' + when : ''))}</div>` +
     `</div>`;
   }
 
@@ -1784,7 +1783,7 @@
         const m = Math.floor(ttl / 60);
         ringTtl.textContent = `${m > 0 ? m + 'm ' : ''}${ttl % 60}s warm`;
       } else {
-        ringTtl.textContent = lost > 0 ? `lost -$${lost.toFixed(2)}` : 'uncached';
+        ringTtl.textContent = lost > 0 ? 'cold restart' : 'uncached';
       }
     }
 

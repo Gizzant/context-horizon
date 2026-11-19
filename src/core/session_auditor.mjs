@@ -1109,12 +1109,12 @@ export function formatSessionAuditReport(res) {
     .join(', ');
   const savedLine =
     res.savedTokens30d > 0 || res.savedUSD30d > 0
-      ? `  Quota Shield Saved (30d): +${res.savedTokens30d.toLocaleString('en-US')} tok ($${res.savedUSD30d.toFixed(2)} USD)`
+      ? `  Quota Shield Saved (30d): +${res.savedTokens30d.toLocaleString('en-US')} tok`
       : '  Quota Shield Saved (30d): Not active yet — run npx highbeam-cli init to start saving';
   const idleSuffix = Number(res.idlePauses || 0) > 0 ? ` | Info Idle Pauses (>5m): ${res.idlePauses}` : '';
   const lines = [
     `[Highbeam Session ROI Audit] Window: ${res.days}d | Platform: ${res.platform} | Sessions: ${res.sessionsScanned}${activePlatforms ? ` (${activePlatforms})` : ''}`,
-    `  Sludge Tax Preventable : ${res.sludgeTaxTokens.toLocaleString('en-US')} tok ($${res.sludgeTaxUSD.toFixed(2)} USD)`,
+    `  Sludge Tax Preventable : ${res.sludgeTaxTokens.toLocaleString('en-US')} tok`,
     `  Cold-Cache Spikes (>5m): ${res.coldCacheSpikes} | 3x Thrash Loops: ${res.thrashLoops}${idleSuffix}`,
     `  Un-Sliced Large Reads  : ${res.oversizedReads} | Oversized Tool Dumps: ${res.oversizedOutputs}`,
     savedLine
@@ -1123,7 +1123,7 @@ export function formatSessionAuditReport(res) {
     lines.push('  Top Offending Turns:');
     res.topOffendingTurns.forEach((turn, idx) => {
       lines.push(
-        `    ${idx + 1}. [${turn.platform}/${turn.category}] ${turn.citation} -> ~$${turn.wastedUSD.toFixed(2)} (${turn.wastedTokens.toLocaleString('en-US')} tok)`
+        `    ${idx + 1}. [${turn.platform}/${turn.category}] ${turn.citation} -> ~${turn.wastedTokens.toLocaleString('en-US')} wasted tok`
       );
       lines.push(`       Fix: ${turn.fix}`);
     });
@@ -1140,11 +1140,11 @@ export function formatSessionAuditReport(res) {
  * @param {ReturnType<typeof runSessionAudit>} res
  */
 export function formatPastWasteLine(res) {
-  if (!res || !res.ok || !(res.sludgeTaxUSD >= 0.5) || !(res.sessionsScanned > 0)) return '';
+  if (!res || !res.ok || !(res.sessionsScanned > 0) || (!(res.sludgeTaxTokens >= 50000) && !(res.sludgeTaxUSD >= 0.5))) return '';
   const n = res.sessionsScanned;
   return (
-    `Last ${res.days} days: ~$${res.sludgeTaxUSD.toFixed(2)} (${res.sludgeTaxTokens.toLocaleString('en-US')} tokens) ` +
-    `across ${n} session${n === 1 ? '' : 's'} was preventable waste Highbeam would have caught. ` +
+    `Last ${res.days} days: ${res.sludgeTaxTokens.toLocaleString('en-US')} wasted tokens ` +
+    `across ${n} session${n === 1 ? '' : 's'} that Highbeam would have caught. ` +
     `Details: npx highbeam-cli audit`
   );
 }

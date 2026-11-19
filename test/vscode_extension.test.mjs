@@ -369,13 +369,14 @@ describe('Phase 2 — VS Code / Open VSX Extension Wrapper', () => {
         flightMode: 'COACH',
         window: { totalActiveTokens: 64000, maxTokens: 200000, usedPercentage: 32 },
         quota: { cache: { ttlRemainingSec: 222, isCacheCold: false, hitRatePct: 88 } },
-        savings: { workspace30dSavedUSD: 12.34 }
+        savings: { workspace30dSavedTokens: 142000 }
       },
       { connected: true, port: 62935 }
     );
     assert.equal(nominal.severity, 'nominal');
     assert.equal(nominal.text, '$(eye) HB 32% · TTL 3m42s');
-    assert.ok(nominal.tooltipMarkdown.includes('$12.34 USD'));
+    assert.ok(nominal.tooltipMarkdown.includes('+142k tokens'));
+    assert.equal(nominal.tooltipMarkdown.includes('USD'), false);
     assert.ok(nominal.tooltipMarkdown.includes('64k / 200k'));
 
     const warnTtl = statusBarFormatter.formatStatusBar(

@@ -674,8 +674,8 @@
           <span class="hz-kpi-unit">tokens saved</span>
         </div>
         <div class="hz-kpi-right">
-          <div id="kpiSessionUsd" class="hz-kpi-usd tnum">$0.00 compute saved</div>
-          <div id="kpiCumulative30d" class="hz-kpi-30d tnum">0.0k ($0.00) 30d total</div>
+          <div id="kpiSessionUsd" class="hz-kpi-usd tnum">tokens kept out of context</div>
+          <div id="kpiCumulative30d" class="hz-kpi-30d tnum">+0.0k (30d total)</div>
         </div>
       </div>
 
@@ -1144,13 +1144,11 @@
         const sessSav = state.savings?.session || {};
         const wsSav = state.savings?.workspace30d || {};
         const sessTok = Math.max(0, Number(sessSav.totalPhysicalTokens ?? sessSav.totalTokens ?? 0));
-        const sessUsd = Math.max(0, Number(sessSav.estimatedInputValueUsd ?? sessSav.estimatedUsd ?? 0));
         const wsTok = Math.max(sessTok, Number(wsSav.totalPhysicalTokens ?? wsSav.totalTokens ?? 0));
-        const wsUsd = Math.max(sessUsd, Number(wsSav.estimatedInputValueUsd ?? wsSav.estimatedUsd ?? 0));
 
         kpiSessionSavedTokens.textContent = fmtHumanTokens(sessTok);
-        kpiSessionUsd.textContent = `${sessUsd > 0 ? `~$${sessUsd.toFixed(2)}` : '$0.00'} compute saved`;
-        kpiCumulative30d.textContent = `${fmtHumanTokens(wsTok)} ($${wsUsd.toFixed(2)}) 30d total`;
+        kpiSessionUsd.textContent = 'tokens kept out of context';
+        kpiCumulative30d.textContent = `+${fmtHumanTokens(wsTok)} (30d total)`;
 
         const compactCmd = buildSpecSafeCompactCommand(state);
         btnCompactPrimary.dataset.compactCommand = compactCmd;
