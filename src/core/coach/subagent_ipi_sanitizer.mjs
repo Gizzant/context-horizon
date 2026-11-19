@@ -192,9 +192,132 @@ export function sanitizeSubagentOutput(rawText = '', sourceLabelOrOptions = 'sub
   return sanitizeSubagentPayload(rawText, sourceLabelOrOptions, maybeOptions);
 }
 
+export const DEFAULT_SUBAGENT_HANDOFF_CAP_TOKENS = 1200;
+
+const FILE_LINE_CITATION_RE =
+  /(?:[A-Za-z0-9_.-]+[\\/])+[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,8}(?::\d+|#L\d+)?|\b[A-Za-z0-9_-]+\.(?:mjs|cjs|js|ts|tsx|py|go|rs|java|json|md|html|css|sql|yml|yaml):\d+\b|file:\/\/\//;
+
+const CRITICAL_SIGNAL_LINE_RE =
+  /\b(?:ERROR|FAIL(?:ED|URE)?|WARN(?:ING)?|BLOCKED|PAYMENT_REQUIRED|BROWSER_HOST_FACTS|Exception|[A-Z][a-z]+Error:|AssertionError|CVE-\d+)\b/;
+
+const BULLET_FINDING_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+\S+/;
+
+/**
+ * Deterministically condenses verbose subagent return payloads (>maxTokens)
+ * to a compact structured handoff preserving lead summary, error diagnostics,
+ * File:Line citations, tail conclusion, and an FTS5 archive pointer.
+ *
+ * @param {string} [rawText='']
+ * @param {object} [options={}]
+ * @returns {{ condensed: boolean, text: string, originalTokens: number, condensedTokens: number, savedTokens: number }}
+ */
+export function condenseSubagentHandoffOutput(rawText = '', options = {}) {
+  const text = String(rawText ?? '');
+  const maxTokens = Math.max(200, Number(options.maxTokens ?? DEFAULT_SUBAGENT_HANDOFF_CAP_TOKENS));
+  const originalTokens = Math.ceil(text.length / 4);
+  if (text.length <= maxTokens * 4) {
+    return {
+      condensed: false,
+      text,
+      originalTokens,
+      condensedTokens: originalTokens,
+      savedTokens: 0
+    };
+  }
+
+  const lines = text.split(/\r?\n/);
+  const targetChars = Math.max(800, Number(options.targetTokens || 450) * 4);
+  const archivePointer = String(options.archivePointer || '').trim();
+  const picked = new Set();
+  let signalChars = 0;
+
+  // 1. Lead block: up to first 4 non-empty lines (<= 380 chars)
+  const leadIndices = [];
+  let leadChars = 0;
+  for (let i = 0; i < lines.length && leadIndices.length < 4; i++) {
+    const trimmed = lines[i].trim();
+    if (!trimmed) continue;
+    const clippedLen = Math.min(trimmed.length, 180);
+    if (leadChars + clippedLen > 380 && leadIndices.length > 0) break;
+    leadIndices.push(i);
+    picked.add(i);
+    leadChars += clippedLen + 1;
+  }
+
+  // 2. High-signal extraction: Errors/Host facts first, then File:Line citations, then bullets
+  const collectMatching = (regex, charBudget) => {
+    for (let i = 0; i < lines.length; i++) {
+      if (picked.has(i)) continue;
+      const line = lines[i];
+      if (!line.trim() || !regex.test(line)) continue;
+      const cost = Math.min(line.length, 240) + 1;
+      if (signalChars + cost > charBudget && signalChars > 0) continue;
+      picked.add(i);
+      signalChars += cost;
+    }
+  };
+  collectMatching(CRITICAL_SIGNAL_LINE_RE, targetChars);
+  collectMatching(FILE_LINE_CITATION_RE, targetChars);
+  collectMatching(BULLET_FINDING_LINE_RE, Math.floor(targetChars * 0.85));
+
+  // 3. Tail block: last up to 3 non-empty lines (<= 340 chars) not already picked
+  const tailIndices = [];
+  let tailChars = 0;
+  for (let i = lines.length - 1; i >= 0 && tailIndices.length < 3; i--) {
+    if (picked.has(i)) continue;
+    const trimmed = lines[i].trim();
+    if (!trimmed) continue;
+    const clippedLen = Math.min(trimmed.length, 180);
+    if (tailChars + clippedLen > 340 && tailIndices.length > 0) break;
+    tailIndices.unshift(i);
+    picked.add(i);
+    tailChars += clippedLen + 1;
+  }
+
+  const orderedIndices = Array.from(picked).sort((a, b) => a - b);
+  const bodyLines = [];
+  let lastEmitted = -1;
+  for (const idx of orderedIndices) {
+    if (lastEmitted !== -1 && idx > lastEmitted + 1) {
+      bodyLines.push(`... (${idx - lastEmitted - 1} omitted lines) ...`);
+    }
+    const line = lines[idx];
+    bodyLines.push(line.length > 260 ? `${line.slice(0, 257)}...` : line);
+    lastEmitted = idx;
+  }
+
+  const bodyText = bodyLines.join('\n').trim();
+  const estTokens = Math.max(1, Math.ceil((bodyText.length + 110) / 4));
+  const pointerSuffix = archivePointer ? ` | raw archived in FTS5 turnId=${archivePointer}` : '';
+  const footer = `[Highbeam Subagent Handoff Condensed: ~${originalTokens} -> ~${estTokens} tok${pointerSuffix}]`;
+  const condensedText = bodyText ? `${bodyText}\n${footer}` : footer;
+  const condensedTokens = Math.ceil(condensedText.length / 4);
+  const savedTokens = Math.max(0, originalTokens - condensedTokens);
+
+  if (condensedText.length >= text.length - 200 || savedTokens <= 0) {
+    return {
+      condensed: false,
+      text,
+      originalTokens,
+      condensedTokens: originalTokens,
+      savedTokens: 0
+    };
+  }
+
+  return {
+    condensed: true,
+    text: condensedText,
+    originalTokens,
+    condensedTokens,
+    savedTokens
+  };
+}
+
 export default {
   IPI_PATTERNS,
+  DEFAULT_SUBAGENT_HANDOFF_CAP_TOKENS,
   sanitizeSubagentPayload,
   sanitizeSubagentOutput,
+  condenseSubagentHandoffOutput,
   truncateToApproxTokens
 };

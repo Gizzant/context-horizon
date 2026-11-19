@@ -18,12 +18,339 @@ import { recordHookDiagnostic } from '../core/hook_diagnostics.mjs';
 import { evaluateBetweenTurnEffortAdvisor } from '../core/coach/effort_advisor.mjs';
 import { runBucketBPostToolPass, runBucketBStopPass } from '../core/bucket_b_runtime.mjs';
 import { isMutatingOrExecRslTool } from '../core/rsl_triage.mjs';
+import { atomicWriteFileSync } from '../core/atomic_io.mjs';
 
 const requireFromHere = createRequire(import.meta.url);
 let _agRslMod = null;
 function getAgRslMod() {
   if (!_agRslMod) _agRslMod = requireFromHere('./antigravity_rsl_hook.mjs');
   return _agRslMod;
+}
+
+let _fts5Mod = null;
+function getFts5Mod() {
+  if (!_fts5Mod) _fts5Mod = requireFromHere('../core/fts5_output_compressor.mjs');
+  return _fts5Mod;
+}
+
+let _postSanitizerMod = null;
+function getPostSanitizerMod() {
+  if (!_postSanitizerMod) _postSanitizerMod = requireFromHere('../core-isomorphic/guards/losslessPostSanitizer.mjs');
+  return _postSanitizerMod;
+}
+
+let _smartCompactMod = null;
+function getSmartCompactMod() {
+  if (!_smartCompactMod) _smartCompactMod = requireFromHere('../core-isomorphic/coach/smartCompactAdvisor.mjs');
+  return _smartCompactMod;
+}
+
+let _batonMod = null;
+function getBatonMod() {
+  if (!_batonMod) _batonMod = requireFromHere('../core-isomorphic/coach/stateBatonHydrator.mjs');
+  return _batonMod;
+}
+
+let _prefixShieldMod = null;
+function getPrefixShieldMod() {
+  if (!_prefixShieldMod) _prefixShieldMod = requireFromHere('../core/prefix_cache_shield.mjs');
+  return _prefixShieldMod;
+}
+
+let _subagentSanitizerMod = null;
+function getSubagentSanitizerMod() {
+  if (!_subagentSanitizerMod) _subagentSanitizerMod = requireFromHere('../core/coach/subagent_ipi_sanitizer.mjs');
+  return _subagentSanitizerMod;
+}
+
+function extractAntigravityRawOutput(inputData = {}) {
+  const raw =
+    inputData.tool_output ??
+    inputData.toolOutput ??
+    inputData.output ??
+    inputData.tool_response;
+  if (typeof raw === 'string') return raw;
+  if (raw && typeof raw === 'object') {
+    if (Array.isArray(raw.content)) {
+      const blocks = raw.content
+        .filter((b) => b && b.type === 'text' && typeof b.text === 'string' && b.text.length > 0)
+        .map((b) => b.text)
+        .join('\n');
+      if (blocks.length > 0) return blocks;
+    }
+    const parts = [raw.output, raw.content, raw.result, raw.stdout, raw.stderr]
+      .filter((v) => typeof v === 'string' && v.length > 0);
+    if (parts.length > 0) return parts.join('\n');
+    return '';
+  }
+  return raw !== undefined && raw !== null ? String(raw) : '';
+}
+
+/**
+ * OPT-1C: Updates Antigravity task-boundary state across PostToolUse / PostInvocation,
+ * evaluates ROI-gated /compact suggestion, and pre-stages durable baton outside workspace.
+ */
+function evaluateAntigravityTaskBoundaryCompact({
+  sidecar,
+  conversationId,
+  toolName = '',
+  cmdStr = '',
+  filePath = '',
+  failed = false,
+  exitCode = 0,
+  inputData = {},
+  flightMode = 'COACH',
+  horizonConfig = {}
+}) {
+  try {
+    const smartMod = getSmartCompactMod();
+    const boundaryEval = smartMod.evaluateTaskBoundaryTurn(
+      { toolName, command: cmdStr, filePath, failed, exitCode },
+      sidecar.taskBoundaryState || {}
+    );
+    sidecar.taskBoundaryState = {
+      openFailure: boundaryEval.openFailure,
+      editsSinceBoundary: boundaryEval.editsSinceBoundary,
+      turnBoundaryReached:
+        boundaryEval.detectorState === 'mid_debug'
+          ? false
+          : boundaryEval.boundaryDetected
+            ? true
+            : Boolean(sidecar.taskBoundaryState?.turnBoundaryReached && boundaryEval.editsSinceBoundary === 0),
+      lastBoundarySuggestedTurn: sidecar.taskBoundaryState?.lastBoundarySuggestedTurn ?? null
+    };
+
+    const boundaryReached = Boolean(
+      inputData.boundaryDetected ?? inputData.boundary_detected ?? sidecar.taskBoundaryState.turnBoundaryReached
+    );
+    if (!boundaryReached || flightMode === 'OFF' || flightMode === 'SILENT') {
+      return null;
+    }
+
+    const contextTokens = Number(
+      inputData.contextTokens ??
+        inputData.context_tokens ??
+        inputData.cachedTokens ??
+        sidecar.telemetry?.cachedTokens ??
+        sidecar.telemetry?.totalInputTokens ??
+        0
+    );
+    const modelId = String(
+      inputData.modelName ||
+        inputData.model ||
+        sidecar.sessionMeta?.active_model_id ||
+        sidecar.sessionMeta?.activeModel ||
+        'claude-sonnet-5-5'
+    );
+    const turnsSince =
+      inputData.turnsSinceLastCompact ??
+      inputData.turns_since_last_compact ??
+      sidecar.sessionMeta?.turnsSinceLastCompact ??
+      null;
+
+    const suggestion = smartMod.evaluateSmartCompactSuggestion(
+      {
+        enabled:
+          inputData.smartCompactBoundarySuggest ??
+          horizonConfig?.thresholds?.smartCompactBoundarySuggest ??
+          true,
+        detectorState: 'task_boundary',
+        boundaryDetected: true,
+        openFailure: false,
+        editsSinceBoundary: 0,
+        turnsSinceLastCompact: turnsSince,
+        modelId,
+        preCompactTokens: contextTokens,
+        expectedRemainingRequests: inputData.expectedRemainingRequests,
+        expectedRemainingTurns:
+          inputData.expectedRemainingTurns ?? horizonConfig?.expectedRemainingTurns,
+        turnsCompleted: Number(sidecar.sessionMeta?.turnCount || 0)
+      },
+      { horizonConfig }
+    );
+
+    if (!suggestion.shouldSuggest) {
+      return suggestion;
+    }
+
+    const baton = getBatonMod().buildDurableStateBaton({
+      sessionId: conversationId,
+      modifiedFiles: sidecar.fileState?.activeSetPaths || [],
+      activeTask: sidecar.sessionMeta?.lastUserPrompt || '',
+      nowMs: inputData.nowMs ?? Date.now()
+    });
+    const safeSid = String(conversationId || 'default').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 64);
+    const homeDir = inputData.homeDir || getHomeDir();
+    const batonDir =
+      inputData.batonDir || path.join(homeDir, '.gemini', 'antigravity', 'agy-horizon', 'batons');
+    fs.mkdirSync(batonDir, { recursive: true });
+    const batonPath = path.join(batonDir, `baton_${safeSid}.json`);
+    atomicWriteFileSync(batonPath, `${JSON.stringify(baton, null, 2)}\n`);
+
+    sidecar.sessionMeta = sidecar.sessionMeta || {};
+    sidecar.sessionMeta.turnsSinceLastCompact = 1;
+    sidecar.taskBoundaryState.turnBoundaryReached = false;
+
+    return {
+      ...suggestion,
+      batonStaged: true,
+      batonPath
+    };
+  } catch (tbErr) {
+    recordHookDiagnostic('post_invocation', 'taskBoundaryCompact', tbErr, { persist: false });
+    return null;
+  }
+}
+
+function recordAntigravityPostSavings(sidecar, { category = 'CLI_FTS5_COMPRESSED', savedTokens = 0, detail = '', nowMs = Date.now() } = {}) {
+  const tokens = Math.max(0, Number(savedTokens || 0));
+  if (!sidecar || typeof sidecar !== 'object' || tokens <= 0) return;
+  sidecar.telemetry = sidecar.telemetry && typeof sidecar.telemetry === 'object' ? sidecar.telemetry : {};
+  sidecar.telemetry.savedTokens = Number(sidecar.telemetry.savedTokens || 0) + tokens;
+  sidecar.telemetry.savedTokensByCategory =
+    sidecar.telemetry.savedTokensByCategory && typeof sidecar.telemetry.savedTokensByCategory === 'object'
+      ? sidecar.telemetry.savedTokensByCategory
+      : {};
+  sidecar.telemetry.savedTokensByCategory[category] =
+    Number(sidecar.telemetry.savedTokensByCategory[category] || 0) + tokens;
+  const recent = Array.isArray(sidecar.telemetry.recentInterventions)
+    ? sidecar.telemetry.recentInterventions
+    : [];
+  recent.push({ ts: new Date(nowMs).toISOString(), category, savedTokens: tokens, detail });
+  sidecar.telemetry.recentInterventions = recent.slice(-25);
+}
+
+/**
+ * OPT-2B: Unified FTS5 CLI compressor + lossless post-tool sanitizer for Antigravity hooks.
+ * Never writes `.claude/` directories inside workspacePath; stores FTS5 DB & artifacts under
+ * `~/.gemini/antigravity/agy-horizon` (or test-provided `homeDir`/`toolLogsDbPath`/`artifactRootDir`).
+ */
+function compressAntigravityPostOutput({
+  conversationId,
+  toolName,
+  cmdStr = '',
+  baseText = '',
+  exitCode = 0,
+  inputData = {}
+}) {
+  if (!baseText || !toolName || inputData.enablePostOutputCompression === false) {
+    return null;
+  }
+  try {
+    const { stripAnsiAndSpinners, isToolEligibleForSanitization, sanitizePostToolOutput } = getPostSanitizerMod();
+    const isShellTool = /^(?:run_command|execute_bash|Bash|PowerShell|pwsh|cmd|sh)$/i.test(toolName);
+    if (isShellTool && cmdStr && inputData.enableFts5CliCompression !== false) {
+      const cleanShell = stripAnsiAndSpinners(baseText);
+      const homeDir = inputData.homeDir || getHomeDir();
+      const ftsDbPath = inputData.toolLogsDbPath || getFts5Mod().getDefaultToolLogsDbPath(homeDir);
+      const ftsRes = getFts5Mod().compressCliOutputFts5Sync({
+        sessionId: String(conversationId),
+        turnId: String(inputData.tool_use_id || inputData.turnId || inputData.turn_id || `turn-${Date.now()}`),
+        command: cmdStr,
+        exitCode: typeof exitCode === 'number' ? exitCode : 0,
+        rawOutput: cleanShell,
+        dbPath: ftsDbPath,
+        recordLedger: false
+      });
+      if (ftsRes.compressed && ftsRes.tokensSaved > 0) {
+        const ansiSavedTok = Math.max(0, Math.ceil((baseText.length - cleanShell.length) / 4));
+        const totalSaved = ftsRes.tokensSaved + ansiSavedTok;
+        return {
+          compressed: true,
+          output: ftsRes.output,
+          savedTokens: totalSaved,
+          guardrailId: 'CLI_FTS5_COMPRESSED',
+          reason: `Highbeam compressed CLI output via FTS5 (+${totalSaved} tokens saved)`
+        };
+      }
+    }
+
+    if (/^(?:default_api:)?invoke_subagent$/i.test(toolName) && inputData.enableSubagentHandoffCondenser !== false) {
+      const subMod = getSubagentSanitizerMod();
+      const ipiClean = subMod.sanitizeSubagentPayload(baseText, 'invoke_subagent', {
+        truncate: false,
+        horizonConfig: inputData.horizonConfig || null
+      });
+      const capTokens = Number(inputData.subagentHandoffCapTokens || subMod.DEFAULT_SUBAGENT_HANDOFF_CAP_TOKENS || 1200);
+      if (ipiClean.cleanedText.length > Math.max(200, capTokens) * 4) {
+        const homeDir = inputData.homeDir || getHomeDir();
+        const ftsDbPath = inputData.toolLogsDbPath || getFts5Mod().getDefaultToolLogsDbPath(homeDir);
+        const subTurnId = String(
+          inputData.tool_use_id || inputData.turnId || inputData.turn_id || `subagent-${Date.now()}`
+        );
+        try {
+          getFts5Mod().compressCliOutputFts5Sync({
+            sessionId: String(conversationId),
+            turnId: subTurnId,
+            command: 'subagent:invoke_subagent',
+            exitCode: typeof exitCode === 'number' ? exitCode : 0,
+            rawOutput: baseText,
+            forceCompress: true,
+            dbPath: ftsDbPath,
+            recordLedger: false
+          });
+        } catch (agSubFtsErr) {
+          recordHookDiagnostic('post_invocation', 'subagentFtsArchive', agSubFtsErr, { persist: false });
+        }
+        const condRes = subMod.condenseSubagentHandoffOutput(ipiClean.cleanedText, {
+          maxTokens: capTokens,
+          archivePointer: subTurnId
+        });
+        if (condRes.condensed) {
+          const framed = subMod.sanitizeSubagentPayload(condRes.text, 'invoke_subagent', {
+            truncate: false,
+            horizonConfig: inputData.horizonConfig || null
+          }).framedPayload;
+          const savedTokens = Math.max(0, Math.ceil((baseText.length - framed.length) / 4));
+          if (savedTokens > 0) {
+            return {
+              compressed: true,
+              output: framed,
+              savedTokens,
+              guardrailId: 'SUBAGENT_HANDOFF_CONDENSED',
+              reason: `Highbeam condensed invoke_subagent handoff (+${savedTokens} tokens saved)`
+            };
+          }
+        }
+      } else if (ipiClean.ipiStrippedCount > 0) {
+        const savedTokens = Math.max(1, Math.ceil((baseText.length - ipiClean.cleanedText.length) / 4));
+        return {
+          compressed: true,
+          output: ipiClean.framedPayload,
+          savedTokens,
+          guardrailId: 'SUBAGENT_IPI_SANITIZED',
+          reason: `Highbeam stripped ${ipiClean.ipiStrippedCount} subagent IPI vector(s)`
+        };
+      }
+    }
+
+    if (isToolEligibleForSanitization(toolName)) {
+      const homeDir = inputData.homeDir || getHomeDir();
+      const agyArtifactRoot =
+        inputData.artifactRootDir || path.join(homeDir, '.gemini', 'antigravity', 'agy-horizon');
+      const san = sanitizePostToolOutput(
+        {
+          toolName,
+          toolOutput: baseText,
+          offloadThresholdTokens: Number(inputData.offloadThresholdTokens || 4000)
+        },
+        { cwd: agyArtifactRoot }
+      );
+      if (san.sanitized && san.savedTokens > 0) {
+        const guardrailId = san.offloaded ? 'ARTIFACT_OFFLOAD_4K' : 'LOSSLESS_POST_SANITIZER';
+        return {
+          compressed: true,
+          output: san.updatedToolOutput,
+          savedTokens: san.savedTokens,
+          guardrailId,
+          reason: `Highbeam sanitized ${toolName} output (+${san.savedTokens} tokens saved)`
+        };
+      }
+    }
+  } catch (agCompErr) {
+    recordHookDiagnostic('post_invocation', 'fts5PostCompress', agCompErr, { persist: false });
+  }
+  return null;
 }
 
 export async function readStdinSafe({ maxTimeoutMs = 1000, settleMs = 50 } = {}) {
@@ -246,17 +573,7 @@ export async function handlePostToolUse(inputData = {}) {
       // Fail open for RSL step telemetry
     }
   }
-  const rawOutput =
-    typeof (inputData.tool_output ?? inputData.toolOutput ?? inputData.output ?? inputData.tool_response) === 'string'
-      ? (inputData.tool_output ?? inputData.toolOutput ?? inputData.output ?? inputData.tool_response)
-      : String(
-          inputData.tool_output ??
-            inputData.toolOutput ??
-            inputData.output ??
-            inputData.tool_response?.output ??
-            inputData.tool_response?.content ??
-            ''
-        );
+  const rawOutput = extractAntigravityRawOutput(inputData);
   const didFail =
     inputData.is_error === true ||
     inputData.isError === true ||
@@ -309,9 +626,60 @@ export async function handlePostToolUse(inputData = {}) {
         }
       });
     } catch (_postErr) {
+      void _postErr;
       postPass = null;
     }
   }
+
+  let compPass = null;
+  if (flightMode !== 'OFF' && toolName && rawOutput) {
+    const baseText = postPass?.triggered ? postPass.updatedOutput : rawOutput;
+    const rawExitCode =
+      inputData.exitCode ??
+      inputData.exit_code ??
+      inputData.tool_response?.exitCode ??
+      inputData.tool_response?.exit_code;
+    compPass = compressAntigravityPostOutput({
+      conversationId,
+      toolName,
+      cmdStr,
+      baseText,
+      exitCode: typeof rawExitCode === 'number' ? rawExitCode : (didFail ? 1 : 0),
+      inputData
+    });
+    if (compPass?.compressed) {
+      recordAntigravityPostSavings(sidecar, {
+        category: compPass.guardrailId,
+        savedTokens: compPass.savedTokens,
+        detail: compPass.reason,
+        nowMs
+      });
+    }
+  }
+
+  const rawExitCodeForBoundary =
+    inputData.exitCode ??
+    inputData.exit_code ??
+    inputData.tool_response?.exitCode ??
+    inputData.tool_response?.exit_code;
+  const targetFilePath = String(
+    toolInput.Path || toolInput.path || toolInput.file_path || toolInput.TargetFile || ''
+  );
+  const smartCompactSuggestion =
+    flightMode !== 'OFF' && (toolName || inputData.boundaryDetected !== undefined)
+      ? evaluateAntigravityTaskBoundaryCompact({
+          sidecar,
+          conversationId,
+          toolName,
+          cmdStr,
+          filePath: targetFilePath,
+          failed: didFail,
+          exitCode: typeof rawExitCodeForBoundary === 'number' ? rawExitCodeForBoundary : (didFail ? 1 : 0),
+          inputData,
+          flightMode,
+          horizonConfig
+        })
+      : null;
 
   writeSidecarAtomicSync(conversationId, sidecar);
   if (flightMode === 'OFF') {
@@ -323,13 +691,23 @@ export async function handlePostToolUse(inputData = {}) {
     pending_model_id: sidecar.sessionMeta.pending_model_id || null,
     swarmTtlBadges: sidecar.swarmTtlBadges
   };
-  if (postPass?.triggered) {
-    postToolOut.updatedOutput = postPass.updatedOutput;
-    postToolOut.savedTokens = postPass.savedTokens;
-    postToolOut.guardrailId = postPass.guardrailId;
+  if (smartCompactSuggestion) {
+    postToolOut.smartCompactSuggestion = smartCompactSuggestion;
+  }
+  if (postPass?.triggered || compPass?.compressed) {
+    postToolOut.updatedOutput = compPass?.compressed ? compPass.output : postPass.updatedOutput;
+    postToolOut.savedTokens =
+      Number(postPass?.triggered ? postPass.savedTokens || 0 : 0) +
+      Number(compPass?.compressed ? compPass.savedTokens || 0 : 0);
+    postToolOut.guardrailId = compPass?.compressed ? compPass.guardrailId : postPass.guardrailId;
     if (flightMode !== 'SILENT') {
-      postToolOut.systemMessage = postPass.reason;
+      postToolOut.systemMessage = compPass?.compressed ? compPass.reason : postPass.reason;
     }
+  }
+  if (smartCompactSuggestion?.shouldSuggest && flightMode !== 'SILENT') {
+    postToolOut.systemMessage = postToolOut.systemMessage
+      ? `${postToolOut.systemMessage} | ${smartCompactSuggestion.message}`
+      : smartCompactSuggestion.message;
   }
   return postToolOut;
 }
@@ -516,19 +894,46 @@ export async function handlePostInvocation(inputData = {}) {
       ? `[Highbeam Quota Shield — Orphan Background Drain (#10)] ${bgTasks.length} background daemon/task(s) still active (${bgTasks.slice(0, 3).join(', ')}). Kill via manage_task before ending session.`
       : null;
 
+  const postWorkspace = inputData.cwd || inputData.workspacePath || sidecar.workspacePath || process.cwd();
+  const postHorizonConfig = inputData.horizonConfig || loadHorizonConfig({
+    cwd: postWorkspace,
+    ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {})
+  });
+  let invPostFlightMode = String(inputData.flightMode || postHorizonConfig.flightMode || 'COACH').toUpperCase();
+
+  let postCompactFlushRes = null;
+  if (inputData.postCompact === true || inputData.isPostCompact === true) {
+    sidecar.taskBoundaryState = {
+      openFailure: false,
+      editsSinceBoundary: 0,
+      turnBoundaryReached: false,
+      lastBoundarySuggestedTurn: null
+    };
+    sidecar.sessionMeta.turnsSinceLastCompact = 0;
+    if (inputData.flushPrefixDeltas !== false) {
+      try {
+        const shield = new (getPrefixShieldMod().PrefixCacheShield)({
+          homeDir: inputData.homeDir || getHomeDir()
+        });
+        postCompactFlushRes = shield.flushOnPostCompact();
+        if (postCompactFlushRes?.flushedCount > 0) {
+          sidecar.prefixShield = { stagedCount: 0, badge: '', queuePath: shield.queuePath };
+        }
+      } catch (flushErr) {
+        recordHookDiagnostic('post_invocation', 'prefixShieldFlush', flushErr, { persist: false });
+      }
+    }
+  } else if (typeof sidecar.sessionMeta.turnsSinceLastCompact === 'number') {
+    sidecar.sessionMeta.turnsSinceLastCompact += 1;
+  }
+
   const postToolName = String(inputData.tool_name || inputData.toolName || '');
   const postRawOutput = inputData.tool_output ?? inputData.toolOutput ?? inputData.output;
   let invPostPass = null;
-  let invPostFlightMode = 'COACH';
-  if (postToolName && postRawOutput && inputData.bucketBShadow !== false) {
-    try {
-      const postWorkspace = inputData.cwd || inputData.workspacePath || sidecar.workspacePath || process.cwd();
-      const postHorizonConfig = inputData.horizonConfig || loadHorizonConfig({
-        cwd: postWorkspace,
-        ...(inputData.homeDir ? { homeDir: inputData.homeDir } : {})
-      });
-      invPostFlightMode = String(inputData.flightMode || postHorizonConfig.flightMode || 'COACH').toUpperCase();
-      if (invPostFlightMode !== 'OFF') {
+  let invCompPass = null;
+  if (postToolName && postRawOutput) {
+    if (invPostFlightMode !== 'OFF' && inputData.bucketBShadow !== false) {
+      try {
         invPostPass = runBucketBPostToolPass({
           platform: 'antigravity',
           sessionId: conversationId,
@@ -547,10 +952,53 @@ export async function handlePostInvocation(inputData = {}) {
             horizonConfig: postHorizonConfig
           }
         });
+      } catch (_invPostErr) {
+        void _invPostErr;
+        invPostPass = null;
       }
-    } catch (_invPostErr) {
-      invPostPass = null;
     }
+    if (invPostFlightMode !== 'OFF') {
+      const postToolIn = inputData.tool_input || inputData.toolInput || {};
+      const postCmd = String(postToolIn.CommandLine || postToolIn.command || postToolIn.cmd || inputData.command || '');
+      const baseText = invPostPass?.triggered ? invPostPass.updatedOutput : String(postRawOutput);
+      const rawInvExit = inputData.exitCode ?? inputData.exit_code;
+      invCompPass = compressAntigravityPostOutput({
+        conversationId,
+        toolName: postToolName,
+        cmdStr: postCmd,
+        baseText,
+        exitCode: typeof rawInvExit === 'number' ? rawInvExit : (hasError ? 1 : 0),
+        inputData
+      });
+      if (invCompPass?.compressed) {
+        recordAntigravityPostSavings(sidecar, {
+          category: invCompPass.guardrailId,
+          savedTokens: invCompPass.savedTokens,
+          detail: invCompPass.reason,
+          nowMs
+        });
+      }
+    }
+  }
+
+  let invSmartCompactSuggestion = null;
+  if (invPostFlightMode !== 'OFF' && (postToolName || inputData.boundaryDetected !== undefined)) {
+    const postToolIn = inputData.tool_input || inputData.toolInput || {};
+    const postCmd = String(postToolIn.CommandLine || postToolIn.command || postToolIn.cmd || inputData.command || '');
+    const postFile = String(postToolIn.Path || postToolIn.path || postToolIn.file_path || '');
+    const rawInvExit = inputData.exitCode ?? inputData.exit_code;
+    invSmartCompactSuggestion = evaluateAntigravityTaskBoundaryCompact({
+      sidecar,
+      conversationId,
+      toolName: postToolName,
+      cmdStr: postCmd,
+      filePath: postFile,
+      failed: hasError,
+      exitCode: typeof rawInvExit === 'number' ? rawInvExit : (hasError ? 1 : 0),
+      inputData,
+      flightMode: invPostFlightMode,
+      horizonConfig: postHorizonConfig
+    });
   }
 
   const turnFileDiffs = Array.isArray(inputData.fileDiffs)
@@ -598,12 +1046,16 @@ export async function handlePostInvocation(inputData = {}) {
     pending_model_id: sidecar.sessionMeta.pending_model_id || null,
     swarmRoster: sidecar.swarmRoster,
     swarmTtlBadges: sidecar.swarmTtlBadges,
-    effortAdvisor: sidecar.effortAdvisor || null
+    effortAdvisor: sidecar.effortAdvisor || null,
+    ...(invSmartCompactSuggestion ? { smartCompactSuggestion: invSmartCompactSuggestion } : {}),
+    ...(postCompactFlushRes ? { flushedPrefixDeltas: postCompactFlushRes } : {})
   };
-  if (invPostPass?.triggered) {
-    out.updatedOutput = invPostPass.updatedOutput;
-    out.savedTokens = invPostPass.savedTokens;
-    out.guardrailId = invPostPass.guardrailId;
+  if (invPostPass?.triggered || invCompPass?.compressed) {
+    out.updatedOutput = invCompPass?.compressed ? invCompPass.output : invPostPass.updatedOutput;
+    out.savedTokens =
+      Number(invPostPass?.triggered ? invPostPass.savedTokens || 0 : 0) +
+      Number(invCompPass?.compressed ? invCompPass.savedTokens || 0 : 0);
+    out.guardrailId = invCompPass?.compressed ? invCompPass.guardrailId : invPostPass.guardrailId;
   }
   if (turnStopPass?.triggered) {
     out.overengineeringHint = turnStopPass.reason;
@@ -613,10 +1065,16 @@ export async function handlePostInvocation(inputData = {}) {
   if (orphanBackgroundWarning) {
     out.orphanBackgroundWarning = orphanBackgroundWarning;
     out.systemMessage = orphanBackgroundWarning;
+  } else if (invCompPass?.compressed && invPostFlightMode !== 'SILENT' && !out.systemMessage) {
+    out.systemMessage = invCompPass.reason;
   } else if (invPostPass?.triggered && invPostFlightMode !== 'SILENT' && !out.systemMessage) {
     out.systemMessage = invPostPass.reason;
   } else if (turnStopPass?.triggered && turnFlightMode !== 'SILENT' && !out.systemMessage) {
     out.systemMessage = turnStopPass.reason;
+  } else if (invSmartCompactSuggestion?.shouldSuggest && invPostFlightMode !== 'SILENT' && !out.systemMessage) {
+    out.systemMessage = invSmartCompactSuggestion.message;
+  } else if (postCompactFlushRes?.flushedCount > 0 && invPostFlightMode !== 'SILENT' && !out.systemMessage) {
+    out.systemMessage = `[Highbeam] Flushed ${postCompactFlushRes.flushedCount} staged prefix rule update(s) post-compaction with zero cache bust.`;
   }
   return out;
 }

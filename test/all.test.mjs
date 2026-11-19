@@ -90,3 +90,6 @@ import './trial_summary.test.mjs';
 import './vscode_extension.test.mjs';
 import './pro_team_anchors.test.mjs';
 import './imp1_and_imp4_token_guards.test.mjs';
+import './wave1_token_optimizations.test.mjs';
+import './wave2_compaction_and_cache_shield.test.mjs';
+import './wave3_subagent_and_mcp_diet.test.mjs';

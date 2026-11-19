@@ -34,3 +34,7 @@ AGENTS.md
 packages/pro/workers/
 packages/pro/wrangler.toml
 packages/pro/README-SIGNING.md
+packages/pro/src/pro_license.mjs
+packages/pro/src/index.mjs
+src/ui/horizon_panel.js
+src/ui/horizon_panel.css

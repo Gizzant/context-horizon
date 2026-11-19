@@ -8,6 +8,7 @@ import { loadHorizonConfig, resolveDetectorOverride } from '../../src/core-isomo
 import { resolveEffectiveAutoFlightMode } from '../../src/core/pro_license.mjs';
 import { isSilentOrOffMode } from '../../src/core-isomorphic/coach/cacheGravityRouter.mjs';
 import { evaluateSmartCompactSuggestion } from '../../src/core-isomorphic/coach/smartCompactAdvisor.mjs';
+import { handlePreCompactBatonFlush } from '../../src/core-isomorphic/coach/stateBatonHydrator.mjs';
 import { computeActiveToolsetHash } from '../../src/core-isomorphic/coach/resumeToolsetAuditor.mjs';
 import { readLiveStateSnapshot } from '../../src/core-isomorphic/telemetry/telemetryBridge.mjs';
 import { updateSessionCalibrationOnStop } from '../../src/utils/sessionCalibration.mjs';
@@ -380,6 +381,29 @@ export function runStopGateHook(event = {}, options = {}) {
           },
           { ...cwdOptions, horizonConfig }
         );
+
+  if (
+    smartCompactSuggestion.shouldSuggest &&
+    shouldPersistState &&
+    Boolean(event.cwd || options.cwd)
+  ) {
+    try {
+      const batonRes = handlePreCompactBatonFlush(
+        {
+          sessionId,
+          cwd: event.cwd || options.cwd,
+          modifiedFiles: breakerSnap?.modifiedFilesInTurn || [],
+          activeTask: breakerSnap?.lastUserPrompt || '',
+          compactionId: `smart-boundary-${sessionId}-${Date.now()}`
+        },
+        cwdOptions
+      );
+      smartCompactSuggestion.batonStaged = Boolean(batonRes?.ok && batonRes?.batonFilePath);
+      smartCompactSuggestion.batonPath = batonRes?.batonFilePath || null;
+    } catch (batonErr) {
+      void batonErr;
+    }
+  }
 
   if (shouldPersistState && det14.decision !== 'block') {
     const nextTurnsSinceCompact = smartCompactSuggestion.shouldSuggest

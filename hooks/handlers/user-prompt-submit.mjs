@@ -27,6 +27,7 @@ import {
   extractEventEffortObservation,
   applyTurnEffortObservation
 } from '../../src/core-isomorphic/coach/effortShiftDetector.mjs';
+import { evaluateIdleTtlPreCompactGate } from '../../src/core-isomorphic/coach/smartCompactAdvisor.mjs';
 import { atomicWriteFileSync } from '../../src/core/atomic_io.mjs';
 import { scorePromptSufficiency } from '../../src/core/prompt_rubric.mjs';
 import { sanitizeRslSessionId } from '../../src/core/rsl_triage.mjs';
@@ -56,7 +57,9 @@ function readPromptStateSnapshot(cwd, sessionId, event = {}) {
     lastAlertTurn: Number(event.lastShardedSpecAlertTurn || 0),
     turn1ContractInjected: Boolean(event.turn1ContractInjected),
     lastConsumedEffortAdvisoryId: null,
-    lastObservedEffort: null
+    lastObservedEffort: null,
+    lastPromptTimestampMs: 0,
+    lastIdleCompactAlertTs: 0
   };
   if (!cwd) return fallback;
   const statePath = getPromptStatePath(cwd, sessionId);
@@ -138,7 +141,31 @@ export function runUserPromptSubmitHook(event = {}, options = {}) {
   );
 
   if (shouldPersistState) {
-    writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
+    writeBreakerStateSnapshot(
+      sessionId,
+      {
+        ...engine.exportStateSnapshot(),
+        ...(priorSnapshot?.turnBoundaryReached !== undefined
+          ? { turnBoundaryReached: Boolean(priorSnapshot.turnBoundaryReached) }
+          : {}),
+        ...(priorSnapshot?.turnMidDebug !== undefined
+          ? { turnMidDebug: Boolean(priorSnapshot.turnMidDebug) }
+          : {}),
+        ...(priorSnapshot?.turnsSinceLastCompact !== undefined
+          ? { turnsSinceLastCompact: priorSnapshot.turnsSinceLastCompact }
+          : {}),
+        ...(priorSnapshot?.lastContextTokens !== undefined
+          ? { lastContextTokens: priorSnapshot.lastContextTokens }
+          : {}),
+        ...(priorSnapshot?.lastModelId !== undefined
+          ? { lastModelId: priorSnapshot.lastModelId }
+          : {}),
+        ...(priorSnapshot?.lastToolsetHash !== undefined
+          ? { lastToolsetHash: priorSnapshot.lastToolsetHash }
+          : {})
+      },
+      cwdOptions
+    );
   }
 
   if (!verdict.triggered) {
@@ -396,16 +423,87 @@ export function runUserPromptSubmitHook(event = {}, options = {}) {
         };
       }
 
-      if (
-        shouldPersistState &&
-        resolvedCwd &&
-        nextObservedEffort &&
-        nextObservedEffort !== effortPromptState.lastObservedEffort
-      ) {
+      const nowMs = Number(event.nowMs ?? options.nowMs ?? Date.now());
+      const priorPromptTs = Number(
+        event.lastTurnTimestampMs ??
+          (Number(effortPromptState.lastPromptTimestampMs || 0) ||
+            Number(priorSnapshot?.updatedAt || 0) ||
+            Number(liveState?.promptCache?.lastActivityMs || 0))
+      );
+      const idleGapMs =
+        event.idleGapMs !== undefined
+          ? Math.max(0, Number(event.idleGapMs) || 0)
+          : priorPromptTs > 0
+            ? Math.max(0, nowMs - priorPromptTs)
+            : 0;
+      const idleCtxTokens = Number(
+        event.context_tokens ??
+          event.contextTokens ??
+          event.cached_tokens ??
+          event.cachedTokens ??
+          liveState?.contextWindow?.cachedTokens ??
+          priorSnapshot?.lastContextTokens ??
+          0
+      );
+      const idleModelId = String(
+        event.model ||
+          event.modelId ||
+          liveState?.modelId ||
+          priorSnapshot?.lastModelId ||
+          'claude-sonnet-5-5'
+      );
+      const idleGate = evaluateIdleTtlPreCompactGate(
+        {
+          enabled:
+            event.idlePreCompactGate ??
+            options.idlePreCompactGate ??
+            horizonConfig?.thresholds?.idlePreCompactGate ??
+            true,
+          idleGapMs,
+          contextTokens: idleCtxTokens,
+          modelId: idleModelId,
+          cacheTtlTier: liveState?.promptCache?.ttlTier === '1h' ? '1h' : '5m',
+          turnsSinceLastCompact:
+            event.turnsSinceLastCompact ?? priorSnapshot?.turnsSinceLastCompact ?? null,
+          promptText: String(event.prompt ?? event.user_input ?? event.message ?? '')
+        },
+        cwdOptions
+      );
+      const recentlyIdleAlerted =
+        Number(effortPromptState.lastIdleCompactAlertTs || 0) > 0 &&
+        Math.abs(nowMs - Number(effortPromptState.lastIdleCompactAlertTs)) < 60_000;
+      const shouldFireIdleGate = Boolean(idleGate.shouldSuggest && !recentlyIdleAlerted);
+
+      if (shouldPersistState && resolvedCwd) {
         writePromptStateSnapshot(resolvedCwd, sessionId, {
           ...effortPromptState,
-          lastObservedEffort: nextObservedEffort
+          ...(nextObservedEffort ? { lastObservedEffort: nextObservedEffort } : {}),
+          lastPromptTimestampMs: nowMs,
+          ...(shouldFireIdleGate ? { lastIdleCompactAlertTs: nowMs } : {})
         });
+      }
+
+      if (shouldFireIdleGate) {
+        const idleStdoutJson = {
+          hookSpecificOutput: {
+            hookEventName: 'UserPromptSubmit',
+            additionalContext: String(idleGate.message || '').slice(0, 9500)
+          }
+        };
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify(idleStdoutJson),
+          stdoutJson: idleStdoutJson,
+          stderr: '',
+          verdict: {
+            triggered: true,
+            detectorId: 'DET-08',
+            subType: 'IDLE_TTL_PRE_COMPACT',
+            decision: 'steer',
+            idleGate,
+            reason: idleGate.message
+          }
+        };
       }
     }
 

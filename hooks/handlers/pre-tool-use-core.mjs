@@ -12,6 +12,8 @@ import { createRequire } from 'node:module';
 import { readLiveStateSnapshot } from '../../src/core-isomorphic/telemetry/telemetryBridge.mjs';
 import { computeTotalPromptTokens } from '../../src/core-isomorphic/config/catalogLoader.mjs';
 import { loadHorizonConfig } from '../../src/core-isomorphic/config/horizonConfig.mjs';
+import { isNonCodeDocOrArtifactPath } from '../../src/core-isomorphic/coach/smartCompactAdvisor.mjs';
+import { atomicWriteFileSync } from '../../src/core/atomic_io.mjs';
 import {
   CircuitBreakerEngine,
   readBreakerStateSnapshot,
@@ -77,6 +79,111 @@ function loadReadSnapStore(baseCwd, sessionId) {
   return { snapFilePath, store };
 }
 
+const MUTATING_SHELL_INTERVAL_RE =
+  /\b(git\s+(?:checkout|reset|pull|merge|rebase|stash|apply|cherry-pick)|rm\s|mv\s|cp\s|sed\s+-i|prettier\s+--write|eslint\s+--fix)\b/i;
+
+export function mergeLineIntervals(intervals = []) {
+  const normalized = [];
+  for (const pair of Array.isArray(intervals) ? intervals : []) {
+    if (!Array.isArray(pair) || pair.length < 2) continue;
+    const s = Math.max(1, Math.floor(Number(pair[0])));
+    const e = Math.floor(Number(pair[1]));
+    if (Number.isFinite(s) && Number.isFinite(e) && e >= s) {
+      normalized.push([s, e]);
+    }
+  }
+  if (normalized.length === 0) return [];
+  normalized.sort((a, b) => (a[0] !== b[0] ? a[0] - b[0] : a[1] - b[1]));
+  const merged = [normalized[0]];
+  for (let i = 1; i < normalized.length; i += 1) {
+    const cur = normalized[i];
+    const last = merged[merged.length - 1];
+    if (cur[0] <= last[1] + 1) {
+      last[1] = Math.max(last[1], cur[1]);
+    } else {
+      merged.push([cur[0], cur[1]]);
+    }
+  }
+  return merged;
+}
+
+/**
+ * OPT-3B: Checks whether `[reqStart, reqEnd]` overlaps already-in-context line intervals
+ * and returns a contiguous unread trim or 5-line anchor when redundant coverage >= 50%.
+ */
+export function trimRequestedRangeAgainstIntervals(reqStart, reqEnd, rawIntervals = []) {
+  const start = Math.max(1, Math.floor(Number(reqStart) || 1));
+  const end = Math.floor(Number(reqEnd) || 0);
+  if (end < start) return { status: 'none' };
+  const merged = mergeLineIntervals(rawIntervals);
+  if (merged.length === 0) return { status: 'none' };
+
+  const reqLen = end - start + 1;
+  let overlapLines = 0;
+  const uncovered = [];
+  let cursor = start;
+
+  for (const [is, ie] of merged) {
+    if (ie < start) continue;
+    if (is > end) break;
+    const ovStart = Math.max(start, is);
+    const ovEnd = Math.min(end, ie);
+    if (ovEnd >= ovStart) {
+      overlapLines += ovEnd - ovStart + 1;
+    }
+    if (cursor < is) {
+      uncovered.push([cursor, Math.min(end, is - 1)]);
+    }
+    cursor = Math.max(cursor, ie + 1);
+    if (cursor > end) break;
+  }
+  if (cursor <= end) {
+    uncovered.push([cursor, end]);
+  }
+
+  if (overlapLines === 0) return { status: 'none' };
+  if (overlapLines >= reqLen && reqLen >= 25) {
+    return {
+      status: 'full_covered',
+      anchorOffset: start,
+      anchorLimit: 5,
+      savedLines: reqLen - 5
+    };
+  }
+  if (
+    uncovered.length === 1 &&
+    overlapLines >= Math.ceil(reqLen * 0.5) &&
+    overlapLines >= 10
+  ) {
+    const [uStart, uEnd] = uncovered[0];
+    return {
+      status: 'trimmed',
+      offset: uStart,
+      limit: uEnd - uStart + 1,
+      savedLines: overlapLines
+    };
+  }
+  return { status: 'none' };
+}
+
+function recordReadIntervalEntry(store, normKey, statObj, startLine, endLine) {
+  if (!store || !normKey || !statObj || endLine < startLine) return;
+  if (!store.__readIntervals || typeof store.__readIntervals !== 'object') {
+    store.__readIntervals = {};
+  }
+  const prev = store.__readIntervals[normKey];
+  const sameStat =
+    prev &&
+    Number(prev.mtimeMs) === Number(statObj.mtimeMs) &&
+    Number(prev.size) === Number(statObj.size);
+  const existing = sameStat && Array.isArray(prev.intervals) ? prev.intervals : [];
+  store.__readIntervals[normKey] = {
+    mtimeMs: Number(statObj.mtimeMs),
+    size: Number(statObj.size),
+    intervals: mergeLineIntervals([...existing, [startLine, endLine]])
+  };
+}
+
 function saveReadSnapStore(snapFilePath, store) {
   if (!snapFilePath) return;
   try {
@@ -91,6 +198,13 @@ function saveReadSnapStore(snapFilePath, store) {
       while (editKeys.length > 16) {
         const oldestEdit = editKeys.shift();
         delete store.__recentEdits[oldestEdit];
+      }
+    }
+    if (store.__readIntervals && typeof store.__readIntervals === 'object') {
+      const intervalKeys = Object.keys(store.__readIntervals);
+      while (intervalKeys.length > 24) {
+        const oldestInterval = intervalKeys.shift();
+        delete store.__readIntervals[oldestInterval];
       }
     }
     fs.writeFileSync(snapFilePath, JSON.stringify(store), 'utf8');
@@ -174,15 +288,53 @@ export function runPreToolUseHook(event = {}, options = {}) {
       initialState: priorSnapshot
     });
 
+  let clearTurnBoundaryFlag = false;
+  const saveBreakerWithBoundaryPreserved = () => {
+    if (!shouldPersistState) return;
+    writeBreakerStateSnapshot(
+      sessionId,
+      {
+        ...engine.exportStateSnapshot(),
+        ...(clearTurnBoundaryFlag
+          ? { turnBoundaryReached: false }
+          : priorSnapshot?.turnBoundaryReached !== undefined
+            ? { turnBoundaryReached: Boolean(priorSnapshot.turnBoundaryReached) }
+            : {}),
+        ...(priorSnapshot?.turnMidDebug !== undefined
+          ? { turnMidDebug: Boolean(priorSnapshot.turnMidDebug) }
+          : {}),
+        ...(priorSnapshot?.turnsSinceLastCompact !== undefined
+          ? { turnsSinceLastCompact: priorSnapshot.turnsSinceLastCompact }
+          : {}),
+        ...(priorSnapshot?.lastContextTokens !== undefined
+          ? { lastContextTokens: priorSnapshot.lastContextTokens }
+          : {}),
+        ...(priorSnapshot?.lastModelId !== undefined
+          ? { lastModelId: priorSnapshot.lastModelId }
+          : {}),
+        ...(priorSnapshot?.lastToolsetHash !== undefined
+          ? { lastToolsetHash: priorSnapshot.lastToolsetHash }
+          : {})
+      },
+      cwdOptions
+    );
+  };
+
   const eventUsage = event.usage || event.context_window?.current_usage || null;
   const computedEventPromptTokens = Math.max(
     computeTotalPromptTokens(event),
     eventUsage ? computeTotalPromptTokens(eventUsage) : 0
   );
+  const eventCacheReadTokens = Number(
+    eventUsage?.cache_read_input_tokens ?? eventUsage?.cacheReadTokens ?? 0
+  );
   const enrichedEvent = {
     ...event,
     ...(computedEventPromptTokens > 0 && event.totalPromptTokens === undefined
       ? { totalPromptTokens: computedEventPromptTokens }
+      : {}),
+    ...(eventCacheReadTokens > 0 && event.cachedTokens === undefined
+      ? { cachedTokens: eventCacheReadTokens }
       : {}),
     mode: event.mode || effectiveMode
   };
@@ -222,7 +374,7 @@ export function runPreToolUseHook(event = {}, options = {}) {
     });
     if (mmVerdict.action === 'deny') {
       if (shouldPersistState) {
-        writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
+        saveBreakerWithBoundaryPreserved();
       }
       const denyOut = {
         hookSpecificOutput: {
@@ -248,7 +400,7 @@ export function runPreToolUseHook(event = {}, options = {}) {
     }
     if (mmVerdict.action === 'rewrite' && mmVerdict.sanitizedPath) {
       if (shouldPersistState) {
-        writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
+        saveBreakerWithBoundaryPreserved();
       }
       if (
         mmVerdict.savedTokens > 0 &&
@@ -372,7 +524,7 @@ export function runPreToolUseHook(event = {}, options = {}) {
               saveReadSnapStore(foldSnapPath, foldStore);
             }
             if (shouldPersistState) {
-              writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
+              saveBreakerWithBoundaryPreserved();
             }
             if (
               options.recordLedger !== false &&
@@ -436,13 +588,148 @@ export function runPreToolUseHook(event = {}, options = {}) {
     }
   }
 
+  const rawStartBound = tIn.offset ?? tIn.StartLine ?? tIn.start_line;
+  const rawEndBound = tIn.EndLine ?? tIn.end_line;
+  const rawLimitBound = tIn.limit;
+  const hasExplicitLineSlice =
+    rawStartBound !== undefined || rawEndBound !== undefined || rawLimitBound !== undefined;
+  let effectiveSliceOffset = hasExplicitLineSlice ? Math.max(1, Math.floor(Number(rawStartBound) || 1)) : null;
+  let effectiveSliceLimit = hasExplicitLineSlice
+    ? rawLimitBound !== undefined && Number.isFinite(Number(rawLimitBound))
+      ? Math.max(1, Math.floor(Number(rawLimitBound)))
+      : rawEndBound !== undefined && Number.isFinite(Number(rawEndBound))
+        ? Math.max(1, Math.floor(Number(rawEndBound)) - effectiveSliceOffset + 1)
+        : null
+    : null;
+
+  // OPT-3B: Check Per-File Read-Interval Ledger on explicitly sliced Reads BEFORE Shield
+  // (avoids unnecessary Shield clamp when already-loaded overlap trims down into safe bounds)
+  let trimmedByInterval = null;
   if (
     isReadTool &&
-    !hasLineBounds &&
+    hasExplicitLineSlice &&
+    rawReadPath &&
+    shouldPersistState &&
+    verdict.decision !== 'deny' &&
+    verdict.decision !== 'ask' &&
+    verdict.decision !== 'defer' &&
+    !/\.(?:ipynb|pdf)$/i.test(rawReadPath)
+  ) {
+    try {
+      const baseCwdForInt = event.cwd || options.cwd || '';
+      if (baseCwdForInt) {
+        const absIntPath = path.isAbsolute(rawReadPath)
+          ? rawReadPath
+          : path.resolve(baseCwdForInt, rawReadPath);
+        if (fs.existsSync(absIntPath) && fs.statSync(absIntPath).isFile()) {
+          const stInt = fs.statSync(absIntPath);
+          if (stInt.size > 0 && stInt.size <= 1024 * 1024) {
+            const normIntKey = absIntPath.replace(/\\/g, '/').toLowerCase();
+            const { snapFilePath: intSnapPath, store: intStore } = loadReadSnapStore(baseCwdForInt, sessionId);
+            const entry = intStore.__readIntervals?.[normIntKey];
+            const entryValid =
+              entry &&
+              Number(entry.mtimeMs) === Number(stInt.mtimeMs) &&
+              Number(entry.size) === Number(stInt.size) &&
+              Array.isArray(entry.intervals) &&
+              entry.intervals.length > 0;
+            if (entryValid) {
+              const rawIntSrc = fs.readFileSync(absIntPath, 'utf8');
+              const totalFileLines = rawIntSrc.length === 0 ? 0 : rawIntSrc.replace(/\r\n/g, '\n').split('\n').length;
+              const reqStart = effectiveSliceOffset || 1;
+              const reqEnd = effectiveSliceLimit
+                ? Math.min(totalFileLines, reqStart + effectiveSliceLimit - 1)
+                : totalFileLines;
+              const trimRes = trimRequestedRangeAgainstIntervals(reqStart, reqEnd, entry.intervals);
+              if (trimRes.status === 'full_covered') {
+                const avgBytesPerLine = totalFileLines > 0 ? stInt.size / totalFileLines : 40;
+                const savedTok = Math.max(10, Math.round((trimRes.savedLines * avgBytesPerLine) / 4));
+                const updatedInput = { ...tIn };
+                delete updatedInput.StartLine;
+                delete updatedInput.EndLine;
+                updatedInput.offset = trimRes.anchorOffset;
+                updatedInput.limit = trimRes.anchorLimit;
+                if (
+                  options.recordLedger !== false &&
+                  Boolean(event.cwd || options.cwd || options.ledgerPath || options.recordLedger)
+                ) {
+                  getSavedQuotaMod().recordInterventionSavings(
+                    {
+                      sessionId,
+                      category: 'BOUNDED_READ_ENFORCED',
+                      modelId: event.model || event.modelId || liveState?.modelId || 'claude-sonnet-5-5',
+                      savedTokens: savedTok,
+                      dedupeId:
+                        event.tool_use_id ||
+                        event.toolUseId ||
+                        `interval_anchor:${sessionId}:${path.basename(absIntPath)}:${reqStart}:${reqEnd}`,
+                      detail: `Read-interval cache anchor on ${path.basename(absIntPath)} L${reqStart}-L${reqEnd}`
+                    },
+                    cwdOptions
+                  );
+                }
+                if (shouldPersistState) {
+                  saveBreakerWithBoundaryPreserved();
+                }
+                const reasonMsg = `[Highbeam Read-Interval Cache] L${reqStart}-L${reqEnd} of ${path.basename(absIntPath)} already in context (unmodified); clamped to 5-line anchor (+${savedTok} tok saved).`;
+                const allowOut = {
+                  hookSpecificOutput: {
+                    hookEventName: 'PreToolUse',
+                    permissionDecision: 'allow',
+                    updatedInput,
+                    additionalContext: reasonMsg,
+                    savedTokens: savedTok
+                  }
+                };
+                return {
+                  exitCode: 0,
+                  stdout: JSON.stringify(allowOut),
+                  stderr: '',
+                  verdict: {
+                    triggered: true,
+                    detectorId: 'DET-06',
+                    subType: 'READ_INTERVAL_ANCHOR',
+                    decision: 'allow',
+                    updatedInput,
+                    savedTokens: savedTok,
+                    reason: reasonMsg
+                  }
+                };
+              }
+              if (trimRes.status === 'trimmed') {
+                const avgBytesPerLine = totalFileLines > 0 ? stInt.size / totalFileLines : 40;
+                const savedTok = Math.max(10, Math.round((trimRes.savedLines * avgBytesPerLine) / 4));
+                effectiveSliceOffset = trimRes.offset;
+                effectiveSliceLimit = trimRes.limit;
+                trimmedByInterval = {
+                  reqStart,
+                  reqEnd,
+                  offset: trimRes.offset,
+                  limit: trimRes.limit,
+                  savedTokens: savedTok,
+                  absPath: absIntPath,
+                  normKey: normIntKey,
+                  statObj: stInt,
+                  intSnapPath,
+                  intStore
+                };
+              }
+            }
+          }
+        }
+      }
+    } catch (intErr) {
+      void intErr;
+    }
+  }
+
+  if (
+    isReadTool &&
     rawReadPath &&
     verdict.decision !== 'deny' &&
     verdict.decision !== 'ask' &&
-    verdict.decision !== 'defer'
+    verdict.decision !== 'defer' &&
+    !/\.(?:ipynb|pdf)$/i.test(rawReadPath)
   ) {
     const baseCwdForShield = event.cwd || options.cwd || process.cwd();
     const shieldVerdict = getShieldMod().evaluateShieldReadGuard({
@@ -450,7 +737,9 @@ export function runPreToolUseHook(event = {}, options = {}) {
       sessionId,
       cwd: baseCwdForShield,
       filePath: rawReadPath,
-      hasSliceBounds: false,
+      hasSliceBounds: hasExplicitLineSlice || hasLineBounds,
+      sliceOffset: effectiveSliceOffset,
+      sliceLimit: effectiveSliceLimit,
       currentPromptTokens:
         computedEventPromptTokens || Number(liveState?.contextWindow?.totalInputTokens || 0),
       modelId: event.model || event.modelId || liveState?.modelId || 'claude-sonnet-4-6',
@@ -463,7 +752,7 @@ export function runPreToolUseHook(event = {}, options = {}) {
     });
     if (shieldVerdict.action === 'deny') {
       if (shouldPersistState) {
-        writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
+        saveBreakerWithBoundaryPreserved();
       }
       const denyOut = {
         permissionDecision: 'deny',
@@ -493,14 +782,40 @@ export function runPreToolUseHook(event = {}, options = {}) {
       };
     }
     if (shieldVerdict.action === 'clamp') {
+      if (shouldPersistState && baseCwdForShield) {
+        try {
+          const absClampPath = path.isAbsolute(rawReadPath)
+            ? rawReadPath
+            : path.resolve(baseCwdForShield, rawReadPath);
+          if (fs.existsSync(absClampPath) && fs.statSync(absClampPath).isFile()) {
+            const stClamp = fs.statSync(absClampPath);
+            const { snapFilePath: clampSnapPath, store: clampStore } = loadReadSnapStore(baseCwdForShield, sessionId);
+            const clampStart = shieldVerdict.clampOffset || 1;
+            const clampEnd = clampStart + shieldVerdict.clampLimit - 1;
+            recordReadIntervalEntry(
+              clampStore,
+              absClampPath.replace(/\\/g, '/').toLowerCase(),
+              stClamp,
+              clampStart,
+              clampEnd
+            );
+            saveReadSnapStore(clampSnapPath, clampStore);
+          }
+        } catch (clampIntErr) {
+          void clampIntErr;
+        }
+      }
       if (shouldPersistState) {
-        writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
+        saveBreakerWithBoundaryPreserved();
       }
       const updatedInput = { ...tIn };
       delete updatedInput.StartLine;
       delete updatedInput.EndLine;
       updatedInput.offset = shieldVerdict.clampOffset || 1;
       updatedInput.limit = shieldVerdict.clampLimit;
+      const clampSubType = String(shieldVerdict.triggerReason || '').startsWith('explicit_slice')
+        ? 'EXPLICIT_SLICE_CLAMP'
+        : 'BYTE_WIDTH_CLAMP';
       const clampOut = {
         hookSpecificOutput: {
           hookEventName: 'PreToolUse',
@@ -517,7 +832,7 @@ export function runPreToolUseHook(event = {}, options = {}) {
           triggered: true,
           detectorId: shieldVerdict.detectorId,
           triggerReason: shieldVerdict.triggerReason,
-          subType: 'BYTE_WIDTH_CLAMP',
+          subType: clampSubType,
           decision: 'allow',
           updatedInput,
           clampOffset: updatedInput.offset,
@@ -534,6 +849,112 @@ export function runPreToolUseHook(event = {}, options = {}) {
     }
   }
 
+  // If OPT-3B interval trim succeeded and trimmed range cleared Shield safely, emit READ_INTERVAL_TRIM
+  if (trimmedByInterval) {
+    recordReadIntervalEntry(
+      trimmedByInterval.intStore,
+      trimmedByInterval.normKey,
+      trimmedByInterval.statObj,
+      trimmedByInterval.offset,
+      trimmedByInterval.offset + trimmedByInterval.limit - 1
+    );
+    saveReadSnapStore(trimmedByInterval.intSnapPath, trimmedByInterval.intStore);
+    if (
+      options.recordLedger !== false &&
+      Boolean(event.cwd || options.cwd || options.ledgerPath || options.recordLedger)
+    ) {
+      getSavedQuotaMod().recordInterventionSavings(
+        {
+          sessionId,
+          category: 'BOUNDED_READ_ENFORCED',
+          modelId: event.model || event.modelId || liveState?.modelId || 'claude-sonnet-5-5',
+          savedTokens: trimmedByInterval.savedTokens,
+          dedupeId:
+            event.tool_use_id ||
+            event.toolUseId ||
+            `interval_trim:${sessionId}:${path.basename(trimmedByInterval.absPath)}:${trimmedByInterval.reqStart}:${trimmedByInterval.reqEnd}`,
+          detail: `Trimmed overlapping read of ${path.basename(trimmedByInterval.absPath)} to L${trimmedByInterval.offset}-L${trimmedByInterval.offset + trimmedByInterval.limit - 1}`
+        },
+        cwdOptions
+      );
+    }
+    if (shouldPersistState) {
+      saveBreakerWithBoundaryPreserved();
+    }
+    const updatedInput = { ...tIn };
+    delete updatedInput.StartLine;
+    delete updatedInput.EndLine;
+    updatedInput.offset = trimmedByInterval.offset;
+    updatedInput.limit = trimmedByInterval.limit;
+    const trimReason = `[Highbeam Read-Interval Trim] L${trimmedByInterval.reqStart}-L${trimmedByInterval.reqEnd} overlapped already-loaded lines of ${path.basename(trimmedByInterval.absPath)}; clamped to unread L${trimmedByInterval.offset}-L${trimmedByInterval.offset + trimmedByInterval.limit - 1} (+${trimmedByInterval.savedTokens} tok saved).`;
+    const allowOut = {
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'allow',
+        updatedInput,
+        additionalContext: trimReason,
+        savedTokens: trimmedByInterval.savedTokens
+      }
+    };
+    return {
+      exitCode: 0,
+      stdout: JSON.stringify(allowOut),
+      stderr: '',
+      verdict: {
+        triggered: true,
+        detectorId: 'DET-06',
+        subType: 'READ_INTERVAL_TRIM',
+        decision: 'allow',
+        updatedInput,
+        savedTokens: trimmedByInterval.savedTokens,
+        reason: trimReason
+      }
+    };
+  }
+
+  // Record clean explicitly sliced Read interval into Read-Interval Ledger
+  if (
+    isReadTool &&
+    hasExplicitLineSlice &&
+    rawReadPath &&
+    shouldPersistState &&
+    verdict.decision !== 'deny' &&
+    verdict.decision !== 'ask' &&
+    verdict.decision !== 'defer' &&
+    !/\.(?:ipynb|pdf)$/i.test(rawReadPath)
+  ) {
+    try {
+      const baseCwdForRec = event.cwd || options.cwd || '';
+      if (baseCwdForRec) {
+        const absRecPath = path.isAbsolute(rawReadPath)
+          ? rawReadPath
+          : path.resolve(baseCwdForRec, rawReadPath);
+        if (fs.existsSync(absRecPath) && fs.statSync(absRecPath).isFile()) {
+          const stRec = fs.statSync(absRecPath);
+          if (stRec.size > 0 && stRec.size <= 1024 * 1024) {
+            const rawRecSrc = fs.readFileSync(absRecPath, 'utf8');
+            const totalRecLines = rawRecSrc.length === 0 ? 0 : rawRecSrc.replace(/\r\n/g, '\n').split('\n').length;
+            const recStart = effectiveSliceOffset || 1;
+            const recEnd = effectiveSliceLimit
+              ? Math.min(totalRecLines, recStart + effectiveSliceLimit - 1)
+              : totalRecLines;
+            const { snapFilePath: recSnapPath, store: recStore } = loadReadSnapStore(baseCwdForRec, sessionId);
+            recordReadIntervalEntry(
+              recStore,
+              absRecPath.replace(/\\/g, '/').toLowerCase(),
+              stRec,
+              recStart,
+              recEnd
+            );
+            saveReadSnapStore(recSnapPath, recStore);
+          }
+        }
+      }
+    } catch (recIntErr) {
+      void recIntErr;
+    }
+  }
+
   if (isReadTool && !hasLineBounds && rawReadPath) {
     try {
       const baseCwd = event.cwd || options.cwd || '';
@@ -544,6 +965,7 @@ export function runPreToolUseHook(event = {}, options = {}) {
         const st = fs.statSync(absReadPath);
         if (st.size > 256 && st.size <= 256 * 1024) {
           const rawSrc = fs.readFileSync(absReadPath, 'utf8');
+          const totalRawLines = rawSrc.length === 0 ? 0 : rawSrc.replace(/\r\n/g, '\n').split('\n').length;
           const normKey = absReadPath.replace(/\\/g, '/').toLowerCase();
           let prevSrc = typeof event.priorContentSnapshot === 'string' ? event.priorContentSnapshot : null;
           let snapFilePath = '';
@@ -561,28 +983,50 @@ export function runPreToolUseHook(event = {}, options = {}) {
           if (prevSrc !== null && prevSrc !== rawSrc) {
             const delta = getCodeFoldMod().computeCompactLineDiff(prevSrc, rawSrc, path.basename(absReadPath));
             if (delta.wasDiffed) {
+              // OPT-3C: Clamp underlying Read via updatedInput to changed hunk instead of loading full file + diff
+              const hunkWin = getCodeFoldMod().computePostEditReadWindow({
+                prevContent: prevSrc,
+                nextContent: rawSrc,
+                windowLines: 40
+              });
+              const g4UpdatedInput = { ...tIn };
+              delete g4UpdatedInput.StartLine;
+              delete g4UpdatedInput.EndLine;
+              g4UpdatedInput.offset = hunkWin.windowStart;
+              g4UpdatedInput.limit = hunkWin.windowLimit;
+              verdict.updatedInput = g4UpdatedInput;
               verdict.triggered = true;
               verdict.detectorId = verdict.detectorId || 'DET-06';
               verdict.decision = verdict.decision || 'allow';
               verdict.deltaDiffStub = delta.diffText;
               verdict.savedTokens = Math.max(Number(verdict.savedTokens || 0), delta.savedTokens);
-              verdict.reason = `[GUARD-4 Post-Edit Delta Read] File modified since last read; returning unified delta diff (+${delta.savedTokens} tokens saved):\n${delta.diffText}`;
+              verdict.reason = `[GUARD-4 Post-Edit Delta Read] Clamped Read to edited window L${hunkWin.windowStart}-L${hunkWin.windowEnd}; delta (+${delta.savedTokens} tokens saved):\n${delta.diffText}`;
             }
           } else if (verdict.detectorId === 'DET-06' || Number(event.priorUnclippedReads || 0) >= 2) {
             const folded = getCodeFoldMod().foldCodeToSignatureStub(rawSrc, rawReadPath);
             if (folded.wasFolded) {
+              // OPT-3C: Clamp repeat Read via updatedInput to a 20-line header anchor alongside AST stub
+              const astUpdatedInput = { ...tIn };
+              delete astUpdatedInput.StartLine;
+              delete astUpdatedInput.EndLine;
+              astUpdatedInput.offset = 1;
+              astUpdatedInput.limit = Math.max(1, Math.min(20, totalRawLines));
               const stubSavedTok = Math.max(250, Math.round(folded.savedChars / 4));
+              verdict.updatedInput = astUpdatedInput;
               verdict.triggered = true;
               verdict.detectorId = verdict.detectorId || 'DET-06';
               verdict.decision = verdict.decision || 'allow';
               verdict.astSignatureStub = folded.condensed;
               verdict.savedTokens = Math.max(Number(verdict.savedTokens || 0), stubSavedTok);
-              verdict.reason = `${verdict.reason ? verdict.reason + '\n\n' : '[GUARD-4 Repeat-Read Surgeon] Full-file re-read intercepted; returning AST signature stub (+' + stubSavedTok + ' tokens saved):\n'}${folded.condensed}`;
+              verdict.reason = `${verdict.reason ? verdict.reason + '\n\n' : '[GUARD-4 Repeat-Read Surgeon] Full-file re-read clamped to 20L anchor; AST signature stub (+' + stubSavedTok + ' tokens saved):\n'}${folded.condensed}`;
             }
           }
 
           if (snapFilePath && rawSrc.length <= 128 * 1024) {
             snapMap[normKey] = rawSrc;
+            if (!verdict.deltaDiffStub && !verdict.astSignatureStub && verdict.decision !== 'deny') {
+              recordReadIntervalEntry(snapMap, normKey, st, 1, totalRawLines);
+            }
             saveReadSnapStore(snapFilePath, snapMap);
           }
         }
@@ -645,6 +1089,26 @@ export function runPreToolUseHook(event = {}, options = {}) {
             maxSavedTokens
           );
         }
+
+        // OPT-5A: Auto-tier unmistakable read-only scouts to Haiku in AUTO_PILOT unless user pinned Frontier
+        if (/^(?:Task|Agent)$/i.test(toolName) && effectiveMode === 'AUTO_PILOT') {
+          const scoutGov = shadowRes.activeRecords.find(
+            (r) =>
+              r.verdict?.code === 'SUBAGENT_TEAM_GOVERNOR' &&
+              r.verdict?.isReadOnlyScout === true &&
+              r.verdict?.recommendedModel === 'flash_or_haiku'
+          );
+          const userPromptTxt = String(event.prompt || engine.lastUserPrompt || '');
+          const hasExplicitFrontierPin =
+            /\b(?:use\s+(?:opus|sonnet|pro|fable|mythos)|with\s+(?:opus|sonnet|pro)|model\s*[:=]\s*(?:opus|sonnet|pro))\b/i.test(
+              userPromptTxt
+            );
+          if (scoutGov && !hasExplicitFrontierPin) {
+            verdict.updatedInput = { ...tIn, model: 'haiku' };
+            verdict.autoTieredModel = 'haiku';
+            verdict.decision = 'allow';
+          }
+        }
       }
     } catch (_shadowErr) {
       // Non-fatal Bucket B shadow/coach pass
@@ -699,6 +1163,14 @@ export function runPreToolUseHook(event = {}, options = {}) {
         engine.lastUserPrompt = String(event.prompt);
       }
       engine.codeEditedSinceLastTest = true;
+      if (!isNonCodeDocOrArtifactPath(rawEditPath)) {
+        engine.taskBoundaryState = {
+          openFailure: Boolean(engine.taskBoundaryState?.openFailure),
+          editsSinceBoundary: Math.max(0, Number(engine.taskBoundaryState?.editsSinceBoundary || 0)) + 1,
+          lastBoundarySuggestedTurn: engine.taskBoundaryState?.lastBoundarySuggestedTurn ?? null
+        };
+        clearTurnBoundaryFlag = true;
+      }
 
       // Record recent-edit marker + pre-edit file snapshot for IMP-4B immediate verify re-read fold
       try {
@@ -725,6 +1197,9 @@ export function runPreToolUseHook(event = {}, options = {}) {
             timestampMs: Date.now(),
             approxLineStart: resolveApproxEditLine(preEditSrc, oldTxt, tIn.StartLine ?? tIn.start_line)
           };
+          if (editStore.__readIntervals && typeof editStore.__readIntervals === 'object') {
+            delete editStore.__readIntervals[normEditKey];
+          }
           saveReadSnapStore(editSnapPath, editStore);
         }
       } catch (editSnapErr) {
@@ -733,9 +1208,30 @@ export function runPreToolUseHook(event = {}, options = {}) {
     }
   }
 
-  if (shouldPersistState) {
-    writeBreakerStateSnapshot(sessionId, engine.exportStateSnapshot(), cwdOptions);
+  if (
+    shouldPersistState &&
+    /^(?:Bash|PowerShell|pwsh|cmd|sh|run_command|execute_bash)$/i.test(toolName) &&
+    verdict.decision !== 'deny' &&
+    verdict.decision !== 'ask'
+  ) {
+    const shellCmd = String(tIn.command || tIn.CommandLine || tIn.cmd || '');
+    if (shellCmd && MUTATING_SHELL_INTERVAL_RE.test(shellCmd)) {
+      try {
+        const baseCwdForShell = event.cwd || options.cwd || '';
+        if (baseCwdForShell) {
+          const { snapFilePath: shSnapPath, store: shStore } = loadReadSnapStore(baseCwdForShell, sessionId);
+          if (shStore.__readIntervals && Object.keys(shStore.__readIntervals).length > 0) {
+            shStore.__readIntervals = {};
+            saveReadSnapStore(shSnapPath, shStore);
+          }
+        }
+      } catch (shIntErr) {
+        void shIntErr;
+      }
+    }
   }
+
+  saveBreakerWithBoundaryPreserved();
 
   // Option A Shadow Auto tracking: silent local log when Coach/Off would have been gated by Auto
   const SHADOW_DET_RE = /^(DET-04|DET-09|DET-12|DET-16|DET-26|DET-30)$/;
@@ -873,6 +1369,74 @@ export function runPreToolUseHook(event = {}, options = {}) {
     );
   }
 
+  if (
+    (verdict.decision === 'deny' || verdict.decision === 'defer') &&
+    detId === 'DET-09' &&
+    /^(?:Edit|MultiEdit|Write|NotebookEdit)$/i.test(toolName) &&
+    shouldPersistState &&
+    (event.cwd || options.cwd) &&
+    options.stagePrefixDelta !== false
+  ) {
+    const stageTarget = String(
+      tIn.file_path || tIn.Path || tIn.path || tIn.filePath || ''
+    ).trim();
+    const stageNewTxt = String(
+      tIn.new_string ??
+        tIn.content ??
+        tIn.newText ??
+        (Array.isArray(tIn.edits) ? tIn.edits.map((e) => e?.new_string ?? '').join('\n') : '') ??
+        ''
+    );
+    const stageOldTxt = String(
+      tIn.old_string ??
+        tIn.oldText ??
+        (Array.isArray(tIn.edits) ? tIn.edits.map((e) => e?.old_string ?? '').join('\n') : '') ??
+        ''
+    );
+    if (stageTarget && (stageOldTxt || stageNewTxt)) {
+      try {
+        const baseCwdForStage = event.cwd || options.cwd;
+        const absStagePath = path.isAbsolute(stageTarget)
+          ? stageTarget
+          : path.resolve(baseCwdForStage, stageTarget);
+        const queuePath = path.join(
+          path.resolve(baseCwdForStage),
+          '.claude',
+          'cache',
+          'pending_prefix_deltas.json'
+        );
+        let queue = [];
+        if (fs.existsSync(queuePath)) {
+          const parsedQ = JSON.parse(fs.readFileSync(queuePath, 'utf8'));
+          if (Array.isArray(parsedQ)) queue = parsedQ;
+        }
+        const deltaOp = stageOldTxt
+          ? 'MODIFY'
+          : /^Write$/i.test(toolName)
+            ? 'REPLACE'
+            : 'ADD';
+        queue.push({
+          id: `cc-delta-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+          targetPath: absStagePath,
+          operation: deltaOp,
+          targetText: stageOldTxt || null,
+          replacementText: stageOldTxt ? stageNewTxt : null,
+          newContent: !stageOldTxt ? stageNewTxt : null,
+          ruleText: !stageOldTxt ? stageNewTxt : null,
+          createdAt: new Date().toISOString()
+        });
+        fs.mkdirSync(path.dirname(queuePath), { recursive: true });
+        atomicWriteFileSync(queuePath, JSON.stringify(queue, null, 2));
+        verdict.prefixDeltaStaged = true;
+        verdict.stagedCount = queue.length;
+        verdict.stagedQueuePath = queuePath;
+        verdict.reason = `${verdict.reason} [Highbeam staged edit #${queue.length} for automatic flush on PostCompact]`;
+      } catch (ccStageErr) {
+        void ccStageErr;
+      }
+    }
+  }
+
   if (verdict.decision === 'ask' || verdict.decision === 'defer') {
     const out = {
       hookSpecificOutput: {
@@ -918,6 +1482,7 @@ export function runPreToolUseHook(event = {}, options = {}) {
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
       permissionDecision: 'allow',
+      ...(verdict.updatedInput ? { updatedInput: verdict.updatedInput } : {}),
       additionalContext: verdict.reason,
       ...(verdict.astSignatureStub ? { astSignatureStub: verdict.astSignatureStub, savedTokens: verdict.savedTokens } : {}),
       ...(verdict.deltaDiffStub ? { deltaDiffStub: verdict.deltaDiffStub, savedTokens: verdict.savedTokens } : {})

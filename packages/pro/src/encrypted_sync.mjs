@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
-import { requireProFeature } from './pro_license.mjs';
+import { requireProFeature } from './_license.mjs';
 
 export const SYNC_VAULT_FORMAT = 'highbeam-encrypted-sync/v1';
 export const SYNC_VAULT_AAD = 'highbeam-sync:v1';

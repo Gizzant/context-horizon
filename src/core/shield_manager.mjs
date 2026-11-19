@@ -25,6 +25,10 @@ export const DEFAULT_SHIELD_MAX_UNSLICED_LINES = 1200;
 export const CLIFF_SHIELD_MAX_UNSLICED_LINES = 150;
 export const DEFAULT_SHIELD_MAX_UNSLICED_BYTES = 16_384;
 export const CLIFF_SHIELD_MAX_UNSLICED_BYTES = 6_144;
+export const DEFAULT_SHIELD_MAX_SLICE_LINES = 250;
+export const CLIFF_SHIELD_MAX_SLICE_LINES = 150;
+export const DEFAULT_SHIELD_MAX_SLICE_BYTES = 20_480;
+export const CLIFF_SHIELD_MAX_SLICE_BYTES = 8_192;
 export const CLAMP_TARGET_BYTES = 6_144;
 export const COLD_CACHE_GAP_MS = 300_000; // 5-minute TTL
 
@@ -267,14 +271,30 @@ export function recordBucketBShadowHint(sessionId, hint = {}, options = {}) {
   );
 }
 
+function computeByteBoundedSliceWindow(lines = [], targetBytes = CLAMP_TARGET_BYTES, maxClampLines = 150) {
+  let accBytes = 0;
+  let accLines = 0;
+  const ceiling = Math.max(15, Math.min(maxClampLines, lines.length));
+  for (let i = 0; i < lines.length && accLines < ceiling; i += 1) {
+    const lineBytes = Buffer.byteLength(lines[i], 'utf8') + 1;
+    if (accLines > 0 && accBytes + lineBytes > targetBytes) break;
+    accBytes += lineBytes;
+    accLines += 1;
+  }
+  const clampLimit = Math.max(15, Math.min(ceiling, accLines));
+  const clampedBytes = Buffer.byteLength(lines.slice(0, clampLimit).join('\n'), 'utf8');
+  return { clampLimit, clampedBytes };
+}
+
 /**
  * Evaluates an incoming `Read` / `read_file` / `view_file` call against the Active Context Shield.
  *
  * Net-Positive Cache Math:
- * - Default threshold is `1,200` lines (`~12k+` tokens), tightening to `150` lines when the session
- *   is at `>= 90%` of a model prompt-pricing cliff (`90k` Haiku 5.5 / `180k` Gemini 3.1/2.5 Pro).
- * - Never blocks sliced reads (`StartLine`/`EndLine` or `offset`/`limit`/`pages`), `.index.md` files,
- *   or isolated `packages/airlock/` files.
+ * - Unsliced default threshold is `1,200` lines / `16 KB`, tightening to `150` lines / `6 KB` near
+ *   a model prompt-pricing cliff (`90k` Haiku 5.5 / `180k` Gemini 3.1/2.5 Pro).
+ * - OPT-3A: When explicit `sliceOffset`/`sliceLimit` bounds are provided, enforces `<=250` lines /
+ *   `<=20 KB` off-cliff (`150` lines / `8 KB` near cliff), clamping in-place via `updatedInput`
+ *   on Claude Code and blocking only severe (`>24 KB` or `>375L`) explicit bombs on Antigravity.
  *
  * @param {object} params
  * @param {'antigravity' | 'claude'} [params.platform='claude']
@@ -282,24 +302,15 @@ export function recordBucketBShadowHint(sessionId, hint = {}, options = {}) {
  * @param {string} [params.cwd]
  * @param {string} [params.filePath='']
  * @param {boolean} [params.hasSliceBounds=false]
+ * @param {number|null} [params.sliceOffset=null]
+ * @param {number|null} [params.sliceLimit=null]
  * @param {number} [params.currentPromptTokens=0]
  * @param {string} [params.modelId='claude-sonnet-5-5']
  * @param {object} [params.shieldConfig]
  * @param {boolean} [params.forceActive=false]
  * @param {boolean} [params.recordLedger=true]
  * @param {string} [params.ledgerPath]
- * @returns {{
- *   action: 'allow' | 'deny',
- *   detectorId?: string,
- *   reason?: string,
- *   indexPath?: string,
- *   relIndexPath?: string,
- *   totalLines?: number,
- *   maxLines?: number,
- *   nearCliff?: boolean,
- *   savedTokens?: number,
- *   savedUSD?: number
- * }}
+ * @returns {object}
  */
 export function evaluateShieldReadGuard({
   platform = 'claude',
@@ -307,6 +318,8 @@ export function evaluateShieldReadGuard({
   cwd = process.cwd(),
   filePath = '',
   hasSliceBounds = false,
+  sliceOffset = null,
+  sliceLimit = null,
   currentPromptTokens = 0,
   modelId = 'claude-sonnet-5-5',
   shieldConfig,
@@ -315,7 +328,8 @@ export function evaluateShieldReadGuard({
   ledgerPath
 } = {}) {
   const rawTarget = String(filePath || '').trim();
-  if (!rawTarget || hasSliceBounds) {
+  const hasExplicitDimensions = sliceOffset !== null || sliceLimit !== null;
+  if (!rawTarget || (hasSliceBounds && !hasExplicitDimensions)) {
     return { action: 'allow' };
   }
   if (rawTarget.endsWith('.index.md') || isForbiddenSkuPath(rawTarget)) {
@@ -339,8 +353,6 @@ export function evaluateShieldReadGuard({
   const promptTok = Math.max(0, Number(currentPromptTokens) || 0);
   const nearCliff = cliffTokens > 0 && promptTok >= Math.floor(cliffTokens * 0.9);
 
-  // Near a pricing cliff (>=90% of 100k/200k), cliff protection activates even if general shield is passive,
-  // unless shield was explicitly passed with forceActive === false and nearCliff === false.
   if (!shieldEnabledForPlatform && !nearCliff) {
     return { action: 'allow' };
   }
@@ -351,19 +363,13 @@ export function evaluateShieldReadGuard({
   let stat;
   try {
     stat = fs.statSync(absFile);
-  } catch {
+  } catch (statErr) {
+    void statErr;
     return { action: 'allow' };
   }
   if (!stat.isFile() || stat.size < 1024) {
     return { action: 'allow' };
   }
-
-  const maxLines = nearCliff
-    ? (cfg.cliffMaxUnslicedLines || CLIFF_SHIELD_MAX_UNSLICED_LINES)
-    : (cfg.maxUnslicedLines || DEFAULT_SHIELD_MAX_UNSLICED_LINES);
-  const maxBytes = nearCliff
-    ? (cfg.cliffMaxUnslicedBytes || CLIFF_SHIELD_MAX_UNSLICED_BYTES)
-    : (cfg.maxUnslicedBytes || DEFAULT_SHIELD_MAX_UNSLICED_BYTES);
 
   let rawText;
   try {
@@ -372,17 +378,57 @@ export function evaluateShieldReadGuard({
     void readErr;
     return { action: 'allow' };
   }
-  // Skip binary buffers with NUL bytes
   if (rawText.includes('\0')) {
     return { action: 'allow' };
   }
 
   const rawLines = rawText.length === 0 ? [] : rawText.replace(/\r\n/g, '\n').split('\n');
   const totalLines = rawLines.length;
-  const exceedsLineCap = totalLines > maxLines;
-  const exceedsByteCap = stat.size > maxBytes;
+
+  const isSlicedCheck = Boolean(hasSliceBounds && hasExplicitDimensions);
+  const reqOffset = isSlicedCheck ? Math.max(1, Math.floor(Number(sliceOffset) || 1)) : 1;
+  const reqLimitNum = Number(sliceLimit);
+  const reqLimit =
+    isSlicedCheck && Number.isFinite(reqLimitNum) && reqLimitNum > 0
+      ? Math.floor(reqLimitNum)
+      : null;
+
+  const targetSliceLines = isSlicedCheck
+    ? rawLines.slice(reqOffset - 1, reqLimit ? reqOffset - 1 + reqLimit : rawLines.length)
+    : rawLines;
+  const targetLineCount = targetSliceLines.length;
+  const targetBytes = isSlicedCheck
+    ? Buffer.byteLength(targetSliceLines.join('\n'), 'utf8')
+    : stat.size;
+
+  const maxLines = isSlicedCheck
+    ? nearCliff
+      ? (cfg.cliffMaxSliceLines || CLIFF_SHIELD_MAX_SLICE_LINES)
+      : (cfg.maxSliceLines || DEFAULT_SHIELD_MAX_SLICE_LINES)
+    : nearCliff
+      ? (cfg.cliffMaxUnslicedLines || CLIFF_SHIELD_MAX_UNSLICED_LINES)
+      : (cfg.maxUnslicedLines || DEFAULT_SHIELD_MAX_UNSLICED_LINES);
+  const maxBytes = isSlicedCheck
+    ? nearCliff
+      ? (cfg.cliffMaxSliceBytes || CLIFF_SHIELD_MAX_SLICE_BYTES)
+      : (cfg.maxSliceBytes || DEFAULT_SHIELD_MAX_SLICE_BYTES)
+    : nearCliff
+      ? (cfg.cliffMaxUnslicedBytes || CLIFF_SHIELD_MAX_UNSLICED_BYTES)
+      : (cfg.maxUnslicedBytes || DEFAULT_SHIELD_MAX_UNSLICED_BYTES);
+
+  const exceedsLineCap = targetLineCount > maxLines;
+  const exceedsByteCap = targetBytes > maxBytes;
   if (!exceedsLineCap && !exceedsByteCap) {
     return { action: 'allow' };
+  }
+
+  // On Antigravity (no updatedInput), only block severe explicit-slice bombs to avoid retry churn
+  if (isSlicedCheck && platformKey === 'antigravity') {
+    const agSevereBytes = nearCliff ? 10_240 : 24_576;
+    const agSevereLines = Math.round(maxLines * 1.5);
+    if (targetBytes <= agSevereBytes && targetLineCount <= agSevereLines) {
+      return { action: 'allow' };
+    }
   }
 
   const indexed = buildIndex(absFile, { cwd: baseCwd });
@@ -390,13 +436,13 @@ export function evaluateShieldReadGuard({
     return { action: 'allow' };
   }
 
-  const estFullTokens = Math.ceil(stat.size / 4);
-  const savedTokens = Math.max(0, estFullTokens - indexed.indexTokens);
+  const estTargetTokens = Math.ceil(targetBytes / 4);
+  const savedTokens = Math.max(0, estTargetTokens - indexed.indexTokens);
   if (!exceedsLineCap && savedTokens <= 200) {
     return { action: 'allow' };
   }
   const rates = resolveModelRates(modelId, Date.now(), 'standard', {
-    totalPromptTokens: promptTok + estFullTokens
+    totalPromptTokens: promptTok + estTargetTokens
   });
   const savedUSD = Number(((savedTokens / 1_000_000) * Number(rates.inputPer1M || 3.0)).toFixed(6));
 
@@ -405,35 +451,38 @@ export function evaluateShieldReadGuard({
   const cliffTag = nearCliff
     ? ` (90% of ${(cliffTokens / 1000).toFixed(0)}k pricing cliff)`
     : '';
-  const triggerReason = exceedsLineCap ? 'line_cap' : 'byte_width_cap';
+  const triggerReason = isSlicedCheck
+    ? (exceedsLineCap ? 'explicit_slice_line_cap' : 'explicit_slice_byte_cap')
+    : (exceedsLineCap ? 'line_cap' : 'byte_width_cap');
   const capClause = exceedsLineCap
-    ? `${totalLines} lines > ${maxLines}-line cap`
-    : `${totalLines} lines / ${(stat.size / 1024).toFixed(1)} KB > ${(maxBytes / 1024).toFixed(0)} KB byte-width cap`;
+    ? `${targetLineCount} lines > ${maxLines}-line cap`
+    : `${targetLineCount} lines / ${(targetBytes / 1024).toFixed(1)} KB > ${(maxBytes / 1024).toFixed(0)} KB byte-width cap`;
 
-  // On Claude Code, wide <=1200-line files clamp in-place via updatedInput instead of hard deny
-  if (platformKey === 'claude' && !exceedsLineCap && exceedsByteCap && totalLines >= 20) {
-    const targetBytes = nearCliff ? 3_072 : CLAMP_TARGET_BYTES;
-    let accBytes = 0;
-    let accLines = 0;
-    for (let i = 0; i < rawLines.length; i += 1) {
-      const lineBytes = Buffer.byteLength(rawLines[i], 'utf8') + 1;
-      if (accLines > 0 && accBytes + lineBytes > targetBytes) break;
-      accBytes += lineBytes;
-      accLines += 1;
-    }
-    const clampLimit = Math.max(15, Math.min(150, accLines));
-    if (clampLimit < Math.floor(totalLines * 0.8)) {
-      const clampedBytes = Buffer.byteLength(rawLines.slice(0, clampLimit).join('\n'), 'utf8');
-      const inlineIndexMap = String(indexed.markdown || '').trim().slice(0, 1600);
+  const canClaudeClamp =
+    platformKey === 'claude' &&
+    targetLineCount >= 20 &&
+    (isSlicedCheck || (!exceedsLineCap && exceedsByteCap));
+
+  if (canClaudeClamp) {
+    const targetClampBytes = nearCliff ? 3_072 : CLAMP_TARGET_BYTES;
+    const targetClampLines = nearCliff ? 100 : 150;
+    const { clampLimit, clampedBytes } = computeByteBoundedSliceWindow(
+      targetSliceLines,
+      targetClampBytes,
+      targetClampLines
+    );
+    if (clampLimit < Math.floor(targetLineCount * 0.8)) {
+      const inlineIndexMap = String(indexed.markdown || '').trim().slice(0, 1200);
       const clampSavedTokens = Math.max(
         0,
-        Math.ceil((stat.size - clampedBytes - inlineIndexMap.length) / 4)
+        Math.ceil((targetBytes - clampedBytes - inlineIndexMap.length) / 4)
       );
       if (clampSavedTokens > 200) {
         const clampSavedUSD = Number(
           ((clampSavedTokens / 1_000_000) * Number(rates.inputPer1M || 3.0)).toFixed(6)
         );
-        const clampReason = `Highbeam Shield clamped wide unsliced Read of ${displayFile} (${capClause}${cliffTag}) to lines 1..${clampLimit} (~${(clampedBytes / 1024).toFixed(1)} KB; +${clampSavedTokens.toLocaleString('en-US')} tok saved, 0 extra turn). Structural map (${displayIndex}) — pass offset & limit to jump to another section:\n${inlineIndexMap}`;
+        const clampEnd = reqOffset + clampLimit - 1;
+        const clampReason = `Highbeam Shield clamped ${isSlicedCheck ? 'wide explicit slice' : 'wide unsliced Read'} of ${displayFile} (${capClause}${cliffTag}) to L${reqOffset}..L${clampEnd} (~${(clampedBytes / 1024).toFixed(1)} KB; +${clampSavedTokens.toLocaleString('en-US')} tok saved, 0 extra turn). Map (${displayIndex}) — pass offset & limit for other sections:\n${inlineIndexMap}`;
         if (recordLedger) {
           recordInterventionSavings(
             {
@@ -442,22 +491,23 @@ export function evaluateShieldReadGuard({
               modelId,
               savedTokens: clampSavedTokens,
               savedUSD: clampSavedUSD,
-              dedupeId: `shield_clamp:${sessionId}:${displayFile}:${indexed.sha256?.slice(0, 8) || totalLines}`,
-              detail: `Clamped wide read of ${displayFile} (1..${clampLimit} of ${totalLines} lines)`
+              dedupeId: `shield_clamp:${sessionId}:${displayFile}:${reqOffset}:${clampLimit}:${indexed.sha256?.slice(0, 8) || totalLines}`,
+              detail: `Clamped read of ${displayFile} (${reqOffset}..${clampEnd} of ${totalLines} lines)`
             },
             { cwd: baseCwd, ...(ledgerPath ? { ledgerPath } : {}) }
           );
           appendShieldHint(
             sessionId,
             {
-              event: 'clamped_unsliced_read',
+              event: isSlicedCheck ? 'clamped_explicit_slice' : 'clamped_unsliced_read',
               platform: platformKey,
               file: displayFile,
               index_path: displayIndex,
-              lines_at_read: totalLines,
+              lines_at_read: targetLineCount,
               max_lines: maxLines,
+              clamp_offset: reqOffset,
               clamp_limit: clampLimit,
-              bytes_at_read: stat.size,
+              bytes_at_read: targetBytes,
               max_bytes: maxBytes,
               clamped_bytes: clampedBytes,
               trigger_reason: triggerReason,
@@ -473,13 +523,14 @@ export function evaluateShieldReadGuard({
           detectorId: nearCliff ? 'DET-12' : 'DET-11',
           triggerReason,
           reason: clampReason,
-          clampOffset: 1,
+          clampOffset: reqOffset,
           clampLimit,
           indexPath: indexed.indexPath,
           relIndexPath: displayIndex,
           totalLines,
           maxLines,
           fileBytes: stat.size,
+          sliceBytes: targetBytes,
           maxBytes,
           clampedBytes,
           nearCliff,
@@ -490,8 +541,17 @@ export function evaluateShieldReadGuard({
     }
   }
 
-  const reason =
-    platformKey === 'antigravity'
+  const { clampLimit: recLimit } = computeByteBoundedSliceWindow(
+    targetSliceLines,
+    nearCliff ? 3_072 : CLAMP_TARGET_BYTES,
+    nearCliff ? 100 : 150
+  );
+  const recEnd = reqOffset + recLimit - 1;
+  const reason = isSlicedCheck
+    ? platformKey === 'antigravity'
+      ? `Highbeam Shield blocked oversized read slice of ${displayFile} (${capClause}${cliffTag}; +${savedTokens.toLocaleString('en-US')} tok saved). Retry with bounded StartLine=${reqOffset}, EndLine=${recEnd} or inspect ${displayIndex}.`
+      : `Highbeam Shield blocked oversized Read slice of ${displayFile} (${capClause}${cliffTag}; +${savedTokens.toLocaleString('en-US')} tok saved). Call Read on ${displayIndex} or bounded offset=${reqOffset}, limit=${recLimit}.`
+    : platformKey === 'antigravity'
       ? `Highbeam Shield blocked un-sliced read of ${displayFile} (${capClause}${cliffTag}; +${savedTokens.toLocaleString('en-US')} tok saved). Structural map ready at ${displayIndex}: read ${displayIndex} first, then call read_file with StartLine and EndLine.`
       : `Highbeam Shield blocked un-sliced Read of ${displayFile} (${capClause}${cliffTag}; +${savedTokens.toLocaleString('en-US')} tok saved). Structural map ready at ${displayIndex}: call Read on ${displayIndex} first, then call Read on ${displayFile} with offset and limit.`;
 
@@ -503,21 +563,21 @@ export function evaluateShieldReadGuard({
         modelId,
         savedTokens,
         savedUSD,
-        dedupeId: `shield_read:${sessionId}:${displayFile}:${indexed.sha256?.slice(0, 8) || totalLines}`,
-        detail: `Blocked un-sliced read of ${displayFile} (${capClause} -> ${displayIndex})`
+        dedupeId: `shield_read:${sessionId}:${displayFile}:${reqOffset}:${indexed.sha256?.slice(0, 8) || totalLines}`,
+        detail: `Blocked ${isSlicedCheck ? 'oversized slice' : 'un-sliced'} read of ${displayFile} (${capClause} -> ${displayIndex})`
       },
       { cwd: baseCwd, ...(ledgerPath ? { ledgerPath } : {}) }
     );
     appendShieldHint(
       sessionId,
       {
-        event: 'blocked_unsliced_read',
+        event: isSlicedCheck ? 'blocked_oversized_slice' : 'blocked_unsliced_read',
         platform: platformKey,
         file: displayFile,
         index_path: displayIndex,
-        lines_at_read: totalLines,
+        lines_at_read: targetLineCount,
         max_lines: maxLines,
-        bytes_at_read: stat.size,
+        bytes_at_read: targetBytes,
         max_bytes: maxBytes,
         trigger_reason: triggerReason,
         near_cliff: nearCliff,
@@ -538,6 +598,7 @@ export function evaluateShieldReadGuard({
     totalLines,
     maxLines,
     fileBytes: stat.size,
+    ...(isSlicedCheck ? { sliceBytes: targetBytes } : {}),
     maxBytes,
     nearCliff,
     savedTokens,

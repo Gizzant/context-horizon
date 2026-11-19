@@ -27,9 +27,13 @@ export const TEST_CMD_REGEX =
   /\b(?:node\s+--test|npm\s+(?:run\s+)?test|pnpm\s+(?:run\s+)?test|yarn\s+test|bun\s+test|vitest|jest|pytest|cargo\s+test|go\s+test|tsc(?:\s|$)|npx\s+tsc)\b/i;
 
 const EDIT_TOOL_REGEX =
-  /^(?:Write|Edit|MultiEdit|NotebookEdit|Replace|write_to_file|replace_file_content|multi_replace_file_content)$/i;
+  /^(?:Write|Edit|MultiEdit|NotebookEdit|Replace|edit_file|write_file|write_to_file|replace_file_content|multi_replace_file_content)$/i;
 
 export const DEFAULT_POST_COMPACT_COOLDOWN_TURNS = 4;
+export const DEFAULT_IDLE_PRE_COMPACT_MIN_TOKENS = 60_000;
+export const DEFAULT_IDLE_PRE_COMPACT_TARGET_TOKENS = 24_000;
+export const IDLE_TTL_MS_5M = 300_000;
+export const IDLE_TTL_MS_1H = 3_600_000;
 
 const NON_CODE_DOC_OR_ARTIFACT_RE =
   /(?:(?:^|[\\/])(?:task\.md|walkthrough\.md|implementation_plan\.md|CHANGELOG\.md|README\.md)$|\.gemini[\\/]antigravity[\\/]brain[\\/])/i;
@@ -329,11 +333,138 @@ export function evaluateSmartCompactSuggestion(params = {}, options = {}) {
   };
 }
 
+/**
+ * OPT-4A: Evaluates whether a session resuming after an expired KV cache TTL (`>5m` or `>1h`)
+ * at high context (`>=60k` tokens default) should `/compact` before paying a cold cache rewrite.
+ * Compressing at an expired boundary incurs zero cache-bust penalty.
+ *
+ * @param {object} [params={}]
+ * @param {object} [options={}]
+ * @returns {object}
+ */
+export function evaluateIdleTtlPreCompactGate(params = {}, options = {}) {
+  const enabled = Boolean(
+    params.enabled ??
+      options.idlePreCompactGate ??
+      options.horizonConfig?.thresholds?.idlePreCompactGate ??
+      true
+  );
+  if (!enabled) {
+    return {
+      shouldSuggest: false,
+      suppressedReason: 'disabled',
+      message: null
+    };
+  }
+
+  if (/^\s*\/(?:compact|clear)\b/i.test(String(params.promptText || ''))) {
+    return {
+      shouldSuggest: false,
+      suppressedReason: 'already_compacting',
+      message: null
+    };
+  }
+
+  const turnsSinceLastCompact =
+    params.turnsSinceLastCompact !== undefined && params.turnsSinceLastCompact !== null
+      ? Number(params.turnsSinceLastCompact)
+      : null;
+  if (
+    turnsSinceLastCompact !== null &&
+    Number.isFinite(turnsSinceLastCompact) &&
+    turnsSinceLastCompact < DEFAULT_POST_COMPACT_COOLDOWN_TURNS
+  ) {
+    return {
+      shouldSuggest: false,
+      suppressedReason: 'post_compact_cooldown',
+      message: null
+    };
+  }
+
+  const cacheTtlTier = params.cacheTtlTier === '1h' ? '1h' : '5m';
+  const ttlMs = cacheTtlTier === '1h' ? IDLE_TTL_MS_1H : IDLE_TTL_MS_5M;
+  const idleGapMs = Math.max(0, Number(params.idleGapMs || 0));
+  if (!(idleGapMs > ttlMs)) {
+    return {
+      shouldSuggest: false,
+      suppressedReason: 'cache_still_warm',
+      idleGapMs,
+      ttlMs,
+      message: null
+    };
+  }
+
+  const minContextTokens = Math.max(
+    1_000,
+    Number(params.minContextTokens ?? DEFAULT_IDLE_PRE_COMPACT_MIN_TOKENS)
+  );
+  const contextTokens = Math.max(0, Number(params.contextTokens ?? params.cachedTokens ?? 0));
+  if (contextTokens < minContextTokens) {
+    return {
+      shouldSuggest: false,
+      suppressedReason: 'below_min_context',
+      idleGapMs,
+      ttlMs,
+      contextTokens,
+      message: null
+    };
+  }
+
+  const rawModel = params.modelId || params.currentModel || 'claude-sonnet-5-5';
+  if (!isKnownCatalogModel(rawModel, options)) {
+    return {
+      shouldSuggest: false,
+      suppressedReason: 'unknown_model',
+      idleGapMs,
+      ttlMs,
+      contextTokens,
+      message: null
+    };
+  }
+
+  const modelId = normalizeModelId(rawModel, options);
+  const rates = resolveEffectiveRates(modelId, contextTokens, options);
+  const writeRatePer1M = Number(
+    (cacheTtlTier === '1h' ? rates.write1hPer1M : rates.write5mPer1M) ?? rates.inputPer1M ?? 3.0
+  );
+  const targetTokens = Math.max(
+    2_000,
+    Math.min(contextTokens, Number(params.postCompactTargetTokens ?? DEFAULT_IDLE_PRE_COMPACT_TARGET_TOKENS))
+  );
+  const coldTokensAvoided = Math.max(0, contextTokens - targetTokens);
+  const immediateColdRewriteSavingUSD = Number(
+    ((coldTokensAvoided / 1_000_000) * writeRatePer1M).toFixed(6)
+  );
+  const idleMinutes = Math.max(1, Math.round(idleGapMs / 60_000));
+
+  const message =
+    `[Highbeam Idle-TTL Pre-Compact] Cache expired after ${idleMinutes}m idle at ~${Math.round(contextTokens / 1000)}k tok (0 cache-bust penalty). ` +
+    `Run /compact before resuming to avoid ~${Math.round(coldTokensAvoided / 1000)}k cold rewrite (~$${immediateColdRewriteSavingUSD.toFixed(2)} immediate saving).`;
+
+  return {
+    shouldSuggest: true,
+    suppressedReason: null,
+    idleGapMs,
+    ttlMs,
+    cacheTtlTier,
+    contextTokens,
+    coldTokensAvoided,
+    immediateColdRewriteSavingUSD,
+    modelId,
+    message
+  };
+}
+
 export default {
   TEST_CMD_REGEX,
   DEFAULT_POST_COMPACT_COOLDOWN_TURNS,
+  DEFAULT_IDLE_PRE_COMPACT_MIN_TOKENS,
+  DEFAULT_IDLE_PRE_COMPACT_TARGET_TOKENS,
+  IDLE_TTL_MS_5M,
+  IDLE_TTL_MS_1H,
   isNonCodeDocOrArtifactPath,
   evaluateTaskBoundaryTurn,
   computeCompactionHorizonNetSaving,
-  evaluateSmartCompactSuggestion
+  evaluateSmartCompactSuggestion,
+  evaluateIdleTtlPreCompactGate
 };

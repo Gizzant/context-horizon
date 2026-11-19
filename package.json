@@ -56,11 +56,15 @@
     "!packages/pro/workers/**",
     "!packages/pro/wrangler.toml",
     "!packages/pro/README-SIGNING.md",
+    "!packages/pro/src/pro_license.mjs",
+    "!packages/pro/src/index.mjs",
     "packages/mcp/",
     "!packages/mcp/src/vendor/**",
     "src/",
     "!src/webview/partials/**",
-    "!src/webview/.npmignore"
+    "!src/webview/.npmignore",
+    "!src/ui/horizon_panel.js",
+    "!src/ui/horizon_panel.css"
   ],
   "scripts": {
     "start": "node --no-warnings src/cli/init.mjs --demo",

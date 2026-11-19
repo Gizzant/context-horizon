@@ -12,7 +12,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { requireProFeature } from './pro_license.mjs';
+import { requireProFeature } from './_license.mjs';
 
 export const PR_ATTRIBUTION_FORMAT = 'highbeam-pr-attribution/v1';
 

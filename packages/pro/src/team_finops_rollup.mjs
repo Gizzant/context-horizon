@@ -10,7 +10,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { requireProFeature } from './pro_license.mjs';
+import { requireProFeature } from './_license.mjs';
 
 export const ZK_SNAPSHOT_FORMAT = 'highbeam-zk-finops/v1';
 export const ORG_ROLLUP_FORMAT = 'highbeam-org-rollup/v1';

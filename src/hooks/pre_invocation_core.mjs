@@ -80,6 +80,24 @@ function getShieldMod() {
   return _shieldMod;
 }
 
+let _smartCompactMod = null;
+function getSmartCompactMod() {
+  if (!_smartCompactMod) _smartCompactMod = requireFromHere('../core-isomorphic/coach/smartCompactAdvisor.mjs');
+  return _smartCompactMod;
+}
+
+let _prefixShieldMod = null;
+function getPrefixShieldMod() {
+  if (!_prefixShieldMod) _prefixShieldMod = requireFromHere('../core/prefix_cache_shield.mjs');
+  return _prefixShieldMod;
+}
+
+let _bucketBGammaMod = null;
+function getBucketBGammaMod() {
+  if (!_bucketBGammaMod) _bucketBGammaMod = requireFromHere('../core-isomorphic/guards/bucketBGamma.mjs');
+  return _bucketBGammaMod;
+}
+
 function resolveSimpleAgMode(rawMode = 'COACH') {
   const upper = String(rawMode || 'COACH').trim().toUpperCase();
   if (upper === 'OFF' || upper === 'DISABLED') return 'OFF';
@@ -645,13 +663,23 @@ export async function handlePreToolUse(inputData = {}) {
       }
     }
 
-    if (!hasBounds && rawReadTarget && !postEditVerifyInfo) {
+    if (rawReadTarget && !postEditVerifyInfo) {
+      const agSliceOffset = hasBounds ? Math.max(1, Number(startRaw) || 1) : null;
+      const agSliceLimit = hasBounds
+        ? limitRaw !== undefined && Number.isFinite(Number(limitRaw))
+          ? Math.max(1, Number(limitRaw))
+          : endRaw !== undefined && Number.isFinite(Number(endRaw))
+            ? Math.max(1, Number(endRaw) - (agSliceOffset || 1) + 1)
+            : null
+        : null;
       const shieldRes = getShieldMod().evaluateShieldReadGuard({
         platform: 'antigravity',
         sessionId: conversationId,
         cwd: workspacePath,
         filePath: rawReadTarget,
-        hasSliceBounds: false,
+        hasSliceBounds: hasBounds,
+        sliceOffset: agSliceOffset,
+        sliceLimit: agSliceLimit,
         currentPromptTokens: Number(
           inputData.totalPromptTokens ?? sidecar.telemetry?.totalInputTokens ?? 0
         ),
@@ -752,13 +780,93 @@ export async function handlePreToolUse(inputData = {}) {
 
     const det09Mode = resolveDetectorOverride(horizonConfig, 'DET-09');
     if (det09Mode !== 'off') {
+      const det09CachedTok =
+        inputData.cachedTokens ?? sidecar.telemetry?.cachedTokens ?? sidecar.telemetry?.totalInputTokens ?? 0;
+      const det09TtlSec =
+        inputData.cacheTtlSeconds ?? sidecar.telemetry?.cacheTtlSeconds ?? 300;
       const det09 = getDetectorsMod().evaluateDet09MidSessionRuleMutate(syntheticStep, {
-        cachedTokens: inputData.cachedTokens ?? sidecar.telemetry?.cachedTokens ?? sidecar.telemetry?.totalInputTokens ?? 0,
-        cacheTtlSeconds: inputData.cacheTtlSeconds ?? sidecar.telemetry?.cacheTtlSeconds ?? 300,
+        cachedTokens: det09CachedTok,
+        cacheTtlSeconds: det09TtlSec,
         cacheState: inputData.cacheState
       });
       if (det09) {
-        if (isAutoPilotMode || det09Mode === 'block') return makeBlockPayload(det09);
+        // OPT-4B: Stage rule/prefix mutation via PrefixCacheShield for automatic post-compaction flush
+        let stagedRes = null;
+        if (inputData.stagePrefixDelta !== false) {
+          const agStageTarget = String(
+            toolInput?.Path || toolInput?.path || toolInput?.TargetFile || toolInput?.AbsolutePath || ''
+          ).trim();
+          const { PrefixCacheShield, isProtectedPrefixFile } = getPrefixShieldMod();
+          if (agStageTarget && isProtectedPrefixFile(agStageTarget)) {
+            const agChunks = Array.isArray(toolInput?.ReplacementChunks) ? toolInput.ReplacementChunks : null;
+            const agOldTxt = String(
+              toolInput?.Target ??
+                toolInput?.TargetContent ??
+                toolInput?.old_string ??
+                (agChunks ? agChunks.map((c) => c?.TargetContent ?? c?.Target ?? '').join('\n') : '') ??
+                ''
+            );
+            const agNewTxt = String(
+              toolInput?.Replacement ??
+                toolInput?.ReplacementContent ??
+                toolInput?.Content ??
+                toolInput?.CodeContent ??
+                toolInput?.new_string ??
+                (agChunks ? agChunks.map((c) => c?.ReplacementContent ?? c?.Replacement ?? '').join('\n') : '') ??
+                ''
+            );
+            if (agOldTxt || agNewTxt) {
+              try {
+                const absStageTarget = path.isAbsolute(agStageTarget)
+                  ? agStageTarget
+                  : path.resolve(workspacePath, agStageTarget);
+                const shield = new PrefixCacheShield({
+                  homeDir: inputData.homeDir || undefined,
+                  warmCacheThreshold: 25_000
+                });
+                const deltaOp = agOldTxt
+                  ? 'MODIFY'
+                  : /^(?:write_file|write_to_file)$/i.test(toolName)
+                    ? 'REPLACE'
+                    : 'ADD';
+                stagedRes = shield.stageOrApplyDelta(
+                  {
+                    targetPath: absStageTarget,
+                    operation: deltaOp,
+                    targetText: agOldTxt || null,
+                    replacementText: agOldTxt ? agNewTxt : null,
+                    newContent: !agOldTxt ? agNewTxt : null,
+                    ruleText: !agOldTxt ? agNewTxt : null,
+                    source: 'det09_antigravity'
+                  },
+                  {
+                    sessionId: conversationId,
+                    cachedTokens: Math.max(Number(det09CachedTok) || 0, 25_000),
+                    cacheTtlSeconds: Math.max(Number(det09TtlSec) || 0, 1),
+                    cacheWarm: true
+                  }
+                );
+                sidecar.prefixShield = {
+                  stagedCount: Number(stagedRes?.stagedCount || 0),
+                  badge: stagedRes?.badge || '',
+                  queuePath: stagedRes?.queuePath || null
+                };
+                writeSidecarAtomicSync(conversationId, sidecar);
+              } catch (stageErr) {
+                recordHookDiagnostic('pre_invocation', 'det09Stage', stageErr, { persist: false });
+              }
+            }
+          }
+        }
+        if (isAutoPilotMode || det09Mode === 'block') {
+          const blockRes = makeBlockPayload(det09);
+          if (stagedRes?.staged) {
+            blockRes.prefixDeltaStaged = true;
+            blockRes.stagedCount = stagedRes.stagedCount;
+            blockRes.stagedBadge = stagedRes.badge;
+          }
+          return blockRes;
+        }
         logAgToolShadowMiss(
           'DET-09',
           'PREFIX_MUTATION_BUST',
@@ -766,7 +874,11 @@ export async function handlePreToolUse(inputData = {}) {
           Number(inputData.cachedTokens ?? sidecar.telemetry?.cachedTokens ?? sidecar.telemetry?.totalInputTokens ?? 30000),
           det09.message
         );
-        if (!isSilentMode) gateSystemMessage = det09.message;
+        if (!isSilentMode) {
+          gateSystemMessage = stagedRes?.badge
+            ? `${det09.message} ${stagedRes.badge}`
+            : det09.message;
+        }
       }
     }
 
@@ -942,6 +1054,14 @@ export async function handlePreToolUse(inputData = {}) {
           timestampMs: inputData.nowMs ?? inputData.eventTimestampUtc ?? Date.now(),
           approxLineStart: Math.round(approxLineStart)
         };
+        if (!getSmartCompactMod().isNonCodeDocOrArtifactPath(editTarget)) {
+          sidecar.taskBoundaryState = {
+            openFailure: Boolean(sidecar.taskBoundaryState?.openFailure),
+            editsSinceBoundary: Math.max(0, Number(sidecar.taskBoundaryState?.editsSinceBoundary || 0)) + 1,
+            turnBoundaryReached: false,
+            lastBoundarySuggestedTurn: sidecar.taskBoundaryState?.lastBoundarySuggestedTurn ?? null
+          };
+        }
       } catch (agEditSnapErr) {
         recordHookDiagnostic('pre_invocation', 'handlePreToolUse.recentEditTrack', agEditSnapErr, {
           persist: false
@@ -964,6 +1084,8 @@ export async function handlePreToolUse(inputData = {}) {
   let astSignatureStub = null;
   let deltaDiffStub = postEditVerifyInfo?.deltaDiffStub || null;
   let astStubSavedTokens = postEditVerifyInfo?.savedTokens || 0;
+  let autoTieredSubagentInput = null;
+  let autoTieredSavedTokens = 0;
   if (postEditVerifyInfo && !isSilentMode && !systemMessage) {
     systemMessage = postEditVerifyInfo.message;
   }
@@ -1130,9 +1252,38 @@ export async function handlePreToolUse(inputData = {}) {
     }
     if (toolName === 'invoke_subagent' || toolName === 'define_subagent') {
       const subagentId = toolInput?.ConversationId || toolInput?.conversationId || toolInput?.Name || toolInput?.TypeName || toolInput?.Role || 'subagent';
-      const subagentModel = toolInput?.Model && toolInput.Model !== 'inherit'
+      let subagentModel = toolInput?.Model && toolInput.Model !== 'inherit'
         ? toolInput.Model
         : (sidecar.sessionMeta.active_model_id || sidecar.sessionMeta.activeModel || 'gemini-4-carbon');
+      if (toolName === 'invoke_subagent' && !isOffMode) {
+        const gov = getBucketBGammaMod().evaluateSubagentGovernor({
+          typeName: toolInput?.TypeName || toolInput?.subagent_type || '',
+          role: toolInput?.Role || toolInput?.description || '',
+          prompt: toolInput?.Prompt || toolInput?.prompt || '',
+          model: toolInput?.Model || toolInput?.model || 'inherit',
+          enableWriteTools: toolInput?.EnableWriteTools,
+          allowedTools: toolInput?.Tools || toolInput?.tools,
+          workspace: toolInput?.Workspace || toolInput?.workspace || 'inherit'
+        });
+        const hasExplicitFrontierPin =
+          /\b(?:use\s+(?:opus|sonnet|pro|carbon|fable|mythos)|with\s+(?:opus|sonnet|pro|carbon)|model\s*[:=]\s*(?:opus|sonnet|pro|carbon))\b/i.test(
+            effectivePromptText
+          );
+        if (
+          isAutoPilotMode &&
+          gov.triggered &&
+          gov.isReadOnlyScout === true &&
+          gov.recommendedModel === 'flash_or_haiku' &&
+          !hasExplicitFrontierPin
+        ) {
+          subagentModel = 'flash';
+          autoTieredSubagentInput = { ...toolInput, Model: 'flash' };
+          autoTieredSavedTokens = Math.max(autoTieredSavedTokens, Number(gov.tokensSavedEst || 4500));
+          if (!isSilentMode && !systemMessage && gov.reason) {
+            systemMessage = gov.reason;
+          }
+        }
+      }
       tracker.touchAgentActive(subagentId, {
         modelId: subagentModel,
         warmPrefixTokens: Number(toolInput?.warm_prefix_tokens ?? 0),
@@ -1171,6 +1322,11 @@ export async function handlePreToolUse(inputData = {}) {
     pending_model_id: sidecar.sessionMeta.pending_model_id || null,
     swarmTtlBadges: sidecar.swarmTtlBadges
   };
+  if (autoTieredSubagentInput) {
+    response.updatedInput = autoTieredSubagentInput;
+    response.autoTieredModel = 'flash';
+    response.savedTokens = Math.max(Number(response.savedTokens || 0), autoTieredSavedTokens);
+  }
   if (coldCacheWakeup) response.coldCacheWakeup = coldCacheWakeup;
   if (astSignatureStub) {
     response.astSignatureStub = astSignatureStub;
@@ -2058,6 +2214,63 @@ async function runPreInvocationChecks(inputData = {}) {
     } catch (err) {
       recordHookDiagnostic('pre_invocation', 'handlePreInvocation.bucketBPromptPass', err, { persist: false });
     }
+  }
+
+  // OPT-4A: Idle-TTL Pre-Compact Gate when resuming after expired (>5m/>1h) cache on >=60k context
+  const nowIdleCheckMs = Number(inputData.nowMs ?? Date.now());
+  const priorPromptTs = Number(inputData.lastTurnTimestampMs ?? sessionMeta.lastPromptTimestampMs ?? 0);
+  const idleGapMs =
+    inputData.idleGapMs !== undefined
+      ? Math.max(0, Number(inputData.idleGapMs) || 0)
+      : priorPromptTs > 0
+        ? Math.max(0, nowIdleCheckMs - priorPromptTs)
+        : 0;
+  const idleGate = getSmartCompactMod().evaluateIdleTtlPreCompactGate(
+    {
+      enabled:
+        inputData.idlePreCompactGate ??
+        horizonConfig?.thresholds?.idlePreCompactGate ??
+        true,
+      idleGapMs,
+      contextTokens: Number(
+        inputData.contextTokens ??
+          inputData.context_tokens ??
+          inputData.cachedTokens ??
+          sidecar.telemetry?.cachedTokens ??
+          sidecar.telemetry?.totalInputTokens ??
+          0
+      ),
+      modelId:
+        inputData.modelName ||
+        inputData.model ||
+        sessionMeta.active_model_id ||
+        sessionMeta.activeModel ||
+        'claude-sonnet-5-5',
+      cacheTtlTier: inputData.cacheTtlTier || '5m',
+      turnsSinceLastCompact:
+        inputData.turnsSinceLastCompact ?? sessionMeta.turnsSinceLastCompact ?? null,
+      promptText: rawPrompt
+    },
+    { horizonConfig }
+  );
+  const recentlyIdleAlerted =
+    Number(sessionMeta.lastIdleCompactAlertTs || 0) > 0 &&
+    Math.abs(nowIdleCheckMs - Number(sessionMeta.lastIdleCompactAlertTs)) < 60_000;
+  sessionMeta.lastPromptTimestampMs = nowIdleCheckMs;
+  sidecar.sessionMeta = sessionMeta;
+
+  if (idleGate.shouldSuggest && !recentlyIdleAlerted) {
+    sessionMeta.lastIdleCompactAlertTs = nowIdleCheckMs;
+    sidecar.sessionMeta = sessionMeta;
+    flushSidecarOnce();
+    return {
+      decision: 'allow',
+      detectorId: 'DET-08',
+      subType: 'IDLE_TTL_PRE_COMPACT',
+      idlePreCompactSuggestion: idleGate,
+      ephemeralMessage: idleGate.message,
+      systemMessage: idleGate.message
+    };
   }
 
   flushSidecarOnce();

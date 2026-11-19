@@ -10,6 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -24,6 +25,231 @@ export const REQUIRED_DOM_IDS = Object.freeze([
   'compactInstruction',
   'compactReclaim'
 ]);
+
+const REGEX_PREV_KEYWORDS = new Set([
+  'return', 'throw', 'case', 'delete', 'void', 'typeof', 'instanceof',
+  'in', 'of', 'new', 'yield', 'await', 'else', 'do'
+]);
+const CTRL_HEADER_KEYWORDS = new Set(['if', 'for', 'while', 'with', 'catch']);
+
+function readQuotedLiteral(src, startIdx) {
+  const quote = src[startIdx];
+  let out = quote;
+  let i = startIdx + 1;
+  while (i < src.length) {
+    const c = src[i++];
+    out += c;
+    if (c === '\\' && i < src.length) out += src[i++];
+    else if (c === quote) break;
+  }
+  return { text: out, nextIdx: i, lastChar: quote };
+}
+
+function readTemplateBody(src, startIdx, templateBraceStack) {
+  let out = '';
+  let i = startIdx;
+  while (i < src.length) {
+    const c = src[i];
+    if (c === '\\' && i + 1 < src.length) {
+      out += c + src[i + 1];
+      i += 2;
+    } else if (c === '$' && src[i + 1] === '{') {
+      out += '${';
+      i += 2;
+      templateBraceStack.push(0);
+      return { text: out, nextIdx: i, lastChar: '{', enteredExpr: true };
+    } else if (c === '`') {
+      out += '`';
+      return { text: out, nextIdx: i + 1, lastChar: '`', enteredExpr: false };
+    } else {
+      out += c;
+      i++;
+    }
+  }
+  return { text: out, nextIdx: i, lastChar: '`', enteredExpr: false };
+}
+
+function readRegexLiteral(src, startIdx) {
+  let out = '/';
+  let i = startIdx + 1;
+  let inClass = false;
+  while (i < src.length) {
+    const c = src[i++];
+    out += c;
+    if (c === '\\' && i < src.length) out += src[i++];
+    else if (c === '[') inClass = true;
+    else if (c === ']') inClass = false;
+    else if (c === '/' && !inClass) {
+      while (i < src.length && /[a-z]/i.test(src[i])) out += src[i++];
+      break;
+    }
+  }
+  return { text: out, nextIdx: i };
+}
+
+/**
+ * Strips JS comments and unnecessary line indentation/blank lines from `<script>`
+ * while preserving strings, multi-line template literals, regex literals, and ASI boundaries.
+ * Validates the compacted output with `vm.Script`.
+ * @param {string} src
+ * @returns {string}
+ */
+export function compactWebviewScript(src = '') {
+  const input = String(src || '').replace(/\r\n/g, '\n');
+  let out = '';
+  let i = 0;
+  const n = input.length;
+  let lastSigChar = '';
+  let prevWord = '';
+  const parenAllowsRegexStack = [];
+  let pendingCtrlHeader = false;
+  let afterCtrlCloseParen = false;
+  const templateBraceStack = [];
+
+  while (i < n) {
+    const ch = input[i];
+    const next = input[i + 1];
+
+    if (ch === "'" || ch === '"') {
+      const lit = readQuotedLiteral(input, i);
+      out += lit.text;
+      i = lit.nextIdx;
+      lastSigChar = lit.lastChar;
+      prevWord = '';
+      afterCtrlCloseParen = false;
+      pendingCtrlHeader = false;
+      continue;
+    }
+
+    if (ch === '`') {
+      const seg = readTemplateBody(input, i + 1, templateBraceStack);
+      out += '`' + seg.text;
+      i = seg.nextIdx;
+      lastSigChar = seg.lastChar;
+      prevWord = '';
+      afterCtrlCloseParen = false;
+      pendingCtrlHeader = false;
+      continue;
+    }
+
+    if (ch === '{' && templateBraceStack.length > 0) {
+      templateBraceStack[templateBraceStack.length - 1]++;
+      out += ch;
+      i++;
+      lastSigChar = '{';
+      prevWord = '';
+      afterCtrlCloseParen = false;
+      pendingCtrlHeader = false;
+      continue;
+    }
+
+    if (ch === '}' && templateBraceStack.length > 0) {
+      if (templateBraceStack[templateBraceStack.length - 1] === 0) {
+        templateBraceStack.pop();
+        const seg = readTemplateBody(input, i + 1, templateBraceStack);
+        out += '}' + seg.text;
+        i = seg.nextIdx;
+        lastSigChar = seg.lastChar;
+        prevWord = '';
+        afterCtrlCloseParen = false;
+        pendingCtrlHeader = false;
+        continue;
+      }
+      templateBraceStack[templateBraceStack.length - 1]--;
+    }
+
+    if (ch === '/' && next === '/') {
+      i += 2;
+      while (i < n && input[i] !== '\n') i++;
+      continue;
+    }
+
+    if (ch === '/' && next === '*') {
+      i += 2;
+      let hadNewline = false;
+      while (i < n && !(input[i] === '*' && input[i + 1] === '/')) {
+        if (input[i] === '\n') hadNewline = true;
+        i++;
+      }
+      i += 2;
+      out += hadNewline ? '\n' : ' ';
+      continue;
+    }
+
+    if (ch === '(') {
+      parenAllowsRegexStack.push(pendingCtrlHeader);
+      pendingCtrlHeader = false;
+      afterCtrlCloseParen = false;
+      lastSigChar = '(';
+      prevWord = '';
+      out += ch;
+      i++;
+      continue;
+    }
+
+    if (ch === ')') {
+      afterCtrlCloseParen = Boolean(parenAllowsRegexStack.pop());
+      pendingCtrlHeader = false;
+      lastSigChar = ')';
+      prevWord = '';
+      out += ch;
+      i++;
+      continue;
+    }
+
+    if (ch === '/') {
+      const canBeRegex =
+        !lastSigChar ||
+        '([{:;,=!?&|+-*%^~<>'.includes(lastSigChar) ||
+        afterCtrlCloseParen ||
+        REGEX_PREV_KEYWORDS.has(prevWord);
+      if (canBeRegex) {
+        const rx = readRegexLiteral(input, i);
+        out += rx.text;
+        i = rx.nextIdx;
+        lastSigChar = '/';
+        prevWord = '';
+        afterCtrlCloseParen = false;
+        pendingCtrlHeader = false;
+        continue;
+      }
+    }
+
+    if (/[A-Za-z_$]/.test(ch)) {
+      let id = '';
+      while (i < n && /[A-Za-z0-9_$]/.test(input[i])) {
+        id += input[i++];
+      }
+      out += id;
+      prevWord = id;
+      lastSigChar = id[id.length - 1];
+      pendingCtrlHeader = CTRL_HEADER_KEYWORDS.has(id);
+      afterCtrlCloseParen = false;
+      continue;
+    }
+
+    if (ch === '\n') {
+      out = out.replace(/[ \t]+$/, '');
+      if (!out.endsWith('\n')) out += '\n';
+      i++;
+      while (i < n && (input[i] === ' ' || input[i] === '\t' || input[i] === '\r')) i++;
+      continue;
+    }
+
+    if (!/\s/.test(ch)) {
+      lastSigChar = ch;
+      prevWord = '';
+      pendingCtrlHeader = false;
+      afterCtrlCloseParen = false;
+    }
+    out += ch;
+    i++;
+  }
+
+  const trimmed = out.trim();
+  new vm.Script(trimmed);
+  return trimmed;
+}
 
 /**
  * Compiles or verifies `src/webview/partials/*` into `src/webview/horizon_panel.html`.
@@ -60,7 +286,28 @@ export function buildWebviewHtml({
     return raw;
   });
 
-  const assembled = chunks.join('\n');
+  const styleCompacted = chunks.join('\n').replace(/<style([^>]*)>([\s\S]*?)<\/style>/gi, (_m, attrs, css) => {
+    const compactCss = css
+      .replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\/\*[\s\S]*?\*\//g, (tok) => (tok.startsWith('/*') ? '' : tok))
+      .replace(/[ \t]*\n[ \t]*/g, '\n')
+      .replace(/\n{2,}/g, '\n')
+      .trim();
+    return `<style${attrs}>\n${compactCss}\n</style>`;
+  });
+  const scriptOpenIdx = styleCompacted.indexOf('<script>');
+  const scriptCloseIdx = styleCompacted.lastIndexOf('</script>');
+  let assembled = styleCompacted;
+  if (scriptOpenIdx !== -1 && scriptCloseIdx > scriptOpenIdx) {
+    const beforeScript = styleCompacted
+      .slice(0, scriptOpenIdx + '<script>'.length)
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/[ \t]*\n[ \t]*/g, '\n')
+      .replace(/\n{2,}/g, '\n');
+    const compactJs = compactWebviewScript(
+      styleCompacted.slice(scriptOpenIdx + '<script>'.length, scriptCloseIdx)
+    );
+    assembled = `${beforeScript}\n${compactJs}\n${styleCompacted.slice(scriptCloseIdx)}`;
+  }
   for (const reqId of REQUIRED_DOM_IDS) {
     if (!assembled.includes(`id="${reqId}"`)) {
       throw new Error(`Assembled horizon_panel.html missing required DOM id="${reqId}"`);

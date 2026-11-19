@@ -59,102 +59,102 @@ export const MCP_SERVER_INFO = Object.freeze({
 export const MCP_TOOLS = Object.freeze([
   {
     name: 'horizon_status',
-    description: 'Read local Highbeam live telemetry, 30-day saved quota ledger, and @ctxtop/pro license status (zero network calls).',
+    description: 'Live context telemetry, 30d saved-quota ledger, and Pro license status.',
     inputSchema: {
       type: 'object',
       properties: {
-        cwd: { type: 'string', description: 'Workspace directory path' },
-        sessionId: { type: 'string', description: 'Session or trajectory ID' }
+        cwd: { type: 'string' },
+        sessionId: { type: 'string' }
       }
     }
   },
   {
     name: 'cache_gravity_check',
-    description: 'Evaluate warm KV-cache break-even gravity before switching models or downshifting tiers.',
+    description: 'Check warm KV-cache break-even gravity before switching models.',
     inputSchema: {
       type: 'object',
       required: ['currentModel', 'targetModel'],
       properties: {
-        currentModel: { type: 'string', description: 'Current active model ID' },
-        targetModel: { type: 'string', description: 'Candidate target model ID' },
-        cachedTokens: { type: 'number', description: 'Current warm cached prefix tokens' },
-        ttlRemainingSeconds: { type: 'number', description: 'Remaining prompt-cache TTL in seconds' },
-        remainingExpectedTurns: { type: 'number', description: 'Remaining expected turns in this session' },
-        expectedOutputTokens: { type: 'number', description: 'Expected output tokens per turn' }
+        currentModel: { type: 'string' },
+        targetModel: { type: 'string' },
+        cachedTokens: { type: 'number' },
+        ttlRemainingSeconds: { type: 'number' },
+        remainingExpectedTurns: { type: 'number' },
+        expectedOutputTokens: { type: 'number' }
       }
     }
   },
   {
     name: 'scope_lock_claim',
-    description: 'Inspect active multi-agent scope locks or acquire a DET-20 file-scope lease for a workspace path set.',
+    description: 'Inspect or acquire DET-20 multi-agent file-scope leases.',
     inputSchema: {
       type: 'object',
       properties: {
-        workspaceDir: { type: 'string', description: 'Workspace root directory' },
-        sessionId: { type: 'string', description: 'Trajectory / session ID owning the lease' },
-        agentId: { type: 'string', description: 'Tool/agent identifier (e.g., cursor, windsurf, claude-code)' },
-        paths: { type: 'array', items: { type: 'string' }, description: 'Relative paths or globs to claim; omit for read-only inspection' },
-        ttlSeconds: { type: 'number', description: 'Lease TTL in seconds (default 900)' }
+        workspaceDir: { type: 'string' },
+        sessionId: { type: 'string' },
+        agentId: { type: 'string' },
+        paths: { type: 'array', items: { type: 'string' }, description: 'Paths/globs to claim; omit to inspect' },
+        ttlSeconds: { type: 'number', description: 'Default 900' }
       }
     }
   },
   {
     name: 'export_receipt_pdf',
-    description: 'Generate a local SHA-256 verified Corporate PDF 1.4 Expense Receipt from 30-day saved-quota ledger telemetry.',
+    description: 'Export SHA-256 Corporate PDF 1.4 Expense Receipt from 30d ledger.',
     inputSchema: {
       type: 'object',
       properties: {
-        cwd: { type: 'string', description: 'Workspace root directory' },
-        sessionId: { type: 'string', description: 'Session ID' },
-        email: { type: 'string', description: 'Optional account email override' },
-        outPath: { type: 'string', description: 'Optional output .pdf file path' },
-        allowPreview: { type: 'boolean', description: 'Allow writing/previewing receipt when on Free tier (default false)' }
+        cwd: { type: 'string' },
+        sessionId: { type: 'string' },
+        email: { type: 'string' },
+        outPath: { type: 'string' },
+        allowPreview: { type: 'boolean' }
       }
     }
   },
   {
     name: 'horizon_compress_cli',
-    description: 'Compress verbose test, lint/build, git diff, or infra CLI outputs into <=25-line diagnostics while archiving raw text in local SQLite FTS5.',
+    description: 'Compress verbose CLI/test/diff output into <=25 lines; archive raw in FTS5.',
     inputSchema: {
       type: 'object',
       required: ['rawOutput'],
       properties: {
-        command: { type: 'string', description: 'Command that produced the output (e.g. pytest, vitest, git diff, kubectl logs)' },
-        rawOutput: { type: 'string', description: 'Raw stdout/stderr output' },
-        exitCode: { type: 'number', description: 'Exit code of the command (default 0)' },
-        sessionId: { type: 'string', description: 'Optional session ID' },
-        turnId: { type: 'string', description: 'Optional turn ID handle' },
-        forceCompress: { type: 'boolean', description: 'Force compression below 80 lines (default false)' },
-        homeDir: { type: 'string', description: 'Optional home directory override' },
-        dbPath: { type: 'string', description: 'Optional FTS5 SQLite DB path override' }
+        command: { type: 'string' },
+        rawOutput: { type: 'string' },
+        exitCode: { type: 'number' },
+        sessionId: { type: 'string' },
+        turnId: { type: 'string' },
+        forceCompress: { type: 'boolean' },
+        homeDir: { type: 'string' },
+        dbPath: { type: 'string' }
       }
     }
   },
   {
     name: 'horizon_search_logs',
-    description: 'Search local FTS5-archived CLI tool logs and offloaded artifacts by keyword or turnId (read-only).',
+    description: 'Search FTS5-archived CLI/subagent logs by keyword or turnId.',
     inputSchema: {
       type: 'object',
       properties: {
-        turnId: { type: 'string', description: 'Optional turn ID filter' },
-        keyword: { type: 'string', description: 'Keyword or error symbol to match' },
-        cwd: { type: 'string', description: 'Workspace root directory' },
-        homeDir: { type: 'string', description: 'Optional home directory override' },
-        dbPath: { type: 'string', description: 'Optional FTS5 SQLite DB path override' },
-        limit: { type: 'number', description: 'Maximum hits to return (default 10)' }
+        turnId: { type: 'string' },
+        keyword: { type: 'string' },
+        cwd: { type: 'string' },
+        homeDir: { type: 'string' },
+        dbPath: { type: 'string' },
+        limit: { type: 'number', description: 'Default 10' }
       }
     }
   },
   {
     name: 'horizon_audit_sessions',
-    description: 'Run a strictly read-only 5-host Sludge Tax & ROI audit across Antigravity, Claude Code, Codex CLI, Gemini CLI, and Cursor transcripts.',
+    description: 'Read-only 5-host Sludge Tax & ROI audit across local transcripts.',
     inputSchema: {
       type: 'object',
       properties: {
-        platform: { type: 'string', description: 'all | antigravity | claude | codex | gemini | cursor' },
-        days: { type: 'number', description: 'Lookback window in days (default 7)' },
-        limit: { type: 'number', description: 'Maximum sessions to inspect (default 10)' },
-        cwd: { type: 'string', description: 'Workspace root directory' }
+        platform: { type: 'string', description: 'all|antigravity|claude|codex|gemini|cursor' },
+        days: { type: 'number', description: 'Default 7' },
+        limit: { type: 'number', description: 'Default 10' },
+        cwd: { type: 'string' }
       }
     }
   }

@@ -4,6 +4,8 @@
  * and `PostCompact` (`ISS-034`, `ISS-035`, `ISS-036`).
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   handlePreCompactBatonFlush,
   handleSessionStartHydration,
@@ -31,6 +33,8 @@ import {
   snapshotWorkspaceTestHashes
 } from '../../src/core/shield_manager.mjs';
 import { handleClaudeRslHook } from '../../src/hooks/claude_rsl_hook.mjs';
+import { applyRuleDeltaToContent } from '../../src/core/prefix_cache_shield.mjs';
+import { atomicWriteFileSync } from '../../src/core/atomic_io.mjs';
 import { evaluateGeminiThinkingTimeoutRisk } from '../../src/core-isomorphic/economics/driftLatency.mjs';
 import {
   isCliEntrypoint,
@@ -481,6 +485,43 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
         ? snap.queuedMutations.find((m) => m && m.type === 'model')?.value || null
         : null);
 
+    // OPT-4B: Flush Claude Code staged DET-09 prefix deltas safely post-compaction
+    let flushedPrefixDeltas = { flushedCount: 0, modifiedFiles: [] };
+    const postCwd = event.cwd || cwdOptions.cwd || '';
+    if (postCwd && options.flushPrefixDeltas !== false) {
+      try {
+        const queuePath = path.join(
+          path.resolve(postCwd),
+          '.claude',
+          'cache',
+          'pending_prefix_deltas.json'
+        );
+        if (fs.existsSync(queuePath)) {
+          const parsedQ = JSON.parse(fs.readFileSync(queuePath, 'utf8'));
+          if (Array.isArray(parsedQ) && parsedQ.length > 0) {
+            const modifiedSet = new Set();
+            let applied = 0;
+            for (const delta of parsedQ) {
+              const tgtPath = delta?.targetPath ? path.resolve(String(delta.targetPath)) : '';
+              if (!tgtPath) continue;
+              const existing = fs.existsSync(tgtPath) ? fs.readFileSync(tgtPath, 'utf8') : '';
+              const nextContent = applyRuleDeltaToContent(existing, delta);
+              atomicWriteFileSync(tgtPath, nextContent);
+              modifiedSet.add(tgtPath);
+              applied += 1;
+            }
+            atomicWriteFileSync(queuePath, '[]');
+            flushedPrefixDeltas = {
+              flushedCount: applied,
+              modifiedFiles: Array.from(modifiedSet)
+            };
+          }
+        }
+      } catch (ccFlushErr) {
+        void ccFlushErr;
+      }
+    }
+
     if (
       options.persistState !== false &&
       Boolean(event.cwd || cwdOptions.cwd || options.breakerStatePath || options.cliInvocation)
@@ -505,13 +546,23 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
       );
     }
 
+    const postNotices = [];
     if (pendingModel) {
-      const actuatedMsg =
+      postNotices.push(
         `[Highbeam] Compaction cleared the large warm cache; run /model ${pendingModel} ` +
-        `to apply held downshift without rewriting the pre-compact prefix (H6).`;
+          `to apply held downshift without rewriting the pre-compact prefix (H6).`
+      );
+    }
+    if (flushedPrefixDeltas.flushedCount > 0) {
+      postNotices.push(
+        `[Highbeam] Flushed ${flushedPrefixDeltas.flushedCount} staged prefix rule update(s) post-compaction with zero cache bust.`
+      );
+    }
+
+    if (postNotices.length > 0) {
       // PostCompact lacks hookSpecificOutput in Claude Code 2.1.325 (qY); emit systemMessage only.
       const stdoutJson = {
-        systemMessage: actuatedMsg
+        systemMessage: postNotices.join(' | ')
       };
       return {
         exitCode: 0,
@@ -520,7 +571,8 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
         stderr: '',
         result: {
           ...postRes,
-          actuatedDownshiftModel: pendingModel
+          ...(pendingModel ? { actuatedDownshiftModel: pendingModel } : {}),
+          flushedPrefixDeltas
         }
       };
     }
@@ -529,7 +581,10 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
       exitCode: 0,
       stdout: '',
       stderr: '',
-      result: postRes
+      result: {
+        ...postRes,
+        flushedPrefixDeltas
+      }
     };
   }
 

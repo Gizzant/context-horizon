@@ -9,7 +9,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { requireProFeature } from './pro_license.mjs';
+import { requireProFeature } from './_license.mjs';
 import { buildPrCostAttribution } from './pr_cost_attribution.mjs';
 
 export const DEFAULT_CI_BUDGET_POLICY = Object.freeze({

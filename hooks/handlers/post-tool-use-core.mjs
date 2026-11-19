@@ -8,7 +8,7 @@
 
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { sanitizePostToolOutput } from '../../src/core-isomorphic/guards/losslessPostSanitizer.mjs';
+import { sanitizePostToolOutput, stripAnsiAndSpinners } from '../../src/core-isomorphic/guards/losslessPostSanitizer.mjs';
 import {
   CircuitBreakerEngine,
   evaluateDet19SubagentIpiSanitizer,
@@ -66,6 +66,14 @@ function getFts5Mod() {
   return _fts5Mod;
 }
 
+let _subagentSanitizerMod = null;
+function getSubagentSanitizerMod() {
+  if (!_subagentSanitizerMod) {
+    _subagentSanitizerMod = requireFromHere('../../src/core/coach/subagent_ipi_sanitizer.mjs');
+  }
+  return _subagentSanitizerMod;
+}
+
 function resolveSimpleFlightMode(rawMode = 'COACH') {
   const upper = String(rawMode || 'COACH').trim().toUpperCase();
   if (upper === 'OFF' || upper === 'DISABLED') return 'OFF';
@@ -82,7 +90,14 @@ function extractPostToolText(event = {}) {
   const resp = event.tool_response ?? event.tool_output ?? event.toolOutput ?? event.output;
   if (typeof resp === 'string') return resp;
   if (resp && typeof resp === 'object') {
-    const parts = [resp.stdout, resp.stderr, resp.output, resp.content, resp.error]
+    if (Array.isArray(resp.content)) {
+      const blockText = resp.content
+        .filter((b) => b && b.type === 'text' && typeof b.text === 'string' && b.text.length > 0)
+        .map((b) => b.text)
+        .join('\n');
+      if (blockText.length > 0) return blockText;
+    }
+    const parts = [resp.stdout, resp.stderr, resp.output, resp.content, resp.result, resp.error]
       .filter((x) => typeof x === 'string' && x.length > 0);
     if (parts.length > 0) return parts.join('\n');
     return '';
@@ -103,7 +118,14 @@ export function buildReplacementToolOutput(event = {}, finalOutput = '') {
   const resp = event.tool_response ?? event.tool_output ?? event.toolOutput ?? event.output;
   if (typeof resp === 'string') return { ok: true, value: finalOutput };
   if (resp && typeof resp === 'object' && !Array.isArray(resp)) {
-    const textKeys = ['stdout', 'output', 'content', 'error', 'stderr'];
+    if (Array.isArray(resp.content)) {
+      const hasTextBlock = resp.content.some((b) => b && b.type === 'text' && typeof b.text === 'string');
+      const hasNonTextBlock = resp.content.some((b) => !b || b.type !== 'text');
+      if (hasTextBlock && !hasNonTextBlock) {
+        return { ok: true, value: { ...resp, content: [{ type: 'text', text: finalOutput }] } };
+      }
+    }
+    const textKeys = ['stdout', 'output', 'content', 'result', 'error', 'stderr'];
     const primary = textKeys.find((k) => typeof resp[k] === 'string' && resp[k].length > 0);
     if (!primary) return { ok: false };
     const next = { ...resp };
@@ -370,27 +392,34 @@ export function runPostToolUseHook(event = {}, options = {}) {
         });
 
   const effectiveRawOutput = bAlphaPost.triggered ? bAlphaPost.updatedOutput : rawOutput;
+  const isShellTool = /^(?:Bash|PowerShell|pwsh|cmd|sh|run_command|execute_bash)$/i.test(toolName);
 
-  const sanitized = sanitizePostToolOutput(
-    {
-      toolName,
-      toolOutput: effectiveRawOutput
-    },
-    cwdOptions
-  );
-
-  let finalOutput = sanitized.updatedToolOutput;
-  let wasModified = sanitized.sanitized || Boolean(bAlphaPost.triggered);
+  let sanitized = {
+    toolName,
+    eligible: false,
+    sanitized: false,
+    offloaded: false,
+    artifactPath: null,
+    originalTokens: Math.ceil(effectiveRawOutput.length / 4),
+    finalTokens: Math.ceil(effectiveRawOutput.length / 4),
+    savedTokens: 0,
+    criticalErrorsPreserved: 0,
+    updatedToolOutput: effectiveRawOutput,
+    hookSpecificOutput: null
+  };
+  let finalOutput = effectiveRawOutput;
+  let wasModified = Boolean(bAlphaPost.triggered);
   let ftsSavedTokens = 0;
 
+  // OPT-2A: Run CLI FTS5 compression BEFORE flat OFFLOAD_4K artifact dumps so structured failure/search summaries win
   if (
     hasExplicitCwd &&
     options.enableFts5CliCompression !== false &&
-    !sanitized.offloaded &&
     cmdStr &&
-    /^(?:Bash|PowerShell|pwsh|cmd|sh|run_command|execute_bash)$/i.test(toolName)
+    isShellTool
   ) {
     try {
+      const ansiCleanShell = stripAnsiAndSpinners(effectiveRawOutput);
       const ftsDbPath = path.join(
         path.resolve(event.cwd || options.cwd),
         '.claude',
@@ -402,25 +431,104 @@ export function runPostToolUseHook(event = {}, options = {}) {
         turnId: String(event.tool_use_id || event.turn_id || event.turnId || `turn-${Date.now()}`),
         command: cmdStr,
         exitCode: typeof rawExit === 'number' ? rawExit : (didToolExecutionFail(event) ? 1 : 0),
-        rawOutput: finalOutput,
+        rawOutput: ansiCleanShell,
         dbPath: ftsDbPath,
         recordLedger: false
       });
       if (ftsComp.compressed && ftsComp.tokensSaved > 0) {
+        const ansiSavedTokens = Math.max(
+          0,
+          Math.ceil((effectiveRawOutput.length - ansiCleanShell.length) / 4)
+        );
         finalOutput = ftsComp.output;
-        ftsSavedTokens = ftsComp.tokensSaved;
+        ftsSavedTokens = ftsComp.tokensSaved + ansiSavedTokens;
         wasModified = true;
+        sanitized = {
+          ...sanitized,
+          eligible: true,
+          sanitized: finalOutput !== effectiveRawOutput,
+          offloaded: false,
+          finalTokens: ftsComp.compressedTokens,
+          savedTokens: ftsSavedTokens,
+          updatedToolOutput: finalOutput
+        };
       }
     } catch (ftsErr) {
       void ftsErr;
     }
   }
 
-  // Apply DET-19 IPI sanitizer if output comes from a subagent (Task/Agent/agentId) or external WebFetch/MCP tool
+  // OPT-5B: Condense verbose subagent handoffs (>1,200 tok default) + archive full text in local FTS5 before flat offload
+  const isSubagentTool = /^(?:Task|Agent)$/i.test(toolName);
   const isSubagentSource =
-    Boolean(event.agentId || event.subagentId) || /^(Task|Agent)$/i.test(toolName);
+    Boolean(event.agentId || event.subagentId) || isSubagentTool;
+  let subagentCondensed = false;
+  const subagentSanitizer = isSubagentTool ? getSubagentSanitizerMod() : null;
+  const subagentCapTokens = Number(
+    options.subagentHandoffCapTokens ??
+      event.subagentHandoffCapTokens ??
+      (subagentSanitizer?.DEFAULT_SUBAGENT_HANDOFF_CAP_TOKENS || 1200)
+  );
+  if (
+    isSubagentTool &&
+    options.enableSubagentHandoffCondenser !== false &&
+    effectiveRawOutput.length > Math.max(200, subagentCapTokens) * 4
+  ) {
+    try {
+      const subTurnId = String(
+        event.tool_use_id || event.turn_id || event.turnId || `subagent-${Date.now()}`
+      );
+      const subDbPath =
+        options.dbPath ||
+        (hasExplicitCwd
+          ? path.join(path.resolve(event.cwd || options.cwd), '.claude', 'cache', 'tool_logs_fts5.db')
+          : '');
+      if (subDbPath) {
+        try {
+          getFts5Mod().compressCliOutputFts5Sync({
+            sessionId,
+            turnId: subTurnId,
+            command: `subagent:${toolName}`,
+            exitCode: 0,
+            rawOutput: effectiveRawOutput,
+            forceCompress: true,
+            recordLedger: false,
+            dbPath: subDbPath
+          });
+        } catch (subFtsErr) {
+          void subFtsErr;
+        }
+      }
+      const condRes = subagentSanitizer.condenseSubagentHandoffOutput(effectiveRawOutput, {
+        maxTokens: subagentCapTokens,
+        archivePointer: subTurnId
+      });
+      if (condRes.condensed) {
+        finalOutput = condRes.text;
+        wasModified = true;
+        subagentCondensed = true;
+      }
+    } catch (subCondErr) {
+      void subCondErr;
+    }
+  }
+
+  if (ftsSavedTokens === 0 && !subagentCondensed) {
+    sanitized = sanitizePostToolOutput(
+      {
+        toolName,
+        toolOutput: effectiveRawOutput
+      },
+      cwdOptions
+    );
+    finalOutput = sanitized.updatedToolOutput;
+    wasModified = sanitized.sanitized || Boolean(bAlphaPost.triggered);
+  }
+
+  // Apply DET-19 IPI sanitizer if output comes from a subagent (Task/Agent/agentId) or external WebFetch/MCP tool
   const isUntrustedSource =
     isSubagentSource || /^(WebFetch|mcp__.+)$/i.test(toolName);
+  let ipiTriggered = false;
 
   if (
     isUntrustedSource &&
@@ -432,23 +540,57 @@ export function runPostToolUseHook(event = {}, options = {}) {
       wrapUntrusted: isSubagentSource
     });
     if (ipi.triggered || isSubagentSource) {
+      ipiTriggered = Boolean(ipi.triggered);
       finalOutput = ipi.sanitizedText;
       wasModified = true;
     }
   }
 
+  if (subagentCondensed) {
+    const netSubagentSaved = Math.max(0, Math.ceil((rawOutput.length - finalOutput.length) / 4));
+    sanitized = {
+      ...sanitized,
+      eligible: true,
+      sanitized: netSubagentSaved > 0,
+      offloaded: false,
+      finalTokens: Math.ceil(finalOutput.length / 4),
+      savedTokens: netSubagentSaved,
+      updatedToolOutput: finalOutput
+    };
+  }
+
   const isMcpTool = /^mcp__/i.test(toolName);
+  const postOutputMode = resolvePostOutputMode();
   const replacement =
-    !isMcpTool && wasModified && resolvePostOutputMode() === 'replace'
+    !isMcpTool && wasModified && postOutputMode === 'replace'
       ? buildReplacementToolOutput(event, finalOutput)
       : { ok: false };
+  const wouldInflate =
+    !isMcpTool &&
+    replacement.ok &&
+    finalOutput.length >= rawOutput.length &&
+    !isUntrustedSource;
+  const effectiveReplacementOk = replacement.ok && !wouldInflate;
+  // Never append finalOutput alongside the unreplaced original output in `replace` mode
+  // unless DET-19 actively quarantined an injection payload.
+  const allowLegacyContextFallback =
+    !isMcpTool && !effectiveReplacementOk && (postOutputMode === 'context' || ipiTriggered);
+
+  if (!wasModified || (!isMcpTool && !effectiveReplacementOk && !allowLegacyContextFallback)) {
+    return {
+      exitCode: 0,
+      stdout: '',
+      stderr: '',
+      sanitized
+    };
+  }
+
   // Savings are real only when the model's copy of the output is actually replaced
-  // (MCP tools via updatedMCPToolOutput, built-in tools via updatedToolOutput). Text that is
-  // only appended with additionalContext adds tokens, so it records nothing.
-  const outputReplaced = isMcpTool ? wasModified : replacement.ok;
+  // (MCP tools via updatedMCPToolOutput, built-in tools via updatedToolOutput).
+  const outputReplaced = isMcpTool ? wasModified : effectiveReplacementOk;
 
   const totalSavedTokens = outputReplaced
-    ? sanitized.savedTokens + ftsSavedTokens + Number(bAlphaPost.savedTokens || 0)
+    ? (ftsSavedTokens > 0 ? ftsSavedTokens : sanitized.savedTokens) + Number(bAlphaPost.savedTokens || 0)
     : 0;
   if (
     totalSavedTokens > 0 &&
@@ -477,11 +619,13 @@ export function runPostToolUseHook(event = {}, options = {}) {
         modelId: rates.unknownModel ? (rates.rawModelId || modelId) : rates.modelId,
         category: sanitized.offloaded
           ? 'ARTIFACT_OFFLOAD_4K'
-          : ftsSavedTokens > 0 && sanitized.savedTokens === 0
+          : ftsSavedTokens > 0
             ? 'CLI_FTS5_COMPRESSED'
-            : sanitized.savedTokens > 0
-              ? 'LOSSLESS_POST_SANITIZER'
-              : bAlphaPost.code || 'BUCKET_B_POST_SHIELD',
+            : subagentCondensed
+              ? 'SUBAGENT_HANDOFF_CONDENSED'
+              : sanitized.savedTokens > 0
+                ? 'LOSSLESS_POST_SANITIZER'
+                : bAlphaPost.code || 'BUCKET_B_POST_SHIELD',
         savedTokens: totalSavedTokens,
         savedUSD: computedSavedUSD,
         detail: `${toolName} output compressed (+${totalSavedTokens} tokens saved)`
@@ -490,24 +634,14 @@ export function runPostToolUseHook(event = {}, options = {}) {
     );
   }
 
-  if (!wasModified) {
-    return {
-      exitCode: 0,
-      stdout: '',
-      stderr: '',
-      sanitized
-    };
-  }
-
   // MCP tools: updatedMCPToolOutput. Built-in tools: updatedToolOutput in the tool's own
-  // response shape (documented for all tools). If that shape cannot be rebuilt, fall back to
-  // additionalContext, which adds text beside the original output and records no savings.
+  // response shape (unless explicit legacy HIGHBEAM_POST_OUTPUT_MODE=context or DET-19 quarantine).
   const hookSpecificOutput = isMcpTool
     ? {
         hookEventName: 'PostToolUse',
         updatedMCPToolOutput: finalOutput
       }
-    : replacement.ok
+    : effectiveReplacementOk
       ? {
           hookEventName: 'PostToolUse',
           updatedToolOutput: replacement.value
