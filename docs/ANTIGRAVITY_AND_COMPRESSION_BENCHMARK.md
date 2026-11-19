@@ -1,4 +1,4 @@
-# Highbeam (`ctxtop` v4.1) — Multi-Family CLI Compression & Antigravity Parity Benchmark
+# Highbeam (`highbeam-cli` v4.2) — Multi-Family CLI Compression & Antigravity Parity Benchmark
 
 > **Reproducibility:** Generated via `npm run bench:parity` (`scripts/run_antigravity_and_compression_benchmark.mjs`) in isolated temporary directories with zero external network calls.
 > **Fixture Corpus SHA-256:** `04e14669c1b2397631a8a5fb854a304f3e909ba967aa934ac256beba849df541`
@@ -33,9 +33,9 @@
 
 | Trajectory | Verified Capability | Measured Latency (ms) | Status |
 | :--- | :--- | :---: | :---: |
-| `AG-T01` | Bounded read allow & active-source ignore lock | `10.187ms` | **PASS** |
-| `AG-T02` | PreInvocation router fast evaluation | `13.594ms` | **PASS** |
-| `AG-T03` | Antigravity PostToolUse FTS5 offload | `5.02ms` | **PASS** |
+| `AG-T01` | Bounded read allow & active-source ignore lock | `7.185ms` | **PASS** |
+| `AG-T02` | PreInvocation router fast evaluation | `12.897ms` | **PASS** |
+| `AG-T03` | Antigravity PostToolUse FTS5 offload | `3.779ms` | **PASS** |
 | `AG-T04` | RSL PostToolUse stepIdx deduplication | `0.25ms` | **PASS** |
 | `AG-T05` | DET-08 Hold warm switch when payback > horizon | `0.1ms` | **PASS** |
 | `AG-T06` | DET-08 Allow model switch when horizon repays rebuild | `0.1ms` | **PASS** |

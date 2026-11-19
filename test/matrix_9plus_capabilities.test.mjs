@@ -377,7 +377,7 @@ describe('Matrix >= 9.0 Capabilities Suite (D1-D8)', () => {
 
   it('7. New and updated docs maintain strict zero-banned-strings and zero-empty-catch hygiene', () => {
     const ALLOWED_CONTEXT_HORIZON_URLS_RE =
-      /https:\/\/gizzant\.github\.io\/context-horizon\/(?:demo\/)?(?![\w./-])|https:\/\/github\.com\/Gizzant\/context-horizon(?:\.git)?(?![/\w.-])|https:\/\/raw\.githubusercontent\.com\/Gizzant\/context-horizon\/main\/assets\/[\w.-]+(?![/\w.-])/g;
+      /https:\/\/gizzant\.github\.io\/context-horizon\/(?:demo\/)?(?![\w./-])|https:\/\/github\.com\/Gizzant\/context-horizon\/actions\/workflows\/ci\.yml(?:\/badge\.svg)?(?![/\w.-])|https:\/\/github\.com\/Gizzant\/context-horizon(?:\.git)?(?![/\w.-])|https:\/\/raw\.githubusercontent\.com\/Gizzant\/context-horizon\/main\/assets\/[\w.-]+(?![/\w.-])/g;
     const stripAllowedContextHorizonUrls = (s) => String(s).replace(ALLOWED_CONTEXT_HORIZON_URLS_RE, '');
     const bannedPatterns = [
       new RegExp(['Context', 'Horizon'].join(' '), 'i'),

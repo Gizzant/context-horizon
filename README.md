@@ -1,9 +1,10 @@
 <div align="center">
 
-# Highbeam (`highbeam-cli` v4.1) — Active Context Surgeon, KV-Cache Shield & Token FinOps for Claude Code, Google Antigravity & MCP Hosts
+# Highbeam (`highbeam-cli` v4.2) — Stop Wasting Context & Breaking Prompt Caches in Claude Code and Google Antigravity
 
-**Local Context Window Profiler, KV-Cache TTL Monitor, Multi-Family FTS5 Output Compressor & Deterministic PreInvocation / PreToolUse Surgeon (each hook call runs as a short Node process: `~60–80ms` on Linux, `~200–275ms` on Windows; method in [Verification & Benchmarks](#verification--benchmarks)) across Google Antigravity, Claude Code, Codex CLI, Gemini CLI & Cursor**
+**A zero-dependency, 100% local CLI, HUD, and IDE sidebar that watches your agent's context window, trims noisy tool logs before they compound, and calculates whether switching models or effort will bust a warm prompt cache** *(each hook runs as a short spawned Node process: `~60–80ms` Linux, `~200–275ms` Windows; in-process rule engine `<1ms` — see [Verification & Benchmarks](#verification--benchmarks))*
 
+[![CI Matrix](https://github.com/Gizzant/context-horizon/actions/workflows/ci.yml/badge.svg)](https://github.com/Gizzant/context-horizon/actions/workflows/ci.yml)
 [![Zero Runtime Dependencies](https://img.shields.io/badge/dependencies-0_runtime-brightgreen.svg)](#systems-architecture--zero-trust-security)
 [![Hook Latency](https://img.shields.io/badge/Hook_call-~60--80ms_Linux_%7C_~200--275ms_Windows-00e5ff.svg)](#deterministic-preinvocation-router--6-local-sensors)
 [![Node.js >= 20 LTS](https://img.shields.io/badge/node-%3E%3D20_(22.13%2B_SQLite)-339933.svg)](#try-in-10-seconds-zero-hooks--zero-writes)
@@ -41,14 +42,16 @@ npx highbeam-cli audit --days 7
   Un-Sliced Large Reads  : 11 | Oversized Tool Dumps: 38
 ```
 
+> **Why cache physics beats raw log trimming alone:** In our [45-run / 540-turn settled Anthropic wire benchmark](docs/EMPIRICAL_BENCHMARKS.md) (`540/540` wire parity), downgrading `Opus 4.6 -> Sonnet 4.6` mid-chat on a warm `~58k` prefix collapsed Turn-6 cache hits to `0.0%` and made the session **more expensive** (`$0.8611` vs. `$0.7789` staying on Opus). Highbeam computes break-even horizon math (`C_max`) live so you know when to **Hold** vs. **Switch**.
+
 ---
 
 ## 🚀 Installation & Quick Start
 
-| **Google Antigravity** *(1-Line Install)* | **Claude Code** *(1-Line Install)* | **Cursor / Windsurf / Codex / Gemini CLI** |
-| :--- | :--- | :--- |
 > Global install `npm i -g highbeam-cli` exposes `highbeam` directly (`ctxtop` remains supported as a backward-compatible alias).
 
+| **Google Antigravity** *(1-Line Install)* | **Claude Code** *(1-Line Install)* | **Cursor / Windsurf / Codex / Gemini CLI** |
+| :--- | :--- | :--- |
 | `npx highbeam-cli init --antigravity` | `npx highbeam-cli init --claude --global` | `npx highbeam-cli init --cursor --windsurf --codex --gemini-cli` |
 | *Workspace-only*: `npx highbeam-cli init --workspace`<br/>*Health check*: `npx highbeam-cli doctor` | *StatusLine HUD*: `npx highbeam-cli statusline --demo`<br/>*In-chat pane*: `/horizon` · `/cost-radar` · `/handoff` | *Universal `.mcp.json`*: `npx highbeam-cli init --all-hosts`<br/>*FTS5 search*: `npx highbeam-cli search "<keyword>"` |
 
@@ -73,7 +76,7 @@ npx highbeam-cli audit --days 7
 Package or install the thin zero-dependency IDE sidebar & status bar extension from [`extensions/vscode-highbeam/`](extensions/vscode-highbeam/README.md):
 ```bash
 npm run build:vsix
-code --install-extension extensions/vscode-highbeam/highbeam-4.2.1.vsix
+code --install-extension extensions/vscode-highbeam/highbeam-4.2.2.vsix
 ```
 
 ---
@@ -98,20 +101,23 @@ All 6 slash skills are registered identically in both **Google Antigravity** (`p
 
 ---
 
-## 🛡️ Example Session Receipt: `+164.0k` Tokens Saved in One 4-Step Loop
+## 🛡️ Example 4-Step Session Receipt: `+12.0k` Tokens Stripped + `+152.0k` Warm Cache Protected
 
 Most CLI trackers passively count tokens *after* your quota is already burned. Highbeam intercepts redundant reads, compresses noisy test dumps via local SQLite FTS5, and shields warm KV prefixes **before** they burn your context window and rate-limit quota:
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Gizzant/context-horizon/main/assets/zone_c_step3_shield_full.png" alt="Highbeam Zone C Active Protection & Estimated Token Receipt (+164.0k tokens saved)" width="460" />
+  <img src="https://raw.githubusercontent.com/Gizzant/context-horizon/main/assets/zone_c_step3_shield_full.png" alt="Highbeam Zone C Active Protection & Estimated Token Receipt (+12.0k stripped + 152.0k cache protected)" width="460" />
 </div>
 
-| Step in Coding Loop | Developer / Agent Action | Highbeam Active Intervention (Zone C) | Estimated Incident Savings |
+| Step in Coding Loop | Developer / Agent Action | Highbeam Active Intervention (Zone C) | Impact & Unit |
 | :--- | :--- | :--- | :---: |
-| **1. Warm KV Cache + Repeat Read** | Agent re-reads an unmodified 800-line source file on a `100k` warm cache | **GUARD-4** intercepts the duplicate read (`AST signature stub`) and preserves the `95%` warm KV cache discount | **`+95.0k` tok** *(KV cache)*<br/>**`+800` tok** *(deduped read)* |
-| **2. Failing Test Suite Dump** | `npm test` dumps `120+` lines of verbose stdout (`~11.4k` tokens) | **SQLite FTS5 BM25 Compressor** indexes raw stdout locally and injects only the 160-token failing assertion digest | **`+11.2k` tok** |
-| **3. Mid-Session Rule Edit** | Agent updates `AGENTS.md` / `CLAUDE.md` while `60k` prefix is warm (`2m 55s` TTL left) | **PrefixCacheShield** queues the rule delta until TTL expiry or `/compact`, preventing a cold prefix rebuild | **`+57.0k` tok** |
-| **Example Incident Receipt** | **4-Step Feature / Bugfix Loop** | **Failing assertion lines kept in the digest** | **`+164.0k` tok saved** |
+| **1. Warm KV Cache + Repeat Read** | Agent re-reads an unmodified 800-line source file on a `100k` warm cache | **GUARD-4** intercepts the duplicate read (`AST signature stub`) and preserves the `95%` warm KV cache discount | **`+95.0k` tok** *(cache hit kept)*<br/>**`+800` tok** *(stripped from context)* |
+| **2. Failing Test Suite Dump** | `npm test` dumps `120+` lines of verbose stdout (`~11.4k` tokens) | **SQLite FTS5 BM25 Compressor** indexes raw stdout locally and injects only the 160-token failing assertion digest | **`+11.2k` tok** *(stripped from context)* |
+| **3. Mid-Session Rule Edit** | Agent updates `AGENTS.md` / `CLAUDE.md` while `60k` prefix is warm (`2m 55s` TTL left) | **PrefixCacheShield** queues the rule delta until TTL expiry or `/compact`, preventing a cold prefix rebuild | **`+57.0k` tok** *(rebuild avoided)* |
+| **Tokens Stripped From Context** | **Fresh uncached input removed (`100%` weight)** | **AST stub (`+0.8k`) + FTS5 digest (`+11.2k`)** | **`+12.0k` tok removed** |
+| **Warm Cache & Rebuilds Protected** | **Discounted cache reads & cold rebuilds avoided** | **Warm KV hit (`+95.0k`) + PrefixCacheShield (`+57.0k`)** | **`+152.0k` tok protected** |
+
+> Highbeam tracks physical tokens removed (`physicalTokensAvoided`) separately from cache-read/rebuild-avoided tokens (`billingEquivalentCacheTokens`) in its local ledger (`+164.0k` combined HUD counter; cached reads bill at `5%–10%` of fresh input rates).
 
 > **Reconciled Weekly Expectation:** Across normal coding weeks without deliberate cache-busting, our bottom-up benchmark model estimates **`~2.5M–6M` redundant tokens stripped per week** (`~6%–11%` lower raw API input volume for metered org teams), translating into **`30%–50%` longer 5-hour subscription sprints** by cutting `O(N²)` tool-log compounding and cold prefix rebuilds.
 
@@ -317,7 +323,7 @@ For centralized organization deployment (Jamf / Intune / GPO), `CHECKSUMS.sha256
 
 ## 📦 Editions: Free (`MIT` Core + `COACH`) vs. Pro & Team
 
-| Feature / Capability | Free Core (`MIT`) | [Highbeam Pro](https://buy.polar.sh/polar_cl_GYIDWrPsxnwsx58Ur6fIqMq3o1lrfK0o4hOFM4HOgpr) (`$149/yr` · `$199` Cap-200 LTD) | [Team Starter](https://buy.polar.sh/polar_cl_BDTd1Gru7L7BCE3jXBsqNpYmrATNtpgTfzAkQ2Emmt5) (`$299/yr` 5-Seat Starter) |
+| Feature / Capability | Free Core (`MIT`, `$0`) | [Highbeam Pro](https://buy.polar.sh/polar_cl_GYIDWrPsxnwsx58Ur6fIqMq3o1lrfK0o4hOFM4HOgpr) (`$149/yr` · `$199` Cap-200 LTD) | [Team Starter](https://buy.polar.sh/polar_cl_BDTd1Gru7L7BCE3jXBsqNpYmrATNtpgTfzAkQ2Emmt5) (`$299/yr` 5-Seat Intro · `$39/seat/mo` >5) |
 | :--- | :---: | :---: | :---: |
 | Simple & Advanced 40-Cell HUD + `5m/1h` Live TTL Timer | ✅ | ✅ | ✅ |
 | Multi-Family FTS5 Compression (`test`, `lint`, `git`, `docker`/`kubectl`) & `highbeam search` | ✅ | ✅ | ✅ |
@@ -326,14 +332,20 @@ For centralized organization deployment (Jamf / Intune / GPO), `CHECKSUMS.sha256
 | `AUTO_PILOT` Hands-Free Enforcement & Horizon `C_max` Holds | Preview | ✅ | ✅ |
 | 30-Day Chronic Offender Memory & Workspace Savings Ledger | — | ✅ | ✅ |
 | Signed Corporate PDF 1.4 FinOps + GreenOps Receipt (`highbeam receipt --pdf`) | — | ✅ | ✅ |
+| Cross-Machine Zero-Knowledge Encrypted Sync (`highbeam sync`) | — | ✅ | ✅ |
+| Git Branch & PR Token/USD Cost Attribution (`highbeam pr-cost`) | — | ✅ | ✅ |
 | Shared `.agents/rules/` Governance, MDM Policy & OTel / Grafana Pack | — | — | ✅ |
+| Zero-Knowledge Org FinOps Rollup & PII Firewall (`highbeam team-rollup`) | — | — | ✅ |
+| CI / PR Token-Budget Gate for GitHub Actions & GitLab CI (`highbeam ci-gate`) | — | — | ✅ |
 
 **How Free, the trial and Pro differ:** Free shows what `AUTO_PILOT` would have done and what it would have saved, but changes nothing. The 14-day trial (`npx highbeam-cli license trial`) unlocks everything; Auto stays off until you turn it on with `npx highbeam-cli mode auto`. When the trial ends, Auto pauses and Highbeam goes back to showing what it would have saved until you activate Pro. `npx highbeam-cli mode` shows which mode is running.
 
 **Commercial SKU Summary (Offline Ed25519 `CTXP1` Activation via `npx highbeam-cli license activate <key>`):**
-- **[Pro Annual (`$149/yr`, `~$12.42/mo`)](https://buy.polar.sh/polar_cl_GYIDWrPsxnwsx58Ur6fIqMq3o1lrfK0o4hOFM4HOgpr)**: 1 developer seat, 14-day zero-network local trial (`npx highbeam-cli license trial`), expensable via `npx highbeam-cli receipt --pdf`.
+- **Free Core (`MIT`, `$0` forever)**: `COACH` non-blocking mode, 5-host read-only `audit`, FTS5 compression + `search`, `GUARD-4`, Simple/Advanced HUD, and 7-tool `@ctxtop/mcp`.
+- **[Pro Annual (`$149/yr`, `~$12.42/mo`)](https://buy.polar.sh/polar_cl_GYIDWrPsxnwsx58Ur6fIqMq3o1lrfK0o4hOFM4HOgpr)**: 1 developer seat, 14-day zero-network local trial (`npx highbeam-cli license trial`), `AUTO_PILOT` holds, encrypted sync (`highbeam sync`), PR cost attribution (`highbeam pr-cost`), and expensable PDF receipts (`npx highbeam-cli receipt --pdf`). *(Offline verifier also accepts legacy `$15/mo` monthly keys.)*
 - **[Pro Founder Lifetime (`$199` one-time, capped at `200` seats)](https://buy.polar.sh/polar_cl_qVD4MYra8gIe9uDvkRtJUzv6Ou4PTES4Jp3nj1nAOff)**: Lifetime solo Pro entitlement (`expiresAt: null`).
-- **[Team Starter (`$299/yr` for 5 seats)](https://buy.polar.sh/polar_cl_BDTd1Gru7L7BCE3jXBsqNpYmrATNtpgTfzAkQ2Emmt5)**: Multi-seat MDM rollout, shared `.agents/rules/` primacy governance, and BYO-Grafana OpenTelemetry pack (`npx highbeam-cli team-pack`). More than 5 seats? Email `sales@highbeamdev.com`.
+- **[Team Starter (`$299/yr` for 5 seats — `$59.80/seat/yr` intro pack)](https://buy.polar.sh/polar_cl_BDTd1Gru7L7BCE3jXBsqNpYmrATNtpgTfzAkQ2Emmt5)**: Multi-seat MDM rollout, shared `.agents/rules/` primacy governance, zero-knowledge org rollups (`highbeam team-rollup`), CI token-budget gates (`highbeam ci-gate`), and BYO-Grafana OpenTelemetry pack (`npx highbeam-cli team-pack`).
+- **Team / Enterprise FinOps (`$39/seat/mo` for `>5` seats & volume invoicing)**: Contact `sales@highbeamdev.com`.
 
 ---
 
@@ -365,6 +377,11 @@ When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incomi
 | `npx highbeam-cli doctor [--diagnostic]` | Validates hook registration, FTS5 offload readiness, warm-IPC path, model ceilings, 3-way SHA-256 parity, and SQLite health. |
 | `npx highbeam-cli postmortem [--last N] [--json]` | Scans the last `N` local sessions, classifies root causes (`CONTEXT_ROT_DECAY`, `VERIFICATION_CHURN`, `SPEC_AMBIGUITY`, `CLEAN`), lists top duplicate-read files, and audits Turn-0 MCP schema overhead. |
 | `npx highbeam-cli receipt [--markdown \| --pdf]` | Exports a SHA-256 estimated FinOps + GreenOps token/USD savings receipt for the active workspace. |
+| `npx highbeam-cli mode [coach \| auto \| silent \| off] [--project]` | Shows or sets the active flight mode (`auto` requires Pro or the 14-day local trial). |
+| `npx highbeam-cli sync <export \| import \| inspect> [--out \| --in <file>] [--passphrase]` | *(Pro)* Exports or merges zero-knowledge `scrypt` + `AES-256-GCM` encrypted memory and 30-day savings vaults across machines. |
+| `npx highbeam-cli pr-cost [--base main] [--head HEAD] [--markdown \| --json]` | *(Pro)* Correlates branch commits with local ledgers to attribute PR tokens, cache hit %, USD spend/saved, and USD per 100 LOC. |
+| `npx highbeam-cli team-rollup [--export-snapshot \| --in <dir>] [--format json \| md \| csv]` | *(Team)* Emits salted-pseudonymous snapshots behind a recursive PII/path/secret firewall and aggregates org FinOps rollups offline. |
+| `npx highbeam-cli ci-gate [--base main] [--max-cost-usd N] [--mode enforce \| advisory]` | *(Team)* Enforces PR token, cost, cache-hit, and Ring-0 safety budgets in GitHub Actions or GitLab CI. |
 | `npx highbeam-cli verify [--json]` | Verifies cryptographic SHA-256 integrity of all tracked release files against `CHECKSUMS.sha256`. |
 | `npx highbeam-cli --roast` | Prints a terminal forensic summary of recent sessions with top duplicate-read file offenders and copy-pasteable remediations. |
 | `npx highbeam-cli --demo-animate` | Plays the 5-stage terminal crisis simulation across synthetic fixtures. |
@@ -399,4 +416,5 @@ node scripts/bench_hooks.mjs
 
 ## License
 
-MIT © [Gizzant](https://github.com/Gizzant)
+- **Core runtime (`MIT`):** MIT © [Gizzant](https://github.com/Gizzant) — see [LICENSE](LICENSE).
+- **Commercial Pro & Team modules (`packages/pro/**`, `src/core/pro_license.mjs`):** [Commercial Source-Available License](packages/pro/LICENSE-COMMERCIAL.md).

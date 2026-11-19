@@ -191,7 +191,7 @@ describe('Batch 4 Remediation — ISS-017: Public Documentation Cleanliness & Re
     ];
     assert.ok(docFiles.length >= 10, 'Expected public markdown documentation files');
     const ALLOWED_CONTEXT_HORIZON_URLS_RE =
-      /https:\/\/gizzant\.github\.io\/context-horizon\/(?:demo\/)?(?![\w./-])|https:\/\/github\.com\/Gizzant\/context-horizon(?:\.git)?(?![/\w.-])|https:\/\/raw\.githubusercontent\.com\/Gizzant\/context-horizon\/main\/assets\/[\w.-]+(?![/\w.-])/g;
+      /https:\/\/gizzant\.github\.io\/context-horizon\/(?:demo\/)?(?![\w./-])|https:\/\/github\.com\/Gizzant\/context-horizon\/actions\/workflows\/ci\.yml(?:\/badge\.svg)?(?![/\w.-])|https:\/\/github\.com\/Gizzant\/context-horizon(?:\.git)?(?![/\w.-])|https:\/\/raw\.githubusercontent\.com\/Gizzant\/context-horizon\/main\/assets\/[\w.-]+(?![/\w.-])/g;
     const stripAllowedContextHorizonUrls = (s) => String(s).replace(ALLOWED_CONTEXT_HORIZON_URLS_RE, '');
 
     for (const f of docFiles) {

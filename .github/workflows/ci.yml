@@ -70,3 +70,40 @@ jobs:
           node src/cli/init.mjs --roast
           node src/cli/init.mjs init --dry-run
           node src/cli/init.mjs doctor
+
+  node20-fallback:
+    name: Node 20.19.0 LTS (JSONL Fallback) on ubuntu-latest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node.js 20.19.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20.19.0'
+          cache: 'npm'
+
+      - name: Install Dev Dependencies (jsdom)
+        run: npm ci
+
+      - name: Verify Mirror SHA-256 Parity & Release Checksums
+        run: |
+          node scripts/sync_mirrors.mjs --verify-only
+          node bin/ctxtop.mjs verify --json
+
+      - name: Run Node 20 LTS Compatibility & Fallback Suites
+        run: node --import ./test/setup/isolate-home.mjs --test test/node20_antigravity_compat.test.mjs test/engine_node_db_probe.test.mjs test/pro_team_anchors.test.mjs test/vscode_extension.test.mjs
+
+      - name: Run Unit & Claude Code Suites on Node 20 LTS
+        run: |
+          npm run test:unit
+          npm run test:claude
+
+      - name: Smoke Test CLI on Node 20 LTS
+        run: |
+          node bin/ctxtop.mjs doctor
+          node bin/ctxtop.mjs audit --days 7
+          node bin/ah-statusline.mjs --demo --cols 110
+          node src/cli/init.mjs --demo

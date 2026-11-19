@@ -1,15 +1,57 @@
 # Changelog
 
-All notable changes to the Highbeam (`attention-horizon-antigravity` / `ctxtop`) project will be documented in this file.
+All notable changes to the Highbeam (`highbeam-cli` / `ctxtop`) project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [Unreleased]
+## [4.2.2] - 2026-11-19
 
-### Changed
-- Smaller npm package: `ctxtop` no longer ships the `packages/core`, `packages/engine-node`, `packages/antigravity` and `packages/claude-code` workspace mirrors, which nothing in the installed package loads (509 → 351 files, 9.2 MB → 6.7 MB unpacked).
+### Launch Polish, Unified Pricing, Split Receipt Units & Node 20 CI Matrix
+
+#### Changed
+- **Plain-English Top Screen & Empirical Anchor (`README.md`)**: Reframed the opening headline and subhead around concrete developer outcomes, fixed the Quick Start table formatting, added a live GitHub Actions CI status badge, and highlighted the settled 540-turn `Opus 4.6 -> Sonnet 4.6` cache-bust finding directly beneath the 10-second read-only audit command.
+- **Explicit Token-Unit Split (`+12.0k` Stripped + `+152.0k` Cache Protected)**: Split the 4-step example receipt in `README.md` and `assets/hero-fts5-ttl-demo.gif` into fresh tokens removed (`physicalTokensAvoided`) vs. warm cache hits and rebuilds avoided (`billingEquivalentCacheTokens`), and refreshed all SVG/GIF/Zone-C HUD visuals plus `docs/index.html` to token-first `highbeam-cli v4.2` copy.
+- **Unified Pricing & License Metadata**: Aligned pricing across `README.md` and `packages/pro/LICENSE-COMMERCIAL.md` (`$0` Free MIT Core, `$149/yr` Annual / `$199` Founder Lifetime cap-200 Pro + legacy `$15/mo` compatibility, `$299/yr` 5-seat Team Starter intro pack, `$39/seat/mo` Enterprise FinOps for `>5` seats), documented `mode`, `sync`, `pr-cost`, `team-rollup`, and `ci-gate` across the README and MDM/commercial docs, updated `package.json` `description`, and added `"license": "MIT"` to `.antigravity-plugin/plugin.json`.
+- **Verified Node 20 LTS CI & Multi-Channel Release Parity**: Added a dedicated `Node 20.19.0 LTS (JSONL Fallback)` job to `.github/workflows/ci.yml` and synchronized `highbeam-cli`, `@ctxtop/mcp`, and `highbeam-4.2.2.vsix` at `v4.2.2`.
+
+## [4.2.1] - 2026-11-18
+
+### Token-First Developer UX & Extension Positioning Overhaul
+
+#### Changed
+- Refocused all individual-developer interfaces on **tokens saved**, **5-hour quota sprint longevity (`30%–50%`)**, and **Context Rot immunity**—removing distracting micro-dollar displays (`$0.00`, `$0.27`, `$1.84`) from the WebView Simple & Advanced HUDs, VS Code/Cursor status bar tooltips, Claude Code `statusLine` (`Saved +164k`), docked HUD panes, Shadow Auto banners, end-of-trial summaries, and CLI `audit` / `postmortem` / `init` output.
+- Scoped USD FinOps metrics strictly to Team/Enterprise governance surfaces (`receipt --pdf`, `pr-cost`, `team-rollup`, `ci-gate`, `/cost-radar`, pricing tables, and empirical wire-benchmark docs) while preserving machine-readable JSON USD ledger fields.
+- Fixed the VS Code/Cursor extension status bar formatter (`statusBarFormatter.js`) to read unified `savings.session.totalTokens` and `workspace30d.totalTokens` counters cleanly.
+
+## [4.2.0] - 2026-11-18
+
+### Defensible Pro & Team Commercial Anchors
+
+#### Added
+- **`highbeam sync` (`packages/pro/src/encrypted_sync.mjs`)**: Cross-machine zero-knowledge encrypted memory & 30-day savings ledger sync (`scrypt` + `AES-256-GCM`) with recursive secret/key scrubbing and LWW deduplicated merge.
+- **`highbeam pr-cost` (`packages/pro/src/pr_cost_attribution.mjs`)**: Git branch and pull-request token, cache-hit, USD spend/saved, USD per 100 LOC, and Ring-0 detector attribution (`git log <base>..HEAD --numstat`).
+- **`highbeam team-rollup` (`packages/pro/src/team_finops_rollup.mjs`)**: Salted-pseudonymous team snapshots (`dev_<12hex>`) gated behind a strict recursive PII/path/secret firewall (`FORBIDDEN_ZK_KEYS`) and offline org Markdown/JSON/CSV aggregation.
+- **`highbeam ci-gate` (`packages/pro/src/ci_budget_gate.mjs`)**: CI/PR token-budget enforcement gate for GitHub Actions and GitLab CI driven by `.attention-horizon.json` `ciBudgetGate` policy.
+
+## [4.1.6] - 2026-11-18
+
+### Tarball Shrink & Restored Node.js 20 LTS Compatibility
+
+#### Changed
+- **35%–45% Smaller npm Package**: Removed duplicate workspace mirrors and deduplicated standalone MCP runtime packaging (`273` entries, `1.23 MB` packed / `4.92 MB` unpacked in `highbeam-cli@4.2.x`, down from `509` files / `9.2 MB` unpacked) while enabling dual MCP resolution across workspace and global installs.
+- **Restored Node.js `>= 20.0.0` Support (Supersedes `4.1.4` `22.13` floor)**: Enabled pure-JavaScript JSONL fallbacks for FTS5/artifact log search and session savings ledgers whenever `node:sqlite` (`Node >= 22.13`) is absent.
+
+## [4.1.5] - 2026-11-18
+
+### `highbeam-cli` Rename, Mode-Driven HUD, VS Code `.vsix` & Gemini 4 Neon
+
+#### Added
+- **Package & Binary Consolidation**: Published under `highbeam-cli` with `highbeam` as the primary binary while keeping `ctxtop` and existing hook aliases backward-compatible.
+- **Mode-Driven WebView UX (`Off / Coach / Auto / Settings`)**: Rebuilt the Simple & Advanced HUD around explicit `Off` (watch only), `Coach`, and `Auto` mode views plus a dedicated `Settings` dialog, with **tokens saved** as the headline KPI.
+- **Zero-Dependency VS Code / Cursor / Antigravity `.vsix` Extension (`extensions/vscode-highbeam/`)**: Added native IDE sidebar WebView, live status bar item (`context %` + KV-cache `TTL`), `8` IDE commands, and `npm run build:vsix`.
+- **Expanded Model Catalogs**: Added support for Gemini 4 Neon, Gemini 4 Carbon, Orchestrator models, and Claude 5.5 catalogs alongside softened legal/empirical wording (`Verified` -> `Estimated`).
 
 ## [4.1.4] - 2026-11-18
 

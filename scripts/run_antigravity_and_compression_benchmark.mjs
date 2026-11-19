@@ -527,7 +527,7 @@ export async function runParityBenchmarks({ writeDoc = true } = {}) {
 
     if (writeDoc) {
       const mdLines = [
-        '# Highbeam (`ctxtop` v4.1) — Multi-Family CLI Compression & Antigravity Parity Benchmark',
+        '# Highbeam (`highbeam-cli` v4.2) — Multi-Family CLI Compression & Antigravity Parity Benchmark',
         '',
         `> **Reproducibility:** Generated via \`npm run bench:parity\` (\`scripts/run_antigravity_and_compression_benchmark.mjs\`) in isolated temporary directories with zero external network calls.`,
         `> **Fixture Corpus SHA-256:** \`${corpusDigest}\``,
@@ -538,7 +538,7 @@ export async function runParityBenchmarks({ writeDoc = true } = {}) {
         '',
         `- **Aggregate Token Reduction:** **${aggregateReductionPct}%** (\`${totalRawTokens.toLocaleString('en-US')}\` raw tokens -> \`${totalCompressedTokens.toLocaleString('en-US')}\` summary tokens across \`${corpus.length}\` noisy CLI logs)`,
         `- **Critical Diagnostic & Hunk Header Recall:** **${aggregateRecallPct}%** (\`${preservedMarkers}/${totalMarkers}\` ground-truth markers preserved)`,
-        `- **BM25 FTS5 & MCP Retrieval Rate:** **${retrievalRatePct}%** (\`${searchHitsCount}/${corpus.length}\` matched identically via \`ctxtop search\` & \`horizon_search_logs\`)`,
+        `- **BM25 FTS5 & MCP Retrieval Rate:** **${retrievalRatePct}%** (\`${searchHitsCount}/${corpus.length}\` matched identically via \`highbeam search\` & \`horizon_search_logs\`)`,
         '',
         '| Fixture | Family | Command | Raw Tok | Summary Tok | Token Reduction | Diagnostic Recall | FTS5 + MCP Retrieval |',
         '| :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: |',
@@ -552,7 +552,7 @@ export async function runParityBenchmarks({ writeDoc = true } = {}) {
         '## 2. Suite B — 12-Trajectory Google Antigravity & 5-Host Parity Suite',
         '',
         `- **Trajectories Verified:** **${report.suiteB.passedCount} / ${report.suiteB.trajectoryCount} PASS**`,
-        `- **5-Host Audit Coverage (\`ctxtop audit\`):** Antigravity=\`${fiveHostAudit.platformsBreakdown.antigravity}\`, Claude=\`${fiveHostAudit.platformsBreakdown.claude}\`, Codex=\`${fiveHostAudit.platformsBreakdown.codex}\`, Gemini=\`${fiveHostAudit.platformsBreakdown.gemini}\`, Cursor=\`${fiveHostAudit.platformsBreakdown.cursor}\``,
+        `- **5-Host Audit Coverage (\`highbeam audit\`):** Antigravity=\`${fiveHostAudit.platformsBreakdown.antigravity}\`, Claude=\`${fiveHostAudit.platformsBreakdown.claude}\`, Codex=\`${fiveHostAudit.platformsBreakdown.codex}\`, Gemini=\`${fiveHostAudit.platformsBreakdown.gemini}\`, Cursor=\`${fiveHostAudit.platformsBreakdown.cursor}\``,
         '',
         '| Trajectory | Verified Capability | Measured Latency (ms) | Status |',
         '| :--- | :--- | :---: | :---: |',

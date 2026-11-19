@@ -3,7 +3,7 @@
   "displayName": "Highbeam — AI Context & KV-Cache HUD",
   "description": "40-cell AI context window visualizer, warm KV-cache TTL timer, and zero-token guardrails HUD for Google Antigravity, Claude Code, Cursor, Codex CLI, and Gemini CLI (100% local loopback).",
   "publisher": "gizzant",
-  "version": "4.2.1",
+  "version": "4.2.2",
   "license": "MIT",
   "icon": "media/icon.png",
   "repository": {
@@ -117,7 +117,7 @@
         "highbeam.nodePath": {
           "type": "string",
           "default": "node",
-          "description": "Node.js executable path used when launching the local telemetry daemon (requires Node >= 22.13.0)."
+          "description": "Node.js executable path used when launching the local telemetry daemon (requires Node >= 20.0.0; Node >= 22.13+ recommended for native SQLite)."
         },
         "highbeam.statusBarEnabled": {
           "type": "boolean",

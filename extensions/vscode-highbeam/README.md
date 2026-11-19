@@ -15,7 +15,7 @@ Live **40-cell context window profiler**, **warm KV-cache TTL timer (`5m/1h`)**,
 
 ## Requirements
 
-- **Node.js `>= 22.13.0`** on your `PATH` (or configured via `highbeam.nodePath`) so the local telemetry daemon can read Antigravity and Cursor SQLite databases strictly read-only via `node:sqlite`.
+- **Node.js `>= 20.0.0`** on your `PATH` (or configured via `highbeam.nodePath`; **Node.js `>= 22.13+` recommended** so the local telemetry daemon can read Antigravity and Cursor SQLite databases natively via `node:sqlite`, with JSONL fallback on Node 20 LTS).
 - Optional global install via `npm i -g highbeam-cli` (exposes the `highbeam` binary; falls back automatically to workspace checkout, `~/.ctxtop/app/`, or `npx --yes highbeam-cli --serve`).
 
 ## Commands
@@ -36,7 +36,7 @@ Live **40-cell context window profiler**, **warm KV-cache TTL timer (`5m/1h`)**,
 - `highbeam.autoStartDaemon` (`boolean`, default `true`): Auto-discover or start the local loopback daemon on activation.
 - `highbeam.daemonPort` (`integer`, default `62935`): Preferred loopback port on `127.0.0.1`.
 - `highbeam.cliCommand` (`string`, default `""`): Custom path to `highbeam` binary or `sidecars/horizon-daemon/server.mjs`.
-- `highbeam.nodePath` (`string`, default `"node"`): Path to Node.js (`>= 22.13.0`).
+- `highbeam.nodePath` (`string`, default `"node"`): Path to Node.js (`>= 20.0.0`; `>= 22.13+` recommended).
 - `highbeam.statusBarEnabled` (`boolean`, default `true`): Toggle the live status bar telemetry item.
 - `highbeam.pollIntervalMs` (`integer`, default `3000`): Polling interval in milliseconds (`1000..30000`).
 

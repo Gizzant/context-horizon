@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @file scripts/generate_hero_gif.mjs
- * Deterministically renders the 45-second Highbeam (ctxtop) terminal showcase GIF
+ * Deterministically renders the 45-second Highbeam (highbeam-cli) terminal showcase GIF
  * (`assets/hero-fts5-ttl-demo.gif`) using ffmpeg (`drawbox`, `drawtext`, `palettegen`, `paletteuse`).
  */
 
@@ -78,7 +78,7 @@ export function generateHeroGif(outputPath = OUT_GIF) {
     f.push('drawbox=x=38:y=13:w=12:h=12:color=#f59e0b@1:t=fill');
     f.push('drawbox=x=58:y=13:w=12:h=12:color=#22c55e@1:t=fill');
     addText(f, {
-      text: 'Highbeam (ctxtop v4.1.1) — FTS5 CLI Surgeon & Warm KV-Cache TTL Shield (45s Demo)',
+      text: 'Highbeam (highbeam-cli v4.2) — FTS5 CLI Surgeon & Warm KV-Cache TTL Shield (45s Demo)',
       x: 92,
       y: 12,
       size: 14,
@@ -109,7 +109,7 @@ export function generateHeroGif(outputPath = OUT_GIF) {
       enable: 'between(t,0,15)'
     });
     addText(f, {
-      text: '$ npx ctxtop audit --days 7',
+      text: '$ npx highbeam-cli audit --days 7',
       x: 42,
       y: 118,
       size: 18,
@@ -137,7 +137,7 @@ export function generateHeroGif(outputPath = OUT_GIF) {
       enable: 'between(t,5,15)'
     });
     addText(f, {
-      text: '  Sludge Tax Preventable  : 1,420,850 tok ($2.84 USD recoverable)',
+      text: '  Sludge Tax Preventable  : 1,420,850 tok (30-50% longer 5h sprints)',
       x: 60,
       y: 242,
       size: 16,
@@ -230,7 +230,7 @@ export function generateHeroGif(outputPath = OUT_GIF) {
     f.push("drawbox=x=42:y=308:w=836:h=92:color=#090d16@1:t=fill:enable='between(t,23,30)'");
     f.push("drawbox=x=42:y=308:w=836:h=92:color=#38bdf8@0.75:t=2:enable='between(t,23,30)'");
     addText(f, {
-      text: '$ npx ctxtop search "AssertionError"   ->  BM25 hit in 1.4ms',
+      text: '$ npx highbeam-cli search "AssertionError"   ->  BM25 hit in 1.4ms',
       x: 60,
       y: 326,
       size: 15,
@@ -314,7 +314,7 @@ export function generateHeroGif(outputPath = OUT_GIF) {
       enable: 'between(t,33,45)'
     });
     addText(f, {
-      text: '  Switching Opus -> Sonnet mid-TTL busts 100k prefix (+$0.18 cold prefill > C_max)',
+      text: '  Switching Opus -> Sonnet mid-TTL busts 100k warm prefix (cold rebuild > C_max)',
       x: 60,
       y: 236,
       size: 14,
@@ -335,7 +335,7 @@ export function generateHeroGif(outputPath = OUT_GIF) {
       enable: 'between(t,38,45)'
     });
     addText(f, {
-      text: '  4-Step Session Savings: +164.0k tokens ($0.33 USD) | 0 interruptions in COACH mode',
+      text: '  4-Step Loop: +12.0k stripped + 152.0k cache protected | 0 interruptions in COACH',
       x: 60,
       y: 350,
       size: 14,
@@ -349,7 +349,7 @@ export function generateHeroGif(outputPath = OUT_GIF) {
     f.push('drawbox=x=0:y=436:w=920:h=44:color=#090d16@1:t=fill');
     f.push('drawbox=x=0:y=436:w=920:h=1:color=#1e293b@1:t=fill');
     addText(f, {
-      text: 'AH [SCCCCCCC................] opus-4-6 64k/200k (32%) | Cache 95% (Warm TTL) | COACH | Saved +164.0k tok',
+      text: 'HB [SCCCCCCC................] sonnet-5-5 64k/200k (32%) | Cache 95% (Warm TTL) | COACH | Saved +164k',
       x: 24,
       y: 451,
       size: 14,

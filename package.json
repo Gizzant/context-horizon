@@ -1,8 +1,8 @@
 {
   "name": "highbeam-cli",
   "displayName": "Highbeam",
-  "version": "4.2.1",
-  "description": "Highbeam v4.1: Cross-platform AI Developer Assistant Extension for Google Antigravity and Claude Code: 40-cell context visualizer, KV-cache gravity router, and zero-token guardrails.",
+  "version": "4.2.2",
+  "description": "Highbeam v4.2: Local context window profiler, warm KV-cache guard, and token-efficiency CLI for Google Antigravity, Claude Code, and MCP hosts.",
   "type": "module",
   "workspaces": [
     "packages/core",

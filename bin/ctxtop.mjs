@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @file bin/ctxtop.mjs
- * Highbeam v4.2.1 Unified Cross-Platform CLI (`ctxtop`).
+ * Highbeam v4.2.2 Unified Cross-Platform CLI (`ctxtop`).
  *
  * Commands:
  *   - `ctxtop init [--antigravity | --claude | --all | --workspace | --project | --dry-run | --dedupe]`
@@ -969,7 +969,7 @@ export function executeInitSubcommand(args = [], options = {}) {
   if (isAll || isAntigravity) scopeParts.push(`Antigravity: ${antigravityScope === 'global' ? 'Global' : 'This workspace only'}`);
 
   const lines = [
-    `\x1b[1m\x1b[38;5;51m⚡ Highbeam (ctxtop v4.2.1) — Zero-Config Unified Installer\x1b[0m`,
+    `\x1b[1m\x1b[38;5;51m⚡ Highbeam (ctxtop v4.2.2) — Zero-Config Unified Installer\x1b[0m`,
     `  • Target Harnesses : ${targetLabel}`,
     ...(scopeParts.length
       ? [`  • Installation Scope: ${scopeParts.join(' · ')}${isDryRun ? ' [DRY RUN]' : ''}`]
@@ -1103,7 +1103,7 @@ export function runCli(args = [], options = {}) {
   }
 
   if (effectiveArgs.includes('--version') || effectiveArgs.includes('-v') || subcommand === 'version') {
-    return { exitCode: 0, output: '4.2.1', data: { version: '4.2.1' } };
+    return { exitCode: 0, output: '4.2.2', data: { version: '4.2.2' } };
   }
 
   // `<cmd> --help` must print help and never run the command (install/init/uninstall write files).

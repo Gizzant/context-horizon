@@ -386,7 +386,7 @@ export function buildDemoPage(options = {}) {
       const bar = document.createElement('div');
       bar.id = 'chDemoBar';
       bar.innerHTML = \`
-        <div class="ch-brand">⚡ Highbeam (ah v4.0) — Live Interactive Demo</div>
+        <div class="ch-brand">⚡ Highbeam (highbeam-cli v4.2) — Live Interactive Demo</div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <div id="chSurfaceToggle" role="group" aria-label="Host IDE Surface">
             <button type="button" id="btnSurfaceAntigravity" class="active" data-surface="antigravity">Antigravity IDE</button>
@@ -396,7 +396,7 @@ export function buildDemoPage(options = {}) {
           <select id="chScenarioSelect">
             \${META.map(m => \`<option value="\${m.id}" \${m.id === 5 ? 'selected' : ''}>\${m.title}</option>\`).join('')}
           </select>
-          <a class="ch-cta" href="https://github.com/Gizzant/attention-horizon-antigravity" target="_blank" rel="noopener">★ Star on GitHub</a>
+          <a class="ch-cta" href="https://github.com/Gizzant/context-horizon" target="_blank" rel="noopener">★ Star on GitHub</a>
         </div>
         <div id="chComplaintText" class="ch-complaint"></div>
       \`;
