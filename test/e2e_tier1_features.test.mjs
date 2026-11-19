@@ -20,6 +20,7 @@ import { execFileSync } from 'node:child_process';
 
 // Register Tier-2 Node I/O provider for atomic writes and clean sandbox handling
 import '../src/utils/nodeIo.mjs';
+import { activateLocalTrial } from '../src/core/pro_license.mjs';
 
 // Sub-Harnesses & Shared Helpers from e2e_harness.mjs
 import {
@@ -2358,6 +2359,7 @@ describe('Feature 27: Control Latching in COACH Mode', () => {
   it('27.4 Control Latching in COACH Mode: switch from COACH to AUTO_PILOT/STRICT mode enforces autonomous blocking', async () => {
     const ws = createTempWorkspace();
     try {
+      activateLocalTrial({ homeDir: ws.homeDir });
       const res = await handlePreToolUse({
         tool_name: 'edit_file',
         tool_input: { Path: 'AGENTS.md' },

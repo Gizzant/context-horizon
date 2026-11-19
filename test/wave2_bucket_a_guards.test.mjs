@@ -25,6 +25,7 @@ import { runCompactLifecycleHook } from '../hooks/handlers/compact-lifecycle.mjs
 import { handlePreInvocation, handlePreToolUse } from '../src/hooks/pre_invocation.mjs';
 import { handleSessionStart } from '../src/hooks/session_start.mjs';
 import { runDoctorDiagnostics } from '../src/diagnostics/doctorEngine.mjs';
+import { activateLocalTrial } from '../src/core/pro_license.mjs';
 
 test('Wave 2 — Item A2 (#3 TEST_INTEGRITY_LOCK): >=1 net deleted assertion, .skip injection, assertion weakening, EvilGenie git mining & SessionStart test hashes', async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hb-wave2-a2-'));
@@ -215,26 +216,33 @@ test('Wave 2 — Item A6 (#11 THINKING_TIMEOUT_GOV): Gemini timeout-billing audi
   assert.equal(stepDownCoach.decision, 'steer');
 
   // Claude UserPromptSubmit blocks in AUTO_PILOT
-  const upsBlock = runUserPromptSubmitHook(
-    {
-      prompt: 'keep going',
-      mode: 'AUTO_PILOT',
-      recentTurns: runawayTurns
-    },
-    { persistState: false, mode: 'AUTO_PILOT' }
-  );
-  assert.equal(upsBlock.stdoutJson.decision, 'block');
-  assert.match(upsBlock.stdoutJson.reason, /DET-30 Thinking Runaway Governor/);
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'hb-wave2-a6-home-'));
+  try {
+    activateLocalTrial({ homeDir: tmpHome });
+    const upsBlock = runUserPromptSubmitHook(
+      {
+        prompt: 'keep going',
+        mode: 'AUTO_PILOT',
+        recentTurns: runawayTurns
+      },
+      { persistState: false, mode: 'AUTO_PILOT', homeDir: tmpHome }
+    );
+    assert.equal(upsBlock.stdoutJson.decision, 'block');
+    assert.match(upsBlock.stdoutJson.reason, /DET-30 Thinking Runaway Governor/);
 
-  // Antigravity PreInvocation halts/advises on DET-30 runaway
-  const agPre = await handlePreInvocation({
-    conversationId: 'ag-wave2-a6',
-    prompt: 'continue debugging',
-    flightMode: 'AUTO_PILOT',
-    recentTurns: runawayTurns
-  });
-  assert.equal(agPre.terminationBehavior, 'terminate');
-  assert.equal(agPre.detectorId, 'DET-30');
+    // Antigravity PreInvocation halts/advises on DET-30 runaway
+    const agPre = await handlePreInvocation({
+      conversationId: 'ag-wave2-a6',
+      prompt: 'continue debugging',
+      flightMode: 'AUTO_PILOT',
+      homeDir: tmpHome,
+      recentTurns: runawayTurns
+    });
+    assert.equal(agPre.terminationBehavior, 'terminate');
+    assert.equal(agPre.detectorId, 'DET-30');
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+  }
 });
 
 test('Wave 2 — Item A7 (#12 ERROR_MASKING_LINTER): Standalone empty catch, @ts-ignore, and Python except: pass blocked without deletedAssertions', async () => {
@@ -426,9 +434,11 @@ test('Wave 2 — Item A9 (#18 WORKTREE_DESTRUCTIVE_GUARD): Blocks un-stashed git
     assert.equal(exploreSub.triggered, false);
 
     // 3. Antigravity concurrent write invoke_subagent requires Workspace: "branch" | "share"
+    activateLocalTrial({ homeDir: tmpDir });
     const agBlocked = await handlePreToolUse({
       conversationId: 'ag-wave2-a9',
       cwd: tmpDir,
+      homeDir: tmpDir,
       flightMode: 'AUTO_PILOT',
       activeWriteWorkers: 1,
       tool_name: 'invoke_subagent',
@@ -440,6 +450,7 @@ test('Wave 2 — Item A9 (#18 WORKTREE_DESTRUCTIVE_GUARD): Blocks un-stashed git
     const agIsolated = await handlePreToolUse({
       conversationId: 'ag-wave2-a9',
       cwd: tmpDir,
+      homeDir: tmpDir,
       flightMode: 'AUTO_PILOT',
       activeWriteWorkers: 1,
       tool_name: 'invoke_subagent',

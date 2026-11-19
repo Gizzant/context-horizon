@@ -7,10 +7,10 @@
 [![Zero Runtime Dependencies](https://img.shields.io/badge/dependencies-0_runtime-brightgreen.svg)](#systems-architecture--zero-trust-security)
 [![Hook Latency](https://img.shields.io/badge/Hook_call-~60--80ms_Linux_%7C_~200--275ms_Windows-00e5ff.svg)](#deterministic-preinvocation-router--6-local-sensors)
 [![Node.js >= 22.13](https://img.shields.io/badge/node-%3E%3D22.13_zero_deps-339933.svg)](#try-in-10-seconds-zero-hooks--zero-writes)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT Core + Commercial Pro](https://img.shields.io/badge/license-MIT_Core_%2B_Commercial_Pro-blue.svg)](LICENSE)
 [![Multi-Host Parity](https://img.shields.io/badge/Hosts-Antigravity_%7C_Claude_%7C_Codex_%7C_Gemini_%7C_Cursor-blueviolet.svg)](#-installation--quick-start)
 
-[**Live Interactive Demo**](https://gizzant.github.io/context-horizon/) • [**10-Second 5-Host Audit**](#try-in-10-seconds-zero-hooks--zero-writes) • [**Quick Start**](#-installation--quick-start) • [**Cookbook**](docs/COOKBOOK.md) • [**Benchmarks**](docs/ANTIGRAVITY_AND_COMPRESSION_BENCHMARK.md) • [**Enterprise MDM**](docs/ENTERPRISE_MDM.md)
+[**Live Interactive Demo**](https://gizzant.github.io/context-horizon/demo/) • [**User Guide**](https://gizzant.github.io/context-horizon/) • [**10-Second 5-Host Audit**](#try-in-10-seconds-zero-hooks--zero-writes) • [**Quick Start**](#-installation--quick-start) • [**Cookbook**](docs/COOKBOOK.md) • [**Benchmarks**](docs/ANTIGRAVITY_AND_COMPRESSION_BENCHMARK.md) • [**Enterprise MDM**](docs/ENTERPRISE_MDM.md)
 
 <br/>
 

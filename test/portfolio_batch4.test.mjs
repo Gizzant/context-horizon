@@ -285,7 +285,12 @@ describe('Batch 4 — HUD Hygiene: Read-Only U-Curve Transcript Heatmap, Vertica
 
     const htmlPath = path.join(REPO_ROOT, 'src', 'webview', 'horizon_panel.html');
     const html = fs.readFileSync(htmlPath, 'utf8');
-    assert.ok(!/context-horizon/i.test(html), 'horizon_panel.html must have zero context-horizon strings');
+    const allowedContextHorizonUrlsRe =
+      /https:\/\/gizzant\.github\.io\/context-horizon\/(?:demo\/)?(?![\w./-])|https:\/\/github\.com\/Gizzant\/context-horizon(?:\.git)?(?![/\w.-])/g;
+    assert.ok(
+      !/context-horizon/i.test(html.replace(allowedContextHorizonUrlsRe, '')),
+      'horizon_panel.html must have zero context-horizon strings'
+    );
     assert.ok(!/200-line MEMORY\.md/i.test(html), 'horizon_panel.html must not enforce Claude Code 200-line MEMORY.md cap');
 
     const dom = new JSDOM(html, {

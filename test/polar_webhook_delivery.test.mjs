@@ -6,7 +6,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 
-import { processPolarWebhook } from '../packages/pro/workers/polar_webhook_worker.mjs';
+import workerDefault, {
+  mapPolarOrderToLicenseSpec,
+  processPolarWebhook
+} from '../packages/pro/workers/polar_webhook_worker.mjs';
 
 const secretRaw = 'super-secret-polar-key-32-bytes!';
 const secret = 'whsec_' + Buffer.from(secretRaw).toString('base64');
@@ -88,7 +91,7 @@ test('email failure returns 500 and records nothing so Polar retries', async () 
   assert.equal(sent.length, 1);
 });
 
-test('LTD sales are counted in KV and the cap is enforced from the counter', async () => {
+test('LTD sales are counted in KV; over-cap paid orders are honored by default and blocked only when CTXTOP_ENFORCE_HARD_409_CAP=true', async () => {
   const kv = makeKv({ 'ltd:sold_count': '199' });
   const sent = [];
   const deps = { sendEmail: async (m) => void sent.push(m) };
@@ -96,10 +99,24 @@ test('LTD sales are counted in KV and the cap is enforced from the counter', asy
   const last = await processPolarWebhook(ltd('ord_199'), baseEnv(kv), deps);
   assert.equal(last.status, 200);
   assert.equal(kv.m.get('ltd:sold_count'), '200');
-  const over = await processPolarWebhook(ltd('ord_200'), baseEnv(kv), deps);
-  assert.equal(over.status, 409);
-  assert.equal(over.body.error, 'LTD_CAP_200_EXCEEDED');
-  assert.equal(sent.length, 1);
+
+  // Default honor-paid behavior protects an already-charged customer from HTTP 409 lockouts
+  const overDefault = await processPolarWebhook(ltd('ord_200'), baseEnv(kv), deps);
+  assert.equal(overDefault.status, 200);
+  assert.equal(overDefault.body.emailed, true);
+  assert.equal(overDefault.body.overCapFulfilled, true);
+  assert.equal(overDefault.body.warning, 'LTD_CAP_200_EXCEEDED_HONOR_PAID');
+  assert.equal(sent.length, 2);
+
+  // Strict opt-in flag restores HTTP 409 cap rejection
+  const overStrict = await processPolarWebhook(
+    ltd('ord_201'),
+    { ...baseEnv(kv), CTXTOP_ENFORCE_HARD_409_CAP: 'true' },
+    deps
+  );
+  assert.equal(overStrict.status, 409);
+  assert.equal(overStrict.body.error, 'LTD_CAP_200_EXCEEDED');
+  assert.equal(sent.length, 2);
 });
 
 test('invalid signature is rejected before any state or email', async () => {
@@ -158,4 +175,65 @@ test('only order.paid issues keys; benefit_grant/subscription events and orders 
   assert.equal(r.status, 422);
   assert.equal(r.body.error, 'MISSING_CUSTOMER_EMAIL');
   assert.equal(sent.length, 0, 'never email a placeholder address');
+});
+
+test('CTXTOP_POLAR_PRODUCT_MAP and pre-discount amounts prevent coupon discounts from downgrading tiers', () => {
+  // 1) Explicit product_id mapping overrides heavy 50% coupon price ($99 LTD -> pro_ltd)
+  const mappedLtd = mapPolarOrderToLicenseSpec(
+    {
+      data: {
+        id: 'ord_coup_1',
+        product_id: 'prod_founders_ltd',
+        amount: 9900,
+        product: { id: 'prod_founders_ltd', name: 'Highbeam' },
+        customer: { email: 'coup@acme.dev' }
+      }
+    },
+    { CTXTOP_POLAR_PRODUCT_MAP: JSON.stringify({ prod_founders_ltd: 'pro_ltd' }) }
+  );
+  assert.equal(mappedLtd.sku, 'pro_ltd');
+  assert.equal(mappedLtd.tier, 'ltd');
+  assert.equal(mappedLtd.expiresAt, null);
+
+  // 2) Pre-discount subtotal_amount / discount_amount protects Annual & LTD in fallback price bands
+  const discountedAnnual = mapPolarOrderToLicenseSpec({
+    data: {
+      id: 'ord_coup_2',
+      amount: 8900,
+      subtotal_amount: 14900,
+      product: { name: 'Highbeam Pro' },
+      customer: { email: 'ann@acme.dev' }
+    }
+  });
+  assert.equal(discountedAnnual.sku, 'pro_annual');
+  assert.equal(discountedAnnual.tier, 'pro');
+
+  const discountedLtd = mapPolarOrderToLicenseSpec({
+    data: {
+      id: 'ord_coup_3',
+      amount: 14900,
+      discount_amount: 5000,
+      product: { name: 'Highbeam Founders' },
+      customer: { email: 'ltd@acme.dev' }
+    }
+  });
+  assert.equal(discountedLtd.sku, 'pro_ltd');
+  assert.equal(discountedLtd.tier, 'ltd');
+  assert.equal(discountedLtd.expiresAt, null);
+});
+
+test('Worker fetch() never exposes raw error stack traces in HTTP 500 responses', async () => {
+  const throwingReq = {
+    method: 'POST',
+    async text() {
+      throw new Error('simulated sensitive boom');
+    },
+    headers: new Headers()
+  };
+  const res = await workerDefault.fetch(throwingReq, {});
+  assert.equal(res.status, 500);
+  const body = await res.json();
+  assert.deepEqual(body, { ok: false, error: 'INTERNAL_WORKER_ERROR' });
+  assert.equal(body.stack, undefined);
+  assert.equal(body.message, undefined);
 });

@@ -34,15 +34,15 @@
 
       <h3 id="install-dual-host">1. Unified Dual-Host Installation</h3>
       <p>
-        Use <code>ctxtop init --all</code> if you use both Google Antigravity and Claude Code on the same machine:
+        Use <code>ctxtop init --all-hosts</code> to configure Google Antigravity, Claude Code, and supported MCP hosts (Cursor, Windsurf, Codex CLI, Gemini CLI) in one pass:
       </p>
       <div class="code-block terminal">
         <div class="code-header"><span>Preview and Run Unified Installer</span></div>
         <pre><code># Preview planned file paths without writing
-npx ctxtop init --all --dry-run
+npx ctxtop init --all-hosts --dry-run
 
-# Perform non-destructive dual-host installation
-npx ctxtop init --all</code></pre>
+# Perform non-destructive multi-host installation
+npx ctxtop init --all-hosts</code></pre>
       </div>
 
       <h3 id="install-antigravity">2. Google Antigravity Installation</h3>

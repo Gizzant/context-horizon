@@ -13,7 +13,7 @@ window.AH_SEARCH_INDEX = [
     "title": "System Architecture & Internals",
     "section": "1. Six-Package Workspace Topology",
     "href": "architecture.html#monorepo-topology",
-    "keywords": "package.json packages/* src/core-isomorphic/ src/engine-node/ src/core/ @ctxtop/core node:* DET-01..DET-32 CircuitBreakerEngine cacheGravity dualTtl cliffBreaker horizonGrid costRadarSvg modViews @ctxtop/engine-node >= 22.13.0 node:sqlite git merge-tree @ctxtop/antigravity PreInvocation horizon_panel.html @ctxtop/claude-code hooks/register.js hooks/handlers/*.mjs ah-statusline @ctxtop/mcp horizon_status cache_gravity_check scope_lock_claim export_receipt_pdf @ctxtop/pro team_finops_pack.mjs ctxtop",
+    "keywords": "package.json packages/* src/core-isomorphic/ src/engine-node/ src/core/ @ctxtop/core node:* DET-01..DET-32 CircuitBreakerEngine cacheGravity dualTtl cliffBreaker horizonGrid costRadarSvg modViews @ctxtop/engine-node >= 22.13.0 node:sqlite git merge-tree @ctxtop/antigravity PreInvocation horizon_panel.html @ctxtop/claude-code hooks/register.js hooks/handlers/*.mjs ah-statusline @ctxtop/mcp horizon_status cache_gravity_check scope_lock_claim export_receipt_pdf horizon_compress_cli horizon_search_logs horizon_audit_sessions @ctxtop/pro team_finops_pack.mjs ctxtop",
     "body": "Root package.json defines six packages under packages/* backed by shared code in src/core-isomorphic/, src/engine-node/, and src/core/: Workspace Package Runtime Constraint Core Modules @ctxtop/core Pure ESM, zero node:* imports DET-01..DET-32 rules, CircuitBreakerEngine, cacheGravity, dualTtl, cliffBreaker, horizonGrid, costRadarSvg, modViews, USTF v1 parser. @ctxtop/engine-node Node.js >= 22.13.0 stdlib only node:sq"
   },
   {
@@ -310,7 +310,7 @@ window.AH_SEARCH_INDEX = [
     "section": "The 40-Cell Horizon Bar & U-Shaped Recall",
     "href": "concepts.html#u-shaped-recall-and-40-cell-bar",
     "keywords": "AGENTS.md CLAUDE.md ACTIVE_SET",
-    "body": "Highbeam splits your active context limit into 40 time-ordered cells. Instead of one raw token count, the 40-Cell Horizon Bar shows what is in memory and where each item sits on the U-shaped recall curve. Parabolic U-Shaped Attention Recall Across 40 Context Cells 100% 60% 25% Primacy (Cells 1-6) Middle Trough / Distractor Zone (Cells 7-32) Recency Tail (Cells 33-40) Cell 1 (Turn 0 System + Rules) Stale Reads & Resol"
+    "body": "Highbeam splits your active context limit into 40 time-ordered cells. Instead of one raw token count, the 40-Cell Horizon Bar shows what is in memory and where each item sits on the U-shaped recall curve. Parabolic U-Shaped Attention Recall Across 40 Context Cells 100% 60% 25% Primacy (0–30%, Anchors 1–6) Middle Trough / Distractor Zone (30–70%, Cells 7–28) Recency Tail (70–100%, Cells 29–40) Cell 1 (Turn 0 System + Rules) Stale Reads & Resol"
   },
   {
     "pageTitle": "Core Concepts & Mental Model",
@@ -597,8 +597,8 @@ window.AH_SEARCH_INDEX = [
     "title": "Context visibility and zero-token guards for AI coding chats.",
     "section": "60-Second Quick Launch",
     "href": "index.html#quick-launch",
-    "keywords": "npx ctxtop init --all npx ctxtop doctor ah-statusline npx attention-horizon-antigravity init --workspace npx ctxtop --serve PreInvocation @ah-flash-scout 127.0.0.1:62935 npx ah-claude install --global npx ah-claude statusline --demo npx ah-claude receipt statusLine ~/.claude/settings.json npx ctxtop init --mcp npx ctxtop doctor --json @ctxtop/mcp .cursor/mcp.json horizon_status cache_gravity_check scope_lock_claim export_receipt_pdf",
-    "body": "Run the installer from your project root to wire hooks, status bars, and sidecar files safely. It backs up your current settings before saving any changes. Dual-Host (Recommended) Google Antigravity Claude Code Cursor & Windsurf MCP Terminal · Dual-Host Setup npx ctxtop init --all npx ctxtop doctor Finds both Google Antigravity and Claude Code on your machine. It merges lean hooks, sets up the ah-statusline bar, and "
+    "keywords": "npx ctxtop init --all-hosts npx ctxtop doctor ah-statusline npx attention-horizon-antigravity init --workspace npx ctxtop --serve PreInvocation @ah-flash-scout 127.0.0.1:62935 npx ah-claude install --global npx ah-claude statusline --demo npx ah-claude receipt statusLine ~/.claude/settings.json npx ctxtop init --mcp npx ctxtop doctor --json @ctxtop/mcp .cursor/mcp.json horizon_status cache_gravity_check scope_lock_claim export_receipt_pdf horizon_compress_cli horizon_search_logs horizon_audit_sessions",
+    "body": "Run the installer from your project root to wire hooks, status bars, and sidecar files safely. It backs up your current settings before saving any changes. Dual-Host (Recommended) Google Antigravity Claude Code Cursor & Windsurf MCP Terminal · Dual-Host Setup npx ctxtop init --all-hosts npx ctxtop doctor Configures Google Antigravity, Claude Code, and supported MCP hosts (Cursor, Windsurf, Codex CLI, Gemini CLI) in one pass."
   },
   {
     "pageTitle": "Context visibility and zero-token guards for AI coding chats.",
@@ -645,8 +645,8 @@ window.AH_SEARCH_INDEX = [
     "title": "Installation, Verification & Migration",
     "section": "1. Unified Dual-Host Installation",
     "href": "installation.html#install-dual-host",
-    "keywords": "ctxtop init --all",
-    "body": "Use ctxtop init --all if you use both Google Antigravity and Claude Code on the same machine: Preview and Run Unified Installer # Preview planned file paths without writing npx ctxtop init --all --dry-run # Perform non-destructive dual-host installation npx ctxtop init --all"
+    "keywords": "ctxtop init --all-hosts",
+    "body": "Use ctxtop init --all-hosts to configure Google Antigravity, Claude Code, and supported MCP hosts (Cursor, Windsurf, Codex CLI, Gemini CLI) in one pass: Preview and Run Unified Installer # Preview planned file paths without writing npx ctxtop init --all-hosts --dry-run # Perform non-destructive multi-host installation npx ctxtop init --all-hosts"
   },
   {
     "pageTitle": "Installation, Verification & Migration",
@@ -725,8 +725,8 @@ window.AH_SEARCH_INDEX = [
     "title": "MCP Server, HTTP Daemon & Micro-IPC API",
     "section": "Exposed MCP Tools",
     "href": "mcp-daemon-api.html#mcp-tools-catalog",
-    "keywords": "horizon_status cwd?: string sessionId?: string \"default\" { ok, cwd, sessionId, entitlement: { entitled, tier, source }, savedQuota, liveState } cache_gravity_check currentModel: string targetModel: string cachedTokens?: number ttlRemainingSeconds?: number 240 remainingExpectedTurns?: number 1 expectedOutputTokens?: number 1500 C* scope_lock_claim workspaceDir?: string agentId?: string paths?: string[] ttlSeconds?: number 900 paths .agents/locks/active_scopes.json export_receipt_pdf email?: string outPath?: string allowPreview?: boolean false",
-    "body": "Tool Name Input Parameters Response Payload horizon_status cwd?: string, sessionId?: string (default \"default\") Returns { ok, cwd, sessionId, entitlement: { entitled, tier, source }, savedQuota, liveState } from local snapshots. cache_gravity_check currentModel: string (req), targetModel: string (req), cachedTokens?: number, ttlRemainingSeconds?: number (240), remainingExpectedTurns?: number (1), expectedOutputTokens"
+    "keywords": "horizon_status cwd?: string sessionId?: string \"default\" { ok, cwd, sessionId, entitlement: { entitled, tier, source }, savedQuota, liveState } cache_gravity_check currentModel: string targetModel: string cachedTokens?: number ttlRemainingSeconds?: number 240 remainingExpectedTurns?: number 1 expectedOutputTokens?: number 1500 C* scope_lock_claim workspaceDir?: string agentId?: string paths?: string[] ttlSeconds?: number 900 paths .agents/locks/active_scopes.json export_receipt_pdf email?: string outPath?: string allowPreview?: boolean false horizon_compress_cli horizon_search_logs horizon_audit_sessions",
+    "body": "Tool Name Input Parameters Response Payload horizon_status cache_gravity_check scope_lock_claim export_receipt_pdf horizon_compress_cli horizon_search_logs horizon_audit_sessions cwd?: string, sessionId?: string (default \"default\") Returns { ok, cwd, sessionId, entitlement: { entitled, tier, source }, savedQuota, liveState } from local snapshots."
   },
   {
     "pageTitle": "MCP Server, HTTP Daemon & Micro-IPC API",
@@ -773,8 +773,8 @@ window.AH_SEARCH_INDEX = [
     "title": "Pro Licensing, FinOps & Troubleshooting",
     "section": "1. Three-Tier Entitlement Matrix",
     "href": "pro-troubleshooting.html#tier-matrix",
-    "keywords": "npx ctxtop tiers src/core/pro_license.mjs $0/mo HOLD_COMPACT $149/yr $199 Founder Lifetime PreToolUse #tufteBaselineStrip AUTO_PILOT C* $299/yr 5 seats .agents/rules/ POST /api/export/sanitized ctxtop team-pack",
-    "body": "Run npx ctxtop tiers anytime to view the plan table from src/core/pro_license.mjs: Tier Pricing Included Capabilities FreeMIT Core $0/mo Simple View HUD & 4-rank verdict bar, 40-cell U-curve context map, live 5m/1h cache timers, HOLD_COMPACT warm cache alerts, and all 32 guards. ProSolo Dev $149/yr or $199 one-time Founder Lifetime (first 200) Auto PreToolUse delta-reads & 3rd-read AST stubs, cross-chat waste tracking, 30-day savings ledger (#tufte"
+    "keywords": "npx ctxtop tiers src/core/pro_license.mjs $0/mo HOLD_COMPACT GUARD-4 PreToolUse $149/yr $199 Founder Lifetime #tufteBaselineStrip AUTO_PILOT C* $299/yr 5 seats .agents/rules/ POST /api/export/sanitized ctxtop team-pack",
+    "body": "Run npx ctxtop tiers anytime to view the plan table from src/core/pro_license.mjs: Tier Pricing Included Capabilities FreeMIT Core $0/mo Simple View HUD & 4-rank verdict bar, 40-cell U-curve context map, live 5m/1h cache timers, HOLD_COMPACT warm cache alerts, auto PreToolUse delta-reads & 3rd-read AST stubs (GUARD-4), multi-family FTS5 CLI compression, and all 32 guards. ProSolo Dev $149/yr or $199 one-time Founder Lifetime (first 200) AUTO_PILOT hands-free enforcement & C* switch holds, 30-day chronic offender memory & workspace savings ledger (#tufteBaselineStrip), and signed corporate PDF 1.4 expense receipts (ctxtop receipt --pdf)."
   },
   {
     "pageTitle": "Pro Licensing, FinOps & Troubleshooting",
@@ -795,10 +795,10 @@ window.AH_SEARCH_INDEX = [
   {
     "pageTitle": "Pro Licensing, FinOps & Troubleshooting",
     "title": "Pro Licensing, FinOps & Troubleshooting",
-    "section": "Upstream HTTP 400 on Image / Screenshot Attachments (DET-20)",
+    "section": "Upstream HTTP 400 on Image / Screenshot Attachments (DET-20 Vision Quirk / DET-28)",
     "href": "pro-troubleshooting.html#quirk-vision-http400",
-    "keywords": "400 Bad Request \"Unable to process input image\" DET-20 config/platformQuirks.json",
-    "body": "Symptom: Sending a screenshot while Google AI Credit Overages are active fails with HTTP 400 Bad Request (\"Unable to process input image\"). Resolution: DET-20 (set in config/platformQuirks.json) warns you before sending images during overage mode. Send plain text or DOM snippets until Base Quota resets."
+    "keywords": "400 Bad Request \"Unable to process input image\" DET-20 DET-28 active_scopes.json config/platformQuirks.json",
+    "body": "Symptom: Sending a screenshot while Google AI Credit Overages are active fails with HTTP 400 Bad Request (\"Unable to process input image\"). Resolution: Alongside its primary concurrent file-scope lockfile role (.agents/locks/active_scopes.json), DET-20 (configured via config/platformQuirks.json, with the DET-28 quota-overage guard) warns before sending images during AI Credit Overage mode. Send plain text or DOM snippets until Base Quota resets."
   },
   {
     "pageTitle": "Pro Licensing, FinOps & Troubleshooting",
@@ -910,7 +910,7 @@ window.AH_SEARCH_INDEX = [
     "section": "Tutorial 1: First Setup, Live HUD & Prompt Precheck",
     "href": "tutorials.html#tutorial-1-first-task",
     "keywords": "doctor #check /precheck $ npx ctxtop receipt --markdown",
-    "body": "Goal: Set up Highbeam in a repo, preview the status bar, test a vague prompt before spending high-effort tokens, and print a savings receipt. Set up the project and run health checks Run the unified installer from your repo root. Then run doctor to make sure all checks pass. Step 1 · Input & Expected Output $ npx ctxtop init --all ⚡ Highbeam (ctxtop v4.0.0) - Zero-Config Unified Installer [PASS] Claude Code hooks mer"
+    "body": "Goal: Set up Highbeam in a repo, preview the status bar, test a vague prompt before spending high-effort tokens, and print a savings receipt. Set up the project and run health checks Run the unified installer from your repo root. Then run doctor to make sure all checks pass. Step 1 · Input & Expected Output $ npx ctxtop init --all-hosts ⚡ Highbeam (ctxtop v4.0.0) - Zero-Config Unified Installer [PASS] Claude Code hooks mer"
   },
   {
     "pageTitle": "Guided Step-by-Step Tutorials",

@@ -1852,7 +1852,7 @@ export function runCli(args = [], options = {}) {
           data: { ok: false, requiresPro: true, entitlement: proCheck, shadowSavedUSD: Number(savedUsd) }
         };
       }
-      const targetPdf = outPath || path.resolve(options.cwd || process.cwd(), 'attention-horizon-expense-receipt.pdf');
+      const targetPdf = outPath || path.resolve(options.cwd || process.cwd(), 'highbeam-expense-receipt.pdf');
       fs.mkdirSync(path.dirname(targetPdf), { recursive: true });
       fs.writeFileSync(targetPdf, Buffer.from(res.pdfBytes));
       const pdfData = {

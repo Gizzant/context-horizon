@@ -120,7 +120,7 @@
         <li>Version: <span id="setAboutVersion">unknown</span></li>
         <li>Project config: <code>.attention-horizon.json</code> &middot; User config: <code>~/.attention-horizon/config.json</code></li>
         <li>Health check: <code>npx ctxtop doctor</code></li>
-        <li>Docs: <a href="https://gizzant.github.io/context-horizon/" target="_blank" rel="noopener noreferrer">gizzant.github.io/context-horizon</a></li>
+        <li>Docs: <a href="https://gizzant.github.io/context-horizon/" target="_blank" rel="noopener noreferrer">Highbeam User Guide</a></li>
       </ul>
     </section>
   </div>

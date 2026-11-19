@@ -146,8 +146,8 @@ const BIND_HOST = '127.0.0.1';
 const clients = new Map();
 
 function getDaemonEntitlementOptions() {
-  // Demo mode relaxes strict checking only; outside `node --test` that unlocks nothing.
-  return { strict: !isDemoMode };
+  // Entitlement always checks `~/.ctxtop/license.json` strictly; `--demo` renders synthetic fixtures only.
+  return { strict: true };
 }
 
 const defaultCacheDir = path.join(getHomeDir(), '.gemini', 'antigravity', 'cache', 'agy-horizon');
@@ -463,7 +463,7 @@ function buildCoachState(state, targetConvId) {
     const taskRoute = evaluateTaskAndQuotaRoute({
       prompt: livePrompt,
       taskMdContent,
-      activeModel: state?.model?.id || state?.model?.rawLabel || state?.activeModel || 'gemini-4-argon',
+      activeModel: state?.model?.id || state?.model?.rawLabel || state?.activeModel || 'unknown',
       activeEffort: resolvedEffort === 'standard' ? 'auto' : resolvedEffort,
       cachedTokens,
       cacheTtlSeconds: ttlSec,
@@ -529,7 +529,7 @@ function buildCoachState(state, targetConvId) {
       sessionId: sessionKey,
       totalTokens: cachedTokens,
       maxTokens: Number(state?.window?.maxTokens) || resolveModelCeiling(
-        state?.model?.id || state?.model?.rawLabel || state?.activeModel || 'gemini-4-argon',
+        state?.model?.id || state?.model?.rawLabel || state?.activeModel || 'unknown',
         null,
         { useLegacyDefault: false }
       ),

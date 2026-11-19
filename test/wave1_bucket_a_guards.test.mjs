@@ -23,6 +23,7 @@ import {
   auditClaudeIdleDrainSettings,
   auditClaudeAgentAutoCompactWindows
 } from '../src/core/shield_manager.mjs';
+import { activateLocalTrial } from '../src/core/pro_license.mjs';
 
 function makeTempWorkspace(prefix = 'ctxtop-wave1-') {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -41,6 +42,7 @@ describe('Wave 1 Bucket A Guardrails (Item A0 + #1 + #7 + #10)', () => {
   it('Item A0: resets codeEditedSinceLastTest ONLY on exit-0 PostToolUse (including tsc) and surfaces failing file:line', () => {
     const ws = makeTempWorkspace('ctxtop-a0-');
     try {
+      activateLocalTrial({ homeDir: ws.homeDir });
       fs.writeFileSync(
         path.join(ws.cwd, '.attention-horizon.json'),
         JSON.stringify({ flightMode: 'AUTO_PILOT' }),
@@ -138,6 +140,7 @@ describe('Wave 1 Bucket A Guardrails (Item A0 + #1 + #7 + #10)', () => {
   it('Item A0 (Antigravity): validates define_subagent tools: names and unbounded Monitor calls', async () => {
     const ws = makeTempWorkspace('ctxtop-a0-ag-');
     try {
+      activateLocalTrial({ homeDir: ws.homeDir });
       const badSubagent = await handlePreInvocation({
         hook_event_name: 'PreToolUse',
         conversationId: 'ag-a0-tools',
@@ -173,6 +176,7 @@ describe('Wave 1 Bucket A Guardrails (Item A0 + #1 + #7 + #10)', () => {
   it('Item A1 (#1 MID_SESSION_CACHE_BUST): Claude ConfigChange holds warm-cache Opus->Sonnet downshift until PostCompact and Antigravity PreInvocation guards mid-session switches', async () => {
     const ws = makeTempWorkspace('ctxtop-a1-');
     try {
+      activateLocalTrial({ homeDir: ws.homeDir });
       const hookOpts = { cwd: ws.cwd, homeDir: ws.homeDir, persistState: true };
 
       // 1. Warm cache: effort stays silent on measured cache-preserving Opus 5.5,

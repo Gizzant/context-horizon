@@ -339,7 +339,7 @@ describe('Matrix >= 9.0 Capabilities Suite (D1-D8)', () => {
 
   it('7. New and updated docs maintain strict zero-banned-strings and zero-empty-catch hygiene', () => {
     const ALLOWED_CONTEXT_HORIZON_URLS_RE =
-      /https:\/\/gizzant\.github\.io\/context-horizon\/(?![\w./-])|https:\/\/github\.com\/Gizzant\/context-horizon(?:\.git)?(?![/\w.-])/g;
+      /https:\/\/gizzant\.github\.io\/context-horizon\/(?:demo\/)?(?![\w./-])|https:\/\/github\.com\/Gizzant\/context-horizon(?:\.git)?(?![/\w.-])/g;
     const stripAllowedContextHorizonUrls = (s) => String(s).replace(ALLOWED_CONTEXT_HORIZON_URLS_RE, '');
     const bannedPatterns = [
       new RegExp(['Context', 'Horizon'].join(' '), 'i'),
@@ -370,6 +370,13 @@ describe('Matrix >= 9.0 Capabilities Suite (D1-D8)', () => {
       ),
       false,
       'Exact canonical repo URLs must be stripped before banned-pattern check'
+    );
+    assert.equal(
+      bannedPatterns[1].test(
+        stripAllowedContextHorizonUrls('https://gizzant.github.io/context-horizon/demo/')
+      ),
+      false,
+      'Exact canonical GitHub Pages /demo/ URL must be stripped before banned-pattern check'
     );
     assert.equal(
       bannedPatterns[1].test(

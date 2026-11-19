@@ -42,11 +42,13 @@ import {
 import { inspectClaudeBinaryCapabilities } from '../../src/diagnostics/claudeHookCapabilities.mjs';
 import { runCompactLifecycleHook } from '../../hooks/handlers/compact-lifecycle.mjs';
 import { runDoctorDiagnostics } from '../../src/diagnostics/doctorEngine.mjs';
+import { activateLocalTrial } from '../../src/core/pro_license.mjs';
 
 test('C1a & Ask Default: native PreModelSwitch records exact coldWritePenaltyUSD, defaults to ask in AUTO_PILOT, and includes cost + payback turns', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c1a-ledger-'));
   const ledgerPath = path.join(tmpDir, 'horizon_ledger.jsonl');
   try {
+    activateLocalTrial({ homeDir: tmpDir });
     const res = runPreModelSwitchHook(
       {
         hook_event_name: 'PreModelSwitch',
@@ -63,6 +65,7 @@ test('C1a & Ask Default: native PreModelSwitch records exact coldWritePenaltyUSD
       },
       {
         cwd: tmpDir,
+        homeDir: tmpDir,
         ledgerPath,
         bypassLicense: true
       }
@@ -110,6 +113,7 @@ test('C1a & Ask Default: native PreModelSwitch records exact coldWritePenaltyUSD
       },
       {
         cwd: tmpDir,
+        homeDir: tmpDir,
         recordLedger: false,
         autoPilotDecision: 'deny',
         bypassLicense: true
@@ -134,6 +138,7 @@ test('C1a & Ask Default: native PreModelSwitch records exact coldWritePenaltyUSD
       },
       {
         cwd: tmpDir,
+        homeDir: tmpDir,
         recordLedger: false,
         bypassLicense: true
       }
@@ -151,6 +156,7 @@ test('C1b: runPreModelSwitchHook treats expired promptCache.expiresAt as cold ev
   const baseNow = 1_700_000_000_000;
   const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'c1b-home-'));
   try {
+    activateLocalTrial({ homeDir: tmpHome, nowMs: baseNow - 360_000 });
     const calDir = path.join(tmpHome, '.attention-horizon', 'cache', 'sessions');
     fs.mkdirSync(calDir, { recursive: true });
     fs.writeFileSync(
@@ -345,52 +351,58 @@ test('C1d: DET-09 preserves unconditional defer by default and enforces C*_mut b
 });
 
 test('Offline S1 boundary: Opus 4.6 -> Sonnet 4.6 C* = 4,615 (delta=0) and 4,885 (delta=350) threshold precision', () => {
-  for (const [tokens, delta, expectedCStar, expectHold] of [
-    [3450, 0, 4615, false],
-    [4615, 0, 4615, false],
-    [4616, 0, 4615, true],
-    [3450, 350, 4885, false],
-    [4885, 350, 4885, false],
-    [4886, 350, 4885, true],
-    [5550, 350, 4885, true]
-  ]) {
-    const res = runPreModelSwitchHook(
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 's1-boundary-home-'));
+  try {
+    activateLocalTrial({ homeDir: tmpHome });
+    for (const [tokens, delta, expectedCStar, expectHold] of [
+      [3450, 0, 4615, false],
+      [4615, 0, 4615, false],
+      [4616, 0, 4615, true],
+      [3450, 350, 4885, false],
+      [4885, 350, 4885, false],
+      [4886, 350, 4885, true],
+      [5550, 350, 4885, true]
+    ]) {
+      const res = runPreModelSwitchHook(
+        {
+          hook_event_name: 'PreModelSwitch',
+          session_id: `sess-s1-${tokens}-${delta}`,
+          from_model: 'claude-opus-4-6',
+          to_model: 'claude-sonnet-4-6',
+          context_tokens: tokens,
+          uncached_delta_tokens: delta,
+          prompt_cache_warm: true,
+          requests_per_turn: 1,
+          expected_output_tokens: 1500,
+          mode: 'AUTO_PILOT'
+        },
+        { homeDir: tmpHome, recordLedger: false, bypassLicense: true, minSwitchPenaltyUSD: 0 }
+      );
+      assert.equal(res.verdict.breakEven.breakEvenTokens, expectedCStar);
+      assert.equal(res.verdict.blocked, expectHold, `tokens=${tokens}, delta=${delta}`);
+      assert.equal(res.verdict.decision, expectHold ? 'ask' : 'allow');
+    }
+
+    // Sibling: without explicit/observed R/O data above C*, warns with advisory instead of blocking
+    const resDefaults = runPreModelSwitchHook(
       {
         hook_event_name: 'PreModelSwitch',
-        session_id: `sess-s1-${tokens}-${delta}`,
+        session_id: 'sess-s1-defaults',
         from_model: 'claude-opus-4-6',
         to_model: 'claude-sonnet-4-6',
-        context_tokens: tokens,
-        uncached_delta_tokens: delta,
+        context_tokens: 5550,
+        uncached_delta_tokens: 350,
         prompt_cache_warm: true,
-        requests_per_turn: 1,
-        expected_output_tokens: 1500,
         mode: 'AUTO_PILOT'
       },
-      { recordLedger: false, bypassLicense: true, minSwitchPenaltyUSD: 0 }
+      { homeDir: tmpHome, recordLedger: false, bypassLicense: true, minSwitchPenaltyUSD: 0 }
     );
-    assert.equal(res.verdict.breakEven.breakEvenTokens, expectedCStar);
-    assert.equal(res.verdict.blocked, expectHold, `tokens=${tokens}, delta=${delta}`);
-    assert.equal(res.verdict.decision, expectHold ? 'ask' : 'allow');
+    assert.equal(resDefaults.verdict.advisory, true);
+    assert.equal(resDefaults.verdict.blocked, false);
+    assert.equal(resDefaults.verdict.basedMostlyOnDefaults, true);
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
   }
-
-  // Sibling: without explicit/observed R/O data above C*, warns with advisory instead of blocking
-  const resDefaults = runPreModelSwitchHook(
-    {
-      hook_event_name: 'PreModelSwitch',
-      session_id: 'sess-s1-defaults',
-      from_model: 'claude-opus-4-6',
-      to_model: 'claude-sonnet-4-6',
-      context_tokens: 5550,
-      uncached_delta_tokens: 350,
-      prompt_cache_warm: true,
-      mode: 'AUTO_PILOT'
-    },
-    { recordLedger: false, bypassLicense: true, minSwitchPenaltyUSD: 0 }
-  );
-  assert.equal(resDefaults.verdict.advisory, true);
-  assert.equal(resDefaults.verdict.blocked, false);
-  assert.equal(resDefaults.verdict.basedMostlyOnDefaults, true);
 });
 
 test('C1e & Empirical Horizon Prior: rule_v1 default preserved, explicit expectedRemainingTurns and 496-session prior supported', () => {
@@ -625,6 +637,7 @@ test('Stop-hook calibration feeds turnsCompleted and rolling median output into 
       prompt_cache_warm: true,
       mode: 'AUTO_PILOT'
     };
+    activateLocalTrial({ homeDir: tmpDir });
     const commonOpts = { cwd: tmpDir, homeDir: tmpDir, recordLedger: false, bypassLicense: true };
 
     const askRes = runPreModelSwitchHook({ ...commonEvent, expected_remaining_turns: 6 }, commonOpts);
@@ -868,46 +881,52 @@ test('Item 2: DET-08 uses horizon-aware C_max (always allows when cMaxDen <= 0) 
   assert.equal(holdCase.horizonMaxCachedTokens, 13_659);
   assert.equal(holdCase.shouldHold, true);
 
-  const holdHook = runPreModelSwitchHook(
-    {
-      hook_event_name: 'PreModelSwitch',
-      session_id: 'sess-cmax-hold',
-      from_model: 'claude-opus-4-6',
-      to_model: 'claude-sonnet-4-6',
-      context_tokens: 18_927,
-      prompt_cache_warm: true,
-      cache_ttl: '5m',
-      expected_output_tokens: 400,
-      expected_remaining_turns: 6,
-      requests_per_turn: 1,
-      mode: 'AUTO_PILOT'
-    },
-    { recordLedger: false, bypassLicense: true, useSessionCalibration: false }
-  );
-  assert.equal(holdHook.verdict.decision, 'ask');
-  assert.ok(holdHook.verdict.reason.includes('C_max = 13,659 tokens'));
-  assert.ok(!holdHook.verdict.reason.includes('C*'));
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'item2-cmax-home-'));
+  try {
+    activateLocalTrial({ homeDir: tmpHome });
+    const holdHook = runPreModelSwitchHook(
+      {
+        hook_event_name: 'PreModelSwitch',
+        session_id: 'sess-cmax-hold',
+        from_model: 'claude-opus-4-6',
+        to_model: 'claude-sonnet-4-6',
+        context_tokens: 18_927,
+        prompt_cache_warm: true,
+        cache_ttl: '5m',
+        expected_output_tokens: 400,
+        expected_remaining_turns: 6,
+        requests_per_turn: 1,
+        mode: 'AUTO_PILOT'
+      },
+      { homeDir: tmpHome, recordLedger: false, bypassLicense: true, useSessionCalibration: false }
+    );
+    assert.equal(holdHook.verdict.decision, 'ask');
+    assert.ok(holdHook.verdict.reason.includes('C_max = 13,659 tokens'));
+    assert.ok(!holdHook.verdict.reason.includes('C*'));
 
-  // Denominator <= 0 case: H = 17, R = 1 => (3.75 - 0.50) - 17 * 0.20 = -0.15 <= 0 => C_max = Infinity (always allow)
-  const allowDenLeZero = runPreModelSwitchHook(
-    {
-      hook_event_name: 'PreModelSwitch',
-      session_id: 'sess-cmax-inf',
-      from_model: 'claude-opus-4-6',
-      to_model: 'claude-sonnet-4-6',
-      context_tokens: 120_000,
-      prompt_cache_warm: true,
-      cache_ttl: '5m',
-      expected_output_tokens: 150,
-      expected_remaining_turns: 17,
-      requests_per_turn: 1,
-      mode: 'AUTO_PILOT'
-    },
-    { recordLedger: false, bypassLicense: true, useSessionCalibration: false }
-  );
-  assert.equal(allowDenLeZero.verdict.breakEven.horizonMaxCachedTokens, Infinity);
-  assert.equal(allowDenLeZero.verdict.decision, 'allow');
-  assert.ok(allowDenLeZero.verdict.notableAllowNote.includes('C_max = unbounded'));
+    // Denominator <= 0 case: H = 17, R = 1 => (3.75 - 0.50) - 17 * 0.20 = -0.15 <= 0 => C_max = Infinity (always allow)
+    const allowDenLeZero = runPreModelSwitchHook(
+      {
+        hook_event_name: 'PreModelSwitch',
+        session_id: 'sess-cmax-inf',
+        from_model: 'claude-opus-4-6',
+        to_model: 'claude-sonnet-4-6',
+        context_tokens: 120_000,
+        prompt_cache_warm: true,
+        cache_ttl: '5m',
+        expected_output_tokens: 150,
+        expected_remaining_turns: 17,
+        requests_per_turn: 1,
+        mode: 'AUTO_PILOT'
+      },
+      { homeDir: tmpHome, recordLedger: false, bypassLicense: true, useSessionCalibration: false }
+    );
+    assert.equal(allowDenLeZero.verdict.breakEven.horizonMaxCachedTokens, Infinity);
+    assert.equal(allowDenLeZero.verdict.decision, 'allow');
+    assert.ok(allowDenLeZero.verdict.notableAllowNote.includes('C_max = unbounded'));
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+  }
 });
 
 test('Item 3: requestsPerTurn scales warm cache read terms (payback drops 11.32 -> 2.19 -> 0.66 turns at C=50k, O=400, 5m)', () => {
@@ -962,6 +981,7 @@ test('Item 4: placeholder shrinkage metadata and H vs H-1 postSwitchRemainingTur
 test('Item 8: privacy-sanitized PreModelSwitch ask vs PostModelSwitch telemetry tracks 0.5 acceptance rate with empty Post stdout', () => {
   const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'switch-telemetry-'));
   try {
+    activateLocalTrial({ homeDir: tmpHome });
     const fakePath = path.join(tmpHome, 'private-user-dir', 'transcript.jsonl');
     const pre1 = runPreModelSwitchHook(
       {
@@ -1100,6 +1120,7 @@ test('Follow-up Item 1: R estimator (prior 2.0, agreement reduction, >=3 local t
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rpt-shrinkage-eval-'));
   try {
+    activateLocalTrial({ homeDir: tmpDir });
     // 1. Simulate L1 @ T3 (2 prior tool turns with R = 2 each + synthetic command entries)
     const txL1 = path.join(tmpDir, 'l1_t2.jsonl');
     const l1Lines = [];

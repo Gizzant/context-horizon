@@ -20,6 +20,7 @@ import {
   createInitialTelemetryState,
   writeLiveStateSnapshot
 } from '../../src/core-isomorphic/telemetry/telemetryBridge.mjs';
+import { activateLocalTrial } from '../../src/core/pro_license.mjs';
 
 const PAIR = { currentModel: 'claude-opus-5-5', targetModel: 'claude-sonnet-5-5', cacheWarm: true };
 
@@ -181,6 +182,7 @@ test('PreModelSwitch passes observed within-turn growth (lastPrompt - firstPromp
 test('PreModelSwitch returns advisory ("based mostly on defaults" + penalty) when hold rests mainly on priors, and blocks in AUTO_PILOT only when both inputs are mostly observed (all source labels)', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'det08-source-labels-'));
   try {
+    activateLocalTrial({ homeDir: tmpDir });
     const assertAdvisoryOnDefaults = (res, label) => {
       assert.equal(res.exitCode, 0, `${label}: exitCode`);
       assert.equal(res.verdict.decision, 'allow', `${label}: decision`);

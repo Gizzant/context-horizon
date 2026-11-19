@@ -107,7 +107,7 @@
     "cli"
   ],
   "author": "Gizzant <security@highbeamdev.com>",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "commercialLicense": "SEE LICENSE IN packages/pro/LICENSE-COMMERCIAL.md",
   "devDependencies": {
     "jsdom": "^29.1.1"

@@ -205,9 +205,10 @@ test('Roadmap Item #6 & #7: ctxtop roast / --roast card, cost-radar --share, and
     assert.equal(radarRes.exitCode, 0);
     assert.match(radarRes.output, /Share: ⚡ Cost Radar:/);
 
-    // Item #7: ctxtop receipt --pdf --out <file.pdf>
+    // Item #7: ctxtop receipt --pdf --out <file.pdf> (requires Pro or active local trial)
+    activateLocalTrial({ homeDir: tmpDir });
     const pdfPath = path.join(tmpDir, 'expense-receipt.pdf');
-    const pdfRes = runCli(['receipt', '--pdf', '--out', pdfPath], { cwd: tmpDir });
+    const pdfRes = runCli(['receipt', '--pdf', '--out', pdfPath], { cwd: tmpDir, homeDir: tmpDir });
     assert.equal(pdfRes.exitCode, 0);
     assert.equal(fs.existsSync(pdfPath), true);
     const pdfRaw = fs.readFileSync(pdfPath, 'utf8');

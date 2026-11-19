@@ -38,12 +38,12 @@
             <tr>
               <td><strong>Free</strong><br /><span class="badge safe">MIT Core</span></td>
               <td><code>$0/mo</code></td>
-              <td>Simple View HUD &amp; 4-rank verdict bar, 40-cell U-curve context map, live 5m/1h cache timers, <code>HOLD_COMPACT</code> warm cache alerts, and all 32 guards.</td>
+              <td>Simple View HUD &amp; 4-rank verdict bar, 40-cell U-curve context map, live 5m/1h cache timers, <code>HOLD_COMPACT</code> warm cache alerts, auto <code>PreToolUse</code> delta-reads &amp; 3rd-read AST stubs (<code>GUARD-4</code>), multi-family FTS5 CLI compression, and all 32 guards.</td>
             </tr>
             <tr>
               <td><strong>Pro</strong><br /><span class="badge accent">Solo Dev</span></td>
               <td><code>$149/yr</code><br />or <code>$199</code> one-time Founder Lifetime (first 200)</td>
-              <td>Auto <code>PreToolUse</code> delta-reads &amp; 3rd-read AST stubs, cross-chat waste tracking, 30-day savings ledger (<code>#tufteBaselineStrip</code>), signed PDF 1.4 expense receipts, and <code>AUTO_PILOT</code> <code>C*</code> switch holds.</td>
+              <td><code>AUTO_PILOT</code> hands-free enforcement &amp; <code>C*</code> switch holds, 30-day chronic offender memory &amp; workspace savings ledger (<code>#tufteBaselineStrip</code>), and signed corporate PDF 1.4 expense receipts (<code>ctxtop receipt --pdf</code>).</td>
             </tr>
             <tr>
               <td><strong>Team</strong><br /><span class="badge">Zero-Cloud FinOps</span></td>
@@ -74,7 +74,7 @@ npx ctxtop license activate &lt;ed25519-license-token&gt;
 npx ctxtop license status --json
 
 # Export a SHA-256 verified Corporate Expense Receipt (PDF 1.4)
-npx ctxtop receipt --pdf --out ./attention-horizon-expense-receipt.pdf
+npx ctxtop receipt --pdf --out ./highbeam-expense-receipt.pdf
 
 # Generate or preview the BYO-Grafana &amp; Datadog Team FinOps Pack
 npx ctxtop team-pack --org "Core Infrastructure" --out ./finops-pack --preview</code></pre>
@@ -85,10 +85,10 @@ npx ctxtop team-pack --org "Core Infrastructure" --out ./finops-pack --preview</
         Every issue below has a fast check or a one-line local fix. Run <code>npx ctxtop doctor</code> first to check host setup and recent hook logs.
       </p>
 
-      <h3 id="quirk-vision-http400">Upstream HTTP 400 on Image / Screenshot Attachments (<code>DET-20</code>)</h3>
+      <h3 id="quirk-vision-http400">Upstream HTTP 400 on Image / Screenshot Attachments (<code>DET-20</code> Vision Quirk / <code>DET-28</code>)</h3>
       <p>
         <strong>Symptom:</strong> Sending a screenshot while Google AI Credit Overages are active fails with HTTP <code>400 Bad Request</code> (<code>"Unable to process input image"</code>).<br />
-        <strong>Resolution:</strong> <code>DET-20</code> (set in <code>config/platformQuirks.json</code>) warns you before sending images during overage mode. Send plain text or DOM snippets until Base Quota resets.
+        <strong>Resolution:</strong> Alongside its primary concurrent file-scope lockfile role (<code>.agents/locks/active_scopes.json</code>), <code>DET-20</code> (configured via <code>config/platformQuirks.json</code>, with the <code>DET-28</code> quota-overage guard) warns before sending images during AI Credit Overage mode. Send plain text or DOM snippets until Base Quota resets.
       </p>
 
       <h3 id="quirk-hybrid-lockout">Preventing 168-Hour Hybrid Quota Lockouts (<code>DET-16</code>)</h3>

@@ -37,7 +37,7 @@ export function buildTeamFinopsArtifacts(options = {}) {
       {
         id: 1,
         type: 'timeseries',
-        title: 'Actual LLM Spend vs. Verified Highbeam Savings (USD)',
+        title: 'Actual LLM Spend vs. Estimated Highbeam Savings (USD)',
         gridPos: { h: 8, w: 12, x: 0, y: 0 },
         targets: [
           {
@@ -46,7 +46,7 @@ export function buildTeamFinopsArtifacts(options = {}) {
           },
           {
             expr: 'sum by (vcs_repository_url_full, model) (attention_horizon_saved_quota_usd)',
-            legendFormat: 'Verified Saved USD ({{model}})'
+            legendFormat: 'Estimated Saved USD ({{model}})'
           }
         ]
       },

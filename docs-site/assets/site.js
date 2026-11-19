@@ -90,9 +90,10 @@
             '</a>' +
             '<span class="brand-divider">/</span>' +
             '<span class="brand-subtitle">Developer Guide</span>' +
-            '<span class="version-pill">ctxtop 4.0</span>' +
+            '<span class="version-pill">ctxtop 4.1</span>' +
           '</div>' +
           '<div class="header-actions">' +
+            '<a href="demo/" class="theme-toggle" style="text-decoration:none;">Live Demo</a>' +
             '<button type="button" class="search-trigger" id="search-open-btn" aria-label="Search documentation">' +
               '<span class="search-trigger-label">Search documentation...</span>' +
               '<span class="search-kbd">' + shortcutLabel + '</span>' +

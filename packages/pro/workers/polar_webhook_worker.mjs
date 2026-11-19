@@ -78,12 +78,111 @@ export const POLAR_LIVE_SKU_CATALOG = Object.freeze({
   team_seat_monthly: Object.freeze({ sku: 'team_seat_monthly', tier: 'team', priceCents: 3900, billingInterval: 'month', defaultSeats: 1, durationDays: 32 })
 });
 
+function parsePolarProductMap(raw) {
+  if (!raw) return {};
+  if (typeof raw === 'object' && !Array.isArray(raw)) return raw;
+  try {
+    const parsed = JSON.parse(String(raw));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch (err) {
+    console.warn('CTXTOP_POLAR_PRODUCT_MAP invalid JSON:', err?.message || err);
+    return {};
+  }
+}
+
+function resolveCatalogSkuSpec(skuKey, ctx) {
+  const { rawSeats, recurringInterval, productName, amountCents, email, ltdEditionNumber, orderId, issuedAt } = ctx;
+  const isAnnual =
+    recurringInterval === 'year' ||
+    productName.includes('annual') ||
+    productName.includes('year');
+  const isTeamSeatMultiple =
+    amountCents > 0 && amountCents !== 29900 && amountCents % 3900 === 0;
+
+  if (skuKey === 'team_seat_monthly') {
+    return {
+      sku: 'team_seat_monthly',
+      tier: 'team',
+      seats: rawSeats > 0 ? rawSeats : isTeamSeatMultiple ? Math.max(1, Math.round(amountCents / 3900)) : 5,
+      email,
+      issuedAt,
+      expiresAt: new Date(Date.now() + (isAnnual ? 366 : 32) * 86400 * 1000).toISOString(),
+      cap: null,
+      ltdEditionNumber: ltdEditionNumber || null,
+      orderId,
+      source: 'polar.sh'
+    };
+  }
+  if (skuKey === 'team_starter') {
+    return {
+      sku: 'team_starter',
+      tier: 'team',
+      seats: rawSeats > 0 ? rawSeats : 5,
+      email,
+      issuedAt,
+      expiresAt: new Date(Date.now() + 366 * 86400 * 1000).toISOString(),
+      cap: null,
+      ltdEditionNumber: ltdEditionNumber || null,
+      orderId,
+      source: 'polar.sh'
+    };
+  }
+  if (skuKey === 'pro_ltd') {
+    return {
+      sku: 'pro_ltd',
+      tier: 'ltd',
+      seats: 1,
+      email,
+      issuedAt,
+      expiresAt: null,
+      cap: 200,
+      ltdEditionNumber: ltdEditionNumber || null,
+      orderId,
+      source: 'polar.sh'
+    };
+  }
+  if (skuKey === 'pro_annual') {
+    return {
+      sku: 'pro_annual',
+      tier: 'pro',
+      seats: 1,
+      email,
+      issuedAt,
+      expiresAt: new Date(Date.now() + 366 * 86400 * 1000).toISOString(),
+      cap: null,
+      ltdEditionNumber: ltdEditionNumber || null,
+      orderId,
+      source: 'polar.sh'
+    };
+  }
+  return {
+    sku: 'pro_monthly',
+    tier: 'pro',
+    seats: 1,
+    email,
+    issuedAt,
+    expiresAt: new Date(Date.now() + 32 * 86400 * 1000).toISOString(),
+    cap: null,
+    ltdEditionNumber: ltdEditionNumber || null,
+    orderId,
+    source: 'polar.sh'
+  };
+}
+
 /**
  * Maps a Polar.sh order/subscription payload to a Highbeam Pro/Team SKU, tier, and seat count.
+ * Prefers explicit Polar `product_id` mapping (`env.CTXTOP_POLAR_PRODUCT_MAP`), then SKU hints /
+ * product names, and uses pre-discount amounts (`subtotal_amount` or `amount + discount_amount`)
+ * for price-band fallback so coupon discounts never downgrade a customer's license tier.
+ *
  * @param {object} eventPayload
+ * @param {object} [env={}]
  */
-export function mapPolarOrderToLicenseSpec(eventPayload = {}) {
+export function mapPolarOrderToLicenseSpec(eventPayload = {}, env = {}) {
   const data = eventPayload.data || eventPayload;
+  const productId = String(
+    data.product_id || data.product?.id || data.price?.product_id || ''
+  ).trim();
   const productName = String(
     data.product?.name || data.product_name || data.price?.product_name || data.tier || 'pro'
   ).toLowerCase();
@@ -97,9 +196,17 @@ export function mapPolarOrderToLicenseSpec(eventPayload = {}) {
   const skuHint = String(
     data.metadata?.sku || data.product?.metadata?.sku || data.sku || ''
   ).toLowerCase();
-  const amountCents = Number(
+  const rawAmountCents = Number(
     data.amount ?? data.total_amount ?? data.price_amount ?? data.price?.price_amount ?? 0
   );
+  const subtotalCents = Number(data.subtotal_amount ?? data.price?.price_amount ?? 0);
+  const discountCents = Math.max(0, Number(data.discount_amount ?? 0));
+  const amountCents =
+    subtotalCents > 0
+      ? subtotalCents
+      : discountCents > 0 && rawAmountCents >= 0
+        ? rawAmountCents + discountCents
+        : rawAmountCents;
   const rawSeats = Number(data.seats || data.quantity || data.metadata?.seats || 0);
   const ltdEditionNumber = Number(
     data.metadata?.ltd_edition_number ?? data.ltd_edition_number ?? data.ltd_count ?? 0
@@ -111,12 +218,29 @@ export function mapPolarOrderToLicenseSpec(eventPayload = {}) {
     data.email ||
     '';
 
+  const issuedAt = new Date().toISOString();
+  const productMap = parsePolarProductMap(
+    env?.CTXTOP_POLAR_PRODUCT_MAP ?? process.env.CTXTOP_POLAR_PRODUCT_MAP
+  );
+  const mappedSku = productId ? String(productMap[productId] || '').trim() : '';
+  if (mappedSku && POLAR_LIVE_SKU_CATALOG[mappedSku]) {
+    return resolveCatalogSkuSpec(mappedSku, {
+      rawSeats,
+      recurringInterval,
+      productName,
+      amountCents,
+      email,
+      ltdEditionNumber,
+      orderId: data.id || null,
+      issuedAt
+    });
+  }
+
   let sku = 'pro_monthly';
   let tier = 'pro';
   let seats = 1;
   let expiresAt = null;
   let cap = null;
-  const issuedAt = new Date().toISOString();
 
   const isExplicitTeam = productName.includes('team') || skuHint.includes('team');
   const isExplicitPerSeat =
@@ -265,14 +389,17 @@ export function handlePolarWebhookRequest(reqInput = {}, env = {}) {
     };
   }
 
-  const spec = mapPolarOrderToLicenseSpec(parsed);
+  const spec = mapPolarOrderToLicenseSpec(parsed, env);
   const maxLtdCap = Number(env.CTXTOP_LTD_MAX_CAP || 200);
   const soldCount = Number(env.CTXTOP_LTD_SOLD_COUNT || 0);
-  if (
+  const enforceHardCap =
+    String(env.CTXTOP_ENFORCE_HARD_409_CAP ?? 'true').toLowerCase() !== 'false';
+  const isOverLtdCap =
     spec.tier === 'ltd' &&
     ((spec.ltdEditionNumber !== null && spec.ltdEditionNumber > maxLtdCap) ||
-      soldCount >= maxLtdCap)
-  ) {
+      soldCount >= maxLtdCap);
+
+  if (isOverLtdCap && enforceHardCap) {
     return {
       status: 409,
       body: {
@@ -281,6 +408,14 @@ export function handlePolarWebhookRequest(reqInput = {}, env = {}) {
         cap: maxLtdCap
       }
     };
+  }
+
+  let overCapFulfilled = false;
+  if (isOverLtdCap) {
+    overCapFulfilled = true;
+    console.warn(
+      `LTD cap (${maxLtdCap}) exceeded on already-paid order ${spec.orderId || 'unknown'}; fulfilling key to protect paid customer.`
+    );
   }
 
   const licenseKey = signProLicensePayload(spec, privateKeyPem);
@@ -296,6 +431,9 @@ export function handlePolarWebhookRequest(reqInput = {}, env = {}) {
       cap: spec.cap,
       email: spec.email,
       expiresAt: spec.expiresAt,
+      ...(overCapFulfilled
+        ? { overCapFulfilled: true, warning: 'LTD_CAP_200_EXCEEDED_HONOR_PAID' }
+        : {}),
       licenseKey,
       activationCommand: `npx ctxtop license activate ${licenseKey}`
     }
@@ -364,7 +502,11 @@ export async function processPolarWebhook(reqInput = {}, env = {}, deps = {}) {
 
   let res;
   try {
-    res = handlePolarWebhookRequest(reqInput, { ...env, CTXTOP_LTD_SOLD_COUNT: soldCount });
+    res = handlePolarWebhookRequest(reqInput, {
+      ...env,
+      CTXTOP_LTD_SOLD_COUNT: soldCount,
+      CTXTOP_ENFORCE_HARD_409_CAP: env.CTXTOP_ENFORCE_HARD_409_CAP ?? 'false'
+    });
   } catch (err) {
     return jsonResponse(500, {
       ok: false,
@@ -443,9 +585,7 @@ export default {
       return new Response(
         JSON.stringify({
           ok: false,
-          error: 'WORKER_EXCEPTION',
-          message: err?.message || String(err),
-          stack: err?.stack || ''
+          error: 'INTERNAL_WORKER_ERROR'
         }),
         {
           status: 500,

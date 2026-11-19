@@ -3,7 +3,7 @@
 Copyright (c) 2026 Gizzant (Highbeam). All rights reserved.
 
 ## 1. Scope of This License
-This Commercial Source-Available License governs all files inside `packages/pro/**`, `src/core/pro_license.mjs`, and the commercial features unlocked by an Highbeam Pro (`CTXP1`) cryptographic license key (`AUTO_PILOT` active cache/model-switch locks, cross-harness `DET-20` lease enforcement, signed Corporate PDF 1.4 Expense Receipts, and the Team FinOps OTel/Grafana Pack).
+This Commercial Source-Available License governs all files inside `packages/pro/**`, `src/core/pro_license.mjs`, and the commercial features unlocked by a Highbeam Pro (`CTXP1`) cryptographic license key (`AUTO_PILOT` active cache/model-switch locks, cross-harness `DET-20` lease enforcement, signed Corporate PDF 1.4 Expense Receipts, and the Team FinOps OTel/Grafana Pack).
 
 All other components of this repository (`@ctxtop/core`, `@ctxtop/antigravity`, `@ctxtop/claude-code`, the 40-cell HUD, 5-minute TTL clock, `--roast`, and advisory `COACH` mode) remain licensed under the root **MIT License**.
 
