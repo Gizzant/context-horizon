@@ -52,7 +52,7 @@ const [
 
 export const MCP_SERVER_INFO = Object.freeze({
   name: '@ctxtop/mcp',
-  version: '4.2.0',
+  version: '4.2.1',
   protocolVersion: '2024-11-05'
 });
 
