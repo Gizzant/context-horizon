@@ -255,6 +255,7 @@ export function isFrontierSwarmModel(modelId = '') {
   if (
     desc &&
     (desc.family === 'carbon' ||
+      desc.family === 'neon' ||
       desc.family === 'argon' ||
       desc.family === 'opus' ||
       desc.family === 'sonnet' ||
@@ -266,6 +267,7 @@ export function isFrontierSwarmModel(modelId = '') {
   const norm = normalizeModelId(modelId);
   return (
     norm.includes('carbon') ||
+    norm.includes('neon') ||
     norm.includes('argon') ||
     norm.includes('opus') ||
     norm.includes('fable') ||

@@ -1301,9 +1301,10 @@ function registerComplianceTestSuite() {
     const pkgPath = path.join(PROJECT_ROOT, 'package.json');
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
 
-    assert.equal(pkg.name, 'ctxtop');
+    assert.equal(pkg.name, 'highbeam-cli');
     assert.equal(pkg.type, 'module');
     assert.deepEqual(pkg.dependencies || {}, {});
+    assert.ok(pkg.bin['highbeam']);
     assert.ok(pkg.bin['ctxtop']);
     assert.ok(pkg.bin['ah-claude']);
     assert.ok(pkg.bin['attention-horizon-claude']);

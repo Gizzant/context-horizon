@@ -96,7 +96,8 @@ describe('v4.0 RC Remediation & @ctxtop/mcp Regression Suite', () => {
       pkg.bugs.url.includes('context-horizon') ||
       pkg.bugs.url.includes('attention-horizon-antigravity')
     );
-    assert.equal(pkg.license, 'MIT');
+    assert.equal(pkg.license, 'SEE LICENSE IN LICENSE');
+    assert.equal(pkg.commercialLicense, 'SEE LICENSE IN packages/pro/LICENSE-COMMERCIAL.md');
     assert.ok(Array.isArray(pkg.files) && pkg.files.includes('packages/mcp/') && pkg.files.includes('packages/pro/'));
 
     assert.equal(PRO_PRICING_TIERS.pro_monthly.priceUSD, PLG_TIER_MATRIX.pro.priceMonthlyUSD);

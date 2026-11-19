@@ -504,7 +504,7 @@ describe('Option A (14-Day Reverse Trial -> Shadow Auto) & RSL Hook Path Fix', (
       const shadowEl = ccDom.window.document.getElementById('claudeShadowAutoRow');
       assert.ok(shadowEl, 'Claude HUD must render #claudeShadowAutoRow when unentitled & incidents > 0');
       assert.match(shadowEl.textContent, /\$0\.65/);
-      assert.match(shadowEl.textContent, /npx ctxtop license activate/);
+      assert.match(shadowEl.textContent, /npx highbeam-cli license activate/);
       const visibleSimpleText =
         ccDom.window.document.getElementById('simpleViewContainer')?.textContent || '';
       assert.equal(

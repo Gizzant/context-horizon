@@ -48,7 +48,7 @@
               <td><strong>Execution Path</strong></td>
               <td>CLI Hooks + Local HTTP/SSE Sidecar Server + Micro-IPC</td>
               <td>Command hooks (<code>hooks/handlers/*.mjs</code>, one short Node process per call)</td>
-              <td>On-demand MCP tool calls (<code>ah-mcp</code> / <code>ctxtop-mcp</code>)</td>
+              <td>On-demand MCP tool calls (<code>highbeam-mcp</code> / <code>ah-mcp</code> / <code>ctxtop-mcp</code>)</td>
             </tr>
             <tr>
               <td><strong>Primary Visual UI</strong></td>
@@ -79,7 +79,7 @@
 
       <h3 id="antigravity-sidecar-and-ui">Sidecar Daemon &amp; Simple / Advanced WebView</h3>
       <p>
-        <code>sidecars/horizon-daemon/sidecar.json</code> starts <code>node --no-warnings server.mjs</code> on local port <code>62935</code> (trying <code>62935..62945</code> if busy). It mounts straight into Antigravity's side pane via <code>SIDECAR_UI_ENTRYPOINT_AUX_PANE</code>. You can also open it from chat via the <code>sidecar://agy-horizon-flightcheck/horizon-daemon/</code> pill or run <code>npx ctxtop --serve</code> in a browser.
+        <code>sidecars/horizon-daemon/sidecar.json</code> starts <code>node --no-warnings server.mjs</code> on local port <code>62935</code> (trying <code>62935..62945</code> if busy). It mounts straight into Antigravity's side pane via <code>SIDECAR_UI_ENTRYPOINT_AUX_PANE</code>. You can also open it from chat via the <code>sidecar://agy-horizon-flightcheck/horizon-daemon/</code> pill or run <code>npx highbeam-cli --serve</code> in a browser.
       </p>
       <p>
         The panel offers a clean <strong>Simple View</strong> (<code>#argonSimpleSurface</code>) and a full <strong>Advanced Workbench</strong> (<code>#argonAdvancedSurface</code>). Both fit narrow <code>360px</code> side panes with auto light/dark themes and strict UI safeguards tested in <code>test/top10_token_wasters_ui.test.mjs</code>:
@@ -141,7 +141,7 @@
           <text x="632" y="74" font-family="var(--font-mono)" font-size="10" fill="var(--ink-secondary)">.claude/cache/</text>
           <text x="632" y="90" font-family="var(--font-mono)" font-size="10" fill="var(--ink)">ah_live_state_&lt;id&gt;.json</text>
           <text x="632" y="118" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">Feeds ah-statusline,</text>
-          <text x="632" y="136" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">ctxtop receipt, panel,</text>
+          <text x="632" y="136" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">highbeam receipt, panel,</text>
           <text x="632" y="154" font-family="var(--font-mono)" font-size="10.5" fill="var(--ink-secondary)">and @ctxtop/mcp tools</text>
         </svg>
       </figure>

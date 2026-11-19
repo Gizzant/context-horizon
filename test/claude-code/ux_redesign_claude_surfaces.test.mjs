@@ -33,6 +33,7 @@ import { renderHorizonPanelHtml } from '../../src/core-isomorphic/ui/horizonPane
 import { createInitialTelemetryState, ingestModTurnEvent } from '../../src/core-isomorphic/telemetry/telemetryBridge.mjs';
 import { runPreModelSwitchHook } from '../../hooks/handlers/pre-model-switch.mjs';
 import { runPreToolUseHook } from '../../hooks/handlers/pre-tool-use.mjs';
+import { activateLocalTrial } from '../../src/core/pro_license.mjs';
 import { runCli } from '../../bin/cli.mjs';
 import register from '../../hooks/register.js';
 
@@ -127,6 +128,7 @@ test('UX-1: 5-Category Claude Code Savings Ledger aggregates This Session vs 30-
 test('UX-2: PreModelSwitch (DET-08), PreToolUse (DET-09), and Subagent Isolation feed the 5-Category Savings breakdown', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ah-ux2-producers-'));
   try {
+    activateLocalTrial({ homeDir: tmpDir });
     // 1. PreModelSwitch DET-08 block in AUTO_PILOT records DET_08_MODEL_SWITCH_HOLD
     const switchRes = runPreModelSwitchHook(
       {
@@ -140,7 +142,7 @@ test('UX-2: PreModelSwitch (DET-08), PreToolUse (DET-09), and Subagent Isolation
         expected_output_tokens: 1500,
         turn_id: 'turn-sw-1'
       },
-      { cwd: tmpDir }
+      { cwd: tmpDir, homeDir: tmpDir }
     );
     assert.equal(switchRes.verdict.blocked, true);
 
@@ -154,7 +156,7 @@ test('UX-2: PreModelSwitch (DET-08), PreToolUse (DET-09), and Subagent Isolation
         cached_tokens: 50_000,
         cache_warm: true
       },
-      { cwd: tmpDir, recordLedger: false }
+      { cwd: tmpDir, homeDir: tmpDir, recordLedger: false }
     );
     assert.equal(switchDefaultsRes.verdict.advisory, true);
     assert.equal(switchDefaultsRes.verdict.blocked, false);
@@ -179,7 +181,7 @@ test('UX-2: PreModelSwitch (DET-08), PreToolUse (DET-09), and Subagent Isolation
           new_string: 'b'
         }
       },
-      { cwd: tmpDir, telemetryState }
+      { cwd: tmpDir, homeDir: tmpDir, telemetryState }
     );
     assert.equal(fenceRes.verdict.triggered, true);
     assert.equal(fenceRes.verdict.detectorId, 'DET-09');

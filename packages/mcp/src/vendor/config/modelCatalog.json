@@ -234,6 +234,69 @@
         }
       ]
     },
+    "gemini-4-neon": {
+      "id": "gemini-4-neon",
+      "aliases": [
+        "gemini-4-neon-xhigh",
+        "gemini-4-neon-extra-high",
+        "gemini-4-neon-high",
+        "gemini-4-neon-medium",
+        "gemini-4-neon-med",
+        "gemini-4-neon-low",
+        "gemini-pro-orchestrator-neon",
+        "orchestrator-neon"
+      ],
+      "family": "neon",
+      "label": "Gemini 4 Neon",
+      "supported_efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "caching_mode": "implicit_only",
+      "supports_explicit_cache": false,
+      "antigravity_min_tier": "pro",
+      "shared_pool_ceiling": 1048576,
+      "max_output_tokens": 65536,
+      "deprecated_after": null,
+      "weights": {
+        "low": 2.4,
+        "med": 4.5,
+        "medium": 4.5,
+        "high": 7.5,
+        "xhigh": 11
+      },
+      "quota_multipliers": {
+        "low": 2.4,
+        "med": 4.5,
+        "medium": 4.5,
+        "high": 7.5,
+        "xhigh": 11
+      },
+      "rate_schedules": [
+        {
+          "id": "neon-standard-from-2026-11-18",
+          "window": "standard",
+          "effective_from_utc": null,
+          "effective_until_utc": null,
+          "standard": {
+            "input_per_1m": 3,
+            "output_per_1m": 15,
+            "write_5m_per_1m": 3,
+            "write_1h_per_1m": 3,
+            "cached_read_per_1m": 0.15
+          },
+          "priority": {
+            "input_per_1m": 5.4,
+            "output_per_1m": 27,
+            "write_5m_per_1m": 5.4,
+            "write_1h_per_1m": 5.4,
+            "cached_read_per_1m": 0.15
+          }
+        }
+      ]
+    },
     "gemini-4-hydrogen": {
       "id": "gemini-4-hydrogen",
       "aliases": [
@@ -303,7 +366,8 @@
         "gemini-3.8-flash-high",
         "gemini-3.8-flash-medium",
         "gemini-3.8-flash-med",
-        "gemini-3.8-flash-low"
+        "gemini-3.8-flash-low",
+        "gemini-flash-worker-agy"
       ],
       "family": "flash",
       "label": "Gemini 3.8 Flash",
@@ -1204,7 +1268,11 @@
     "gpt-oss-120b": {
       "id": "gpt-oss-120b",
       "aliases": [
-        "gpt-oss"
+        "gpt-oss",
+        "gpt-oss-120b-medium",
+        "gpt-oss-120b-med",
+        "gpt-oss-120b-low",
+        "gpt-oss-120b-high"
       ],
       "family": "gpt-oss",
       "label": "GPT-OSS 120B",

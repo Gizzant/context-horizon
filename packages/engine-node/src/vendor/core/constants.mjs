@@ -166,8 +166,11 @@ export const ANTIGRAVITY_ENUM_ALIASES = Object.freeze({
   'gemini-pro-orchestrator': 'gemini-4-carbon',
   'gemini-pro-orchestrator-argon': 'gemini-4-argon',
   'orchestrator-argon': 'gemini-4-argon',
+  'gemini-pro-orchestrator-neon': 'gemini-4-neon',
+  'orchestrator-neon': 'gemini-4-neon',
   'gemini-pro-orchestrator-hydrogen': 'gemini-4-hydrogen',
-  'orchestrator-hydrogen': 'gemini-4-hydrogen'
+  'orchestrator-hydrogen': 'gemini-4-hydrogen',
+  'gemini-flash-worker-agy': 'gemini-3.8-flash'
 });
 
 export const PLAN_TIER_RANK = Object.freeze({
@@ -285,6 +288,29 @@ export const HYDROGEN_RATE_SCHEDULES = Object.freeze([
       write_5m_per_1m: 2.70,
       write_1h_per_1m: 2.70,
       cached_read_per_1m: 0.075
+    })
+  })
+]);
+
+export const NEON_RATE_SCHEDULES = Object.freeze([
+  Object.freeze({
+    id: 'neon-standard-from-2026-11-18',
+    window: 'standard',
+    effective_from_utc: null,
+    effective_until_utc: null,
+    standard: Object.freeze({
+      input_per_1m: 3.00,
+      output_per_1m: 15.00,
+      write_5m_per_1m: 3.00,
+      write_1h_per_1m: 3.00,
+      cached_read_per_1m: 0.15
+    }),
+    priority: Object.freeze({
+      input_per_1m: 5.40,
+      output_per_1m: 27.00,
+      write_5m_per_1m: 5.40,
+      write_1h_per_1m: 5.40,
+      cached_read_per_1m: 0.15
     })
   })
 ]);
@@ -417,6 +443,31 @@ export const MODEL_REGISTRY = Object.freeze({
     deprecated_after: null,
     rate_schedules: CARBON_RATE_SCHEDULES
   }),
+  'gemini-4-neon': Object.freeze({
+    id: 'gemini-4-neon',
+    aliases: Object.freeze([
+      'gemini-4-neon-xhigh',
+      'gemini-4-neon-extra-high',
+      'gemini-4-neon-high',
+      'gemini-4-neon-medium',
+      'gemini-4-neon-med',
+      'gemini-4-neon-low',
+      'gemini-pro-orchestrator-neon',
+      'orchestrator-neon'
+    ]),
+    family: 'neon',
+    label: 'Gemini 4 Neon',
+    supported_efforts: Object.freeze(['low', 'medium', 'high', 'xhigh']),
+    supported_effort_tiers: Object.freeze(['low', 'medium', 'high', 'xhigh']),
+    caching_mode: 'implicit_only',
+    supports_explicit_cache: false,
+    antigravity_min_tier: 'pro',
+    shared_pool_ceiling: SHARED_1M_CONTEXT_POOL_TOKENS,
+    shared_context_pool_tokens: SHARED_1M_CONTEXT_POOL_TOKENS,
+    max_output_tokens: 65536,
+    deprecated_after: null,
+    rate_schedules: NEON_RATE_SCHEDULES
+  }),
   'gemini-4-hydrogen': Object.freeze({
     id: 'gemini-4-hydrogen',
     aliases: Object.freeze([
@@ -448,7 +499,8 @@ export const MODEL_REGISTRY = Object.freeze({
       'gemini-3.8-flash-high',
       'gemini-3.8-flash-medium',
       'gemini-3.8-flash-med',
-      'gemini-3.8-flash-low'
+      'gemini-3.8-flash-low',
+      'gemini-flash-worker-agy'
     ]),
     family: 'flash',
     label: 'Gemini 3.8 Flash',
@@ -742,7 +794,13 @@ export const MODEL_REGISTRY = Object.freeze({
   }),
   'gpt-oss-120b': Object.freeze({
     id: 'gpt-oss-120b',
-    aliases: Object.freeze(['gpt-oss']),
+    aliases: Object.freeze([
+      'gpt-oss',
+      'gpt-oss-120b-medium',
+      'gpt-oss-120b-med',
+      'gpt-oss-120b-low',
+      'gpt-oss-120b-high'
+    ]),
     family: 'gpt-oss',
     label: 'GPT-OSS 120B',
     supported_efforts: Object.freeze(['low', 'medium', 'high']),
@@ -911,7 +969,17 @@ export const MODEL_PRICING_PER_MILLION = {
   'gemini-3.8-flash-medium': 0.75,
   'gemini-3.8-flash-med': 0.75,
   'gemini-3.8-flash-low': 0.75,
+  'gemini-flash-worker-agy': 0.75,
   'gemini-2.0-flash': 0.75,
+  'gemini-4-neon': 3.00,
+  'gemini-4-neon-xhigh': 3.00,
+  'gemini-4-neon-extra-high': 3.00,
+  'gemini-4-neon-high': 3.00,
+  'gemini-4-neon-medium': 3.00,
+  'gemini-4-neon-med': 3.00,
+  'gemini-4-neon-low': 3.00,
+  'gemini-pro-orchestrator-neon': 3.00,
+  'orchestrator-neon': 3.00,
   'gemini-4-argon': 2.00,
   'gemini-4-argon-high': 2.00,
   'gemini-4-argon-medium': 2.00,
@@ -1004,6 +1072,16 @@ export const MODEL_CEILINGS = Object.freeze({
   'gemini-3.8-flash-medium': 256000,
   'gemini-3.8-flash-med': 256000,
   'gemini-3.8-flash-low': 256000,
+  'gemini-flash-worker-agy': 256000,
+  'gemini-4-neon': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'gemini-4-neon-xhigh': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'gemini-4-neon-extra-high': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'gemini-4-neon-high': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'gemini-4-neon-medium': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'gemini-4-neon-med': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'gemini-4-neon-low': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'gemini-pro-orchestrator-neon': SHARED_1M_CONTEXT_POOL_TOKENS,
+  'orchestrator-neon': SHARED_1M_CONTEXT_POOL_TOKENS,
   'gemini-4-argon': SHARED_1M_CONTEXT_POOL_TOKENS,
   'gemini-4-argon-high': SHARED_1M_CONTEXT_POOL_TOKENS,
   'gemini-4-argon-medium': SHARED_1M_CONTEXT_POOL_TOKENS,
@@ -1231,6 +1309,7 @@ export function resolveModelDescriptor(modelId = 'gemini-4-argon') {
   }
 
   if (hyphenated.includes('carbon-cyber-permissive')) return MODEL_REGISTRY['gemini-4-carbon-cyber-permissive'];
+  if (hyphenated.includes('neon')) return MODEL_REGISTRY['gemini-4-neon'];
   if (hyphenated.includes('carbon')) return MODEL_REGISTRY['gemini-4-carbon'];
   if (hyphenated.includes('argon')) return MODEL_REGISTRY['gemini-4-argon'];
   if (hyphenated.includes('hydrogen')) return MODEL_REGISTRY['gemini-4-hydrogen'];
@@ -1707,9 +1786,11 @@ export function computeUnifiedContextPool(usage = {}, modelId = 'gemini-4-carbon
   const desc = resolveModelDescriptor(modelId);
   const norm = normalizeModelId(modelId);
   const isUnified1M = Boolean(
-    (desc && (desc.family === 'carbon' || desc.family === 'argon')) ||
+    (desc && (desc.family === 'carbon' || desc.family === 'argon' || desc.family === 'neon' || desc.family === 'hydrogen')) ||
     norm.includes('carbon') ||
-    norm.includes('argon')
+    norm.includes('argon') ||
+    norm.includes('neon') ||
+    norm.includes('hydrogen')
   );
   const ceiling = isUnified1M
     ? SHARED_1M_CONTEXT_POOL_TOKENS

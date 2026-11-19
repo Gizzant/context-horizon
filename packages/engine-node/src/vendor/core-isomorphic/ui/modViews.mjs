@@ -1341,7 +1341,7 @@ export function renderAdvancedViewPane(state = {}, options = {}) {
     `Session ID: ${state.sessionId || 'default'} | Completed Turns: ${Number(state.turnsCompleted ?? state.window?.turnCount ?? state.sessionTimeline?.totalTurns ?? 0)}`,
     `Zoom Tier : ${grid.zoomTier.label} (${grid.zoomTier.tokensPerCell.toLocaleString('en-US')} tok/cell)`,
     `State Baton: Auto-flushed on PreCompact to .claude/cache/HANDOFF_LATEST.md`,
-    `CLI Tools : npx ctxtop statusline | npx ctxtop radar | npx ctxtop inspect | npx ctxtop doctor`
+    `CLI Tools : npx highbeam-cli statusline | npx highbeam-cli radar | npx highbeam-cli inspect | npx highbeam-cli doctor`
   ];
 
   const rawSections = [

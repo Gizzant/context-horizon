@@ -6,6 +6,11 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 CTXTOP_LTD_MAX_CAP = "200"
 CTXTOP_EMAIL_FROM = "Highbeam <licenses@highbeamdev.com>"
+# Enforce the 200-seat LTD limit in Polar.sh product stock settings; by default the webhook honors
+# already-paid order.paid events (set "true" only if you strictly want HTTP 409 rejections).
+# CTXTOP_ENFORCE_HARD_409_CAP = "false"
+# Map Polar product_id values directly to SKUs so coupons/discounts never alter license tiers:
+# CTXTOP_POLAR_PRODUCT_MAP = '{"prod_monthly_id":"pro_monthly","prod_annual_id":"pro_annual","prod_ltd_id":"pro_ltd","prod_team_id":"team_starter"}'
 
 # Required before deploy: create the namespace and paste its id here.
 #   npx wrangler kv namespace create LICENSE_KV

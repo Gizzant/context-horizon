@@ -1656,12 +1656,24 @@ export function classifyHorizon(rawSteps, options = {}) {
     model: (() => {
       const desc = resolveModelDescriptor(modelId);
       const rawStr = String(options.modelLabel || modelId || '').trim();
+      const rawLower = rawStr.toLowerCase();
+      const orchestratorLabels = {
+        'gemini-pro-orchestrator': 'Orchestrator (Carbon)',
+        'orchestrator': 'Orchestrator (Carbon)',
+        'orchestrator-carbon': 'Orchestrator (Carbon)',
+        'antigravity-orchestrator': 'Orchestrator (Carbon)',
+        'gemini-pro-orchestrator-argon': 'Orchestrator (Argon)',
+        'orchestrator-argon': 'Orchestrator (Argon)',
+        'gemini-pro-orchestrator-neon': 'Orchestrator (Neon)',
+        'orchestrator-neon': 'Orchestrator (Neon)',
+        'gemini-pro-orchestrator-hydrogen': 'Orchestrator (Hydrogen)',
+        'orchestrator-hydrogen': 'Orchestrator (Hydrogen)'
+      };
       const effortOnlyRe = /\s*\((?:low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard|extended[\s-]*thinking)(?:\s*[,/|]\s*(?:low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard|extended[\s-]*thinking))*\)\s*$/i;
       const strippedLabel = rawStr.replace(effortOnlyRe, '').trim();
       const isHumanLabel = /[A-Z ]/.test(strippedLabel) && !/^M\d+$/i.test(strippedLabel);
-      const displayName = isHumanLabel
-        ? strippedLabel
-        : (desc?.label || humanizeModelLabel(modelId));
+      const displayName = orchestratorLabels[rawLower]
+        || (isHumanLabel ? strippedLabel : (desc?.label || humanizeModelLabel(modelId)));
       return {
         id: modelId,
         canonicalId: desc?.id || null,

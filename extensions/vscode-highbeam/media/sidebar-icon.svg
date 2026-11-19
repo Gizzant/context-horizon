@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none">
+  <rect x="2" y="3" width="20" height="18" rx="3" stroke="currentColor" stroke-width="1.6" />
+  <path d="M 5 8.5 Q 12 16.5 19 8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+  <circle cx="5" cy="8.5" r="1.4" fill="currentColor" />
+  <circle cx="19" cy="8.5" r="1.4" fill="currentColor" />
+  <rect x="4.5" y="16" width="2.4" height="2.6" rx="0.6" fill="currentColor" />
+  <rect x="7.6" y="16" width="2.4" height="2.6" rx="0.6" fill="currentColor" />
+  <rect x="10.8" y="16" width="2.4" height="2.6" rx="0.6" fill="currentColor" />
+  <rect x="14" y="16" width="2.4" height="2.6" rx="0.6" fill="currentColor" />
+  <rect x="17.1" y="16" width="2.4" height="2.6" rx="0.6" fill="currentColor" />
+</svg>

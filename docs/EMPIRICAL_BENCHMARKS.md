@@ -1,6 +1,6 @@
-# Highbeam (`ctxtop`) — Empirical Benchmarks, Wire Findings & Runtime Mechanics
+# Highbeam (`highbeam-cli`) — Empirical Benchmarks, Wire Findings & Runtime Mechanics
 
-This document consolidates the granular wire-level measurements, model-catalog mechanics, and explicit verification boundaries behind **Highbeam (`ctxtop` v4.1.0)**.
+This document consolidates the granular wire-level measurements, model-catalog mechanics, and explicit verification boundaries behind **Highbeam (highbeam-cli v4.1)**.
 
 ---
 
@@ -29,7 +29,7 @@ Every empirical claim below cites its source dataset under [`experiments/model-s
 - **`DET-08` Catalog-Derived Horizon Break-Even (`PreModelSwitch`):**
   - All break-even thresholds (`C*`, `C_max`), cold-write penalties, and warm-request paybacks (`~a / b`, where `a = P_write,B - P_read,A` and `b = P_read,A - P_read,B`, less output credit and `R - 1` switch-turn reads) are computed at runtime from `src/config/anthropicModelCatalog.json` with zero hardcoded prices.
   - Uses Stop-hook shrunk rolling-median `requestsPerTurn` (`R`, overridden from cold-start prior once `>= 3` deduplicated sessions exist in `~/.claude/projects/**/*.jsonl`), rolling median prompt growth `g` (capped at `g = 0` until `n >= 5` observed turns in a stable regime), and rolling output shrinkage.
-  - Unknown model IDs return explicit `unknownModel: true` with `null` USD fields, no price-based hold, a 1-line advisory, and a `ctxtop doctor` `WARN`. Under headless `claude -p` / SDK, `"ask"` becomes `blocked_by_hook` (override with `"DET-08": "warn"` or `expectedRemainingTurns`).
+  - Unknown model IDs return explicit `unknownModel: true` with `null` USD fields, no price-based hold, a 1-line advisory, and a `highbeam doctor` `WARN`. Under headless `claude -p` / SDK, `"ask"` becomes `blocked_by_hook` (override with `"DET-08": "warn"` or `expectedRemainingTurns`).
 - **`DET-09` Effort & Rule-File Cache Capabilities (`MODEL_EFFORT_CACHE_CAPABILITIES`):**
   - Defers effort mutations on `4.6` models (`Arm D` `output_config.effort` mutation collapsed Turn-6 hit rate to `0.0%`, `+$0.0853`).
   - Stays silent on measured cache-preserving `claude-sonnet-5-5` (`r2_effort.csv`, `n = 3` with thinking expansion) and `claude-opus-5-5` (`currency_55.csv` `effort_only_55`, reasoning output change **unverified**), and warns with `"unverified for this model"` on untested models.

@@ -407,7 +407,7 @@ export function formatDemoScenarioAnsi(scenarioId = 5, options = {}) {
 
 export async function runDemoShowcase({ scenarioId = null, animate = false, columns = process.stdout.columns || 80 } = {}) {
   const maxCols = columns <= 80 ? Math.min(columns, 80) : 80;
-  console.log('\n' + clampAnsiLine('\x1b[1m\x1b[38;5;51m⚡ HIGHBEAM (ctxtop v4.1.4) — 40-Cell Context Telemetry & Flight Check\x1b[0m', maxCols));
+  console.log('\n' + clampAnsiLine('\x1b[1m\x1b[38;5;51m⚡ HIGHBEAM (ctxtop v4.1.5) — 40-Cell Context Telemetry & Flight Check\x1b[0m', maxCols));
   console.log(clampAnsiLine('\x1b[38;5;244mLegend: \x1b[38;5;51m█ Anchor\x1b[0m \x1b[38;5;141m▓ Memory\x1b[0m \x1b[38;5;205m▓ Bleed\x1b[0m \x1b[38;5;214m▒ Stale\x1b[0m \x1b[38;5;196m▓ Error\x1b[0m \x1b[38;5;82m█ Active\x1b[0m \x1b[38;5;196m![..]! (>140k)\x1b[0m', maxCols) + '\n');
 
   const ids = scenarioId ? [Number(scenarioId)] : (animate ? [2, 4, 5, 6, 7] : [5]);
@@ -419,7 +419,7 @@ export async function runDemoShowcase({ scenarioId = null, animate = false, colu
       if (animate) await new Promise(r => setTimeout(r, 450));
     }
   }
-  console.log('\n' + clampAnsiLine('\x1b[38;5;245mTry: npx ctxtop --demo-animate | Web UI: npx ctxtop ui\x1b[0m', maxCols) + '\n');
+  console.log('\n' + clampAnsiLine('\x1b[38;5;245mTry: npx highbeam-cli --demo-animate | Web UI: npx highbeam-cli ui\x1b[0m', maxCols) + '\n');
 }
 
 export function isHudMain(argv1 = process.argv[1], metaUrl = import.meta.url) {
@@ -826,6 +826,7 @@ export async function runCLI(options = {}) {
     projectId: reconciliation.projectId,
     kiBleedMap: reconciliation.kiBleedMap,
     modelId,
+    modelLabel: resolvedModel.raw,
     stdinContextWindow: stdinData?.context_window,
     stdinQuota: stdinData?.quota,
     genMetadata: activeGenMetadata,

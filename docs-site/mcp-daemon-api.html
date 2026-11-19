@@ -22,7 +22,7 @@
 
       <h2 id="mcp-stdio-server">1. MCP Stdio Server (<code>@ctxtop/mcp</code>)</h2>
       <p>
-        Built in <code>packages/mcp/src/server.mjs</code> (commands <code>ah-mcp</code> and <code>ctxtop-mcp</code>, protocol <code>2024-11-05</code>). The server reads both newline-delimited JSON-RPC 2.0 lines and LSP-style <code>Content-Length: &lt;bytes&gt;\r\n\r\n</code> frames over <code>stdin</code> and <code>stdout</code>.
+        Built in <code>packages/mcp/src/server.mjs</code> (commands <code>highbeam-mcp</code>, <code>ah-mcp</code>, and <code>ctxtop-mcp</code>, protocol <code>2024-11-05</code>). The server reads both newline-delimited JSON-RPC 2.0 lines and LSP-style <code>Content-Length: &lt;bytes&gt;\r\n\r\n</code> frames over <code>stdin</code> and <code>stdout</code>.
       </p>
 
       <div class="code-block">
@@ -31,7 +31,7 @@
   "mcpServers": {
     "attention-horizon": {
       "command": "npx",
-      "args": ["-y", "--package=ctxtop", "ctxtop-mcp"]
+      "args": ["-y", "highbeam-cli", "mcp"]
     }
   }
 }</code></pre>
@@ -67,6 +67,21 @@
               <td><code>export_receipt_pdf</code></td>
               <td><code>cwd?: string</code>, <code>sessionId?: string</code>, <code>email?: string</code>, <code>outPath?: string</code>, <code>allowPreview?: boolean</code> (<code>false</code>)</td>
               <td>Builds a SHA-256 verified PDF 1.4 expense receipt from your 30-day Saved Quota Ledger.</td>
+            </tr>
+            <tr>
+              <td><code>horizon_compress_cli</code></td>
+              <td><code>rawOutput: string</code> (req), <code>command?: string</code>, <code>exitCode?: number</code> (<code>0</code>), <code>sessionId?: string</code>, <code>turnId?: string</code>, <code>forceCompress?: boolean</code> (<code>false</code>), <code>homeDir?: string</code>, <code>dbPath?: string</code></td>
+              <td>Compresses verbose test, lint/build, git diff, or infra CLI outputs into &lt;=25-line diagnostics while archiving raw text in local SQLite FTS5.</td>
+            </tr>
+            <tr>
+              <td><code>horizon_search_logs</code></td>
+              <td><code>turnId?: string</code>, <code>keyword?: string</code>, <code>cwd?: string</code>, <code>homeDir?: string</code>, <code>dbPath?: string</code>, <code>limit?: number</code> (<code>10</code>)</td>
+              <td>Searches local FTS5-archived CLI tool logs and offloaded artifacts by keyword or <code>turnId</code> (read-only).</td>
+            </tr>
+            <tr>
+              <td><code>horizon_audit_sessions</code></td>
+              <td><code>platform?: string</code> (<code>all|antigravity|claude|codex|gemini|cursor</code>), <code>days?: number</code> (<code>7</code>), <code>limit?: number</code> (<code>10</code>), <code>cwd?: string</code></td>
+              <td>Runs a strictly read-only 5-host Sludge Tax &amp; ROI audit across Antigravity, Claude Code, Codex CLI, Gemini CLI, and Cursor transcripts.</td>
             </tr>
           </tbody>
         </table>

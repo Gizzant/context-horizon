@@ -59,7 +59,7 @@
       if (!btn) return;
       const hog = hogs[Number(btn.dataset.hogIdx)];
       if (!hog) return;
-      let copyText = 'npx ctxtop prune';
+      let copyText = 'npx highbeam-cli prune';
       if (hog.kind === 'file') {
         copyText = hog.ignorable
           ? ignorePromptText(hog.path)
@@ -954,7 +954,7 @@
         const targetDesc = dupFiles.length > 0
           ? `${dupFiles.length} duplicate file read${dupFiles.length === 1 ? '' : 's'}${errRowK > 0 ? ' + resolved errors' : ''}`
           : `resolved error logs`;
-        const pruneCmd = 'npx ctxtop prune';
+        const pruneCmd = 'npx highbeam-cli prune';
         currentSessionTokenRows.push({
           impactTokens: surgicalTok,
           html:
@@ -1504,14 +1504,20 @@
     btn.setAttribute('aria-expanded', String(open));
   };
 
-  // Simple / Advanced View Mode Tabs (shadcn/ui Tabs pattern)
+  // Main / Advanced view toggle. The main view follows the protection mode (Off, Coach, Auto);
+  // the header button swaps to the Advanced diagnostics view and back. `data-view-tab` always names
+  // the view a click opens next.
   const savedViewMode = (function() {
     try { return localStorage.getItem('ah.viewMode') || localStorage.getItem('ctxtop.viewMode') || 'simple'; } catch { return 'simple'; }
   })();
   function applyViewMode(mode) {
     document.body.setAttribute('data-view-mode', mode);
     document.querySelectorAll('[data-view-tab]').forEach(b => {
-      b.setAttribute('aria-selected', String(b.dataset.viewTab === mode));
+      const inAdvanced = mode === 'advanced';
+      b.dataset.viewTab = inAdvanced ? 'simple' : 'advanced';
+      b.setAttribute('aria-pressed', String(inAdvanced));
+      b.textContent = inAdvanced ? 'Back' : 'Advanced';
+      b.title = inAdvanced ? 'Return to the main view' : 'Open the full diagnostic & timeline view';
     });
     try {
       localStorage.setItem('ah.viewMode', mode);

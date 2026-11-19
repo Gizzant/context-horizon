@@ -163,26 +163,52 @@ export function buildFullLifecycleHooksBlock(pluginRoot, enabled = true) {
   };
 }
 
-function hasCompleteSixLifecycleHooks(lifecycleBlock, pluginRoot) {
-  if (!lifecycleBlock || typeof lifecycleBlock !== 'object') return false;
+function normalizePathForCompare(p) {
+  const posix = String(p || '').replace(/\\/g, '/');
+  return process.platform === 'win32' ? posix.toLowerCase() : posix;
+}
+
+function diagnoseSixLifecycleHooks(lifecycleBlock, pluginRoot) {
+  if (!lifecycleBlock || typeof lifecycleBlock !== 'object') {
+    return { valid: false, reason: 'MISSING_LIFECYCLE_BLOCK' };
+  }
   const requiredEvents = ['SessionStart', 'PreInvocation', 'PostInvocation', 'Stop', 'PreToolUse', 'PostToolUse'];
   for (const ev of requiredEvents) {
-    if (!Array.isArray(lifecycleBlock[ev]) || lifecycleBlock[ev].length === 0) return false;
+    if (!Array.isArray(lifecycleBlock[ev]) || lifecycleBlock[ev].length === 0) {
+      return { valid: false, reason: `MISSING_EVENT:${ev}` };
+    }
   }
   const normPre = path.join(pluginRoot, 'src/hooks/pre_invocation.mjs').replace(/\\/g, '/');
+  const normPreCmp = normalizePathForCompare(normPre);
   const preCmd = String(lifecycleBlock.PreInvocation?.[0]?.command || '');
   const preToolCmd = String(lifecycleBlock.PreToolUse?.[0]?.hooks?.[0]?.command || '');
   const expectQuoted = /\s/.test(normPre);
-  if (!preCmd.includes(normPre)) return false;
-  if (!expectQuoted && (preCmd.includes(`"${normPre}"`) || preToolCmd.includes(`"${normPre}"`))) return false;
-  if (!preToolCmd.includes('--event=PreToolUse')) return false;
+  if (!normalizePathForCompare(preCmd).includes(normPreCmp) || !normalizePathForCompare(preToolCmd).includes(normPreCmp)) {
+    return {
+      valid: false,
+      reason: `PATH_DRIFT: expected command targeting ${normPre}, got "${preCmd}"`
+    };
+  }
+  const preCmdCmp = normalizePathForCompare(preCmd);
+  const preToolCmdCmp = normalizePathForCompare(preToolCmd);
+  if (!expectQuoted && (preCmdCmp.includes(`"${normPreCmp}"`) || preToolCmdCmp.includes(`"${normPreCmp}"`))) {
+    return { valid: false, reason: `UNEXPECTED_QUOTES: unspaced path must not be quoted (${normPre})` };
+  }
+  if (!preToolCmd.includes('--event=PreToolUse')) {
+    return { valid: false, reason: 'MISSING_PRETOOLUSE_FLAG: expected --event=PreToolUse' };
+  }
   const preMatcher = String(lifecycleBlock.PreToolUse?.[0]?.matcher || '');
   const postMatcher = String(lifecycleBlock.PostToolUse?.[0]?.matcher || '');
   const allowedPreMatchers = new Set([LEAN_PRE_TOOL_HOOK_MATCHER, ULTRA_LEAN_PRE_TOOL_HOOK_MATCHER, FULL_TOOL_HOOK_MATCHER]);
   const allowedPostMatchers = new Set([LEAN_POST_TOOL_HOOK_MATCHER, FULL_TOOL_HOOK_MATCHER]);
-  if (!allowedPreMatchers.has(preMatcher)) return false;
-  if (!allowedPostMatchers.has(postMatcher)) return false;
-  return true;
+  if (!allowedPreMatchers.has(preMatcher) || !allowedPostMatchers.has(postMatcher)) {
+    return { valid: false, reason: 'BAD_MATCHER: PreToolUse or PostToolUse matcher does not match widened canonical set' };
+  }
+  return { valid: true, reason: null };
+}
+
+function hasCompleteSixLifecycleHooks(lifecycleBlock, pluginRoot) {
+  return diagnoseSixLifecycleHooks(lifecycleBlock, pluginRoot).valid;
 }
 
 export function buildRslPostmortemHooksBlock(pluginRoot, enabled = true) {
@@ -204,9 +230,9 @@ export function buildRslPostmortemHooksBlock(pluginRoot, enabled = true) {
 
 function hasCompleteRslPostmortemHooks(rslBlock, pluginRoot) {
   if (!rslBlock || typeof rslBlock !== 'object') return false;
-  const normRsl = path.join(pluginRoot, 'src/hooks/antigravity_rsl_hook.mjs').replace(/\\/g, '/');
-  const stopCmd = String(rslBlock.Stop?.[0]?.command || '');
-  const startCmd = String(rslBlock.SessionStart?.[0]?.command || '');
+  const normRsl = normalizePathForCompare(path.join(pluginRoot, 'src/hooks/antigravity_rsl_hook.mjs'));
+  const stopCmd = normalizePathForCompare(rslBlock.Stop?.[0]?.command || '');
+  const startCmd = normalizePathForCompare(rslBlock.SessionStart?.[0]?.command || '');
   return stopCmd.includes(normRsl) && startCmd.includes(normRsl) && !Array.isArray(rslBlock.PostToolUse);
 }
 
@@ -410,10 +436,12 @@ export function syncAndVerifyMirrors({
               existingEnabled = parsedHooks['horizon-flightcheck-lifecycle'].enabled;
             }
             const hasBackslashes = /node[^"]*\\/.test(rawHooks);
+            const hasTopLevelHooks = Boolean(parsedHooks?.hooks);
             if (
               !hasBackslashes &&
               hasCompleteSixLifecycleHooks(parsedHooks?.['horizon-flightcheck-lifecycle'], root) &&
-              hasCompleteRslPostmortemHooks(parsedHooks?.['ctxtop-rsl-postmortem'], root)
+              hasCompleteRslPostmortemHooks(parsedHooks?.['ctxtop-rsl-postmortem'], root) &&
+              (!hasTopLevelHooks || hasCompleteSixLifecycleHooks(parsedHooks.hooks, root))
             ) {
               needsRewrite = false;
             }
@@ -423,9 +451,13 @@ export function syncAndVerifyMirrors({
           }
         }
         if (needsRewrite) {
+          const lifecycleBlock = buildFullLifecycleHooksBlock(root, existingEnabled);
+          const { enabled: _ignoredEnabled, ...cleanHooksBlock } = lifecycleBlock;
+          void _ignoredEnabled;
           const updatedHooks = {
             ...parsedHooks,
-            'horizon-flightcheck-lifecycle': buildFullLifecycleHooksBlock(root, existingEnabled),
+            hooks: cleanHooksBlock,
+            'horizon-flightcheck-lifecycle': lifecycleBlock,
             'ctxtop-rsl-postmortem': buildRslPostmortemHooksBlock(root, existingEnabled)
           };
           atomicWriteFileSync(hooksPath, JSON.stringify(updatedHooks, null, 2) + '\n', { encoding: 'utf8' });
@@ -440,9 +472,16 @@ export function syncAndVerifyMirrors({
               : true;
             if (
               !hasCompleteSixLifecycleHooks(parsedHorizon['horizon-flightcheck-lifecycle'], root) ||
-              !hasCompleteRslPostmortemHooks(parsedHorizon['ctxtop-rsl-postmortem'], root)
+              !hasCompleteRslPostmortemHooks(parsedHorizon['ctxtop-rsl-postmortem'], root) ||
+              (parsedHorizon.hooks && !hasCompleteSixLifecycleHooks(parsedHorizon.hooks, root))
             ) {
-              parsedHorizon['horizon-flightcheck-lifecycle'] = buildFullLifecycleHooksBlock(root, en);
+              const lifecycleBlock = buildFullLifecycleHooksBlock(root, en);
+              const { enabled: _ignoredEn, ...cleanHooksBlock } = lifecycleBlock;
+              void _ignoredEn;
+              if (parsedHorizon.hooks) {
+                parsedHorizon.hooks = cleanHooksBlock;
+              }
+              parsedHorizon['horizon-flightcheck-lifecycle'] = lifecycleBlock;
               parsedHorizon['ctxtop-rsl-postmortem'] = buildRslPostmortemHooksBlock(root, en);
               atomicWriteFileSync(hooksPath, JSON.stringify(parsedHorizon, null, 2) + '\n', { encoding: 'utf8' });
             }
@@ -577,8 +616,14 @@ export function syncAndVerifyMirrors({
       } else {
         const hJson = JSON.parse(fs.readFileSync(hJsonPath, 'utf8'));
         const lifecycleBlock = hJson?.['horizon-flightcheck-lifecycle'] || hJson?.hooks || null;
-        if (!hasCompleteSixLifecycleHooks(lifecycleBlock, root)) {
-          mismatches.push(`Incomplete lifecycle hooks in ${hJsonPath}: expected all 6 hooks with widened matcher`);
+        const diag = diagnoseSixLifecycleHooks(lifecycleBlock, root);
+        if (!diag.valid) {
+          mismatches.push(`Incomplete lifecycle hooks in ${hJsonPath}: ${diag.reason}`);
+        } else if (hJson?.hooks && hJson?.['horizon-flightcheck-lifecycle']) {
+          const topDiag = diagnoseSixLifecycleHooks(hJson.hooks, root);
+          if (!topDiag.valid) {
+            mismatches.push(`Stale top-level hooks block in ${hJsonPath}: ${topDiag.reason}`);
+          }
         }
       }
     }

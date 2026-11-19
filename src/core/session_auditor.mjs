@@ -366,7 +366,7 @@ export function scoreClaudeTranscriptFile(item) {
               wastedTokens: thrashTok,
               wastedUSD: usd,
               citation: `${item.sessionId}#T${tIdx} (3 consecutive failed ${toolName || 'tool'} calls)`,
-              fix: 'Enable Active Shield (`ctxtop shield --enable`) to halt 3x failure loops and inspect error lines first.'
+              fix: 'Enable Active Shield (`highbeam shield --enable`) to halt 3x failure loops and inspect error lines first.'
             });
           }
         } else {
@@ -390,7 +390,7 @@ export function scoreClaudeTranscriptFile(item) {
             wastedTokens: estTok,
             wastedUSD: usd,
             citation: `${item.sessionId}#T${tIdx} (un-sliced Read of ${path.basename(String(toolInput.file_path || 'file'))}, ~${estTok.toLocaleString('en-US')} excess tok)`,
-            fix: 'Run `ctxtop shield --enable` to auto-index files >1,200 lines and enforce offset/limit slices.'
+            fix: 'Run `highbeam shield --enable` to auto-index files >1,200 lines and enforce offset/limit slices.'
           });
         } else if (!isRead && text.length >= OVERSIZED_TOOL_OUTPUT_CHARS_THRESHOLD) {
           oversizedOutputs += 1;
@@ -407,7 +407,7 @@ export function scoreClaudeTranscriptFile(item) {
             wastedTokens: estTok,
             wastedUSD: usd,
             citation: `${item.sessionId}#T${tIdx} (${toolName || 'Bash'} dumped ~${Math.ceil(text.length / 4).toLocaleString('en-US')} raw tok)`,
-            fix: 'Enable Highbeam PostToolUse sanitizer (`ctxtop shield --enable`) to offload >4k-token logs with 100% error recovery.'
+            fix: 'Enable Highbeam PostToolUse sanitizer (`highbeam shield --enable`) to offload >4k-token logs with 100% error recovery.'
           });
         }
       }
@@ -442,6 +442,7 @@ export function scoreAntigravityTranscriptFile(item) {
   let consecutiveErrors = 0;
   let thrashLoops = 0;
   let coldCacheSpikes = 0;
+  let idlePauses = 0;
   let oversizedReads = 0;
   let oversizedOutputs = 0;
   let sludgeTaxTokens = 0;
@@ -476,43 +477,42 @@ export function scoreAntigravityTranscriptFile(item) {
     const modelCeiling = resolveModelCeiling(activeModelId) || 256_000;
 
     if (
+      Number(step.step_type) === 23 ||
+      stepType === 'CHECKPOINT' ||
       stepType.includes('COMPACT') ||
+      contentStr.includes('<CONTEXT_SUMMARY>') ||
       (stepType === 'USER_INPUT' && /^\s*\/compact\b/i.test(contentStr))
     ) {
       cumulativeContextTokens = Math.min(cumulativeContextTokens, 16_000);
     }
 
+    const measuredInputTokens = Number(
+      step.input_tokens ?? step.usage?.input_tokens ?? step.total_input_tokens ?? 0
+    );
+
     if (stepType === 'PLANNER_RESPONSE' || Array.isArray(step.tool_calls)) {
       turnIndex += 1;
-      const activeWindowTok = Math.min(cumulativeContextTokens, modelCeiling);
+      const activeWindowTok = measuredInputTokens > 0
+        ? Math.min(measuredInputTokens, modelCeiling)
+        : Math.min(cumulativeContextTokens, modelCeiling);
+      // Antigravity transcripts lack wire cache_creation_input_tokens and Gemini implicit caching
+      // does not use Anthropic's deterministic 5m TTL cliff: record >5m pauses purely as informational.
       if (
         lastStepTsMs > 0 &&
         tsMs > 0 &&
         tsMs - lastStepTsMs > COLD_CACHE_IDLE_GAP_MS &&
         activeWindowTok >= 15_000
       ) {
-        coldCacheSpikes += 1;
-        const usd = estimateSludgeCostUSD(activeModelId, activeWindowTok, tsMs, true);
-        sludgeTaxTokens += activeWindowTok;
-        sludgeTaxUSD += usd;
-        offendingTurns.push({
-          sessionId: item.sessionId,
-          platform: 'antigravity',
-          turnIndex,
-          modelId: activeModelId,
-          category: 'COLD_CACHE_SPIKE',
-          wastedTokens: activeWindowTok,
-          wastedUSD: usd,
-          citation: `${item.sessionId}#T${turnIndex} (${Math.round((tsMs - lastStepTsMs) / 60000)}m idle gap on ~${activeWindowTok.toLocaleString('en-US')}-tok context)`,
-          fix: 'Compact or checkpoint to task.md before >5m idle pauses to avoid cold-prefix rebuild spikes.'
-        });
+        idlePauses += 1;
       }
       if (tsMs > 0) lastStepTsMs = tsMs;
       const calls = Array.isArray(step.tool_calls) ? step.tool_calls : [];
       lastToolCall = calls.length > 0 ? calls[0] : null;
     }
 
-    cumulativeContextTokens = Math.min(modelCeiling, cumulativeContextTokens + contentTok);
+    cumulativeContextTokens = measuredInputTokens > 0
+      ? Math.min(modelCeiling, measuredInputTokens)
+      : Math.min(modelCeiling, cumulativeContextTokens + contentTok);
 
     const statusUpper = String(step.status || '').toUpperCase();
     const failed =
@@ -567,7 +567,7 @@ export function scoreAntigravityTranscriptFile(item) {
           wastedTokens: estTok,
           wastedUSD: usd,
           citation: `${item.sessionId}#T${Math.max(1, turnIndex)} (un-sliced ${callName || 'read_file'} of ${path.basename(String(callArgs.Path || callArgs.AbsolutePath || 'file'))}, ~${estTok.toLocaleString('en-US')} excess tok)`,
-          fix: 'Enable Active Shield (`ctxtop shield --enable`) to index >1,200-line files and enforce StartLine/EndLine.'
+          fix: 'Enable Active Shield (`highbeam shield --enable`) to index >1,200-line files and enforce StartLine/EndLine.'
         });
       } else if (!isRead) {
         oversizedOutputs += 1;
@@ -600,6 +600,7 @@ export function scoreAntigravityTranscriptFile(item) {
     sludgeTaxTokens,
     sludgeTaxUSD: Number(sludgeTaxUSD.toFixed(4)),
     coldCacheSpikes,
+    idlePauses,
     thrashLoops,
     oversizedReads,
     oversizedOutputs,
@@ -614,6 +615,7 @@ function scoreGenericJsonlEvents(item, platformName, defaultModelId) {
   let consecutiveErrors = 0;
   let thrashLoops = 0;
   let coldCacheSpikes = 0;
+  let idlePauses = 0;
   let oversizedReads = 0;
   let oversizedOutputs = 0;
   let sludgeTaxTokens = 0;
@@ -656,27 +658,32 @@ function scoreGenericJsonlEvents(item, platformName, defaultModelId) {
     if (role === 'assistant' || rowType === 'assistant' || rowType === 'agent_message' || rowType === 'turn_started') {
       turnIndex += 1;
       const u = payload.usage || row.usage || {};
-      const stepIn = Number(u.input_tokens || 0) + Number(u.cache_read_input_tokens || 0) + Number(u.cache_creation_input_tokens || 0);
+      const cacheWriteTok = Number(u.cache_creation_input_tokens || 0);
+      const stepIn = Number(u.input_tokens || 0) + Number(u.cache_read_input_tokens || 0) + cacheWriteTok;
       if (stepIn > 0) {
         totalPromptTokens += stepIn;
         cumulativeContextTokens = Math.max(cumulativeContextTokens, stepIn);
       }
-      if (lastTurnTsMs > 0 && tsMs > 0 && tsMs - lastTurnTsMs > COLD_CACHE_IDLE_GAP_MS && cumulativeContextTokens >= 15_000) {
-        coldCacheSpikes += 1;
-        const usd = estimateSludgeCostUSD(activeModelId, cumulativeContextTokens, tsMs, true);
-        sludgeTaxTokens += cumulativeContextTokens;
-        sludgeTaxUSD += usd;
-        offendingTurns.push({
-          sessionId: item.sessionId,
-          platform: platformName,
-          turnIndex,
-          modelId: activeModelId,
-          category: 'COLD_CACHE_SPIKE',
-          wastedTokens: cumulativeContextTokens,
-          wastedUSD: usd,
-          citation: `${item.sessionId}#T${turnIndex} (${Math.round((tsMs - lastTurnTsMs) / 60000)}m idle gap on ~${cumulativeContextTokens.toLocaleString('en-US')}-tok context)`,
-          fix: 'Compact or save a handoff checkpoint before >5m idle pauses to avoid cold-prefix rebuilds.'
-        });
+      if (lastTurnTsMs > 0 && tsMs > 0 && tsMs - lastTurnTsMs > COLD_CACHE_IDLE_GAP_MS) {
+        if (cacheWriteTok >= 10_000) {
+          coldCacheSpikes += 1;
+          const usd = estimateSludgeCostUSD(activeModelId, cacheWriteTok, tsMs, true);
+          sludgeTaxTokens += cacheWriteTok;
+          sludgeTaxUSD += usd;
+          offendingTurns.push({
+            sessionId: item.sessionId,
+            platform: platformName,
+            turnIndex,
+            modelId: activeModelId,
+            category: 'COLD_CACHE_SPIKE',
+            wastedTokens: cacheWriteTok,
+            wastedUSD: usd,
+            citation: `${item.sessionId}#T${turnIndex} (${Math.round((tsMs - lastTurnTsMs) / 60000)}m idle gap rebuilt ${cacheWriteTok.toLocaleString('en-US')} prefix tok)`,
+            fix: 'Compact or save a handoff checkpoint before >5m idle pauses to avoid cold-prefix rebuilds.'
+          });
+        } else if (cumulativeContextTokens >= 15_000) {
+          idlePauses += 1;
+        }
       }
       if (tsMs > 0) lastTurnTsMs = tsMs;
     }
@@ -786,6 +793,7 @@ function scoreGenericJsonlEvents(item, platformName, defaultModelId) {
     sludgeTaxTokens,
     sludgeTaxUSD: Number(sludgeTaxUSD.toFixed(4)),
     coldCacheSpikes,
+    idlePauses,
     thrashLoops,
     oversizedReads,
     oversizedOutputs,
@@ -812,6 +820,7 @@ export function scoreGeminiSessionFile(item) {
   let consecutiveErrors = 0;
   let thrashLoops = 0;
   let coldCacheSpikes = 0;
+  let idlePauses = 0;
   let oversizedReads = 0;
   let oversizedOutputs = 0;
   let sludgeTaxTokens = 0;
@@ -830,23 +839,30 @@ export function scoreGeminiSessionFile(item) {
     if (msgType === 'gemini' || msgType === 'model') {
       turnIndex += 1;
       const inTok = Number(msg.tokens?.input || 0);
+      const cacheWriteTok = Number(
+        msg.tokens?.cacheCreation || msg.tokens?.cache_creation_input_tokens || 0
+      );
       totalPromptTokens += inTok;
-      if (lastTsMs > 0 && tsMs > 0 && tsMs - lastTsMs > COLD_CACHE_IDLE_GAP_MS && inTok >= 15_000) {
-        coldCacheSpikes += 1;
-        const usd = estimateSludgeCostUSD(activeModelId, inTok, tsMs, true);
-        sludgeTaxTokens += inTok;
-        sludgeTaxUSD += usd;
-        offendingTurns.push({
-          sessionId: item.sessionId,
-          platform: 'gemini',
-          turnIndex,
-          modelId: activeModelId,
-          category: 'COLD_CACHE_SPIKE',
-          wastedTokens: inTok,
-          wastedUSD: usd,
-          citation: `${item.sessionId}#T${turnIndex} (${Math.round((tsMs - lastTsMs) / 60000)}m idle gap on ~${inTok.toLocaleString('en-US')}-tok context)`,
-          fix: 'Compact or save checkpoint before >5m pauses to preserve warm KV prefix.'
-        });
+      if (lastTsMs > 0 && tsMs > 0 && tsMs - lastTsMs > COLD_CACHE_IDLE_GAP_MS) {
+        if (cacheWriteTok >= 10_000) {
+          coldCacheSpikes += 1;
+          const usd = estimateSludgeCostUSD(activeModelId, cacheWriteTok, tsMs, true);
+          sludgeTaxTokens += cacheWriteTok;
+          sludgeTaxUSD += usd;
+          offendingTurns.push({
+            sessionId: item.sessionId,
+            platform: 'gemini',
+            turnIndex,
+            modelId: activeModelId,
+            category: 'COLD_CACHE_SPIKE',
+            wastedTokens: cacheWriteTok,
+            wastedUSD: usd,
+            citation: `${item.sessionId}#T${turnIndex} (${Math.round((tsMs - lastTsMs) / 60000)}m idle gap rebuilt ${cacheWriteTok.toLocaleString('en-US')} prefix tok)`,
+            fix: 'Compact or save checkpoint before >5m pauses to preserve warm KV prefix.'
+          });
+        } else if (inTok >= 15_000) {
+          idlePauses += 1;
+        }
       }
       if (tsMs > 0) lastTsMs = tsMs;
     }
@@ -935,6 +951,7 @@ export function scoreGeminiSessionFile(item) {
     sludgeTaxTokens,
     sludgeTaxUSD: Number(sludgeTaxUSD.toFixed(4)),
     coldCacheSpikes,
+    idlePauses,
     thrashLoops,
     oversizedReads,
     oversizedOutputs,
@@ -1016,6 +1033,7 @@ export function runSessionAudit(options = {}) {
   let totalSludgeTokens = 0;
   let totalSludgeUSD = 0;
   let totalColdCacheSpikes = 0;
+  let totalIdlePauses = 0;
   let totalThrashLoops = 0;
   let totalOversizedReads = 0;
   let totalOversizedOutputs = 0;
@@ -1039,6 +1057,7 @@ export function runSessionAudit(options = {}) {
       totalSludgeTokens += scored.sludgeTaxTokens;
       totalSludgeUSD += scored.sludgeTaxUSD;
       totalColdCacheSpikes += scored.coldCacheSpikes;
+      totalIdlePauses += Number(scored.idlePauses || 0);
       totalThrashLoops += scored.thrashLoops;
       totalOversizedReads += scored.oversizedReads;
       totalOversizedOutputs += scored.oversizedOutputs;
@@ -1066,6 +1085,7 @@ export function runSessionAudit(options = {}) {
     sludgeTaxTokens: totalSludgeTokens,
     sludgeTaxUSD: Number(totalSludgeUSD.toFixed(2)),
     coldCacheSpikes: totalColdCacheSpikes,
+    idlePauses: totalIdlePauses,
     thrashLoops: totalThrashLoops,
     oversizedReads: totalOversizedReads,
     oversizedOutputs: totalOversizedOutputs,
@@ -1087,12 +1107,17 @@ export function formatSessionAuditReport(res) {
     .filter(([, count]) => count > 0)
     .map(([name, count]) => `${name}=${count}`)
     .join(', ');
+  const savedLine =
+    res.savedTokens30d > 0 || res.savedUSD30d > 0
+      ? `  Quota Shield Saved (30d): +${res.savedTokens30d.toLocaleString('en-US')} tok ($${res.savedUSD30d.toFixed(2)} USD)`
+      : '  Quota Shield Saved (30d): Not active yet — run npx highbeam-cli init to start saving';
+  const idleSuffix = Number(res.idlePauses || 0) > 0 ? ` | Info Idle Pauses (>5m): ${res.idlePauses}` : '';
   const lines = [
     `[Highbeam Session ROI Audit] Window: ${res.days}d | Platform: ${res.platform} | Sessions: ${res.sessionsScanned}${activePlatforms ? ` (${activePlatforms})` : ''}`,
     `  Sludge Tax Preventable : ${res.sludgeTaxTokens.toLocaleString('en-US')} tok ($${res.sludgeTaxUSD.toFixed(2)} USD)`,
-    `  Cold-Cache Spikes (>5m): ${res.coldCacheSpikes} | 3x Thrash Loops: ${res.thrashLoops}`,
+    `  Cold-Cache Spikes (>5m): ${res.coldCacheSpikes} | 3x Thrash Loops: ${res.thrashLoops}${idleSuffix}`,
     `  Un-Sliced Large Reads  : ${res.oversizedReads} | Oversized Tool Dumps: ${res.oversizedOutputs}`,
-    `  Quota Shield Saved (30d): +${res.savedTokens30d.toLocaleString('en-US')} tok ($${res.savedUSD30d.toFixed(2)} USD)`
+    savedLine
   ];
   if (res.topOffendingTurns.length > 0) {
     lines.push('  Top Offending Turns:');
@@ -1120,6 +1145,6 @@ export function formatPastWasteLine(res) {
   return (
     `Last ${res.days} days: ~$${res.sludgeTaxUSD.toFixed(2)} (${res.sludgeTaxTokens.toLocaleString('en-US')} tokens) ` +
     `across ${n} session${n === 1 ? '' : 's'} was preventable waste Highbeam would have caught. ` +
-    `Details: npx ctxtop audit`
+    `Details: npx highbeam-cli audit`
   );
 }

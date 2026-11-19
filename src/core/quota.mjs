@@ -209,9 +209,10 @@ export function resolveModelPoolDisplayName(modelId = 'gemini-3.8-flash') {
   const s = normalizeModelId(modelId);
   if (s.includes('gemini-4-carbon-cyber-permissive')) return 'Gemini 4 Carbon (Cyber Permissive)';
   if (s.includes('gemini-4-carbon') || s.includes('carbon')) return 'Gemini 4 Carbon';
+  if (s.includes('gemini-4-neon') || s.includes('neon')) return 'Gemini 4 Neon';
   if (s.includes('gemini-4-argon') || s.includes('argon')) return 'Gemini 4 Argon';
   if (s.includes('gemini-4-hydrogen') || s.includes('hydrogen')) return 'Gemini 4 Hydrogen';
-  if (s.includes('gemini-3.8-flash') || s.includes('3.8-flash')) return 'Gemini 3.8 Flash';
+  if (s.includes('gemini-3.8-flash') || s.includes('3.8-flash') || s.includes('gemini-flash-worker-agy')) return 'Gemini 3.8 Flash';
   if (s.includes('gemini-3.1-pro') || s.includes('3.1-pro')) return 'Gemini 3.1 Pro';
   if (s.includes('claude-fable-5-2') || s.includes('fable-5-2') || s.includes('fable-5.2')) return 'Claude Fable 5.2';
   if (s.includes('claude-fable-5-1') || s.includes('fable-5-1') || s.includes('fable-5.1')) return 'Claude Fable 5.1';
@@ -264,6 +265,13 @@ export function saveQuotaLedger(ledger, cacheDir = null) {
   }
 }
 
+function isInternalOrchestratorWorkerTransition(modelA = '', modelB = '') {
+  const a = String(modelA || '').trim().toLowerCase();
+  const b = String(modelB || '').trim().toLowerCase();
+  if (!a || !b || a === b) return false;
+  return a === 'gemini-flash-worker-agy' || b === 'gemini-flash-worker-agy';
+}
+
 /**
  * Detects whether a step or its immediately preceding step contained an explicit
  * prefix-invalidating event (<USER_SETTINGS_CHANGE>, <system_message>, model/effort
@@ -293,7 +301,7 @@ export function hasExplicitPrefixMutation(step = {}, prevStep = null) {
   };
   if (checkText(step) || checkToolEdit(step)) return true;
   if (prevStep && (checkText(prevStep) || checkToolEdit(prevStep))) return true;
-  if (prevStep?.model && step?.model && prevStep.model !== step.model) return true;
+  if (prevStep?.model && step?.model && prevStep.model !== step.model && !isInternalOrchestratorWorkerTransition(prevStep.model, step.model)) return true;
   if (prevStep?.effort && step?.effort && prevStep.effort !== step.effort) return true;
   return false;
 }
@@ -312,7 +320,7 @@ export function detectModelSwitchCause(step = {}, prevStep = null) {
       return { cause: 'model_switch', from: last.from, to: last.to };
     }
   }
-  if (prevStep?.model && step?.model && prevStep.model !== step.model) {
+  if (prevStep?.model && step?.model && prevStep.model !== step.model && !isInternalOrchestratorWorkerTransition(prevStep.model, step.model)) {
     return { cause: 'model_switch', from: prevStep.model, to: step.model };
   }
   return null;
@@ -325,9 +333,18 @@ export function detectModelSwitchCause(step = {}, prevStep = null) {
 export function humanizeModelLabel(model = '') {
   const raw = String(model || '').trim();
   if (!raw) return '';
-  const noEffort = raw.replace(/\s*\([^()]*\)\s*$/, '');
-  if (/[A-Z ]/.test(noEffort)) return noEffort;
-  return noEffort.split('-').map(w => (/^\d/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(' ');
+  const effortOnlyRe = /\s*\((?:low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard|extended[\s-]*thinking)(?:\s*[,/|]\s*(?:low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard|extended[\s-]*thinking))*\)\s*$/i;
+  const noEffort = raw.replace(effortOnlyRe, '').trim();
+  if (/[A-Z ]/.test(noEffort)) return noEffort.replace(/\s*\([^()]*\)\s*$/, '');
+  const lower = noEffort.toLowerCase();
+  if (lower === 'gemini-pro-orchestrator-neon' || lower === 'orchestrator-neon') return 'Orchestrator (Neon)';
+  if (lower === 'gemini-pro-orchestrator-argon' || lower === 'orchestrator-argon') return 'Orchestrator (Argon)';
+  if (lower === 'gemini-pro-orchestrator-hydrogen' || lower === 'orchestrator-hydrogen') return 'Orchestrator (Hydrogen)';
+  if (lower === 'gemini-pro-orchestrator' || lower === 'orchestrator' || lower === 'orchestrator-carbon' || lower === 'antigravity-orchestrator') return 'Orchestrator (Carbon)';
+  const desc = resolveModelDescriptor(lower);
+  if (desc?.label) return desc.label;
+  const stripped = lower.replace(/-(?:xhigh|extra-high|high|medium|med|low)$/i, '');
+  return stripped.split('-').map(w => (/^\d/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(' ');
 }
 
 /**
@@ -337,6 +354,7 @@ export function humanizeModelLabel(model = '') {
 export function resolveModelShortName(modelId = '') {
   const s = normalizeModelId(String(modelId || ''));
   if (s.includes('carbon')) return 'Carbon';
+  if (s.includes('neon')) return 'Neon';
   if (s.includes('argon')) return 'Argon';
   if (s.includes('hydrogen')) return 'Hydrogen';
   if (s.includes('3.8-flash') || s.includes('flash')) return 'Flash';

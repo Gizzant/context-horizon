@@ -63,6 +63,7 @@ import { runPreToolUseHook } from '../../hooks/handlers/pre-tool-use.mjs';
 import { runPreModelSwitchHook } from '../../hooks/handlers/pre-model-switch.mjs';
 import register from '../../hooks/register.js';
 import { runHookLatencyBenchmark } from '../../scripts/bench_hooks.mjs';
+import { activateLocalTrial } from '../../src/core/pro_license.mjs';
 
 const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(TEST_DIR, '..', '..');
@@ -321,93 +322,105 @@ test('ISS-004: DET-12, DET-09, DET-10 (including 1h write rate), and PreModelSwi
   assert.equal(det12.totalInputTokens, 99_000);
   assert.equal(det12.decision, 'deny');
 
-  // Also verify via runPreToolUseHook in AUTO_PILOT mode
-  const hookRes = runPreToolUseHook(
-    {
-      tool_name: 'Grep',
-      model: 'claude-haiku-5-5',
-      usage: {
-        freshInputTokens: 15_000,
-        cacheReadInputTokens: 40_000,
-        cache_creation: { ephemeral_5m_input_tokens: 44_000 }
+  const iss004Home = makeTempDir('ah-iss004-');
+  try {
+    activateLocalTrial({ homeDir: iss004Home });
+    // Also verify via runPreToolUseHook in AUTO_PILOT mode
+    const hookRes = runPreToolUseHook(
+      {
+        tool_name: 'Grep',
+        model: 'claude-haiku-5-5',
+        usage: {
+          freshInputTokens: 15_000,
+          cacheReadInputTokens: 40_000,
+          cache_creation: { ephemeral_5m_input_tokens: 44_000 }
+        },
+        tool_input: { pattern: 'foo' }
       },
-      tool_input: { pattern: 'foo' }
-    },
-    { mode: 'AUTO_PILOT' }
-  );
-  assert.equal(hookRes.exitCode, 2);
-  assert.match(hookRes.stderr, /DET-12/);
+      { mode: 'AUTO_PILOT', homeDir: iss004Home }
+    );
+    assert.equal(hookRes.exitCode, 2);
+    assert.match(hookRes.stderr, /DET-12/);
 
-  // 2. DET-09 (PostCompactMutationQueue): Haiku 5.5 with 60k cached + 45k uncached = 105k (> 100k 5x cliff)
-  const router = new CacheGravityRouter({ mode: FLIGHT_MODES.COACH });
-  const det09 = router.interceptTopLevelMutation({
-    type: 'effort',
-    value: 'high',
-    currentModel: 'claude-haiku-5-5',
-    cachedTokens: 60_000,
-    uncachedInputTokens: 45_000,
-    cacheWarm: true,
-    cacheTtlTier: '5m'
-  });
-  assert.equal(det09.queued, true);
-  // Above 100k on Haiku 5.5: write5m = $0.625, read = $0.05 -> 60k/1M * 0.575 = $0.0345 (5x of $0.0069!)
-  assert.equal(det09.avoidedRewritePenaltyUSD, 0.0345);
+    // 2. DET-09 (PostCompactMutationQueue): Haiku 5.5 with 60k cached + 45k uncached = 105k (> 100k 5x cliff)
+    const router = new CacheGravityRouter({ mode: FLIGHT_MODES.COACH });
+    const det09 = router.interceptTopLevelMutation({
+      type: 'effort',
+      value: 'high',
+      currentModel: 'claude-haiku-5-5',
+      cachedTokens: 60_000,
+      uncachedInputTokens: 45_000,
+      cacheWarm: true,
+      cacheTtlTier: '5m'
+    });
+    assert.equal(det09.queued, true);
+    // Above 100k on Haiku 5.5: write5m = $0.625, read = $0.05 -> 60k/1M * 0.575 = $0.0345 (5x of $0.0069!)
+    assert.equal(det09.avoidedRewritePenaltyUSD, 0.0345);
 
-  // 3. DET-10 (TtlWatchdog): honors totalPromptTokens cliff AND 1h write1hPer1M rate
-  const watchdog = new TtlWatchdog({ mode: FLIGHT_MODES.COACH });
-  const tickHaikuCliff = watchdog.evaluateTick({
-    modelId: 'claude-haiku-5-5',
-    cacheWarm: true,
-    cachedTokens: 60_000,
-    input_tokens: 45_000, // 105k total > 100k cliff
-    remainingSeconds: 30,
-    hasRecentWorkspaceEdits: true,
-    ttlTier: '5m'
-  });
-  assert.equal(tickHaikuCliff.expiryPenaltyUSD, 0.0345);
+    // 3. DET-10 (TtlWatchdog): honors totalPromptTokens cliff AND 1h write1hPer1M rate
+    const watchdog = new TtlWatchdog({ mode: FLIGHT_MODES.COACH });
+    const tickHaikuCliff = watchdog.evaluateTick({
+      modelId: 'claude-haiku-5-5',
+      cacheWarm: true,
+      cachedTokens: 60_000,
+      input_tokens: 45_000, // 105k total > 100k cliff
+      remainingSeconds: 30,
+      hasRecentWorkspaceEdits: true,
+      ttlTier: '5m'
+    });
+    assert.equal(tickHaikuCliff.expiryPenaltyUSD, 0.0345);
 
-  const tickOpus1h = watchdog.evaluateTick({
-    modelId: 'claude-opus-5-5',
-    cacheWarm: true,
-    cachedTokens: 100_000,
-    remainingSeconds: 30,
-    hasRecentWorkspaceEdits: true,
-    ttlTier: '1h'
-  });
-  // Opus 5.5 1h write = $8.00/1M, read = $0.20/1M -> 100k/1M * 7.80 = $0.78 (vs 5m $0.48)
-  assert.equal(tickOpus1h.expiryPenaltyUSD, 0.78);
+    const tickOpus1h = watchdog.evaluateTick({
+      modelId: 'claude-opus-5-5',
+      cacheWarm: true,
+      cachedTokens: 100_000,
+      remainingSeconds: 30,
+      hasRecentWorkspaceEdits: true,
+      ttlTier: '1h'
+    });
+    // Opus 5.5 1h write = $8.00/1M, read = $0.20/1M -> 100k/1M * 7.80 = $0.78 (vs 5m $0.48)
+    assert.equal(tickOpus1h.expiryPenaltyUSD, 0.78);
 
-  // 4. pre-model-switch.mjs forwards uncached_delta_tokens and cache_ttl_tier: '1h'
-  const preSwitch1h = runPreModelSwitchHook({
-    currentModel: 'claude-opus-5-5',
-    targetModel: 'claude-sonnet-5-5',
-    cachedTokens: 40_000,
-    uncached_delta_tokens: 10_000,
-    cache_ttl_tier: '1h',
-    cacheWarm: true,
-    requests_per_turn: 1,
-    expected_output_tokens: 1500,
-    mode: 'AUTO_PILOT'
-  });
-  assert.equal(preSwitch1h.exitCode, 2);
-  assert.equal(preSwitch1h.verdict.breakEven.cacheTtlTier, '1h');
-  assert.equal(preSwitch1h.verdict.breakEven.uncachedDeltaTokens, 10_000);
-  assert.match(preSwitch1h.stderr, /2\.0x/);
+    // 4. pre-model-switch.mjs forwards uncached_delta_tokens and cache_ttl_tier: '1h'
+    const preSwitch1h = runPreModelSwitchHook(
+      {
+        currentModel: 'claude-opus-5-5',
+        targetModel: 'claude-sonnet-5-5',
+        cachedTokens: 40_000,
+        uncached_delta_tokens: 10_000,
+        cache_ttl_tier: '1h',
+        cacheWarm: true,
+        requests_per_turn: 1,
+        expected_output_tokens: 1500,
+        mode: 'AUTO_PILOT'
+      },
+      { homeDir: iss004Home }
+    );
+    assert.equal(preSwitch1h.exitCode, 2);
+    assert.equal(preSwitch1h.verdict.breakEven.cacheTtlTier, '1h');
+    assert.equal(preSwitch1h.verdict.breakEven.uncachedDeltaTokens, 10_000);
+    assert.match(preSwitch1h.stderr, /2\.0x/);
 
-  // Sibling: without observed R/O data, AUTO_PILOT warns with advisory instead of blocking
-  const preSwitch1hDefaults = runPreModelSwitchHook({
-    currentModel: 'claude-opus-5-5',
-    targetModel: 'claude-sonnet-5-5',
-    cachedTokens: 40_000,
-    uncached_delta_tokens: 10_000,
-    cache_ttl_tier: '1h',
-    cacheWarm: true,
-    mode: 'AUTO_PILOT'
-  });
-  assert.equal(preSwitch1hDefaults.exitCode, 0);
-  assert.equal(preSwitch1hDefaults.verdict.advisory, true);
-  assert.equal(preSwitch1hDefaults.verdict.blocked, false);
-  assert.equal(preSwitch1hDefaults.verdict.basedMostlyOnDefaults, true);
+    // Sibling: without observed R/O data, AUTO_PILOT warns with advisory instead of blocking
+    const preSwitch1hDefaults = runPreModelSwitchHook(
+      {
+        currentModel: 'claude-opus-5-5',
+        targetModel: 'claude-sonnet-5-5',
+        cachedTokens: 40_000,
+        uncached_delta_tokens: 10_000,
+        cache_ttl_tier: '1h',
+        cacheWarm: true,
+        mode: 'AUTO_PILOT'
+      },
+      { homeDir: iss004Home }
+    );
+    assert.equal(preSwitch1hDefaults.exitCode, 0);
+    assert.equal(preSwitch1hDefaults.verdict.advisory, true);
+    assert.equal(preSwitch1hDefaults.verdict.blocked, false);
+    assert.equal(preSwitch1hDefaults.verdict.basedMostlyOnDefaults, true);
+  } finally {
+    fs.rmSync(iss004Home, { recursive: true, force: true });
+  }
 });
 
 // ============================================================================

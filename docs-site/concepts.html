@@ -57,9 +57,9 @@
           <path d="M 68 46 C 210 176, 590 176, 782 44" fill="none" stroke="var(--accent)" stroke-width="3.5" stroke-linecap="round" />
 
           <!-- Zone Titles -->
-          <text x="72" y="26" font-family="var(--font-sans)" font-size="11" font-weight="700" fill="var(--accent)">Primacy (Cells 1-6)</text>
-          <text x="315" y="26" font-family="var(--font-sans)" font-size="11" font-weight="700" fill="var(--status-danger)">Middle Trough / Distractor Zone (Cells 7-32)</text>
-          <text x="652" y="26" font-family="var(--font-sans)" font-size="11" font-weight="700" fill="var(--status-safe)">Recency Tail (Cells 33-40)</text>
+          <text x="58" y="26" font-family="var(--font-sans)" font-size="10.5" font-weight="700" fill="var(--accent)">Primacy (0–30%, Anchors 1–6)</text>
+          <text x="295" y="26" font-family="var(--font-sans)" font-size="10.5" font-weight="700" fill="var(--status-danger)">Middle Trough / Distractor Zone (30–70%, Cells 7–28)</text>
+          <text x="630" y="26" font-family="var(--font-sans)" font-size="10.5" font-weight="700" fill="var(--status-safe)">Recency Tail (70–100%, Cells 29–40)</text>
 
           <!-- 40 Cells Strip at Bottom -->
           <g transform="translate(60, 188)">
@@ -228,7 +228,7 @@ C_max = [ O * (P_out,A - P_out,B) * (H_post + 1) ]
         <li><strong>Claude Code as Fast Terminal Executor:</strong> Great for terminal TDD loops, Git worktree slices, command-hook guardrails, and live one-line <code>ah-statusline</code> tracking in tmux or IDE terminals.</li>
       </ul>
       <p>
-        Both hosts share the same repo lock and log files. First, <code>.agents/locks/active_scopes.json</code> stops two agents from editing the same file at once (<code>DET-20</code>). Second, USTF v1 (<code>~/.ctxtop/sessions/</code>) stores logs from both tools in one format for <code>ctxtop inspect</code> and <code>ctxtop postmortem</code>.
+        Both hosts share the same repo lock and log files. First, <code>.agents/locks/active_scopes.json</code> stops two agents from editing the same file at once (<code>DET-20</code>). Second, USTF v1 (<code>~/.ctxtop/sessions/</code>) stores logs from both tools in one format for <code>highbeam inspect</code> and <code>highbeam postmortem</code>.
       </p>
 
       <h2 id="flight-modes">Flight Modes &amp; Enforcement Levels</h2>

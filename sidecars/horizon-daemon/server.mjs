@@ -146,8 +146,8 @@ const BIND_HOST = '127.0.0.1';
 const clients = new Map();
 
 function getDaemonEntitlementOptions() {
-  // Demo mode relaxes strict checking only; outside `node --test` that unlocks nothing.
-  return { strict: !isDemoMode };
+  // Entitlement always checks `~/.ctxtop/license.json` strictly; `--demo` renders synthetic fixtures only.
+  return { strict: true };
 }
 
 const defaultCacheDir = path.join(getHomeDir(), '.gemini', 'antigravity', 'cache', 'agy-horizon');
@@ -156,6 +156,14 @@ const stateFile = path.join(defaultCacheDir, 'latest.state.json');
 
 const sidePaneHtml = path.resolve(__dirname, '../../src/ui/sidepane.html');
 const horizonPanelHtml = path.resolve(__dirname, '../../src/webview/horizon_panel.html');
+const HIGHBEAM_VERSION = (() => {
+  try {
+    return String(JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../package.json'), 'utf8')).version || '');
+  } catch (err) {
+    void err;
+    return '';
+  }
+})();
 
 function getHtmlMtimeMs() {
   const target = fs.existsSync(horizonPanelHtml) ? horizonPanelHtml : (fs.existsSync(sidePaneHtml) ? sidePaneHtml : null);
@@ -455,7 +463,7 @@ function buildCoachState(state, targetConvId) {
     const taskRoute = evaluateTaskAndQuotaRoute({
       prompt: livePrompt,
       taskMdContent,
-      activeModel: state?.model?.id || state?.model?.rawLabel || state?.activeModel || 'gemini-4-argon',
+      activeModel: state?.model?.id || state?.model?.rawLabel || state?.activeModel || 'unknown',
       activeEffort: resolvedEffort === 'standard' ? 'auto' : resolvedEffort,
       cachedTokens,
       cacheTtlSeconds: ttlSec,
@@ -521,7 +529,7 @@ function buildCoachState(state, targetConvId) {
       sessionId: sessionKey,
       totalTokens: cachedTokens,
       maxTokens: Number(state?.window?.maxTokens) || resolveModelCeiling(
-        state?.model?.id || state?.model?.rawLabel || state?.activeModel || 'gemini-4-argon',
+        state?.model?.id || state?.model?.rawLabel || state?.activeModel || 'unknown',
         null,
         { useLegacyDefault: false }
       ),
@@ -1247,6 +1255,7 @@ const server = http.createServer(async (req, res) => {
       port: addr ? addr.port : 0,
       workspace: cachedLiveState?.workspace?.canonicalPath || process.cwd(),
       pinnedConversationId,
+      version: HIGHBEAM_VERSION,
       diagnostics: getDaemonDiagnostics()
     }));
     return;

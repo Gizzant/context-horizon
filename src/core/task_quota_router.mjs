@@ -62,6 +62,20 @@ export const MODEL_CATALOG = {
     deprecated_after: null,
     multipliers: { low: 3.0, med: 5.5, medium: 5.5, high: 9.25 }
   },
+  'gemini-4-neon': {
+    id: 'gemini-4-neon',
+    aliases: ['gemini-4-neon-xhigh', 'gemini-4-neon-extra-high', 'gemini-4-neon-high', 'gemini-4-neon-medium', 'gemini-4-neon-med', 'gemini-4-neon-low', 'gemini-pro-orchestrator-neon', 'orchestrator-neon'],
+    family: 'neon',
+    label: 'Gemini 4 Neon',
+    supported_efforts: ['low', 'medium', 'high', 'xhigh'],
+    caching_mode: 'implicit_only',
+    supports_explicit_cache: false,
+    antigravity_min_tier: 'pro',
+    shared_pool_ceiling: SHARED_1M_CONTEXT_POOL_TOKENS,
+    max_output_tokens: 65536,
+    deprecated_after: null,
+    multipliers: { low: 2.4, med: 4.5, medium: 4.5, high: 7.5, xhigh: 11.0 }
+  },
   'gemini-4-hydrogen': {
     id: 'gemini-4-hydrogen',
     aliases: ['gemini-4-hydrogen-xhigh', 'gemini-4-hydrogen-extra-high', 'gemini-4-hydrogen-high', 'gemini-4-hydrogen-medium', 'gemini-4-hydrogen-med', 'gemini-4-hydrogen-low', 'gemini-pro-orchestrator-hydrogen', 'orchestrator-hydrogen'],
@@ -373,11 +387,13 @@ export function normalizeModelId(rawModel = '') {
   if (Object.prototype.hasOwnProperty.call(ANTIGRAVITY_ENUM_ALIASES, parenSlug)) {
     return ANTIGRAVITY_ENUM_ALIASES[parenSlug];
   }
+  if (lower.includes('orchestrator-neon') || parenSlug.includes('orchestrator-neon')) return 'gemini-4-neon';
   if (lower.includes('orchestrator-argon') || parenSlug.includes('orchestrator-argon')) return 'gemini-4-argon';
   if (lower.includes('orchestrator-hydrogen') || parenSlug.includes('orchestrator-hydrogen')) return 'gemini-4-hydrogen';
   if (lower.includes('orchestrator') || parenSlug.includes('orchestrator')) return 'gemini-4-carbon';
   if (lower.includes('carbon-cyber-permissive')) return 'gemini-4-carbon-cyber-permissive';
   if (lower.includes('carbon')) return 'gemini-4-carbon';
+  if (lower.includes('neon')) return 'gemini-4-neon';
   if (lower.includes('flash')) return 'gemini-3.8-flash';
   if (lower.includes('argon')) return 'gemini-4-argon';
   if (lower.includes('hydrogen')) return 'gemini-4-hydrogen';

@@ -22,7 +22,7 @@
 
       <h2 id="tier-matrix">1. Three-Tier Entitlement Matrix</h2>
       <p>
-        Run <code>npx ctxtop tiers</code> anytime to view the plan table from <code>src/core/pro_license.mjs</code>:
+        Run <code>npx highbeam-cli tiers</code> anytime to view the plan table from <code>src/core/pro_license.mjs</code>:
       </p>
 
       <div class="table-wrap">
@@ -38,17 +38,17 @@
             <tr>
               <td><strong>Free</strong><br /><span class="badge safe">MIT Core</span></td>
               <td><code>$0/mo</code></td>
-              <td>Simple View HUD &amp; 4-rank verdict bar, 40-cell U-curve context map, live 5m/1h cache timers, <code>HOLD_COMPACT</code> warm cache alerts, and all 32 guards.</td>
+              <td>Simple View HUD &amp; 4-rank verdict bar, 40-cell U-curve context map, live 5m/1h cache timers, <code>HOLD_COMPACT</code> warm cache alerts, auto <code>PreToolUse</code> delta-reads &amp; 3rd-read AST stubs (<code>GUARD-4</code>), multi-family FTS5 CLI compression, and all 32 guards.</td>
             </tr>
             <tr>
               <td><strong>Pro</strong><br /><span class="badge accent">Solo Dev</span></td>
               <td><code>$149/yr</code><br />or <code>$199</code> one-time Founder Lifetime (first 200)</td>
-              <td>Auto <code>PreToolUse</code> delta-reads &amp; 3rd-read AST stubs, cross-chat waste tracking, 30-day savings ledger (<code>#tufteBaselineStrip</code>), signed PDF 1.4 expense receipts, and <code>AUTO_PILOT</code> <code>C*</code> switch holds.</td>
+              <td><code>AUTO_PILOT</code> hands-free enforcement &amp; <code>C*</code> switch holds, 30-day chronic offender memory &amp; workspace savings ledger (<code>#tufteBaselineStrip</code>), and signed corporate PDF 1.4 expense receipts (<code>highbeam receipt --pdf</code>).</td>
             </tr>
             <tr>
               <td><strong>Team</strong><br /><span class="badge">Zero-Cloud FinOps</span></td>
               <td><code>$299/yr</code> for 5 seats<br />More seats: email <code>sales@highbeamdev.com</code></td>
-              <td>Shared <code>.agents/rules/</code> top-of-prompt budgets, scrubbed team waste stats (<code>POST /api/export/sanitized</code>), repo-wide MCP lazy-load checks, and Grafana / Prometheus packs (<code>ctxtop team-pack</code>).</td>
+              <td>Shared <code>.agents/rules/</code> top-of-prompt budgets, scrubbed team waste stats (<code>POST /api/export/sanitized</code>), repo-wide MCP lazy-load checks, and Grafana / Prometheus packs (<code>highbeam team-pack</code>).</td>
             </tr>
           </tbody>
         </table>
@@ -62,33 +62,33 @@
       <div class="code-block terminal">
         <div class="code-header"><span>Manage Local Trial, License Token &amp; Receipts</span></div>
         <pre><code># Start a 14-day local Pro evaluation (zero network calls, no credit card)
-npx ctxtop license trial
+npx highbeam-cli license trial
 
-# Turn Auto on (the trial unlocks it but leaves it off); `npx ctxtop mode` shows what is running
-npx ctxtop mode auto
+# Turn Auto on (the trial unlocks it but leaves it off); `npx highbeam-cli mode` shows what is running
+npx highbeam-cli mode auto
 
 # Activate a signed Ed25519 license token
-npx ctxtop license activate &lt;ed25519-license-token&gt;
+npx highbeam-cli license activate &lt;ed25519-license-token&gt;
 
 # Verify entitlement status
-npx ctxtop license status --json
+npx highbeam-cli license status --json
 
 # Export a SHA-256 verified Corporate Expense Receipt (PDF 1.4)
-npx ctxtop receipt --pdf --out ./attention-horizon-expense-receipt.pdf
+npx highbeam-cli receipt --pdf --out ./highbeam-expense-receipt.pdf
 
 # Generate or preview the BYO-Grafana &amp; Datadog Team FinOps Pack
-npx ctxtop team-pack --org "Core Infrastructure" --out ./finops-pack --preview</code></pre>
+npx highbeam-cli team-pack --org "Core Infrastructure" --out ./finops-pack --preview</code></pre>
       </div>
 
       <h2 id="troubleshooting-playbook">3. Platform Quirks &amp; Diagnostic Playbook</h2>
       <p>
-        Every issue below has a fast check or a one-line local fix. Run <code>npx ctxtop doctor</code> first to check host setup and recent hook logs.
+        Every issue below has a fast check or a one-line local fix. Run <code>npx highbeam-cli doctor</code> first to check host setup and recent hook logs.
       </p>
 
-      <h3 id="quirk-vision-http400">Upstream HTTP 400 on Image / Screenshot Attachments (<code>DET-20</code>)</h3>
+      <h3 id="quirk-vision-http400">Upstream HTTP 400 on Image / Screenshot Attachments (<code>DET-20</code> Vision Quirk / <code>DET-28</code>)</h3>
       <p>
         <strong>Symptom:</strong> Sending a screenshot while Google AI Credit Overages are active fails with HTTP <code>400 Bad Request</code> (<code>"Unable to process input image"</code>).<br />
-        <strong>Resolution:</strong> <code>DET-20</code> (set in <code>config/platformQuirks.json</code>) warns you before sending images during overage mode. Send plain text or DOM snippets until Base Quota resets.
+        <strong>Resolution:</strong> Alongside its primary concurrent file-scope lockfile role (<code>.agents/locks/active_scopes.json</code>), <code>DET-20</code> (configured via <code>config/platformQuirks.json</code>, with the <code>DET-28</code> quota-overage guard) warns before sending images during AI Credit Overage mode. Send plain text or DOM snippets until Base Quota resets.
       </p>
 
       <h3 id="quirk-hybrid-lockout">Preventing 168-Hour Hybrid Quota Lockouts (<code>DET-16</code>)</h3>
@@ -106,12 +106,12 @@ npx ctxtop team-pack --org "Core Infrastructure" --out ./finops-pack --preview</
       <h3 id="quirk-paused-session">Tool Execution Appears Hung or Frozen</h3>
       <p>
         <strong>Symptom:</strong> Tool calls pause at <code>PreToolUse</code> (up to 10 minutes) or fail right away with <code>Execution halted by control latch</code>.<br />
-        <strong>Resolution:</strong> Check if the session was set to <code>PAUSED</code> or <code>ABORTED</code> via <code>ctxtop control</code>:
+        <strong>Resolution:</strong> Check if the session was set to <code>PAUSED</code> or <code>ABORTED</code> via <code>highbeam control</code>:
       </p>
       <div class="code-block terminal">
         <div class="code-header"><span>Inspect and Clear Runtime Control Latch</span></div>
-        <pre><code>npx ctxtop control status --session default
-npx ctxtop control resume --session default
+        <pre><code>npx highbeam-cli control status --session default
+npx highbeam-cli control resume --session default
 # If ABORTED (terminal), remove the session latch file to reset:
 rm ~/.ctxtop/runtime/default.ctl</code></pre>
       </div>
@@ -120,10 +120,10 @@ rm ~/.ctxtop/runtime/default.ctl</code></pre>
       <ul>
         <li><strong>Automatic FTS5 Polyfill (Node 22):</strong> If your Node 22 binary lacks <code>SQLITE_ENABLE_FTS5</code>, <code>src/engine-node/db/probe.mjs</code> loads a built-in SQLite table and snippet polyfill automatically. Set <code>CTXTOP_FORCE_FTS5_POLYFILL=1</code> to test it directly.</li>
         <li><strong>Force JSONL Mode:</strong> Highbeam needs Node 22.13 or newer. If SQLite misbehaves on your build, set <code>CTXTOP_FORCE_NO_SQLITE=1</code>. Highbeam switches cleanly to read-only JSONL offset reads.</li>
-        <li><strong>Claude Binary Capability Warnings:</strong> If <code>ctxtop doctor</code> shows <code>[WARN] claude_pre_model_switch</code>, run <code>npx ctxtop doctor --json</code> (or set <code>CLAUDE_BIN</code> to your Claude Code binary path). That checks <code>PreModelSwitch</code>, <code>PostModelSwitch</code>, and <code>supportsAskDecision</code> support.</li>
-        <li><strong>Relink Antigravity Brains:</strong> Run <code>npx ctxtop doctor --recover-brain --dry-run</code> first, then drop <code>--dry-run</code> to fix broken brain links after IDE profile upgrades.</li>
-        <li><strong>Compact Cursor SQLite Storage:</strong> Run <code>npx ctxtop doctor --gc-cursor --vscdb &lt;path-to-state.vscdb&gt; --dry-run</code> to preview space savings before compacting.</li>
-        <li><strong>Zero-PII Bug Reports:</strong> Run <code>npx ctxtop doctor --diagnostic &gt; diagnostic.md</code> to create a clean debug bundle with usernames and home paths removed.</li>
+        <li><strong>Claude Binary Capability Warnings:</strong> If <code>highbeam doctor</code> shows <code>[WARN] claude_pre_model_switch</code>, run <code>npx highbeam-cli doctor --json</code> (or set <code>CLAUDE_BIN</code> to your Claude Code binary path). That checks <code>PreModelSwitch</code>, <code>PostModelSwitch</code>, and <code>supportsAskDecision</code> support.</li>
+        <li><strong>Relink Antigravity Brains:</strong> Run <code>npx highbeam-cli doctor --recover-brain --dry-run</code> first, then drop <code>--dry-run</code> to fix broken brain links after IDE profile upgrades.</li>
+        <li><strong>Compact Cursor SQLite Storage:</strong> Run <code>npx highbeam-cli doctor --gc-cursor --vscdb &lt;path-to-state.vscdb&gt; --dry-run</code> to preview space savings before compacting.</li>
+        <li><strong>Zero-PII Bug Reports:</strong> Run <code>npx highbeam-cli doctor --diagnostic &gt; diagnostic.md</code> to create a clean debug bundle with usernames and home paths removed.</li>
       </ul>
 
       <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>

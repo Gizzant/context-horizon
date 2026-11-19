@@ -534,6 +534,63 @@
     display: none !important;
   }
 
+  /* Mode-driven main view: the body carries the running mode (data-flight-mode = off | coach | autopilot)
+     and, for Auto, whether it is enforced or a Free preview (data-auto-state = on | preview | na).
+     Tag an element with mode-hide-* to hide it in that mode; auto-on-only / auto-preview-only
+     show in exactly one Auto state. */
+  body[data-flight-mode="off"] .mode-hide-off,
+  body[data-flight-mode="coach"] .mode-hide-coach,
+  body[data-flight-mode="autopilot"] .mode-hide-auto,
+  body:not([data-flight-mode="off"]) .mode-only-off,
+  body:not([data-flight-mode="coach"]) .mode-only-coach,
+  body:not([data-flight-mode="autopilot"]) .mode-only-auto,
+  body:not([data-auto-state="on"]) .auto-on-only,
+  body:not([data-auto-state="preview"]) .auto-preview-only {
+    display: none !important;
+  }
+
+  /* Tokens-saved headline (all modes) */
+  .ts-saved-hero {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 10px 12px; margin-bottom: 8px;
+    border: 1px solid var(--hz-border, rgba(255,255,255,0.12)); border-radius: 8px;
+  }
+  .ts-saved-hero-label { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.7; }
+  .ts-saved-hero-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .ts-saved-hero-num { font-size: 28px; line-height: 1.1; font-variant-numeric: tabular-nums; font-weight: 650; color: var(--hz-useful, #30d158); }
+  .ts-saved-hero-usd { font-size: 14px; font-variant-numeric: tabular-nums; opacity: 0.85; }
+  .ts-saved-hero-sub { font-size: 11px; opacity: 0.65; }
+  .ts-mode-note { margin: 0 0 8px; font-size: 12px; opacity: 0.8; }
+  .ts-status-strip {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    padding: 6px 10px; font-size: 12px; border-radius: 6px;
+    border: 1px solid var(--hz-border, rgba(255,255,255,0.12));
+  }
+  .ts-needs-row {
+    display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px;
+    padding: 8px 10px; font-size: 12.5px; border-radius: 6px;
+    border: 1px solid var(--hz-border, rgba(255,255,255,0.12));
+  }
+  .ts-needs-row[data-tone="danger"] { border-color: var(--hz-danger, #ff453a); }
+
+  /* Settings view (full-panel dialog) */
+  .settings-view {
+    position: fixed; inset: 0; z-index: 900; overflow-y: auto;
+    padding: 12px 14px 24px; background: var(--hz-bg) !important; color: var(--hz-fg) !important;
+  }
+  .settings-view[hidden] { display: none; }
+  .settings-view-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .settings-view-head h2 { margin: 0; font-size: 15px; }
+  .settings-section { padding: 10px 0; border-top: 1px solid var(--hz-border, rgba(255,255,255,0.12)); }
+  .settings-section h3 { margin: 0 0 6px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.75; }
+  .settings-help { margin: 6px 0; font-size: 11.5px; opacity: 0.75; }
+  .settings-form { display: flex; flex-direction: column; gap: 6px; }
+  .settings-form label { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; }
+  .settings-mode-group { display: inline-flex; gap: 4px; }
+  .set-mode-btn { padding: 4px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--hz-border, rgba(255,255,255,0.2)); background: transparent; color: inherit; cursor: pointer; }
+  .set-mode-btn[aria-checked="true"] { border-color: var(--hz-useful, #30d158); color: var(--hz-useful, #30d158); }
+  .settings-about { margin: 0; padding-left: 16px; font-size: 12px; line-height: 1.7; }
+
   .badge {
     font-size: 10.5px;
     font-weight: 600;
@@ -762,21 +819,7 @@
     transition: border-color 0.15s ease, color 0.15s ease;
   }
   .gear-btn:hover { border-color: #f59e0b; color: #f59e0b !important; }
-  .settings-pop {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin: 0 0 10px;
-    padding: 10px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--hz-border);
-    background: var(--hz-bg) !important;
-    font-size: 11.5px;
-    color: var(--hz-fg) !important;
-  }
-  .settings-pop[hidden] { display: none; }
-  .settings-pop label { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: #e2e8f0 !important; }
-  .settings-pop input {
+  .settings-form input {
     width: 110px;
     padding: 3px 6px;
     border-radius: 4px;
@@ -5665,7 +5708,7 @@
     }
 </style>
 </head>
-﻿<body data-view-mode="simple">
+﻿<body data-view-mode="simple" data-flight-mode="coach" data-auto-state="na">
 
 <div class="wrap">
   <!-- 1. Header -->
@@ -5682,10 +5725,10 @@
       <span class="badge mono advanced-only" id="workloadModeBadge">[Mode: Read-Heavy Audit]</span>
       <span class="badge" id="statusBadge">Healthy</span>
       <span class="badge warn advanced-only" id="confidenceBadge" hidden style="display:none;">Degraded</span>
-      <div class="shadcn-tabs-list" role="tablist" aria-label="Telemetry density mode" data-slot="tabs-list">
-        <button type="button" role="tab" class="shadcn-tab-trigger" id="tabSimple" data-view-tab="simple" aria-selected="true" title="Focused summary view">Simple</button>
-        <button type="button" role="tab" class="shadcn-tab-trigger" id="tabAdvanced" data-view-tab="advanced" aria-selected="false" title="Full diagnostic & timeline view">Advanced</button>
+      <div class="shadcn-tabs-list" role="group" aria-label="Advanced view" data-slot="tabs-list">
+        <button type="button" class="shadcn-tab-trigger" id="tabAdvanced" data-view-tab="advanced" aria-pressed="false" title="Open the full diagnostic & timeline view">Advanced</button>
       </div>
+      <button type="button" class="icon-btn" id="btnHeaderSettings" title="Settings" aria-label="Settings" aria-haspopup="dialog" aria-controls="settingsView" aria-expanded="false">&#x2699;</button>
       <span class="tufte-top-host-badge" id="tufteTopHostBadge">Antigravity &middot; Auto</span>
       <button class="icon-btn" onclick="window.location.reload()" title="Reload panel" aria-label="Reload panel"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.35-3.6"/><path d="M13.5 2.5v3h-3"/></svg></button>
     </div>
@@ -5728,9 +5771,95 @@
   <!-- =========================================================================
        LIVE EDWARD TUFTE "SIMPLE VIEW" SURFACE (4-Card Sketch Layout)
        ========================================================================= -->
-  <div id="argonSimpleSurface" aria-label="Highbeam Simple View">
+  <!-- SETTINGS VIEW: opened from the header gear (or the gear in Advanced); closing returns to the view underneath. -->
+  <div id="settingsView" class="settings-view" role="dialog" aria-modal="true" aria-labelledby="settingsViewTitle" hidden>
+    <div class="settings-view-head">
+      <h2 id="settingsViewTitle">Settings</h2>
+      <button type="button" class="icon-btn" id="btnSettingsClose" aria-label="Close settings" title="Close">&#x2715;</button>
+    </div>
+
+    <section class="settings-section" aria-labelledby="setModeHead">
+      <h3 id="setModeHead">Mode</h3>
+      <div id="setModeGroup" class="settings-mode-group" role="radiogroup" aria-label="Highbeam protection mode">
+        <button type="button" role="radio" class="set-mode-btn" data-mode="off" aria-checked="false">Off</button>
+        <button type="button" role="radio" class="set-mode-btn" data-mode="coach" aria-checked="true">Coach</button>
+        <button type="button" role="radio" class="set-mode-btn" data-mode="autopilot" aria-checked="false">Auto</button>
+      </div>
+      <p class="settings-help">Off watches only. Coach trims noisy logs and gives advice. Auto applies the guards and routing for you (Pro or trial).</p>
+    </section>
+
+    <section class="settings-section" aria-labelledby="setLimitsHead">
+      <h3 id="setLimitsHead">Limits</h3>
+      <form id="settingsPop" class="settings-form">
+        <label>Safe limit (tokens)
+          <input type="number" id="setSafeLimit" min="20000" max="1048576" step="1000" required>
+        </label>
+        <label>Remind me at (% of limit)
+          <input type="number" id="setReminderPct" min="50" max="99" step="1" required>
+        </label>
+        <div class="settings-row">
+          <button type="submit" class="settings-save">Save</button>
+          <button type="button" class="settings-cancel" id="btnSettingsCancel">Close</button>
+          <span class="settings-msg" id="settingsMsg"></span>
+        </div>
+      </form>
+    </section>
+
+    <section class="settings-section" aria-labelledby="setLicenceHead">
+      <h3 id="setLicenceHead">Licence</h3>
+      <p id="setLicenceStatus" class="settings-help">Free</p>
+      <div class="settings-row">
+        <button type="button" class="settings-save" id="setBtnTrial">Start 14-day trial</button>
+      </div>
+      <div class="settings-row">
+        <input id="setLicenceKey" type="text" class="ts-shadow-key-input" placeholder="CTXP1.eyJ..." aria-label="Highbeam Pro license key">
+        <button type="button" class="settings-save" id="setBtnActivate">Activate key</button>
+      </div>
+      <p id="setLicenceMsg" class="settings-msg" role="status"></p>
+    </section>
+
+    <section class="settings-section" aria-labelledby="setGuardsHead">
+      <h3 id="setGuardsHead">Guards</h3>
+      <p class="settings-help">Read-only here. To change one, run <code>npx highbeam-cli config set &lt;DET-id&gt; &lt;default|off|warn|block&gt;</code>.</p>
+      <ul id="setGuardList" class="ts-ledger" role="list"></ul>
+    </section>
+
+    <section class="settings-section" aria-labelledby="setAboutHead">
+      <h3 id="setAboutHead">About</h3>
+      <ul class="settings-about">
+        <li>Version: <span id="setAboutVersion">unknown</span></li>
+        <li>Project config: <code>.attention-horizon.json</code> &middot; User config: <code>~/.attention-horizon/config.json</code></li>
+        <li>Health check: <code>npx highbeam-cli doctor</code></li>
+        <li>Docs: <a href="https://gizzant.github.io/context-horizon/" target="_blank" rel="noopener noreferrer">Highbeam User Guide</a></li>
+      </ul>
+    </section>
+  </div>
+
+  <div id="argonSimpleSurface" aria-label="Highbeam main view">
+    <!-- MODE VIEWS: the same panel shows the view for the running mode (Off, Coach, Auto). -->
+    <section id="tsSavedHero" class="ts-saved-hero" aria-label="Estimated tokens saved">
+      <span class="ts-saved-hero-label">Est. tokens saved</span>
+      <span class="ts-saved-hero-row">
+        <strong id="tsHeroSaved" class="ts-saved-hero-num">+0</strong>
+        <span id="tsHeroUsd" class="ts-saved-hero-usd">~$0.00</span>
+      </span>
+      <span id="tsHeroSub" class="ts-saved-hero-sub">This chat &middot; nothing saved yet</span>
+    </section>
+
+    <p id="tsOffNote" class="ts-mode-note mode-only-off" role="status">Watching only. Highbeam tracks context and the cache timer but does not trim logs or give advice. Switch to Coach for advice.</p>
+
+    <div id="tsStatusStrip" class="ts-status-strip mode-hide-off" role="status" aria-live="polite" data-tone="nominal">
+      <span id="tsStripDot" class="ts-dot" data-tone="nominal"></span>
+      <span id="tsStripText">Healthy</span>
+    </div>
+
+    <section id="tsNeedsRow" class="ts-needs-row mode-only-auto" data-tone="ok" role="status" aria-live="polite">
+      <span id="tsNeedsTag" class="ts-tag">NEEDS YOU</span>
+      <span id="tsNeedsText">Nothing needed from you.</span>
+    </section>
+
     <!-- CARD 1: CONTEXT (scrollTop: 0) + Upper-Right Reversed "Glass of Water" Bar -->
-    <section id="tsMetricHeader" class="ts-card ts-metric-header" aria-label="Context usage and categories">
+    <section id="tsMetricHeader" class="ts-card ts-metric-header mode-hide-coach mode-hide-auto" aria-label="Context usage and categories">
       <div class="ts-card-head">
         <span class="ts-card-title" data-tip title="How full your AI's working memory is right now compared to the safe limit where it stays accurate and remembers early project rules.">CONTEXT</span>
         <div class="ts-status-badge" role="status" aria-live="polite" data-tip title="Current memory and prompt-cache health. Green or neutral means you have room to work cleanly; amber or red means it is time to compact or slow down.">
@@ -5826,7 +5955,7 @@
     </section>
 
     <!-- CARD 2: DIRECT GUIDANCE -->
-    <section id="tsGuidanceSection" class="ts-card" aria-label="Direct guidance">
+    <section id="tsGuidanceSection" class="ts-card mode-hide-off mode-hide-auto" aria-label="Direct guidance">
       <div class="ts-card-head">
         <span class="ts-card-title" data-tip title="Actionable next steps and warnings based on your current memory fill, cache warmth, active guards, and rule health.">DIRECT GUIDANCE</span>
         <span id="tsGuidanceBadge" class="ts-meta" data-tone="muted" data-tip title="Shows whether switching your AI model or reasoning effort right now is free (OK) or will force a costly cache rebuild (Hold).">Model: OK &middot; Effort: OK</span>
@@ -5867,7 +5996,7 @@
     </section>
 
     <!-- CARD 3: AUTOMATED ACTIVITY -->
-    <section id="tsActivitySection" class="ts-card" aria-label="Automated activity">
+    <section id="tsActivitySection" class="ts-card mode-hide-off mode-hide-coach" aria-label="Automated activity">
       <div class="ts-card-head">
         <span class="ts-card-title" data-tip title="What Highbeam does in the background: it trims long test logs, skips repeat file reads, protects your warm cache, and applies learned rules.">AUTOMATED ACTIVITY</span>
         <span id="tsGuardsSummary" class="ts-kpi-sub" data-tip title="Number of background interventions active in this chat and how many safety/efficiency guards are currently armed.">Guards armed</span>
@@ -5881,13 +6010,13 @@
         </li>
       </ul>
 
-      <details id="tsLearnedRulesDrawer" class="ts-drawer" hidden>
+      <details id="tsLearnedRulesDrawer" class="ts-drawer mode-hide-off mode-hide-coach mode-hide-auto" hidden>
         <summary title="Click to see the project rules and recovery steps Highbeam learned from your earlier coding sessions."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span><span id="tsLearnedRulesSummary">Applying learned rules</span></span><span id="tsLearnedRulesHint" class="ts-kpi-sub">Details</span></summary>
         <div id="tsLearnedRulesHead" class="ts-guard-head" hidden>Learned project rules</div>
         <ul id="tsLearnedRulesList" class="ts-ledger ts-guard-list" role="list" hidden></ul>
       </details>
 
-      <details id="tsActivityDrawer" class="ts-drawer">
+      <details id="tsActivityDrawer" class="ts-drawer mode-hide-off mode-hide-coach mode-hide-auto">
         <summary title="Click to see every guard, whether it needs attention now, and whether it blocks bad actions or only gives advice."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Active safety &amp; efficiency guards</span><span id="tsGuardRosterHint" class="ts-kpi-sub">Details</span></summary>
         <div id="tsGuardListHead" class="ts-guard-head" hidden>Live guards</div>
         <ul id="tsGuardList" class="ts-ledger ts-guard-list" role="list" hidden></ul>
@@ -5895,7 +6024,7 @@
     </section>
 
     <!-- CARD 4: SESSION OVERVIEW -->
-    <section id="tsSessionSection" class="ts-card" aria-label="Session overview">
+    <section id="tsSessionSection" class="ts-card mode-hide-coach mode-hide-auto" aria-label="Session overview">
       <div class="ts-card-head">
         <span class="ts-card-title" data-tip title="A big-picture look at your entire chat session from Turn 1 until now: how fast context is growing, how well the prompt cache is sticking, and total savings.">SESSION OVERVIEW</span>
         <span id="tsSessionTurnsMeta" class="ts-kpi-sub" data-tip title="Total turns recorded in this conversation so far, along with how many stayed lean vs. triggered a spike or warning.">Session start</span>
@@ -5940,7 +6069,7 @@
             <span id="tsKpi30d" class="ts-kpi-sub" title="Cumulative estimated savings across this workspace over the last 30 days.">30d: +0.0k (~$0.00)</span>
             <span id="tsSprintMeta" class="ts-kpi-sub" hidden title="Estimated share of your 5-hour rolling seat quota used so far."></span>
           </div>
-          <span id="tsSavedHint" class="ts-kpi-sub" title="All savings are counted once per turn from Highbeam's local ledger with zero estimates padded in.">verified</span>
+          <span id="tsSavedHint" class="ts-kpi-sub" title="All savings are counted once per turn from Highbeam's local ledger with zero estimates padded in.">estimated</span>
         </div>
 
         <!-- Row 4 (Conditional): v4.1 Multi-Agent Swarm, Learned Rules & Sharded Constraints -->
@@ -6251,22 +6380,9 @@
         <span class="tufte-model-burn-pill mono" id="tufteModelBurnPill" title="Active Model &amp; Effort Burn Multiplier">Flash 3.8 &middot; Auto</span>
         <span class="tufte-sparkline-group mono" id="tufteTurnSparkline" title="16-turn token velocity sparkline"></span>
         <div class="free-label mono" id="freeLabel">140k safe limit</div>
-        <button class="gear-btn" id="btnSettings" type="button" title="Safe limit & reminder settings" aria-expanded="false" aria-controls="settingsPop">&#x2699;</button>
+        <button class="gear-btn" id="btnSettings" type="button" title="Settings" aria-expanded="false" aria-controls="settingsView">&#x2699;</button>
       </div>
     </div>
-    <form class="settings-pop" id="settingsPop" hidden>
-      <label>Safe limit (tokens)
-        <input type="number" id="setSafeLimit" min="20000" max="1048576" step="1000" required>
-      </label>
-      <label>Remind me at (% of limit)
-        <input type="number" id="setReminderPct" min="50" max="99" step="1" required>
-      </label>
-      <div class="settings-row">
-        <button type="submit" class="settings-save">Save</button>
-        <button type="button" class="settings-cancel" id="btnSettingsCancel">Cancel</button>
-        <span class="settings-msg" id="settingsMsg"></span>
-      </div>
-    </form>
     <div class="delta-line mono" id="deltaLine" style="display:none;"></div>
     <div class="tufte-delta-accounting mono" id="tufteDeltaAccounting" hidden></div>
 
@@ -7781,25 +7897,80 @@
     }
   }
 
-  // Settings popover (safe limit + reminder %), saved through the daemon's /api/settings
+  // Settings view (full-panel dialog): mode, limits, licence, read-only guards, about.
+  // Opened from the header gear or the gear inside Advanced; limits save through /api/settings.
   (function initSettings() {
-    const btn = document.getElementById('btnSettings');
+    const view = document.getElementById('settingsView');
     const pop = document.getElementById('settingsPop');
     const inLimit = document.getElementById('setSafeLimit');
     const inPct = document.getElementById('setReminderPct');
     const msg = document.getElementById('settingsMsg');
-    if (!btn || !pop) return;
+    const openers = ['btnHeaderSettings', 'btnSettings'].map((id) => document.getElementById(id)).filter(Boolean);
+    if (!view || !pop) return;
     const setMsg = (t, err) => { msg.textContent = t; msg.className = 'settings-msg' + (err ? ' err' : ''); };
-    const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
-    btn.onclick = async () => {
-      if (!pop.hidden) { close(); return; }
+    const licMsg = (t, err) => {
+      const el = document.getElementById('setLicenceMsg');
+      if (el) { el.textContent = t; el.className = 'settings-msg' + (err ? ' err' : ''); }
+    };
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    let lastOpener = null;
+
+    function renderSettingsState() {
+      const st = currentRenderedState || {};
+      // Mode
+      const fm = String(st.flightMode || st.coachState?.flightMode || '').toUpperCase();
+      const mode = String(st.routerMode || st.coachState?.routerMode || (fm === 'OFF' ? 'off' : (fm === 'AUTO_PILOT' ? 'autopilot' : (document.body?.dataset?.flightMode || 'coach')))).toLowerCase();
+      document.querySelectorAll('#setModeGroup .set-mode-btn').forEach((b) => {
+        b.setAttribute('aria-checked', String(b.dataset.mode === (mode === 'auto' ? 'autopilot' : mode)));
+      });
+      // Licence
+      const ent = st.proEntitlement || {};
+      const tier = String(ent.tier || (ent.entitled ? 'pro' : 'free')).toLowerCase();
+      const days = Number(ent.daysRemaining);
+      const statusEl = document.getElementById('setLicenceStatus');
+      if (statusEl) {
+        statusEl.textContent = tier === 'trial'
+          ? `Trial: ${Number.isFinite(days) ? (days <= 0 ? 'less than a day' : days + (days === 1 ? ' day' : ' days')) : '14 days'} left. Auto is unlocked; switch Mode to Auto to use it.`
+          : (ent.entitled ? `Pro licence active${ent.plan ? ' (' + ent.plan + ')' : ''}.` : 'Free. Auto runs as a preview until you start the trial or activate a key.');
+      }
+      const trialBtn = document.getElementById('setBtnTrial');
+      if (trialBtn) trialBtn.hidden = Boolean(ent.entitled);
+      // Guards (read-only)
+      const list = document.getElementById('setGuardList');
+      if (list) {
+        const guards = Array.isArray(st.coachState?.detectors?.list) ? st.coachState.detectors.list : [];
+        list.innerHTML = guards.length === 0
+          ? '<li class="ts-ledger-row"><span class="ts-ledger-age">info</span><span>Guard list appears once the live daemon reports it. Run <code>npx highbeam-cli config list</code> to see it now.</span><span class="ts-ledger-saved"></span></li>'
+          : guards.map((g) => {
+            const setting = g.tripped ? 'tripped' : (g.mode === 'guard' ? 'blocks' : (g.mode === 'advisory' ? 'advises' : String(g.mode || 'default')));
+            return `<li class="ts-ledger-row"><span class="ts-ledger-age">${esc(g.id)}</span><span>${esc(g.name || g.id)}</span><span class="ts-ledger-saved">${esc(setting)}</span></li>`;
+          }).join('');
+      }
+    }
+
+    async function loadVersion() {
+      try {
+        const r = await fetch('/api/health');
+        if (r && r.ok) {
+          const j = await r.json();
+          if (j && j.version) document.getElementById('setAboutVersion').textContent = String(j.version);
+        }
+      } catch (err) { void err; }
+    }
+
+    async function openSettings(opener) {
+      lastOpener = opener || null;
       const w = currentRenderedState?.window || {};
       const liveLim = Number(document.getElementById('limitLine')?.dataset?.tokens) || w.safeLimit || 179000;
       inLimit.value = liveLim;
       inPct.value = liveLim && w.reminderAt ? Math.round((w.reminderAt / liveLim) * 100) : 85;
       setMsg('');
-      pop.hidden = false;
-      btn.setAttribute('aria-expanded', 'true');
+      licMsg('');
+      renderSettingsState();
+      view.hidden = false;
+      openers.forEach((b) => b.setAttribute('aria-expanded', 'true'));
+      document.getElementById('btnSettingsClose')?.focus?.();
+      loadVersion();
       try {
         const r = await fetch('/api/settings');
         if (r.ok) {
@@ -7807,11 +7978,53 @@
           if (settings) { inLimit.value = settings.safeLimitTokens; inPct.value = settings.reminderAtPct; }
         }
       } catch { setMsg('Live daemon not reachable; saving is unavailable.', true); }
+    }
+    function closeSettings() {
+      view.hidden = true;
+      openers.forEach((b) => b.setAttribute('aria-expanded', 'false'));
+      lastOpener?.focus?.();
+    }
+    window.__hzRenderSettingsState = () => { if (!view.hidden) renderSettingsState(); };
+
+    openers.forEach((b) => { b.onclick = () => (view.hidden ? openSettings(b) : closeSettings()); });
+    document.getElementById('btnSettingsClose').onclick = closeSettings;
+    document.getElementById('btnSettingsCancel').onclick = closeSettings;
+    view.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSettings(); });
+
+    document.querySelectorAll('#setModeGroup .set-mode-btn').forEach((b) => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('#setModeGroup .set-mode-btn').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+        document.getElementById(b.dataset.mode === 'off' ? 'tsModeBtnOff' : (b.dataset.mode === 'autopilot' ? 'tsModeBtnAuto' : 'tsModeBtnCoach'))?.click();
+      });
+    });
+
+    async function postLicence(body, okText) {
+      licMsg('Working…');
+      try {
+        const r = await fetch('/api/license/activate', { method: 'POST', headers: buildHorizonPostHeaders(), body: JSON.stringify(body) });
+        const j = r && typeof r.json === 'function' ? await r.json() : {};
+        if (j.ok || j.success) {
+          if (j.state && typeof applyGlobalStateFromDaemon === 'function') applyGlobalStateFromDaemon(j.state);
+          renderSettingsState();
+          licMsg(okText);
+        } else {
+          licMsg(j.reason || j.error || 'Could not activate.', true);
+        }
+      } catch (err) {
+        void err;
+        licMsg('Live daemon not reachable; activation is unavailable.', true);
+      }
+    }
+    document.getElementById('setBtnTrial').onclick = () => postLicence({ trial: true }, 'Trial started. Auto is unlocked; switch Mode to Auto to use it.');
+    document.getElementById('setBtnActivate').onclick = () => {
+      const key = String(document.getElementById('setLicenceKey')?.value || '').trim();
+      if (!key) { licMsg('Paste your CTXP1 licence key first.', true); return; }
+      postLicence({ licenseKey: key }, 'Licence activated.');
     };
-    document.getElementById('btnSettingsCancel').onclick = close;
+
     pop.onsubmit = async (e) => {
       e.preventDefault();
-      setMsg('Saving\u2026');
+      setMsg('Saving…');
       try {
         const r = await fetch('/api/settings', {
           method: 'POST',
@@ -7824,7 +8037,6 @@
         inPct.value = data.settings.reminderAtPct;
         if (data.state) renderState(data.state);
         setMsg(`Saved: ${fmtK(data.settings.safeLimitTokens)} limit, reminder at ${data.settings.reminderAtPct}%`);
-        setTimeout(close, 1200);
       } catch (err) {
         setMsg('Could not save: ' + (err?.message || err), true);
       }
@@ -8025,7 +8237,7 @@
         payoff: `reclaims ${ramStr}`,
         reclaimTokens: 0,
         reclaimRamGb,
-        commandToCopy: 'npx ctxtop doctor --reap-orphans',
+        commandToCopy: 'npx highbeam-cli doctor --reap-orphans',
         apiAction: 'reap-orphans'
       });
     }
@@ -8072,7 +8284,7 @@
         payoff: `reclaims ~${fmtKFixed1(totalReclaimableToolK)} tok (zero LLM loss)`,
         reclaimTokens: totalReclaimableToolTok,
         reclaimRamGb: 0,
-        commandToCopy: 'npx ctxtop prune',
+        commandToCopy: 'npx highbeam-cli prune',
         apiAction: 'condense-ast'
       });
     }
@@ -8116,7 +8328,7 @@
         payoff: 'avoids 12.5x cold cache rewrite',
         reclaimTokens: 0,
         reclaimRamGb: 0,
-        commandToCopy: 'npx ctxtop doctor --handoff',
+        commandToCopy: 'npx highbeam-cli doctor --handoff',
         apiAction: 'generate-handoff'
       });
     }
@@ -8203,7 +8415,8 @@
 
     // 1. Token Totals (Dynamic 200k / 256k / 512k / 900k / 1M / 1.048M Ceiling)
     const modelIdLower = String(raw.model?.id || sessionMeta.activeModel || raw.activeModel || '').toLowerCase().trim();
-    const isCarbonModel = modelIdLower.includes('carbon') || modelIdLower === 'm670' || modelIdLower === 'gemini-pro-orchestrator' || modelIdLower === 'orchestrator' || modelIdLower === 'orchestrator-carbon';
+    const isNeonModel = modelIdLower.includes('neon');
+    const isCarbonModel = !isNeonModel && (modelIdLower.includes('carbon') || modelIdLower === 'm670' || modelIdLower === 'gemini-pro-orchestrator' || modelIdLower === 'orchestrator' || modelIdLower === 'orchestrator-carbon');
     const isArgonModel = modelIdLower.includes('argon') || modelIdLower.includes('orchestrator-argon');
     const isHydrogenModel = modelIdLower.includes('hydrogen');
     const isClaude55OrFable = modelIdLower.includes('opus-5') || modelIdLower.includes('sonnet-5') || modelIdLower.includes('haiku-5') || modelIdLower.includes('fable-5') || modelIdLower.includes('mythos-5') || modelIdLower.includes('opus-4-8') || modelIdLower.includes('opus-4-7') || modelIdLower.includes('opus-4.8') || modelIdLower.includes('opus-4.7');
@@ -8213,7 +8426,7 @@
       modelIdLower.includes('claude-haiku-4') ||
       modelIdLower.includes('claude-3-5-sonnet')
     );
-    const inferredModelCeiling = (isCarbonModel || isArgonModel || isHydrogenModel)
+    const inferredModelCeiling = (isCarbonModel || isNeonModel || isArgonModel || isHydrogenModel)
       ? 1048576
       : (isClaude55OrFable ? 1000000 : (isClaude46Model ? 200000 : 256000));
     const maxTokens = win.maxTokens || raw.contextWindow || telemetry.contextWindow || (raw.model?.nativeCeilingTokens) || inferredModelCeiling;
@@ -8232,7 +8445,7 @@
     if (clampPillEl) {
       const isGemini4Clamped = Boolean(
         raw.model?.isClamped1MModel ||
-        ((isCarbonModel || isArgonModel || isHydrogenModel || modelIdLower.includes('gemini-4')) && maxTokens === 256000)
+        ((isCarbonModel || isNeonModel || isArgonModel || isHydrogenModel || modelIdLower.includes('gemini-4')) && maxTokens === 256000)
       );
       const isPatchedCli = Boolean(
         raw.model?.ceilingSource === 'patched_cli' ||
@@ -8241,7 +8454,7 @@
         maxTokens === 900000
       );
       if (isGemini4Clamped) {
-        const gemini4FamilyLabel = isCarbonModel ? 'Gemini 4 Carbon' : (isHydrogenModel ? 'Gemini 4 Hydrogen' : 'Gemini 4 Argon');
+        const gemini4FamilyLabel = isCarbonModel ? 'Gemini 4 Carbon' : (isNeonModel ? 'Gemini 4 Neon' : (isHydrogenModel ? 'Gemini 4 Hydrogen' : 'Gemini 4 Argon'));
         clampPillEl.hidden = false;
         clampPillEl.textContent = raw.model?.clampedLabel || '256k Host Cap (1M model)';
         clampPillEl.title = `Capped by host Cortex checkpoint ceiling (0x3E800). ${gemini4FamilyLabel} has a 1M native context window but is capped at 256k.`;
@@ -10528,7 +10741,7 @@
       if (!btn) return;
       const hog = hogs[Number(btn.dataset.hogIdx)];
       if (!hog) return;
-      let copyText = 'npx ctxtop prune';
+      let copyText = 'npx highbeam-cli prune';
       if (hog.kind === 'file') {
         copyText = hog.ignorable
           ? ignorePromptText(hog.path)
@@ -11423,7 +11636,7 @@
         const targetDesc = dupFiles.length > 0
           ? `${dupFiles.length} duplicate file read${dupFiles.length === 1 ? '' : 's'}${errRowK > 0 ? ' + resolved errors' : ''}`
           : `resolved error logs`;
-        const pruneCmd = 'npx ctxtop prune';
+        const pruneCmd = 'npx highbeam-cli prune';
         currentSessionTokenRows.push({
           impactTokens: surgicalTok,
           html:
@@ -11973,14 +12186,20 @@
     btn.setAttribute('aria-expanded', String(open));
   };
 
-  // Simple / Advanced View Mode Tabs (shadcn/ui Tabs pattern)
+  // Main / Advanced view toggle. The main view follows the protection mode (Off, Coach, Auto);
+  // the header button swaps to the Advanced diagnostics view and back. `data-view-tab` always names
+  // the view a click opens next.
   const savedViewMode = (function() {
     try { return localStorage.getItem('ah.viewMode') || localStorage.getItem('ctxtop.viewMode') || 'simple'; } catch { return 'simple'; }
   })();
   function applyViewMode(mode) {
     document.body.setAttribute('data-view-mode', mode);
     document.querySelectorAll('[data-view-tab]').forEach(b => {
-      b.setAttribute('aria-selected', String(b.dataset.viewTab === mode));
+      const inAdvanced = mode === 'advanced';
+      b.dataset.viewTab = inAdvanced ? 'simple' : 'advanced';
+      b.setAttribute('aria-pressed', String(inAdvanced));
+      b.textContent = inAdvanced ? 'Back' : 'Advanced';
+      b.title = inAdvanced ? 'Return to the main view' : 'Open the full diagnostic & timeline view';
     });
     try {
       localStorage.setItem('ah.viewMode', mode);
@@ -12357,6 +12576,15 @@
       btn.style.color = active ? 'var(--hz-useful)' : '';
     });
   }
+  // Mode-driven main view: mirror the running mode (and Auto's enforced / preview state) onto <body>
+  // so CSS can show each mode's own view. Uses the same race guard as the slider.
+  function syncModeViewAttrs(rawMode = 'coach', autoShadow = false, fromState = false) {
+    if (fromState && Date.now() < __modeSelectionPendingUntil) return;
+    if (!document.body) return;
+    const norm = normalizeHorizonUiMode(rawMode);
+    document.body.dataset.flightMode = norm;
+    document.body.dataset.autoState = norm === 'autopilot' ? (autoShadow ? 'preview' : 'on') : 'na';
+  }
   function setRouterModeActiveUI(mode) {
     const norm = normalizeHorizonUiMode(mode);
     document.querySelectorAll('.model-mode-switch .mode-btn, .tufte-mode-chip').forEach(b => {
@@ -12521,6 +12749,7 @@
     __modeSelectionPendingUntil = Date.now() + 3000;
 
     setRouterModeActiveUI(mode);
+    syncModeViewAttrs(mode, optimisticShadow);
     if (currentRenderedState && typeof currentRenderedState === 'object') {
       currentRenderedState.routerMode = mode;
       currentRenderedState.flightMode = mode === 'autopilot' ? 'AUTO_PILOT' : (mode === 'off' ? 'OFF' : 'COACH');
@@ -12551,6 +12780,9 @@
       void err;
     }
     __modeSelectionPendingUntil = 0;
+    if (modeResp && typeof modeResp.autoShadow === 'boolean') {
+      syncModeViewAttrs(mode, modeResp.autoShadow);
+    }
     if (modeResp?.state && typeof modeResp.state === 'object') {
       applyGlobalStateFromDaemon(modeResp.state);
     }
@@ -12790,7 +13022,59 @@
     if (rightEl) rightEl.textContent = `${formatTokens(cell.tokens || 0)} / cell \u00B7 ${recall} recall`;
   }
 
+  // Mode views: after the shared surfaces are drawn, fill the elements only the mode views use
+  // (tokens-saved headline, one-line status, Auto "needs you" row). All text is copied from values the
+  // shared renderer already computed, so every mode tells the same story.
+  function renderModeViewContent(raw) {
+    const txtOf = (id) => (document.getElementById(id)?.textContent || '').trim();
+    const setIf = (id, text) => { const el = document.getElementById(id); if (el && el.textContent !== text) el.textContent = text; };
+    const mode = document.body?.dataset?.flightMode || 'coach';
+    const autoState = document.body?.dataset?.autoState || 'na';
+
+    // 1. Tokens-saved headline: same figures as the Session overview "Saved" row.
+    setIf('tsHeroSaved', txtOf('tsKpiSaved') || '+0');
+    const usdTxt = document.getElementById('tsKpiUsd');
+    setIf('tsHeroUsd', usdTxt && !usdTxt.hidden ? txtOf('tsKpiUsd') : '');
+    const d30 = document.getElementById('tsKpi30d');
+    const saved = txtOf('tsKpiSaved').replace(/[^0-9.]/g, '');
+    const hasSaved = Number(saved) > 0;
+    const d30Txt = d30 && !d30.hidden ? txtOf('tsKpi30d') : '';
+    setIf('tsHeroSub', hasSaved
+      ? `This chat${d30Txt ? ' \u00B7 ' + d30Txt : ''}`
+      : (d30Txt ? `Nothing saved in this chat yet \u00B7 ${d30Txt}` : 'This chat \u00B7 nothing saved yet'));
+
+    // 2. One-line status (Coach and Auto): health, context used, cache.
+    const strip = document.getElementById('tsStatusStrip');
+    if (strip) {
+      const tone = document.getElementById('tsStatusDot')?.dataset?.tone || 'nominal';
+      strip.dataset.tone = tone;
+      const stripDot = document.getElementById('tsStripDot');
+      if (stripDot) stripDot.dataset.tone = tone;
+      setIf('tsStripText', `${txtOf('tsStatusLabel') || 'Healthy'} \u00B7 ${txtOf('tsUsedLabel')} of ${txtOf('tsSafeLabel')} safe (${txtOf('tsUsedPct')}) \u00B7 Cache: ${txtOf('tsCacheMeta') || 'n/a'}`);
+    }
+
+    // 3. Auto "needs you" row: shows an instruction only where the shared guidance flags a stop-and-look case.
+    const needs = document.getElementById('tsNeedsRow');
+    if (needs) {
+      const doRow = document.getElementById('tsDoRow');
+      const flagged = doRow?.dataset?.tone === 'danger';
+      needs.dataset.tone = flagged ? 'danger' : 'ok';
+      setIf('tsNeedsTag', flagged ? 'NEEDS YOU' : (autoState === 'preview' ? 'PREVIEW' : 'AUTO'));
+      setIf('tsNeedsText', flagged
+        ? txtOf('tsDoText')
+        : (mode === 'autopilot' && autoState === 'preview'
+          ? 'Nothing needed from you. Auto is a preview: it advises like Coach and applies nothing until you start the trial or unlock Pro.'
+          : 'Nothing needed from you. Auto is handling it.'));
+    }
+  }
+
   function renderArgonTufteSurfaces(raw) {
+    renderArgonTufteSurfacesCore(raw);
+    try { renderModeViewContent(raw); } catch (err) { void err; }
+    try { if (typeof window.__hzRenderSettingsState === 'function') window.__hzRenderSettingsState(); } catch (err) { void err; }
+  }
+
+  function renderArgonTufteSurfacesCore(raw) {
     if (!raw || typeof raw !== 'object') return;
     const win = raw.window || {};
     const bd = win.breakdown || raw.categories || {};
@@ -12866,7 +13150,7 @@
     const modelHay = `${modelId} ${String(mdl.family || '')} ${String(mdl.rawLabel || activeModel).toLowerCase()}`;
     // Provider from id/family/label, including registry sub-families (constants.mjs `family`).
     const modelProvider = /claude|opus|sonnet|haiku|fable|mythos/.test(modelHay) ? 'Claude'
-      : /gemini|carbon|argon|hydrogen|flash|orchestrator/.test(modelHay) ? 'Gemini'
+      : /gemini|neon|carbon|argon|hydrogen|flash|orchestrator/.test(modelHay) ? 'Gemini'
         : /gpt/.test(modelHay) ? 'GPT-OSS' : 'Other';
     // Selected effort comes from the host label "Model (Medium)" only when the parenthetical is an effort word.
     const EFFORT_WORD_RE = /^(low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard)\b/i;
@@ -12929,6 +13213,7 @@
       (raw.autoShadow === undefined && raw.coachState?.autoShadow === undefined && raw.proEntitlement?.entitled === false)
     );
     const enforcementValue = effectiveMode === 'autopilot' ? (autoShadowFlag ? 'shadow' : 'enforced') : 'na';
+    syncModeViewAttrs(effectiveMode, autoShadowFlag, true);
     const tsSliderEl = document.getElementById('tsModeSlider');
     if (tsSliderEl) tsSliderEl.dataset.enforcement = enforcementValue;
     const tsModeHintEl = document.getElementById('tsModeHint');
@@ -13339,7 +13624,7 @@
       setTxt('tsAvoidText', 'Avoid loading more large files or unfiltered build logs before trimming older context.');
     } else if (shardedSpecCount >= 4) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `Your requirements changed ${shardedSpecCount} times across this chat — run ctxtop handoff --consolidate to merge them into one clear spec so nothing gets missed.`);
+      setTxt('tsDoText', `Your requirements changed ${shardedSpecCount} times across this chat — run highbeam handoff --consolidate to merge them into one clear spec so nothing gets missed.`);
       setTxt('tsAvoidText', 'Avoid adding new requirements one message at a time. Combine them into one clear plan.');
     } else if (isHighEffort && dispStaleT >= 30000) {
       const effWord = String(activeEffort).replace(/\s*effort\s*$/i, '').trim() || 'High';
@@ -13377,7 +13662,7 @@
       setTxt('tsAvoidText', 'Avoid loading unused MCP tool lists or oversized global rule files into every new chat.');
     } else if (rslClashCount > 0) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `${rslClashCount} conflicting rule${rslClashCount === 1 ? '' : 's'} detected — run ctxtop rsl status to review the overlap and keep one clear instruction per topic.`);
+      setTxt('tsDoText', `${rslClashCount} conflicting rule${rslClashCount === 1 ? '' : 's'} detected — run highbeam rsl status to review the overlap and keep one clear instruction per topic.`);
       setTxt('tsAvoidText', 'Avoid adding rules that disagree with each other in AGENTS.md and your learned rules.');
     } else if (raw.turn1ContractSteered) {
       if (tsDoRow) tsDoRow.dataset.tone = 'do';
@@ -13431,7 +13716,7 @@
     {
       const ttlTxt = `${ttlMm}:${ttlSs}`;
       const otherFamily = modelProvider === 'Claude' ? 'Gemini' : (modelProvider === 'Gemini' ? 'Claude' : 'another family');
-      const familyHint = modelProvider === 'Claude' ? 'Fable/Opus/Sonnet/Haiku' : (modelProvider === 'Gemini' ? 'Carbon/Argon/Hydrogen/Flash' : 'same provider');
+      const familyHint = modelProvider === 'Claude' ? 'Fable/Opus/Sonnet/Haiku' : (modelProvider === 'Gemini' ? 'Neon/Carbon/Argon/Hydrogen/Flash' : 'same provider');
       const cg = cache.costGate || {};
       const rewriteUsd = Number(cg.coldRewriteCostUsd) || 0;
       const quotaUnits = Number(cg.quotaPenaltyUnits) || 0;
@@ -13500,7 +13785,7 @@
       if (tsModelLast) {
         if (hasModelSwitchBust) {
           const stripEff = (s) => String(s).replace(/\s*\((?:low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard)\b[^)]*\)\s*$/i, '');
-          const prov = (s) => (/claude|opus|sonnet|haiku|fable|mythos/i.test(s) ? 'Claude' : /gemini|carbon|argon|hydrogen|flash|orchestrator/i.test(s) ? 'Gemini' : /gpt/i.test(s) ? 'GPT-OSS' : 'Other');
+          const prov = (s) => (/claude|opus|sonnet|haiku|fable|mythos/i.test(s) ? 'Claude' : /gemini|neon|carbon|argon|hydrogen|flash|orchestrator/i.test(s) ? 'Gemini' : /gpt/i.test(s) ? 'GPT-OSS' : 'Other');
           const crossTag = prov(bc.from) !== prov(bc.to) ? ' \u00B7 cross-family' : '';
           tsModelLast.textContent = `Last switch: ${stripEff(bc.from)} \u2192 ${stripEff(bc.to)} (cache miss${crossTag})`;
           tsModelLast.hidden = false;
@@ -13836,7 +14121,7 @@
             rule: 'A project rule the AI is asked to follow.'
           };
           lrList.innerHTML = uiRules.length === 0
-            ? `<li class="ts-ledger-row" title="Highbeam knows about these rules, but this view does not have their details yet."><span class="ts-ledger-age">info</span><span>Rule details are not available yet. Run <code>ctxtop rsl status</code> to list them.</span><span class="ts-ledger-saved">${lrCount}</span></li>`
+            ? `<li class="ts-ledger-row" title="Highbeam knows about these rules, but this view does not have their details yet."><span class="ts-ledger-age">info</span><span>Rule details are not available yet. Run <code>highbeam rsl status</code> to list them.</span><span class="ts-ledger-saved">${lrCount}</span></li>`
             : uiRules.map((r) => {
               const kind = ['hook', 'skill', 'rule'].includes(r.kind) ? r.kind : 'rule';
               const state = kind === 'hook' ? (effectiveMode === 'off' ? 'paused' : 'blocks') : 'active';
@@ -14793,7 +15078,7 @@
           setTxt('taRslMeta', metaParts.length > 0 ? metaParts.join(' \u00B7 ') : (effectiveMode === 'off' ? 'Paused' : 'Active'));
           let rslHtml = '';
           if (rslClashCount > 0) {
-            rslHtml += `<li class="ts-ledger-row" data-effective-state="paused"><span class="ts-ledger-age">CLASH</span><span>${rslClashCount} conflicting project rule${rslClashCount === 1 ? '' : 's'} \u2014 run <code>ctxtop rsl status</code></span><span class="ts-ledger-saved" style="color:var(--status-warning);">review</span></li>`;
+            rslHtml += `<li class="ts-ledger-row" data-effective-state="paused"><span class="ts-ledger-age">CLASH</span><span>${rslClashCount} conflicting project rule${rslClashCount === 1 ? '' : 's'} \u2014 run <code>highbeam rsl status</code></span><span class="ts-ledger-saved" style="color:var(--status-warning);">review</span></li>`;
           }
           if (shardedSpecCount >= 2) {
             rslHtml += `<li class="ts-ledger-row"><span class="ts-ledger-age">SPEC</span><span>${shardedSpecCount} spec shards loaded across session</span><span class="ts-ledger-saved">${shardedSpecCount >= 4 ? 'consolidate' : 'tracked'}</span></li>`;
@@ -14805,7 +15090,7 @@
               return `<li class="ts-ledger-row" data-kind="${escAttr(kind)}" data-effective-state="${st}" title="${escAttr(r.detail || r.title || '')}"><span class="ts-ledger-age">${escAttr(kind)}</span><span>${escAttr(r.title || 'Learned rule')}${r.detail ? ` <span class="ts-why-sub">\u2014 ${escAttr(r.detail)}</span>` : ''}</span><span class="ts-ledger-saved">${st}</span></li>`;
             }).join('');
           } else if (lrCount > 0) {
-            rslHtml += `<li class="ts-ledger-row"><span class="ts-ledger-age">RSL</span><span>${lrCount} active learned rule(s) \u2014 run <code>ctxtop rsl status</code> to inspect</span><span class="ts-ledger-saved">${lrCount}</span></li>`;
+            rslHtml += `<li class="ts-ledger-row"><span class="ts-ledger-age">RSL</span><span>${lrCount} active learned rule(s) \u2014 run <code>highbeam rsl status</code> to inspect</span><span class="ts-ledger-saved">${lrCount}</span></li>`;
           }
           rslList.innerHTML = rslHtml;
         }

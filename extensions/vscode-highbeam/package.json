@@ -1,0 +1,143 @@
+{
+  "name": "highbeam",
+  "displayName": "Highbeam — AI Context & KV-Cache HUD",
+  "description": "40-cell AI context window visualizer, warm KV-cache TTL timer, and zero-token guardrails HUD for Google Antigravity, Claude Code, Cursor, Codex CLI, and Gemini CLI (100% local loopback).",
+  "publisher": "gizzant",
+  "version": "4.1.5",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Gizzant/context-horizon.git"
+  },
+  "homepage": "https://gizzant.github.io/context-horizon/",
+  "bugs": {
+    "url": "https://github.com/Gizzant/context-horizon/issues"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "AI",
+    "Visualization",
+    "Debuggers",
+    "Other"
+  ],
+  "keywords": [
+    "highbeam",
+    "highbeam-cli",
+    "ctxtop",
+    "antigravity",
+    "claude-code",
+    "cursor",
+    "context-window",
+    "kv-cache",
+    "llm",
+    "ai-coding",
+    "finops"
+  ],
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:highbeam.hudView"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "highbeam-sidebar",
+          "title": "Highbeam",
+          "icon": "media/sidebar-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "highbeam-sidebar": [
+        {
+          "type": "webview",
+          "id": "highbeam.hudView",
+          "name": "Context Horizon"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "highbeam.openSidebar",
+        "title": "Highbeam: Focus Context Horizon Sidebar"
+      },
+      {
+        "command": "highbeam.openPanel",
+        "title": "Highbeam: Open Full HUD in Editor Tab"
+      },
+      {
+        "command": "highbeam.copyCompact",
+        "title": "Highbeam: Copy /compact to Clipboard"
+      },
+      {
+        "command": "highbeam.runAudit",
+        "title": "Highbeam: Run 7-Day Session ROI Audit (Read-Only)"
+      },
+      {
+        "command": "highbeam.runDoctor",
+        "title": "Highbeam: Run Doctor Health Check"
+      },
+      {
+        "command": "highbeam.startDaemon",
+        "title": "Highbeam: Start / Reconnect Local Telemetry Daemon"
+      },
+      {
+        "command": "highbeam.stopDaemon",
+        "title": "Highbeam: Stop Managed Local Daemon"
+      },
+      {
+        "command": "highbeam.openInBrowser",
+        "title": "Highbeam: Open HUD in External Browser"
+      }
+    ],
+    "configuration": {
+      "title": "Highbeam",
+      "properties": {
+        "highbeam.autoStartDaemon": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically discover or start the local Highbeam loopback telemetry daemon on activation."
+        },
+        "highbeam.daemonPort": {
+          "type": "integer",
+          "default": 62935,
+          "minimum": 1024,
+          "maximum": 65535,
+          "description": "Preferred loopback port for the local Highbeam telemetry daemon (127.0.0.1)."
+        },
+        "highbeam.cliCommand": {
+          "type": "string",
+          "default": "",
+          "description": "Optional custom path to the highbeam / highbeam-cli binary or sidecars/horizon-daemon/server.mjs script."
+        },
+        "highbeam.nodePath": {
+          "type": "string",
+          "default": "node",
+          "description": "Node.js executable path used when launching the local telemetry daemon (requires Node >= 22.13.0)."
+        },
+        "highbeam.statusBarEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show live context occupancy, warm KV-cache TTL countdown, and status severity in the IDE status bar."
+        },
+        "highbeam.pollIntervalMs": {
+          "type": "integer",
+          "default": 3000,
+          "minimum": 1000,
+          "maximum": 30000,
+          "description": "Status bar polling interval against http://127.0.0.1:<port>/api/state in milliseconds."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "package:vsix": "node ../../scripts/build_vsix.mjs",
+    "package:vsce": "npx @vscode/vsce package --no-dependencies",
+    "publish:ovsx": "npx ovsx publish"
+  },
+  "dependencies": {}
+}

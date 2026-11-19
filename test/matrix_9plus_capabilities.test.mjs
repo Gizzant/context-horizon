@@ -108,7 +108,7 @@ describe('Matrix >= 9.0 Capabilities Suite (D1-D8)', () => {
   it('2. CLI status, helpText, and runDoctorDiagnostics expose offloadIndex + ipcFastPath cleanly', () => {
     const helpRes = runCli(['--help']);
     assert.equal(helpRes.exitCode, 0);
-    assert.ok(helpRes.output.includes('Usage: ctxtop <command> [options]'));
+    assert.ok(helpRes.output.includes('Usage: highbeam <command> [options]'));
     assert.ok(helpRes.output.includes('search [<turn-id>]'));
     assert.ok(helpRes.output.includes('--cursor|--windsurf|--codex|--gemini-cli'));
 
@@ -228,10 +228,10 @@ describe('Matrix >= 9.0 Capabilities Suite (D1-D8)', () => {
       const parsedGem = JSON.parse(fs.readFileSync(geminiCfg, 'utf8'));
       assert.equal(parsedGem.theme, 'dark');
       assert.deepEqual(parsedGem.mcpServers.existing, { command: 'node', args: ['old.js'] });
-      assert.deepEqual(parsedGem.mcpServers.highbeam, { command: 'npx', args: ['-y', 'ctxtop', 'mcp'] });
+      assert.deepEqual(parsedGem.mcpServers.highbeam, { command: 'npx', args: ['-y', 'highbeam-cli', 'mcp'] });
 
       const cursorCfg = JSON.parse(fs.readFileSync(path.join(tmpDir, '.cursor', 'mcp.json'), 'utf8'));
-      assert.deepEqual(cursorCfg.mcpServers.highbeam, { command: 'npx', args: ['-y', 'ctxtop', 'mcp'] });
+      assert.deepEqual(cursorCfg.mcpServers.highbeam, { command: 'npx', args: ['-y', 'highbeam-cli', 'mcp'] });
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -339,7 +339,7 @@ describe('Matrix >= 9.0 Capabilities Suite (D1-D8)', () => {
 
   it('7. New and updated docs maintain strict zero-banned-strings and zero-empty-catch hygiene', () => {
     const ALLOWED_CONTEXT_HORIZON_URLS_RE =
-      /https:\/\/gizzant\.github\.io\/context-horizon\/(?![\w./-])|https:\/\/github\.com\/Gizzant\/context-horizon(?:\.git)?(?![/\w.-])/g;
+      /https:\/\/gizzant\.github\.io\/context-horizon\/(?:demo\/)?(?![\w./-])|https:\/\/github\.com\/Gizzant\/context-horizon(?:\.git)?(?![/\w.-])/g;
     const stripAllowedContextHorizonUrls = (s) => String(s).replace(ALLOWED_CONTEXT_HORIZON_URLS_RE, '');
     const bannedPatterns = [
       new RegExp(['Context', 'Horizon'].join(' '), 'i'),
@@ -370,6 +370,13 @@ describe('Matrix >= 9.0 Capabilities Suite (D1-D8)', () => {
       ),
       false,
       'Exact canonical repo URLs must be stripped before banned-pattern check'
+    );
+    assert.equal(
+      bannedPatterns[1].test(
+        stripAllowedContextHorizonUrls('https://gizzant.github.io/context-horizon/demo/')
+      ),
+      false,
+      'Exact canonical GitHub Pages /demo/ URL must be stripped before banned-pattern check'
     );
     assert.equal(
       bannedPatterns[1].test(

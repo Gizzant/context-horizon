@@ -72,7 +72,7 @@
 
         <div class="glossary-entry" data-tags="core claude antigravity">
           <p class="glossary-term">Cost Radar <span class="badge">Core Physics</span></p>
-          <p class="glossary-def">A standalone HTML/SVG chart built by <code>ctxtop cost-radar</code> (or <code>/cost-radar</code>). It plots per-turn cache hits, thinking-token loops (<code>DET-30</code>), and subagent or Git worktree spans.</p>
+          <p class="glossary-def">A standalone HTML/SVG chart built by <code>highbeam cost-radar</code> (or <code>/cost-radar</code>). It plots per-turn cache hits, thinking-token loops (<code>DET-30</code>), and subagent or Git worktree spans.</p>
         </div>
 
         <div class="glossary-entry" data-tags="antigravity">
@@ -129,7 +129,7 @@
 
         <div class="glossary-entry" data-tags="claude">
           <p class="glossary-term">Lean Hooks vs. Full Hooks <span class="badge">Claude Code</span></p>
-          <p class="glossary-def">Two setup modes in <code>ctxtop install</code>. Default <code>--lean-hooks</code> wires core tool and compact hooks for fast turns, while <code>--full-hooks</code> adds every extra lifecycle hook.</p>
+          <p class="glossary-def">Two setup modes in <code>highbeam install</code>. Default <code>--lean-hooks</code> wires core tool and compact hooks for fast turns, while <code>--full-hooks</code> adds every extra lifecycle hook.</p>
         </div>
 
         <div class="glossary-entry" data-tags="core security antigravity claude">
@@ -146,7 +146,7 @@
 
         <div class="glossary-entry" data-tags="core">
           <p class="glossary-term">Primacy Band &amp; Recency Tail <span class="badge">Core Physics</span></p>
-          <p class="glossary-def">The two sharpest recall zones on the U-curve. Primacy covers Turn-0 rules at the start of the prompt (Cells 1-6), and Recency covers your newest steps at the end (Cells 33-40).</p>
+          <p class="glossary-def">The two sharpest recall zones on the U-curve. Primacy covers the opening 0–30% band (led by Turn-0 anchors in Cells 1–6), the Middle Trough spans 30–70% (Cells 7–28), and Recency covers your newest steps in the 70–100% tail (Cells 29–40).</p>
         </div>
 
         <div class="glossary-entry" data-tags="core antigravity claude">
@@ -161,7 +161,7 @@
 
         <div class="glossary-entry" data-tags="security antigravity claude">
           <p class="glossary-term">Runtime Control FSM (<code>.ctl</code>) <span class="badge">Security &amp; Control</span></p>
-          <p class="glossary-def">A 5-state session switch (<code>RUNNING</code>, <code>PAUSED</code>, <code>STEP</code>, <code>ABORTED</code>, <code>REWIND</code>) stored at <code>~/.ctxtop/runtime/&lt;sessionId&gt;.ctl</code>. Control it from the CLI with <code>ctxtop control</code>.</p>
+          <p class="glossary-def">A 5-state session switch (<code>RUNNING</code>, <code>PAUSED</code>, <code>STEP</code>, <code>ABORTED</code>, <code>REWIND</code>) stored at <code>~/.ctxtop/runtime/&lt;sessionId&gt;.ctl</code>. Control it from the CLI with <code>highbeam control</code>.</p>
         </div>
 
         <div class="glossary-entry" data-tags="security antigravity claude">
@@ -198,12 +198,12 @@
 
         <div class="glossary-entry" data-tags="core antigravity">
           <p class="glossary-term">Tool-Output Surgeon <span class="badge">Core Physics</span></p>
-          <p class="glossary-def">An offline log trimmer (<code>ctxtop doctor --prune-tools</code> and <code>POST /api/surgeon</code>). It writes a <code>.bak</code> backup first, then trims old uncached tool outputs from local JSONL chat logs.</p>
+          <p class="glossary-def">An offline log trimmer (<code>highbeam doctor --prune-tools</code> and <code>POST /api/surgeon</code>). It writes a <code>.bak</code> backup first, then trims old uncached tool outputs from local JSONL chat logs.</p>
         </div>
 
         <div class="glossary-entry" data-tags="core antigravity claude">
           <p class="glossary-term">USTF v1 (Unified Session Trajectory Format) <span class="badge">Core Physics</span></p>
-          <p class="glossary-def">A shared JSON/JSONL log format (<code>src/core-isomorphic/ustf/</code>). It lines up events, call spans, token counts, and costs across Antigravity and Claude Code for <code>ctxtop inspect</code>.</p>
+          <p class="glossary-def">A shared JSON/JSONL log format (<code>src/core-isomorphic/ustf/</code>). It lines up events, call spans, token counts, and costs across Antigravity and Claude Code for <code>highbeam inspect</code>.</p>
         </div>
 
         <div class="glossary-entry" data-tags="antigravity claude security">

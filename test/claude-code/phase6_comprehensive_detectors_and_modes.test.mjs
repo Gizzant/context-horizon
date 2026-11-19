@@ -66,6 +66,7 @@ import { runPreToolUseHook } from '../../hooks/handlers/pre-tool-use.mjs';
 import { runStopGateHook } from '../../hooks/handlers/stop-gate.mjs';
 import { PKG_ROOT, buildCanonicalAhHooks } from '../../bin/cli.mjs';
 import { renderStatusLine, renderSimpleViewPane } from '../../src/core-isomorphic/ui/modViews.mjs';
+import { activateLocalTrial } from '../../src/core/pro_license.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -259,66 +260,90 @@ test('B02: PreModelSwitch Hook in COACH mode is 100% non-blocking (exitCode 0, p
 });
 
 test('B03: PreModelSwitch Hook in AUTO_PILOT mode with autoPilotDecision="ask" emits permissionDecision="ask"', () => {
-  const res = runPreModelSwitchHook({
-    currentModel: 'claude-opus-5-5',
-    targetModel: 'claude-sonnet-5-5',
-    cachedTokens: 60_000,
-    cacheWarm: true,
-    requests_per_turn: 1,
-    expected_output_tokens: 1500,
-    mode: 'AUTO_PILOT',
-    autoPilotDecision: 'ask'
-  });
-  assert.equal(res.exitCode, 0);
-  assert.equal(res.verdict.blocked, true);
-  assert.equal(res.verdict.decision, 'ask');
-  const parsed = JSON.parse(res.stdout);
-  assert.equal(parsed.hookSpecificOutput.permissionDecision, 'ask');
-  assert.match(parsed.hookSpecificOutput.permissionDecisionReason, /DET-08/);
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ah-p6-b03-'));
+  try {
+    activateLocalTrial({ homeDir: tmpHome });
+    const res = runPreModelSwitchHook(
+      {
+        currentModel: 'claude-opus-5-5',
+        targetModel: 'claude-sonnet-5-5',
+        cachedTokens: 60_000,
+        cacheWarm: true,
+        requests_per_turn: 1,
+        expected_output_tokens: 1500,
+        mode: 'AUTO_PILOT',
+        autoPilotDecision: 'ask'
+      },
+      { homeDir: tmpHome }
+    );
+    assert.equal(res.exitCode, 0);
+    assert.equal(res.verdict.blocked, true);
+    assert.equal(res.verdict.decision, 'ask');
+    const parsed = JSON.parse(res.stdout);
+    assert.equal(parsed.hookSpecificOutput.permissionDecision, 'ask');
+    assert.match(parsed.hookSpecificOutput.permissionDecisionReason, /DET-08/);
 
-  // Sibling: without observed R/O data, AUTO_PILOT issues a non-blocking advisory
-  const resDefaults = runPreModelSwitchHook({
-    currentModel: 'claude-opus-5-5',
-    targetModel: 'claude-sonnet-5-5',
-    cachedTokens: 60_000,
-    cacheWarm: true,
-    mode: 'AUTO_PILOT',
-    autoPilotDecision: 'ask'
-  });
-  assert.equal(resDefaults.exitCode, 0);
-  assert.equal(resDefaults.verdict.advisory, true);
-  assert.equal(resDefaults.verdict.blocked, false);
-  assert.equal(resDefaults.verdict.basedMostlyOnDefaults, true);
+    // Sibling: without observed R/O data, AUTO_PILOT issues a non-blocking advisory
+    const resDefaults = runPreModelSwitchHook(
+      {
+        currentModel: 'claude-opus-5-5',
+        targetModel: 'claude-sonnet-5-5',
+        cachedTokens: 60_000,
+        cacheWarm: true,
+        mode: 'AUTO_PILOT',
+        autoPilotDecision: 'ask'
+      },
+      { homeDir: tmpHome }
+    );
+    assert.equal(resDefaults.exitCode, 0);
+    assert.equal(resDefaults.verdict.advisory, true);
+    assert.equal(resDefaults.verdict.blocked, false);
+    assert.equal(resDefaults.verdict.basedMostlyOnDefaults, true);
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+  }
 });
 
 test('B04: PreModelSwitch Hook in AUTO_PILOT mode defaults to hard block (exitCode 2) when warm rewrite is unrecouped', () => {
-  const res = runPreModelSwitchHook({
-    currentModel: 'claude-opus-5-5',
-    targetModel: 'claude-sonnet-5-5',
-    cachedTokens: 60_000,
-    cacheWarm: true,
-    requests_per_turn: 1,
-    expected_output_tokens: 1500,
-    mode: 'AUTO_PILOT'
-  });
-  assert.equal(res.exitCode, 2);
-  assert.equal(res.verdict.blocked, true);
-  assert.equal(res.verdict.decision, 'deny');
-  assert.match(res.stderr, /\+\$0\.1230 cold 1\.25x prefix rewrite penalty/);
-  assert.ok(!res.stderr.includes('C*'));
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ah-p6-b04-'));
+  try {
+    activateLocalTrial({ homeDir: tmpHome });
+    const res = runPreModelSwitchHook(
+      {
+        currentModel: 'claude-opus-5-5',
+        targetModel: 'claude-sonnet-5-5',
+        cachedTokens: 60_000,
+        cacheWarm: true,
+        requests_per_turn: 1,
+        expected_output_tokens: 1500,
+        mode: 'AUTO_PILOT'
+      },
+      { homeDir: tmpHome }
+    );
+    assert.equal(res.exitCode, 2);
+    assert.equal(res.verdict.blocked, true);
+    assert.equal(res.verdict.decision, 'deny');
+    assert.match(res.stderr, /\+\$0\.1230 cold 1\.25x prefix rewrite penalty/);
+    assert.ok(!res.stderr.includes('C*'));
 
-  // Sibling: without observed R/O data, AUTO_PILOT warns instead of hard-blocking
-  const resDefaults = runPreModelSwitchHook({
-    currentModel: 'claude-opus-5-5',
-    targetModel: 'claude-sonnet-5-5',
-    cachedTokens: 60_000,
-    cacheWarm: true,
-    mode: 'AUTO_PILOT'
-  });
-  assert.equal(resDefaults.exitCode, 0);
-  assert.equal(resDefaults.verdict.advisory, true);
-  assert.equal(resDefaults.verdict.blocked, false);
-  assert.equal(resDefaults.verdict.basedMostlyOnDefaults, true);
+    // Sibling: without observed R/O data, AUTO_PILOT warns instead of hard-blocking
+    const resDefaults = runPreModelSwitchHook(
+      {
+        currentModel: 'claude-opus-5-5',
+        targetModel: 'claude-sonnet-5-5',
+        cachedTokens: 60_000,
+        cacheWarm: true,
+        mode: 'AUTO_PILOT'
+      },
+      { homeDir: tmpHome }
+    );
+    assert.equal(resDefaults.exitCode, 0);
+    assert.equal(resDefaults.verdict.advisory, true);
+    assert.equal(resDefaults.verdict.blocked, false);
+    assert.equal(resDefaults.verdict.basedMostlyOnDefaults, true);
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+  }
 });
 
 test('B05: PreModelSwitch Hook in OFF mode passes through silently even with 100k warm cache', () => {
@@ -1003,16 +1028,25 @@ test('D10: runPreToolUseHook returns exitCode 0 with hookSpecificOutput ask deci
 });
 
 test('D11: runStopGateHook blocks once in AUTO_PILOT when code was edited without running tests', () => {
-  const res = runStopGateHook({
-    stop_hook_active: false,
-    codeEditedSinceLastTest: true,
-    editedFiles: ['src/core-isomorphic/coach/cacheGravityRouter.mjs'],
-    mode: 'AUTO_PILOT'
-  });
-  assert.equal(res.exitCode, 0);
-  const parsed = JSON.parse(res.stdout);
-  assert.equal(parsed.decision, 'block');
-  assert.match(parsed.reason, /DET-14 Premature Stop Gate/);
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ah-p6-d11-'));
+  try {
+    activateLocalTrial({ homeDir: tmpHome });
+    const res = runStopGateHook(
+      {
+        stop_hook_active: false,
+        codeEditedSinceLastTest: true,
+        editedFiles: ['src/core-isomorphic/coach/cacheGravityRouter.mjs'],
+        mode: 'AUTO_PILOT'
+      },
+      { homeDir: tmpHome }
+    );
+    assert.equal(res.exitCode, 0);
+    const parsed = JSON.parse(res.stdout);
+    assert.equal(parsed.decision, 'block');
+    assert.match(parsed.reason, /DET-14 Premature Stop Gate/);
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+  }
 });
 
 test('D12: BENCHMARK_METHODOLOGY.md documents exact Opus 5.5 ($20-$10)/($2.50-$0.20) = 6,522 and Two-Tier latency', () => {

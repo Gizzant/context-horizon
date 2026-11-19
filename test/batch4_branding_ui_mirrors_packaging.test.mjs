@@ -72,6 +72,7 @@ describe('Batch 4 Remediation — ISS-013: Symlink-Safe realpathSync isCliMain &
     assert.equal(pkg.bin['context-horizon'], undefined, 'Grafana-colliding context-horizon bin must be removed');
     assert.equal(pkg.bin['attention-horizon-antigravity'], 'src/cli/init.mjs');
     assert.equal(pkg.bin['ah-antigravity'], 'src/cli/init.mjs');
+    assert.equal(pkg.bin['highbeam'], 'bin/ctxtop.mjs');
     assert.ok(pkg.bin['ctxtop'] === 'bin/ctxtop.mjs' || pkg.bin['ctxtop'] === 'src/cli/init.mjs');
   });
 
@@ -190,7 +191,7 @@ describe('Batch 4 Remediation — ISS-017: Public Documentation Cleanliness & Re
     ];
     assert.ok(docFiles.length >= 10, 'Expected public markdown documentation files');
     const ALLOWED_CONTEXT_HORIZON_URLS_RE =
-      /https:\/\/gizzant\.github\.io\/context-horizon\/(?![\w./-])|https:\/\/github\.com\/Gizzant\/context-horizon(?:\.git)?(?![/\w.-])/g;
+      /https:\/\/gizzant\.github\.io\/context-horizon\/(?:demo\/)?(?![\w./-])|https:\/\/github\.com\/Gizzant\/context-horizon(?:\.git)?(?![/\w.-])/g;
     const stripAllowedContextHorizonUrls = (s) => String(s).replace(ALLOWED_CONTEXT_HORIZON_URLS_RE, '');
 
     for (const f of docFiles) {
@@ -210,6 +211,13 @@ describe('Batch 4 Remediation — ISS-017: Public Documentation Cleanliness & Re
       ),
       false,
       'Exact canonical GitHub Pages and GitHub repo URLs must be allowed'
+    );
+    assert.equal(
+      /context-horizon/i.test(
+        stripAllowedContextHorizonUrls('Live Demo: https://gizzant.github.io/context-horizon/demo/')
+      ),
+      false,
+      'Exact canonical GitHub Pages /demo/ URL must be allowed'
     );
     assert.equal(
       /context-horizon/i.test(

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Installation, Verification &amp; Migration - Highbeam User Guide</title>
-  <meta name="description" content="Install, verify, migrate, and cleanly uninstall Highbeam (ctxtop v4.0) across Google Antigravity, Claude Code, and MCP editors." />
+  <meta name="description" content="Install, verify, migrate, and cleanly uninstall Highbeam (highbeam-cli v4.1) across Google Antigravity, Claude Code, and MCP editors." />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body data-page="installation">
@@ -34,15 +34,15 @@
 
       <h3 id="install-dual-host">1. Unified Dual-Host Installation</h3>
       <p>
-        Use <code>ctxtop init --all</code> if you use both Google Antigravity and Claude Code on the same machine:
+        Use <code>highbeam init --all-hosts</code> to configure Google Antigravity, Claude Code, and supported MCP hosts (Cursor, Windsurf, Codex CLI, Gemini CLI) in one pass:
       </p>
       <div class="code-block terminal">
         <div class="code-header"><span>Preview and Run Unified Installer</span></div>
         <pre><code># Preview planned file paths without writing
-npx ctxtop init --all --dry-run
+npx highbeam-cli init --all-hosts --dry-run
 
-# Perform non-destructive dual-host installation
-npx ctxtop init --all</code></pre>
+# Perform non-destructive multi-host installation
+npx highbeam-cli init --all-hosts</code></pre>
       </div>
 
       <h3 id="install-antigravity">2. Google Antigravity Installation</h3>
@@ -52,10 +52,10 @@ npx ctxtop init --all</code></pre>
       <div class="code-block terminal">
         <div class="code-header"><span>Google Antigravity Setup Options</span></div>
         <pre><code># Option A: Workspace plugin installation
-npx ctxtop init --workspace
+npx highbeam-cli init --workspace
 
-# Option B: Global user installation via ctxtop
-npx ctxtop init --antigravity --global
+# Option B: Global user installation via highbeam-cli
+npx highbeam-cli init --antigravity --global
 
 # Option C: Local source checkout &amp; 3-way mirror sync
 git clone https://github.com/Gizzant/context-horizon.git
@@ -66,18 +66,18 @@ node bin/ctxtop.mjs verify --json</code></pre>
 
       <h3 id="install-claude-code">3. Claude Code Installation (Lean vs. Full Hooks)</h3>
       <p>
-        For Claude Code, <code>npx ctxtop init --claude</code> (project) or <code>--global</code> (all projects) merges hooks and the <code>ah-statusline</code> bar into <code>.claude/settings.json</code> (project scope) or <code>~/.claude/settings.json</code> (<code>--global</code>). Your existing custom hooks stay untouched:
+        For Claude Code, <code>npx highbeam-cli init --claude</code> (project) or <code>--global</code> (all projects) merges hooks and the <code>ah-statusline</code> bar into <code>.claude/settings.json</code> (project scope) or <code>~/.claude/settings.json</code> (<code>--global</code>). Your existing custom hooks stay untouched:
       </p>
       <div class="code-block terminal">
         <div class="code-header"><span>Claude Code Project vs. Global Installation</span></div>
         <pre><code># Recommended: Lean hook profile in global ~/.claude/settings.json
-npx ctxtop init --claude --global --lean-hooks
+npx highbeam-cli init --claude --global --lean-hooks
 
 # Project-local full hook profile (.claude/settings.json)
 npx ah-claude install --project --full-hooks</code></pre>
       </div>
       <p>
-        You can also load the plugin folder directly via <code>.claude-plugin/plugin.json</code>. That adds all six slash commands (<code>/horizon</code>, <code>/cost-radar</code>, <code>/inspect</code>, <code>/handoff</code>, <code>/precheck</code>, <code>/evolve</code>) and wires up <code>hooks/hooks.json</code>. During <code>ctxtop install</code> or <code>ctxtop init --claude</code>, <code>inspectClaudeBinaryCapabilities()</code> scans your Claude Code binary. It skips newer hooks like <code>PostModelSwitch</code> (<code>omittedUnsupportedHooks</code>) on older CLI builds so settings never break.
+        You can also load the plugin folder directly via <code>.claude-plugin/plugin.json</code>. That adds all six slash commands (<code>/horizon</code>, <code>/cost-radar</code>, <code>/inspect</code>, <code>/handoff</code>, <code>/precheck</code>, <code>/evolve</code>) and wires up <code>hooks/hooks.json</code>. During <code>highbeam install</code> or <code>highbeam init --claude</code>, <code>inspectClaudeBinaryCapabilities()</code> scans your Claude Code binary. It skips newer hooks like <code>PostModelSwitch</code> (<code>omittedUnsupportedHooks</code>) on older CLI builds so settings never break.
       </p>
 
       <h3 id="install-mcp">4. Cursor &amp; Windsurf MCP Registration</h3>
@@ -87,10 +87,10 @@ npx ah-claude install --project --full-hooks</code></pre>
       <div class="code-block terminal">
         <div class="code-header"><span>Register @ctxtop/mcp in .cursor/mcp.json</span></div>
         <pre><code># Project-scoped .cursor/mcp.json
-npx ctxtop init --mcp
+npx highbeam-cli init --mcp
 
 # Global ~/.cursor/mcp.json
-npx ctxtop init --mcp --global</code></pre>
+npx highbeam-cli init --mcp --global</code></pre>
       </div>
 
       <h2 id="authentication-and-seat-safety">Authentication &amp; OAuth Seat Safety</h2>
@@ -107,12 +107,12 @@ npx ctxtop init --mcp --global</code></pre>
 
       <h2 id="doctor-and-verification">Verification &amp; Health Diagnostics</h2>
       <p>
-        After setup, run <code>ctxtop doctor</code> and <code>ctxtop verify</code>. They check every manifest, hook contract, Claude binary flag, model rate card, and file checksum. Pass <code>--json</code> to view full <code>claudeCapabilities</code> and scrubbed <code>modelSwitchTelemetry</code> (using one-way SHA-256 <code>sess_&lt;12hex&gt;</code> session hashes):
+        After setup, run <code>highbeam doctor</code> and <code>highbeam verify</code>. They check every manifest, hook contract, Claude binary flag, model rate card, and file checksum. Pass <code>--json</code> to view full <code>claudeCapabilities</code> and scrubbed <code>modelSwitchTelemetry</code> (using one-way SHA-256 <code>sess_&lt;12hex&gt;</code> session hashes):
       </p>
 
       <div class="code-block terminal">
         <div class="code-header"><span>Verify Contracts &amp; Release Checksums</span></div>
-        <pre><code>$ npx ctxtop doctor
+        <pre><code>$ npx highbeam-cli doctor
 [Highbeam Doctor] Status: HEALTHY
   [PASS] node_version: Node.js v22.14.0 (requires >= 22.13.0)
   [PASS] model_catalog: Loaded 28 Anthropic model rate cards (Haiku 5.5 100k cliff enabled)
@@ -124,12 +124,12 @@ npx ctxtop init --mcp --global</code></pre>
   [PASS] claude_pre_model_switch: Claude Code 2.1.x | PreModelSwitch=true | ask=true | PreEffortChange=false
   [PASS] hook_diagnostics: 0 recent non-fatal error(s)
 
-$ npx ctxtop verify
+$ npx highbeam-cli verify
 [Highbeam Verify] PASS - 148 release files verified against CHECKSUMS.sha256 (0 mismatches)</code></pre>
       </div>
 
       <p>
-        Need to file a bug report without sharing file paths, usernames, or prompts? Run <code>npx ctxtop doctor --diagnostic</code> to create a scrubbed report.
+        Need to file a bug report without sharing file paths, usernames, or prompts? Run <code>npx highbeam-cli doctor --diagnostic</code> to create a scrubbed report.
       </p>
 
       <h2 id="migration-and-uninstall">Safe Deduplication, Migration &amp; Uninstallation</h2>
@@ -138,16 +138,16 @@ $ npx ctxtop verify
       </p>
       <ul>
         <li><strong>Legacy Config Migration:</strong> <code>migrateLegacyHorizonConfig</code> maps old v3 rule names to v4.0 <code>DET-01..DET-32</code> IDs automatically.</li>
-        <li><strong>Hook Deduplication:</strong> Run <code>npx ctxtop init --claude --dedupe</code> to clean out duplicate or old Highbeam entries from <code>settings.json</code>. Your other third-party hooks stay intact.</li>
-        <li><strong>Orphaned Antigravity Brain Recovery:</strong> After an Antigravity IDE profile move, run <code>npx ctxtop doctor --recover-brain --dry-run</code> first. Then run it without <code>--dry-run</code> to relink orphaned brain folders.</li>
+        <li><strong>Hook Deduplication:</strong> Run <code>npx highbeam-cli init --claude --dedupe</code> to clean out duplicate or old Highbeam entries from <code>settings.json</code>. Your other third-party hooks stay intact.</li>
+        <li><strong>Orphaned Antigravity Brain Recovery:</strong> After an Antigravity IDE profile move, run <code>npx highbeam-cli doctor --recover-brain --dry-run</code> first. Then run it without <code>--dry-run</code> to relink orphaned brain folders.</li>
       </ul>
 
       <h3 id="clean-uninstall">Clean Uninstallation</h3>
       <div class="code-block terminal">
         <div class="code-header"><span>Remove Hooks and Optional Local Caches</span></div>
         <pre><code># 1. Remove Highbeam hooks &amp; statusLine from Claude Code settings
-npx ctxtop uninstall --global
-npx ctxtop uninstall --project
+npx highbeam-cli uninstall --global
+npx highbeam-cli uninstall --project
 
 # 2. Optional: remove local telemetry caches and runtime control latches
 rm -rf ~/.ctxtop ~/.attention-horizon .claude/cache/ah_live_state_*.json .attention-horizon.json</code></pre>

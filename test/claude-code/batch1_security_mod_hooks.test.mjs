@@ -78,6 +78,7 @@ import {
   executeStopGateCli
 } from '../../hooks/handlers/stop-gate.mjs';
 import register from '../../hooks/register.js';
+import { activateLocalTrial } from '../../src/core/pro_license.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -616,24 +617,31 @@ test('ISS-034: plugin.json references ./commands/horizon.md and Stop, PreCompact
 
   const tmpDir = makeTempDir('ah-iss034-');
   try {
+    activateLocalTrial({ homeDir: tmpDir });
     // 2. Stop hook: COACH emits { systemMessage }, AUTO_PILOT emits { decision: 'block', reason }, never permissionDecision
-    const stopCoach = runStopGateHook({
-      stop_hook_active: false,
-      codeEditedSinceLastTest: true,
-      editedFiles: ['src/app.mjs'],
-      mode: 'COACH'
-    });
+    const stopCoach = runStopGateHook(
+      {
+        stop_hook_active: false,
+        codeEditedSinceLastTest: true,
+        editedFiles: ['src/app.mjs'],
+        mode: 'COACH'
+      },
+      { homeDir: tmpDir }
+    );
     assert.equal(stopCoach.exitCode, 0);
     const stopCoachJson = JSON.parse(stopCoach.stdout);
     assert.equal('hookSpecificOutput' in stopCoachJson, false);
     assert.match(stopCoachJson.systemMessage, /DET-14/);
 
-    const stopAuto = runStopGateHook({
-      stop_hook_active: false,
-      codeEditedSinceLastTest: true,
-      editedFiles: ['src/app.mjs'],
-      mode: 'AUTO_PILOT'
-    });
+    const stopAuto = runStopGateHook(
+      {
+        stop_hook_active: false,
+        codeEditedSinceLastTest: true,
+        editedFiles: ['src/app.mjs'],
+        mode: 'AUTO_PILOT'
+      },
+      { homeDir: tmpDir }
+    );
     assert.equal(stopAuto.exitCode, 0);
     const stopAutoJson = JSON.parse(stopAuto.stdout);
     assert.equal(stopAutoJson.decision, 'block');

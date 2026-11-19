@@ -3,7 +3,7 @@ name: Docs site (GitHub Pages)
 on:
   push:
     branches: [main]
-    paths: ['docs-site/**', '.github/workflows/pages.yml']
+    paths: ['docs-site/**', 'docs/index.html', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -25,13 +25,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Drop internal files from the public site
-        run: rm -f docs-site/_audit-inventory.json
+      - name: Stage public site and interactive demo
+        run: |
+          rm -rf _site
+          cp -R docs-site _site
+          rm -f _site/_audit-inventory.json
+          mkdir -p _site/demo
+          cp docs/index.html _site/demo/index.html
 
-      - name: Upload docs-site
+      - name: Upload docs-site and demo
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs-site
+          path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment

@@ -261,9 +261,10 @@ describe('Feature 1: Single ctxtop Package', () => {
     const jsonStr = JSON.stringify(strippedPkg);
     const parsed = JSON.parse(jsonStr);
 
-    assert.equal(parsed.name, 'ctxtop');
-    assert.equal(parsed.version, '4.1.4');
+    assert.equal(parsed.name, 'highbeam-cli');
+    assert.equal(parsed.version, '4.1.5');
     assert.equal(parsed.type, 'module');
+    assert.ok(parsed.bin.highbeam);
     assert.ok(parsed.bin.ctxtop);
     assert.ok(parsed.bin['ah-statusline']);
     assert.equal(parsed.description, undefined);
@@ -279,7 +280,7 @@ describe('Feature 1: Single ctxtop Package', () => {
         [path.resolve('bin/ctxtop.mjs'), '--help'],
         { cwd: ws.wsDir, encoding: 'utf8' }
       );
-      assert.ok(helpOutput.includes('Usage: ctxtop'));
+      assert.ok(helpOutput.includes('Usage: highbeam'));
       assert.ok(helpOutput.includes('init'));
       assert.ok(helpOutput.includes('doctor'));
     } finally {
@@ -507,7 +508,7 @@ describe('Feature 2: Dual Plugin Manifests', () => {
     // 1. Positive baseline: Production workspace dual manifests must maintain version parity
     const prodCheck = verifyDualManifestParity(process.cwd());
     assert.equal(prodCheck.verified, true, 'Production dual manifests must maintain parity');
-    assert.equal(prodCheck.version, '4.1.4', 'Production manifest version must be 4.1.4');
+    assert.equal(prodCheck.version, '4.1.5', 'Production manifest version must be 4.1.5');
 
     // 2. Negative boundary: Sandboxed workspace with conflicting versions must be detected
     const ws = createTempWorkspace({ prefix: 'manifest-version-conflict-' });
@@ -2496,28 +2497,28 @@ describe('Feature 31: Unified ctxtop CLI', () => {
   it('31.B1 Unified ctxtop CLI: unknown command exits with code 1 and outputs usage', async () => {
     const res = await runCli(['unknown-command-xyz']);
     assert.equal(res.exitCode, 1);
-    assert.ok(res.output.includes('Usage: ctxtop') || res.output.includes('Unknown command'));
+    assert.ok(res.output.includes('Usage: highbeam') || res.output.includes('Unknown command'));
   });
 
   it('31.B2 Unified ctxtop CLI: flags --help and -h return exit code 0 and command index', async () => {
     const res1 = await runCli(['--help']);
     assert.equal(res1.exitCode, 0);
-    assert.ok(res1.output.includes('Usage: ctxtop'));
+    assert.ok(res1.output.includes('Usage: highbeam'));
     assert.ok(res1.output.includes('doctor'));
 
     const res2 = await runCli(['-h']);
     assert.equal(res2.exitCode, 0);
-    assert.ok(res2.output.includes('Usage: ctxtop'));
+    assert.ok(res2.output.includes('Usage: highbeam'));
   });
 
-  it('31.B3 Unified ctxtop CLI: flag --version or -v outputs version 4.1.4 with exit code 0', async () => {
+  it('31.B3 Unified ctxtop CLI: flag --version or -v outputs version 4.1.5 with exit code 0', async () => {
     const res1 = await runCli(['--version']);
     assert.equal(res1.exitCode, 0);
-    assert.ok(res1.output.includes('4.1.4'));
+    assert.ok(res1.output.includes('4.1.5'));
 
     const res2 = await runCli(['-v']);
     assert.equal(res2.exitCode, 0);
-    assert.ok(res2.output.includes('4.1.4'));
+    assert.ok(res2.output.includes('4.1.5'));
   });
 
   it('31.B4 Unified ctxtop CLI: inspect with non-existent session handles missing state gracefully', async () => {

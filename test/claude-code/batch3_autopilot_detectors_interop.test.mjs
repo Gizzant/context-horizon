@@ -62,6 +62,7 @@ import { runPostToolUseHook } from '../../hooks/handlers/post-tool-use.mjs';
 import { runStopGateHook } from '../../hooks/handlers/stop-gate.mjs';
 import { runCompactLifecycleHook } from '../../hooks/handlers/compact-lifecycle.mjs';
 import register from '../../hooks/register.js';
+import { activateLocalTrial } from '../../src/core/pro_license.mjs';
 
 /**
  * Creates a fresh isolated temporary workspace directory and isolated global config path.
@@ -137,6 +138,7 @@ function createModHarness() {
 test('ISS-038a: .attention-horizon.json flightMode="AUTO_PILOT" is enforced by PreModelSwitch and Stop hooks', () => {
   const ws = makeTempWorkspace('ah-iss038a-');
   try {
+    activateLocalTrial({ homeDir: ws.tmpDir });
     fs.writeFileSync(
       path.join(ws.cwd, '.attention-horizon.json'),
       JSON.stringify({ flightMode: 'AUTO_PILOT' }, null, 2),
@@ -156,7 +158,7 @@ test('ISS-038a: .attention-horizon.json flightMode="AUTO_PILOT" is enforced by P
         requests_per_turn: 1,
         expected_output_tokens: 1500
       },
-      { globalConfigPath: ws.globalConfigPath }
+      { globalConfigPath: ws.globalConfigPath, homeDir: ws.tmpDir }
     );
     assert.equal(switchRes.exitCode, 2, 'AUTO_PILOT PreModelSwitch must hard-block with exitCode 2');
     assert.equal(switchRes.verdict.blocked, true);
@@ -172,7 +174,7 @@ test('ISS-038a: .attention-horizon.json flightMode="AUTO_PILOT" is enforced by P
         cached_tokens: 50000,
         cache_warm: true
       },
-      { globalConfigPath: ws.globalConfigPath }
+      { globalConfigPath: ws.globalConfigPath, homeDir: ws.tmpDir }
     );
     assert.equal(switchDefaultsRes.exitCode, 0);
     assert.equal(switchDefaultsRes.verdict.advisory, true);
@@ -189,7 +191,7 @@ test('ISS-038a: .attention-horizon.json flightMode="AUTO_PILOT" is enforced by P
         codeEditedSinceLastTest: true,
         editedFiles: ['src/index.mjs']
       },
-      { globalConfigPath: ws.globalConfigPath }
+      { globalConfigPath: ws.globalConfigPath, homeDir: ws.tmpDir }
     );
     assert.equal(stopRes.exitCode, 0);
     assert.equal(stopRes.det14.decision, 'block');
@@ -206,7 +208,7 @@ test('ISS-038a: .attention-horizon.json flightMode="AUTO_PILOT" is enforced by P
         codeEditedSinceLastTest: true,
         editedFiles: ['src/index.mjs']
       },
-      { globalConfigPath: ws.globalConfigPath }
+      { globalConfigPath: ws.globalConfigPath, homeDir: ws.tmpDir }
     );
     assert.equal(stopLoopSafe.det14.decision, 'allow');
     assert.equal(
@@ -237,7 +239,8 @@ test('ISS-038b: CLI breaker state persists across separate spawns for DET-04, cu
       'utf8'
     );
 
-    const hookOpts = { cwd: ws.cwd, globalConfigPath: ws.globalConfigPath };
+    activateLocalTrial({ homeDir: ws.tmpDir });
+    const hookOpts = { cwd: ws.cwd, globalConfigPath: ws.globalConfigPath, homeDir: ws.tmpDir };
 
     // --- Part A: DET-06 custom blindSearchLimit (3) across separate CLI spawns ---
     for (let i = 1; i <= 3; i++) {

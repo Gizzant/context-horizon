@@ -1,6 +1,6 @@
 {
   "name": "@ctxtop/claude-code",
-  "version": "4.1.4",
+  "version": "4.1.5",
   "description": "Highbeam Claude Code in-process V8 Mod, Tier-2 CLI hooks, and terminal statusLine adapter",
   "type": "module",
   "main": "./src/index.mjs",
@@ -15,7 +15,7 @@
     "node": ">=22.13.0"
   },
   "dependencies": {
-    "@ctxtop/core": "^4.1.4",
-    "@ctxtop/engine-node": "^4.1.4"
+    "@ctxtop/core": "^4.1.5",
+    "@ctxtop/engine-node": "^4.1.5"
   }
 }

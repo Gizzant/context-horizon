@@ -19,6 +19,7 @@ dist/
 *.tmp
 *.tgz
 *.zip
+*.vsix
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
@@ -63,3 +64,4 @@ experiments/model-switch-benchmark/cost_per_task/hard_tier/hidden_suites/
 experiments/model-switch-benchmark/cost_per_task/hard_tier/reference_solutions/
 experiments/model-switch-benchmark/results/cost_per_task_raw/transcripts/
 experiments/model-switch-benchmark/results/cost_per_task_raw/proxy_wire_log.jsonl
+docs/PUBLIC_LAUNCH_KIT.md

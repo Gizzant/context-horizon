@@ -192,10 +192,12 @@ describe('Pre-Launch v4.0 Finishing Pack (Dual-License, Lean Hooks, BYO-Grafana 
       assert.ok(otelRecords.some((r) => r.metricName === 'attention_horizon.saved_quota.usd' && r.value === 14.5));
       assert.ok(otelRecords.some((r) => r.metricName === 'attention_horizon.intervention.count' && r.value === 3));
 
-      // 4. Generate BYO-Grafana Team FinOps Pack via CLI
+      // 4. Generate BYO-Grafana Team FinOps Pack via CLI (requires Team or active local trial)
+      activateLocalTrial({ homeDir: tmpDir });
       const packDir = path.join(tmpDir, 'team-pack-out');
       const cliPack = runCli(['team-pack', '--out', packDir, '--org', 'Acme Corp', '--json'], {
-        cwd: tmpDir
+        cwd: tmpDir,
+        homeDir: tmpDir
       });
       assert.equal(cliPack.exitCode, 0);
       assert.equal(fs.existsSync(path.join(packDir, 'grafana-dashboard.json')), true);

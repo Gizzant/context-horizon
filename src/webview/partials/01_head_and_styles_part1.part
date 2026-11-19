@@ -199,6 +199,63 @@
     display: none !important;
   }
 
+  /* Mode-driven main view: the body carries the running mode (data-flight-mode = off | coach | autopilot)
+     and, for Auto, whether it is enforced or a Free preview (data-auto-state = on | preview | na).
+     Tag an element with mode-hide-* to hide it in that mode; auto-on-only / auto-preview-only
+     show in exactly one Auto state. */
+  body[data-flight-mode="off"] .mode-hide-off,
+  body[data-flight-mode="coach"] .mode-hide-coach,
+  body[data-flight-mode="autopilot"] .mode-hide-auto,
+  body:not([data-flight-mode="off"]) .mode-only-off,
+  body:not([data-flight-mode="coach"]) .mode-only-coach,
+  body:not([data-flight-mode="autopilot"]) .mode-only-auto,
+  body:not([data-auto-state="on"]) .auto-on-only,
+  body:not([data-auto-state="preview"]) .auto-preview-only {
+    display: none !important;
+  }
+
+  /* Tokens-saved headline (all modes) */
+  .ts-saved-hero {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 10px 12px; margin-bottom: 8px;
+    border: 1px solid var(--hz-border, rgba(255,255,255,0.12)); border-radius: 8px;
+  }
+  .ts-saved-hero-label { font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.7; }
+  .ts-saved-hero-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .ts-saved-hero-num { font-size: 28px; line-height: 1.1; font-variant-numeric: tabular-nums; font-weight: 650; color: var(--hz-useful, #30d158); }
+  .ts-saved-hero-usd { font-size: 14px; font-variant-numeric: tabular-nums; opacity: 0.85; }
+  .ts-saved-hero-sub { font-size: 11px; opacity: 0.65; }
+  .ts-mode-note { margin: 0 0 8px; font-size: 12px; opacity: 0.8; }
+  .ts-status-strip {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    padding: 6px 10px; font-size: 12px; border-radius: 6px;
+    border: 1px solid var(--hz-border, rgba(255,255,255,0.12));
+  }
+  .ts-needs-row {
+    display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px;
+    padding: 8px 10px; font-size: 12.5px; border-radius: 6px;
+    border: 1px solid var(--hz-border, rgba(255,255,255,0.12));
+  }
+  .ts-needs-row[data-tone="danger"] { border-color: var(--hz-danger, #ff453a); }
+
+  /* Settings view (full-panel dialog) */
+  .settings-view {
+    position: fixed; inset: 0; z-index: 900; overflow-y: auto;
+    padding: 12px 14px 24px; background: var(--hz-bg) !important; color: var(--hz-fg) !important;
+  }
+  .settings-view[hidden] { display: none; }
+  .settings-view-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .settings-view-head h2 { margin: 0; font-size: 15px; }
+  .settings-section { padding: 10px 0; border-top: 1px solid var(--hz-border, rgba(255,255,255,0.12)); }
+  .settings-section h3 { margin: 0 0 6px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.75; }
+  .settings-help { margin: 6px 0; font-size: 11.5px; opacity: 0.75; }
+  .settings-form { display: flex; flex-direction: column; gap: 6px; }
+  .settings-form label { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; }
+  .settings-mode-group { display: inline-flex; gap: 4px; }
+  .set-mode-btn { padding: 4px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--hz-border, rgba(255,255,255,0.2)); background: transparent; color: inherit; cursor: pointer; }
+  .set-mode-btn[aria-checked="true"] { border-color: var(--hz-useful, #30d158); color: var(--hz-useful, #30d158); }
+  .settings-about { margin: 0; padding-left: 16px; font-size: 12px; line-height: 1.7; }
+
   .badge {
     font-size: 10.5px;
     font-weight: 600;
@@ -427,21 +484,7 @@
     transition: border-color 0.15s ease, color 0.15s ease;
   }
   .gear-btn:hover { border-color: #f59e0b; color: #f59e0b !important; }
-  .settings-pop {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin: 0 0 10px;
-    padding: 10px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--hz-border);
-    background: var(--hz-bg) !important;
-    font-size: 11.5px;
-    color: var(--hz-fg) !important;
-  }
-  .settings-pop[hidden] { display: none; }
-  .settings-pop label { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: #e2e8f0 !important; }
-  .settings-pop input {
+  .settings-form input {
     width: 110px;
     padding: 3px 6px;
     border-radius: 4px;

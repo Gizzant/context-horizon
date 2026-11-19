@@ -120,6 +120,15 @@
       btn.style.color = active ? 'var(--hz-useful)' : '';
     });
   }
+  // Mode-driven main view: mirror the running mode (and Auto's enforced / preview state) onto <body>
+  // so CSS can show each mode's own view. Uses the same race guard as the slider.
+  function syncModeViewAttrs(rawMode = 'coach', autoShadow = false, fromState = false) {
+    if (fromState && Date.now() < __modeSelectionPendingUntil) return;
+    if (!document.body) return;
+    const norm = normalizeHorizonUiMode(rawMode);
+    document.body.dataset.flightMode = norm;
+    document.body.dataset.autoState = norm === 'autopilot' ? (autoShadow ? 'preview' : 'on') : 'na';
+  }
   function setRouterModeActiveUI(mode) {
     const norm = normalizeHorizonUiMode(mode);
     document.querySelectorAll('.model-mode-switch .mode-btn, .tufte-mode-chip').forEach(b => {
@@ -284,6 +293,7 @@
     __modeSelectionPendingUntil = Date.now() + 3000;
 
     setRouterModeActiveUI(mode);
+    syncModeViewAttrs(mode, optimisticShadow);
     if (currentRenderedState && typeof currentRenderedState === 'object') {
       currentRenderedState.routerMode = mode;
       currentRenderedState.flightMode = mode === 'autopilot' ? 'AUTO_PILOT' : (mode === 'off' ? 'OFF' : 'COACH');
@@ -314,6 +324,9 @@
       void err;
     }
     __modeSelectionPendingUntil = 0;
+    if (modeResp && typeof modeResp.autoShadow === 'boolean') {
+      syncModeViewAttrs(mode, modeResp.autoShadow);
+    }
     if (modeResp?.state && typeof modeResp.state === 'object') {
       applyGlobalStateFromDaemon(modeResp.state);
     }
@@ -553,7 +566,59 @@
     if (rightEl) rightEl.textContent = `${formatTokens(cell.tokens || 0)} / cell \u00B7 ${recall} recall`;
   }
 
+  // Mode views: after the shared surfaces are drawn, fill the elements only the mode views use
+  // (tokens-saved headline, one-line status, Auto "needs you" row). All text is copied from values the
+  // shared renderer already computed, so every mode tells the same story.
+  function renderModeViewContent(raw) {
+    const txtOf = (id) => (document.getElementById(id)?.textContent || '').trim();
+    const setIf = (id, text) => { const el = document.getElementById(id); if (el && el.textContent !== text) el.textContent = text; };
+    const mode = document.body?.dataset?.flightMode || 'coach';
+    const autoState = document.body?.dataset?.autoState || 'na';
+
+    // 1. Tokens-saved headline: same figures as the Session overview "Saved" row.
+    setIf('tsHeroSaved', txtOf('tsKpiSaved') || '+0');
+    const usdTxt = document.getElementById('tsKpiUsd');
+    setIf('tsHeroUsd', usdTxt && !usdTxt.hidden ? txtOf('tsKpiUsd') : '');
+    const d30 = document.getElementById('tsKpi30d');
+    const saved = txtOf('tsKpiSaved').replace(/[^0-9.]/g, '');
+    const hasSaved = Number(saved) > 0;
+    const d30Txt = d30 && !d30.hidden ? txtOf('tsKpi30d') : '';
+    setIf('tsHeroSub', hasSaved
+      ? `This chat${d30Txt ? ' \u00B7 ' + d30Txt : ''}`
+      : (d30Txt ? `Nothing saved in this chat yet \u00B7 ${d30Txt}` : 'This chat \u00B7 nothing saved yet'));
+
+    // 2. One-line status (Coach and Auto): health, context used, cache.
+    const strip = document.getElementById('tsStatusStrip');
+    if (strip) {
+      const tone = document.getElementById('tsStatusDot')?.dataset?.tone || 'nominal';
+      strip.dataset.tone = tone;
+      const stripDot = document.getElementById('tsStripDot');
+      if (stripDot) stripDot.dataset.tone = tone;
+      setIf('tsStripText', `${txtOf('tsStatusLabel') || 'Healthy'} \u00B7 ${txtOf('tsUsedLabel')} of ${txtOf('tsSafeLabel')} safe (${txtOf('tsUsedPct')}) \u00B7 Cache: ${txtOf('tsCacheMeta') || 'n/a'}`);
+    }
+
+    // 3. Auto "needs you" row: shows an instruction only where the shared guidance flags a stop-and-look case.
+    const needs = document.getElementById('tsNeedsRow');
+    if (needs) {
+      const doRow = document.getElementById('tsDoRow');
+      const flagged = doRow?.dataset?.tone === 'danger';
+      needs.dataset.tone = flagged ? 'danger' : 'ok';
+      setIf('tsNeedsTag', flagged ? 'NEEDS YOU' : (autoState === 'preview' ? 'PREVIEW' : 'AUTO'));
+      setIf('tsNeedsText', flagged
+        ? txtOf('tsDoText')
+        : (mode === 'autopilot' && autoState === 'preview'
+          ? 'Nothing needed from you. Auto is a preview: it advises like Coach and applies nothing until you start the trial or unlock Pro.'
+          : 'Nothing needed from you. Auto is handling it.'));
+    }
+  }
+
   function renderArgonTufteSurfaces(raw) {
+    renderArgonTufteSurfacesCore(raw);
+    try { renderModeViewContent(raw); } catch (err) { void err; }
+    try { if (typeof window.__hzRenderSettingsState === 'function') window.__hzRenderSettingsState(); } catch (err) { void err; }
+  }
+
+  function renderArgonTufteSurfacesCore(raw) {
     if (!raw || typeof raw !== 'object') return;
     const win = raw.window || {};
     const bd = win.breakdown || raw.categories || {};
@@ -629,7 +694,7 @@
     const modelHay = `${modelId} ${String(mdl.family || '')} ${String(mdl.rawLabel || activeModel).toLowerCase()}`;
     // Provider from id/family/label, including registry sub-families (constants.mjs `family`).
     const modelProvider = /claude|opus|sonnet|haiku|fable|mythos/.test(modelHay) ? 'Claude'
-      : /gemini|carbon|argon|hydrogen|flash|orchestrator/.test(modelHay) ? 'Gemini'
+      : /gemini|neon|carbon|argon|hydrogen|flash|orchestrator/.test(modelHay) ? 'Gemini'
         : /gpt/.test(modelHay) ? 'GPT-OSS' : 'Other';
     // Selected effort comes from the host label "Model (Medium)" only when the parenthetical is an effort word.
     const EFFORT_WORD_RE = /^(low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard)\b/i;
@@ -692,6 +757,7 @@
       (raw.autoShadow === undefined && raw.coachState?.autoShadow === undefined && raw.proEntitlement?.entitled === false)
     );
     const enforcementValue = effectiveMode === 'autopilot' ? (autoShadowFlag ? 'shadow' : 'enforced') : 'na';
+    syncModeViewAttrs(effectiveMode, autoShadowFlag, true);
     const tsSliderEl = document.getElementById('tsModeSlider');
     if (tsSliderEl) tsSliderEl.dataset.enforcement = enforcementValue;
     const tsModeHintEl = document.getElementById('tsModeHint');
@@ -1102,7 +1168,7 @@
       setTxt('tsAvoidText', 'Avoid loading more large files or unfiltered build logs before trimming older context.');
     } else if (shardedSpecCount >= 4) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `Your requirements changed ${shardedSpecCount} times across this chat — run ctxtop handoff --consolidate to merge them into one clear spec so nothing gets missed.`);
+      setTxt('tsDoText', `Your requirements changed ${shardedSpecCount} times across this chat — run highbeam handoff --consolidate to merge them into one clear spec so nothing gets missed.`);
       setTxt('tsAvoidText', 'Avoid adding new requirements one message at a time. Combine them into one clear plan.');
     } else if (isHighEffort && dispStaleT >= 30000) {
       const effWord = String(activeEffort).replace(/\s*effort\s*$/i, '').trim() || 'High';
@@ -1140,7 +1206,7 @@
       setTxt('tsAvoidText', 'Avoid loading unused MCP tool lists or oversized global rule files into every new chat.');
     } else if (rslClashCount > 0) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `${rslClashCount} conflicting rule${rslClashCount === 1 ? '' : 's'} detected — run ctxtop rsl status to review the overlap and keep one clear instruction per topic.`);
+      setTxt('tsDoText', `${rslClashCount} conflicting rule${rslClashCount === 1 ? '' : 's'} detected — run highbeam rsl status to review the overlap and keep one clear instruction per topic.`);
       setTxt('tsAvoidText', 'Avoid adding rules that disagree with each other in AGENTS.md and your learned rules.');
     } else if (raw.turn1ContractSteered) {
       if (tsDoRow) tsDoRow.dataset.tone = 'do';
@@ -1194,7 +1260,7 @@
     {
       const ttlTxt = `${ttlMm}:${ttlSs}`;
       const otherFamily = modelProvider === 'Claude' ? 'Gemini' : (modelProvider === 'Gemini' ? 'Claude' : 'another family');
-      const familyHint = modelProvider === 'Claude' ? 'Fable/Opus/Sonnet/Haiku' : (modelProvider === 'Gemini' ? 'Carbon/Argon/Hydrogen/Flash' : 'same provider');
+      const familyHint = modelProvider === 'Claude' ? 'Fable/Opus/Sonnet/Haiku' : (modelProvider === 'Gemini' ? 'Neon/Carbon/Argon/Hydrogen/Flash' : 'same provider');
       const cg = cache.costGate || {};
       const rewriteUsd = Number(cg.coldRewriteCostUsd) || 0;
       const quotaUnits = Number(cg.quotaPenaltyUnits) || 0;
@@ -1263,7 +1329,7 @@
       if (tsModelLast) {
         if (hasModelSwitchBust) {
           const stripEff = (s) => String(s).replace(/\s*\((?:low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard)\b[^)]*\)\s*$/i, '');
-          const prov = (s) => (/claude|opus|sonnet|haiku|fable|mythos/i.test(s) ? 'Claude' : /gemini|carbon|argon|hydrogen|flash|orchestrator/i.test(s) ? 'Gemini' : /gpt/i.test(s) ? 'GPT-OSS' : 'Other');
+          const prov = (s) => (/claude|opus|sonnet|haiku|fable|mythos/i.test(s) ? 'Claude' : /gemini|neon|carbon|argon|hydrogen|flash|orchestrator/i.test(s) ? 'Gemini' : /gpt/i.test(s) ? 'GPT-OSS' : 'Other');
           const crossTag = prov(bc.from) !== prov(bc.to) ? ' \u00B7 cross-family' : '';
           tsModelLast.textContent = `Last switch: ${stripEff(bc.from)} \u2192 ${stripEff(bc.to)} (cache miss${crossTag})`;
           tsModelLast.hidden = false;
@@ -1599,7 +1665,7 @@
             rule: 'A project rule the AI is asked to follow.'
           };
           lrList.innerHTML = uiRules.length === 0
-            ? `<li class="ts-ledger-row" title="Highbeam knows about these rules, but this view does not have their details yet."><span class="ts-ledger-age">info</span><span>Rule details are not available yet. Run <code>ctxtop rsl status</code> to list them.</span><span class="ts-ledger-saved">${lrCount}</span></li>`
+            ? `<li class="ts-ledger-row" title="Highbeam knows about these rules, but this view does not have their details yet."><span class="ts-ledger-age">info</span><span>Rule details are not available yet. Run <code>highbeam rsl status</code> to list them.</span><span class="ts-ledger-saved">${lrCount}</span></li>`
             : uiRules.map((r) => {
               const kind = ['hook', 'skill', 'rule'].includes(r.kind) ? r.kind : 'rule';
               const state = kind === 'hook' ? (effectiveMode === 'off' ? 'paused' : 'blocks') : 'active';

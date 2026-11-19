@@ -497,3 +497,51 @@ test('5. ctxtop audit --json: zero-write scoring across Antigravity & Claude Cod
     fs.rmSync(tmpCwd, { recursive: true, force: true });
   }
 });
+
+test('6. P1-1 audit accuracy: Antigravity step_type=23 checkpoints & >5m idle pauses do not inflate sludgeTaxUSD or print $0.00 saved', () => {
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ctxtop-p1-audit-home-'));
+  const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'ctxtop-p1-audit-cwd-'));
+  try {
+    const nowMs = Date.parse('2026-11-18T12:00:00Z');
+    const t1 = new Date(nowMs - 3_600_000).toISOString();
+    const t2 = new Date(nowMs - 2_400_000).toISOString(); // +20m human break (>5m)
+    const t3 = new Date(nowMs - 1_200_000).toISOString(); // +20m human break (>5m)
+    const agLogsDir = path.join(
+      tmpHome,
+      '.gemini',
+      'antigravity',
+      'brain',
+      'ag-idle-sess',
+      '.system_generated',
+      'logs'
+    );
+    fs.mkdirSync(agLogsDir, { recursive: true });
+    const rows = [
+      { step_index: 1, type: 'USER_INPUT', created_at: t1, content: 'A'.repeat(120_000) },
+      { step_index: 2, type: 'PLANNER_RESPONSE', created_at: t1, content: 'Working', tool_calls: [] },
+      { step_index: 3, step_type: 23, created_at: t1, content: '<CONTEXT_SUMMARY>Compacted</CONTEXT_SUMMARY>' },
+      { step_index: 4, type: 'PLANNER_RESPONSE', created_at: t2, content: 'Resumed after break', tool_calls: [] },
+      { step_index: 5, type: 'PLANNER_RESPONSE', created_at: t3, content: 'Resumed again', tool_calls: [] }
+    ];
+    fs.writeFileSync(
+      path.join(agLogsDir, 'transcript_full.jsonl'),
+      rows.map((r) => JSON.stringify(r)).join('\n') + '\n',
+      'utf8'
+    );
+
+    const auditRes = runSessionAudit({ platform: 'antigravity', days: 7, cwd: tmpCwd, homeDir: tmpHome, nowMs });
+    assert.equal(auditRes.sessionsScanned, 1);
+    assert.equal(auditRes.coldCacheSpikes, 0, 'Antigravity human idle pauses must not bill as COLD_CACHE_SPIKE');
+    assert.ok(auditRes.idlePauses >= 1, 'Idle pauses tracked purely informationally');
+    assert.equal(auditRes.sludgeTaxTokens, 0);
+    assert.equal(auditRes.sludgeTaxUSD, 0);
+    assert.ok(auditRes.sessions[0].totalPromptTokens < 100_000, 'Checkpoint must reset cumulative context estimate');
+
+    const report = formatSessionAuditReport(auditRes);
+    assert.match(report, /Not active yet.*npx highbeam-cli init/);
+    assert.doesNotMatch(report, /\+\$?0 tok \(\$0\.00 USD\)/);
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+    fs.rmSync(tmpCwd, { recursive: true, force: true });
+  }
+});

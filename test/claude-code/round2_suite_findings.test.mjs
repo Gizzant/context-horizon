@@ -42,6 +42,7 @@ import { runConfigChangeHook } from '../../hooks/handlers/config-change.mjs';
 import { runCompactLifecycleHook } from '../../hooks/handlers/compact-lifecycle.mjs';
 import { runPostToolUseHook } from '../../hooks/handlers/post-tool-use.mjs';
 import { runStopGateHook } from '../../hooks/handlers/stop-gate.mjs';
+import { activateLocalTrial } from '../../src/core/pro_license.mjs';
 
 function makeTempDir(prefix = 'ctxtop-r2-suite-') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -334,6 +335,7 @@ test('Item 3: DET-09 model-aware effort capability table covers all 5 provenance
 test('Item 4: pending_downshift recorded on DET-08 hold, surfaced once on SessionStart:compact, allowed on H6 v1/v2 splits, and cleared cleanly', () => {
   const ws = makeTempDir('ctxtop-item4-');
   try {
+    activateLocalTrial({ homeDir: ws.homeDir });
     const hookOpts = { cwd: ws.cwd, homeDir: ws.homeDir, persistState: true, recordLedger: false, bypassLicense: true };
 
     // 4.1 DET-08 hold writes pending_downshift

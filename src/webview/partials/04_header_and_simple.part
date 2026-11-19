@@ -1,4 +1,4 @@
-﻿<body data-view-mode="simple">
+﻿<body data-view-mode="simple" data-flight-mode="coach" data-auto-state="na">
 
 <div class="wrap">
   <!-- 1. Header -->
@@ -15,10 +15,10 @@
       <span class="badge mono advanced-only" id="workloadModeBadge">[Mode: Read-Heavy Audit]</span>
       <span class="badge" id="statusBadge">Healthy</span>
       <span class="badge warn advanced-only" id="confidenceBadge" hidden style="display:none;">Degraded</span>
-      <div class="shadcn-tabs-list" role="tablist" aria-label="Telemetry density mode" data-slot="tabs-list">
-        <button type="button" role="tab" class="shadcn-tab-trigger" id="tabSimple" data-view-tab="simple" aria-selected="true" title="Focused summary view">Simple</button>
-        <button type="button" role="tab" class="shadcn-tab-trigger" id="tabAdvanced" data-view-tab="advanced" aria-selected="false" title="Full diagnostic & timeline view">Advanced</button>
+      <div class="shadcn-tabs-list" role="group" aria-label="Advanced view" data-slot="tabs-list">
+        <button type="button" class="shadcn-tab-trigger" id="tabAdvanced" data-view-tab="advanced" aria-pressed="false" title="Open the full diagnostic & timeline view">Advanced</button>
       </div>
+      <button type="button" class="icon-btn" id="btnHeaderSettings" title="Settings" aria-label="Settings" aria-haspopup="dialog" aria-controls="settingsView" aria-expanded="false">&#x2699;</button>
       <span class="tufte-top-host-badge" id="tufteTopHostBadge">Antigravity &middot; Auto</span>
       <button class="icon-btn" onclick="window.location.reload()" title="Reload panel" aria-label="Reload panel"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.35-3.6"/><path d="M13.5 2.5v3h-3"/></svg></button>
     </div>
@@ -61,9 +61,95 @@
   <!-- =========================================================================
        LIVE EDWARD TUFTE "SIMPLE VIEW" SURFACE (4-Card Sketch Layout)
        ========================================================================= -->
-  <div id="argonSimpleSurface" aria-label="Highbeam Simple View">
+  <!-- SETTINGS VIEW: opened from the header gear (or the gear in Advanced); closing returns to the view underneath. -->
+  <div id="settingsView" class="settings-view" role="dialog" aria-modal="true" aria-labelledby="settingsViewTitle" hidden>
+    <div class="settings-view-head">
+      <h2 id="settingsViewTitle">Settings</h2>
+      <button type="button" class="icon-btn" id="btnSettingsClose" aria-label="Close settings" title="Close">&#x2715;</button>
+    </div>
+
+    <section class="settings-section" aria-labelledby="setModeHead">
+      <h3 id="setModeHead">Mode</h3>
+      <div id="setModeGroup" class="settings-mode-group" role="radiogroup" aria-label="Highbeam protection mode">
+        <button type="button" role="radio" class="set-mode-btn" data-mode="off" aria-checked="false">Off</button>
+        <button type="button" role="radio" class="set-mode-btn" data-mode="coach" aria-checked="true">Coach</button>
+        <button type="button" role="radio" class="set-mode-btn" data-mode="autopilot" aria-checked="false">Auto</button>
+      </div>
+      <p class="settings-help">Off watches only. Coach trims noisy logs and gives advice. Auto applies the guards and routing for you (Pro or trial).</p>
+    </section>
+
+    <section class="settings-section" aria-labelledby="setLimitsHead">
+      <h3 id="setLimitsHead">Limits</h3>
+      <form id="settingsPop" class="settings-form">
+        <label>Safe limit (tokens)
+          <input type="number" id="setSafeLimit" min="20000" max="1048576" step="1000" required>
+        </label>
+        <label>Remind me at (% of limit)
+          <input type="number" id="setReminderPct" min="50" max="99" step="1" required>
+        </label>
+        <div class="settings-row">
+          <button type="submit" class="settings-save">Save</button>
+          <button type="button" class="settings-cancel" id="btnSettingsCancel">Close</button>
+          <span class="settings-msg" id="settingsMsg"></span>
+        </div>
+      </form>
+    </section>
+
+    <section class="settings-section" aria-labelledby="setLicenceHead">
+      <h3 id="setLicenceHead">Licence</h3>
+      <p id="setLicenceStatus" class="settings-help">Free</p>
+      <div class="settings-row">
+        <button type="button" class="settings-save" id="setBtnTrial">Start 14-day trial</button>
+      </div>
+      <div class="settings-row">
+        <input id="setLicenceKey" type="text" class="ts-shadow-key-input" placeholder="CTXP1.eyJ..." aria-label="Highbeam Pro license key">
+        <button type="button" class="settings-save" id="setBtnActivate">Activate key</button>
+      </div>
+      <p id="setLicenceMsg" class="settings-msg" role="status"></p>
+    </section>
+
+    <section class="settings-section" aria-labelledby="setGuardsHead">
+      <h3 id="setGuardsHead">Guards</h3>
+      <p class="settings-help">Read-only here. To change one, run <code>npx highbeam-cli config set &lt;DET-id&gt; &lt;default|off|warn|block&gt;</code>.</p>
+      <ul id="setGuardList" class="ts-ledger" role="list"></ul>
+    </section>
+
+    <section class="settings-section" aria-labelledby="setAboutHead">
+      <h3 id="setAboutHead">About</h3>
+      <ul class="settings-about">
+        <li>Version: <span id="setAboutVersion">unknown</span></li>
+        <li>Project config: <code>.attention-horizon.json</code> &middot; User config: <code>~/.attention-horizon/config.json</code></li>
+        <li>Health check: <code>npx highbeam-cli doctor</code></li>
+        <li>Docs: <a href="https://gizzant.github.io/context-horizon/" target="_blank" rel="noopener noreferrer">Highbeam User Guide</a></li>
+      </ul>
+    </section>
+  </div>
+
+  <div id="argonSimpleSurface" aria-label="Highbeam main view">
+    <!-- MODE VIEWS: the same panel shows the view for the running mode (Off, Coach, Auto). -->
+    <section id="tsSavedHero" class="ts-saved-hero" aria-label="Estimated tokens saved">
+      <span class="ts-saved-hero-label">Est. tokens saved</span>
+      <span class="ts-saved-hero-row">
+        <strong id="tsHeroSaved" class="ts-saved-hero-num">+0</strong>
+        <span id="tsHeroUsd" class="ts-saved-hero-usd">~$0.00</span>
+      </span>
+      <span id="tsHeroSub" class="ts-saved-hero-sub">This chat &middot; nothing saved yet</span>
+    </section>
+
+    <p id="tsOffNote" class="ts-mode-note mode-only-off" role="status">Watching only. Highbeam tracks context and the cache timer but does not trim logs or give advice. Switch to Coach for advice.</p>
+
+    <div id="tsStatusStrip" class="ts-status-strip mode-hide-off" role="status" aria-live="polite" data-tone="nominal">
+      <span id="tsStripDot" class="ts-dot" data-tone="nominal"></span>
+      <span id="tsStripText">Healthy</span>
+    </div>
+
+    <section id="tsNeedsRow" class="ts-needs-row mode-only-auto" data-tone="ok" role="status" aria-live="polite">
+      <span id="tsNeedsTag" class="ts-tag">NEEDS YOU</span>
+      <span id="tsNeedsText">Nothing needed from you.</span>
+    </section>
+
     <!-- CARD 1: CONTEXT (scrollTop: 0) + Upper-Right Reversed "Glass of Water" Bar -->
-    <section id="tsMetricHeader" class="ts-card ts-metric-header" aria-label="Context usage and categories">
+    <section id="tsMetricHeader" class="ts-card ts-metric-header mode-hide-coach mode-hide-auto" aria-label="Context usage and categories">
       <div class="ts-card-head">
         <span class="ts-card-title" data-tip title="How full your AI's working memory is right now compared to the safe limit where it stays accurate and remembers early project rules.">CONTEXT</span>
         <div class="ts-status-badge" role="status" aria-live="polite" data-tip title="Current memory and prompt-cache health. Green or neutral means you have room to work cleanly; amber or red means it is time to compact or slow down.">
@@ -159,7 +245,7 @@
     </section>
 
     <!-- CARD 2: DIRECT GUIDANCE -->
-    <section id="tsGuidanceSection" class="ts-card" aria-label="Direct guidance">
+    <section id="tsGuidanceSection" class="ts-card mode-hide-off mode-hide-auto" aria-label="Direct guidance">
       <div class="ts-card-head">
         <span class="ts-card-title" data-tip title="Actionable next steps and warnings based on your current memory fill, cache warmth, active guards, and rule health.">DIRECT GUIDANCE</span>
         <span id="tsGuidanceBadge" class="ts-meta" data-tone="muted" data-tip title="Shows whether switching your AI model or reasoning effort right now is free (OK) or will force a costly cache rebuild (Hold).">Model: OK &middot; Effort: OK</span>
@@ -200,7 +286,7 @@
     </section>
 
     <!-- CARD 3: AUTOMATED ACTIVITY -->
-    <section id="tsActivitySection" class="ts-card" aria-label="Automated activity">
+    <section id="tsActivitySection" class="ts-card mode-hide-off mode-hide-coach" aria-label="Automated activity">
       <div class="ts-card-head">
         <span class="ts-card-title" data-tip title="What Highbeam does in the background: it trims long test logs, skips repeat file reads, protects your warm cache, and applies learned rules.">AUTOMATED ACTIVITY</span>
         <span id="tsGuardsSummary" class="ts-kpi-sub" data-tip title="Number of background interventions active in this chat and how many safety/efficiency guards are currently armed.">Guards armed</span>
@@ -214,13 +300,13 @@
         </li>
       </ul>
 
-      <details id="tsLearnedRulesDrawer" class="ts-drawer" hidden>
+      <details id="tsLearnedRulesDrawer" class="ts-drawer mode-hide-off mode-hide-coach mode-hide-auto" hidden>
         <summary title="Click to see the project rules and recovery steps Highbeam learned from your earlier coding sessions."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span><span id="tsLearnedRulesSummary">Applying learned rules</span></span><span id="tsLearnedRulesHint" class="ts-kpi-sub">Details</span></summary>
         <div id="tsLearnedRulesHead" class="ts-guard-head" hidden>Learned project rules</div>
         <ul id="tsLearnedRulesList" class="ts-ledger ts-guard-list" role="list" hidden></ul>
       </details>
 
-      <details id="tsActivityDrawer" class="ts-drawer">
+      <details id="tsActivityDrawer" class="ts-drawer mode-hide-off mode-hide-coach mode-hide-auto">
         <summary title="Click to see every guard, whether it needs attention now, and whether it blocks bad actions or only gives advice."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Active safety &amp; efficiency guards</span><span id="tsGuardRosterHint" class="ts-kpi-sub">Details</span></summary>
         <div id="tsGuardListHead" class="ts-guard-head" hidden>Live guards</div>
         <ul id="tsGuardList" class="ts-ledger ts-guard-list" role="list" hidden></ul>
@@ -228,7 +314,7 @@
     </section>
 
     <!-- CARD 4: SESSION OVERVIEW -->
-    <section id="tsSessionSection" class="ts-card" aria-label="Session overview">
+    <section id="tsSessionSection" class="ts-card mode-hide-coach mode-hide-auto" aria-label="Session overview">
       <div class="ts-card-head">
         <span class="ts-card-title" data-tip title="A big-picture look at your entire chat session from Turn 1 until now: how fast context is growing, how well the prompt cache is sticking, and total savings.">SESSION OVERVIEW</span>
         <span id="tsSessionTurnsMeta" class="ts-kpi-sub" data-tip title="Total turns recorded in this conversation so far, along with how many stayed lean vs. triggered a spike or warning.">Session start</span>
@@ -273,7 +359,7 @@
             <span id="tsKpi30d" class="ts-kpi-sub" title="Cumulative estimated savings across this workspace over the last 30 days.">30d: +0.0k (~$0.00)</span>
             <span id="tsSprintMeta" class="ts-kpi-sub" hidden title="Estimated share of your 5-hour rolling seat quota used so far."></span>
           </div>
-          <span id="tsSavedHint" class="ts-kpi-sub" title="All savings are counted once per turn from Highbeam's local ledger with zero estimates padded in.">verified</span>
+          <span id="tsSavedHint" class="ts-kpi-sub" title="All savings are counted once per turn from Highbeam's local ledger with zero estimates padded in.">estimated</span>
         </div>
 
         <!-- Row 4 (Conditional): v4.1 Multi-Agent Swarm, Learned Rules & Sharded Constraints -->

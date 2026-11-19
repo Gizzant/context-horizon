@@ -54,6 +54,7 @@ import { inspectHookDiagnostics, runDoctorDiagnostics } from '../../src/diagnost
 import { runPreModelSwitchHook } from '../../hooks/handlers/pre-model-switch.mjs';
 import { runCli } from '../../bin/cli.mjs';
 import register from '../../hooks/register.js';
+import { activateLocalTrial } from '../../src/core/pro_license.mjs';
 
 import {
   scanJsTokens,
@@ -454,6 +455,7 @@ test('ISS-061b [spawnSync PostToolUse & StatusLine]: benign pass-through, ANSI s
 
 test('ISS-061b [spawnSync AUTO_PILOT PreModelSwitch & Stop]: enforces active blocks from .attention-horizon.json and respects stop_hook_active', () => {
   withTempWorkspace(({ workDir, homeDir }) => {
+    activateLocalTrial({ homeDir });
     fs.writeFileSync(
       path.join(workDir, '.attention-horizon.json'),
       JSON.stringify({ flightMode: 'AUTO_PILOT' }, null, 2),

@@ -26,6 +26,7 @@ import {
   updateAntigravityIgnore
 } from '../src/core/layer5_hygiene.mjs';
 import { buildHooksConfig } from '../src/cli/init.mjs';
+import { activateLocalTrial } from '../src/core/pro_license.mjs';
 import { handlePreInvocation, handlePreToolUse } from '../src/hooks/pre_invocation.mjs';
 import { handlePostToolUse } from '../src/hooks/post_invocation.mjs';
 import {
@@ -334,6 +335,7 @@ describe('Batch 3 Regression Suite — ISS-039, ISS-040, ISS-041, ISS-042, ISS-0
         assert.equal(offPost.flightMode, 'OFF');
 
         // 3. AUTO_PILOT mode: enforces active DET-09 & DET-20 gates with decision: 'block'
+        activateLocalTrial({ homeDir: tmpHome });
         fs.writeFileSync(
           path.join(tmpWs, '.attention-horizon.json'),
           JSON.stringify({ flightMode: 'AUTO_PILOT', detectorNamespace: 'antigravity' }),

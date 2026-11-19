@@ -118,9 +118,9 @@ export function formatTrialSummaryLines(s) {
   lines.push(
     s.interventions > 0
       ? `  During it, Highbeam saved you ${saved}.`
-      : '  Highbeam recorded no savings in this project during the trial. See what earlier sessions wasted: npx ctxtop audit'
+      : '  Highbeam recorded no savings in this project during the trial. See what earlier sessions wasted: npx highbeam-cli audit'
   );
-  lines.push('  Auto is paused and Highbeam runs COACH. Keep Auto: npx ctxtop license activate <CTXP1-KEY>   (plans: npx ctxtop tiers)');
+  lines.push('  Auto is paused and Highbeam runs COACH. Keep Auto: npx highbeam-cli license activate <CTXP1-KEY>   (plans: npx highbeam-cli tiers)');
   return lines;
 }
 
@@ -166,7 +166,7 @@ export function getTrialEndNotice(options = {}) {
     // The bar already shows total savings (`Saved $X`), so only the widest variant repeats a figure.
     const withSavings = marker.interventions > 0 ? `: saved ${usd(marker.savedUSD)} in 14 days,` : ',';
     return {
-      full: `Trial ended${withSavings} Auto paused. Keep it: ctxtop license activate`,
+      full: `Trial ended${withSavings} Auto paused. Keep it: highbeam license activate`,
       short: 'Trial ended · Auto paused'
     };
   } catch {

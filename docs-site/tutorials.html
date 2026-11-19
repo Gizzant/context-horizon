@@ -32,12 +32,12 @@
           <p>Run the unified installer from your repo root. Then run <code>doctor</code> to make sure all checks pass.</p>
           <div class="code-block terminal">
             <div class="code-header"><span>Step 1 &middot; Input &amp; Expected Output</span></div>
-            <pre><code>$ npx ctxtop init --all
-⚡ Highbeam (ctxtop v4.0.0) - Zero-Config Unified Installer
+            <pre><code>$ npx highbeam-cli init --all-hosts
+⚡ Highbeam (highbeam-cli v4.1.4) - Zero-Config Unified Installer
   [PASS] Claude Code hooks merged into .claude/settings.json
   [PASS] Antigravity workspace plugin verified
 
-$ npx ctxtop doctor
+$ npx highbeam-cli doctor
 [Highbeam Doctor] Status: HEALTHY</code></pre>
           </div>
         </div>
@@ -50,7 +50,7 @@ $ npx ctxtop doctor
             <pre><code>$ npx ah-statusline --demo --columns 110
 AH sonnet-5.5 [██▓▓▓▓▓▓▓▓▒█░░░░░░░░] 64.0k/200k (32%) · Cache 87.5% · 5m TTL 04:12 · Saved +$1.84
 
-$ npx ctxtop panel --out ./horizon-preview.html
+$ npx highbeam-cli panel --out ./horizon-preview.html
 [Highbeam] Claude Code HUD written: /repo/horizon-preview.html
   Verdict: NOMINAL (Warm Cache Active)
   Next Action: Continue in current cache window</code></pre>
@@ -81,7 +81,7 @@ Bypass once: prefix with `!`  •  Lock model/effort: include `!lock`</code></pr
           <p>Print a Markdown receipt ready to paste into pull request notes:</p>
           <div class="code-block terminal">
             <div class="code-header"><span>Step 4 &middot; Verify Receipt</span></div>
-            <pre><code>$ npx ctxtop receipt --markdown</code></pre>
+            <pre><code>$ npx highbeam-cli receipt --markdown</code></pre>
           </div>
         </div>
       </div>
@@ -108,7 +108,7 @@ git worktree list</code></pre>
           <p>Lock <code>src/core/pro_license.mjs</code> for Worker A (`session-alpha`) via the <code>scope_lock_claim</code> MCP tool (or let <code>PreToolUse</code> claim it automatically). That writes to <code>.agents/locks/active_scopes.json</code>:</p>
           <div class="code-block terminal">
             <div class="code-header"><span>Step 2 &middot; Claim Lease via @ctxtop/mcp JSON-RPC</span></div>
-            <pre><code>$ printf '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"scope_lock_claim","arguments":{"sessionId":"session-alpha","agentId":"claude-code","paths":["src/core/pro_license.mjs"],"ttlSeconds":900}}}\n' | npx ctxtop-mcp</code></pre>
+            <pre><code>$ printf '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"scope_lock_claim","arguments":{"sessionId":"session-alpha","agentId":"claude-code","paths":["src/core/pro_license.mjs"],"ttlSeconds":900}}}\n' | npx highbeam-cli-mcp</code></pre>
           </div>
         </div>
 
@@ -128,7 +128,7 @@ Work on disjoint files or isolate via git worktree.</code></pre>
           <p>While both worktrees run, <code>DET-31</code> checks <code>git merge-tree</code> in memory to spot overlapping hunks early. Run <code>cost-radar</code> to view the swarm map:</p>
           <div class="code-block terminal">
             <div class="code-header"><span>Step 4 &middot; Generate Swarm &amp; Worktree Timeline</span></div>
-            <pre><code>$ npx ctxtop cost-radar --out ./swarm-radar.html --json
+            <pre><code>$ npx highbeam-cli cost-radar --out ./swarm-radar.html --json
 {
   "ok": true,
   "path": "/repo/swarm-radar.html",
@@ -149,19 +149,19 @@ Work on disjoint files or isolate via git worktree.</code></pre>
       <div class="step-list">
         <div class="step-card">
           <h3>Pause and single-step a live agent chat</h3>
-          <p>If an agent loops on failing tests (nearing the <code>DET-04</code> 3-strike limit), pause it from a second terminal with <code>ctxtop control</code>:</p>
+          <p>If an agent loops on failing tests (nearing the <code>DET-04</code> 3-strike limit), pause it from a second terminal with <code>highbeam control</code>:</p>
           <div class="code-block terminal">
             <div class="code-header"><span>Step 1 &middot; Pause, Step Once, and Resume</span></div>
             <pre><code># Suspend at the next PreToolUse boundary (writes ~/.ctxtop/runtime/default.ctl)
-$ npx ctxtop control pause --session default
+$ npx highbeam-cli control pause --session default
 [Highbeam Control] State transitioned to PAUSED
 
 # Allow exactly 1 tool call, then automatically return to PAUSED
-$ npx ctxtop control step --session default
+$ npx highbeam-cli control step --session default
 [Highbeam Control] State transitioned to STEP
 
 # Resume normal execution once verified
-$ npx ctxtop control resume --session default
+$ npx highbeam-cli control resume --session default
 [Highbeam Control] State transitioned to RUNNING</code></pre>
           </div>
         </div>
@@ -171,12 +171,12 @@ $ npx ctxtop control resume --session default
           <p>View your latest call tree and scan your last 10 chats for <code>CONTEXT_ROT_DECAY</code> or <code>VERIFICATION_CHURN</code>:</p>
           <div class="code-block terminal">
             <div class="code-header"><span>Step 2 &middot; Trajectory Inspection &amp; Postmortem</span></div>
-            <pre><code>$ npx ctxtop inspect --last
+            <pre><code>$ npx highbeam-cli inspect --last
 [Highbeam Inspect] Session "default" (claude-code)
   Model: claude-sonnet-5-5 | Events: 24 | Spans: 11
   Tokens: 92,400 (Uncached: 11,200, Cache: 81,200)
 
-$ npx ctxtop postmortem --last 10
+$ npx highbeam-cli postmortem --last 10
 [Highbeam Postmortem] Analyzed 10 sessions (1.42M active tokens)
   Clean Sessions: 7 | Churn: 2 | Rot: 1
   Report: session_analysis_report.md</code></pre>
@@ -188,10 +188,10 @@ $ npx ctxtop postmortem --last 10
           <p>Run <code>--prune-tools --dry-run</code> first to see how many old uncached tool outputs can be trimmed. Then drop <code>--dry-run</code> to write a <code>.bak</code> backup and trim them:</p>
           <div class="code-block terminal">
             <div class="code-header"><span>Step 3 &middot; Dry-Run &amp; Live Surgical Prune</span></div>
-            <pre><code>$ npx ctxtop doctor --prune-tools --dry-run
+            <pre><code>$ npx highbeam-cli doctor --prune-tools --dry-run
   ✔ PASS  Uncached Tail Surgeon          Pruned 6 stale tool output(s), saved ~28400 tokens (dry-run)
 
-$ npx ctxtop doctor --prune-tools
+$ npx highbeam-cli doctor --prune-tools
   ✔ PASS  Uncached Tail Surgeon          Pruned 6 stale tool output(s), saved ~28400 tokens</code></pre>
           </div>
         </div>
@@ -209,7 +209,7 @@ $ npx ctxtop doctor --prune-tools
           <p>Running <code>/compact</code> while 50k+ tokens are still warm inside a 5-minute window throws away cheap cache reads (<code>HOLD_COMPACT</code>). Check your timer first:</p>
           <div class="code-block terminal">
             <div class="code-header"><span>Step 1 &middot; Inspect TTL &amp; Saved Quota</span></div>
-            <pre><code>$ npx ctxtop receipt --simple</code></pre>
+            <pre><code>$ npx highbeam-cli receipt --simple</code></pre>
           </div>
         </div>
 
@@ -218,7 +218,7 @@ $ npx ctxtop doctor --prune-tools
           <p>Run <code>/handoff</code> in chat or build the file from the CLI. Make sure all five items are set: a clear <code>Next Action</code> verb + file path, touched files, open <code>Blockers</code>, key <code>Decisions</code>, and a clean <code>git status --porcelain</code>:</p>
           <div class="code-block terminal">
             <div class="code-header"><span>Step 2 &middot; Distill Handoff Document</span></div>
-            <pre><code>$ npx ctxtop doctor --handoff
+            <pre><code>$ npx highbeam-cli doctor --handoff
   ✔ PASS  Handoff Distillation           Generated handoff document at docs/HANDOFF_2026-11-12.md</code></pre>
           </div>
         </div>
