@@ -27,39 +27,70 @@ export function parseNodeVersion(versionStr = (typeof process !== 'undefined' &&
   return { major: parts[0] || 0, minor: parts[1] || 0, patch: parts[2] || 0 };
 }
 
-/** Minimum supported Node: node:sqlite is available without a flag from 22.13.0. */
-export const MIN_NODE_VERSION = '22.13.0';
+/** Minimum supported Node: Node 20 LTS via JSONL fallback; native node:sqlite is available from 22.13.0+. */
+export const MIN_NODE_VERSION = '20.0.0';
+export const NATIVE_SQLITE_NODE_VERSION = '22.13.0';
 
 export function isSupportedNodeVersion(versionStr = (typeof process !== 'undefined' && process.versions?.node) || '0.0.0') {
-  const { major, minor } = parseNodeVersion(versionStr);
-  return major > 22 || (major === 22 && minor >= 13);
+  const { major } = parseNodeVersion(versionStr);
+  return major >= 20;
 }
 
 export function hasNativeNodeSqlite(versionStr = (typeof process !== 'undefined' && process.versions?.node) || '0.0.0') {
   if (typeof process !== 'undefined' && process.env?.CTXTOP_FORCE_NO_SQLITE === '1') {
     return false;
   }
-  return isSupportedNodeVersion(versionStr);
+  const { major, minor } = parseNodeVersion(versionStr);
+  return major > 22 || (major === 22 && minor >= 13);
 }
 
 export function formatNodeUpgradeHint(versionStr = (typeof process !== 'undefined' && process.versions?.node) || '0.0.0') {
   const cleanVer = String(versionStr || '0.0.0').replace(/^v/i, '');
+  if (!isSupportedNodeVersion(versionStr)) {
+    return [
+      `\x1b[33m▲ Highbeam requires Node.js >= ${MIN_NODE_VERSION} (detected v${cleanVer}; Node.js >= ${NATIVE_SQLITE_NODE_VERSION} recommended for built-in SQLite).\x1b[0m`,
+      `  Upgrade in 10s: \x1b[36mnvm install 22 && nvm use 22\x1b[0m (or download from https://nodejs.org)`
+    ].join('\n');
+  }
   return [
-    `\x1b[33m▲ Highbeam requires Node.js >= ${MIN_NODE_VERSION} (built-in SQLite; detected v${cleanVer}).\x1b[0m`,
+    `\x1b[33mℹ Highbeam running on Node.js v${cleanVer} in JSONL fallback mode (upgrade to Node.js >= ${NATIVE_SQLITE_NODE_VERSION} for native built-in SQLite).\x1b[0m`,
     `  Upgrade in 10s: \x1b[36mnvm install 22 && nvm use 22\x1b[0m (or download from https://nodejs.org)`
   ].join('\n');
 }
 
-export function ensureSupportedNodeVersion({ exitOnUnsupported = true, stream = process.stderr, versionStr = process.versions?.node } = {}) {
-  if (isSupportedNodeVersion(versionStr)) return { supported: true, message: '' };
-  const message = formatNodeUpgradeHint(versionStr);
-  if (stream && typeof stream.write === 'function') {
-    stream.write(message + '\n');
+export function ensureSupportedNodeVersion({
+  exitOnUnsupported = true,
+  stream = process.stderr,
+  versionStr = process.versions?.node,
+  quietFallback = false
+} = {}) {
+  if (!isSupportedNodeVersion(versionStr)) {
+    const message = formatNodeUpgradeHint(versionStr);
+    if (stream && typeof stream.write === 'function') {
+      stream.write(message + '\n');
+    }
+    if (exitOnUnsupported && typeof process !== 'undefined' && typeof process.exit === 'function') {
+      process.exit(1);
+    }
+    return { supported: false, nativeSqlite: false, fallbackMode: false, message };
   }
-  if (exitOnUnsupported && typeof process !== 'undefined' && typeof process.exit === 'function') {
-    process.exit(1);
+
+  const { major, minor } = parseNodeVersion(versionStr);
+  const parsedNative = major > 22 || (major === 22 && minor >= 13);
+  const nativeSqlite = hasNativeNodeSqlite(versionStr);
+
+  if (!nativeSqlite) {
+    const message = formatNodeUpgradeHint(versionStr);
+    const isJsonOutput = typeof process !== 'undefined' && Array.isArray(process.argv) && process.argv.includes('--json');
+    const alreadyWarned = typeof process !== 'undefined' && Boolean(process.__highbeamNodeFallbackWarned);
+    if (!quietFallback && !parsedNative && !isJsonOutput && !alreadyWarned && stream && typeof stream.write === 'function') {
+      stream.write(message + '\n');
+      if (typeof process !== 'undefined') process.__highbeamNodeFallbackWarned = true;
+    }
+    return { supported: true, nativeSqlite: false, fallbackMode: true, message };
   }
-  return { supported: false, message };
+
+  return { supported: true, nativeSqlite: true, fallbackMode: false, message: '' };
 }
 
 /**

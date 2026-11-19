@@ -41,20 +41,38 @@ import {
 import { auditCursorVscdbOrphans } from '../src/core/storage_doctor.mjs';
 import { RsiInstinctEngine } from '../src/core/rsi_instinct_engine.mjs';
 import { runDoctor } from '../src/cli/doctor.mjs';
+import { runDoctorDiagnostics } from '../src/diagnostics/doctorEngine.mjs';
 
-test('Node version guard: paths.mjs accepts Node >= 22.13.0 and rejects older versions', () => {
+test('Node version guard: paths.mjs accepts Node >= 20.0.0 (JSONL fallback), enables native SQLite at >= 22.13.0, and rejects < 20.0.0', () => {
   assert.equal(isSupportedNodeVersion('v18.19.1'), false);
-  assert.equal(isSupportedNodeVersion('v20.19.0'), false);
-  assert.equal(isSupportedNodeVersion('v22.5.0'), false);
-  assert.equal(isSupportedNodeVersion('v22.12.9'), false);
+  assert.equal(isSupportedNodeVersion('v20.0.0'), true);
+  assert.equal(isSupportedNodeVersion('v20.19.0'), true);
+  assert.equal(isSupportedNodeVersion('v22.5.0'), true);
+  assert.equal(isSupportedNodeVersion('v22.12.9'), true);
   assert.equal(isSupportedNodeVersion('v22.13.0'), true);
   assert.equal(isSupportedNodeVersion('v24.11.0'), true);
 
   assert.equal(hasNativeNodeSqlite('v20.11.0'), false);
   assert.equal(hasNativeNodeSqlite('v22.12.9'), false);
   assert.equal(hasNativeNodeSqlite('v22.13.0'), true);
-  assert.equal(ensureSupportedNodeVersion({ exitOnUnsupported: false, versionStr: 'v20.11.0' }).supported, false);
-  assert.equal(ensureSupportedNodeVersion({ exitOnUnsupported: false, versionStr: 'v22.14.0' }).supported, true);
+  assert.equal(ensureSupportedNodeVersion({ exitOnUnsupported: false, versionStr: 'v18.19.1' }).supported, false);
+
+  const fallbackRes = ensureSupportedNodeVersion({ exitOnUnsupported: false, versionStr: 'v20.11.0', quietFallback: true });
+  assert.equal(fallbackRes.supported, true);
+  assert.equal(fallbackRes.nativeSqlite, false);
+  assert.equal(fallbackRes.fallbackMode, true);
+
+  const nativeRes = ensureSupportedNodeVersion({ exitOnUnsupported: false, versionStr: 'v22.14.0' });
+  assert.equal(nativeRes.supported, true);
+
+  const doc20 = runDoctorDiagnostics({ nodeVersion: '20.19.0' });
+  const node20Check = doc20.checks.find((c) => c.id === 'node_version');
+  assert.equal(node20Check?.ok, true);
+  assert.match(node20Check?.detail || '', /JSONL fallback/i);
+
+  const doc18 = runDoctorDiagnostics({ nodeVersion: '18.19.0' });
+  const node18Check = doc18.checks.find((c) => c.id === 'node_version');
+  assert.equal(node18Check?.ok, false);
 });
 
 test('Node 20 LTS compat: CTXTOP_FORCE_NO_SQLITE=1 degrades gracefully across parser, episodic memory, FTS5 compressor, RSI, WAL hygiene, storage doctor, and doctor CLI', async () => {

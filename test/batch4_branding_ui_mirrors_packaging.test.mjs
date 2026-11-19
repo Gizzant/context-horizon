@@ -191,7 +191,7 @@ describe('Batch 4 Remediation — ISS-017: Public Documentation Cleanliness & Re
     ];
     assert.ok(docFiles.length >= 10, 'Expected public markdown documentation files');
     const ALLOWED_CONTEXT_HORIZON_URLS_RE =
-      /https:\/\/gizzant\.github\.io\/context-horizon\/(?:demo\/)?(?![\w./-])|https:\/\/github\.com\/Gizzant\/context-horizon(?:\.git)?(?![/\w.-])/g;
+      /https:\/\/gizzant\.github\.io\/context-horizon\/(?:demo\/)?(?![\w./-])|https:\/\/github\.com\/Gizzant\/context-horizon(?:\.git)?(?![/\w.-])|https:\/\/raw\.githubusercontent\.com\/Gizzant\/context-horizon\/main\/assets\/[\w.-]+(?![/\w.-])/g;
     const stripAllowedContextHorizonUrls = (s) => String(s).replace(ALLOWED_CONTEXT_HORIZON_URLS_RE, '');
 
     for (const f of docFiles) {
@@ -567,6 +567,12 @@ describe('Batch 4 Remediation — ISS-056 & ISS-057: Mirror Sync Parity, 6 Hooks
     assert.ok(!packedPaths.includes('EXHAUSTIVE_ISSUE_LEDGER.md'), 'Tarball must exclude EXHAUSTIVE_ISSUE_LEDGER.md');
     assert.equal(packedPaths.filter((p) => p.includes('airlock')).length, 0, 'Tarball must exclude packages/airlock');
     assert.equal(packedPaths.some((p) => p.startsWith('src/webview/partials/')), false, 'Tarball must exclude src/webview/partials/');
+    assert.equal(packedPaths.some((p) => p.startsWith('packages/mcp/src/vendor/')), false, 'Root tarball must exclude duplicated packages/mcp/src/vendor/**');
+    assert.equal(packedPaths.includes('assets/logo.svg'), true, 'Tarball must keep assets/logo.svg');
+    assert.equal(packedPaths.filter((p) => p.startsWith('assets/')).length, 1, 'Tarball must exclude non-logo media assets/');
+    assert.equal(packedPaths.includes('src/webview/.npmignore'), false, 'Tarball must exclude src/webview/.npmignore');
+    assert.ok(packJson[0].entryCount <= 280, `Tarball entryCount (${packJson[0].entryCount}) must be <= 280`);
+    assert.ok(packJson[0].size <= 1_250_000, `Tarball size (${packJson[0].size}) must be <= 1,250,000 bytes`);
 
     const webviewBuild = buildWebviewHtml({ checkOnly: true, silent: true });
     assert.equal(webviewBuild.identical, true);

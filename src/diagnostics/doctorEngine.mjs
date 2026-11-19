@@ -27,6 +27,7 @@ import { auditClaudeAutoMemory } from '../core/shield_manager.mjs';
 import { auditProseRuleHookCandidates } from '../core/bucket_b_runtime.mjs';
 import { auditWorkspaceRuleClashes } from '../core/rsl_clash_auditor.mjs';
 import { getOffloadIndexStats } from '../core/fts5_output_compressor.mjs';
+import { isSupportedNodeVersion, hasNativeNodeSqlite } from '../core/paths.mjs';
 import { resolveFastIpcPipePath } from '../engine-node/ipc/fast_client.mjs';
 
 /**
@@ -113,14 +114,19 @@ export function inspectHookDiagnostics(options = {}) {
  */
 export function runDoctorDiagnostics(options = {}) {
   const cwd = options.cwd || globalThis.process?.cwd?.() || '.';
-  const nodeVersion = globalThis.process?.versions?.node || '0.0.0';
-  const major = Number(nodeVersion.split('.')[0] || 0);
+  const nodeVersion = options.nodeVersion || globalThis.process?.versions?.node || '0.0.0';
+  const supported = isSupportedNodeVersion(nodeVersion);
+  const nativeSqlite = hasNativeNodeSqlite(nodeVersion);
   const checks = [];
 
   checks.push({
     id: 'node_version',
-    ok: major > 22 || (major === 22 && Number(nodeVersion.split('.')[1] || 0) >= 13),
-    detail: `Node.js v${nodeVersion} (requires >= 22.13.0)`
+    ok: supported,
+    detail: nativeSqlite
+      ? `Node.js v${nodeVersion} (native node:sqlite ready)`
+      : supported
+        ? `Node.js v${nodeVersion} (JSONL fallback mode; Node >= 22.13.0 enables native node:sqlite)`
+        : `Node.js v${nodeVersion} (requires >= 20.0.0; >= 22.13.0 recommended for native node:sqlite)`
   });
 
   try {

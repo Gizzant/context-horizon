@@ -104,7 +104,7 @@ export * from './ui/horizonPanelHtml.mjs';
     },
     files: ['src/'],
     engines: {
-      node: '>=22.13.0'
+      node: '>=20.0.0'
     },
     dependencies: {}
   };
@@ -200,7 +200,7 @@ export * from './rsl/index.mjs';
     },
     files: ['src/'],
     engines: {
-      node: '>=22.13.0'
+      node: '>=20.0.0'
     },
     dependencies: {}
   };
@@ -266,7 +266,7 @@ export * from './team_finops_pack.mjs';
       'LICENSE-COMMERCIAL.md'
     ],
     engines: {
-      node: '>=22.13.0'
+      node: '>=20.0.0'
     },
     dependencies: {}
   };
@@ -343,7 +343,7 @@ export * from './team_finops_pack.mjs';
     },
     files: ['src/', 'README.md', 'smithery.yaml', 'glama.json', 'server.json'],
     engines: {
-      node: '>=22.13.0'
+      node: '>=20.0.0'
     },
     dependencies: {}
   };
@@ -391,7 +391,7 @@ export * from './adapter.mjs';
     },
     files: ['src/'],
     engines: {
-      node: '>=22.13.0'
+      node: '>=20.0.0'
     },
     dependencies: {
       '@ctxtop/core': `^${VERSION}`,
@@ -451,7 +451,7 @@ export { default as register } from './register.js';
     },
     files: ['src/'],
     engines: {
-      node: '>=22.13.0'
+      node: '>=20.0.0'
     },
     dependencies: {
       '@ctxtop/core': `^${VERSION}`,

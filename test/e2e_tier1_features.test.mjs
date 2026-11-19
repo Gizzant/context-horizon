@@ -207,10 +207,10 @@ describe('Feature 1: Single ctxtop Package', () => {
     assert.ok(fs.existsSync(path.resolve(pkg.bin['ah-statusline'])), 'ah-statusline entry target must exist on disk');
   });
 
-  it('1.5 Single ctxtop Package: engines.node declares >=22.13.0', () => {
+  it('1.5 Single ctxtop Package: engines.node declares >=20.0.0', () => {
     const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
     assert.ok(pkg.engines && pkg.engines.node, 'engines.node must be specified');
-    assert.equal(pkg.engines.node, '>=22.13.0', 'engines.node must declare >=22.13.0');
+    assert.equal(pkg.engines.node, '>=20.0.0', 'engines.node must declare >=20.0.0');
     const env = detectRuntimeEnv();
     assert.ok(env.isNode22Plus, `Active Node ${env.nodeVersion} must be >= 22.13.0`);
   });

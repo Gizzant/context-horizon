@@ -6,7 +6,7 @@
 
 [![Zero Runtime Dependencies](https://img.shields.io/badge/dependencies-0_runtime-brightgreen.svg)](#systems-architecture--zero-trust-security)
 [![Hook Latency](https://img.shields.io/badge/Hook_call-~60--80ms_Linux_%7C_~200--275ms_Windows-00e5ff.svg)](#deterministic-preinvocation-router--6-local-sensors)
-[![Node.js >= 22.13](https://img.shields.io/badge/node-%3E%3D22.13_zero_deps-339933.svg)](#try-in-10-seconds-zero-hooks--zero-writes)
+[![Node.js >= 20 LTS](https://img.shields.io/badge/node-%3E%3D20_(22.13%2B_SQLite)-339933.svg)](#try-in-10-seconds-zero-hooks--zero-writes)
 [![License: MIT Core + Commercial Pro](https://img.shields.io/badge/license-MIT_Core_%2B_Commercial_Pro-blue.svg)](LICENSE)
 [![Multi-Host Parity](https://img.shields.io/badge/Hosts-Antigravity_%7C_Claude_%7C_Codex_%7C_Gemini_%7C_Cursor-blueviolet.svg)](#-installation--quick-start)
 
@@ -14,12 +14,12 @@
 
 <br/>
 
-<img src="assets/hero-fts5-ttl-demo.gif" alt="Highbeam 45s Live Demo: 5-Host ROI Audit, 96.1% FTS5 CLI Compression & Warm KV-Cache TTL Shield" width="100%" />
+<img src="https://raw.githubusercontent.com/Gizzant/context-horizon/main/assets/hero-fts5-ttl-demo.gif" alt="Highbeam 45s Live Demo: 5-Host ROI Audit, 96.1% FTS5 CLI Compression & Warm KV-Cache TTL Shield" width="100%" />
 
 <details>
 <summary><strong>View Static 40-Cell Architecture &amp; PreInvocation Scorecard Diagram (SVG)</strong></summary>
 <br/>
-<img src="assets/hero-demo.svg" alt="Highbeam 40-Cell ANSI HUD & PreInvocation Router" width="100%" />
+<img src="https://raw.githubusercontent.com/Gizzant/context-horizon/main/assets/hero-demo.svg" alt="Highbeam 40-Cell ANSI HUD & PreInvocation Router" width="100%" />
 </details>
 
 </div>
@@ -103,7 +103,7 @@ All 6 slash skills are registered identically in both **Google Antigravity** (`p
 Most CLI trackers passively count tokens *after* your quota is already burned. Highbeam intercepts redundant reads, compresses noisy test dumps via local SQLite FTS5, and shields warm KV prefixes **before** they hit your billing meter:
 
 <div align="center">
-  <img src="assets/zone_c_step3_shield_full.png" alt="Highbeam Zone C Active Protection & Estimated Token Receipt (+164.0k tokens saved)" width="460" />
+  <img src="https://raw.githubusercontent.com/Gizzant/context-horizon/main/assets/zone_c_step3_shield_full.png" alt="Highbeam Zone C Active Protection & Estimated Token Receipt (+164.0k tokens saved)" width="460" />
 </div>
 
 | Step in Coding Loop | Developer / Agent Action | Highbeam Active Intervention (Zone C) | Estimated Incident Savings |

@@ -48,7 +48,7 @@
     "commands/",
     "agents/",
     "config/",
-    "assets/",
+    "assets/logo.svg",
     "rules/",
     "skills/",
     "sidecars/",
@@ -57,7 +57,10 @@
     "!packages/pro/wrangler.toml",
     "!packages/pro/README-SIGNING.md",
     "packages/mcp/",
-    "src/"
+    "!packages/mcp/src/vendor/**",
+    "src/",
+    "!src/webview/partials/**",
+    "!src/webview/.npmignore"
   ],
   "scripts": {
     "start": "node --no-warnings src/cli/init.mjs --demo",
@@ -94,7 +97,7 @@
     "url": "https://github.com/Gizzant/context-horizon/issues"
   },
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=20.0.0"
   },
   "keywords": [
     "ai-agents",

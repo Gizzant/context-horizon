@@ -14,15 +14,41 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { readLiveStateSnapshot } from './vendor/core-isomorphic/telemetry/telemetryBridge.mjs';
-import { getSavedQuotaReceiptSummary } from './vendor/core-isomorphic/coach/savedQuotaLedger.mjs';
-import { generateCorporateExpenseReceipt } from './vendor/core-isomorphic/ui/pdfReceiptGenerator.mjs';
-import { computeBreakEvenCachedTokens } from './vendor/core-isomorphic/coach/cacheGravityRouter.mjs';
-import { getProEntitlementStatus } from './vendor/pro/pro_license.mjs';
-import { ScopeLockRegistry, loadRegistry } from './vendor/core/telemetry/scope_lock_registry.mjs';
-import { compressCliOutputFts5, searchOffloadedContextFts5 } from './vendor/core/fts5_output_compressor.mjs';
-import { runSessionAudit, formatSessionAuditReport } from './vendor/core/session_auditor.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const __mcpFilename = fileURLToPath(import.meta.url);
+const __mcpDirname = path.dirname(__mcpFilename);
+const VENDOR_DIR = path.join(__mcpDirname, 'vendor');
+const MONOREPO_ROOT_DIR = path.resolve(__mcpDirname, '..', '..', '..');
+
+function resolveMcpDependencyUrl(vendorRelPath, rootRelPath) {
+  const vendorPath = path.join(VENDOR_DIR, vendorRelPath);
+  if (fs.existsSync(vendorPath)) {
+    return pathToFileURL(vendorPath).href;
+  }
+  const rootPath = path.join(MONOREPO_ROOT_DIR, rootRelPath);
+  return pathToFileURL(rootPath).href;
+}
+
+const [
+  { readLiveStateSnapshot },
+  { getSavedQuotaReceiptSummary },
+  { generateCorporateExpenseReceipt },
+  { computeBreakEvenCachedTokens },
+  { getProEntitlementStatus },
+  { ScopeLockRegistry, loadRegistry },
+  { compressCliOutputFts5, searchOffloadedContextFts5 },
+  { runSessionAudit, formatSessionAuditReport }
+] = await Promise.all([
+  import(resolveMcpDependencyUrl('core-isomorphic/telemetry/telemetryBridge.mjs', 'src/core-isomorphic/telemetry/telemetryBridge.mjs')),
+  import(resolveMcpDependencyUrl('core-isomorphic/coach/savedQuotaLedger.mjs', 'src/core-isomorphic/coach/savedQuotaLedger.mjs')),
+  import(resolveMcpDependencyUrl('core-isomorphic/ui/pdfReceiptGenerator.mjs', 'src/core-isomorphic/ui/pdfReceiptGenerator.mjs')),
+  import(resolveMcpDependencyUrl('core-isomorphic/coach/cacheGravityRouter.mjs', 'src/core-isomorphic/coach/cacheGravityRouter.mjs')),
+  import(resolveMcpDependencyUrl('pro/pro_license.mjs', 'src/core/pro_license.mjs')),
+  import(resolveMcpDependencyUrl('core/telemetry/scope_lock_registry.mjs', 'src/core/telemetry/scope_lock_registry.mjs')),
+  import(resolveMcpDependencyUrl('core/fts5_output_compressor.mjs', 'src/core/fts5_output_compressor.mjs')),
+  import(resolveMcpDependencyUrl('core/session_auditor.mjs', 'src/core/session_auditor.mjs'))
+]);
 
 export const MCP_SERVER_INFO = Object.freeze({
   name: '@ctxtop/mcp',

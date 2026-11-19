@@ -294,6 +294,44 @@ describe('Matrix >= 9.0 Capabilities Suite (D1-D8)', () => {
       fs.cpSync(path.join(ROOT, 'packages', 'mcp'), standaloneMcpDir, { recursive: true });
       const isolatedMod = await import(pathToFileURL(path.join(standaloneMcpDir, 'src', 'server.mjs')).href);
       assert.equal(isolatedMod.MCP_TOOLS.length, 7);
+
+      // Verify root-tarball layout where packages/mcp/src/vendor/ is omitted and server.mjs resolves via root src/
+      const rootPackedDir = path.join(tmpDir, 'root-packed');
+      fs.mkdirSync(path.join(rootPackedDir, 'packages', 'mcp', 'src'), { recursive: true });
+      fs.copyFileSync(
+        path.join(ROOT, 'packages', 'mcp', 'src', 'server.mjs'),
+        path.join(rootPackedDir, 'packages', 'mcp', 'src', 'server.mjs')
+      );
+      for (const linkDir of ['src', 'config']) {
+        try {
+          fs.symlinkSync(path.join(ROOT, linkDir), path.join(rootPackedDir, linkDir), 'junction');
+        } catch {
+          fs.cpSync(path.join(ROOT, linkDir), path.join(rootPackedDir, linkDir), { recursive: true });
+        }
+      }
+      const rootPackedMod = await import(
+        pathToFileURL(path.join(rootPackedDir, 'packages', 'mcp', 'src', 'server.mjs')).href
+      );
+      assert.equal(rootPackedMod.MCP_TOOLS.length, 7);
+      const gravityRes = await rootPackedMod.handleMcpJsonRpcRequest(
+        {
+          jsonrpc: '2.0',
+          id: 99,
+          method: 'tools/call',
+          params: {
+            name: 'cache_gravity_check',
+            arguments: {
+              currentModel: 'claude-opus-5.5',
+              targetModel: 'claude-sonnet-5.5',
+              cachedTokens: 60000,
+              ttlRemainingSeconds: 240,
+              remainingExpectedTurns: 6
+            }
+          }
+        },
+        { cwd: rootPackedDir, homeDir: tmpDir }
+      );
+      assert.equal(gravityRes.result.isError, false);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -339,7 +377,7 @@ describe('Matrix >= 9.0 Capabilities Suite (D1-D8)', () => {
 
   it('7. New and updated docs maintain strict zero-banned-strings and zero-empty-catch hygiene', () => {
     const ALLOWED_CONTEXT_HORIZON_URLS_RE =
-      /https:\/\/gizzant\.github\.io\/context-horizon\/(?:demo\/)?(?![\w./-])|https:\/\/github\.com\/Gizzant\/context-horizon(?:\.git)?(?![/\w.-])/g;
+      /https:\/\/gizzant\.github\.io\/context-horizon\/(?:demo\/)?(?![\w./-])|https:\/\/github\.com\/Gizzant\/context-horizon(?:\.git)?(?![/\w.-])|https:\/\/raw\.githubusercontent\.com\/Gizzant\/context-horizon\/main\/assets\/[\w.-]+(?![/\w.-])/g;
     const stripAllowedContextHorizonUrls = (s) => String(s).replace(ALLOWED_CONTEXT_HORIZON_URLS_RE, '');
     const bannedPatterns = [
       new RegExp(['Context', 'Horizon'].join(' '), 'i'),

@@ -3,7 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { loadFlightcheckConfig, getUserConfigPath } from '../core/config.mjs';
-import { getDaemonPortFile, readDaemonPort, ensureSupportedNodeVersion, isSupportedNodeVersion } from '../core/paths.mjs';
+import { getDaemonPortFile, readDaemonPort, ensureSupportedNodeVersion, isSupportedNodeVersion, hasNativeNodeSqlite } from '../core/paths.mjs';
 import { resolveModelCeilingDetailed, resolvePricePerM } from '../core/constants.mjs';
 import { getFlightcheckDir, SIDECAR_VERSION } from '../core/sidecar_store.mjs';
 
@@ -30,7 +30,7 @@ import { getHookDiagnosticSummary } from '../core/hook_diagnostics.mjs';
  * Parses CLI flags (`--prune-tools`, `--reap-orphans`, `--handoff`, `--storage-gc`, `--gc-cursor`, `--recover-brain`, `--diagnostic`, `--transcript <path>`, `--vscdb <path>`, `--dry-run`)
  */
 function nodeSupportsSqlite() {
-  return isSupportedNodeVersion();
+  return hasNativeNodeSqlite();
 }
 
 export function parseDoctorArgs(argv = process.argv.slice(2)) {
@@ -125,10 +125,10 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
         ? `${process.version} (JSONL fallback forced by CTXTOP_FORCE_NO_SQLITE)`
         : nodeSupportsSqlite()
           ? `${process.version} (built-in node:sqlite ready)`
-          : `${process.version} (JSONL fallback active)`;
+          : `${process.version} (JSONL fallback active — upgrade to Node >= 22.13.0 for native read-only SQLite)`;
     record('Node.js Runtime', 'PASS', sqliteDetail);
   } else {
-    record('Node.js Runtime', 'FAIL', `${process.version} — Highbeam requires Node >= 22.13.0 (built-in SQLite). Upgrade: nvm install 22`);
+    record('Node.js Runtime', 'FAIL', `${process.version} — Highbeam requires Node >= 20.0.0 (Node >= 22.13.0 recommended for built-in SQLite). Upgrade: nvm install 22`);
   }
   const portFile = getDaemonPortFile(home);
   const resolvedPort = readDaemonPort(home, 62935);
