@@ -137,7 +137,7 @@ describe('Item 4: Defensible Pro & Team Tier Anchor Features', () => {
       // Tampered ciphertext fails GCM auth tag check
       const tamperedCipher = {
         ...envelope,
-        ciphertextB64: 'A' + envelope.ciphertextB64.slice(1)
+        ciphertextB64: (envelope.ciphertextB64[0] === 'A' ? 'B' : 'A') + envelope.ciphertextB64.slice(1)
       };
       assert.equal(decryptSyncPayload(tamperedCipher, 'vault-passphrase-123').ok, false);
 

@@ -344,8 +344,8 @@ export * from './ci_budget_gate.mjs';
       directory: 'packages/mcp'
     },
     bin: {
-      '@ctxtop/mcp': './src/server.mjs',
-      'ctxtop-mcp': './src/server.mjs'
+      mcp: 'src/server.mjs',
+      'ctxtop-mcp': 'src/server.mjs'
     },
     exports: {
       '.': './src/server.mjs'
