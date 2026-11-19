@@ -694,7 +694,7 @@
     const modelHay = `${modelId} ${String(mdl.family || '')} ${String(mdl.rawLabel || activeModel).toLowerCase()}`;
     // Provider from id/family/label, including registry sub-families (constants.mjs `family`).
     const modelProvider = /claude|opus|sonnet|haiku|fable|mythos/.test(modelHay) ? 'Claude'
-      : /gemini|carbon|argon|hydrogen|flash|orchestrator/.test(modelHay) ? 'Gemini'
+      : /gemini|neon|carbon|argon|hydrogen|flash|orchestrator/.test(modelHay) ? 'Gemini'
         : /gpt/.test(modelHay) ? 'GPT-OSS' : 'Other';
     // Selected effort comes from the host label "Model (Medium)" only when the parenthetical is an effort word.
     const EFFORT_WORD_RE = /^(low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard)\b/i;
@@ -1260,7 +1260,7 @@
     {
       const ttlTxt = `${ttlMm}:${ttlSs}`;
       const otherFamily = modelProvider === 'Claude' ? 'Gemini' : (modelProvider === 'Gemini' ? 'Claude' : 'another family');
-      const familyHint = modelProvider === 'Claude' ? 'Fable/Opus/Sonnet/Haiku' : (modelProvider === 'Gemini' ? 'Carbon/Argon/Hydrogen/Flash' : 'same provider');
+      const familyHint = modelProvider === 'Claude' ? 'Fable/Opus/Sonnet/Haiku' : (modelProvider === 'Gemini' ? 'Neon/Carbon/Argon/Hydrogen/Flash' : 'same provider');
       const cg = cache.costGate || {};
       const rewriteUsd = Number(cg.coldRewriteCostUsd) || 0;
       const quotaUnits = Number(cg.quotaPenaltyUnits) || 0;
@@ -1329,7 +1329,7 @@
       if (tsModelLast) {
         if (hasModelSwitchBust) {
           const stripEff = (s) => String(s).replace(/\s*\((?:low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard)\b[^)]*\)\s*$/i, '');
-          const prov = (s) => (/claude|opus|sonnet|haiku|fable|mythos/i.test(s) ? 'Claude' : /gemini|carbon|argon|hydrogen|flash|orchestrator/i.test(s) ? 'Gemini' : /gpt/i.test(s) ? 'GPT-OSS' : 'Other');
+          const prov = (s) => (/claude|opus|sonnet|haiku|fable|mythos/i.test(s) ? 'Claude' : /gemini|neon|carbon|argon|hydrogen|flash|orchestrator/i.test(s) ? 'Gemini' : /gpt/i.test(s) ? 'GPT-OSS' : 'Other');
           const crossTag = prov(bc.from) !== prov(bc.to) ? ' \u00B7 cross-family' : '';
           tsModelLast.textContent = `Last switch: ${stripEff(bc.from)} \u2192 ${stripEff(bc.to)} (cache miss${crossTag})`;
           tsModelLast.hidden = false;

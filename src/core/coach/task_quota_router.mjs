@@ -51,6 +51,7 @@ export const SAFE_TURN_BOUNDARY_STATES = Object.freeze(new Set([
 export const COST_MULTIPLIER_MATRIX = Object.freeze({
   'gemini-3.8-flash': Object.freeze({ low: 1.0, med: 1.5, medium: 1.5, high: 2.2 }),
   'gemini-4-argon': Object.freeze({ low: 3.0, med: 5.5, medium: 5.5, high: 9.25 }),
+  'gemini-4-neon': Object.freeze({ low: 2.4, med: 4.5, medium: 4.5, high: 7.5, xhigh: 11.0 }),
   'gemini-4-hydrogen': Object.freeze({ low: 1.5, med: 2.5, medium: 2.5, high: 4.0, xhigh: 6.0 }),
   'gemini-4-carbon': Object.freeze({ low: 3.2, med: 6.0, medium: 6.0, high: 10.0 }),
   'gemini-4-carbon-cyber-permissive': Object.freeze({ low: 3.2, med: 6.0, medium: 6.0, high: 10.0 }),
@@ -113,6 +114,7 @@ export function getModelBaseWeight(modelId = 'gemini-4-argon') {
 export function formatShortFamilyLabel(modelId = 'gemini-4-argon') {
   const family = getModelFamily(modelId);
   if (family === 'flash') return 'Flash';
+  if (family === 'neon') return 'Neon';
   if (family === 'argon') return 'Argon';
   if (family === 'hydrogen') return 'Hydrogen';
   if (family === 'mythos') return 'Mythos';

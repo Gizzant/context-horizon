@@ -13,7 +13,7 @@ import {
   getGeminiCliChatsDirs,
   isCrossHostHarnessEnabled
 } from './paths.mjs';
-import { EFFORT_PROFILES, resolveEffortProfile, resolveSurfaceTag, normalizeModelId } from './constants.mjs';
+import { EFFORT_PROFILES, resolveEffortProfile, resolveSurfaceTag, normalizeModelId, resolveModelDescriptor } from './constants.mjs';
 import { stitchAntigravityCliTrajectory, stitchClaudeCodeDag } from './trajectory_stitcher.mjs';
 import { atomicWriteFileSync } from './atomic_io.mjs';
 import { getDatabaseSyncClass } from '../engine-node/db/probe.mjs';
@@ -74,22 +74,106 @@ export function parseSettingsChanges(rawContent = '') {
   return out;
 }
 
+const ORCHESTRATOR_RAW_LABELS = Object.freeze({
+  'gemini-pro-orchestrator': 'Orchestrator (Carbon)',
+  'orchestrator': 'Orchestrator (Carbon)',
+  'orchestrator-carbon': 'Orchestrator (Carbon)',
+  'antigravity-orchestrator': 'Orchestrator (Carbon)',
+  'gemini-pro-orchestrator-argon': 'Orchestrator (Argon)',
+  'orchestrator-argon': 'Orchestrator (Argon)',
+  'gemini-pro-orchestrator-neon': 'Orchestrator (Neon)',
+  'orchestrator-neon': 'Orchestrator (Neon)',
+  'gemini-pro-orchestrator-hydrogen': 'Orchestrator (Hydrogen)',
+  'orchestrator-hydrogen': 'Orchestrator (Hydrogen)'
+});
+
+function formatTranscriptModelRaw(rawModel = '') {
+  const s = String(rawModel || '').trim();
+  if (!s || /[A-Z ]/.test(s)) return s;
+  const lower = s.toLowerCase();
+  if (ORCHESTRATOR_RAW_LABELS[lower]) return ORCHESTRATOR_RAW_LABELS[lower];
+  const desc = resolveModelDescriptor(lower);
+  if (!desc?.label) return s;
+  const effortMatch = lower.match(/-(xhigh|extra-high|high|medium|med|low)$/i);
+  if (!effortMatch) return desc.label;
+  const eff = effortMatch[1].toLowerCase();
+  const effLabel = (eff === 'xhigh' || eff === 'extra-high') ? 'XHigh'
+    : eff === 'high' ? 'High'
+      : (eff === 'medium' || eff === 'med') ? 'Medium'
+        : 'Low';
+  return `${desc.label} (${effLabel})`;
+}
+
 /**
  * Returns the most recent `Model Selection` target from USER_INPUT settings-change blocks,
- * or null when the transcript never records a model switch.
+ * or falls back to the latest primary `PLANNER_RESPONSE` step model in JSONL transcripts
+ * when the session never recorded a mid-session `<USER_SETTINGS_CHANGE>`.
  */
 export function resolveModelFromTranscript(steps = []) {
+  let latestSettingsChange = null;
+  let latestPrimaryPlanner = null;
+  let latestWorkerPlanner = null;
+
   for (let i = (steps?.length || 0) - 1; i >= 0; i--) {
     const st = steps[i];
-    if (!st || !isUserInputEntry(st)) continue;
-    const content = String(st.content || '');
-    if (!content.includes('<USER_SETTINGS_CHANGE>')) continue;
-    const changes = parseSettingsChanges(content).filter(c => /model selection/i.test(c.setting));
-    if (changes.length > 0) {
-      const raw = changes[changes.length - 1].to;
-      if (raw && !/^none$/i.test(raw)) return { raw, id: normalizeModelId(raw) };
+    if (!st) continue;
+
+    if (!latestSettingsChange && isUserInputEntry(st)) {
+      const content = String(st.content || '');
+      if (content.includes('<USER_SETTINGS_CHANGE>')) {
+        const changes = parseSettingsChanges(content).filter(c => /model selection/i.test(c.setting));
+        if (changes.length > 0) {
+          const raw = changes[changes.length - 1].to;
+          if (raw && !/^none$/i.test(raw)) {
+            latestSettingsChange = { index: i, raw, id: normalizeModelId(raw) };
+          }
+        }
+      }
+    }
+
+    if (String(st.type || '').toUpperCase() === 'PLANNER_RESPONSE') {
+      const rawStepModel = String(st.model || st.turnMetadata?.model || '').trim();
+      if (rawStepModel && !/^none$/i.test(rawStepModel)) {
+        const lowerModel = rawStepModel.toLowerCase();
+        const isInternalWorker = lowerModel === 'gemini-flash-worker-agy' || String(st.source || '').toUpperCase() === 'SUBAGENT';
+        if (isInternalWorker) {
+          if (!latestWorkerPlanner) {
+            latestWorkerPlanner = { index: i, raw: rawStepModel, id: normalizeModelId(rawStepModel) };
+          }
+        } else if (!latestPrimaryPlanner) {
+          latestPrimaryPlanner = { index: i, raw: rawStepModel, id: normalizeModelId(rawStepModel) };
+        }
+      }
+    }
+
+    if (latestSettingsChange && latestPrimaryPlanner) break;
+  }
+
+  if (latestSettingsChange) {
+    if (!latestPrimaryPlanner || latestSettingsChange.index >= latestPrimaryPlanner.index) {
+      return { raw: latestSettingsChange.raw, id: latestSettingsChange.id };
+    }
+    const settingsCanon = resolveModelDescriptor(latestSettingsChange.id)?.id || latestSettingsChange.id;
+    const plannerCanon = resolveModelDescriptor(latestPrimaryPlanner.id)?.id || latestPrimaryPlanner.id;
+    if (settingsCanon === plannerCanon) {
+      return { raw: latestSettingsChange.raw, id: latestSettingsChange.id };
     }
   }
+
+  if (latestPrimaryPlanner) {
+    return {
+      raw: formatTranscriptModelRaw(latestPrimaryPlanner.raw),
+      id: latestPrimaryPlanner.id
+    };
+  }
+
+  if (latestWorkerPlanner) {
+    return {
+      raw: formatTranscriptModelRaw(latestWorkerPlanner.raw),
+      id: latestWorkerPlanner.id
+    };
+  }
+
   return null;
 }
 

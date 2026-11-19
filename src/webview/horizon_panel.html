@@ -8080,7 +8080,8 @@
 
     // 1. Token Totals (Dynamic 200k / 256k / 512k / 900k / 1M / 1.048M Ceiling)
     const modelIdLower = String(raw.model?.id || sessionMeta.activeModel || raw.activeModel || '').toLowerCase().trim();
-    const isCarbonModel = modelIdLower.includes('carbon') || modelIdLower === 'm670' || modelIdLower === 'gemini-pro-orchestrator' || modelIdLower === 'orchestrator' || modelIdLower === 'orchestrator-carbon';
+    const isNeonModel = modelIdLower.includes('neon');
+    const isCarbonModel = !isNeonModel && (modelIdLower.includes('carbon') || modelIdLower === 'm670' || modelIdLower === 'gemini-pro-orchestrator' || modelIdLower === 'orchestrator' || modelIdLower === 'orchestrator-carbon');
     const isArgonModel = modelIdLower.includes('argon') || modelIdLower.includes('orchestrator-argon');
     const isHydrogenModel = modelIdLower.includes('hydrogen');
     const isClaude55OrFable = modelIdLower.includes('opus-5') || modelIdLower.includes('sonnet-5') || modelIdLower.includes('haiku-5') || modelIdLower.includes('fable-5') || modelIdLower.includes('mythos-5') || modelIdLower.includes('opus-4-8') || modelIdLower.includes('opus-4-7') || modelIdLower.includes('opus-4.8') || modelIdLower.includes('opus-4.7');
@@ -8090,7 +8091,7 @@
       modelIdLower.includes('claude-haiku-4') ||
       modelIdLower.includes('claude-3-5-sonnet')
     );
-    const inferredModelCeiling = (isCarbonModel || isArgonModel || isHydrogenModel)
+    const inferredModelCeiling = (isCarbonModel || isNeonModel || isArgonModel || isHydrogenModel)
       ? 1048576
       : (isClaude55OrFable ? 1000000 : (isClaude46Model ? 200000 : 256000));
     const maxTokens = win.maxTokens || raw.contextWindow || telemetry.contextWindow || (raw.model?.nativeCeilingTokens) || inferredModelCeiling;
@@ -8109,7 +8110,7 @@
     if (clampPillEl) {
       const isGemini4Clamped = Boolean(
         raw.model?.isClamped1MModel ||
-        ((isCarbonModel || isArgonModel || isHydrogenModel || modelIdLower.includes('gemini-4')) && maxTokens === 256000)
+        ((isCarbonModel || isNeonModel || isArgonModel || isHydrogenModel || modelIdLower.includes('gemini-4')) && maxTokens === 256000)
       );
       const isPatchedCli = Boolean(
         raw.model?.ceilingSource === 'patched_cli' ||
@@ -8118,7 +8119,7 @@
         maxTokens === 900000
       );
       if (isGemini4Clamped) {
-        const gemini4FamilyLabel = isCarbonModel ? 'Gemini 4 Carbon' : (isHydrogenModel ? 'Gemini 4 Hydrogen' : 'Gemini 4 Argon');
+        const gemini4FamilyLabel = isCarbonModel ? 'Gemini 4 Carbon' : (isNeonModel ? 'Gemini 4 Neon' : (isHydrogenModel ? 'Gemini 4 Hydrogen' : 'Gemini 4 Argon'));
         clampPillEl.hidden = false;
         clampPillEl.textContent = raw.model?.clampedLabel || '256k Host Cap (1M model)';
         clampPillEl.title = `Capped by host Cortex checkpoint ceiling (0x3E800). ${gemini4FamilyLabel} has a 1M native context window but is capped at 256k.`;
@@ -12814,7 +12815,7 @@
     const modelHay = `${modelId} ${String(mdl.family || '')} ${String(mdl.rawLabel || activeModel).toLowerCase()}`;
     // Provider from id/family/label, including registry sub-families (constants.mjs `family`).
     const modelProvider = /claude|opus|sonnet|haiku|fable|mythos/.test(modelHay) ? 'Claude'
-      : /gemini|carbon|argon|hydrogen|flash|orchestrator/.test(modelHay) ? 'Gemini'
+      : /gemini|neon|carbon|argon|hydrogen|flash|orchestrator/.test(modelHay) ? 'Gemini'
         : /gpt/.test(modelHay) ? 'GPT-OSS' : 'Other';
     // Selected effort comes from the host label "Model (Medium)" only when the parenthetical is an effort word.
     const EFFORT_WORD_RE = /^(low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard)\b/i;
@@ -13380,7 +13381,7 @@
     {
       const ttlTxt = `${ttlMm}:${ttlSs}`;
       const otherFamily = modelProvider === 'Claude' ? 'Gemini' : (modelProvider === 'Gemini' ? 'Claude' : 'another family');
-      const familyHint = modelProvider === 'Claude' ? 'Fable/Opus/Sonnet/Haiku' : (modelProvider === 'Gemini' ? 'Carbon/Argon/Hydrogen/Flash' : 'same provider');
+      const familyHint = modelProvider === 'Claude' ? 'Fable/Opus/Sonnet/Haiku' : (modelProvider === 'Gemini' ? 'Neon/Carbon/Argon/Hydrogen/Flash' : 'same provider');
       const cg = cache.costGate || {};
       const rewriteUsd = Number(cg.coldRewriteCostUsd) || 0;
       const quotaUnits = Number(cg.quotaPenaltyUnits) || 0;
@@ -13449,7 +13450,7 @@
       if (tsModelLast) {
         if (hasModelSwitchBust) {
           const stripEff = (s) => String(s).replace(/\s*\((?:low|medium|med|high|xhigh|extra[\s-]*high|max|minimal|auto|fast|thinking|standard)\b[^)]*\)\s*$/i, '');
-          const prov = (s) => (/claude|opus|sonnet|haiku|fable|mythos/i.test(s) ? 'Claude' : /gemini|carbon|argon|hydrogen|flash|orchestrator/i.test(s) ? 'Gemini' : /gpt/i.test(s) ? 'GPT-OSS' : 'Other');
+          const prov = (s) => (/claude|opus|sonnet|haiku|fable|mythos/i.test(s) ? 'Claude' : /gemini|neon|carbon|argon|hydrogen|flash|orchestrator/i.test(s) ? 'Gemini' : /gpt/i.test(s) ? 'GPT-OSS' : 'Other');
           const crossTag = prov(bc.from) !== prov(bc.to) ? ' \u00B7 cross-family' : '';
           tsModelLast.textContent = `Last switch: ${stripEff(bc.from)} \u2192 ${stripEff(bc.to)} (cache miss${crossTag})`;
           tsModelLast.hidden = false;
