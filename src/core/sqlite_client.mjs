@@ -2,6 +2,32 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getDatabaseSyncClass } from '../engine-node/db/probe.mjs';
 
+const HIGHBEAM_OWNED_DB_DIR_RE = /(?:^|[\\/])(?:\.claude|\.ctxtop|\.agents|agy-horizon)(?:[\\/]|$)/i;
+
+/**
+ * Enforces owner-only POSIX permissions (`0700` cache dir, `0600` DB & WAL/SHM sidecars).
+ * No-op on Windows or in-memory/URI databases; never alters permissions outside Highbeam-owned dirs.
+ * @param {string} filePath
+ */
+export function enforceOwnerOnlyDbPermissions(filePath = '') {
+  if (process.platform === 'win32') return;
+  if (!filePath || filePath === ':memory:' || String(filePath).startsWith('file:')) return;
+  try {
+    const resolved = path.resolve(filePath);
+    const parentDir = path.dirname(resolved);
+    if (HIGHBEAM_OWNED_DB_DIR_RE.test(parentDir) && fs.existsSync(parentDir)) {
+      fs.chmodSync(parentDir, 0o700);
+    }
+    for (const candidate of [resolved, `${resolved}-wal`, `${resolved}-shm`]) {
+      if (fs.existsSync(candidate)) {
+        fs.chmodSync(candidate, 0o600);
+      }
+    }
+  } catch (permErr) {
+    void permErr;
+  }
+}
+
 /**
  * Pure-JS JSONL/JSON fallback database adapter for Node 20 LTS runtimes (where built-in
  * `node:sqlite` is absent) or when `CTXTOP_FORCE_NO_SQLITE=1` is set.
@@ -36,8 +62,13 @@ export class JsonlFallbackDatabaseSync {
   _flush() {
     if (this.isMemory || this.readOnly) return;
     try {
-      fs.mkdirSync(path.dirname(this.dbPath), { recursive: true });
-      fs.writeFileSync(this.dbPath, JSON.stringify({ fallbackFormat: 'json-v1', tables: this.tables }), 'utf8');
+      fs.mkdirSync(path.dirname(this.dbPath), { recursive: true, mode: 0o700 });
+      fs.writeFileSync(
+        this.dbPath,
+        JSON.stringify({ fallbackFormat: 'json-v1', tables: this.tables }),
+        { encoding: 'utf8', mode: 0o600 }
+      );
+      enforceOwnerOnlyDbPermissions(this.dbPath);
     } catch (flushErr) {
       void flushErr;
     }
@@ -253,7 +284,9 @@ export function openLocalHorizonDb(dbPath, { readOnly = false, readonly = false,
     return db;
   }
 
-  fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
+  if (!isMemory) {
+    fs.mkdirSync(path.dirname(resolvedPath), { recursive: true, mode: 0o700 });
+  }
   const db = new DbCtor(resolvedPath);
   try {
     if (typeof db.exec === 'function') {
@@ -262,6 +295,9 @@ export function openLocalHorizonDb(dbPath, { readOnly = false, readonly = false,
         PRAGMA synchronous = NORMAL;
         PRAGMA busy_timeout = ${timeoutVal};
       `);
+    }
+    if (!isMemory) {
+      enforceOwnerOnlyDbPermissions(resolvedPath);
     }
     return db;
   } catch (err) {
@@ -283,6 +319,7 @@ export function openHostReadOnlyDb(dbPath, options = {}) {
 
 export default {
   JsonlFallbackDatabaseSync,
+  enforceOwnerOnlyDbPermissions,
   isHostProtectedSqlitePath,
   openLocalHorizonDb,
   openHostReadOnlyDb
