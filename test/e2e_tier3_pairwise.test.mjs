@@ -189,7 +189,7 @@ describe('Tier 3: Pairwise Interactions (Features 1 - 14)', () => {
   it('3.1 Pairwise: Single ctxtop Package executes with Zero Runtime Dependencies', () => {
     const pkgPath = path.resolve('package.json');
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-    assert.equal(pkg.name, 'ctxtop');
+    assert.equal(pkg.name, 'highbeam-cli');
     assert.equal(pkg.version, '4.1.4');
     assert.equal(pkg.type, 'module');
 

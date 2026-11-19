@@ -1,6 +1,6 @@
 {
-  "name": "highbeam-ctxtop",
-  "displayName": "Highbeam (ctxtop) — AI Context & KV-Cache HUD",
+  "name": "highbeam",
+  "displayName": "Highbeam — AI Context & KV-Cache HUD",
   "description": "40-cell AI context window visualizer, warm KV-cache TTL timer, and zero-token guardrails HUD for Google Antigravity, Claude Code, Cursor, Codex CLI, and Gemini CLI (100% local loopback).",
   "publisher": "gizzant",
   "version": "4.1.4",
@@ -25,6 +25,7 @@
   ],
   "keywords": [
     "highbeam",
+    "highbeam-cli",
     "ctxtop",
     "antigravity",
     "claude-code",
@@ -94,12 +95,12 @@
       }
     ],
     "configuration": {
-      "title": "Highbeam (ctxtop)",
+      "title": "Highbeam",
       "properties": {
         "highbeam.autoStartDaemon": {
           "type": "boolean",
           "default": true,
-          "description": "Automatically discover or start the local Highbeam (ctxtop) loopback telemetry daemon on activation."
+          "description": "Automatically discover or start the local Highbeam loopback telemetry daemon on activation."
         },
         "highbeam.daemonPort": {
           "type": "integer",
@@ -111,7 +112,7 @@
         "highbeam.cliCommand": {
           "type": "string",
           "default": "",
-          "description": "Optional custom path to the ctxtop CLI binary or sidecars/horizon-daemon/server.mjs script."
+          "description": "Optional custom path to the highbeam / highbeam-cli binary or sidecars/horizon-daemon/server.mjs script."
         },
         "highbeam.nodePath": {
           "type": "string",

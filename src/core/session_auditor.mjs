@@ -366,7 +366,7 @@ export function scoreClaudeTranscriptFile(item) {
               wastedTokens: thrashTok,
               wastedUSD: usd,
               citation: `${item.sessionId}#T${tIdx} (3 consecutive failed ${toolName || 'tool'} calls)`,
-              fix: 'Enable Active Shield (`ctxtop shield --enable`) to halt 3x failure loops and inspect error lines first.'
+              fix: 'Enable Active Shield (`highbeam shield --enable`) to halt 3x failure loops and inspect error lines first.'
             });
           }
         } else {
@@ -390,7 +390,7 @@ export function scoreClaudeTranscriptFile(item) {
             wastedTokens: estTok,
             wastedUSD: usd,
             citation: `${item.sessionId}#T${tIdx} (un-sliced Read of ${path.basename(String(toolInput.file_path || 'file'))}, ~${estTok.toLocaleString('en-US')} excess tok)`,
-            fix: 'Run `ctxtop shield --enable` to auto-index files >1,200 lines and enforce offset/limit slices.'
+            fix: 'Run `highbeam shield --enable` to auto-index files >1,200 lines and enforce offset/limit slices.'
           });
         } else if (!isRead && text.length >= OVERSIZED_TOOL_OUTPUT_CHARS_THRESHOLD) {
           oversizedOutputs += 1;
@@ -407,7 +407,7 @@ export function scoreClaudeTranscriptFile(item) {
             wastedTokens: estTok,
             wastedUSD: usd,
             citation: `${item.sessionId}#T${tIdx} (${toolName || 'Bash'} dumped ~${Math.ceil(text.length / 4).toLocaleString('en-US')} raw tok)`,
-            fix: 'Enable Highbeam PostToolUse sanitizer (`ctxtop shield --enable`) to offload >4k-token logs with 100% error recovery.'
+            fix: 'Enable Highbeam PostToolUse sanitizer (`highbeam shield --enable`) to offload >4k-token logs with 100% error recovery.'
           });
         }
       }
@@ -567,7 +567,7 @@ export function scoreAntigravityTranscriptFile(item) {
           wastedTokens: estTok,
           wastedUSD: usd,
           citation: `${item.sessionId}#T${Math.max(1, turnIndex)} (un-sliced ${callName || 'read_file'} of ${path.basename(String(callArgs.Path || callArgs.AbsolutePath || 'file'))}, ~${estTok.toLocaleString('en-US')} excess tok)`,
-          fix: 'Enable Active Shield (`ctxtop shield --enable`) to index >1,200-line files and enforce StartLine/EndLine.'
+          fix: 'Enable Active Shield (`highbeam shield --enable`) to index >1,200-line files and enforce StartLine/EndLine.'
         });
       } else if (!isRead) {
         oversizedOutputs += 1;
@@ -1110,7 +1110,7 @@ export function formatSessionAuditReport(res) {
   const savedLine =
     res.savedTokens30d > 0 || res.savedUSD30d > 0
       ? `  Quota Shield Saved (30d): +${res.savedTokens30d.toLocaleString('en-US')} tok ($${res.savedUSD30d.toFixed(2)} USD)`
-      : '  Quota Shield Saved (30d): Not active yet — run npx ctxtop init to start saving';
+      : '  Quota Shield Saved (30d): Not active yet — run npx highbeam-cli init to start saving';
   const idleSuffix = Number(res.idlePauses || 0) > 0 ? ` | Info Idle Pauses (>5m): ${res.idlePauses}` : '';
   const lines = [
     `[Highbeam Session ROI Audit] Window: ${res.days}d | Platform: ${res.platform} | Sessions: ${res.sessionsScanned}${activePlatforms ? ` (${activePlatforms})` : ''}`,
@@ -1145,6 +1145,6 @@ export function formatPastWasteLine(res) {
   return (
     `Last ${res.days} days: ~$${res.sludgeTaxUSD.toFixed(2)} (${res.sludgeTaxTokens.toLocaleString('en-US')} tokens) ` +
     `across ${n} session${n === 1 ? '' : 's'} was preventable waste Highbeam would have caught. ` +
-    `Details: npx ctxtop audit`
+    `Details: npx highbeam-cli audit`
   );
 }

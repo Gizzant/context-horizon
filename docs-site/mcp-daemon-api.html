@@ -22,7 +22,7 @@
 
       <h2 id="mcp-stdio-server">1. MCP Stdio Server (<code>@ctxtop/mcp</code>)</h2>
       <p>
-        Built in <code>packages/mcp/src/server.mjs</code> (commands <code>ah-mcp</code> and <code>ctxtop-mcp</code>, protocol <code>2024-11-05</code>). The server reads both newline-delimited JSON-RPC 2.0 lines and LSP-style <code>Content-Length: &lt;bytes&gt;\r\n\r\n</code> frames over <code>stdin</code> and <code>stdout</code>.
+        Built in <code>packages/mcp/src/server.mjs</code> (commands <code>highbeam-mcp</code>, <code>ah-mcp</code>, and <code>ctxtop-mcp</code>, protocol <code>2024-11-05</code>). The server reads both newline-delimited JSON-RPC 2.0 lines and LSP-style <code>Content-Length: &lt;bytes&gt;\r\n\r\n</code> frames over <code>stdin</code> and <code>stdout</code>.
       </p>
 
       <div class="code-block">
@@ -31,7 +31,7 @@
   "mcpServers": {
     "attention-horizon": {
       "command": "npx",
-      "args": ["-y", "--package=ctxtop", "ctxtop-mcp"]
+      "args": ["-y", "highbeam-cli", "mcp"]
     }
   }
 }</code></pre>

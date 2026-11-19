@@ -318,7 +318,7 @@ export async function runPostmortem(options = {}) {
       id: 'REC-BOUNDED-SOURCE-READS',
       observed_pattern: `Source file "${topSource.path}" had ${topSource.occurrences} superseded read(s) across ${topSource.sessions.size} session(s)${stepStr}, wasting ~${wastedK}k tokens.`,
       likely_cause: 'Unbounded full-file reads instead of targeted line-range reads or surgical pruning.',
-      change_to_make: `Use line-bounded reads: read_file { Path: "${topSource.path}", StartLine: 1, EndLine: 250 } or fold stale reads via npx ctxtop --serve (Condense Stale Reads).`,
+      change_to_make: `Use line-bounded reads: read_file { Path: "${topSource.path}", StartLine: 1, EndLine: 250 } or fold stale reads via npx highbeam-cli --serve (Condense Stale Reads).`,
       confidence: 'High',
       rollback_method: 'Restore from .pre_prune backup in session logs directory'
     });

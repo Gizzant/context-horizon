@@ -538,7 +538,7 @@ test('6. P1-1 audit accuracy: Antigravity step_type=23 checkpoints & >5m idle pa
     assert.ok(auditRes.sessions[0].totalPromptTokens < 100_000, 'Checkpoint must reset cumulative context estimate');
 
     const report = formatSessionAuditReport(auditRes);
-    assert.match(report, /Not active yet.*npx ctxtop init/);
+    assert.match(report, /Not active yet.*npx highbeam-cli init/);
     assert.doesNotMatch(report, /\+\$?0 tok \(\$0\.00 USD\)/);
   } finally {
     fs.rmSync(tmpHome, { recursive: true, force: true });

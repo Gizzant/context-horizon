@@ -178,7 +178,7 @@
       <div class="callout safe">
         <p class="callout-title">Pro Entitlement Check &amp; Safe Fallback</p>
         <p>
-          In <code>hooks/handlers/pre-tool-use.mjs</code>, setting <code>flightMode: "AUTO_PILOT"</code> checks <code>requireProFeature("auto_pilot_locks")</code> against your offline Ed25519 key (<code>~/.ctxtop/license.json</code>) or 14-day local trial (<code>npx ctxtop license trial</code>). If neither is found, Highbeam drops back to <code>"COACH"</code> in memory so hooks never crash or block your editor, and shows what Auto would have saved. The trial unlocks Auto but does not turn it on: run <code>npx ctxtop mode auto</code>. <code>npx ctxtop mode</code> shows the configured and running mode; when the trial ends, Auto pauses until you activate Pro.
+          In <code>hooks/handlers/pre-tool-use.mjs</code>, setting <code>flightMode: "AUTO_PILOT"</code> checks <code>requireProFeature("auto_pilot_locks")</code> against your offline Ed25519 key (<code>~/.ctxtop/license.json</code>) or 14-day local trial (<code>npx highbeam-cli license trial</code>). If neither is found, Highbeam drops back to <code>"COACH"</code> in memory so hooks never crash or block your editor, and shows what Auto would have saved. The trial unlocks Auto but does not turn it on: run <code>npx highbeam-cli mode auto</code>. <code>npx highbeam-cli mode</code> shows the configured and running mode; when the trial ends, Auto pauses until you activate Pro.
         </p>
       </div>
 
@@ -311,12 +311,12 @@ verdict: {
       <div class="code-block terminal">
         <div class="code-header"><span><span class="window-dots"><span></span><span></span><span></span></span>Terminal &middot; Surgical SILENT Profile + Strict FinOps Overrides</span></div>
         <pre><code># Quiet all default chat coaching while strictly blocking cold-cache switches:
-npx ctxtop config set DET-08 block
-npx ctxtop config set vague-prompt-rubric warn
-npx ctxtop config show --json
+npx highbeam-cli config set DET-08 block
+npx highbeam-cli config set vague-prompt-rubric warn
+npx highbeam-cli config show --json
 
 # Revert all custom per-detector overrides back to "default":
-npx ctxtop config reset</code></pre>
+npx highbeam-cli config reset</code></pre>
       </div>
 
       <h2 id="switching-modes">6. Switching Modes Across Surfaces</h2>
@@ -347,7 +347,7 @@ npx ctxtop config reset</code></pre>
 }</code></pre>
           </div>
           <p>
-            Inside Claude Code, run <code>/horizon</code> to inspect <code>ah_flight_mode</code>, or manage per-detector rules directly with <code>npx ctxtop config set &lt;ID|slug&gt; &lt;default|off|warn|block&gt;</code>. See the <a href="configuration.html#horizon-json-schema">full config schema</a> for all threshold keys.
+            Inside Claude Code, run <code>/horizon</code> to inspect <code>ah_flight_mode</code>, or manage per-detector rules directly with <code>npx highbeam-cli config set &lt;ID|slug&gt; &lt;default|off|warn|block&gt;</code>. See the <a href="configuration.html#horizon-json-schema">full config schema</a> for all threshold keys.
           </p>
         </div>
 

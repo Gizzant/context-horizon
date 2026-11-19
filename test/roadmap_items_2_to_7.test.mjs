@@ -198,7 +198,7 @@ test('Roadmap Item #6 & #7: ctxtop roast / --roast card, cost-radar --share, and
     const roastRes = runCli(['roast', '--demo']);
     assert.equal(roastRes.exitCode, 0);
     assert.match(roastRes.output, /HIGHBEAM CONTEXT ROAST/);
-    assert.match(roastRes.output, /npx ctxtop --roast/);
+    assert.match(roastRes.output, /npx highbeam-cli --roast/);
 
     const radarPath = path.join(tmpDir, 'radar.html');
     const radarRes = runCli(['cost-radar', '--demo', '--share', '--out', radarPath]);

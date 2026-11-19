@@ -1002,7 +1002,7 @@ export function auditClaudeIdleDrainSettings(options = {}) {
     issues,
     advisory:
       `[Highbeam Quota Shield — Idle Drain Guard (#10)] ${issues.join('; ')}. ` +
-      `Run "npx ctxtop shield --enable" to lock .claude/settings.local.json against background token drain.`
+      `Run "npx highbeam-cli shield --enable" to lock .claude/settings.local.json against background token drain.`
   };
 }
 

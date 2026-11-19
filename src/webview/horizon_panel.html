@@ -5485,7 +5485,7 @@
 
     <section class="settings-section" aria-labelledby="setGuardsHead">
       <h3 id="setGuardsHead">Guards</h3>
-      <p class="settings-help">Read-only here. To change one, run <code>npx ctxtop config set &lt;DET-id&gt; &lt;default|off|warn|block&gt;</code>.</p>
+      <p class="settings-help">Read-only here. To change one, run <code>npx highbeam-cli config set &lt;DET-id&gt; &lt;default|off|warn|block&gt;</code>.</p>
       <ul id="setGuardList" class="ts-ledger" role="list"></ul>
     </section>
 
@@ -5494,7 +5494,7 @@
       <ul class="settings-about">
         <li>Version: <span id="setAboutVersion">unknown</span></li>
         <li>Project config: <code>.attention-horizon.json</code> &middot; User config: <code>~/.attention-horizon/config.json</code></li>
-        <li>Health check: <code>npx ctxtop doctor</code></li>
+        <li>Health check: <code>npx highbeam-cli doctor</code></li>
         <li>Docs: <a href="https://gizzant.github.io/context-horizon/" target="_blank" rel="noopener noreferrer">Highbeam User Guide</a></li>
       </ul>
     </section>
@@ -7605,7 +7605,7 @@
       if (list) {
         const guards = Array.isArray(st.coachState?.detectors?.list) ? st.coachState.detectors.list : [];
         list.innerHTML = guards.length === 0
-          ? '<li class="ts-ledger-row"><span class="ts-ledger-age">info</span><span>Guard list appears once the live daemon reports it. Run <code>npx ctxtop config list</code> to see it now.</span><span class="ts-ledger-saved"></span></li>'
+          ? '<li class="ts-ledger-row"><span class="ts-ledger-age">info</span><span>Guard list appears once the live daemon reports it. Run <code>npx highbeam-cli config list</code> to see it now.</span><span class="ts-ledger-saved"></span></li>'
           : guards.map((g) => {
             const setting = g.tripped ? 'tripped' : (g.mode === 'guard' ? 'blocks' : (g.mode === 'advisory' ? 'advises' : String(g.mode || 'default')));
             return `<li class="ts-ledger-row"><span class="ts-ledger-age">${esc(g.id)}</span><span>${esc(g.name || g.id)}</span><span class="ts-ledger-saved">${esc(setting)}</span></li>`;
@@ -7902,7 +7902,7 @@
         payoff: `reclaims ${ramStr}`,
         reclaimTokens: 0,
         reclaimRamGb,
-        commandToCopy: 'npx ctxtop doctor --reap-orphans',
+        commandToCopy: 'npx highbeam-cli doctor --reap-orphans',
         apiAction: 'reap-orphans'
       });
     }
@@ -7949,7 +7949,7 @@
         payoff: `reclaims ~${fmtKFixed1(totalReclaimableToolK)} tok (zero LLM loss)`,
         reclaimTokens: totalReclaimableToolTok,
         reclaimRamGb: 0,
-        commandToCopy: 'npx ctxtop prune',
+        commandToCopy: 'npx highbeam-cli prune',
         apiAction: 'condense-ast'
       });
     }
@@ -7993,7 +7993,7 @@
         payoff: 'avoids 12.5x cold cache rewrite',
         reclaimTokens: 0,
         reclaimRamGb: 0,
-        commandToCopy: 'npx ctxtop doctor --handoff',
+        commandToCopy: 'npx highbeam-cli doctor --handoff',
         apiAction: 'generate-handoff'
       });
     }
@@ -10405,7 +10405,7 @@
       if (!btn) return;
       const hog = hogs[Number(btn.dataset.hogIdx)];
       if (!hog) return;
-      let copyText = 'npx ctxtop prune';
+      let copyText = 'npx highbeam-cli prune';
       if (hog.kind === 'file') {
         copyText = hog.ignorable
           ? ignorePromptText(hog.path)
@@ -11300,7 +11300,7 @@
         const targetDesc = dupFiles.length > 0
           ? `${dupFiles.length} duplicate file read${dupFiles.length === 1 ? '' : 's'}${errRowK > 0 ? ' + resolved errors' : ''}`
           : `resolved error logs`;
-        const pruneCmd = 'npx ctxtop prune';
+        const pruneCmd = 'npx highbeam-cli prune';
         currentSessionTokenRows.push({
           impactTokens: surgicalTok,
           html:
@@ -13288,7 +13288,7 @@
       setTxt('tsAvoidText', 'Avoid loading more large files or unfiltered build logs before trimming older context.');
     } else if (shardedSpecCount >= 4) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `Your requirements changed ${shardedSpecCount} times across this chat — run ctxtop handoff --consolidate to merge them into one clear spec so nothing gets missed.`);
+      setTxt('tsDoText', `Your requirements changed ${shardedSpecCount} times across this chat — run highbeam handoff --consolidate to merge them into one clear spec so nothing gets missed.`);
       setTxt('tsAvoidText', 'Avoid adding new requirements one message at a time. Combine them into one clear plan.');
     } else if (isHighEffort && dispStaleT >= 30000) {
       const effWord = String(activeEffort).replace(/\s*effort\s*$/i, '').trim() || 'High';
@@ -13326,7 +13326,7 @@
       setTxt('tsAvoidText', 'Avoid loading unused MCP tool lists or oversized global rule files into every new chat.');
     } else if (rslClashCount > 0) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `${rslClashCount} conflicting rule${rslClashCount === 1 ? '' : 's'} detected — run ctxtop rsl status to review the overlap and keep one clear instruction per topic.`);
+      setTxt('tsDoText', `${rslClashCount} conflicting rule${rslClashCount === 1 ? '' : 's'} detected — run highbeam rsl status to review the overlap and keep one clear instruction per topic.`);
       setTxt('tsAvoidText', 'Avoid adding rules that disagree with each other in AGENTS.md and your learned rules.');
     } else if (raw.turn1ContractSteered) {
       if (tsDoRow) tsDoRow.dataset.tone = 'do';
@@ -13785,7 +13785,7 @@
             rule: 'A project rule the AI is asked to follow.'
           };
           lrList.innerHTML = uiRules.length === 0
-            ? `<li class="ts-ledger-row" title="Highbeam knows about these rules, but this view does not have their details yet."><span class="ts-ledger-age">info</span><span>Rule details are not available yet. Run <code>ctxtop rsl status</code> to list them.</span><span class="ts-ledger-saved">${lrCount}</span></li>`
+            ? `<li class="ts-ledger-row" title="Highbeam knows about these rules, but this view does not have their details yet."><span class="ts-ledger-age">info</span><span>Rule details are not available yet. Run <code>highbeam rsl status</code> to list them.</span><span class="ts-ledger-saved">${lrCount}</span></li>`
             : uiRules.map((r) => {
               const kind = ['hook', 'skill', 'rule'].includes(r.kind) ? r.kind : 'rule';
               const state = kind === 'hook' ? (effectiveMode === 'off' ? 'paused' : 'blocks') : 'active';
@@ -14742,7 +14742,7 @@
           setTxt('taRslMeta', metaParts.length > 0 ? metaParts.join(' \u00B7 ') : (effectiveMode === 'off' ? 'Paused' : 'Active'));
           let rslHtml = '';
           if (rslClashCount > 0) {
-            rslHtml += `<li class="ts-ledger-row" data-effective-state="paused"><span class="ts-ledger-age">CLASH</span><span>${rslClashCount} conflicting project rule${rslClashCount === 1 ? '' : 's'} \u2014 run <code>ctxtop rsl status</code></span><span class="ts-ledger-saved" style="color:var(--status-warning);">review</span></li>`;
+            rslHtml += `<li class="ts-ledger-row" data-effective-state="paused"><span class="ts-ledger-age">CLASH</span><span>${rslClashCount} conflicting project rule${rslClashCount === 1 ? '' : 's'} \u2014 run <code>highbeam rsl status</code></span><span class="ts-ledger-saved" style="color:var(--status-warning);">review</span></li>`;
           }
           if (shardedSpecCount >= 2) {
             rslHtml += `<li class="ts-ledger-row"><span class="ts-ledger-age">SPEC</span><span>${shardedSpecCount} spec shards loaded across session</span><span class="ts-ledger-saved">${shardedSpecCount >= 4 ? 'consolidate' : 'tracked'}</span></li>`;
@@ -14754,7 +14754,7 @@
               return `<li class="ts-ledger-row" data-kind="${escAttr(kind)}" data-effective-state="${st}" title="${escAttr(r.detail || r.title || '')}"><span class="ts-ledger-age">${escAttr(kind)}</span><span>${escAttr(r.title || 'Learned rule')}${r.detail ? ` <span class="ts-why-sub">\u2014 ${escAttr(r.detail)}</span>` : ''}</span><span class="ts-ledger-saved">${st}</span></li>`;
             }).join('');
           } else if (lrCount > 0) {
-            rslHtml += `<li class="ts-ledger-row"><span class="ts-ledger-age">RSL</span><span>${lrCount} active learned rule(s) \u2014 run <code>ctxtop rsl status</code> to inspect</span><span class="ts-ledger-saved">${lrCount}</span></li>`;
+            rslHtml += `<li class="ts-ledger-row"><span class="ts-ledger-age">RSL</span><span>${lrCount} active learned rule(s) \u2014 run <code>highbeam rsl status</code> to inspect</span><span class="ts-ledger-saved">${lrCount}</span></li>`;
           }
           rslList.innerHTML = rslHtml;
         }

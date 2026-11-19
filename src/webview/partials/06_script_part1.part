@@ -946,7 +946,7 @@
       if (list) {
         const guards = Array.isArray(st.coachState?.detectors?.list) ? st.coachState.detectors.list : [];
         list.innerHTML = guards.length === 0
-          ? '<li class="ts-ledger-row"><span class="ts-ledger-age">info</span><span>Guard list appears once the live daemon reports it. Run <code>npx ctxtop config list</code> to see it now.</span><span class="ts-ledger-saved"></span></li>'
+          ? '<li class="ts-ledger-row"><span class="ts-ledger-age">info</span><span>Guard list appears once the live daemon reports it. Run <code>npx highbeam-cli config list</code> to see it now.</span><span class="ts-ledger-saved"></span></li>'
           : guards.map((g) => {
             const setting = g.tripped ? 'tripped' : (g.mode === 'guard' ? 'blocks' : (g.mode === 'advisory' ? 'advises' : String(g.mode || 'default')));
             return `<li class="ts-ledger-row"><span class="ts-ledger-age">${esc(g.id)}</span><span>${esc(g.name || g.id)}</span><span class="ts-ledger-saved">${esc(setting)}</span></li>`;
@@ -1243,7 +1243,7 @@
         payoff: `reclaims ${ramStr}`,
         reclaimTokens: 0,
         reclaimRamGb,
-        commandToCopy: 'npx ctxtop doctor --reap-orphans',
+        commandToCopy: 'npx highbeam-cli doctor --reap-orphans',
         apiAction: 'reap-orphans'
       });
     }
@@ -1290,7 +1290,7 @@
         payoff: `reclaims ~${fmtKFixed1(totalReclaimableToolK)} tok (zero LLM loss)`,
         reclaimTokens: totalReclaimableToolTok,
         reclaimRamGb: 0,
-        commandToCopy: 'npx ctxtop prune',
+        commandToCopy: 'npx highbeam-cli prune',
         apiAction: 'condense-ast'
       });
     }
@@ -1334,7 +1334,7 @@
         payoff: 'avoids 12.5x cold cache rewrite',
         reclaimTokens: 0,
         reclaimRamGb: 0,
-        commandToCopy: 'npx ctxtop doctor --handoff',
+        commandToCopy: 'npx highbeam-cli doctor --handoff',
         apiAction: 'generate-handoff'
       });
     }

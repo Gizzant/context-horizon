@@ -32,7 +32,7 @@
           </thead>
           <tbody>
             <tr>
-              <td><code>ctxtop</code>, <code>ah</code>, <code>attention-horizon</code>, <code>ah-claude</code>, <code>attention-horizon-claude</code></td>
+              <td><code>highbeam</code>, <code>highbeam-cli</code>, <code>ctxtop</code>, <code>ah</code>, <code>attention-horizon</code>, <code>ah-claude</code>, <code>attention-horizon-claude</code></td>
               <td><code>./bin/ctxtop.mjs</code></td>
               <td>Main CLI router. Handles setup, receipts, Cost Radar, settings, session control, log checks, and Pro keys.</td>
             </tr>
@@ -47,7 +47,7 @@
               <td>Antigravity CLI launcher. Runs the local WebView server (<code>--serve</code>), live terminal demos (<code>--demo-animate</code>), FTS5 shell wrapper (<code>exec</code>), and log search (<code>log-search</code>).</td>
             </tr>
             <tr>
-              <td><code>ah-mcp</code>, <code>ctxtop-mcp</code></td>
+              <td><code>highbeam-mcp</code>, <code>ah-mcp</code>, <code>ctxtop-mcp</code></td>
               <td><code>./packages/mcp/src/server.mjs</code></td>
               <td>Zero-dependency MCP JSON-RPC 2.0 stdio server for Cursor, Windsurf, Claude Code, and Antigravity.</td>
             </tr>
@@ -70,11 +70,11 @@
       </div>
 
       <div class="cli-cmd-section" data-tags="setup">
-        <h3 id="cmd-init"><code>ctxtop init</code></h3>
+        <h3 id="cmd-init"><code>highbeam init</code></h3>
         <p>Safely installs Highbeam across one or more host tools without overwriting your existing hooks.</p>
         <div class="code-block terminal">
           <div class="code-header"><span>Synopsis</span></div>
-          <pre><code>ctxtop init [--antigravity] [--claude] [--mcp | --cursor | --windsurf] [--all]
+          <pre><code>highbeam init [--antigravity] [--claude] [--mcp | --cursor | --windsurf] [--all]
             [--global | -g | --workspace | --project]
             [--lean-hooks | --full-hooks] [--dry-run] [--dedupe] [--json]</code></pre>
         </div>
@@ -90,22 +90,22 @@
       </div>
 
       <div class="cli-cmd-section" data-tags="setup">
-        <h3 id="cmd-install-uninstall"><code>ctxtop install</code> &amp; <code>ctxtop uninstall</code></h3>
+        <h3 id="cmd-install-uninstall"><code>highbeam install</code> &amp; <code>highbeam uninstall</code></h3>
         <p>Adds or removes Highbeam in Claude Code <code>settings.json</code> and saves a timestamped backup first. It checks your Claude binary with <code>inspectClaudeBinaryCapabilities()</code>. If your CLI build lacks newer hooks like <code>PostModelSwitch</code>, it skips them and lists them in <code>omittedUnsupportedHooks</code>.</p>
         <div class="code-block terminal">
           <div class="code-header"><span>Synopsis</span></div>
-          <pre><code>ctxtop install [--global | -g | --project] [--lean-hooks | --full-hooks] [--json]
-ctxtop uninstall [--global | -g | --project] [--json]</code></pre>
+          <pre><code>highbeam install [--global | -g | --project] [--lean-hooks | --full-hooks] [--json]
+highbeam uninstall [--global | -g | --project] [--json]</code></pre>
         </div>
         <p>Defaults to <code>--project</code> (<code>&lt;cwd&gt;/.claude/settings.json</code>) when you omit <code>--global</code>. <code>uninstall</code> leaves backups and local data in place and lists them under &ldquo;Not removed&rdquo;: <code>settings.json.ah-backup.*</code>, <code>.claude/cache/artifacts</code>, <code>~/.ctxtop</code> (including the stable runtime copy in <code>~/.ctxtop/app</code>), and Antigravity plugin folders. Delete them by hand if you want a clean slate.</p>
       </div>
 
       <div class="cli-cmd-section" data-tags="setup">
-        <h3 id="cmd-doctor"><code>ctxtop doctor</code> &amp; <code>ctxtop prune</code></h3>
+        <h3 id="cmd-doctor"><code>highbeam doctor</code> &amp; <code>highbeam prune</code></h3>
         <p>Checks host setup, Claude hook support (<code>claudeCapabilities</code>), privacy-safe switch stats (<code>modelSwitchTelemetry</code>), model lists, and hook error logs. It can also prune old tool logs and clean up disk bloat offline.</p>
         <div class="code-block terminal">
           <div class="code-header"><span>Synopsis</span></div>
-          <pre><code>ctxtop doctor [--diagnostic | --bug-report] [--json]
+          <pre><code>highbeam doctor [--diagnostic | --bug-report] [--json]
               [--prune-tools | --prune | --uncached-tail | --tail]
               [--transcript &lt;path&gt;] [--reap-orphans] [--handoff | --distill]
               [--storage-gc | --gc-cursor | --recover-brain] [--vscdb &lt;path&gt;] [--dry-run]</code></pre>
@@ -123,46 +123,46 @@ ctxtop uninstall [--global | -g | --project] [--json]</code></pre>
       </div>
 
       <div class="cli-cmd-section" data-tags="setup">
-        <h3 id="cmd-verify"><code>ctxtop verify</code> (alias: <code>verify-checksums</code>)</h3>
+        <h3 id="cmd-verify"><code>highbeam verify</code> (alias: <code>verify-checksums</code>)</h3>
         <p>Checks SHA-256 hashes (with normalized line endings) for every release file in <code>CHECKSUMS.sha256</code>. Exits <code>0</code> when all files match.</p>
         <div class="code-block terminal">
           <div class="code-header"><span>Synopsis</span></div>
-          <pre><code>ctxtop verify [--json]</code></pre>
+          <pre><code>highbeam verify [--json]</code></pre>
         </div>
       </div>
 
       <div class="cli-cmd-section" data-tags="telemetry">
-        <h3 id="cmd-receipt"><code>ctxtop receipt</code></h3>
+        <h3 id="cmd-receipt"><code>highbeam receipt</code></h3>
         <p>Prints your estimated Tokens &amp; USD Saved receipt as terminal text, Git Markdown, HTML, JSON, or a Pro SHA-256 PDF 1.4 file.</p>
         <div class="code-block terminal">
           <div class="code-header"><span>Synopsis</span></div>
-          <pre><code>ctxtop receipt [--simple | --4-rank | --advanced]
+          <pre><code>highbeam receipt [--simple | --4-rank | --advanced]
                [--markdown | --md | --git | --html | --pdf | --json]
                [--out &lt;path&gt;]</code></pre>
         </div>
-        <p>Note: Running <code>--pdf</code> on the Free tier exits with code <code>2</code>. It shows your 30-day USD savings and explains how to start a local trial (<code>ctxtop license trial</code>).</p>
+        <p>Note: Running <code>--pdf</code> on the Free tier exits with code <code>2</code>. It shows your 30-day USD savings and explains how to start a local trial (<code>highbeam license trial</code>).</p>
       </div>
 
       <div class="cli-cmd-section" data-tags="telemetry">
-        <h3 id="cmd-panel"><code>ctxtop panel</code></h3>
+        <h3 id="cmd-panel"><code>highbeam panel</code></h3>
         <p>Writes a standalone, offline Claude Code HTML panel snapshot. Saves to <code>~/.claude/attention-horizon/horizon_panel.html</code> by default.</p>
         <div class="code-block terminal">
           <div class="code-header"><span>Synopsis</span></div>
-          <pre><code>ctxtop panel [--advanced] [--out &lt;file.html&gt;] [--json]</code></pre>
+          <pre><code>highbeam panel [--advanced] [--out &lt;file.html&gt;] [--json]</code></pre>
         </div>
       </div>
 
       <div class="cli-cmd-section" data-tags="telemetry">
-        <h3 id="cmd-cost-radar"><code>ctxtop cost-radar</code> (alias: <code>radar</code>)</h3>
+        <h3 id="cmd-cost-radar"><code>highbeam cost-radar</code> (alias: <code>radar</code>)</h3>
         <p>Writes a script-free HTML/SVG timeline of turn-by-turn cache hits, thinking-token spikes, and Git worktree branches. Saves to <code>~/.claude/attention-horizon/cost_radar.html</code> by default.</p>
         <div class="code-block terminal">
           <div class="code-header"><span>Synopsis</span></div>
-          <pre><code>ctxtop cost-radar [--out &lt;file.html&gt;] [--demo] [--share] [--json]</code></pre>
+          <pre><code>highbeam cost-radar [--out &lt;file.html&gt;] [--demo] [--share] [--json]</code></pre>
         </div>
       </div>
 
       <div class="cli-cmd-section" data-tags="telemetry">
-        <h3 id="cmd-statusline"><code>ctxtop statusline</code> &amp; <code>ah-statusline</code></h3>
+        <h3 id="cmd-statusline"><code>highbeam statusline</code> &amp; <code>ah-statusline</code></h3>
         <p>Reads Claude Code's <code>statusLine</code> JSON from <code>stdin</code> (up to <code>1,500ms</code>). Updates <code>.claude/cache/ah_live_state_&lt;sessionId&gt;.json</code> and prints a one-line ANSI bar.</p>
         <div class="code-block terminal">
           <div class="code-header"><span>Synopsis</span></div>
@@ -171,22 +171,22 @@ ctxtop uninstall [--global | -g | --project] [--json]</code></pre>
       </div>
 
       <div class="cli-cmd-section" data-tags="telemetry">
-        <h3 id="cmd-postmortem-roast"><code>ctxtop postmortem</code> &amp; <code>ctxtop roast</code></h3>
+        <h3 id="cmd-postmortem-roast"><code>highbeam postmortem</code> &amp; <code>highbeam roast</code></h3>
         <p>Scans recent local sessions and groups failures into clear types (<code>CONTEXT_ROT_DECAY</code>, <code>VERIFICATION_CHURN</code>, <code>SPEC_AMBIGUITY</code>, or <code>CLEAN</code>). It flags repeated file reads, checks Turn-0 MCP bloat, and prints an ASCII or Markdown summary.</p>
         <div class="code-block terminal">
           <div class="code-header"><span>Synopsis</span></div>
-          <pre><code>ctxtop postmortem [--last &lt;N&gt;] [--roast] [--demo] [--json]
-ctxtop roast [--demo] [--markdown | --md] [--json]</code></pre>
+          <pre><code>highbeam postmortem [--last &lt;N&gt;] [--roast] [--demo] [--json]
+highbeam roast [--demo] [--markdown | --md] [--json]</code></pre>
         </div>
         <p><code>--last</code> checks <code>15</code> sessions by default. Writes <code>session_analysis_report.md</code> and <code>conversation_diagnostics.jsonl</code> when <code>writeFiles</code> is on.</p>
       </div>
 
       <div class="cli-cmd-section" data-tags="telemetry">
-        <h3 id="cmd-inspect"><code>ctxtop inspect</code></h3>
+        <h3 id="cmd-inspect"><code>highbeam inspect</code></h3>
         <p>Converts any Claude Code snapshot, USTF v1 log, or Antigravity brain folder into a standard USTF v1 trace. Reports event counts, call trees, cached vs. uncached tokens, and USD cost.</p>
         <div class="code-block terminal">
           <div class="code-header"><span>Synopsis</span></div>
-          <pre><code>ctxtop inspect [&lt;session-id&gt; | --session &lt;id&gt; | --last] [--out &lt;file.json&gt;] [--json]</code></pre>
+          <pre><code>highbeam inspect [&lt;session-id&gt; | --session &lt;id&gt; | --last] [--out &lt;file.json&gt;] [--json]</code></pre>
         </div>
       </div>
 
@@ -197,7 +197,7 @@ ctxtop roast [--demo] [--markdown | --md] [--json]</code></pre>
           <div class="code-header"><span>Synopsis</span></div>
           <pre><code># Start loopback HTTP/SSE daemon on 127.0.0.1:62935..62945
 agy-horizon ui [--open | --no-open] [--demo]
-ctxtop --serve
+highbeam --serve
 
 # Run 5-stage synthetic terminal crisis showcase or emit Studio HTML widget
 agy-horizon demo [--demo-animate] [--scenario &lt;1..5&gt;] [--harness &lt;antigravity|claude-code&gt;]
@@ -212,36 +212,36 @@ agy-horizon log-search "&lt;fts5-query&gt;"</code></pre>
       </div>
 
       <div class="cli-cmd-section" data-tags="control">
-        <h3 id="cmd-config"><code>ctxtop config</code></h3>
+        <h3 id="cmd-config"><code>highbeam config</code></h3>
         <p>Lists, sets, or resets detector rules in <code>.attention-horizon.json</code> (project default) or <code>~/.attention-horizon/config.json</code> (<code>--global</code>).</p>
         <div class="code-block terminal">
           <div class="code-header"><span>Synopsis</span></div>
-          <pre><code>ctxtop config [list] [--global | -g] [--json]
-ctxtop config set &lt;DET-01..DET-20 | habit-slug&gt; &lt;default | off | warn | block&gt; [--global | -g]
-ctxtop config reset [--global | -g]</code></pre>
+          <pre><code>highbeam config [list] [--global | -g] [--json]
+highbeam config set &lt;DET-01..DET-20 | habit-slug&gt; &lt;default | off | warn | block&gt; [--global | -g]
+highbeam config reset [--global | -g]</code></pre>
         </div>
       </div>
 
       <div class="cli-cmd-section" data-tags="control">
-        <h3 id="cmd-control"><code>ctxtop control</code></h3>
+        <h3 id="cmd-control"><code>highbeam control</code></h3>
         <p>Updates the 5-state session control file at <code>~/.ctxtop/runtime/&lt;sessionId&gt;.ctl</code> and notifies any running Micro-IPC daemon via <code>control.transition</code>.</p>
         <div class="code-block terminal">
           <div class="code-header"><span>Synopsis</span></div>
-          <pre><code>ctxtop control &lt;status | pause | resume | step | abort | rewind&gt;
+          <pre><code>highbeam control &lt;status | pause | resume | step | abort | rewind&gt;
                [--session &lt;id&gt;] [--target &lt;turn&gt; | --turn &lt;turn&gt;]</code></pre>
         </div>
         <p>Note: <code>abort</code> moves the session to the final <code>ABORTED</code> state. You must start a new session or delete the <code>.ctl</code> file to run tools again.</p>
       </div>
 
       <div class="cli-cmd-section" data-tags="pro">
-        <h3 id="cmd-pro-team"><code>ctxtop license</code> (<code>pro</code>), <code>tiers</code> &amp; <code>team-pack</code></h3>
+        <h3 id="cmd-pro-team"><code>highbeam license</code> (<code>pro</code>), <code>tiers</code> &amp; <code>team-pack</code></h3>
         <p>Manages offline Ed25519 Pro keys, 14-day local trials, and Grafana or Datadog OpenTelemetry packs.</p>
         <div class="code-block terminal">
           <div class="code-header"><span>Synopsis</span></div>
-          <pre><code>ctxtop tiers [--json]
-ctxtop license [status | tiers | trial | activate &lt;ed25519-token&gt; | deactivate] [--json]
-ctxtop mode [coach | auto | silent | off] [--project] [--json]
-ctxtop team-pack [--out &lt;dir&gt;] [--org "&lt;Org Name&gt;"] [--preview] [--json]</code></pre>
+          <pre><code>highbeam tiers [--json]
+highbeam license [status | tiers | trial | activate &lt;ed25519-token&gt; | deactivate] [--json]
+highbeam mode [coach | auto | silent | off] [--project] [--json]
+highbeam team-pack [--out &lt;dir&gt;] [--org "&lt;Org Name&gt;"] [--preview] [--json]</code></pre>
         </div>
       </div>
 
@@ -274,7 +274,7 @@ ctxtop team-pack [--out &lt;dir&gt;] [--org "&lt;Org Name&gt;"] [--preview] [--j
             </tr>
             <tr>
               <td><code>2</code></td>
-              <td>Hard block in a Claude Code Tier-2 hook (message sent to <code>stderr</code>, empty <code>stdout</code>). Also returned when Free tier runs <code>ctxtop receipt --pdf</code> or <code>ctxtop team-pack</code> without <code>--preview</code>.</td>
+              <td>Hard block in a Claude Code Tier-2 hook (message sent to <code>stderr</code>, empty <code>stdout</code>). Also returned when Free tier runs <code>highbeam receipt --pdf</code> or <code>highbeam team-pack</code> without <code>--preview</code>.</td>
             </tr>
           </tbody>
         </table>

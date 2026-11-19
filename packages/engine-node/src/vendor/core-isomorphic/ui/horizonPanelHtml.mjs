@@ -314,7 +314,7 @@ function renderSessionOverviewHtml(tl, metrics, catList, shadowAuto = null, proE
         !proEntitlement.entitled &&
         shadowAuto &&
         Number(shadowAuto.incidentCount30d || 0) > 0
-          ? `<div class="ah-shadow-auto-row" id="claudeShadowAutoRow" role="note" aria-label="Auto mode counterfactual preview"><div class="ah-shadow-auto-head">${escapeHtml(sanitizeClaudeCopy(shadowAuto.headlineText))}</div><div class="ah-shadow-auto-sub">${escapeHtml(sanitizeClaudeCopy(shadowAuto.sublineText))} &middot; <code>${escapeHtml(shadowAuto.ctaMode === 'upgrade_pro' ? 'npx ctxtop license activate <key>' : 'npx ctxtop license trial')}</code></div></div>`
+          ? `<div class="ah-shadow-auto-row" id="claudeShadowAutoRow" role="note" aria-label="Auto mode counterfactual preview"><div class="ah-shadow-auto-head">${escapeHtml(sanitizeClaudeCopy(shadowAuto.headlineText))}</div><div class="ah-shadow-auto-sub">${escapeHtml(sanitizeClaudeCopy(shadowAuto.sublineText))} &middot; <code>${escapeHtml(shadowAuto.ctaMode === 'upgrade_pro' ? 'npx highbeam-cli license activate <key>' : 'npx highbeam-cli license trial')}</code></div></div>`
           : ''
       }
     </section>`;

@@ -86,7 +86,7 @@ export function buildActionQueue(state = {}) {
       payoff: `reclaims ${ramStr}`,
       reclaimTokens: 0,
       reclaimRamGb,
-      commandToCopy: 'npx ctxtop doctor --reap-orphans',
+      commandToCopy: 'npx highbeam-cli doctor --reap-orphans',
       apiAction: 'reap-orphans'
     });
   }
@@ -147,7 +147,7 @@ export function buildActionQueue(state = {}) {
       payoff: `reclaims ~${tokK}k tok (zero LLM loss)`,
       reclaimTokens: reclaimableToolTokens,
       reclaimRamGb: 0,
-      commandToCopy: 'npx ctxtop prune',
+      commandToCopy: 'npx highbeam-cli prune',
       apiAction: 'condense-ast'
     });
   }
@@ -202,7 +202,7 @@ export function buildActionQueue(state = {}) {
       payoff: 'avoids 12.5x cold cache rewrite',
       reclaimTokens: 0,
       reclaimRamGb: 0,
-      commandToCopy: 'npx ctxtop doctor --handoff',
+      commandToCopy: 'npx highbeam-cli doctor --handoff',
       apiAction: 'generate-handoff'
     });
   }

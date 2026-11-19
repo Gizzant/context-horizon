@@ -1,5 +1,5 @@
 {
-  "name": "ctxtop",
+  "name": "highbeam-cli",
   "displayName": "Highbeam",
   "version": "4.1.4",
   "description": "Highbeam v4.1: Cross-platform AI Developer Assistant Extension for Google Antigravity and Claude Code: 40-cell context visualizer, KV-cache gravity router, and zero-token guardrails.",
@@ -13,6 +13,9 @@
     "packages/mcp"
   ],
   "bin": {
+    "highbeam": "bin/ctxtop.mjs",
+    "highbeam-cli": "bin/ctxtop.mjs",
+    "highbeam-mcp": "packages/mcp/src/server.mjs",
     "ah": "bin/ctxtop.mjs",
     "attention-horizon": "bin/ctxtop.mjs",
     "ctxtop": "bin/ctxtop.mjs",
@@ -102,6 +105,8 @@
     "mcp",
     "sludge-tax",
     "attention-horizon",
+    "highbeam",
+    "highbeam-cli",
     "ctxtop",
     "developer-tools",
     "tufte",

@@ -253,7 +253,7 @@ describe('Milestone 5: Developer Workflow, UI Surfaces & Studio Artifacts', () =
       assert.ok(adv.text.includes('[Section 3] Circuit Breakers (DET-01..32), Thinking Drift & Retention'));
       assert.ok(adv.text.includes('32 guards nominal'));
       assert.ok(adv.text.includes('Thinking Drift (DET-30)'));
-      assert.ok(adv.text.includes('CLI Tools : npx ctxtop statusline | npx ctxtop radar | npx ctxtop inspect | npx ctxtop doctor'));
+      assert.ok(adv.text.includes('CLI Tools : npx highbeam-cli statusline | npx highbeam-cli radar | npx highbeam-cli inspect | npx highbeam-cli doctor'));
     });
   });
 

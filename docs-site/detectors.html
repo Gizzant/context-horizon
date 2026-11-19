@@ -213,7 +213,7 @@
               <td><code>DET-28</code></td>
               <td><strong>Subagent Phantom &amp; Orphan Process Sensor</strong></td>
               <td><code>advisory</code> &middot; HIGH</td>
-              <td>Checks that files claimed by subagents exist on disk and spots stuck language-server or test PIDs (clean up with <code>ctxtop doctor --reap-orphans</code>).</td>
+              <td>Checks that files claimed by subagents exist on disk and spots stuck language-server or test PIDs (clean up with <code>highbeam doctor --reap-orphans</code>).</td>
             </tr>
             <tr class="det-row" data-tags="guard medium">
               <td><code>DET-29</code></td>
@@ -245,7 +245,7 @@
 
       <h2 id="semantic-habit-slugs">Semantic Habit Detectors (<code>semanticDetectors</code>)</h2>
       <p>
-        Along with numbered IDs, <code>.attention-horizon.json</code> includes eight readable habit slugs you can set via <code>ctxtop config set &lt;slug&gt; &lt;default|off|warn|block&gt;</code>:
+        Along with numbered IDs, <code>.attention-horizon.json</code> includes eight readable habit slugs you can set via <code>highbeam config set &lt;slug&gt; &lt;default|off|warn|block&gt;</code>:
       </p>
       <ul>
         <li><code>formatter-bypass</code>: Suggests running prettier or eslint once at the end instead of burning turns after every small edit.</li>

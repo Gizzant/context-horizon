@@ -762,11 +762,11 @@ export function generateRoastCard(options = {}) {
     `│ Estimated Savings  : +${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)} USD saved in 30d)            │`,
     '│ Top Remediation    : Fence mid-session CLAUDE.md/AGENTS.md edits (DET-09)  │',
     '╰────────────────────────────────────────────────────────────────────────────╯',
-    `Share: Shielded +${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)}) with npx ctxtop --roast #ClaudeCode #Antigravity`
+    `Share: Shielded +${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)}) with npx highbeam-cli --roast #ClaudeCode #Antigravity`
   ].join('\n');
 
   const markdown = [
-    '### 🔥 Highbeam Context Roast (`npx ctxtop --roast`)',
+    '### 🔥 Highbeam Context Roast (`npx highbeam-cli --roast`)',
     `- **KV-Cache Retention**: Grade **${retentionGrade}** (${retentionPct}% warmth retained)`,
     `- **Cold Prefill Leak**: **$${leakedUsd.toFixed(2)}** burned on avoidable cold switches`,
     `- **30-Day Estimated Savings**: **+${savedTok.toLocaleString('en-US')} tokens ($${savedUsd.toFixed(2)} USD)**`,
@@ -1094,7 +1094,7 @@ export function runCli(args = [], options = {}) {
   ) {
     const lines = {
       install: [
-        'Usage: ctxtop install [--global] [--full-hooks | --lean-hooks]',
+        'Usage: highbeam install [--global] [--full-hooks | --lean-hooks]',
         '',
         'Adds Highbeam hooks to Claude Code settings without removing existing entries.',
         '  --global       write to ~/.claude/settings.json instead of this project',
@@ -1103,7 +1103,7 @@ export function runCli(args = [], options = {}) {
         'A backup of the settings file is saved before it is changed.'
       ],
       init: [
-        'Usage: ctxtop init [--antigravity|--claude|--cursor|--windsurf|--codex|--gemini-cli|--mcp|--all-hosts] [--global | --project] [--enable]',
+        'Usage: highbeam init [--antigravity|--claude|--cursor|--windsurf|--codex|--gemini-cli|--mcp|--all-hosts] [--global | --project] [--enable]',
         '',
         'Zero-config installer: sets Highbeam up for the chosen host(s).',
         'With no host flag it installs for Antigravity and Claude Code.',
@@ -1112,7 +1112,7 @@ export function runCli(args = [], options = {}) {
         '  --project   install into this project/workspace for every selected host (alias: --workspace)'
       ],
       uninstall: [
-        'Usage: ctxtop uninstall [--global | --project]',
+        'Usage: highbeam uninstall [--global | --project]',
         '',
         'Removes Highbeam hook entries from the Claude Code settings file.',
         'It does not delete backups, saved output, licenses or the ~/.ctxtop folder; it lists what is left so you can remove it.'
@@ -1576,7 +1576,7 @@ export function runCli(args = [], options = {}) {
         }
         return {
           exitCode: 1,
-          output: `[Highbeam Pro] 14-day trial already expired (${trRes.expiresAt || ''}). Unlock Pro with: npx ctxtop license activate <CTXP1-KEY>`,
+          output: `[Highbeam Pro] 14-day trial already expired (${trRes.expiresAt || ''}). Unlock Pro with: npx highbeam-cli license activate <CTXP1-KEY>`,
           data: trRes
         };
       }
@@ -1595,7 +1595,7 @@ export function runCli(args = [], options = {}) {
         output: `[Highbeam Pro] Activated 14-day local trial (expires ${trRes.expiresAt}) -> ${trRes.licensePath}\n  ${
           String(loadHorizonConfig({ ...options, cwd: options.cwd || process.cwd() })?.flightMode || '').toUpperCase() === 'AUTO_PILOT'
             ? 'Auto is on for the trial.'
-            : 'Auto is available but stays off until you turn it on: npx ctxtop mode auto'
+            : 'Auto is available but stays off until you turn it on: npx highbeam-cli mode auto'
         }`,
         data: trRes
       };
@@ -1626,7 +1626,7 @@ export function runCli(args = [], options = {}) {
     if (trialSummary.state !== 'none') {
       statusLines.push(...formatTrialSummaryLines(trialSummary));
     } else if (status.trialExpired) {
-      statusLines.push('  Trial ended: Auto is paused and Highbeam runs COACH (shows, changes nothing). Keep Auto: npx ctxtop license activate <CTXP1-KEY>');
+      statusLines.push('  Trial ended: Auto is paused and Highbeam runs COACH (shows, changes nothing). Keep Auto: npx highbeam-cli license activate <CTXP1-KEY>');
     }
     if (!status.entitled && shadowAuto.incidentCount30d > 0) {
       statusLines.push(`  Auto preview (30d): ${shadowAuto.headlineText} — ${shadowAuto.sublineText}`);
@@ -1701,8 +1701,8 @@ export function runCli(args = [], options = {}) {
       if (trialSummary.state !== 'ended') {
         lines.push(
           status?.trialExpired
-            ? '  Your 14-day trial has ended, so Auto is paused and Highbeam runs COACH: it shows what Auto would have saved but changes nothing. Keep Auto: npx ctxtop license activate <CTXP1-KEY>'
-            : '  Auto needs Highbeam Pro or the 14-day trial. Until then Highbeam runs COACH and shows what Auto would have saved. Try it: npx ctxtop license trial'
+            ? '  Your 14-day trial has ended, so Auto is paused and Highbeam runs COACH: it shows what Auto would have saved but changes nothing. Keep Auto: npx highbeam-cli license activate <CTXP1-KEY>'
+            : '  Auto needs Highbeam Pro or the 14-day trial. Until then Highbeam runs COACH and shows what Auto would have saved. Try it: npx highbeam-cli license trial'
         );
       }
     } else if (eff.effectiveFlightMode === 'AUTO_PILOT' && status?.tier === 'trial' && status?.expiresAt) {
@@ -1710,7 +1710,7 @@ export function runCli(args = [], options = {}) {
       const daysLeft = Math.max(0, Math.ceil((Date.parse(status.expiresAt) - nowMs) / 86400000));
       lines.push(`  Trial: ${daysLeft} day${daysLeft === 1 ? '' : 's'} left. After that Auto pauses and Highbeam runs COACH until you activate Pro.`);
     } else if (configured === 'COACH') {
-      lines.push('  COACH shows savings and warnings and stops only destructive commands and repeat-failure loops. Let Highbeam act for you: npx ctxtop mode auto');
+      lines.push('  COACH shows savings and warnings and stops only destructive commands and repeat-failure loops. Let Highbeam act for you: npx highbeam-cli mode auto');
     }
     if (trialSummary.state !== 'none') lines.push(...formatTrialSummaryLines(trialSummary));
     return { exitCode: 0, output: lines.join('\n'), data };
@@ -1766,7 +1766,7 @@ export function runCli(args = [], options = {}) {
     const res = generateCostRadar({ ...options, demo: isDemo });
     fs.mkdirSync(path.dirname(target), { recursive: true });
     const ok = writeTextAtomic(target, res.html) !== false;
-    const shareSnippet = `⚡ Cost Radar: ${res.summary.retention} · ${res.summary.drift} · ${res.summary.swarm} (via npx ctxtop cost-radar)`;
+    const shareSnippet = `⚡ Cost Radar: ${res.summary.retention} · ${res.summary.drift} · ${res.summary.swarm} (via npx highbeam-cli cost-radar)`;
     const data = { ok, path: target, ...res.summary, shareSnippet };
     if (isJson) {
       return { exitCode: ok ? 0 : 1, output: JSON.stringify(data, null, 2), data };
@@ -2090,7 +2090,7 @@ export function runCli(args = [], options = {}) {
       };
     }
 
-    const helpRsl = 'Usage: ctxtop rsl <status|list|run|promote <slug>|prune <slug>> [--platform all|antigravity|claude] [--mode local|sdk] [--json]';
+    const helpRsl = 'Usage: highbeam rsl <status|list|run|promote <slug>|prune <slug>> [--platform all|antigravity|claude] [--mode local|sdk] [--json]';
     return {
       exitCode: 1,
       output: isJson ? JSON.stringify({ ok: false, error: `Unknown rsl action: ${action}` }, null, 2) : helpRsl,
@@ -2158,7 +2158,7 @@ export function runCli(args = [], options = {}) {
       `  Session ROI   : +${res.roi.tokensSaved.toLocaleString('en-US')} tok saved ($${res.roi.dollarsSaved.toFixed(2)} USD) | ${res.roi.readsBlocked} oversized reads indexed`,
       ...(offloadIndex
         ? [
-            `  Offload Index : ${offloadIndex.indexedToolLogs} FTS5 CLI logs · ${offloadIndex.indexedArtifacts} artifact(s) (query: npx ctxtop search "<keyword>")`
+            `  Offload Index : ${offloadIndex.indexedToolLogs} FTS5 CLI logs · ${offloadIndex.indexedArtifacts} artifact(s) (query: npx highbeam-cli search "<keyword>")`
           ]
         : []),
       ...(res.selfTest ? [`  Self-Test     : ${res.selfTest.detail}`] : [])
@@ -2232,7 +2232,7 @@ export function runCli(args = [], options = {}) {
   const isUnknown = !hasHelp && args.length > 0 && !knownSubcommands.has(subcommand);
 
   const helpText = [
-    'Usage: ctxtop <command> [options]',
+    'Usage: highbeam <command> [options]',
     '',
     'Quick Start (Zero-Write & Setup):',
     '  audit [--platform all|antigravity|claude|codex|gemini|cursor] [--days 7] [--json]',
@@ -2253,7 +2253,7 @@ export function runCli(args = [], options = {}) {
     'Compression, Search & Multi-Host MCP:',
     '  shield <--enable | --disable | --status> [--platform all|...]       Toggle Active Context Shield & read-index guard',
     '  search [<turn-id>] "<keyword>" [--limit 10] [--json]                Search FTS5 offloaded CLI logs & artifacts',
-    '  mcp                                                                 Start zero-network 7-tool stdio MCP (@ctxtop/mcp)',
+    '  mcp                                                                 Start zero-network 7-tool stdio MCP server',
     '',
     'Governance, RSL & FinOps:',
     '  rsl <status|list|run|promote|prune> [--platform ...] [--json]       Dual-platform RSL post-mortem & rule ledger',

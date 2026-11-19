@@ -592,7 +592,7 @@ describe('Simple View Recommended Actions Collapsible Architecture & Open-State 
       'AST card must accurately describe 5m prompt cache behavior'
     );
     const astPreview = astRow.querySelector('.m3-action-data-preview');
-    assert.equal(astPreview.textContent.trim(), 'npx ctxtop prune', 'AST CLI command must be npx ctxtop prune');
+    assert.equal(astPreview.textContent.trim(), 'npx highbeam-cli prune', 'AST CLI command must be npx highbeam-cli prune');
 
     // 5. Accurate /compact Description
     const compactRow = actionListEl.querySelector('details[data-action-id="compact-context"]');

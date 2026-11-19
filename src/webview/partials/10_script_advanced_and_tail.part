@@ -671,7 +671,7 @@
           setTxt('taRslMeta', metaParts.length > 0 ? metaParts.join(' \u00B7 ') : (effectiveMode === 'off' ? 'Paused' : 'Active'));
           let rslHtml = '';
           if (rslClashCount > 0) {
-            rslHtml += `<li class="ts-ledger-row" data-effective-state="paused"><span class="ts-ledger-age">CLASH</span><span>${rslClashCount} conflicting project rule${rslClashCount === 1 ? '' : 's'} \u2014 run <code>ctxtop rsl status</code></span><span class="ts-ledger-saved" style="color:var(--status-warning);">review</span></li>`;
+            rslHtml += `<li class="ts-ledger-row" data-effective-state="paused"><span class="ts-ledger-age">CLASH</span><span>${rslClashCount} conflicting project rule${rslClashCount === 1 ? '' : 's'} \u2014 run <code>highbeam rsl status</code></span><span class="ts-ledger-saved" style="color:var(--status-warning);">review</span></li>`;
           }
           if (shardedSpecCount >= 2) {
             rslHtml += `<li class="ts-ledger-row"><span class="ts-ledger-age">SPEC</span><span>${shardedSpecCount} spec shards loaded across session</span><span class="ts-ledger-saved">${shardedSpecCount >= 4 ? 'consolidate' : 'tracked'}</span></li>`;
@@ -683,7 +683,7 @@
               return `<li class="ts-ledger-row" data-kind="${escAttr(kind)}" data-effective-state="${st}" title="${escAttr(r.detail || r.title || '')}"><span class="ts-ledger-age">${escAttr(kind)}</span><span>${escAttr(r.title || 'Learned rule')}${r.detail ? ` <span class="ts-why-sub">\u2014 ${escAttr(r.detail)}</span>` : ''}</span><span class="ts-ledger-saved">${st}</span></li>`;
             }).join('');
           } else if (lrCount > 0) {
-            rslHtml += `<li class="ts-ledger-row"><span class="ts-ledger-age">RSL</span><span>${lrCount} active learned rule(s) \u2014 run <code>ctxtop rsl status</code> to inspect</span><span class="ts-ledger-saved">${lrCount}</span></li>`;
+            rslHtml += `<li class="ts-ledger-row"><span class="ts-ledger-age">RSL</span><span>${lrCount} active learned rule(s) \u2014 run <code>highbeam rsl status</code> to inspect</span><span class="ts-ledger-saved">${lrCount}</span></li>`;
           }
           rslList.innerHTML = rslHtml;
         }

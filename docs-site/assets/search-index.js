@@ -75,82 +75,82 @@ window.AH_SEARCH_INDEX = [
   {
     "pageTitle": "CLI & Binaries Reference",
     "title": "CLI & Binaries Reference",
-    "section": "ctxtop init",
+    "section": "highbeam init",
     "href": "cli-reference.html#cmd-init",
-    "keywords": "--antigravity --claude ah-statusline settings.json --mcp --cursor --windsurf attention-horizon .cursor/mcp.json ~/.cursor/mcp.json --global --all -a --lean-hooks --full-hooks --dry-run --dedupe ctxtop init",
-    "body": "Safely installs Highbeam across one or more host tools without overwriting your existing hooks. Synopsis ctxtop init [--antigravity] [--claude] [--mcp | --cursor | --windsurf] [--all] [--global | -g | --workspace | --project] [--lean-hooks | --full-hooks] [--dry-run] [--dedupe] [--json] --antigravity: Installs Google Antigravity plugin files, rules, skills, and sidecar hooks. --claude: Merges Claude Code hooks and ah"
+    "keywords": "--antigravity --claude ah-statusline settings.json --mcp --cursor --windsurf attention-horizon .cursor/mcp.json ~/.cursor/mcp.json --global --all -a --lean-hooks --full-hooks --dry-run --dedupe highbeam init",
+    "body": "Safely installs Highbeam across one or more host tools without overwriting your existing hooks. Synopsis highbeam init [--antigravity] [--claude] [--mcp | --cursor | --windsurf] [--all] [--global | -g | --workspace | --project] [--lean-hooks | --full-hooks] [--dry-run] [--dedupe] [--json] --antigravity: Installs Google Antigravity plugin files, rules, skills, and sidecar hooks. --claude: Merges Claude Code hooks and ah"
   },
   {
     "pageTitle": "CLI & Binaries Reference",
     "title": "CLI & Binaries Reference",
-    "section": "ctxtop install & ctxtop uninstall",
+    "section": "highbeam install & highbeam uninstall",
     "href": "cli-reference.html#cmd-install-uninstall",
-    "keywords": "settings.json inspectClaudeBinaryCapabilities() PostModelSwitch omittedUnsupportedHooks --project <cwd>/.claude/settings.json --global ctxtop install ctxtop uninstall",
-    "body": "Adds or removes Highbeam in Claude Code settings.json and saves a timestamped backup first. It checks your Claude binary with inspectClaudeBinaryCapabilities(). If your CLI build lacks newer hooks like PostModelSwitch, it skips them and lists them in omittedUnsupportedHooks. Synopsis ctxtop install [--global | -g | --project] [--lean-hooks | --full-hooks] [--json] ctxtop uninstall [--global | -g | --project] [--json]"
+    "keywords": "settings.json inspectClaudeBinaryCapabilities() PostModelSwitch omittedUnsupportedHooks --project <cwd>/.claude/settings.json --global highbeam install highbeam uninstall",
+    "body": "Adds or removes Highbeam in Claude Code settings.json and saves a timestamped backup first. It checks your Claude binary with inspectClaudeBinaryCapabilities(). If your CLI build lacks newer hooks like PostModelSwitch, it skips them and lists them in omittedUnsupportedHooks. Synopsis highbeam install [--global | -g | --project] [--lean-hooks | --full-hooks] [--json] highbeam uninstall [--global | -g | --project] [--json]"
   },
   {
     "pageTitle": "CLI & Binaries Reference",
     "title": "CLI & Binaries Reference",
-    "section": "ctxtop doctor & ctxtop prune",
+    "section": "highbeam doctor & highbeam prune",
     "href": "cli-reference.html#cmd-doctor",
-    "keywords": "claudeCapabilities modelSwitchTelemetry --diagnostic --bug-report --json checks PreModelSwitch PostModelSwitch supportsAskDecision PreEffortChange hookDiagnostics --prune-tools --uncached-tail agy-horizon prune --transcript <path> .bak --reap-orphans --handoff --distill docs/ --recover-brain --gc-cursor --vscdb <path> state.vscdb --dry-run ctxtop doctor ctxtop prune",
-    "body": "Checks host setup, Claude hook support (claudeCapabilities), privacy-safe switch stats (modelSwitchTelemetry), model lists, and hook error logs. It can also prune old tool logs and clean up disk bloat offline. Synopsis ctxtop doctor [--diagnostic | --bug-report] [--json] [--prune-tools | --prune | --uncached-tail | --tail] [--transcript <path>] [--reap-orphans] [--handoff | --distill] [--storage-gc | --gc-cursor | --"
+    "keywords": "claudeCapabilities modelSwitchTelemetry --diagnostic --bug-report --json checks PreModelSwitch PostModelSwitch supportsAskDecision PreEffortChange hookDiagnostics --prune-tools --uncached-tail agy-horizon prune --transcript <path> .bak --reap-orphans --handoff --distill docs/ --recover-brain --gc-cursor --vscdb <path> state.vscdb --dry-run highbeam doctor highbeam prune",
+    "body": "Checks host setup, Claude hook support (claudeCapabilities), privacy-safe switch stats (modelSwitchTelemetry), model lists, and hook error logs. It can also prune old tool logs and clean up disk bloat offline. Synopsis highbeam doctor [--diagnostic | --bug-report] [--json] [--prune-tools | --prune | --uncached-tail | --tail] [--transcript <path>] [--reap-orphans] [--handoff | --distill] [--storage-gc | --gc-cursor | --"
   },
   {
     "pageTitle": "CLI & Binaries Reference",
     "title": "CLI & Binaries Reference",
-    "section": "ctxtop verify (alias: verify-checksums)",
+    "section": "highbeam verify (alias: verify-checksums)",
     "href": "cli-reference.html#cmd-verify",
-    "keywords": "CHECKSUMS.sha256 0 ctxtop verify [--json] ctxtop verify verify-checksums",
-    "body": "Checks SHA-256 hashes (with normalized line endings) for every release file in CHECKSUMS.sha256. Exits 0 when all files match. Synopsis ctxtop verify [--json]"
+    "keywords": "CHECKSUMS.sha256 0 highbeam verify [--json] highbeam verify verify-checksums",
+    "body": "Checks SHA-256 hashes (with normalized line endings) for every release file in CHECKSUMS.sha256. Exits 0 when all files match. Synopsis highbeam verify [--json]"
   },
   {
     "pageTitle": "CLI & Binaries Reference",
     "title": "CLI & Binaries Reference",
-    "section": "ctxtop receipt",
+    "section": "highbeam receipt",
     "href": "cli-reference.html#cmd-receipt",
-    "keywords": "ctxtop receipt [--simple | --4-rank | --advanced] [--markdown | --md | --git | --html | --pdf | --json] [--out <path>] --pdf 2 ctxtop license trial ctxtop receipt",
-    "body": "Prints your estimated Tokens & USD Saved receipt as terminal text, Git Markdown, HTML, JSON, or a Pro SHA-256 PDF 1.4 file. Synopsis ctxtop receipt [--simple | --4-rank | --advanced] [--markdown | --md | --git | --html | --pdf | --json] [--out <path>] Note: Running --pdf on the Free tier exits with code 2. It shows your 30-day USD savings and explains how to start a local trial (ctxtop license trial)."
+    "keywords": "highbeam receipt [--simple | --4-rank | --advanced] [--markdown | --md | --git | --html | --pdf | --json] [--out <path>] --pdf 2 highbeam license trial highbeam receipt",
+    "body": "Prints your estimated Tokens & USD Saved receipt as terminal text, Git Markdown, HTML, JSON, or a Pro SHA-256 PDF 1.4 file. Synopsis highbeam receipt [--simple | --4-rank | --advanced] [--markdown | --md | --git | --html | --pdf | --json] [--out <path>] Note: Running --pdf on the Free tier exits with code 2. It shows your 30-day USD savings and explains how to start a local trial (highbeam license trial)."
   },
   {
     "pageTitle": "CLI & Binaries Reference",
     "title": "CLI & Binaries Reference",
-    "section": "ctxtop panel",
+    "section": "highbeam panel",
     "href": "cli-reference.html#cmd-panel",
-    "keywords": "~/.claude/attention-horizon/horizon_panel.html ctxtop panel [--advanced] [--out <file.html>] [--json] ctxtop panel",
-    "body": "Writes a standalone, offline Claude Code HTML panel snapshot. Saves to ~/.claude/attention-horizon/horizon_panel.html by default. Synopsis ctxtop panel [--advanced] [--out <file.html>] [--json]"
+    "keywords": "~/.claude/attention-horizon/horizon_panel.html highbeam panel [--advanced] [--out <file.html>] [--json] highbeam panel",
+    "body": "Writes a standalone, offline Claude Code HTML panel snapshot. Saves to ~/.claude/attention-horizon/horizon_panel.html by default. Synopsis highbeam panel [--advanced] [--out <file.html>] [--json]"
   },
   {
     "pageTitle": "CLI & Binaries Reference",
     "title": "CLI & Binaries Reference",
-    "section": "ctxtop cost-radar (alias: radar)",
+    "section": "highbeam cost-radar (alias: radar)",
     "href": "cli-reference.html#cmd-cost-radar",
-    "keywords": "~/.claude/attention-horizon/cost_radar.html ctxtop cost-radar [--out <file.html>] [--demo] [--share] [--json] ctxtop cost-radar radar",
-    "body": "Writes a script-free HTML/SVG timeline of turn-by-turn cache hits, thinking-token spikes, and Git worktree branches. Saves to ~/.claude/attention-horizon/cost_radar.html by default. Synopsis ctxtop cost-radar [--out <file.html>] [--demo] [--share] [--json]"
+    "keywords": "~/.claude/attention-horizon/cost_radar.html highbeam cost-radar [--out <file.html>] [--demo] [--share] [--json] highbeam cost-radar radar",
+    "body": "Writes a script-free HTML/SVG timeline of turn-by-turn cache hits, thinking-token spikes, and Git worktree branches. Saves to ~/.claude/attention-horizon/cost_radar.html by default. Synopsis highbeam cost-radar [--out <file.html>] [--demo] [--share] [--json]"
   },
   {
     "pageTitle": "CLI & Binaries Reference",
     "title": "CLI & Binaries Reference",
-    "section": "ctxtop statusline & ah-statusline",
+    "section": "highbeam statusline & ah-statusline",
     "href": "cli-reference.html#cmd-statusline",
-    "keywords": "statusLine stdin 1,500ms .claude/cache/ah_live_state_<sessionId>.json ah-statusline [--demo] [--columns <N> | --cols <N>] ctxtop statusline ah-statusline",
+    "keywords": "statusLine stdin 1,500ms .claude/cache/ah_live_state_<sessionId>.json ah-statusline [--demo] [--columns <N> | --cols <N>] highbeam statusline ah-statusline",
     "body": "Reads Claude Code's statusLine JSON from stdin (up to 1,500ms). Updates .claude/cache/ah_live_state_<sessionId>.json and prints a one-line ANSI bar. Synopsis ah-statusline [--demo] [--columns <N> | --cols <N>]"
   },
   {
     "pageTitle": "CLI & Binaries Reference",
     "title": "CLI & Binaries Reference",
-    "section": "ctxtop postmortem & ctxtop roast",
+    "section": "highbeam postmortem & highbeam roast",
     "href": "cli-reference.html#cmd-postmortem-roast",
-    "keywords": "CONTEXT_ROT_DECAY VERIFICATION_CHURN SPEC_AMBIGUITY CLEAN ctxtop postmortem [--last <N>] [--roast] [--demo] [--json] ctxtop roast [--demo] [--markdown | --md] [--json] --last 15 session_analysis_report.md conversation_diagnostics.jsonl writeFiles ctxtop postmortem ctxtop roast",
-    "body": "Scans recent local sessions and groups failures into clear types (CONTEXT_ROT_DECAY, VERIFICATION_CHURN, SPEC_AMBIGUITY, or CLEAN). It flags repeated file reads, checks Turn-0 MCP bloat, and prints an ASCII or Markdown summary. Synopsis ctxtop postmortem [--last <N>] [--roast] [--demo] [--json] ctxtop roast [--demo] [--markdown | --md] [--json] --last checks 15 sessions by default. Writes session_analysis_report.md a"
+    "keywords": "CONTEXT_ROT_DECAY VERIFICATION_CHURN SPEC_AMBIGUITY CLEAN highbeam postmortem [--last <N>] [--roast] [--demo] [--json] highbeam roast [--demo] [--markdown | --md] [--json] --last 15 session_analysis_report.md conversation_diagnostics.jsonl writeFiles highbeam postmortem highbeam roast",
+    "body": "Scans recent local sessions and groups failures into clear types (CONTEXT_ROT_DECAY, VERIFICATION_CHURN, SPEC_AMBIGUITY, or CLEAN). It flags repeated file reads, checks Turn-0 MCP bloat, and prints an ASCII or Markdown summary. Synopsis highbeam postmortem [--last <N>] [--roast] [--demo] [--json] highbeam roast [--demo] [--markdown | --md] [--json] --last checks 15 sessions by default. Writes session_analysis_report.md a"
   },
   {
     "pageTitle": "CLI & Binaries Reference",
     "title": "CLI & Binaries Reference",
-    "section": "ctxtop inspect",
+    "section": "highbeam inspect",
     "href": "cli-reference.html#cmd-inspect",
-    "keywords": "ctxtop inspect [<session-id> | --session <id> | --last] [--out <file.json>] [--json] ctxtop inspect",
-    "body": "Converts any Claude Code snapshot, USTF v1 log, or Antigravity brain folder into a standard USTF v1 trace. Reports event counts, call trees, cached vs. uncached tokens, and USD cost. Synopsis ctxtop inspect [<session-id> | --session <id> | --last] [--out <file.json>] [--json]"
+    "keywords": "highbeam inspect [<session-id> | --session <id> | --last] [--out <file.json>] [--json] highbeam inspect",
+    "body": "Converts any Claude Code snapshot, USTF v1 log, or Antigravity brain folder into a standard USTF v1 trace. Reports event counts, call trees, cached vs. uncached tokens, and USD cost. Synopsis highbeam inspect [<session-id> | --session <id> | --last] [--out <file.json>] [--json]"
   },
   {
     "pageTitle": "CLI & Binaries Reference",
@@ -158,38 +158,38 @@ window.AH_SEARCH_INDEX = [
     "section": "Antigravity Server, Demos & FTS5 Execution Wrappers",
     "href": "cli-reference.html#cmd-ui-demo-exec",
     "keywords": "agy-horizon src/cli/init.mjs src/cli/horizon_hud.mjs",
-    "body": "Run through agy-horizon (src/cli/init.mjs) or src/cli/horizon_hud.mjs: Synopsis # Start loopback HTTP/SSE daemon on 127.0.0.1:62935..62945 agy-horizon ui [--open | --no-open] [--demo] ctxtop --serve # Run 5-stage synthetic terminal crisis showcase or emit Studio HTML widget agy-horizon demo [--demo-animate] [--scenario <1..5>] [--harness <antigravity|claude-code>] node src/cli/horizon_hud.mjs --emit-widget # Execute "
+    "body": "Run through agy-horizon (src/cli/init.mjs) or src/cli/horizon_hud.mjs: Synopsis # Start loopback HTTP/SSE daemon on 127.0.0.1:62935..62945 agy-horizon ui [--open | --no-open] [--demo] highbeam --serve # Run 5-stage synthetic terminal crisis showcase or emit Studio HTML widget agy-horizon demo [--demo-animate] [--scenario <1..5>] [--harness <antigravity|claude-code>] node src/cli/horizon_hud.mjs --emit-widget # Execute "
   },
   {
     "pageTitle": "CLI & Binaries Reference",
     "title": "CLI & Binaries Reference",
-    "section": "ctxtop config",
+    "section": "highbeam config",
     "href": "cli-reference.html#cmd-config",
-    "keywords": ".attention-horizon.json ~/.attention-horizon/config.json --global ctxtop config",
-    "body": "Lists, sets, or resets detector rules in .attention-horizon.json (project default) or ~/.attention-horizon/config.json (--global). Synopsis ctxtop config [list] [--global | -g] [--json] ctxtop config set <DET-01..DET-20 | habit-slug> <default | off | warn | block> [--global | -g] ctxtop config reset [--global | -g]"
+    "keywords": ".attention-horizon.json ~/.attention-horizon/config.json --global highbeam config",
+    "body": "Lists, sets, or resets detector rules in .attention-horizon.json (project default) or ~/.attention-horizon/config.json (--global). Synopsis highbeam config [list] [--global | -g] [--json] highbeam config set <DET-01..DET-20 | habit-slug> <default | off | warn | block> [--global | -g] highbeam config reset [--global | -g]"
   },
   {
     "pageTitle": "CLI & Binaries Reference",
     "title": "CLI & Binaries Reference",
-    "section": "ctxtop control",
+    "section": "highbeam control",
     "href": "cli-reference.html#cmd-control",
-    "keywords": "~/.ctxtop/runtime/<sessionId>.ctl control.transition ctxtop control <status | pause | resume | step | abort | rewind> [--session <id>] [--target <turn> | --turn <turn>] abort ABORTED .ctl ctxtop control",
-    "body": "Updates the 5-state session control file at ~/.ctxtop/runtime/<sessionId>.ctl and notifies any running Micro-IPC daemon via control.transition. Synopsis ctxtop control <status | pause | resume | step | abort | rewind> [--session <id>] [--target <turn> | --turn <turn>] Note: abort moves the session to the final ABORTED state. You must start a new session or delete the .ctl file to run tools again."
+    "keywords": "~/.ctxtop/runtime/<sessionId>.ctl control.transition highbeam control <status | pause | resume | step | abort | rewind> [--session <id>] [--target <turn> | --turn <turn>] abort ABORTED .ctl highbeam control",
+    "body": "Updates the 5-state session control file at ~/.ctxtop/runtime/<sessionId>.ctl and notifies any running Micro-IPC daemon via control.transition. Synopsis highbeam control <status | pause | resume | step | abort | rewind> [--session <id>] [--target <turn> | --turn <turn>] Note: abort moves the session to the final ABORTED state. You must start a new session or delete the .ctl file to run tools again."
   },
   {
     "pageTitle": "CLI & Binaries Reference",
     "title": "CLI & Binaries Reference",
-    "section": "ctxtop license (pro), tiers & team-pack",
+    "section": "highbeam license (pro), tiers & team-pack",
     "href": "cli-reference.html#cmd-pro-team",
-    "keywords": "ctxtop license pro tiers team-pack",
-    "body": "Manages offline Ed25519 Pro keys, 14-day local trials, and Grafana or Datadog OpenTelemetry packs. Synopsis ctxtop tiers [--json] ctxtop license [status | tiers | trial | activate <ed25519-token> | deactivate] [--json] ctxtop team-pack [--out <dir>] [--org \"<Org Name>\"] [--preview] [--json]"
+    "keywords": "highbeam license pro tiers team-pack",
+    "body": "Manages offline Ed25519 Pro keys, 14-day local trials, and Grafana or Datadog OpenTelemetry packs. Synopsis highbeam tiers [--json] highbeam license [status | tiers | trial | activate <ed25519-token> | deactivate] [--json] highbeam team-pack [--out <dir>] [--org \"<Org Name>\"] [--preview] [--json]"
   },
   {
     "pageTitle": "CLI & Binaries Reference",
     "title": "CLI & Binaries Reference",
     "section": "Execution Shims & Standard Exit Codes",
     "href": "cli-reference.html#shims-and-exit-codes",
-    "keywords": "src/shims/ src/shims/agy_cli_compressor.mjs AGY_CONVERSATION_ID src/shims/agy_git_guard.mjs DET-01 src/shims/ah_log_query.mjs .ctxtop/cache/artifacts_fts5.db 0 allow deny ask stdout 1 2 stderr ctxtop receipt --pdf ctxtop team-pack --preview",
+    "keywords": "src/shims/ src/shims/agy_cli_compressor.mjs AGY_CONVERSATION_ID src/shims/agy_git_guard.mjs DET-01 src/shims/ah_log_query.mjs .ctxtop/cache/artifacts_fts5.db 0 allow deny ask stdout 1 2 stderr highbeam receipt --pdf highbeam team-pack --preview",
     "body": "Three standalone scripts in src/shims/ plug directly into shell workflows: src/shims/agy_cli_compressor.mjs: Strips ANSI escape codes and saves long command output to SQLite FTS5 using AGY_CONVERSATION_ID. src/shims/agy_git_guard.mjs: Checks git and shell flags before execution to back DET-01. src/shims/ah_log_query.mjs: Fast FTS5 reader that searches saved log lines in .ctxtop/cache/artifacts_fts5.db. Exit Code Mean"
   },
   {
@@ -253,8 +253,8 @@ window.AH_SEARCH_INDEX = [
     "title": "Slash Commands, Skills & Subagents",
     "section": "5. /inspect",
     "href": "commands-skills.html#slash-inspect",
-    "keywords": "ctxtop inspect --last .claude/cache/ah_live_state_<sessionId>.json ~/.ctxtop/sessions/<sessionId>.jsonl brain/<sessionId> /inspect",
-    "body": "Runs ctxtop inspect --last to view call spans, tool speeds, and worker layout. It checks three local paths in order: (1) .claude/cache/ah_live_state_<sessionId>.json, (2) ~/.ctxtop/sessions/<sessionId>.jsonl, and (3) Antigravity's local brain/<sessionId> folder."
+    "keywords": "highbeam inspect --last .claude/cache/ah_live_state_<sessionId>.json ~/.ctxtop/sessions/<sessionId>.jsonl brain/<sessionId> /inspect",
+    "body": "Runs highbeam inspect --last to view call spans, tool speeds, and worker layout. It checks three local paths in order: (1) .claude/cache/ah_live_state_<sessionId>.json, (2) ~/.ctxtop/sessions/<sessionId>.jsonl, and (3) Antigravity's local brain/<sessionId> folder."
   },
   {
     "pageTitle": "Slash Commands, Skills & Subagents",
@@ -349,7 +349,7 @@ window.AH_SEARCH_INDEX = [
     "title": "Core Concepts & Mental Model",
     "section": "Conductor vs. Executor Division of Labor",
     "href": "concepts.html#conductor-vs-executor",
-    "keywords": "127.0.0.1:62935 /browser /swarm @ah-flash-scout 200 hooks/register.js ah-statusline .agents/locks/active_scopes.json DET-20 ~/.ctxtop/sessions/ ctxtop inspect ctxtop postmortem",
+    "keywords": "127.0.0.1:62935 /browser /swarm @ah-flash-scout 200 hooks/register.js ah-statusline .agents/locks/active_scopes.json DET-20 ~/.ctxtop/sessions/ highbeam inspect highbeam postmortem",
     "body": "Highbeam fits naturally across both Google Antigravity and Claude Code: Google Antigravity as Visual Conductor: Great for system planning, live side-panel HUD review (127.0.0.1:62935), browser checks via /browser, multi-agent work via /swarm, and fast read-only repo lookups with Delegation Scout (@ah-flash-scout, capped under 200 tokens so your main chat stays lean). Claude Code as Fast Terminal Executor: Great for t"
   },
   {
@@ -389,7 +389,7 @@ window.AH_SEARCH_INDEX = [
     "title": "Configuration, Permissions & Security Sandbox",
     "section": "3. Environment Variables Reference",
     "href": "configuration.html#environment-variables",
-    "keywords": "AH_COLUMNS bin/ah-statusline.mjs 80 110 144+ --columns AH_INTERCEPTION_LOG_PATH hooks/handlers/pre-model-switch.mjs PreModelSwitch AH_MODEL_SWITCH_TELEMETRY_PATH src/utils/modelSwitchTelemetry.mjs ~/.attention-horizon/cache/model_switch_telemetry.json AH_TIER1_MOD_ACTIVE hooks/register.js \"1\" CLAUDE_BIN src/diagnostics/claudeHookCapabilities.mjs CLAUDE_PLUGIN_ROOT hooks/hooks.json bin/ctxtop.mjs CLAUDE_CODE_ENABLE_TELEMETRY otelExporter.mjs CLAUDE_HEADLESS ANTIGRAVITY_CONVERSATION_ID AGY_CONVERSATION_ID server.mjs agy_cli_compressor.mjs ANTIGRAVITY_SIDECAR_WEB_PORT PORT sidecars/horizon-daemon/server.mjs 62935 62935..62945 ANTIGRAVITY_SIDECAR_UI_TOKEN ATTENTION_HORIZON_HOME_DIR src/core/constants.mjs CTXTOP_FORCE_NO_SQLITE src/engine-node/db/probe.mjs node:sqlite CTXTOP_FORCE_FTS5_POLYFILL SQLITE_ENABLE_FTS5 CTXTOP_IPC_PATH src/engine-node/ipc/protocol.mjs CTXTOP_NO_BROWSER src/cli/init.mjs agy-horizon ui HORIZON_DEMO HORIZON_DEMO_SCENARIO horizon_hud.mjs 1..5 HORIZON_DIAGNOSTICS_DIR src/core/hook_diagnostics.mjs ctxtop doctor HORIZON_DEBUG DEBUG classifier.mjs quota.mjs init.mjs HORIZON_TEST_NO_SPAWN POST /api/open-brain CTXTOP_ED25519_PUBLIC_KEY_PEM CTXTOP_PRO_DEV src/core/pro_license.mjs CTXTOP_ED25519_PRIVATE_KEY_PEM CTXTOP_POLAR_WEBHOOK_SECRET polar_webhook_worker.mjs",
+    "keywords": "AH_COLUMNS bin/ah-statusline.mjs 80 110 144+ --columns AH_INTERCEPTION_LOG_PATH hooks/handlers/pre-model-switch.mjs PreModelSwitch AH_MODEL_SWITCH_TELEMETRY_PATH src/utils/modelSwitchTelemetry.mjs ~/.attention-horizon/cache/model_switch_telemetry.json AH_TIER1_MOD_ACTIVE hooks/register.js \"1\" CLAUDE_BIN src/diagnostics/claudeHookCapabilities.mjs CLAUDE_PLUGIN_ROOT hooks/hooks.json bin/ctxtop.mjs CLAUDE_CODE_ENABLE_TELEMETRY otelExporter.mjs CLAUDE_HEADLESS ANTIGRAVITY_CONVERSATION_ID AGY_CONVERSATION_ID server.mjs agy_cli_compressor.mjs ANTIGRAVITY_SIDECAR_WEB_PORT PORT sidecars/horizon-daemon/server.mjs 62935 62935..62945 ANTIGRAVITY_SIDECAR_UI_TOKEN ATTENTION_HORIZON_HOME_DIR src/core/constants.mjs CTXTOP_FORCE_NO_SQLITE src/engine-node/db/probe.mjs node:sqlite CTXTOP_FORCE_FTS5_POLYFILL SQLITE_ENABLE_FTS5 CTXTOP_IPC_PATH src/engine-node/ipc/protocol.mjs CTXTOP_NO_BROWSER src/cli/init.mjs agy-horizon ui HORIZON_DEMO HORIZON_DEMO_SCENARIO horizon_hud.mjs 1..5 HORIZON_DIAGNOSTICS_DIR src/core/hook_diagnostics.mjs highbeam doctor HORIZON_DEBUG DEBUG classifier.mjs quota.mjs init.mjs HORIZON_TEST_NO_SPAWN POST /api/open-brain CTXTOP_ED25519_PUBLIC_KEY_PEM CTXTOP_PRO_DEV src/core/pro_license.mjs CTXTOP_ED25519_PRIVATE_KEY_PEM CTXTOP_POLAR_WEBHOOK_SECRET polar_webhook_worker.mjs",
     "body": "Variable Read By Effect & Default AH_COLUMNS bin/ah-statusline.mjs Sets terminal width (80, 110, or 144+ columns) when --columns is not passed. AH_INTERCEPTION_LOG_PATH hooks/handlers/pre-model-switch.mjs Optional JSONL file path to log PreModelSwitch break-even math, weights, and results. AH_MODEL_SWITCH_TELEMETRY_PATH src/utils/modelSwitchTelemetry.mjs Custom path for scrubbed switch stats (defaults to ~/.attention"
   },
   {
@@ -413,7 +413,7 @@ window.AH_SEARCH_INDEX = [
     "title": "Guardrails & Detector Catalog",
     "section": "Canonical Detector Catalog (DET-01 to DET-32)",
     "href": "detectors.html#canonical-detectors",
-    "keywords": "DET-01 DET-02 DET-18 DET-19 guard git reset --hard git push --force rm -rf .env* ~/.gemini/oauth_creds.json DET-03 package-lock.json pnpm-lock.yaml Cargo.lock DET-04 3 consecutiveFailureLimit: 3 DET-05 .skip only DET-06 advisory DET-07 4,096 25k SQLITE_ENABLE_FTS5 DET-08 C* C_max PreModelSwitch $0.02 minSwitchPenaltyUSD permissionDecision: \"ask\" \"deny\" DET-09 AGENTS.md CLAUDE.md effort thinking speed mcp_tools computeDet09BreakEvenTokens det09MinCachedTokens TurnZeroGate PostCompact DET-10 300s 45s 10s DET-11 DET-12 100,000 5x 98k 100k DET-13 DET-14 Stop DET-15 TODO FIXME DET-16 80% 90% 40,000 12 168 DET-17 4 .claude/settings.json hooks.json U+E0000..U+E007F DET-20 .agents/locks/active_scopes.json DET-21 DET-30 DET-22 DET-23 catch {} DET-24 trust_decay_turn_threshold 10 DET-25 70,000 140k DET-26 DET-27 8,000 /evolve DET-28 ctxtop doctor --reap-orphans DET-29 loopTriggered: true DET-31 git merge-tree DET-32",
+    "keywords": "DET-01 DET-02 DET-18 DET-19 guard git reset --hard git push --force rm -rf .env* ~/.gemini/oauth_creds.json DET-03 package-lock.json pnpm-lock.yaml Cargo.lock DET-04 3 consecutiveFailureLimit: 3 DET-05 .skip only DET-06 advisory DET-07 4,096 25k SQLITE_ENABLE_FTS5 DET-08 C* C_max PreModelSwitch $0.02 minSwitchPenaltyUSD permissionDecision: \"ask\" \"deny\" DET-09 AGENTS.md CLAUDE.md effort thinking speed mcp_tools computeDet09BreakEvenTokens det09MinCachedTokens TurnZeroGate PostCompact DET-10 300s 45s 10s DET-11 DET-12 100,000 5x 98k 100k DET-13 DET-14 Stop DET-15 TODO FIXME DET-16 80% 90% 40,000 12 168 DET-17 4 .claude/settings.json hooks.json U+E0000..U+E007F DET-20 .agents/locks/active_scopes.json DET-21 DET-30 DET-22 DET-23 catch {} DET-24 trust_decay_turn_threshold 10 DET-25 70,000 140k DET-26 DET-27 8,000 /evolve DET-28 highbeam doctor --reap-orphans DET-29 loopTriggered: true DET-31 git merge-tree DET-32",
     "body": "Four rules carry a Ring-0 Security tag (DET-01, DET-02, DET-18, DET-19). Ring-0 guards protect secrets, shell safety, repo settings, and subagent inputs, and fail closed on broken hook JSON. All (32) Ring-0 Security (4) Default: Guard Default: Advisory ID Detector Name Default / Severity What It Detects & How to Remediate DET-01 Option Argument Skipping & Destructive Git/Shell Guard Ring-0 guard · CRITICAL Reads git "
   },
   {
@@ -421,8 +421,8 @@ window.AH_SEARCH_INDEX = [
     "title": "Guardrails & Detector Catalog",
     "section": "Semantic Habit Detectors (semanticDetectors)",
     "href": "detectors.html#semantic-habit-slugs",
-    "keywords": ".attention-horizon.json ctxtop config set <slug> <default|off|warn|block> formatter-bypass drip-feed vague-prompt-rubric prompt-decomposer scope-brake effort-overkill post-commit-handoff git commit vision-screenshot-coach DET-20 micro-skills microSkillConfirmSessions: 2 relay-breaker spec-relay /relay semanticDetectors",
-    "body": "Along with numbered IDs, .attention-horizon.json includes eight readable habit slugs you can set via ctxtop config set <slug> <default|off|warn|block>: formatter-bypass: Suggests running prettier or eslint once at the end instead of burning turns after every small edit. drip-feed: Spots rapid 1-line follow-up prompts that pay extra cache-write fees when steps could be grouped. vague-prompt-rubric (aliases: prompt-dec"
+    "keywords": ".attention-horizon.json highbeam config set <slug> <default|off|warn|block> formatter-bypass drip-feed vague-prompt-rubric prompt-decomposer scope-brake effort-overkill post-commit-handoff git commit vision-screenshot-coach DET-20 micro-skills microSkillConfirmSessions: 2 relay-breaker spec-relay /relay semanticDetectors",
+    "body": "Along with numbered IDs, .attention-horizon.json includes eight readable habit slugs you can set via highbeam config set <slug> <default|off|warn|block>: formatter-bypass: Suggests running prettier or eslint once at the end instead of burning turns after every small edit. drip-feed: Spots rapid 1-line follow-up prompts that pay extra cache-write fees when steps could be grouped. vague-prompt-rubric (aliases: prompt-dec"
   },
   {
     "pageTitle": "Guardrails & Detector Catalog",
@@ -453,7 +453,7 @@ window.AH_SEARCH_INDEX = [
     "title": "Flight Modes & Enforcement Levels",
     "section": "2. The Four Flight Modes (OFF, SILENT, COACH, AUTO_PILOT)",
     "href": "flight-modes.html#four-flight-modes",
-    "keywords": "flightMode normalizeConfiguredFlightMode() horizonConfig.mjs normalizeFlightMode() circuitBreakers.mjs DISABLED OFF QUIET MUTE SILENT AUTOPILOT AUTO AUTO_PILOT COACH DET-01 DET-02 DET-18 DET-19 scanWorkspaceSettings DET-03..05 DET-07 DET-12 DET-20 ask DET-04 DET-05 DET-08 PreModelSwitch cached > C* C_max allow Explore claude-haiku-5-5 notableAllowNote >= $0.02 \"ask\" \"deny\" DET-08: \"block\" H_post < paybackTurns DET-09 CLAUDE.md AGENTS.md .mcp.json PostCompactMutationQueue computeDet09BreakEvenTokens PostCompact TTL == 0s drip-feed vague-prompt-rubric DET-14 effort-overkill deny DET-06 PreInvocation src/hooks/pre_invocation.mjs {} hook_level guard advisory hookLevel = \"guard\" ah-statusline ah_live_state_<sessionId>.json hooks/handlers/pre-tool-use.mjs flightMode: \"AUTO_PILOT\" requireProFeature(\"auto_pilot_locks\") ~/.ctxtop/license.json npx ctxtop license trial \"COACH\"",
+    "keywords": "flightMode normalizeConfiguredFlightMode() horizonConfig.mjs normalizeFlightMode() circuitBreakers.mjs DISABLED OFF QUIET MUTE SILENT AUTOPILOT AUTO AUTO_PILOT COACH DET-01 DET-02 DET-18 DET-19 scanWorkspaceSettings DET-03..05 DET-07 DET-12 DET-20 ask DET-04 DET-05 DET-08 PreModelSwitch cached > C* C_max allow Explore claude-haiku-5-5 notableAllowNote >= $0.02 \"ask\" \"deny\" DET-08: \"block\" H_post < paybackTurns DET-09 CLAUDE.md AGENTS.md .mcp.json PostCompactMutationQueue computeDet09BreakEvenTokens PostCompact TTL == 0s drip-feed vague-prompt-rubric DET-14 effort-overkill deny DET-06 PreInvocation src/hooks/pre_invocation.mjs {} hook_level guard advisory hookLevel = \"guard\" ah-statusline ah_live_state_<sessionId>.json hooks/handlers/pre-tool-use.mjs flightMode: \"AUTO_PILOT\" requireProFeature(\"auto_pilot_locks\") ~/.ctxtop/license.json npx highbeam-cli license trial \"COACH\"",
     "body": "Highbeam cleans up flightMode case, hyphens, and spaces in normalizeConfiguredFlightMode() (horizonConfig.mjs) and normalizeFlightMode() (circuitBreakers.mjs). Common aliases work too: DISABLED maps to OFF, QUIET and MUTE map to SILENT, and AUTOPILOT and AUTO map to AUTO_PILOT. Unknown values fall back safely to COACH. Subsystem / Rule OFF SILENT COACH Default AUTO_PILOT Pro Ring-0 Security GuardsDET-01, DET-02, DET-"
   },
   {
@@ -485,7 +485,7 @@ window.AH_SEARCH_INDEX = [
     "title": "Flight Modes & Enforcement Levels",
     "section": "6. Switching Modes Across Surfaces",
     "href": "flight-modes.html#switching-modes",
-    "keywords": "/horizon ah_flight_mode npx ctxtop config set <ID|slug> <default|off|warn|block> { \"hook_level\": \"guard\", \"halt_cooldown_turns\": 3, \"warm_cache_lock_tokens\": 50000, \"cache_amputation_tokens\": 140000 } flightMode: \"AUTO_PILOT\" .attention-horizon.json \"hook_level\": \"advisory\" \"guard\" http://127.0.0.1:62935 127.0.0.1",
+    "keywords": "/horizon ah_flight_mode npx highbeam-cli config set <ID|slug> <default|off|warn|block> { \"hook_level\": \"guard\", \"halt_cooldown_turns\": 3, \"warm_cache_lock_tokens\": 50000, \"cache_amputation_tokens\": 140000 } flightMode: \"AUTO_PILOT\" .attention-horizon.json \"hook_level\": \"advisory\" \"guard\" http://127.0.0.1:62935 127.0.0.1",
     "body": "Switch Flight Modes or router levels statically in JSON config files, interactively via the CLI, or live over the loopback daemon API. Claude Code & CLI Google Antigravity Loopback HTTP API <workspace>/.attention-horizon.json (or ~/.attention-horizon/config.json) { \"schemaVersion\": \"1.0.0\", \"flightMode\": \"COACH\", \"detectors\": { \"DET-08\": \"block\" }, \"semanticDetectors\": { \"drip-feed\": \"warn\", \"vague-prompt-rubric\""
   },
   {
@@ -501,7 +501,7 @@ window.AH_SEARCH_INDEX = [
     "title": "Terminology & Glossary",
     "section": "A to D",
     "href": "glossary.html#terms-a-d",
-    "keywords": "ACTIVE_SET PreInvocation ALLOW_ACTIVE_SET C* claude-opus-5-5 1.25x DET-08 DIRTY_SNAP SCHEMA_TAX UNSEEN_CALLERS LEGACY_POISON QUOTA_AND_STREAM_SHIELD LOOP_AND_GIT_GUARD ah_claude_capabilities.json 4 MB src/diagnostics/claudeHookCapabilities.mjs 256 PreModelSwitch PostModelSwitch PreEffortChange permissionBehavior===\"ask\" .claude/cache/ah_claude_capabilities.json src/core-isomorphic/ hooks/register.js node:* Buffer process /relay amputationCrisis amputation_token_threshold 140,000 safeLimitTokens 147,000 .attention-horizon.json ctxtop cost-radar /cost-radar DET-30 @ah-flash-scout agents/ah-flash-scout.md File:StartLine-EndLine 200 [D] #F538A0 300s 3,600s 00:00",
+    "keywords": "ACTIVE_SET PreInvocation ALLOW_ACTIVE_SET C* claude-opus-5-5 1.25x DET-08 DIRTY_SNAP SCHEMA_TAX UNSEEN_CALLERS LEGACY_POISON QUOTA_AND_STREAM_SHIELD LOOP_AND_GIT_GUARD ah_claude_capabilities.json 4 MB src/diagnostics/claudeHookCapabilities.mjs 256 PreModelSwitch PostModelSwitch PreEffortChange permissionBehavior===\"ask\" .claude/cache/ah_claude_capabilities.json src/core-isomorphic/ hooks/register.js node:* Buffer process /relay amputationCrisis amputation_token_threshold 140,000 safeLimitTokens 147,000 .attention-horizon.json highbeam cost-radar /cost-radar DET-30 @ah-flash-scout agents/ah-flash-scout.md File:StartLine-EndLine 200 [D] #F538A0 300s 3,600s 00:00",
     "body": "ACTIVE_SET Antigravity Clean file reads, edits, and command outputs from your last 16 steps (~8 chat turns). Files already in ACTIVE_SET pass Antigravity's PreInvocation check quietly via ALLOW_ACTIVE_SET. Algebraic Break-Even (C*) Core Physics The cached token count where staying on a large model (like claude-opus-5-5) costs less than switching down. Below C*, switching saves money; above C*, cold 1.25x cache writes"
   },
   {
@@ -509,7 +509,7 @@ window.AH_SEARCH_INDEX = [
     "title": "Terminology & Glossary",
     "section": "E to M",
     "href": "glossary.html#terms-f-m",
-    "keywords": "cal_<sessionId>.json Stop src/utils/sessionCalibration.mjs ~/.attention-horizon/cache/sessions/ < 5 500 R = 2.0 .attention-horizon.json OFF SILENT COACH AUTO_PILOT MEMORY_BLEED projectPath DET-12 100,000 5x 90k 90k-98k 98k-100k >= 100k ctxtop C_max rule_v2 C* cacheGravityRouter.mjs paybackWarmRequests paybackTurns H_post C_max = Infinity POST /api/router/unlock-hysteresis ctxtop install --lean-hooks --full-hooks src/engine-node/ipc/ 15ms 500ms 10MB",
+    "keywords": "cal_<sessionId>.json Stop src/utils/sessionCalibration.mjs ~/.attention-horizon/cache/sessions/ < 5 500 R = 2.0 .attention-horizon.json OFF SILENT COACH AUTO_PILOT MEMORY_BLEED projectPath DET-12 100,000 5x 90k 90k-98k 98k-100k >= 100k ctxtop C_max rule_v2 C* cacheGravityRouter.mjs paybackWarmRequests paybackTurns H_post C_max = Infinity POST /api/router/unlock-hysteresis highbeam install --lean-hooks --full-hooks src/engine-node/ipc/ 15ms 500ms 10MB",
     "body": "Empirical Bayes Session Calibration (cal_<sessionId>.json) Core Physics A read-only Stop-hook tracker (src/utils/sessionCalibration.mjs) saved under ~/.attention-horizon/cache/sessions/. It logs finished turns, unique API calls, starting cache size, and your 10-turn median output length, blending early turns (< 5) toward safe defaults (500 output tokens, R = 2.0). Flight Mode Core Physics Top-level control mode in .a"
   },
   {
@@ -517,7 +517,7 @@ window.AH_SEARCH_INDEX = [
     "title": "Terminology & Glossary",
     "section": "P to S",
     "href": "glossary.html#terms-p-s",
-    "keywords": "TurnZeroGate DET-09 prefix_cache_shield.mjs turn_zero_gate.mjs AGENTS.md CLAUDE.md 0s /compact .agents/cache/learnings-queue.json .claude/cache/learnings-queue.json /evolve confidence >= 0.55 harmful_count == 0 DET-01 DET-02 DET-18 DET-19 .ctl RUNNING PAUSED STEP ABORTED REWIND ~/.ctxtop/runtime/<sessionId>.ctl ctxtop control DET-20 .agents/locks/active_scopes.json 900s horizon-daemon sidecars/horizon-daemon/server.mjs 127.0.0.1:62935..62945 ACTIVE_SET task.md docs/HANDOFF_<timestamp>.md .claude/cache/HANDOFF_LATEST.md ah-statusline bin/ah-statusline.mjs statusLine 80 110 144",
+    "keywords": "TurnZeroGate DET-09 prefix_cache_shield.mjs turn_zero_gate.mjs AGENTS.md CLAUDE.md 0s /compact .agents/cache/learnings-queue.json .claude/cache/learnings-queue.json /evolve confidence >= 0.55 harmful_count == 0 DET-01 DET-02 DET-18 DET-19 .ctl RUNNING PAUSED STEP ABORTED REWIND ~/.ctxtop/runtime/<sessionId>.ctl highbeam control DET-20 .agents/locks/active_scopes.json 900s horizon-daemon sidecars/horizon-daemon/server.mjs 127.0.0.1:62935..62945 ACTIVE_SET task.md docs/HANDOFF_<timestamp>.md .claude/cache/HANDOFF_LATEST.md ah-statusline bin/ah-statusline.mjs statusLine 80 110 144",
     "body": "Prefix Cache Shield & TurnZeroGate Core Physics A cache guard (DET-09, prefix_cache_shield.mjs, turn_zero_gate.mjs) that holds edits to AGENTS.md, CLAUDE.md, and rule files while your prompt cache is warm. Held edits write cleanly once the cache timer hits 0s or right after /compact. Primacy Band & Recency Tail Core Physics The two sharpest recall zones on the U-curve. Primacy covers Turn-0 rules at the start of the "
   },
   {
@@ -525,8 +525,8 @@ window.AH_SEARCH_INDEX = [
     "title": "Terminology & Glossary",
     "section": "T to W",
     "href": "glossary.html#terms-t-w",
-    "keywords": "hooks/register.js ~0.2ms p95 AH_TIER1_MOD_ACTIVE=1 hooks/handlers/*.mjs ctxtop doctor --prune-tools POST /api/surgeon .bak src/core-isomorphic/ustf/ ctxtop inspect inherit branch share",
-    "body": "Tier-1 In-Process Module vs. Tier-2 Command Hook Claude Code Tier-1 is an in-process module (hooks/register.js) that current Claude Code does not load, so it is dormant. Tier-2 runs Node scripts in hooks/handlers/*.mjs as command hooks and is what executes in every session today. Tool-Output Surgeon Core Physics An offline log trimmer (ctxtop doctor --prune-tools and POST /api/surgeon). It writes a .bak backup first, then trims old uncached tool outputs "
+    "keywords": "hooks/register.js ~0.2ms p95 AH_TIER1_MOD_ACTIVE=1 hooks/handlers/*.mjs highbeam doctor --prune-tools POST /api/surgeon .bak src/core-isomorphic/ustf/ highbeam inspect inherit branch share",
+    "body": "Tier-1 In-Process Module vs. Tier-2 Command Hook Claude Code Tier-1 is an in-process module (hooks/register.js) that current Claude Code does not load, so it is dormant. Tier-2 runs Node scripts in hooks/handlers/*.mjs as command hooks and is what executes in every session today. Tool-Output Surgeon Core Physics An offline log trimmer (highbeam doctor --prune-tools and POST /api/surgeon). It writes a .bak backup first, then trims old uncached tool outputs "
   },
   {
     "pageTitle": "Lifecycle Hooks & Runtime Control",
@@ -565,7 +565,7 @@ window.AH_SEARCH_INDEX = [
     "title": "Lifecycle Hooks & Runtime Control",
     "section": "Chunked Binary Capability Probing (claudeHookCapabilities.mjs)",
     "href": "hooks-lifecycle.html#claude-binary-capabilities",
-    "keywords": "src/diagnostics/claudeHookCapabilities.mjs inspectClaudeBinaryCapabilities() claude CLAUDE_BIN PATH .cmd 4 MB 256 PreModelSwitch PostModelSwitch PreEffortChange from_model to_model prompt_cache_warm context_tokens permissionBehavior===\"ask\" blocked_by_hook (binaryPath, size, mtimeMs) .claude/cache/ah_claude_capabilities.json ctxtop install omittedUnsupportedHooks claudeHookCapabilities.mjs",
+    "keywords": "src/diagnostics/claudeHookCapabilities.mjs inspectClaudeBinaryCapabilities() claude CLAUDE_BIN PATH .cmd 4 MB 256 PreModelSwitch PostModelSwitch PreEffortChange from_model to_model prompt_cache_warm context_tokens permissionBehavior===\"ask\" blocked_by_hook (binaryPath, size, mtimeMs) .claude/cache/ah_claude_capabilities.json highbeam install omittedUnsupportedHooks claudeHookCapabilities.mjs",
     "body": "Built into src/diagnostics/claudeHookCapabilities.mjs, Highbeam checks Claude Code hook support on disk without spawning slow subshells or filling V8 memory. inspectClaudeBinaryCapabilities() streams your claude binary (found via CLAUDE_BIN or PATH, unwrapping Windows .cmd shims) in 4 MB chunks with a 256-byte overlap. It checks 10 markers: PreModelSwitch, PostModelSwitch, PreEffortChange, keys from_model, to_model, "
   },
   {
@@ -590,15 +590,15 @@ window.AH_SEARCH_INDEX = [
     "section": "Context visibility and zero-token guards for AI coding chats.",
     "href": "index.html",
     "keywords": "index",
-    "body": "Highbeam (ctxtop) maps your live context window across a 40-cell bar, keeps warm KV caches safe from mistimed model switches, and blocks unsafe shell or file edits before tokens leave your machine."
+    "body": "Highbeam (`highbeam-cli`) maps your live context window across a 40-cell bar, keeps warm KV caches safe from mistimed model switches, and blocks unsafe shell or file edits before tokens leave your machine."
   },
   {
     "pageTitle": "Context visibility and zero-token guards for AI coding chats.",
     "title": "Context visibility and zero-token guards for AI coding chats.",
     "section": "60-Second Quick Launch",
     "href": "index.html#quick-launch",
-    "keywords": "npx ctxtop init --all-hosts npx ctxtop doctor ah-statusline npx attention-horizon-antigravity init --workspace npx ctxtop --serve PreInvocation @ah-flash-scout 127.0.0.1:62935 npx ah-claude install --global npx ah-claude statusline --demo npx ah-claude receipt statusLine ~/.claude/settings.json npx ctxtop init --mcp npx ctxtop doctor --json @ctxtop/mcp .cursor/mcp.json horizon_status cache_gravity_check scope_lock_claim export_receipt_pdf horizon_compress_cli horizon_search_logs horizon_audit_sessions",
-    "body": "Run the installer from your project root to wire hooks, status bars, and sidecar files safely. It backs up your current settings before saving any changes. Dual-Host (Recommended) Google Antigravity Claude Code Cursor & Windsurf MCP Terminal · Dual-Host Setup npx ctxtop init --all-hosts npx ctxtop doctor Configures Google Antigravity, Claude Code, and supported MCP hosts (Cursor, Windsurf, Codex CLI, Gemini CLI) in one pass."
+    "keywords": "npx highbeam-cli init --all-hosts npx highbeam-cli doctor ah-statusline npx attention-horizon-antigravity init --workspace npx highbeam-cli --serve PreInvocation @ah-flash-scout 127.0.0.1:62935 npx ah-claude install --global npx ah-claude statusline --demo npx ah-claude receipt statusLine ~/.claude/settings.json npx highbeam-cli init --mcp npx highbeam-cli doctor --json @ctxtop/mcp .cursor/mcp.json horizon_status cache_gravity_check scope_lock_claim export_receipt_pdf horizon_compress_cli horizon_search_logs horizon_audit_sessions",
+    "body": "Run the installer from your project root to wire hooks, status bars, and sidecar files safely. It backs up your current settings before saving any changes. Dual-Host (Recommended) Google Antigravity Claude Code Cursor & Windsurf MCP Terminal · Dual-Host Setup npx highbeam-cli init --all-hosts npx highbeam-cli doctor Configures Google Antigravity, Claude Code, and supported MCP hosts (Cursor, Windsurf, Codex CLI, Gemini CLI) in one pass."
   },
   {
     "pageTitle": "Context visibility and zero-token guards for AI coding chats.",
@@ -645,8 +645,8 @@ window.AH_SEARCH_INDEX = [
     "title": "Installation, Verification & Migration",
     "section": "1. Unified Dual-Host Installation",
     "href": "installation.html#install-dual-host",
-    "keywords": "ctxtop init --all-hosts",
-    "body": "Use ctxtop init --all-hosts to configure Google Antigravity, Claude Code, and supported MCP hosts (Cursor, Windsurf, Codex CLI, Gemini CLI) in one pass: Preview and Run Unified Installer # Preview planned file paths without writing npx ctxtop init --all-hosts --dry-run # Perform non-destructive multi-host installation npx ctxtop init --all-hosts"
+    "keywords": "highbeam init --all-hosts",
+    "body": "Use highbeam init --all-hosts to configure Google Antigravity, Claude Code, and supported MCP hosts (Cursor, Windsurf, Codex CLI, Gemini CLI) in one pass: Preview and Run Unified Installer # Preview planned file paths without writing npx highbeam-cli init --all-hosts --dry-run # Perform non-destructive multi-host installation npx highbeam-cli init --all-hosts"
   },
   {
     "pageTitle": "Installation, Verification & Migration",
@@ -654,23 +654,23 @@ window.AH_SEARCH_INDEX = [
     "section": "2. Google Antigravity Installation",
     "href": "installation.html#install-antigravity",
     "keywords": ".agents/plugins/ ~/.gemini/config/plugins/",
-    "body": "Install Highbeam for one workspace (.agents/plugins/) or globally across all projects (~/.gemini/config/plugins/). You can also clone the repo for local work: Google Antigravity Setup Options # Option A: Workspace plugin installation npx attention-horizon-antigravity init --workspace # Option B: Global user installation via ctxtop npx ctxtop init --antigravity --global # Option C: Local source checkout & 3-way mirror"
+    "body": "Install Highbeam for one workspace (.agents/plugins/) or globally across all projects (~/.gemini/config/plugins/). You can also clone the repo for local work: Google Antigravity Setup Options # Option A: Workspace plugin installation npx attention-horizon-antigravity init --workspace # Option B: Global user installation via ctxtop npx highbeam-cli init --antigravity --global # Option C: Local source checkout & 3-way mirror"
   },
   {
     "pageTitle": "Installation, Verification & Migration",
     "title": "Installation, Verification & Migration",
     "section": "3. Claude Code Installation (Lean vs. Full Hooks)",
     "href": "installation.html#install-claude-code",
-    "keywords": "ctxtop install ah-claude install ah-statusline .claude/settings.json ~/.claude/settings.json --global -g .claude-plugin/plugin.json /horizon /cost-radar /inspect /handoff /precheck /evolve hooks/hooks.json ctxtop init --claude inspectClaudeBinaryCapabilities() PostModelSwitch omittedUnsupportedHooks",
-    "body": "For Claude Code, ctxtop install (or ah-claude install) merges hooks and the ah-statusline bar into .claude/settings.json (project scope) or ~/.claude/settings.json (--global / -g). Your existing custom hooks stay untouched: Claude Code Project vs. Global Installation # Recommended: Lean hook profile in global ~/.claude/settings.json npx ah-claude install --global --lean-hooks # Project-local full hook profile (.claud"
+    "keywords": "highbeam install ah-claude install ah-statusline .claude/settings.json ~/.claude/settings.json --global -g .claude-plugin/plugin.json /horizon /cost-radar /inspect /handoff /precheck /evolve hooks/hooks.json highbeam init --claude inspectClaudeBinaryCapabilities() PostModelSwitch omittedUnsupportedHooks",
+    "body": "For Claude Code, highbeam install (or ah-claude install) merges hooks and the ah-statusline bar into .claude/settings.json (project scope) or ~/.claude/settings.json (--global / -g). Your existing custom hooks stay untouched: Claude Code Project vs. Global Installation # Recommended: Lean hook profile in global ~/.claude/settings.json npx ah-claude install --global --lean-hooks # Project-local full hook profile (.claud"
   },
   {
     "pageTitle": "Installation, Verification & Migration",
     "title": "Installation, Verification & Migration",
     "section": "4. Cursor & Windsurf MCP Registration",
     "href": "installation.html#install-mcp",
-    "keywords": "@ctxtop/mcp C* # Project-scoped .cursor/mcp.json npx ctxtop init --mcp # Global ~/.cursor/mcp.json npx ctxtop init --mcp --global",
-    "body": "Add @ctxtop/mcp to use Highbeam stats, C* switch checks, and multi-agent Scope Lock Leases in Cursor or Windsurf: Register @ctxtop/mcp in .cursor/mcp.json # Project-scoped .cursor/mcp.json npx ctxtop init --mcp # Global ~/.cursor/mcp.json npx ctxtop init --mcp --global"
+    "keywords": "@ctxtop/mcp C* # Project-scoped .cursor/mcp.json npx highbeam-cli init --mcp # Global ~/.cursor/mcp.json npx highbeam-cli init --mcp --global",
+    "body": "Add @ctxtop/mcp to use Highbeam stats, C* switch checks, and multi-agent Scope Lock Leases in Cursor or Windsurf: Register @ctxtop/mcp in .cursor/mcp.json # Project-scoped .cursor/mcp.json npx highbeam-cli init --mcp # Global ~/.cursor/mcp.json npx highbeam-cli init --mcp --global"
   },
   {
     "pageTitle": "Installation, Verification & Migration",
@@ -685,16 +685,16 @@ window.AH_SEARCH_INDEX = [
     "title": "Installation, Verification & Migration",
     "section": "Verification & Health Diagnostics",
     "href": "installation.html#doctor-and-verification",
-    "keywords": "ctxtop doctor ctxtop verify --json claudeCapabilities modelSwitchTelemetry sess_<12hex> npx ctxtop doctor --diagnostic",
-    "body": "After setup, run ctxtop doctor and ctxtop verify. They check every manifest, hook contract, Claude binary flag, model rate card, and file checksum. Pass --json to view full claudeCapabilities and scrubbed modelSwitchTelemetry (using one-way SHA-256 sess_<12hex> session hashes): Verify Contracts & Release Checksums $ npx ctxtop doctor [Highbeam Doctor] Status: HEALTHY [PASS] node_version: Node.js v22.14.0 (requires >="
+    "keywords": "highbeam doctor highbeam verify --json claudeCapabilities modelSwitchTelemetry sess_<12hex> npx highbeam-cli doctor --diagnostic",
+    "body": "After setup, run highbeam doctor and highbeam verify. They check every manifest, hook contract, Claude binary flag, model rate card, and file checksum. Pass --json to view full claudeCapabilities and scrubbed modelSwitchTelemetry (using one-way SHA-256 sess_<12hex> session hashes): Verify Contracts & Release Checksums $ npx highbeam-cli doctor [Highbeam Doctor] Status: HEALTHY [PASS] node_version: Node.js v22.14.0 (requires >="
   },
   {
     "pageTitle": "Installation, Verification & Migration",
     "title": "Installation, Verification & Migration",
     "section": "Safe Deduplication, Migration & Uninstallation",
     "href": "installation.html#migration-and-uninstall",
-    "keywords": "migrateLegacyHorizonConfig DET-01..DET-32 npx ctxtop init --claude --dedupe settings.json npx ctxtop doctor --recover-brain --dry-run --dry-run",
-    "body": "Upgrading from v3.x (`ga-visualizer` / `agy-horizon` IDs) or moving from project hooks to global hooks takes two quick steps: Legacy Config Migration: migrateLegacyHorizonConfig maps old v3 rule names to v4.0 DET-01..DET-32 IDs automatically. Hook Deduplication: Run npx ctxtop init --claude --dedupe to clean out duplicate or old Highbeam entries from settings.json. Your other third-party hooks stay intact. Orphaned A"
+    "keywords": "migrateLegacyHorizonConfig DET-01..DET-32 npx highbeam-cli init --claude --dedupe settings.json npx highbeam-cli doctor --recover-brain --dry-run --dry-run",
+    "body": "Upgrading from v3.x (`ga-visualizer` / `agy-horizon` IDs) or moving from project hooks to global hooks takes two quick steps: Legacy Config Migration: migrateLegacyHorizonConfig maps old v3 rule names to v4.0 DET-01..DET-32 IDs automatically. Hook Deduplication: Run npx highbeam-cli init --claude --dedupe to clean out duplicate or old Highbeam entries from settings.json. Your other third-party hooks stay intact. Orphaned A"
   },
   {
     "pageTitle": "Installation, Verification & Migration",
@@ -702,7 +702,7 @@ window.AH_SEARCH_INDEX = [
     "section": "Clean Uninstallation",
     "href": "installation.html#clean-uninstall",
     "keywords": "",
-    "body": "Remove Hooks and Optional Local Caches # 1. Remove Highbeam hooks & statusLine from Claude Code settings npx ctxtop uninstall --global npx ctxtop uninstall --project # 2. Optional: remove local telemetry caches and runtime control latches rm -rf ~/.ctxtop ~/.attention-horizon .claude/cache/ah_live_state_*.json .attention-horizon.json"
+    "body": "Remove Hooks and Optional Local Caches # 1. Remove Highbeam hooks & statusLine from Claude Code settings npx highbeam-cli uninstall --global npx highbeam-cli uninstall --project # 2. Optional: remove local telemetry caches and runtime control latches rm -rf ~/.ctxtop ~/.attention-horizon .claude/cache/ah_live_state_*.json .attention-horizon.json"
   },
   {
     "pageTitle": "MCP Server, HTTP Daemon & Micro-IPC API",
@@ -773,8 +773,8 @@ window.AH_SEARCH_INDEX = [
     "title": "Pro Licensing, FinOps & Troubleshooting",
     "section": "1. Three-Tier Entitlement Matrix",
     "href": "pro-troubleshooting.html#tier-matrix",
-    "keywords": "npx ctxtop tiers src/core/pro_license.mjs $0/mo HOLD_COMPACT GUARD-4 PreToolUse $149/yr $199 Founder Lifetime #tufteBaselineStrip AUTO_PILOT C* $299/yr 5 seats .agents/rules/ POST /api/export/sanitized ctxtop team-pack",
-    "body": "Run npx ctxtop tiers anytime to view the plan table from src/core/pro_license.mjs: Tier Pricing Included Capabilities FreeMIT Core $0/mo Simple View HUD & 4-rank verdict bar, 40-cell U-curve context map, live 5m/1h cache timers, HOLD_COMPACT warm cache alerts, auto PreToolUse delta-reads & 3rd-read AST stubs (GUARD-4), multi-family FTS5 CLI compression, and all 32 guards. ProSolo Dev $149/yr or $199 one-time Founder Lifetime (first 200) AUTO_PILOT hands-free enforcement & C* switch holds, 30-day chronic offender memory & workspace savings ledger (#tufteBaselineStrip), and signed corporate PDF 1.4 expense receipts (ctxtop receipt --pdf)."
+    "keywords": "npx highbeam-cli tiers src/core/pro_license.mjs $0/mo HOLD_COMPACT GUARD-4 PreToolUse $149/yr $199 Founder Lifetime #tufteBaselineStrip AUTO_PILOT C* $299/yr 5 seats .agents/rules/ POST /api/export/sanitized highbeam team-pack",
+    "body": "Run npx highbeam-cli tiers anytime to view the plan table from src/core/pro_license.mjs: Tier Pricing Included Capabilities FreeMIT Core $0/mo Simple View HUD & 4-rank verdict bar, 40-cell U-curve context map, live 5m/1h cache timers, HOLD_COMPACT warm cache alerts, auto PreToolUse delta-reads & 3rd-read AST stubs (GUARD-4), multi-family FTS5 CLI compression, and all 32 guards. ProSolo Dev $149/yr or $199 one-time Founder Lifetime (first 200) AUTO_PILOT hands-free enforcement & C* switch holds, 30-day chronic offender memory & workspace savings ledger (#tufteBaselineStrip), and signed corporate PDF 1.4 expense receipts (highbeam receipt --pdf)."
   },
   {
     "pageTitle": "Pro Licensing, FinOps & Troubleshooting",
@@ -782,15 +782,15 @@ window.AH_SEARCH_INDEX = [
     "section": "2. Offline Ed25519 Activation & 14-Day Trial",
     "href": "pro-troubleshooting.html#offline-ed25519-licensing",
     "keywords": "src/core/pro_license.mjs ~/.ctxtop/license.json",
-    "body": "Pro and Team keys never call a cloud server. Each key is an Ed25519 token checked locally against the public key in src/core/pro_license.mjs and saved to ~/.ctxtop/license.json: Manage Local Trial, License Token & Receipts # Start a 14-day local Pro evaluation (zero network calls, no credit card) npx ctxtop license trial # Activate a signed Ed25519 license token npx ctxtop license activate <ed25519-license-token> # Verify en"
+    "body": "Pro and Team keys never call a cloud server. Each key is an Ed25519 token checked locally against the public key in src/core/pro_license.mjs and saved to ~/.ctxtop/license.json: Manage Local Trial, License Token & Receipts # Start a 14-day local Pro evaluation (zero network calls, no credit card) npx highbeam-cli license trial # Activate a signed Ed25519 license token npx highbeam-cli license activate <ed25519-license-token> # Verify en"
   },
   {
     "pageTitle": "Pro Licensing, FinOps & Troubleshooting",
     "title": "Pro Licensing, FinOps & Troubleshooting",
     "section": "3. Platform Quirks & Diagnostic Playbook",
     "href": "pro-troubleshooting.html#troubleshooting-playbook",
-    "keywords": "npx ctxtop doctor",
-    "body": "Every issue below has a fast check or a one-line local fix. Run npx ctxtop doctor first to check host setup and recent hook logs."
+    "keywords": "npx highbeam-cli doctor",
+    "body": "Every issue below has a fast check or a one-line local fix. Run npx highbeam-cli doctor first to check host setup and recent hook logs."
   },
   {
     "pageTitle": "Pro Licensing, FinOps & Troubleshooting",
@@ -821,15 +821,15 @@ window.AH_SEARCH_INDEX = [
     "title": "Pro Licensing, FinOps & Troubleshooting",
     "section": "Tool Execution Appears Hung or Frozen",
     "href": "pro-troubleshooting.html#quirk-paused-session",
-    "keywords": "PreToolUse Execution halted by control latch PAUSED ABORTED ctxtop control",
-    "body": "Symptom: Tool calls pause at PreToolUse (up to 10 minutes) or fail right away with Execution halted by control latch. Resolution: Check if the session was set to PAUSED or ABORTED via ctxtop control: Inspect and Clear Runtime Control Latch npx ctxtop control status --session default npx ctxtop control resume --session default # If ABORTED (terminal), remove the session latch file to reset: rm ~/.ctxtop/runtime/defaul"
+    "keywords": "PreToolUse Execution halted by control latch PAUSED ABORTED highbeam control",
+    "body": "Symptom: Tool calls pause at PreToolUse (up to 10 minutes) or fail right away with Execution halted by control latch. Resolution: Check if the session was set to PAUSED or ABORTED via highbeam control: Inspect and Clear Runtime Control Latch npx highbeam-cli control status --session default npx highbeam-cli control resume --session default # If ABORTED (terminal), remove the session latch file to reset: rm ~/.ctxtop/runtime/defaul"
   },
   {
     "pageTitle": "Pro Licensing, FinOps & Troubleshooting",
     "title": "Pro Licensing, FinOps & Troubleshooting",
     "section": "Missing node:sqlite / SQLITE_ENABLE_FTS5, Binary Capabilities & Bloated state.vscdb",
     "href": "pro-troubleshooting.html#quirk-sqlite-and-storage",
-    "keywords": "SQLITE_ENABLE_FTS5 src/engine-node/db/probe.mjs CTXTOP_FORCE_FTS5_POLYFILL=1 node:sqlite CTXTOP_FORCE_NO_SQLITE=1 ctxtop doctor [WARN] claude_pre_model_switch npx ctxtop doctor --json CLAUDE_BIN PreModelSwitch PostModelSwitch supportsAskDecision npx ctxtop doctor --recover-brain --dry-run --dry-run npx ctxtop doctor --gc-cursor --vscdb <path-to-state.vscdb> --dry-run npx ctxtop doctor --diagnostic > diagnostic.md state.vscdb",
+    "keywords": "SQLITE_ENABLE_FTS5 src/engine-node/db/probe.mjs CTXTOP_FORCE_FTS5_POLYFILL=1 node:sqlite CTXTOP_FORCE_NO_SQLITE=1 highbeam doctor [WARN] claude_pre_model_switch npx highbeam-cli doctor --json CLAUDE_BIN PreModelSwitch PostModelSwitch supportsAskDecision npx highbeam-cli doctor --recover-brain --dry-run --dry-run npx highbeam-cli doctor --gc-cursor --vscdb <path-to-state.vscdb> --dry-run npx highbeam-cli doctor --diagnostic > diagnostic.md state.vscdb",
     "body": "Automatic FTS5 Polyfill (Node 22): If your Node 22 binary lacks SQLITE_ENABLE_FTS5, src/engine-node/db/probe.mjs loads a built-in SQLite table and snippet polyfill automatically. Set CTXTOP_FORCE_FTS5_POLYFILL=1 to test it directly. Force JSONL Mode: Highbeam needs Node 22.13 or newer. If SQLite misbehaves on your build, set CTXTOP_FORCE_NO_SQLITE=1. Highbeam switches cleanly to read-only JSONL offset reads. Claude Binary Capability Warnings: "
   },
   {
@@ -861,8 +861,8 @@ window.AH_SEARCH_INDEX = [
     "title": "Google Antigravity vs. Claude Code",
     "section": "Sidecar Daemon & Simple / Advanced WebView",
     "href": "surfaces.html#antigravity-sidecar-and-ui",
-    "keywords": "sidecars/horizon-daemon/sidecar.json node --no-warnings server.mjs 62935 62935..62945 SIDECAR_UI_ENTRYPOINT_AUX_PANE sidecar://agy-horizon-flightcheck/horizon-daemon/ npx ctxtop --serve #argonSimpleSurface #argonAdvancedSurface 360px test/top10_token_wasters_ui.test.mjs #tsBarSignal #tsBarClutter #tsStatusLabel DO AVOID MODEL EFFORT #tsDoText #tsAvoidText #tsModelCard #tsEffortCard /compact #tsWhyClears #tsWhyList #tsWhyTotal #btnCompactPrimary #btnCopyParameterizedCompact #compactInstruction #compactReclaim #tsBtnCleanPrimary #taConsumersBody Ignore file .antigravityignore isIgnorablePath Active Source ~/.gemini/config/plugins/agy-horizon agy-horizon-flightcheck node scripts/sync_mirrors.mjs horizon_panel.html src/core/*.mjs",
-    "body": "sidecars/horizon-daemon/sidecar.json starts node --no-warnings server.mjs on local port 62935 (trying 62935..62945 if busy). It mounts straight into Antigravity's side pane via SIDECAR_UI_ENTRYPOINT_AUX_PANE. You can also open it from chat via the sidecar://agy-horizon-flightcheck/horizon-daemon/ pill or run npx ctxtop --serve in a browser. The panel offers a clean Simple View (#argonSimpleSurface) and a full Advance"
+    "keywords": "sidecars/horizon-daemon/sidecar.json node --no-warnings server.mjs 62935 62935..62945 SIDECAR_UI_ENTRYPOINT_AUX_PANE sidecar://agy-horizon-flightcheck/horizon-daemon/ npx highbeam-cli --serve #argonSimpleSurface #argonAdvancedSurface 360px test/top10_token_wasters_ui.test.mjs #tsBarSignal #tsBarClutter #tsStatusLabel DO AVOID MODEL EFFORT #tsDoText #tsAvoidText #tsModelCard #tsEffortCard /compact #tsWhyClears #tsWhyList #tsWhyTotal #btnCompactPrimary #btnCopyParameterizedCompact #compactInstruction #compactReclaim #tsBtnCleanPrimary #taConsumersBody Ignore file .antigravityignore isIgnorablePath Active Source ~/.gemini/config/plugins/agy-horizon agy-horizon-flightcheck node scripts/sync_mirrors.mjs horizon_panel.html src/core/*.mjs",
+    "body": "sidecars/horizon-daemon/sidecar.json starts node --no-warnings server.mjs on local port 62935 (trying 62935..62945 if busy). It mounts straight into Antigravity's side pane via SIDECAR_UI_ENTRYPOINT_AUX_PANE. You can also open it from chat via the sidecar://agy-horizon-flightcheck/horizon-daemon/ pill or run npx highbeam-cli --serve in a browser. The panel offers a clean Simple View (#argonSimpleSurface) and a full Advance"
   },
   {
     "pageTitle": "Google Antigravity vs. Claude Code",
@@ -909,8 +909,8 @@ window.AH_SEARCH_INDEX = [
     "title": "Guided Step-by-Step Tutorials",
     "section": "Tutorial 1: First Setup, Live HUD & Prompt Precheck",
     "href": "tutorials.html#tutorial-1-first-task",
-    "keywords": "doctor #check /precheck $ npx ctxtop receipt --markdown",
-    "body": "Goal: Set up Highbeam in a repo, preview the status bar, test a vague prompt before spending high-effort tokens, and print a savings receipt. Set up the project and run health checks Run the unified installer from your repo root. Then run doctor to make sure all checks pass. Step 1 · Input & Expected Output $ npx ctxtop init --all-hosts ⚡ Highbeam (ctxtop v4.0.0) - Zero-Config Unified Installer [PASS] Claude Code hooks mer"
+    "keywords": "doctor #check /precheck $ npx highbeam-cli receipt --markdown",
+    "body": "Goal: Set up Highbeam in a repo, preview the status bar, test a vague prompt before spending high-effort tokens, and print a savings receipt. Set up the project and run health checks Run the unified installer from your repo root. Then run doctor to make sure all checks pass. Step 1 · Input & Expected Output $ npx highbeam-cli init --all-hosts ⚡ Highbeam (highbeam-cli v4.1) - Zero-Config Unified Installer [PASS] Claude Code hooks mer"
   },
   {
     "pageTitle": "Guided Step-by-Step Tutorials",
@@ -925,15 +925,15 @@ window.AH_SEARCH_INDEX = [
     "title": "Guided Step-by-Step Tutorials",
     "section": "Tutorial 3: Auditing Failed Runs, Stepping Execution & Surgical Pruning",
     "href": "tutorials.html#tutorial-3-debugging-and-pruning",
-    "keywords": "DET-04 ctxtop control CONTEXT_ROT_DECAY VERIFICATION_CHURN --prune-tools --dry-run --dry-run .bak",
-    "body": "Goal: Pause a stuck test loop, step through one tool call at a time, check recent chats for waste, and trim old tool outputs with a backup. Pause and single-step a live agent chat If an agent loops on failing tests (nearing the DET-04 3-strike limit), pause it from a second terminal with ctxtop control: Step 1 · Pause, Step Once, and Resume # Suspend at the next PreToolUse boundary (writes ~/.ctxtop/runtime/default.c"
+    "keywords": "DET-04 highbeam control CONTEXT_ROT_DECAY VERIFICATION_CHURN --prune-tools --dry-run --dry-run .bak",
+    "body": "Goal: Pause a stuck test loop, step through one tool call at a time, check recent chats for waste, and trim old tool outputs with a backup. Pause and single-step a live agent chat If an agent loops on failing tests (nearing the DET-04 3-strike limit), pause it from a second terminal with highbeam control: Step 1 · Pause, Step Once, and Resume # Suspend at the next PreToolUse boundary (writes ~/.ctxtop/runtime/default.c"
   },
   {
     "pageTitle": "Guided Step-by-Step Tutorials",
     "title": "Guided Step-by-Step Tutorials",
     "section": "Tutorial 4: Zero-Loss Compaction & Cross-Model Spec Relay",
     "href": "tutorials.html#tutorial-4-compaction-and-relay",
-    "keywords": "/compact HOLD_COMPACT $ npx ctxtop receipt --simple /handoff Next Action Blockers Decisions git status --porcelain $ npx ctxtop doctor --handoff ✔ PASS Handoff Distillation Generated handoff document at docs/HANDOFF_2026-11-12.md TurnZeroGate 00:00 amputation_token_threshold #btnCompactPrimary PrefixCacheShield PostCompact /relay S0 S1 T <30 Defer",
-    "body": "Goal: Pack a deep 135k-token chat into a clean State Baton without wasting a warm cache, and build a short Cold Critic Packet for spec reviews. Check your cache timer before compacting Running /compact while 50k+ tokens are still warm inside a 5-minute window throws away cheap cache reads (HOLD_COMPACT). Check your timer first: Step 1 · Inspect TTL & Saved Quota $ npx ctxtop receipt --simple Build and check the State"
+    "keywords": "/compact HOLD_COMPACT $ npx highbeam-cli receipt --simple /handoff Next Action Blockers Decisions git status --porcelain $ npx highbeam-cli doctor --handoff ✔ PASS Handoff Distillation Generated handoff document at docs/HANDOFF_2026-11-12.md TurnZeroGate 00:00 amputation_token_threshold #btnCompactPrimary PrefixCacheShield PostCompact /relay S0 S1 T <30 Defer",
+    "body": "Goal: Pack a deep 135k-token chat into a clean State Baton without wasting a warm cache, and build a short Cold Critic Packet for spec reviews. Check your cache timer before compacting Running /compact while 50k+ tokens are still warm inside a 5-minute window throws away cheap cache reads (HOLD_COMPACT). Check your timer first: Step 1 · Inspect TTL & Saved Quota $ npx highbeam-cli receipt --simple Build and check the State"
   }
 ];

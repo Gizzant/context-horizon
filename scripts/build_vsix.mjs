@@ -193,10 +193,10 @@ export function buildContentTypesXml() {
 }
 
 export function buildVsixManifestXml(pkg = {}) {
-  const name = escapeXml(pkg.name || 'highbeam-ctxtop');
+  const name = escapeXml(pkg.name || 'highbeam');
   const publisher = escapeXml(pkg.publisher || 'gizzant');
   const version = escapeXml(pkg.version || '4.1.4');
-  const displayName = escapeXml(pkg.displayName || 'Highbeam (ctxtop)');
+  const displayName = escapeXml(pkg.displayName || 'Highbeam');
   const description = escapeXml(pkg.description || '');
   const categories = Array.isArray(pkg.categories) ? escapeXml(pkg.categories.join(',')) : 'Other';
   const tags = Array.isArray(pkg.keywords) ? escapeXml(pkg.keywords.join(',')) : '';

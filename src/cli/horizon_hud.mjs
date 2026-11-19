@@ -419,7 +419,7 @@ export async function runDemoShowcase({ scenarioId = null, animate = false, colu
       if (animate) await new Promise(r => setTimeout(r, 450));
     }
   }
-  console.log('\n' + clampAnsiLine('\x1b[38;5;245mTry: npx ctxtop --demo-animate | Web UI: npx ctxtop ui\x1b[0m', maxCols) + '\n');
+  console.log('\n' + clampAnsiLine('\x1b[38;5;245mTry: npx highbeam-cli --demo-animate | Web UI: npx highbeam-cli ui\x1b[0m', maxCols) + '\n');
 }
 
 export function isHudMain(argv1 = process.argv[1], metaUrl = import.meta.url) {

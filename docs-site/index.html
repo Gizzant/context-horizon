@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Highbeam User Guide (ctxtop v4.1)</title>
-  <meta name="description" content="Official technical user guide for Highbeam (ctxtop v4.1), the 40-cell context visualizer, KV-cache gravity router, and zero-token guardrail suite for Google Antigravity and Claude Code." />
+  <title>Highbeam User Guide (highbeam-cli v4.1)</title>
+  <meta name="description" content="Official technical user guide for Highbeam (highbeam-cli v4.1), the 40-cell context visualizer, KV-cache gravity router, and zero-token guardrail suite for Google Antigravity and Claude Code." />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body data-page="index">
@@ -14,10 +14,10 @@
     <nav class="sidebar" id="site-sidebar" aria-label="Documentation chapters"></nav>
 
     <main class="doc-main prose">
-      <p class="doc-eyebrow">Highbeam &middot; ctxtop v4.1</p>
+      <p class="doc-eyebrow">Highbeam &middot; highbeam-cli v4.1</p>
       <h1 class="doc-title">Context visibility and zero-token guards for AI coding chats.</h1>
       <p class="doc-lead">
-        Highbeam (<code>ctxtop</code>) maps your live context window across a 40-cell bar, keeps warm KV caches safe from mistimed model switches, and blocks unsafe shell or file edits before tokens leave your machine.
+        Highbeam (<code>highbeam</code>) maps your live context window across a 40-cell bar, keeps warm KV caches safe from mistimed model switches, and blocks unsafe shell or file edits before tokens leave your machine.
       </p>
 
       <!-- Hero Architectural Diagram -->
@@ -108,8 +108,8 @@
         <div class="tab-panel" data-panel="dual">
           <div class="code-block terminal">
             <div class="code-header"><span><span class="window-dots"><span></span><span></span><span></span></span>Terminal &middot; Dual-Host Setup</span></div>
-            <pre><code>npx ctxtop init --all-hosts
-npx ctxtop doctor</code></pre>
+            <pre><code>npx highbeam-cli init --all-hosts
+npx highbeam-cli doctor</code></pre>
           </div>
           <p>Configures Google Antigravity, Claude Code, and supported MCP hosts (Cursor, Windsurf, Codex CLI, Gemini CLI) in one pass. It merges lean hooks, sets up the <code>ah-statusline</code> bar, and checks every file contract.</p>
         </div>
@@ -117,8 +117,8 @@ npx ctxtop doctor</code></pre>
         <div class="tab-panel" data-panel="antigravity" hidden>
           <div class="code-block terminal">
             <div class="code-header"><span><span class="window-dots"><span></span><span></span><span></span></span>Terminal &middot; Google Antigravity</span></div>
-            <pre><code>npx ctxtop init --workspace
-npx ctxtop --serve</code></pre>
+            <pre><code>npx highbeam-cli init --workspace
+npx highbeam-cli --serve</code></pre>
           </div>
           <p>Adds the workspace plugin manifest, wires the 8-state <code>PreInvocation</code> router, enables <code>@ah-flash-scout</code>, and starts the local WebView HUD on <code>127.0.0.1:62935</code>.</p>
         </div>
@@ -136,8 +136,8 @@ npx ah-claude receipt</code></pre>
         <div class="tab-panel" data-panel="mcp" hidden>
           <div class="code-block terminal">
             <div class="code-header"><span><span class="window-dots"><span></span><span></span><span></span></span>Terminal &middot; MCP Stdio Server</span></div>
-            <pre><code>npx ctxtop init --mcp
-npx ctxtop doctor --json</code></pre>
+            <pre><code>npx highbeam-cli init --mcp
+npx highbeam-cli doctor --json</code></pre>
           </div>
           <p>Adds the zero-dependency <code>@ctxtop/mcp</code> stdio server to <code>.cursor/mcp.json</code>. That gives you all 7 tools: <code>horizon_status</code>, <code>cache_gravity_check</code>, <code>scope_lock_claim</code>, <code>export_receipt_pdf</code>, <code>horizon_compress_cli</code>, <code>horizon_search_logs</code>, and <code>horizon_audit_sessions</code>.</p>
         </div>
@@ -254,7 +254,7 @@ npx ctxtop doctor --json</code></pre>
         </a>
         <a class="goal-card" href="cli-reference.html">
           <div class="goal-card-title"><span>Look Up CLI Flags</span><span>&rarr;</span></div>
-          <p class="goal-card-desc">Check every command, flag, exit code, and JSON output in <code>ctxtop</code> v4.0.</p>
+          <p class="goal-card-desc">Check every command, flag, exit code, and JSON output in <code>highbeam</code> v4.1.</p>
         </a>
         <a class="goal-card" href="detectors.html">
           <div class="goal-card-title"><span>Tune Guardrails</span><span>&rarr;</span></div>

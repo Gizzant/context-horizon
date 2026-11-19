@@ -1,6 +1,6 @@
 <div align="center">
 
-# Highbeam (`ctxtop` v4.1) — Active Context Surgeon, KV-Cache Shield & Token FinOps for Claude Code, Google Antigravity & MCP Hosts
+# Highbeam (`highbeam-cli` v4.1) — Active Context Surgeon, KV-Cache Shield & Token FinOps for Claude Code, Google Antigravity & MCP Hosts
 
 **Local Context Window Profiler, KV-Cache TTL Monitor, Multi-Family FTS5 Output Compressor & Deterministic PreInvocation / PreToolUse Surgeon (each hook call runs as a short Node process: `~60–80ms` on Linux, `~200–275ms` on Windows; method in [Verification & Benchmarks](#verification--benchmarks)) across Google Antigravity, Claude Code, Codex CLI, Gemini CLI & Cursor**
 
@@ -31,7 +31,7 @@
 Before installing any hooks or modifying config files, scan your last 7 days of local **Google Antigravity**, **Claude Code**, **OpenAI Codex CLI**, **Gemini CLI**, and **Cursor** sessions strictly read-only to measure preventable token waste, cold-cache spikes, and oversized tool dumps:
 
 ```bash
-npx ctxtop audit --days 7
+npx highbeam-cli audit --days 7
 ```
 
 ```text
@@ -47,31 +47,33 @@ npx ctxtop audit --days 7
 
 | **Google Antigravity** *(1-Line Install)* | **Claude Code** *(1-Line Install)* | **Cursor / Windsurf / Codex / Gemini CLI** |
 | :--- | :--- | :--- |
-| `npx ctxtop init --antigravity` | `npx ctxtop init --claude --global` | `npx ctxtop init --cursor --windsurf --codex --gemini-cli` |
-| *Workspace-only*: `npx ctxtop init --workspace`<br/>*Health check*: `npx ctxtop doctor` | *StatusLine HUD*: `npx ctxtop statusline --demo`<br/>*In-chat pane*: `/horizon` · `/cost-radar` · `/handoff` | *Universal `.mcp.json`*: `npx ctxtop init --all-hosts`<br/>*FTS5 search*: `npx ctxtop search "<keyword>"` |
+> Global install `npm i -g highbeam-cli` exposes `highbeam` directly (`ctxtop` remains supported as a backward-compatible alias).
+
+| `npx highbeam-cli init --antigravity` | `npx highbeam-cli init --claude --global` | `npx highbeam-cli init --cursor --windsurf --codex --gemini-cli` |
+| *Workspace-only*: `npx highbeam-cli init --workspace`<br/>*Health check*: `npx highbeam-cli doctor` | *StatusLine HUD*: `npx highbeam-cli statusline --demo`<br/>*In-chat pane*: `/horizon` · `/cost-radar` · `/handoff` | *Universal `.mcp.json`*: `npx highbeam-cli init --all-hosts`<br/>*FTS5 search*: `npx highbeam-cli search "<keyword>"` |
 
 ### Your First 5 Minutes After Installing
 
 #### 1. Google Antigravity Workflow
-1. **Install hooks & sidecar**: Run `npx ctxtop init --antigravity` in your project root (or globally).
-2. **Open the Highbeam Sidepane**: Launch the local telemetry WebView (`npx ctxtop ui` or via the Antigravity sidepane) to view real-time context health:
+1. **Install hooks & sidecar**: Run `npx highbeam-cli init --antigravity` in your project root (or globally).
+2. **Open the Highbeam Sidepane**: Launch the local telemetry WebView (`npx highbeam-cli ui` or via the Antigravity sidepane) to view real-time context health:
    - **Simple View (Default)**: 4 glanceable zones—**Zone A** (Safe Headroom & Warm KV Cache TTL), **Zone B** (`DO / AVOID / HOLD` Model & Effort switch guidance), **Zone C** (Live automated interventions), and **Zone D** (Estimated tokens/USD saved + 1-click `/compact`).
    - **Advanced View (1-Click Toggle)**: Expands the **40-Cell Chrono-Positional Recall Grid** (`Primacy 0–30%`, `Mid-Trough 30–70%`, `Recency 70–100%`), top token consumer file table, `Off / Coach / Auto` mode switcher, and the full `DET-01..32` guard log.
 3. **Code normally**: Highbeam runs in **`COACH` mode** by default—automatically compressing verbose CLI test dumps via SQLite FTS5 and folding repeat file reads without interrupting your prompts.
 
 #### 2. Claude Code Workflow
-1. **Install plugin & hooks**: Run `npx ctxtop init --claude` (current project) or `npx ctxtop init --claude --global` (all projects) to wire `.claude-plugin/plugin.json`, `hooks/hooks.json`, and the live terminal `statusLine`.
+1. **Install plugin & hooks**: Run `npx highbeam-cli init --claude` (current project) or `npx highbeam-cli init --claude --global` (all projects) to wire `.claude-plugin/plugin.json`, `hooks/hooks.json`, and the live terminal `statusLine`.
 2. **Watch the Live Terminal `statusLine`**: At the bottom of your terminal, Highbeam renders an auto-adapting (`80 / 110 / 144` col) telemetry bar:
    ```text
    AH [SCCCCCCC................] sonnet-5-5 64k/200k (32%) · Cache 88% (4m12s) · COACH · Saved $1.84
    ```
-3. **Open the In-Chat Docked HUD**: Type `/horizon` in chat (or run `npx ctxtop panel` for the standalone HTML workbench) to inspect cache gravity, active guards, and reclaimable tokens.
+3. **Open the In-Chat Docked HUD**: Type `/horizon` in chat (or run `npx highbeam-cli panel` for the standalone HTML workbench) to inspect cache gravity, active guards, and reclaimable tokens.
 
 #### 3. VS Code / Cursor / Antigravity (`.vsix` Extension)
 Package or install the thin zero-dependency IDE sidebar & status bar extension from [`extensions/vscode-highbeam/`](extensions/vscode-highbeam/README.md):
 ```bash
 npm run build:vsix
-code --install-extension extensions/vscode-highbeam/highbeam-ctxtop-4.1.4.vsix
+code --install-extension extensions/vscode-highbeam/highbeam-4.1.4.vsix
 ```
 
 ---
@@ -163,17 +165,17 @@ Highbeam's cache-economics engine is backed by **45 pre-registered randomized ru
 
 For systems engineers, re-sending a 40,000-token test log 15 times is the AI equivalent of a memory leak—it wastes datacenter GPU prefill cycles, increases time-to-first-token (TTFT) latency, and degrades reasoning quality.
 
-For **Engineering Managers and FinOps teams**, Highbeam's local expense receipt (`npx ctxtop receipt --pdf`) reports **estimated USD saved** from your own local ledger, with a SHA-256 digest of the report so it can be checked later. It is computed on your machine and sends nothing to the cloud. Figures are estimates based on published list prices and the token counts Highbeam records; they are not an invoice or a guarantee of savings.
+For **Engineering Managers and FinOps teams**, Highbeam's local expense receipt (`npx highbeam-cli receipt --pdf`) reports **estimated USD saved** from your own local ledger, with a SHA-256 digest of the report so it can be checked later. It is computed on your machine and sends nothing to the cloud. Figures are estimates based on published list prices and the token counts Highbeam records; they are not an invoice or a guarantee of savings.
 
 ---
 
-## Why Highbeam (`ctxtop`) Exists (vs. Cloud LLM Observability)
+## Why Highbeam (`highbeam-cli`) Exists (vs. Cloud LLM Observability)
 
 Cloud trace platforms (Langfuse, Helicone, Arize) require proxying API keys over the network and only observe HTTP request/response payloads. They have **zero visibility into the local filesystem, git working tree, IDE process table, or local SQLite/JSONL session stores**.
 
-`ctxtop` is a zero-dependency local systems profiler built on Node.js built-ins (`node:sqlite`, `node:fs`, `node:http`). It correlates local session transcripts and SQLite databases with live disk state to catch concrete failure modes that cloud proxies cannot see:
+Highbeam (`highbeam-cli`) is a zero-dependency local systems profiler built on Node.js built-ins (`node:sqlite`, `node:fs`, `node:http`). It correlates local session transcripts and SQLite databases with live disk state to catch concrete failure modes that cloud proxies cannot see:
 
-| Failure Mode | Root Cause in Agentic Sessions | How `ctxtop` Detects & Remediates It Locally |
+| Failure Mode | Root Cause in Agentic Sessions | How Highbeam Detects & Remediates It Locally |
 | :--- | :--- | :--- |
 | **12.5x–80x Prompt Cache Tax & Overage TTL Cliffs** | Falling from a 1-hour prompt cache tier to a 5-minute overage/fallback tier, or mutating system/MCP blocks mid-session while holding `>50k` warm tokens, triggers an uncached prefix rebuild. | Tracks Dual-TTL windows (`1h` vs `5m` main + `5m` subagent), pinpoints the exact turn/component/byte offset of prefix mutations (`computePrefixMutationDiff`), and enforces a Cold-Session Cost Gate. |
 | **Compaction Lobotomy & Post-Compact Re-Read Tax** | Autocompact at 80%–95% context wipes file line numbers, active `task.md` checklists, and unresolved `stderr`, forcing the agent to re-read the same unmodified files immediately after compaction. | Deterministically distills `.handoff.md` before compaction (`>=80%` saturation), tracks post-compaction re-reads of unmodified files, and synthesizes `<1,000`-token `[▶ RESUME HERE]` packs via SQLite FTS5 BM25 episodic memory. |
@@ -237,20 +239,20 @@ node src/cli/init.mjs init --workspace
 ```
 
 > [!TIP]
-> Looking for copy-paste recipes for Cursor 50GB storage reclamation, offline tool pruning, Antigravity brain recovery, or programmatic Node.js API snippets? See the [**`ctxtop` Cookbook & Recipes**](docs/COOKBOOK.md).
+> Looking for copy-paste recipes for Cursor 50GB storage reclamation, offline tool pruning, Antigravity brain recovery, or programmatic Node.js API snippets? See the [**`highbeam-cli` Cookbook & Recipes**](docs/COOKBOOK.md).
 
 ---
 
 ## Systems Architecture & Zero-Trust Security
 
-`ctxtop` is engineered for strict operational safety alongside live IDE/CLI database writers:
+Highbeam is engineered for strict operational safety alongside live IDE/CLI database writers:
 
 1. **Zero Outbound Network Connections**:
    - **0 runtime `npm` dependencies** (`package.json` has no `dependencies` block).
    - **No telemetry beacons or remote API calls by design.** Parsing, classification, and routing run locally on your machine.
    - The local WebView daemon (`sidecars/horizon-daemon/server.mjs`) binds strictly to `127.0.0.1` (loopback only) and rejects cross-origin `Origin` or non-local `Host` headers (`HTTP 403`) to prevent DNS rebinding and drive-by localhost CSRF.
 2. **Read-Only Database & Transcript Introspection (`SQLITE_OPEN_READONLY`)**:
-   - Every connection to Antigravity or Cursor SQLite databases (`conversations/<uuid>.db`, `conversation_summaries.db`, `state.vscdb`, `store.db`) is opened via Node's native `node:sqlite` `DatabaseSync` with `Object.freeze({ readOnly: true })` (`SQLITE_OPEN_READONLY`). `ctxtop` can never contend for write locks with an active IDE or CLI.
+   - Every connection to Antigravity or Cursor SQLite databases (`conversations/<uuid>.db`, `conversation_summaries.db`, `state.vscdb`, `store.db`) is opened via Node's native `node:sqlite` `DatabaseSync` with `Object.freeze({ readOnly: true })` (`SQLITE_OPEN_READONLY`). Highbeam can never contend for write locks with an active IDE or CLI.
    - Live JSONL transcripts (`transcript_full.jsonl` / `transcript.jsonl`) are read via `fs.openSync(filePath, 'r')` using byte-offset slicing (`O(Δbytes)` per turn), falling back to full re-parse only when a step-index regression (Undo/Rewind) is detected.
 3. **Ring 1 Security, Concurrency & Context Hygiene Boundaries**:
    - **`DET-19` Git Hook-Bypass Guard**: Intercepts `git` execution via `.agents/shims/` wrappers, strips `.agents/shims` from `PATH` to eliminate recursion, blocks verification evasion (`--no-verify`, standalone `-n`, `-amn`, `--no-gpg-sign`, `core.hooksPath`), and allows bypass strictly via a 60-second single-use cryptographic human nonce.
@@ -272,8 +274,8 @@ Highbeam works with zero configuration out of the box (`COACH` mode). To customi
 
 ```bash
 # Set a detector to warn-only, block, or off via CLI
-npx ctxtop config DET-08 warn
-npx ctxtop config DET-19 block
+npx highbeam-cli config DET-08 warn
+npx highbeam-cli config DET-19 block
 ```
 
 ```json
@@ -294,15 +296,15 @@ npx ctxtop config DET-19 block
 - **`"AUTO_PILOT"`**: Enforces strict pre-turn & stop-gate verification locks (e.g., requiring tests to run after source edits before session completion).
 - **`"SILENT"` / `"OFF"`**: Passive telemetry collection only.
 
-### 2. Using Highbeam as an MCP Server (`npx ctxtop mcp`)
-Any MCP-compatible client (**Google Antigravity**, **Claude Code**, **OpenAI Codex CLI**, **Gemini CLI**, **Cursor**, **Windsurf**, or **Claude Desktop**) can auto-configure Highbeam via `npx ctxtop init --cursor --windsurf --codex --gemini-cli` or run standard JSON-RPC stdio directly:
+### 2. Using Highbeam as an MCP Server (`npx highbeam-cli mcp`)
+Any MCP-compatible client (**Google Antigravity**, **Claude Code**, **OpenAI Codex CLI**, **Gemini CLI**, **Cursor**, **Windsurf**, or **Claude Desktop**) can auto-configure Highbeam via `npx highbeam-cli init --cursor --windsurf --codex --gemini-cli` or run standard JSON-RPC stdio directly:
 
 ```json
 {
   "mcpServers": {
     "highbeam": {
       "command": "npx",
-      "args": ["-y", "ctxtop", "mcp"]
+      "args": ["-y", "highbeam-cli", "mcp"]
     }
   }
 }
@@ -318,20 +320,20 @@ For centralized organization deployment (Jamf / Intune / GPO), `CHECKSUMS.sha256
 | Feature / Capability | Free Core (`MIT`) | [Highbeam Pro](https://buy.polar.sh/polar_cl_GYIDWrPsxnwsx58Ur6fIqMq3o1lrfK0o4hOFM4HOgpr) (`$149/yr` · `$199` Cap-200 LTD) | [Team Starter](https://buy.polar.sh/polar_cl_BDTd1Gru7L7BCE3jXBsqNpYmrATNtpgTfzAkQ2Emmt5) (`$299/yr` 5-Seat Starter) |
 | :--- | :---: | :---: | :---: |
 | Simple & Advanced 40-Cell HUD + `5m/1h` Live TTL Timer | ✅ | ✅ | ✅ |
-| Multi-Family FTS5 Compression (`test`, `lint`, `git`, `docker`/`kubectl`) & `ctxtop search` | ✅ | ✅ | ✅ |
+| Multi-Family FTS5 Compression (`test`, `lint`, `git`, `docker`/`kubectl`) & `highbeam search` | ✅ | ✅ | ✅ |
 | Automated Repeat-Read Delta Diffs & AST Stubs (`GUARD-4`) | ✅ | ✅ | ✅ |
 | `COACH` Non-Blocking Advisories & 32 Auditable Guards across 5 Hosts | ✅ | ✅ | ✅ |
 | `AUTO_PILOT` Hands-Free Enforcement & Horizon `C_max` Holds | Preview | ✅ | ✅ |
 | 30-Day Chronic Offender Memory & Workspace Savings Ledger | — | ✅ | ✅ |
-| Signed Corporate PDF 1.4 FinOps + GreenOps Receipt (`ctxtop receipt --pdf`) | — | ✅ | ✅ |
+| Signed Corporate PDF 1.4 FinOps + GreenOps Receipt (`highbeam receipt --pdf`) | — | ✅ | ✅ |
 | Shared `.agents/rules/` Governance, MDM Policy & OTel / Grafana Pack | — | — | ✅ |
 
-**How Free, the trial and Pro differ:** Free shows what `AUTO_PILOT` would have done and what it would have saved, but changes nothing. The 14-day trial (`npx ctxtop license trial`) unlocks everything; Auto stays off until you turn it on with `npx ctxtop mode auto`. When the trial ends, Auto pauses and Highbeam goes back to showing what it would have saved until you activate Pro. `npx ctxtop mode` shows which mode is running.
+**How Free, the trial and Pro differ:** Free shows what `AUTO_PILOT` would have done and what it would have saved, but changes nothing. The 14-day trial (`npx highbeam-cli license trial`) unlocks everything; Auto stays off until you turn it on with `npx highbeam-cli mode auto`. When the trial ends, Auto pauses and Highbeam goes back to showing what it would have saved until you activate Pro. `npx highbeam-cli mode` shows which mode is running.
 
-**Commercial SKU Summary (Offline Ed25519 `CTXP1` Activation via `npx ctxtop license activate <key>`):**
-- **[Pro Annual (`$149/yr`, `~$12.42/mo`)](https://buy.polar.sh/polar_cl_GYIDWrPsxnwsx58Ur6fIqMq3o1lrfK0o4hOFM4HOgpr)**: 1 developer seat, 14-day zero-network local trial (`npx ctxtop license trial`), expensable via `npx ctxtop receipt --pdf`.
+**Commercial SKU Summary (Offline Ed25519 `CTXP1` Activation via `npx highbeam-cli license activate <key>`):**
+- **[Pro Annual (`$149/yr`, `~$12.42/mo`)](https://buy.polar.sh/polar_cl_GYIDWrPsxnwsx58Ur6fIqMq3o1lrfK0o4hOFM4HOgpr)**: 1 developer seat, 14-day zero-network local trial (`npx highbeam-cli license trial`), expensable via `npx highbeam-cli receipt --pdf`.
 - **[Pro Founder Lifetime (`$199` one-time, capped at `200` seats)](https://buy.polar.sh/polar_cl_qVD4MYra8gIe9uDvkRtJUzv6Ou4PTES4Jp3nj1nAOff)**: Lifetime solo Pro entitlement (`expiresAt: null`).
-- **[Team Starter (`$299/yr` for 5 seats)](https://buy.polar.sh/polar_cl_BDTd1Gru7L7BCE3jXBsqNpYmrATNtpgTfzAkQ2Emmt5)**: Multi-seat MDM rollout, shared `.agents/rules/` primacy governance, and BYO-Grafana OpenTelemetry pack (`npx ctxtop team-pack`). More than 5 seats? Email `sales@highbeamdev.com`.
+- **[Team Starter (`$299/yr` for 5 seats)](https://buy.polar.sh/polar_cl_BDTd1Gru7L7BCE3jXBsqNpYmrATNtpgTfzAkQ2Emmt5)**: Multi-seat MDM rollout, shared `.agents/rules/` primacy governance, and BYO-Grafana OpenTelemetry pack (`npx highbeam-cli team-pack`). More than 5 seats? Email `sales@highbeamdev.com`.
 
 ---
 
@@ -354,18 +356,18 @@ When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incomi
 
 | Command | Description |
 | :--- | :--- |
-| `npx ctxtop audit [--platform all\|antigravity\|claude\|codex\|gemini\|cursor] [--days 7] [--json]` | Zero-write, hookless 5-host audit of Sludge Tax, cold-cache spikes, and oversized tool dumps. |
-| `npx ctxtop init [--cursor \| --windsurf \| --codex \| --gemini-cli \| --all-hosts]` | Installs Google Antigravity, Claude Code, and 1-command MCP configurations across editors & CLIs. |
-| `npx ctxtop search [<turn-id>] "<keyword>" [--json]` | Searches local SQLite FTS5 offloaded CLI dumps and artifacts via BM25 matching. |
-| `npx ctxtop init --claude [--global]` | Installs only the Claude Code `.claude-plugin` manifest, command hooks, and terminal `statusLine` (current project, or all projects with `--global`). |
-| `npx ctxtop ui [--demo]` | Launches the local HTTP/SSE telemetry daemon (`127.0.0.1`) and interactive WebView (`/` Simple, `/advanced` Advanced). |
-| `npx ctxtop mcp` | Starts the standalone zero-network 7-tool JSON-RPC stdio MCP server (`@ctxtop/mcp`). |
-| `npx ctxtop doctor [--diagnostic]` | Validates hook registration, FTS5 offload readiness, warm-IPC path, model ceilings, 3-way SHA-256 parity, and SQLite health. |
-| `npx ctxtop postmortem [--last N] [--json]` | Scans the last `N` local sessions, classifies root causes (`CONTEXT_ROT_DECAY`, `VERIFICATION_CHURN`, `SPEC_AMBIGUITY`, `CLEAN`), lists top duplicate-read files, and audits Turn-0 MCP schema overhead. |
-| `npx ctxtop receipt [--markdown \| --pdf]` | Exports a SHA-256 estimated FinOps + GreenOps token/USD savings receipt for the active workspace. |
-| `npx ctxtop verify [--json]` | Verifies cryptographic SHA-256 integrity of all tracked release files against `CHECKSUMS.sha256`. |
-| `npx ctxtop --roast` | Prints a terminal forensic summary of recent sessions with top duplicate-read file offenders and copy-pasteable remediations. |
-| `npx ctxtop --demo-animate` | Plays the 5-stage terminal crisis simulation across synthetic fixtures. |
+| `npx highbeam-cli audit [--platform all\|antigravity\|claude\|codex\|gemini\|cursor] [--days 7] [--json]` | Zero-write, hookless 5-host audit of Sludge Tax, cold-cache spikes, and oversized tool dumps. |
+| `npx highbeam-cli init [--cursor \| --windsurf \| --codex \| --gemini-cli \| --all-hosts]` | Installs Google Antigravity, Claude Code, and 1-command MCP configurations across editors & CLIs. |
+| `npx highbeam-cli search [<turn-id>] "<keyword>" [--json]` | Searches local SQLite FTS5 offloaded CLI dumps and artifacts via BM25 matching. |
+| `npx highbeam-cli init --claude [--global]` | Installs only the Claude Code `.claude-plugin` manifest, command hooks, and terminal `statusLine` (current project, or all projects with `--global`). |
+| `npx highbeam-cli ui [--demo]` | Launches the local HTTP/SSE telemetry daemon (`127.0.0.1`) and interactive WebView (`/` Simple, `/advanced` Advanced). |
+| `npx highbeam-cli mcp` | Starts the standalone zero-network 7-tool JSON-RPC stdio MCP server (`@ctxtop/mcp`). |
+| `npx highbeam-cli doctor [--diagnostic]` | Validates hook registration, FTS5 offload readiness, warm-IPC path, model ceilings, 3-way SHA-256 parity, and SQLite health. |
+| `npx highbeam-cli postmortem [--last N] [--json]` | Scans the last `N` local sessions, classifies root causes (`CONTEXT_ROT_DECAY`, `VERIFICATION_CHURN`, `SPEC_AMBIGUITY`, `CLEAN`), lists top duplicate-read files, and audits Turn-0 MCP schema overhead. |
+| `npx highbeam-cli receipt [--markdown \| --pdf]` | Exports a SHA-256 estimated FinOps + GreenOps token/USD savings receipt for the active workspace. |
+| `npx highbeam-cli verify [--json]` | Verifies cryptographic SHA-256 integrity of all tracked release files against `CHECKSUMS.sha256`. |
+| `npx highbeam-cli --roast` | Prints a terminal forensic summary of recent sessions with top duplicate-read file offenders and copy-pasteable remediations. |
+| `npx highbeam-cli --demo-animate` | Plays the 5-stage terminal crisis simulation across synthetic fixtures. |
 
 ---
 

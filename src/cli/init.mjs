@@ -304,19 +304,19 @@ export async function runContextRoast() {
 
 function printHelp() {
   console.log(`
-\x1b[1m\x1b[38;5;51m⚡ Highbeam (ctxtop v${VERSION})\x1b[0m — htop for AI Coding Agent Context Windows
+\x1b[1m\x1b[38;5;51m⚡ Highbeam (v${VERSION})\x1b[0m — htop for AI Coding Agent Context Windows
 
 \x1b[1mUSAGE:\x1b[0m
-  npx ctxtop [--harness=claude|cursor]       Auto-discover active Antigravity session & print live 40-cell HUD
-  npx ctxtop ui [--open]                     Launch local Simple View Web UI on 127.0.0.1:62935 & open in browser
-  npx ctxtop init [--workspace]              Install plugin, hooks & CLI statusLine
-  npx ctxtop audit [--days 7]                Zero-write historical Sludge Tax & ROI audit across local sessions
-  npx ctxtop --demo [--scenario 1..8]        Preview 40-cell HUD & Flight Check Scorecard
-  npx ctxtop --demo-animate                  Play live 5-stage terminal crisis animation
-  npx ctxtop --roast                         Audit local logs & print shareable Context Roast Card
-  npx ctxtop doctor                          Diagnose hooks, configuration, mirrors & transcript health
-  npx ctxtop prune [--dry-run]               Prune stale tool outputs and fold AST stubs in active transcript
-  npx ctxtop postmortem [--last N]           Generate forensic report & diagnostic dataset
+  npx highbeam-cli [--harness=claude|cursor]       Auto-discover active Antigravity session & print live 40-cell HUD
+  npx highbeam-cli ui [--open]                     Launch local Simple View Web UI on 127.0.0.1:62935 & open in browser
+  npx highbeam-cli init [--workspace]              Install plugin, hooks & CLI statusLine
+  npx highbeam-cli audit [--days 7]                Zero-write historical Sludge Tax & ROI audit across local sessions
+  npx highbeam-cli --demo [--scenario 1..8]        Preview 40-cell HUD & Flight Check Scorecard
+  npx highbeam-cli --demo-animate                  Play live 5-stage terminal crisis animation
+  npx highbeam-cli --roast                         Audit local logs & print shareable Context Roast Card
+  npx highbeam-cli doctor                          Diagnose hooks, configuration, mirrors & transcript health
+  npx highbeam-cli prune [--dry-run]               Prune stale tool outputs and fold AST stubs in active transcript
+  npx highbeam-cli postmortem [--last N]           Generate forensic report & diagnostic dataset
 `);
 }
 
@@ -348,11 +348,11 @@ export async function runLiveOrDemoCli(options = {}) {
     if (res && res.state) {
       const sTag = res.state.surfaceTag || sessionInfo.surfaceTag || '[App]';
       const title = res.state.sessionTitle ? ` · "${res.state.sessionTitle}"` : '';
-      console.log(`\n\x1b[1m\x1b[38;5;51m⚡ HIGHBEAM (ctxtop v${VERSION})\x1b[0m — Live ${sTag} Session (${res.state.sessionId.slice(0, 8)})${title}`);
+      console.log(`\n\x1b[1m\x1b[38;5;51m⚡ HIGHBEAM (v${VERSION})\x1b[0m — Live ${sTag} Session (${res.state.sessionId.slice(0, 8)})${title}`);
       console.log(res.output);
       const aq = formatActionQueueAnsi(res.state);
       if (aq) console.log(aq);
-      console.log(`\x1b[38;5;245mTip: Run 'npx ctxtop ui' for interactive browser view | 'npx ctxtop --roast' for multi-session audit\x1b[0m\n`);
+      console.log(`\x1b[38;5;245mTip: Run 'npx highbeam-cli ui' for interactive browser view | 'npx highbeam-cli --roast' for multi-session audit\x1b[0m\n`);
       return { mode: 'live', state: res.state, output: res.output };
     }
   }

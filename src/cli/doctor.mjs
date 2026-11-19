@@ -138,7 +138,7 @@ export async function runDoctor({ workspacePath = process.cwd(), pruneTools = fa
     'PASS',
     hasPortLock
       ? `Active lockfile at ~/.ctxtop/daemon.port -> 127.0.0.1:${resolvedPort}`
-      : `Default loopback port 127.0.0.1:${resolvedPort} (start UI with: npx ctxtop ui)`
+      : `Default loopback port 127.0.0.1:${resolvedPort} (start UI with: npx highbeam-cli ui)`
   );
 
   // 1. Hooks Registration Check

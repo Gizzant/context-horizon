@@ -72,6 +72,7 @@ describe('Batch 4 Remediation — ISS-013: Symlink-Safe realpathSync isCliMain &
     assert.equal(pkg.bin['context-horizon'], undefined, 'Grafana-colliding context-horizon bin must be removed');
     assert.equal(pkg.bin['attention-horizon-antigravity'], 'src/cli/init.mjs');
     assert.equal(pkg.bin['ah-antigravity'], 'src/cli/init.mjs');
+    assert.equal(pkg.bin['highbeam'], 'bin/ctxtop.mjs');
     assert.ok(pkg.bin['ctxtop'] === 'bin/ctxtop.mjs' || pkg.bin['ctxtop'] === 'src/cli/init.mjs');
   });
 

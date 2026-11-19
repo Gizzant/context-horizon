@@ -19,7 +19,7 @@ export const SUPPORTED_MCP_HOSTS = Object.freeze([
 const CODEX_TOML_SNIPPET = [
   '[mcp_servers.highbeam]',
   'command = "npx"',
-  'args = ["-y", "ctxtop", "mcp"]'
+  'args = ["-y", "highbeam-cli", "mcp"]'
 ].join('\n');
 
 function resolveHome(options = {}) {
@@ -96,7 +96,7 @@ export function resolveHostMcpConfigPath(host, { cwd = process.cwd(), homeDir, g
 }
 
 /**
- * Idempotently installs `{ command: 'npx', args: ['-y', 'ctxtop', 'mcp'] }` under `mcpServers.highbeam`
+ * Idempotently installs `{ command: 'npx', args: ['-y', 'highbeam-cli', 'mcp'] }` under `mcpServers.highbeam`
  * while preserving all existing host settings and third-party MCP servers.
  */
 export function installHostMcpConfig({
@@ -121,7 +121,7 @@ export function installHostMcpConfig({
   const serverEntry =
     useLocalServer && serverScriptPath
       ? { command: 'node', args: [serverScriptPath] }
-      : { command: 'npx', args: ['-y', 'ctxtop', 'mcp'] };
+      : { command: 'npx', args: ['-y', 'highbeam-cli', 'mcp'] };
 
   const results = [];
   for (const host of uniqueHosts) {

@@ -246,7 +246,7 @@ function resolveDaemonLaunchSpec(options = {}) {
   if (platform === 'win32') {
     return {
       command: process.env.ComSpec || 'cmd.exe',
-      args: ['/d', '/s', '/c', 'npx', '--yes', 'ctxtop', '--serve'],
+      args: ['/d', '/s', '/c', 'npx', '--yes', 'highbeam-cli', '--serve'],
       source: 'npx_fallback',
       useCmdWrapper: true
     };
@@ -254,7 +254,7 @@ function resolveDaemonLaunchSpec(options = {}) {
 
   return {
     command: 'npx',
-    args: ['--yes', 'ctxtop', '--serve'],
+    args: ['--yes', 'highbeam-cli', '--serve'],
     source: 'npx_fallback',
     useCmdWrapper: false
   };

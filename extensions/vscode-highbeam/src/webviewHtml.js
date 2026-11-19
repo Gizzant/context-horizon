@@ -38,7 +38,7 @@ function renderConnectedShellHtml({ port, nonce = createNonce() } = {}) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy" content="${csp}" />
-  <title>Highbeam (ctxtop) HUD</title>
+  <title>Highbeam HUD</title>
   <style nonce="${safeNonce}">
     html, body {
       margin: 0;
@@ -103,7 +103,7 @@ function renderOfflineShellHtml({ status = 'offline', detail = '', nonce = creat
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy" content="${csp}" />
-  <title>Highbeam (ctxtop) — Offline</title>
+  <title>Highbeam — Offline</title>
   <style nonce="${safeNonce}">
     :root {
       --bg-canvas: #0B0C0E;

@@ -14,7 +14,7 @@ startCommand:
   commandFunction: |-
     (config) => ({
       command: 'npx',
-      args: ['-y', '@ctxtop/mcp'],
+      args: ['-y', 'highbeam-cli', 'mcp'],
       env: {}
     })
   exampleConfig:

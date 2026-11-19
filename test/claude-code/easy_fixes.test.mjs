@@ -17,7 +17,7 @@ for (const cmd of ['install', 'init', 'uninstall']) {
       try {
         const res = await runCli([cmd, flag], { cwd, homeDir });
         assert.equal(res.exitCode, 0);
-        assert.match(res.output, new RegExp(`^Usage: ctxtop ${cmd}`));
+        assert.match(res.output, new RegExp(`^Usage: highbeam ${cmd}`));
         assert.equal(res.data.help, true);
         assert.deepEqual(fs.readdirSync(cwd), [], 'help must not write into the project');
         assert.deepEqual(fs.readdirSync(homeDir), [], 'help must not write into home');

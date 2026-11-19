@@ -243,7 +243,7 @@ describe('Phase 2 — VS Code / Open VSX Extension Wrapper', () => {
     const rootPkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
     const extPkg = JSON.parse(fs.readFileSync(path.join(EXT_DIR, 'package.json'), 'utf8'));
 
-    assert.equal(extPkg.name, 'highbeam-ctxtop');
+    assert.equal(extPkg.name, 'highbeam');
     assert.equal(extPkg.publisher, 'gizzant');
     assert.equal(extPkg.version, rootPkg.version);
     assert.equal(extPkg.license, 'MIT');
@@ -346,6 +346,7 @@ describe('Phase 2 — VS Code / Open VSX Extension Wrapper', () => {
     assert.equal(winFallbackSpec.source, 'npx_fallback');
     assert.equal(winFallbackSpec.useCmdWrapper, true);
     assert.ok(Array.isArray(winFallbackSpec.args) && winFallbackSpec.args.includes('npx'));
+    assert.ok(winFallbackSpec.args.includes('highbeam-cli'));
 
     const wsSpec = daemonClient.resolveDaemonLaunchSpec({
       workspaceFolders: [ROOT],

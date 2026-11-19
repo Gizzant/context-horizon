@@ -22,7 +22,7 @@ function formatStatusBar(state = null, daemonInfo = { connected: false }) {
       text: '$(pulse) Highbeam: Offline',
       severity: 'disconnected',
       tooltipMarkdown: [
-        '**Highbeam (`ctxtop`)** — Local loopback daemon is offline.',
+        '**Highbeam (`highbeam-cli`)** — Local loopback daemon is offline.',
         '',
         'Click to open sidebar and start or reconnect on `127.0.0.1`.',
         detail
@@ -69,7 +69,7 @@ function formatStatusBar(state = null, daemonInfo = { connected: false }) {
   const portLabel = daemonInfo.port ? `http://127.0.0.1:${daemonInfo.port}/` : 'loopback';
 
   const lines = [
-    '**Highbeam (`ctxtop`) — Context & KV-Cache HUD**',
+    '**Highbeam (`highbeam-cli`) — Context & KV-Cache HUD**',
     '',
     `- **Model**: \`${modelId}\``,
     maxTok > 0

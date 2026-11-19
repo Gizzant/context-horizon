@@ -1,6 +1,6 @@
-# Highbeam (`ctxtop`) Cookbook & Recipes
+# Highbeam (`highbeam-cli`) Cookbook & Recipes
 
-Practical, copy-paste workflows for managing AI coding agent context windows, recovering gigabytes of IDE storage, stopping prompt cache cliffs, and embedding `ctxtop` telemetry into custom scripts.
+Practical, copy-paste workflows for managing AI coding agent context windows, recovering gigabytes of IDE storage, stopping prompt cache cliffs, and embedding Highbeam telemetry into custom scripts.
 
 ---
 
@@ -30,7 +30,7 @@ When disk space drops below 20GB, native SQLite `VACUUM` commands fail with `SQL
 - **Windows:** `%APPDATA%\Cursor\User\globalStorage\state.vscdb`
 
 ### Recipe: Streaming Read-Only Compaction (Zero-VACUUM)
-`ctxtop` uses a streaming read-only copy algorithm that selectively filters orphaned keys and writes directly to a fresh compacted database, avoiding write locks on active Cursor windows.
+Highbeam uses a streaming read-only copy algorithm that selectively filters orphaned keys and writes directly to a fresh compacted database, avoiding write locks on active Cursor windows.
 
 ```bash
 # Step 1: Run a dry-run to measure reclaimable gigabytes
@@ -50,7 +50,7 @@ node src/cli/doctor.mjs --gc-cursor --vscdb "$APPDATA/Cursor/User/globalStorage/
 Long-running agentic sessions suffer from **middle-window dilution ("Lost in the Middle")**. An agent reads an 800-line file 6 times, runs verbose `grep` or `find` searches, or captures 400 lines of resolved `stderr` traces. These obsolete tool outputs remain in the active context, burning 30k–100k tokens per subsequent turn.
 
 ### Recipe: Truncating Stale Tool Outputs Without Busting Prefix Cache
-The `ctxtop` Prefix-Safe Tool-Output Surgeon truncates superseded tool outputs while pinning Turn 0 and the newest 6 turns:
+The Highbeam Prefix-Safe Tool-Output Surgeon truncates superseded tool outputs while pinning Turn 0 and the newest 6 turns:
 
 ```bash
 # Step 1: Dry-run preview of candidate tool outputs and reclaimable tokens
@@ -111,7 +111,7 @@ node src/cli/postmortem.mjs --last 1 --json
 
 ## 5. Programmatic Node.js API: Context Profiling in Your Own Tools
 
-Because `ctxtop` is written entirely with Node.js built-ins (`node:sqlite`, `node:fs`, `node:http`), you can import its engine directly without adding any external dependencies to your `package.json`.
+Because Highbeam is written entirely with Node.js built-ins (`node:sqlite`, `node:fs`, `node:http`), you can import its engine directly without adding any external dependencies to your `package.json`.
 
 ### Recipe A: Profile an Active Session Window
 ```javascript
@@ -173,7 +173,7 @@ Ensure your team never commits unpruned test transcripts, corrupted SQLite schem
 #!/bin/sh
 set -e
 
-echo "Running ctxtop clean-room pre-push validation..."
+echo "Running Highbeam clean-room pre-push validation..."
 
 # 1. Verify 62 unit and multi-harness wedge tests pass
 node --test
@@ -184,7 +184,7 @@ npm run test:phases
 # 3. Confirm 3-way WebView mirrors remain byte-for-byte identical
 node scripts/sync_mirrors.mjs
 
-echo "ctxtop: All pre-push checks passed."
+echo "highbeam: All pre-push checks passed."
 ```
 
 ---
@@ -194,7 +194,7 @@ echo "ctxtop: All pre-push checks passed."
 Want to see Highbeam's **Zone C (Automated Activity)** and **Zone D (Estimated Savings Receipt)** react in real time? Run this 4-step workflow in any workspace:
 
 ### Step 0: Baseline State (`0.0k` Saved, 32 Guards Armed)
-Open the Highbeam Sidepane (`npx ctxtop --serve`). On a cold session start, Zone C displays:
+Open the Highbeam Sidepane (`npx highbeam-cli --serve`). On a cold session start, Zone C displays:
 `now · Auto-guards armed (FTS5 CLI compressor & PrefixCacheShield) · ready`
 
 ### Step 1: Trigger `GUARD-4` Duplicate File-Read Folding + Warm KV Cache (`+95.8k` Saved)
@@ -225,10 +225,10 @@ To generate a cryptographically signed (`SHA-256`) savings receipt for engineeri
 
 ```bash
 # Print Markdown FinOps + GreenOps receipt to terminal
-npx ctxtop receipt --markdown
+npx highbeam-cli receipt --markdown
 
 # Generate a standalone PDF 1.4 Corporate Expense & GreenOps Receipt
-npx ctxtop receipt --pdf
+npx highbeam-cli receipt --pdf
 ```
 
 Each receipt reconciles all 10 savings event categories (`CLI_DAMPENED`, `READ_DEDUPED`, `SUBAGENT_ISOLATED`, `CACHE_HIT_SAVED`, `PREFIX_SHIELD_SAVED`, `AUTO_PRUNED`, `TURN_ZERO_COMPACTED`, `PROMPT_HYGIENE_STEERED`, `PROMPT_HYGIENE_BLOCKED`, and `SIGHTSEEING_TOOL_PREVENTED`), alongside estimated USD saved, datacenter GPU energy avoided (`~650 Wh` per `1M` tokens), and `CO₂e` avoided (`~247g` per `1M` tokens).

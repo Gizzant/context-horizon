@@ -320,7 +320,7 @@ describe('Settings view', () => {
       assert.equal(d.getElementById('setBtnTrial').hidden, true, 'no trial button once entitled');
       const guardRows = [...d.querySelectorAll('#setGuardList .ts-ledger-row')].map((li) => li.textContent.replace(/\s+/g, ' ').trim());
       assert.deepEqual(guardRows, ['DET-01Destructive Git/Shell Guardblocks', 'DET-10Idle 5m Implicit-Cache Watchdogadvises']);
-      assert.match(d.getElementById('setGuardsHead').parentElement.textContent, /npx ctxtop config set/);
+      assert.match(d.getElementById('setGuardsHead').parentElement.textContent, /npx highbeam-cli config set/);
 
       d.getElementById('setSafeLimit').value = '150000';
       d.getElementById('setReminderPct').value = '80';

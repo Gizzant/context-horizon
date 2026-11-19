@@ -178,11 +178,11 @@ import {
 // Feature 1: Single `ctxtop` Package (1.1 - 1.5)
 // ============================================================================
 describe('Feature 1: Single ctxtop Package', () => {
-  it('1.1 Single ctxtop Package: manifest name is "ctxtop"', () => {
+  it('1.1 Single ctxtop Package: manifest name is "highbeam-cli"', () => {
     const pkgPath = path.resolve('package.json');
     assert.ok(fs.existsSync(pkgPath), 'package.json must exist');
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-    assert.equal(pkg.name, 'ctxtop', 'Package name must be ctxtop');
+    assert.equal(pkg.name, 'highbeam-cli', 'Package name must be highbeam-cli');
   });
 
   it('1.2 Single ctxtop Package: manifest version is 4.1.4', () => {
@@ -198,8 +198,11 @@ describe('Feature 1: Single ctxtop Package', () => {
   it('1.4 Single ctxtop Package: bin declarations exist for ctxtop and ah-statusline', () => {
     const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
     assert.ok(pkg.bin && typeof pkg.bin === 'object', 'pkg.bin must be an object');
+    assert.ok(pkg.bin.highbeam, 'highbeam bin entry must be declared');
+    assert.ok(pkg.bin['highbeam-cli'], 'highbeam-cli bin entry must be declared');
     assert.ok(pkg.bin.ctxtop, 'ctxtop bin entry must be declared');
     assert.ok(pkg.bin['ah-statusline'], 'ah-statusline bin entry must be declared');
+    assert.ok(fs.existsSync(path.resolve(pkg.bin.highbeam)), 'highbeam entry target must exist on disk');
     assert.ok(fs.existsSync(path.resolve(pkg.bin.ctxtop)), 'ctxtop entry target must exist on disk');
     assert.ok(fs.existsSync(path.resolve(pkg.bin['ah-statusline'])), 'ah-statusline entry target must exist on disk');
   });
@@ -2629,7 +2632,7 @@ describe('Feature 31: Unified ctxtop CLI', () => {
 
     const helpRes = await runCli(['--help']);
     assert.equal(helpRes.exitCode, 0);
-    assert.ok(helpRes.output.includes('Usage: ctxtop'));
+    assert.ok(helpRes.output.includes('Usage: highbeam'));
   });
 });
 

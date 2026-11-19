@@ -60,10 +60,10 @@ describe('Simple view Next action: breakers, sharded spec, rule clashes & honest
       assert.equal(d.getElementById('tsKpi30d').hidden, true, '30d hidden when nothing saved');
 
       win.renderState(baseState('clash', { rsl: { clashCount: 2 } }));
-      assert.match(txt('tsDoText'), /2 conflicting rules detected .*ctxtop rsl status/);
+      assert.match(txt('tsDoText'), /2 conflicting rules detected .*highbeam rsl status/);
 
       win.renderState(baseState('sharded', { shardedSpecCount: 5, rsl: { clashCount: 2 } }));
-      assert.match(txt('tsDoText'), /Your requirements changed 5 times .*ctxtop handoff --consolidate/);
+      assert.match(txt('tsDoText'), /Your requirements changed 5 times .*highbeam handoff --consolidate/);
 
       win.renderState(baseState('breaker', {
         shardedSpecCount: 5,

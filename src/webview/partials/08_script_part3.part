@@ -59,7 +59,7 @@
       if (!btn) return;
       const hog = hogs[Number(btn.dataset.hogIdx)];
       if (!hog) return;
-      let copyText = 'npx ctxtop prune';
+      let copyText = 'npx highbeam-cli prune';
       if (hog.kind === 'file') {
         copyText = hog.ignorable
           ? ignorePromptText(hog.path)
@@ -954,7 +954,7 @@
         const targetDesc = dupFiles.length > 0
           ? `${dupFiles.length} duplicate file read${dupFiles.length === 1 ? '' : 's'}${errRowK > 0 ? ' + resolved errors' : ''}`
           : `resolved error logs`;
-        const pruneCmd = 'npx ctxtop prune';
+        const pruneCmd = 'npx highbeam-cli prune';
         currentSessionTokenRows.push({
           impactTokens: surgicalTok,
           html:

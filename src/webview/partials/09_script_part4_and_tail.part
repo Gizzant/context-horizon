@@ -1168,7 +1168,7 @@
       setTxt('tsAvoidText', 'Avoid loading more large files or unfiltered build logs before trimming older context.');
     } else if (shardedSpecCount >= 4) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `Your requirements changed ${shardedSpecCount} times across this chat — run ctxtop handoff --consolidate to merge them into one clear spec so nothing gets missed.`);
+      setTxt('tsDoText', `Your requirements changed ${shardedSpecCount} times across this chat — run highbeam handoff --consolidate to merge them into one clear spec so nothing gets missed.`);
       setTxt('tsAvoidText', 'Avoid adding new requirements one message at a time. Combine them into one clear plan.');
     } else if (isHighEffort && dispStaleT >= 30000) {
       const effWord = String(activeEffort).replace(/\s*effort\s*$/i, '').trim() || 'High';
@@ -1206,7 +1206,7 @@
       setTxt('tsAvoidText', 'Avoid loading unused MCP tool lists or oversized global rule files into every new chat.');
     } else if (rslClashCount > 0) {
       if (tsDoRow) tsDoRow.dataset.tone = 'avoid';
-      setTxt('tsDoText', `${rslClashCount} conflicting rule${rslClashCount === 1 ? '' : 's'} detected — run ctxtop rsl status to review the overlap and keep one clear instruction per topic.`);
+      setTxt('tsDoText', `${rslClashCount} conflicting rule${rslClashCount === 1 ? '' : 's'} detected — run highbeam rsl status to review the overlap and keep one clear instruction per topic.`);
       setTxt('tsAvoidText', 'Avoid adding rules that disagree with each other in AGENTS.md and your learned rules.');
     } else if (raw.turn1ContractSteered) {
       if (tsDoRow) tsDoRow.dataset.tone = 'do';
@@ -1665,7 +1665,7 @@
             rule: 'A project rule the AI is asked to follow.'
           };
           lrList.innerHTML = uiRules.length === 0
-            ? `<li class="ts-ledger-row" title="Highbeam knows about these rules, but this view does not have their details yet."><span class="ts-ledger-age">info</span><span>Rule details are not available yet. Run <code>ctxtop rsl status</code> to list them.</span><span class="ts-ledger-saved">${lrCount}</span></li>`
+            ? `<li class="ts-ledger-row" title="Highbeam knows about these rules, but this view does not have their details yet."><span class="ts-ledger-age">info</span><span>Rule details are not available yet. Run <code>highbeam rsl status</code> to list them.</span><span class="ts-ledger-saved">${lrCount}</span></li>`
             : uiRules.map((r) => {
               const kind = ['hook', 'skill', 'rule'].includes(r.kind) ? r.kind : 'rule';
               const state = kind === 'hook' ? (effectiveMode === 'off' ? 'paused' : 'blocks') : 'active';

@@ -37,7 +37,7 @@ test('trial: Auto stays off until turned on, then runs with days left shown', as
   try {
     const tr = await runCli(['license', 'trial'], sb.opts);
     assert.equal(tr.exitCode, 0);
-    assert.match(tr.output, /stays off until you turn it on: npx ctxtop mode auto/);
+    assert.match(tr.output, /stays off until you turn it on: npx highbeam-cli mode auto/);
 
     const before = await runCli(['mode'], sb.opts);
     assert.equal(before.data.configuredMode, 'COACH', 'trial does not switch Auto on');

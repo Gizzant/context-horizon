@@ -110,7 +110,7 @@
 
     <section class="settings-section" aria-labelledby="setGuardsHead">
       <h3 id="setGuardsHead">Guards</h3>
-      <p class="settings-help">Read-only here. To change one, run <code>npx ctxtop config set &lt;DET-id&gt; &lt;default|off|warn|block&gt;</code>.</p>
+      <p class="settings-help">Read-only here. To change one, run <code>npx highbeam-cli config set &lt;DET-id&gt; &lt;default|off|warn|block&gt;</code>.</p>
       <ul id="setGuardList" class="ts-ledger" role="list"></ul>
     </section>
 
@@ -119,7 +119,7 @@
       <ul class="settings-about">
         <li>Version: <span id="setAboutVersion">unknown</span></li>
         <li>Project config: <code>.attention-horizon.json</code> &middot; User config: <code>~/.attention-horizon/config.json</code></li>
-        <li>Health check: <code>npx ctxtop doctor</code></li>
+        <li>Health check: <code>npx highbeam-cli doctor</code></li>
         <li>Docs: <a href="https://gizzant.github.io/context-horizon/" target="_blank" rel="noopener noreferrer">Highbeam User Guide</a></li>
       </ul>
     </section>

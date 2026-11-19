@@ -79,7 +79,7 @@ test('notice: appears after the trial, caches its numbers, expires after 24 hour
   const sb = sandbox();
   try {
     const n1 = getTrialEndNotice(sb.opts);
-    assert.equal(n1.full, 'Trial ended: saved $0.03 in 14 days, Auto paused. Keep it: ctxtop license activate');
+    assert.equal(n1.full, 'Trial ended: saved $0.03 in 14 days, Auto paused. Keep it: highbeam license activate');
     assert.equal(n1.short, 'Trial ended · Auto paused');
 
     // Numbers come from the cache, so a later ledger change does not rewrite the notice.
@@ -103,16 +103,16 @@ test('a trial with no savings says "Trial ended" without a dollar figure', () =>
   try {
     fs.writeFileSync(sb.ledger, '');
     const n = getTrialEndNotice(sb.opts);
-    assert.equal(n.full, 'Trial ended, Auto paused. Keep it: ctxtop license activate');
+    assert.equal(n.full, 'Trial ended, Auto paused. Keep it: highbeam license activate');
     assert.doesNotMatch(n.full, /saved \$/);
-    assert.match(formatTrialSummaryLines(getTrialSummary(sb.opts)).join('\n'), /npx ctxtop audit/);
+    assert.match(formatTrialSummaryLines(getTrialSummary(sb.opts)).join('\n'), /npx highbeam-cli audit/);
   } finally { sb.cleanup(); }
 });
 
 test('status bar: notice is shown, fits the width, and never hides the core status', () => {
   const state = createInitialTelemetryState('s', 'claude-sonnet-5-5');
   state.contextWindow.totalInputTokens = 64000;
-  const notice = { full: 'Trial ended: saved $4.12 in 14 days, Auto paused. Keep it: ctxtop license activate', short: 'Trial ended · Auto paused' };
+  const notice = { full: 'Trial ended: saved $4.12 in 14 days, Auto paused. Keep it: highbeam license activate', short: 'Trial ended · Auto paused' };
   for (const columns of [60, 80, 110, 144, 200]) {
     const withN = renderStatusLine(state, { columns, ansi: false, trialNotice: notice });
     const without = renderStatusLine(state, { columns, ansi: false });
@@ -166,7 +166,7 @@ test('past-waste teaser: shows dollars and tokens for real waste, stays silent o
     ok: true, days: 7, sessionsScanned: 10, sludgeTaxUSD: 35.86, sludgeTaxTokens: 2400000
   });
   assert.match(line, /^Last 7 days: ~\$35\.86 \(2,400,000 tokens\) across 10 sessions/);
-  assert.match(line, /npx ctxtop audit/);
+  assert.match(line, /npx highbeam-cli audit/);
   assert.equal(formatPastWasteLine({ ok: true, days: 7, sessionsScanned: 3, sludgeTaxUSD: 0.1, sludgeTaxTokens: 5 }), '');
   assert.equal(formatPastWasteLine({ ok: true, days: 7, sessionsScanned: 0, sludgeTaxUSD: 9, sludgeTaxTokens: 5 }), '');
   assert.equal(formatPastWasteLine(null), '');

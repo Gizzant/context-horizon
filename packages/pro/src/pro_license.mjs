@@ -40,7 +40,7 @@ export const PLG_TIER_MATRIX = Object.freeze({
     id: 'free',
     name: 'Free Tier (MIT Core + COACH Mode)',
     priceMonthlyUSD: 0,
-    installCommand: 'npx ctxtop init',
+    installCommand: 'npx highbeam-cli init',
     features: Object.freeze([
       'Simple View HUD & 4-Rank Tufte Verdict Bar',
       '40-Cell Parabolic U-Curve Context Map',
@@ -60,7 +60,7 @@ export const PLG_TIER_MATRIX = Object.freeze({
     priceRangeMonthlyUSD: Object.freeze([12, 19]),
     features: Object.freeze([
       'AUTO_PILOT Hands-Free Enforcement & Horizon-Calibrated C_max Model Switch Hold',
-      'Signed Corporate PDF 1.4 FinOps + GreenOps Expense Receipt (ctxtop receipt --pdf)',
+      'Signed Corporate PDF 1.4 FinOps + GreenOps Expense Receipt (highbeam receipt --pdf)',
       'Cross-Session Chronic Offender Memory & 30-Day Workspace Savings Ledger (#tufteBaselineStrip)',
       '14-Day Zero-Network Local Trial'
     ])
@@ -75,7 +75,7 @@ export const PLG_TIER_MATRIX = Object.freeze({
       'Shared .agents/rules/ Primacy-Band Governance',
       'Sanitized Cross-Developer Bloat Analytics (/api/export/sanitized)',
       'Repo-Wide MCP Lazy-Loading Enforcement',
-      'BYO-Grafana OpenTelemetry & Prometheus Alerting Pack (ctxtop team-pack)'
+      'BYO-Grafana OpenTelemetry & Prometheus Alerting Pack (highbeam team-pack)'
     ])
   })
 });
@@ -698,8 +698,8 @@ export function requireProFeature(featureId = 'pro_feature', options = {}) {
     source: status.source,
     status,
     upgradeHint: needsTeamTier
-      ? 'Requires Highbeam Team ($299/yr for 5 seats — Commercial License: packages/pro/LICENSE-COMMERCIAL.md) or an active 14-day trial (`npx ctxtop license trial`).'
-      : 'Requires Highbeam Pro ($149/yr · $199 Founder Lifetime — Commercial License: packages/pro/LICENSE-COMMERCIAL.md) or an active 14-day trial (`npx ctxtop license trial`).'
+      ? 'Requires Highbeam Team ($299/yr for 5 seats — Commercial License: packages/pro/LICENSE-COMMERCIAL.md) or an active 14-day trial (`npx highbeam-cli license trial`).'
+      : 'Requires Highbeam Pro ($149/yr · $199 Founder Lifetime — Commercial License: packages/pro/LICENSE-COMMERCIAL.md) or an active 14-day trial (`npx highbeam-cli license trial`).'
   };
 }
 

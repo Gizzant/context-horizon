@@ -65,7 +65,7 @@ function buildCliCommandString(subcommand, workspaceFolders = []) {
       return `node "${localCli}" ${subcommand}`;
     }
   }
-  return `npx ctxtop ${subcommand}`;
+  return `npx highbeam-cli ${subcommand}`;
 }
 
 function createExtensionController(vscodeApi, deps = {}) {
@@ -81,7 +81,7 @@ function createExtensionController(vscodeApi, deps = {}) {
   const setIntervalFn = typeof deps.setIntervalFn === 'function' ? deps.setIntervalFn : setInterval;
   const clearIntervalFn = typeof deps.clearIntervalFn === 'function' ? deps.clearIntervalFn : clearInterval;
 
-  const outputChannel = vscodeApi.window.createOutputChannel('Highbeam (ctxtop)');
+  const outputChannel = vscodeApi.window.createOutputChannel('Highbeam');
   disposables.push(outputChannel);
 
   const log = (line) => {
@@ -376,7 +376,7 @@ function createExtensionController(vscodeApi, deps = {}) {
       }
       hudPanel = vscodeApi.window.createWebviewPanel(
         'highbeam.hudPanel',
-        'Highbeam (ctxtop) HUD',
+        'Highbeam HUD',
         vscodeApi.ViewColumn?.Beside ?? 2,
         {
           enableScripts: true,
@@ -418,7 +418,7 @@ function createExtensionController(vscodeApi, deps = {}) {
         vscodeApi.window?.showInformationMessage?.(`Highbeam daemon active on http://127.0.0.1:${res.port}/`);
       } else {
         vscodeApi.window?.showWarningMessage?.(
-          `Could not start Highbeam daemon: ${res?.error || 'check Node >= 22.13.0 and Output -> Highbeam (ctxtop).'}`
+          `Could not start Highbeam daemon: ${res?.error || 'check Node >= 22.13.0 and Output -> Highbeam.'}`
         );
       }
       return res;

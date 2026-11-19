@@ -9,7 +9,7 @@
 
 - **Aggregate Token Reduction:** **96.1%** (`26,822` raw tokens -> `1,055` summary tokens across `10` noisy CLI logs)
 - **Critical Diagnostic & Hunk Header Recall:** **100%** (`25/25` ground-truth markers preserved)
-- **BM25 FTS5 & MCP Retrieval Rate:** **100%** (`10/10` matched identically via `ctxtop search` & `horizon_search_logs`)
+- **BM25 FTS5 & MCP Retrieval Rate:** **100%** (`10/10` matched identically via `highbeam search` & `horizon_search_logs`)
 
 | Fixture | Family | Command | Raw Tok | Summary Tok | Token Reduction | Diagnostic Recall | FTS5 + MCP Retrieval |
 | :--- | :---: | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -29,7 +29,7 @@
 ## 2. Suite B — 12-Trajectory Google Antigravity & 5-Host Parity Suite
 
 - **Trajectories Verified:** **12 / 12 PASS**
-- **5-Host Audit Coverage (`ctxtop audit`):** Antigravity=`1`, Claude=`1`, Codex=`1`, Gemini=`1`, Cursor=`1`
+- **5-Host Audit Coverage (`highbeam audit`):** Antigravity=`1`, Claude=`1`, Codex=`1`, Gemini=`1`, Cursor=`1`
 
 | Trajectory | Verified Capability | Measured Latency (ms) | Status |
 | :--- | :--- | :---: | :---: |
