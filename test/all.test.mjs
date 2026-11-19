@@ -88,3 +88,4 @@ import './antigravity_toolcall_payload.test.mjs';
 import './flight_mode_and_trial.test.mjs';
 import './trial_summary.test.mjs';
 import './vscode_extension.test.mjs';
+import './pro_team_anchors.test.mjs';

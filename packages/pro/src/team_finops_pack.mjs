@@ -144,8 +144,37 @@ export function buildTeamFinopsArtifacts(options = {}) {
       'DET-09': 'block',
       'DET-19': 'block',
       'DET-20': 'block'
+    },
+    ciBudgetGate: {
+      maxPrCostUsd: 15.0,
+      maxPrTokens: 1500000,
+      minCacheHitPct: 50,
+      maxWasteRatioPct: 35,
+      maxRing0Violations: 0,
+      mode: 'advisory'
     }
   };
+
+  const ciWorkflowYaml = [
+    'name: Highbeam CI Token-Budget Gate',
+    'on:',
+    '  pull_request:',
+    '    branches: [main]',
+    'permissions:',
+    '  contents: read',
+    'jobs:',
+    '  token-budget-gate:',
+    '    runs-on: ubuntu-latest',
+    '    steps:',
+    '      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683',
+    '        with:',
+    '          fetch-depth: 0',
+    '      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020',
+    '        with:',
+    '          node-version: "22"',
+    '      - name: Run Highbeam CI Token-Budget Gate',
+    '        run: npx --yes highbeam-cli ci-gate --base origin/main --github-annotations'
+  ].join('\n') + '\n';
 
   const otelCollectorYaml = [
     '# Highbeam — Zero-Backend Team FinOps OpenTelemetry Collector Config',
@@ -181,10 +210,11 @@ export function buildTeamFinopsArtifacts(options = {}) {
     'Zero-backend team cost attribution, KV-cache warmth telemetry, and cross-harness (`Claude Code` + `Google Antigravity`) governance.',
     '',
     '## Included Files',
-    '1. **`.attention-horizon.json`**: Commit this policy file to your repository root to standardize `DET-01..32` circuit breakers and cross-harness `DET-20` file-scope locks across all developers.',
-    '2. **`grafana-dashboard.json`**: Import directly into Grafana (**Dashboards -> New -> Import**) to track actual LLM spend vs. Highbeam saved USD.',
-    '3. **`datadog-dashboard.json`**: Import into Datadog (**Dashboards -> New Dashboard -> Import Dashboard JSON**).',
-    '4. **`otel-collector-config.yaml`**: Point your local or CI OpenTelemetry Collector at `~/.attention-horizon/otel/metrics.jsonl` (`CLAUDE_CODE_ENABLE_TELEMETRY=1`).'
+    '1. **`.attention-horizon.json`**: Commit this policy file to your repository root to standardize `DET-01..32` circuit breakers, `ciBudgetGate` thresholds, and cross-harness `DET-20` file-scope locks across all developers.',
+    '2. **`highbeam-ci-budget-gate.yml`**: Drop into `.github/workflows/` to run `npx highbeam-cli ci-gate` on pull requests.',
+    '3. **`grafana-dashboard.json`**: Import directly into Grafana (**Dashboards -> New -> Import**) to track actual LLM spend vs. Highbeam saved USD.',
+    '4. **`datadog-dashboard.json`**: Import into Datadog (**Dashboards -> New Dashboard -> Import Dashboard JSON**).',
+    '5. **`otel-collector-config.yaml`**: Point your local or CI OpenTelemetry Collector at `~/.attention-horizon/otel/metrics.jsonl` (`CLAUDE_CODE_ENABLE_TELEMETRY=1`).'
   ].join('\n') + '\n';
 
   return {
@@ -195,6 +225,7 @@ export function buildTeamFinopsArtifacts(options = {}) {
       'datadog-dashboard.json': JSON.stringify(datadogDashboard, null, 2) + '\n',
       '.attention-horizon.json': JSON.stringify(teamPolicyConfig, null, 2) + '\n',
       'otel-collector-config.yaml': otelCollectorYaml,
+      'highbeam-ci-budget-gate.yml': ciWorkflowYaml,
       'README-TEAM-FINOPS.md': readmeMarkdown
     }
   };

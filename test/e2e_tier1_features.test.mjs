@@ -185,9 +185,9 @@ describe('Feature 1: Single ctxtop Package', () => {
     assert.equal(pkg.name, 'highbeam-cli', 'Package name must be highbeam-cli');
   });
 
-  it('1.2 Single ctxtop Package: manifest version is 4.1.6', () => {
+  it('1.2 Single ctxtop Package: manifest version is 4.2.0', () => {
     const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-    assert.equal(pkg.version, '4.1.6', 'Package version must be 4.1.6');
+    assert.equal(pkg.version, '4.2.0', 'Package version must be 4.2.0');
   });
 
   it('1.3 Single ctxtop Package: type is "module"', () => {
@@ -245,13 +245,13 @@ describe('Feature 2: Dual Plugin Manifests', () => {
     assert.equal(cc.hooks, './hooks/hooks.json');
   });
 
-  it('2.4 Dual Plugin Manifests: manifest schema version matches v4.1.6 in both', () => {
+  it('2.4 Dual Plugin Manifests: manifest schema version matches v4.2.0 in both', () => {
     const ag = JSON.parse(fs.readFileSync('plugin.json', 'utf8'));
     const cc = JSON.parse(fs.readFileSync('.claude-plugin/plugin.json', 'utf8'));
     const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-    assert.equal(ag.version, '4.1.6');
-    assert.equal(cc.version, '4.1.6');
-    assert.equal(pkg.version, '4.1.6');
+    assert.equal(ag.version, '4.2.0');
+    assert.equal(cc.version, '4.2.0');
+    assert.equal(pkg.version, '4.2.0');
   });
 
   it('2.5 Dual Plugin Manifests: platform-specific capabilities declared', () => {

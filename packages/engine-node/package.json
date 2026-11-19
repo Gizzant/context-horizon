@@ -1,6 +1,6 @@
 {
   "name": "@ctxtop/engine-node",
-  "version": "4.1.6",
+  "version": "4.2.0",
   "description": "Highbeam Node.js >=22.13 runtime engine (SQLite + JSONL fallback, Micro-IPC, lossless offloader, git sensors)",
   "type": "module",
   "main": "./src/index.mjs",

@@ -62,6 +62,8 @@ export const PLG_TIER_MATRIX = Object.freeze({
       'AUTO_PILOT Hands-Free Enforcement & Horizon-Calibrated C_max Model Switch Hold',
       'Signed Corporate PDF 1.4 FinOps + GreenOps Expense Receipt (highbeam receipt --pdf)',
       'Cross-Session Chronic Offender Memory & 30-Day Workspace Savings Ledger (#tufteBaselineStrip)',
+      'Cross-Machine Zero-Knowledge Encrypted Memory & Ledger Sync (highbeam sync export/import)',
+      'Git Branch & PR Token/USD Cost Attribution (highbeam pr-cost)',
       '14-Day Zero-Network Local Trial'
     ])
   }),
@@ -75,7 +77,9 @@ export const PLG_TIER_MATRIX = Object.freeze({
       'Shared .agents/rules/ Primacy-Band Governance',
       'Sanitized Cross-Developer Bloat Analytics (/api/export/sanitized)',
       'Repo-Wide MCP Lazy-Loading Enforcement',
-      'BYO-Grafana OpenTelemetry & Prometheus Alerting Pack (highbeam team-pack)'
+      'BYO-Grafana OpenTelemetry & Prometheus Alerting Pack (highbeam team-pack)',
+      'Zero-Knowledge Org FinOps Rollup & PII Firewall (highbeam team-rollup)',
+      'CI / PR Token-Budget Gate for GitHub Actions & GitLab CI (highbeam ci-gate)'
     ])
   })
 });
@@ -672,6 +676,10 @@ export function getProEntitlementStatus(options = {}) {
   };
 }
 
+export const TEAM_ONLY_FEATURES = Object.freeze(
+  new Set(['team_finops_pack', 'team_org_rollup', 'team_ci_budget_gate'])
+);
+
 /**
  * Evaluates whether a specific commercial Pro or Team feature is permitted.
  *
@@ -680,7 +688,7 @@ export function getProEntitlementStatus(options = {}) {
  */
 export function requireProFeature(featureId = 'pro_feature', options = {}) {
   const status = getProEntitlementStatus(options);
-  const needsTeamTier = featureId === 'team_finops_pack';
+  const needsTeamTier = TEAM_ONLY_FEATURES.has(featureId);
 
   const allowed = needsTeamTier
     ? Boolean(

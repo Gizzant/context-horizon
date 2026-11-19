@@ -190,7 +190,7 @@ describe('Tier 3: Pairwise Interactions (Features 1 - 14)', () => {
     const pkgPath = path.resolve('package.json');
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
     assert.equal(pkg.name, 'highbeam-cli');
-    assert.equal(pkg.version, '4.1.6');
+    assert.equal(pkg.version, '4.2.0');
     assert.equal(pkg.type, 'module');
 
     const depCheck = checkZeroRuntimeDeps(pkgPath);
@@ -206,7 +206,7 @@ describe('Tier 3: Pairwise Interactions (Features 1 - 14)', () => {
         encoding: 'utf8'
       });
       assert.equal(result.status, 0, `CLI failed with stderr: ${result.stderr}`);
-      assert.ok(result.stdout.includes('4.1.6'), 'CLI must output package version');
+      assert.ok(result.stdout.includes('4.2.0'), 'CLI must output package version');
     } finally {
       ws.cleanup();
     }
@@ -234,7 +234,7 @@ describe('Tier 3: Pairwise Interactions (Features 1 - 14)', () => {
       const agManifestPath = path.join(agPluginDir, 'plugin.json');
       assert.ok(fs.existsSync(agManifestPath), 'Antigravity plugin.json must be deployed into sandbox workspace');
       const agManifest = JSON.parse(fs.readFileSync(agManifestPath, 'utf8'));
-      assert.equal(agManifest.version, '4.1.6');
+      assert.equal(agManifest.version, '4.2.0');
       assert.equal(agManifest.hooks, './hooks.json');
 
       // Verify Antigravity hooks generated inside sandbox
@@ -249,7 +249,7 @@ describe('Tier 3: Pairwise Interactions (Features 1 - 14)', () => {
 
       // Verify Dual Manifest package parity
       const ccManifest = JSON.parse(fs.readFileSync(path.resolve('.claude-plugin', 'plugin.json'), 'utf8'));
-      assert.equal(ccManifest.version, '4.1.6');
+      assert.equal(ccManifest.version, '4.2.0');
       assert.equal(ccManifest.hooks, './hooks/hooks.json');
     } finally {
       sandbox.cleanup();

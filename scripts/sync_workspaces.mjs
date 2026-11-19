@@ -241,25 +241,34 @@ export * from './rsl/index.mjs';
   const proIndexContent = `/**
  * @file packages/pro/src/index.mjs
  * Highbeam Pro Commercial Entitlement Barrel (@ctxtop/pro).
- * Offline Ed25519 License Verifier & Team FinOps Pack.
+ * Offline Ed25519 License Verifier, Encrypted Sync, Git/PR Cost Attribution,
+ * Zero-Knowledge Org FinOps Rollup, CI Budget Gate & Team FinOps Pack.
  * The Polar.sh webhook worker (workers/) is operator-only infrastructure and is NOT published.
  */
 
 export * from './pro_license.mjs';
 export * from './team_finops_pack.mjs';
+export * from './encrypted_sync.mjs';
+export * from './pr_cost_attribution.mjs';
+export * from './team_finops_rollup.mjs';
+export * from './ci_budget_gate.mjs';
 `;
   writeFileIfChangedSync(path.join(proSrcDir, 'index.mjs'), proIndexContent, 'utf8');
 
   const proPkg = {
     name: '@ctxtop/pro',
     version: VERSION,
-    description: 'Highbeam Pro — Offline Ed25519 License Verifier, Team FinOps Pack & Commercial Entitlements (Polar.sh)',
+    description: 'Highbeam Pro — Offline Ed25519 License Verifier, Encrypted Sync, PR Cost Attribution, ZK Org FinOps Rollup & CI Budget Gate',
     license: 'SEE LICENSE IN LICENSE-COMMERCIAL.md',
     type: 'module',
     main: './src/index.mjs',
     exports: {
       '.': './src/index.mjs',
-      './team-finops': './src/team_finops_pack.mjs'
+      './team-finops': './src/team_finops_pack.mjs',
+      './encrypted-sync': './src/encrypted_sync.mjs',
+      './pr-cost': './src/pr_cost_attribution.mjs',
+      './team-rollup': './src/team_finops_rollup.mjs',
+      './ci-gate': './src/ci_budget_gate.mjs'
     },
     files: [
       'src/',
