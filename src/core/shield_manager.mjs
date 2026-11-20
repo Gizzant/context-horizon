@@ -31,6 +31,189 @@ export const DEFAULT_SHIELD_MAX_SLICE_BYTES = 20_480;
 export const CLIFF_SHIELD_MAX_SLICE_BYTES = 8_192;
 export const CLAMP_TARGET_BYTES = 6_144;
 export const COLD_CACHE_GAP_MS = 300_000; // 5-minute TTL
+export const SHIELD_MODES = Object.freeze({
+  AUTO: 'auto',
+  ENABLED: 'enabled',
+  DISABLED: 'disabled'
+});
+export const ASSUMED_INDUCED_OUTPUT_TOKENS = 600;
+export const ASSUMED_REMAINING_CACHE_READS = 4;
+export const ASSUMED_MIN_PROMPT_TOKENS = 20_000;
+
+const HIGHBEAM_CACHE_ARTIFACT_PATH_RE =
+  /(?:^|\/)(?:\.claude\/cache\/artifacts|\.agents\/cache)(?:\/|$)/i;
+const ACTIVE_SOURCE_CODE_EXT_RE =
+  /\.(?:mjs|cjs|js|jsx|ts|tsx|py|go|rs|java|kt|kts|cs|cpp|cc|cxx|c|h|hpp|rb|php|swift|scala|vue|svelte|sql|sh|bash|zsh|ps1)$/i;
+
+/**
+ * True when `<filePath>` points inside Highbeam's own offload/index cache directories
+ * so Shield never self-clamps artifacts or `.index.md` maps.
+ *
+ * @param {string} [filePath='']
+ * @returns {boolean}
+ */
+export function isHighbeamCacheArtifactPath(filePath = '') {
+  const norm = String(filePath || '').replace(/\\/g, '/').trim();
+  return HIGHBEAM_CACHE_ARTIFACT_PATH_RE.test(norm);
+}
+
+/**
+ * True when `<filePath>` is a mutable active source code file (higher likelihood of
+ * follow-up re-reads/edits when clamped mid-file).
+ *
+ * @param {string} [filePath='']
+ * @returns {boolean}
+ */
+export function isActiveSourceCodePath(filePath = '') {
+  return ACTIVE_SOURCE_CODE_EXT_RE.test(String(filePath || '').trim());
+}
+
+/**
+ * Evaluates whether a Shield `clamp` is expected-value net positive once the
+ * induced-turn cost (~78% output tokens + cache read overhead) is weighed against
+ * avoided cache write + future cache reads.
+ *
+ * @param {object} [params={}]
+ * @returns {{
+ *   netPositive: boolean,
+ *   minBreakEvenTokens: number,
+ *   evUSD: number,
+ *   avoidedValueUSD?: number,
+ *   inducedTurnUSD?: number,
+ *   pReread: number,
+ *   isCode: boolean
+ * }}
+ */
+export function evaluateClampExpectedValue({
+  clampSavedTokens = 0,
+  filePath = '',
+  nearCliff = false,
+  isSlicedCheck = false,
+  exceedsLineCap = false,
+  promptTokens = 0,
+  rates = {}
+} = {}) {
+  const savedTok = Math.max(0, Number(clampSavedTokens) || 0);
+  const isCode = isActiveSourceCodePath(filePath);
+  if (nearCliff) {
+    return {
+      netPositive: savedTok > 200,
+      minBreakEvenTokens: 201,
+      evUSD: 0,
+      pReread: 0,
+      isCode
+    };
+  }
+  const writeRate = Number(rates.write5mPer1M || rates.write5m || rates.inputPer1M || rates.input || 2.5);
+  const readRate = Number(rates.cachedReadPer1M ?? rates.cachedRead ?? 0.1);
+  const outRate = Number(rates.outputPer1M || rates.output || 10.0);
+  const effPromptTok = Math.max(ASSUMED_MIN_PROMPT_TOKENS, Number(promptTokens) || 0);
+  const effectivePer1M = writeRate + ASSUMED_REMAINING_CACHE_READS * readRate;
+  const avoidedValueUSD = (savedTok / 1_000_000) * effectivePer1M;
+  const inducedTurnUSD =
+    (ASSUMED_INDUCED_OUTPUT_TOKENS / 1_000_000) * outRate +
+    (effPromptTok / 1_000_000) * readRate;
+  const pReread = isCode ? (isSlicedCheck && exceedsLineCap ? 0.55 : 0.70) : 0.35;
+  const evUSD = (1 - pReread) * avoidedValueUSD - pReread * inducedTurnUSD;
+  const minBreakEvenTokens = Math.max(
+    200,
+    effectivePer1M > 0
+      ? Math.ceil(((pReread / Math.max(0.05, 1 - pReread)) * inducedTurnUSD * 1_000_000) / effectivePer1M)
+      : 2000
+  );
+  return {
+    netPositive: savedTok > minBreakEvenTokens && evUSD > 0,
+    minBreakEvenTokens,
+    evUSD: Number(evUSD.toFixed(6)),
+    avoidedValueUSD: Number(avoidedValueUSD.toFixed(6)),
+    inducedTurnUSD: Number(inducedTurnUSD.toFixed(6)),
+    pReread,
+    isCode
+  };
+}
+
+/**
+ * Formats compact structural section landmarks plus distinct non-boilerplate unread
+ * line landmarks so models can slice directly instead of running broad regex filters.
+ *
+ * @param {string[]} [rawLines=[]]
+ * @param {number} [clampStart=1]
+ * @param {number} [clampEnd=1]
+ * @param {string} [indexedMarkdown='']
+ * @param {number} [maxChars=1100]
+ * @returns {string}
+ */
+export function buildCompactClampLandmarks(
+  rawLines = [],
+  clampStart = 1,
+  clampEnd = 1,
+  indexedMarkdown = '',
+  maxChars = 1100
+) {
+  const sectionRows = [];
+  const mdLines = String(indexedMarkdown || '').split(/\r?\n/);
+  let inFrontmatter = false;
+  for (let i = 0; i < mdLines.length; i += 1) {
+    const trimmed = mdLines[i].trim();
+    if (i === 0 && trimmed === '---') {
+      inFrontmatter = true;
+      continue;
+    }
+    if (inFrontmatter) {
+      if (trimmed === '---') inFrontmatter = false;
+      continue;
+    }
+    if (!trimmed.startsWith('|')) continue;
+    if (/^\|\s*(?:Lines|:---)/i.test(trimmed)) continue;
+    const cols = trimmed.split('|').map((c) => c.trim()).filter(Boolean);
+    if (cols.length >= 2) {
+      sectionRows.push(`  ${cols[0]}: ${cols[1].slice(0, 88)}`);
+      if (sectionRows.length >= 12) break;
+    }
+  }
+
+  const unreadItems = [];
+  const prefixCounts = new Map();
+  for (let idx = 0; idx < rawLines.length; idx += 1) {
+    const lineNum = idx + 1;
+    if (lineNum >= clampStart && lineNum <= clampEnd) continue;
+    const trimmed = String(rawLines[idx] || '').trim();
+    if (!trimmed) continue;
+    const prefix = trimmed.replace(/\d+/g, '#').slice(0, 24);
+    prefixCounts.set(prefix, (prefixCounts.get(prefix) || 0) + 1);
+    unreadItems.push({ lineNum, trimmed, prefix });
+  }
+
+  let maxPrefixCount = 0;
+  for (const cnt of prefixCounts.values()) {
+    if (cnt > maxPrefixCount) maxPrefixCount = cnt;
+  }
+
+  const outlierLines = [];
+  if (unreadItems.length >= 10 && maxPrefixCount / unreadItems.length >= 0.4) {
+    const maxOutlierFreq = unreadItems.length >= 30 ? 2 : 1;
+    for (const item of unreadItems) {
+      if (/^#{1,6}\s/.test(item.trimmed)) continue;
+      if ((prefixCounts.get(item.prefix) || 0) <= maxOutlierFreq) {
+        outlierLines.push(`  L${item.lineNum}: ${item.trimmed.slice(0, 140)}`);
+        if (outlierLines.length >= 5) break;
+      }
+    }
+  }
+
+  const parts = [];
+  if (sectionRows.length > 0) {
+    parts.push('Sections:');
+    parts.push(...sectionRows);
+  }
+  if (outlierLines.length > 0) {
+    parts.push('Distinct unread lines:');
+    parts.push(...outlierLines);
+  }
+  const combined = parts.join('\n');
+  if (combined.length <= maxChars) return combined;
+  return `${combined.slice(0, Math.max(0, maxChars - 4))}\n...`;
+}
 
 const CTXTOP_CLAUDE_SCRIPT_RE =
   /hooks[\\/]handlers[\\/](?:pre-tool-use|post-tool-use)\.mjs/i;
@@ -73,11 +256,13 @@ export function getShieldConfigPath(options = {}) {
 }
 
 /**
- * Loads the Active Context Shield configuration, defaulting `enabled` to `false` until
- * explicitly activated via `ctxtop shield --enable` (or programmatic override).
+ * Loads the Active Context Shield configuration, defaulting `mode` to `'auto'`
+ * (clamp-only on Claude Code, passive off-cliff on Antigravity) when no config file
+ * exists, while preserving explicit on-disk `'enabled'` or `'disabled'` states.
  *
  * @param {object} [options={}]
  * @returns {{
+ *   mode: 'auto' | 'enabled' | 'disabled',
  *   enabled: boolean,
  *   platforms: { antigravity: boolean, claude: boolean },
  *   maxUnslicedLines: number,
@@ -91,8 +276,10 @@ export function getShieldConfigPath(options = {}) {
 export function loadShieldConfig(options = {}) {
   const configPath = getShieldConfigPath(options);
   const defaults = {
+    mode: SHIELD_MODES.AUTO,
     enabled: false,
     platforms: { antigravity: false, claude: false },
+    autoTierReadOnlyScouts: false,
     maxUnslicedLines: DEFAULT_SHIELD_MAX_UNSLICED_LINES,
     cliffMaxUnslicedLines: CLIFF_SHIELD_MAX_UNSLICED_LINES,
     maxUnslicedBytes: DEFAULT_SHIELD_MAX_UNSLICED_BYTES,
@@ -106,24 +293,41 @@ export function loadShieldConfig(options = {}) {
   try {
     const parsed = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     if (!parsed || typeof parsed !== 'object') return defaults;
-    const enabled = Boolean(parsed.enabled);
-    const platforms = {
+    const rawEnabled = Boolean(parsed.enabled);
+    const rawPlatforms = {
       antigravity:
         parsed.platforms && typeof parsed.platforms.antigravity === 'boolean'
           ? parsed.platforms.antigravity
-          : enabled,
+          : rawEnabled,
       claude:
         parsed.platforms && typeof parsed.platforms.claude === 'boolean'
           ? parsed.platforms.claude
-          : enabled
+          : rawEnabled
     };
+    const anyEnabled = Boolean(rawEnabled || rawPlatforms.antigravity || rawPlatforms.claude);
+    const rawMode = String(parsed.mode || '').trim().toLowerCase();
+    const mode =
+      rawMode === SHIELD_MODES.AUTO || rawMode === SHIELD_MODES.ENABLED || rawMode === SHIELD_MODES.DISABLED
+        ? rawMode
+        : anyEnabled
+          ? SHIELD_MODES.ENABLED
+          : SHIELD_MODES.DISABLED;
+    const platforms =
+      mode === SHIELD_MODES.AUTO
+        ? { antigravity: false, claude: false }
+        : mode === SHIELD_MODES.DISABLED
+          ? { antigravity: false, claude: false }
+          : rawPlatforms;
+    const enabled = mode === SHIELD_MODES.ENABLED && Boolean(rawEnabled || platforms.antigravity || platforms.claude);
     const maxLines = Number(parsed.maxUnslicedLines);
     const cliffLines = Number(parsed.cliffMaxUnslicedLines);
     const maxBytes = Number(parsed.maxUnslicedBytes);
     const cliffBytes = Number(parsed.cliffMaxUnslicedBytes);
     return {
-      enabled: Boolean(enabled || platforms.antigravity || platforms.claude),
+      mode,
+      enabled,
       platforms,
+      autoTierReadOnlyScouts: Boolean(parsed.autoTierReadOnlyScouts),
       maxUnslicedLines:
         Number.isFinite(maxLines) && maxLines >= 100
           ? Math.round(maxLines)
@@ -157,7 +361,10 @@ export function loadShieldConfig(options = {}) {
  */
 export function saveShieldConfig(partial = {}, options = {}) {
   const current = loadShieldConfig(options);
-  const nextPlatforms = {
+  const rawMode = String(partial.mode || '').trim().toLowerCase();
+  const hasExplicitMode =
+    rawMode === SHIELD_MODES.AUTO || rawMode === SHIELD_MODES.ENABLED || rawMode === SHIELD_MODES.DISABLED;
+  let nextPlatforms = {
     antigravity:
       partial.platforms?.antigravity !== undefined
         ? Boolean(partial.platforms.antigravity)
@@ -167,13 +374,28 @@ export function saveShieldConfig(partial = {}, options = {}) {
         ? Boolean(partial.platforms.claude)
         : current.platforms.claude
   };
-  const nextEnabled =
+  let nextEnabled =
     partial.enabled !== undefined
       ? Boolean(partial.enabled)
       : Boolean(nextPlatforms.antigravity || nextPlatforms.claude);
+  const nextMode = hasExplicitMode
+    ? rawMode
+    : nextEnabled
+      ? SHIELD_MODES.ENABLED
+      : SHIELD_MODES.DISABLED;
+  if (nextMode === SHIELD_MODES.AUTO || nextMode === SHIELD_MODES.DISABLED) {
+    nextEnabled = false;
+    nextPlatforms = { antigravity: false, claude: false };
+  }
+  const nextAutoTierScouts =
+    partial.autoTierReadOnlyScouts !== undefined
+      ? Boolean(partial.autoTierReadOnlyScouts)
+      : Boolean(current.autoTierReadOnlyScouts);
   const payload = {
+    mode: nextMode,
     enabled: nextEnabled,
     platforms: nextPlatforms,
+    autoTierReadOnlyScouts: nextAutoTierScouts,
     maxUnslicedLines:
       Number.isFinite(Number(partial.maxUnslicedLines)) && Number(partial.maxUnslicedLines) >= 100
         ? Math.round(Number(partial.maxUnslicedLines))
@@ -332,28 +554,42 @@ export function evaluateShieldReadGuard({
   if (!rawTarget || (hasSliceBounds && !hasExplicitDimensions)) {
     return { action: 'allow' };
   }
-  if (rawTarget.endsWith('.index.md') || isForbiddenSkuPath(rawTarget)) {
+  if (rawTarget.endsWith('.index.md') || isForbiddenSkuPath(rawTarget) || isHighbeamCacheArtifactPath(rawTarget)) {
     return { action: 'allow' };
   }
 
   const baseCwd = path.resolve(cwd || process.cwd());
   const absFile = path.isAbsolute(rawTarget) ? path.resolve(rawTarget) : path.resolve(baseCwd, rawTarget);
   const relFile = path.relative(baseCwd, absFile).replace(/\\/g, '/');
-  if (isForbiddenSkuPath(absFile) || isForbiddenSkuPath(relFile)) {
+  if (
+    isForbiddenSkuPath(absFile) ||
+    isForbiddenSkuPath(relFile) ||
+    isHighbeamCacheArtifactPath(absFile) ||
+    isHighbeamCacheArtifactPath(relFile)
+  ) {
     return { action: 'allow' };
   }
 
   const cfg = shieldConfig || loadShieldConfig({ cwd: baseCwd });
   const platformKey = platform === 'antigravity' ? 'antigravity' : 'claude';
-  const shieldEnabledForPlatform = Boolean(
-    forceActive || (cfg.enabled && cfg.platforms?.[platformKey] !== false)
+  const effectiveMode = forceActive
+    ? SHIELD_MODES.ENABLED
+    : cfg.mode === SHIELD_MODES.AUTO || cfg.mode === SHIELD_MODES.ENABLED || cfg.mode === SHIELD_MODES.DISABLED
+      ? cfg.mode
+      : cfg.enabled
+        ? SHIELD_MODES.ENABLED
+        : SHIELD_MODES.DISABLED;
+  const fullShieldForPlatform = Boolean(
+    forceActive || (effectiveMode === SHIELD_MODES.ENABLED && cfg.enabled && cfg.platforms?.[platformKey] !== false)
   );
+  const autoClampForPlatform =
+    !fullShieldForPlatform && effectiveMode === SHIELD_MODES.AUTO && platformKey === 'claude';
 
   const cliffTokens = resolvePromptCliffTokens(modelId);
   const promptTok = Math.max(0, Number(currentPromptTokens) || 0);
   const nearCliff = cliffTokens > 0 && promptTok >= Math.floor(cliffTokens * 0.9);
 
-  if (!shieldEnabledForPlatform && !nearCliff) {
+  if (!fullShieldForPlatform && !autoClampForPlatform && !nearCliff) {
     return { action: 'allow' };
   }
 
@@ -458,10 +694,11 @@ export function evaluateShieldReadGuard({
     ? `${targetLineCount} lines > ${maxLines}-line cap`
     : `${targetLineCount} lines / ${(targetBytes / 1024).toFixed(1)} KB > ${(maxBytes / 1024).toFixed(0)} KB byte-width cap`;
 
+  const isAutoClampOnly = autoClampForPlatform && !nearCliff;
   const canClaudeClamp =
     platformKey === 'claude' &&
     targetLineCount >= 20 &&
-    (isSlicedCheck || (!exceedsLineCap && exceedsByteCap));
+    (isAutoClampOnly || isSlicedCheck || (!exceedsLineCap && exceedsByteCap));
 
   if (canClaudeClamp) {
     const targetClampBytes = nearCliff ? 3_072 : CLAMP_TARGET_BYTES;
@@ -471,74 +708,105 @@ export function evaluateShieldReadGuard({
       targetClampBytes,
       targetClampLines
     );
-    if (clampLimit < Math.floor(targetLineCount * 0.8)) {
-      const inlineIndexMap = String(indexed.markdown || '').trim().slice(0, 1200);
-      const clampSavedTokens = Math.max(
-        0,
-        Math.ceil((targetBytes - clampedBytes - inlineIndexMap.length) / 4)
-      );
-      if (clampSavedTokens > 200) {
-        const clampSavedUSD = Number(
-          ((clampSavedTokens / 1_000_000) * Number(rates.inputPer1M || 3.0)).toFixed(6)
-        );
-        const clampEnd = reqOffset + clampLimit - 1;
-        const clampReason = `Highbeam Shield clamped ${isSlicedCheck ? 'wide explicit slice' : 'wide unsliced Read'} of ${displayFile} (${capClause}${cliffTag}) to L${reqOffset}..L${clampEnd} (~${(clampedBytes / 1024).toFixed(1)} KB; +${clampSavedTokens.toLocaleString('en-US')} tok saved, 0 extra turn). Map (${displayIndex}) — pass offset & limit for other sections:\n${inlineIndexMap}`;
-        if (recordLedger) {
-          recordInterventionSavings(
-            {
-              sessionId,
-              category: 'BOUNDED_READ_ENFORCED',
-              modelId,
-              savedTokens: clampSavedTokens,
-              savedUSD: clampSavedUSD,
-              dedupeId: `shield_clamp:${sessionId}:${displayFile}:${reqOffset}:${clampLimit}:${indexed.sha256?.slice(0, 8) || totalLines}`,
-              detail: `Clamped read of ${displayFile} (${reqOffset}..${clampEnd} of ${totalLines} lines)`
-            },
-            { cwd: baseCwd, ...(ledgerPath ? { ledgerPath } : {}) }
-          );
-          appendShieldHint(
-            sessionId,
-            {
-              event: isSlicedCheck ? 'clamped_explicit_slice' : 'clamped_unsliced_read',
-              platform: platformKey,
-              file: displayFile,
-              index_path: displayIndex,
-              lines_at_read: targetLineCount,
-              max_lines: maxLines,
-              clamp_offset: reqOffset,
-              clamp_limit: clampLimit,
-              bytes_at_read: targetBytes,
-              max_bytes: maxBytes,
-              clamped_bytes: clampedBytes,
-              trigger_reason: triggerReason,
-              near_cliff: nearCliff,
-              tokens_saved_est: clampSavedTokens,
-              dollars_saved_est: clampSavedUSD
-            },
-            { cwd: baseCwd }
-          );
-        }
-        return {
-          action: 'clamp',
-          detectorId: nearCliff ? 'DET-12' : 'DET-11',
-          triggerReason,
-          reason: clampReason,
-          clampOffset: reqOffset,
-          clampLimit,
-          indexPath: indexed.indexPath,
-          relIndexPath: displayIndex,
-          totalLines,
-          maxLines,
-          fileBytes: stat.size,
-          sliceBytes: targetBytes,
-          maxBytes,
-          clampedBytes,
-          nearCliff,
-          savedTokens: clampSavedTokens,
-          savedUSD: clampSavedUSD
-        };
-      }
+    if (clampLimit >= Math.floor(targetLineCount * 0.8)) {
+      return { action: 'allow', evBypassed: true };
     }
+    const clampEnd = reqOffset + clampLimit - 1;
+    const compactLandmarks = buildCompactClampLandmarks(
+      rawLines,
+      reqOffset,
+      clampEnd,
+      indexed.markdown,
+      1100
+    );
+    const clampNoticeOverhead = compactLandmarks.length || String(indexed.markdown || '').trim().slice(0, 1100).length;
+    const clampSavedTokens = Math.max(
+      0,
+      Math.ceil((targetBytes - clampedBytes - clampNoticeOverhead) / 4)
+    );
+    const clampEv = evaluateClampExpectedValue({
+      clampSavedTokens,
+      filePath: absFile,
+      nearCliff,
+      isSlicedCheck,
+      exceedsLineCap,
+      promptTokens: promptTok,
+      rates
+    });
+    if (!clampEv.netPositive) {
+      // Never fall through to deny when clamping is bypassed by the output-aware EV gate.
+      return { action: 'allow', evBypassed: true, ev: clampEv };
+    }
+    const clampSavedUSD = Number(
+      ((clampSavedTokens / 1_000_000) * Number(rates.inputPer1M || 3.0)).toFixed(6)
+    );
+    const unreadParts = [];
+    if (reqOffset > 1) unreadParts.push(`L1..L${reqOffset - 1}`);
+    if (clampEnd < totalLines) unreadParts.push(`L${clampEnd + 1}..L${totalLines}`);
+    const unreadSummary = unreadParts.length > 0 ? unreadParts.join(', ') : 'none';
+    const landBlock = compactLandmarks ? `\n${compactLandmarks}` : '';
+    const clampReason = `Highbeam Shield clamped ${isSlicedCheck ? 'wide explicit slice' : 'wide unsliced Read'} of ${displayFile} (${capClause}${cliffTag}) to L${reqOffset}..L${clampEnd} of ${totalLines} lines (~${(clampedBytes / 1024).toFixed(1)} KB; unread: ${unreadSummary}). Map: ${displayIndex} — pass offset & limit to read remaining sections:${landBlock}`;
+    if (recordLedger) {
+      recordInterventionSavings(
+        {
+          sessionId,
+          category: 'BOUNDED_READ_ENFORCED',
+          modelId,
+          savedTokens: clampSavedTokens,
+          savedUSD: clampSavedUSD,
+          dedupeId: `shield_clamp:${sessionId}:${displayFile}:${reqOffset}:${clampLimit}:${indexed.sha256?.slice(0, 8) || totalLines}`,
+          detail: `Clamped read of ${displayFile} (${reqOffset}..${clampEnd} of ${totalLines} lines)`
+        },
+        { cwd: baseCwd, ...(ledgerPath ? { ledgerPath } : {}) }
+      );
+      appendShieldHint(
+        sessionId,
+        {
+          event: isSlicedCheck ? 'clamped_explicit_slice' : 'clamped_unsliced_read',
+          platform: platformKey,
+          file: displayFile,
+          index_path: displayIndex,
+          lines_at_read: targetLineCount,
+          max_lines: maxLines,
+          clamp_offset: reqOffset,
+          clamp_limit: clampLimit,
+          bytes_at_read: targetBytes,
+          max_bytes: maxBytes,
+          clamped_bytes: clampedBytes,
+          trigger_reason: triggerReason,
+          near_cliff: nearCliff,
+          tokens_saved_est: clampSavedTokens,
+          dollars_saved_est: clampSavedUSD
+        },
+        { cwd: baseCwd }
+      );
+    }
+    return {
+      action: 'clamp',
+      detectorId: nearCliff ? 'DET-12' : 'DET-11',
+      shieldMode: effectiveMode,
+      triggerReason,
+      reason: clampReason,
+      clampOffset: reqOffset,
+      clampLimit,
+      indexPath: indexed.indexPath,
+      relIndexPath: displayIndex,
+      totalLines,
+      maxLines,
+      fileBytes: stat.size,
+      sliceBytes: targetBytes,
+      maxBytes,
+      clampedBytes,
+      nearCliff,
+      savedTokens: clampSavedTokens,
+      savedUSD: clampSavedUSD,
+      ev: clampEv
+    };
+  }
+
+  if (isAutoClampOnly) {
+    // Auto mode is strictly clamp-only off-cliff: never hard-deny unclampable reads (e.g., <20L minified files).
+    return { action: 'allow', autoDenySkipped: true, shieldMode: effectiveMode };
   }
 
   const { clampLimit: recLimit } = computeByteBoundedSliceWindow(
@@ -889,6 +1157,7 @@ export function getShieldStatus(options = {}) {
   });
 
   let readsBlocked = 0;
+  let readsClamped = 0;
   let logsCompacted = 0;
   let thrashStopped = 0;
   let hintTokensSaved = 0;
@@ -935,7 +1204,8 @@ export function getShieldStatus(options = {}) {
               }
               continue;
             }
-            if (row.event === 'blocked_unsliced_read') readsBlocked += 1;
+            if (row.event === 'blocked_unsliced_read' || row.event === 'blocked_oversized_slice') readsBlocked += 1;
+            else if (row.event === 'clamped_unsliced_read' || row.event === 'clamped_explicit_slice') readsClamped += 1;
             else if (row.event === 'truncated_tail_output') logsCompacted += 1;
             else if (row.event === 'thrash_3x_breaker') thrashStopped += 1;
             hintTokensSaved += Math.max(0, Number(row.tokens_saved_est || 0));
@@ -950,15 +1220,15 @@ export function getShieldStatus(options = {}) {
     }
   }
 
-  const tokensSaved = Math.max(
-    Number(ledgerSummary.workspace30dSavedTokens || 0),
-    hintTokensSaved
-  );
-  const dollarsSaved = Number(
-    Math.max(Number(ledgerSummary.workspace30dSavedUSD || 0), hintDollarsSaved).toFixed(4)
-  );
+  const avoidedWriteTokens = Number(ledgerSummary.buckets?.avoidedWrites?.workspace30dTokens ?? 0);
+  const avoidedWriteUSD = Number(ledgerSummary.buckets?.avoidedWrites?.workspace30dUSD ?? 0);
+  const tokensSaved = Math.max(avoidedWriteTokens, hintTokensSaved);
+  const dollarsSaved = Number(Math.max(avoidedWriteUSD, hintDollarsSaved).toFixed(4));
 
   return {
+    mode: cfg.mode || SHIELD_MODES.AUTO,
+    autoClampClaude: (cfg.mode || SHIELD_MODES.AUTO) === SHIELD_MODES.AUTO,
+    autoTierReadOnlyScouts: Boolean(cfg.autoTierReadOnlyScouts),
     enabled: cfg.enabled,
     platforms: cfg.platforms,
     maxUnslicedLines: cfg.maxUnslicedLines,
@@ -972,8 +1242,10 @@ export function getShieldStatus(options = {}) {
       tokensSaved,
       dollarsSaved,
       readsBlocked,
+      readsClamped,
       logsCompacted,
       thrashStopped,
+      buckets: ledgerSummary.buckets,
       bucketBCoach: {
         hits: coachHits,
         tokensSaved: Math.round(coachTokensSaved),
@@ -991,10 +1263,10 @@ export function getShieldStatus(options = {}) {
 }
 
 /**
- * Executes `ctxtop shield <--enable | --disable | --status> [--platform all|antigravity|claude]`.
+ * Executes `ctxtop shield <--enable | --disable | --auto | --status> [--platform all|antigravity|claude]`.
  *
  * @param {object} [options={}]
- * @param {'enable' | 'disable' | 'status'} [options.action='status']
+ * @param {'enable' | 'disable' | 'auto' | 'status'} [options.action='status']
  * @param {'all' | 'antigravity' | 'claude'} [options.platform='all']
  * @param {string} [options.cwd]
  * @param {number} [options.maxUnslicedLines]
@@ -1018,6 +1290,11 @@ export function configureShield(options = {}) {
   const targetClaude = platform === 'all' || platform === 'claude';
   const current = loadShieldConfig({ ...options, cwd: baseCwd });
 
+  const scoutOpt =
+    options.autoTierReadOnlyScouts !== undefined
+      ? { autoTierReadOnlyScouts: Boolean(options.autoTierReadOnlyScouts) }
+      : {};
+
   if (action === 'enable') {
     ensureLocalGitExclude(baseCwd);
     const nextPlatforms = {
@@ -1026,8 +1303,10 @@ export function configureShield(options = {}) {
     };
     saveShieldConfig(
       {
+        mode: SHIELD_MODES.ENABLED,
         enabled: true,
         platforms: nextPlatforms,
+        ...scoutOpt,
         ...(options.maxUnslicedLines ? { maxUnslicedLines: options.maxUnslicedLines } : {})
       },
       { ...options, cwd: baseCwd }
@@ -1052,16 +1331,44 @@ export function configureShield(options = {}) {
     };
   }
 
+  if (action === 'auto') {
+    ensureLocalGitExclude(baseCwd);
+    saveShieldConfig(
+      {
+        mode: SHIELD_MODES.AUTO,
+        enabled: false,
+        platforms: { antigravity: false, claude: false },
+        ...scoutOpt,
+        ...(options.maxUnslicedLines ? { maxUnslicedLines: options.maxUnslicedLines } : {})
+      },
+      { ...options, cwd: baseCwd }
+    );
+    const status = getShieldStatus({ ...options, cwd: baseCwd });
+    return {
+      ok: true,
+      action: 'auto',
+      platform,
+      ...status
+    };
+  }
+
   if (action === 'disable') {
     const nextPlatforms = {
       antigravity: targetAg ? false : current.platforms.antigravity,
       claude: targetClaude ? false : current.platforms.claude
     };
     const stillEnabled = Boolean(nextPlatforms.antigravity || nextPlatforms.claude);
+    const nextMode = stillEnabled
+      ? SHIELD_MODES.ENABLED
+      : !targetClaude && current.mode === SHIELD_MODES.AUTO
+        ? SHIELD_MODES.AUTO
+        : SHIELD_MODES.DISABLED;
     saveShieldConfig(
       {
+        mode: nextMode,
         enabled: stillEnabled,
-        platforms: nextPlatforms
+        platforms: nextPlatforms,
+        ...scoutOpt
       },
       { ...options, cwd: baseCwd }
     );
@@ -1084,6 +1391,99 @@ export function configureShield(options = {}) {
     ok: false,
     action,
     reason: `Unknown shield action: ${action}`
+  };
+}
+
+/**
+ * Returns workspace status for the Claude Code Haiku Read-Only Scout (`ah-haiku-scout`)
+ * and `autoTierReadOnlyScouts` COACH opt-in.
+ *
+ * @param {object} [options={}]
+ */
+export function getScoutStatus(options = {}) {
+  const baseCwd = path.resolve(options.cwd || process.cwd());
+  const cfg = loadShieldConfig({ ...options, cwd: baseCwd });
+  const agentPath = path.join(baseCwd, '.claude', 'agents', 'ah-haiku-scout.md');
+  const agentInstalled = fs.existsSync(agentPath);
+  const autoCompactAudit = auditClaudeAgentAutoCompactWindows({ cwd: baseCwd });
+  return {
+    ok: true,
+    action: 'status',
+    autoTierReadOnlyScouts: Boolean(cfg.autoTierReadOnlyScouts),
+    agentPath: agentPath.replace(/\\/g, '/'),
+    agentInstalled,
+    autoCompactSafe: !autoCompactAudit.triggered,
+    unguardedAgents: autoCompactAudit.unguardedAgents || [],
+    configPath: cfg.configPath
+  };
+}
+
+/**
+ * Enables, disables, or inspects workspace opt-in Haiku read-only scout auto-tiering (`ctxtop scout`).
+ * Preserves the workspace's existing Shield `mode` / `enabled` settings.
+ *
+ * @param {object} [options={}]
+ * @param {'enable' | 'disable' | 'status'} [options.action='status']
+ */
+export function configureScout(options = {}) {
+  const action = String(options.action || 'status').toLowerCase();
+  const baseCwd = path.resolve(options.cwd || process.cwd());
+  const pkgRoot = options.pkgRoot || PKG_ROOT;
+
+  if (action === 'status') {
+    return getScoutStatus({ ...options, cwd: baseCwd });
+  }
+
+  const current = loadShieldConfig({ ...options, cwd: baseCwd });
+  if (action === 'enable') {
+    ensureLocalGitExclude(baseCwd);
+    saveShieldConfig(
+      {
+        mode: current.mode,
+        enabled: current.enabled,
+        platforms: current.platforms,
+        autoTierReadOnlyScouts: true
+      },
+      { ...options, cwd: baseCwd }
+    );
+    if (options.installAgent !== false) {
+      const srcAgent = path.join(pkgRoot, 'agents', 'ah-haiku-scout.md');
+      const dstAgent = path.join(baseCwd, '.claude', 'agents', 'ah-haiku-scout.md');
+      try {
+        if (fs.existsSync(srcAgent)) {
+          fs.mkdirSync(path.dirname(dstAgent), { recursive: true });
+          atomicWriteFileSync(dstAgent, fs.readFileSync(srcAgent, 'utf8'));
+        }
+      } catch (err) {
+        void err;
+      }
+    }
+    return {
+      ...getScoutStatus({ ...options, cwd: baseCwd }),
+      action: 'enable'
+    };
+  }
+
+  if (action === 'disable') {
+    saveShieldConfig(
+      {
+        mode: current.mode,
+        enabled: current.enabled,
+        platforms: current.platforms,
+        autoTierReadOnlyScouts: false
+      },
+      { ...options, cwd: baseCwd }
+    );
+    return {
+      ...getScoutStatus({ ...options, cwd: baseCwd }),
+      action: 'disable'
+    };
+  }
+
+  return {
+    ok: false,
+    action,
+    reason: `Unknown scout action: ${action}`
   };
 }
 

@@ -11,6 +11,9 @@
   },
   "license": "MIT",
   "hooks": "./hooks/hooks.json",
+  "agents": [
+    "./agents/ah-haiku-scout.md"
+  ],
   "commands": [
     "./commands/horizon.md",
     "./commands/cost-radar.md",

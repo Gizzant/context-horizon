@@ -341,7 +341,7 @@ export function evaluateDet05DiffThrashing(params = {}) {
 }
 
 /**
- * DET-06: Main-Thread Blind Search Guard (`> 6` sequential `Read`/`Grep`/`Glob` calls -> nudge `Explore` subagent).
+ * DET-06: Main-Thread Blind Search Guard (`> 6` sequential `Read`/`Grep`/`Glob` calls -> nudge `ah-haiku-scout` / `Explore` subagent).
  *
  * @param {object} [params={}]
  * @param {number} [params.sequentialSearchCount=0]
@@ -362,10 +362,11 @@ export function evaluateDet06BlindSearchGuard(params = {}) {
       sequentialSearchCount: count,
       threshold,
       recommendedSubagent: {
-        agentType: 'Explore',
+        agentType: 'ah-haiku-scout',
+        fallbackAgentType: 'Explore',
         model: 'claude-haiku-5-5'
       },
-      reason: `[DET-06 Blind Search Guard] ${count} sequential Read/Grep calls on the main thread (> ${threshold}). Delegate open-ended codebase exploration to an Explore subagent on claude-haiku-5-5 to prevent main-window distractor bloat.`
+      reason: `[DET-06 Blind Search Guard] ${count} sequential Read/Grep calls on the main thread (> ${threshold}). Delegate open-ended codebase exploration to an ah-haiku-scout (or Explore) subagent on model: haiku / claude-haiku-5-5 to prevent main-window distractor bloat.`
     };
   }
 

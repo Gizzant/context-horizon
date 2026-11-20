@@ -93,3 +93,6 @@ import './imp1_and_imp4_token_guards.test.mjs';
 import './wave1_token_optimizations.test.mjs';
 import './wave2_compaction_and_cache_shield.test.mjs';
 import './wave3_subagent_and_mcp_diet.test.mjs';
+import './step_zero_telemetry_and_ledger.test.mjs';
+import './idea1_and_idea3_savings_fixes.test.mjs';
+import './idea4_haiku_scout.test.mjs';

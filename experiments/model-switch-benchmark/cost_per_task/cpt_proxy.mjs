@@ -36,7 +36,8 @@ export async function startCptProxyServer({
   apiKey = null,
   wireLogPath,
   pinProvider = true,
-  caps = resolveCptCaps()
+  caps = resolveCptCaps(),
+  onRequestObserve = null
 } = {}) {
   const resolvedApiKey = apiKey || loadOpenRouterApiKey();
   fs.mkdirSync(path.dirname(wireLogPath), { recursive: true });
@@ -131,6 +132,24 @@ export async function startCptProxyServer({
         state.runSideCalls += 1;
       }
       const reqIndexInTurn = !isSideCall ? state.turnMainRequests : 0;
+      const messagesArr = Array.isArray(parsedReq?.messages) ? parsedReq.messages : null;
+      const messagesChars = messagesArr ? JSON.stringify(messagesArr).length : 0;
+      const messagesCount = messagesArr ? messagesArr.length : 0;
+      if (!isSideCall && messagesArr && typeof onRequestObserve === 'function') {
+        try {
+          onRequestObserve({
+            runId: state.runId || state.activeContext?.runId || '',
+            context: state.activeContext,
+            reqIndexInTurn,
+            parsedReq,
+            messagesChars,
+            messagesCount,
+            urlPath
+          });
+        } catch {
+          // Non-fatal request observer callback
+        }
+      }
 
       const fingerprint = extractRequestFingerprint(parsedReq, req.headers, urlPath);
       const requestedModel = parsedReq?.model || null;
@@ -315,6 +334,8 @@ export async function startCptProxyServer({
               sseEventCount: parsedRes.eventCount,
               sseEventTypes: parsedRes.eventTypes,
               errorPayload: parsedRes.errorPayload ? redactSensitiveText(JSON.stringify(parsedRes.errorPayload)) : null,
+              messagesChars,
+              messagesCount,
               requestFingerprint: isMessagesEndpoint ? fingerprint : { urlPath, isSideCall: true }
             });
             res.end();

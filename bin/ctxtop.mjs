@@ -125,7 +125,12 @@ import {
 import { installPlugin, runLiveOrDemoCli, openBrowserUrl } from '../src/cli/init.mjs';
 import { executeStatusLineBridge, runStatusLineCli } from './ah-statusline.mjs';
 import { runSessionAudit, formatSessionAuditReport, formatPastWasteLine } from '../src/core/session_auditor.mjs';
-import { configureShield, getShieldStatus } from '../src/core/shield_manager.mjs';
+import {
+  configureShield,
+  getShieldStatus,
+  configureScout,
+  getScoutStatus
+} from '../src/core/shield_manager.mjs';
 import { buildContrastiveDigest, sanitizeRslSessionId } from '../src/core/rsl_triage.mjs';
 import { distillContrastiveDigest } from '../src/core/rsl_distiller.mjs';
 import {
@@ -160,7 +165,7 @@ export const POST_TOOL_USE_MATCHER =
 export const LEAN_PRE_TOOL_USE_MATCHER =
   'Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Task|Agent|WebFetch|mcp__.*';
 export const LEAN_POST_TOOL_USE_MATCHER =
-  'Bash|PowerShell|Task|Agent|WebFetch|mcp__.*';
+  'Bash|PowerShell|Grep|Glob|Task|Agent|WebFetch|mcp__.*';
 
 const AH_HANDLER_REGEX =
   /hooks[\\/]handlers[\\/](pre-tool-use|post-tool-use|pre-model-switch|post-model-switch|compact-lifecycle|stop-gate|user-prompt-submit|config-change)\.mjs/i;
@@ -463,6 +468,60 @@ export function ensureStableRuntime(options = {}) {
   return { root: toPosix(target), copied: true };
 }
 
+const AH_HAIKU_SCOUT_MARKER = '# Highbeam Haiku Scout';
+
+/**
+ * Installs `agents/ah-haiku-scout.md` into `<dirname(settingsPath)>/agents/ah-haiku-scout.md`
+ * so Claude Code sessions automatically discover the Haiku read-only scout subagent.
+ *
+ * @param {object} [options={}]
+ */
+export function installClaudeScoutAgent(options = {}) {
+  const settingsPath = resolveSettingsPath(options);
+  const sourceRoot = options.sourceRoot || PKG_ROOT;
+  const srcAgent = path.join(sourceRoot, 'agents', 'ah-haiku-scout.md');
+  const destAgent = path.join(path.dirname(settingsPath), 'agents', 'ah-haiku-scout.md');
+  if (options.dryRun || !fs.existsSync(srcAgent)) {
+    return {
+      ok: fs.existsSync(srcAgent),
+      installed: false,
+      agentPath: destAgent.replace(/\\/g, '/')
+    };
+  }
+  try {
+    const content = fs.readFileSync(srcAgent, 'utf8');
+    const ok = writeTextAtomic(destAgent, content);
+    return { ok, installed: ok, agentPath: destAgent.replace(/\\/g, '/') };
+  } catch (err) {
+    void err;
+    return { ok: false, installed: false, agentPath: destAgent.replace(/\\/g, '/') };
+  }
+}
+
+/**
+ * Removes the Highbeam-installed `ah-haiku-scout.md` subagent file if it carries the Highbeam marker.
+ *
+ * @param {object} [options={}]
+ */
+export function uninstallClaudeScoutAgent(options = {}) {
+  const settingsPath = resolveSettingsPath(options);
+  const destAgent = path.join(path.dirname(settingsPath), 'agents', 'ah-haiku-scout.md');
+  if (options.dryRun || !fs.existsSync(destAgent)) {
+    return { ok: true, removed: false, agentPath: destAgent.replace(/\\/g, '/') };
+  }
+  try {
+    const existing = fs.readFileSync(destAgent, 'utf8');
+    if (!existing.includes(AH_HAIKU_SCOUT_MARKER)) {
+      return { ok: true, removed: false, agentPath: destAgent.replace(/\\/g, '/') };
+    }
+    fs.unlinkSync(destAgent);
+    return { ok: true, removed: true, agentPath: destAgent.replace(/\\/g, '/') };
+  } catch (err) {
+    void err;
+    return { ok: false, removed: false, agentPath: destAgent.replace(/\\/g, '/') };
+  }
+}
+
 export function installAttentionHorizon(options = {}) {
   const cwd = options.cwd || globalThis.process?.cwd?.() || '.';
   const settingsPath = resolveSettingsPath(options);
@@ -591,6 +650,10 @@ export function installAttentionHorizon(options = {}) {
   if (!dryRun) {
     ok = writeJsonAtomic(settingsPath, currentSettings);
   }
+  const scoutInstall =
+    ok && options.installScoutAgent !== false
+      ? installClaudeScoutAgent({ settingsPath, sourceRoot: pkgRoot, dryRun })
+      : { ok: true, installed: false, agentPath: null };
   const gitExclude = dryRun ? { updated: false } : ensureGitExcludeEntries(cwd);
 
   return {
@@ -601,6 +664,7 @@ export function installAttentionHorizon(options = {}) {
     omittedUnsupportedHooks,
     runtimeRoot: pkgRoot,
     runtimeCopied: Boolean(stableRuntime?.copied),
+    scoutAgentPath: scoutInstall.installed ? scoutInstall.agentPath : null,
     settings: currentSettings
   };
 }
@@ -653,11 +717,16 @@ export function listUninstallLeftovers(options = {}) {
 
 export function uninstallAttentionHorizon(options = {}) {
   const settingsPath = resolveSettingsPath(options);
+  const scoutUninstall =
+    options.uninstallScoutAgent !== false
+      ? uninstallClaudeScoutAgent({ settingsPath, dryRun: Boolean(options.dryRun) })
+      : { ok: true, removed: false };
   if (!fs.existsSync(settingsPath)) {
     return {
       ok: true,
       settingsPath,
       removedHooksCount: 0,
+      removedScoutAgent: Boolean(scoutUninstall.removed),
       leftovers: listUninstallLeftovers(options),
       settings: {}
     };
@@ -709,6 +778,7 @@ export function uninstallAttentionHorizon(options = {}) {
     ok,
     settingsPath,
     removedHooksCount,
+    removedScoutAgent: Boolean(scoutUninstall.removed),
     leftovers: listUninstallLeftovers(options),
     settings: currentSettings
   };
@@ -2305,6 +2375,7 @@ export function runCli(args = [], options = {}) {
     if (subcommand === 'shield') {
       if (args.includes('--enable') || args[1] === 'enable') action = 'enable';
       else if (args.includes('--disable') || args[1] === 'disable') action = 'disable';
+      else if (args.includes('--auto') || args[1] === 'auto') action = 'auto';
       else action = 'status';
     }
 
@@ -2344,17 +2415,46 @@ export function runCli(args = [], options = {}) {
     if (isJson) {
       return { exitCode: res.ok === false ? 1 : 0, output: JSON.stringify(res, null, 2), data: res };
     }
+    const statusLabel = res.enabled ? 'ACTIVE' : res.mode === 'auto' ? 'AUTO (clamp-only)' : 'DISABLED';
+    const claudeLabel = res.platforms.claude ? 'ON' : res.mode === 'auto' ? 'AUTO (clamp-only)' : 'OFF';
     const lines = [
-      `[Highbeam Shield] Status: ${res.enabled ? 'ACTIVE' : 'PASSIVE'} (action=${res.action}, platform=${platform})`,
-      `  Targets       : Antigravity=${res.platforms.antigravity ? 'ON' : 'OFF'} (hooks=${res.hooksConfigured.antigravity}) | Claude=${res.platforms.claude ? 'ON' : 'OFF'} (hooks=${res.hooksConfigured.claude})`,
+      `[Highbeam Shield] Status: ${statusLabel} (action=${res.action}, platform=${platform})`,
+      `  Targets       : Antigravity=${res.platforms.antigravity ? 'ON' : 'OFF'} (hooks=${res.hooksConfigured.antigravity}) | Claude=${claudeLabel} (hooks=${res.hooksConfigured.claude})`,
       `  Read Threshold: >${res.maxUnslicedLines} lines default | >${res.cliffMaxUnslicedLines} lines near pricing cliff`,
-      `  Session ROI   : +${res.roi.tokensSaved.toLocaleString('en-US')} tok saved ($${res.roi.dollarsSaved.toFixed(2)} USD) | ${res.roi.readsBlocked} oversized reads indexed`,
+      `  Session ROI   : +${res.roi.tokensSaved.toLocaleString('en-US')} tok saved ($${res.roi.dollarsSaved.toFixed(2)} USD) | ${res.roi.readsClamped || 0} clamped, ${res.roi.readsBlocked} oversized reads indexed`,
       ...(offloadIndex
         ? [
             `  Offload Index : ${offloadIndex.indexedToolLogs} FTS5 CLI logs · ${offloadIndex.indexedArtifacts} artifact(s) (query: npx highbeam-cli search "<keyword>")`
           ]
         : []),
       ...(res.selfTest ? [`  Self-Test     : ${res.selfTest.detail}`] : [])
+    ];
+    return { exitCode: res.ok === false ? 1 : 0, output: lines.join('\n'), data: res };
+  }
+
+  if (subcommand === 'scout') {
+    const cwdFlag = getCliFlag('--cwd');
+    const scoutCwd = path.resolve(cwdFlag || options.cwd || process.cwd());
+    let action = 'status';
+    if (args.includes('--enable') || args[1] === 'enable') action = 'enable';
+    else if (args.includes('--disable') || args[1] === 'disable') action = 'disable';
+    else if (args.includes('--status') || args[1] === 'status' || !args[1]) action = 'status';
+    else action = String(args[1]).toLowerCase();
+
+    const scoutRes = configureScout({
+      ...options,
+      cwd: scoutCwd,
+      action
+    });
+    const res = scoutRes;
+    if (isJson) {
+      return { exitCode: res.ok === false ? 1 : 0, output: JSON.stringify(res, null, 2), data: res };
+    }
+    const modeLabel = res.autoTierReadOnlyScouts ? 'ENABLED (COACH Haiku auto-tier)' : 'ADVISORY-ONLY (COACH opt-in off)';
+    const lines = [
+      `[Highbeam Scout] Auto-Tier: ${modeLabel} (action=${res.action})`,
+      `  Agent File    : ${res.agentPath} (${res.agentInstalled ? 'installed' : 'missing'})`,
+      `  100k Cliff Cap: ${res.autoCompactSafe ? 'OK (autoCompactWindow <= 90,000)' : `WARN (${(res.unguardedAgents || []).map((a) => a.file).join(', ')})`}`
     ];
     return { exitCode: res.ok === false ? 1 : 0, output: lines.join('\n'), data: res };
   }
@@ -2417,7 +2517,7 @@ export function runCli(args = [], options = {}) {
   const knownSubcommands = new Set([
     'init', 'install', 'uninstall', 'config', 'cost-radar', 'radar', 'panel',
     'receipt', 'doctor', 'statusline', 'inspect', 'control', 'postmortem',
-    'audit', 'shield', 'status', 'rsl', 'handoff', 'search', 'log-search',
+    'audit', 'shield', 'scout', 'status', 'rsl', 'handoff', 'search', 'log-search',
     'mcp', 'ui', 'serve', 'license', 'pro', 'roast', 'tiers', 'team-pack',
     'sync', 'pr-cost', 'team-rollup', 'ci-gate',
     'verify', 'verify-checksums', 'mode', '--help', '-h', 'help', '--version', '-v', 'version'
@@ -2445,7 +2545,8 @@ export function runCli(args = [], options = {}) {
     '  inspect [<session-id> | --last] [--out <file.json>]                 Inspect session trajectory',
     '',
     'Compression, Search & Multi-Host MCP:',
-    '  shield <--enable | --disable | --status> [--platform all|...]       Toggle Active Context Shield & read-index guard',
+    '  shield <--enable | --disable | --auto | --status> [--platform all|...] Toggle Active Context Shield & read-index guard',
+    '  scout <--enable | --disable | --status> [--cwd <dir>] [--json]      Toggle Haiku read-only scout auto-tiering & install agent',
     '  search [<turn-id>] "<keyword>" [--limit 10] [--json]                Search FTS5 offloaded CLI logs & artifacts',
     '  mcp                                                                 Start zero-network 7-tool stdio MCP server',
     '',
@@ -2512,6 +2613,8 @@ export default {
   isAttentionHorizonHookEntry,
   resolveSettingsPath,
   ensureGitExcludeEntries,
+  installClaudeScoutAgent,
+  uninstallClaudeScoutAgent,
   installAttentionHorizon,
   uninstallAttentionHorizon,
   inspectHookDiagnostics,

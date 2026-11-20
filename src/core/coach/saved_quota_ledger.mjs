@@ -21,6 +21,12 @@ export const INITIAL_LEDGER_STATE = Object.freeze({
   formattedSavedK: '0.0k'
 });
 
+export const LEDGER_BUCKETS = Object.freeze({
+  AVOIDED_WRITE: 'avoided_write',
+  REALIZED_PROMPT_BILL: 'realized_prompt_bill',
+  PLATFORM_CACHE_DISCOUNT: 'platform_cache_discount'
+});
+
 export const SAVINGS_EVENT_TYPES = Object.freeze({
   EFFORT_DOWNSHIFT: 'EFFORT_DOWNSHIFT',
   COLD_PREFILL_AVOIDED: 'COLD_PREFILL_AVOIDED',
@@ -31,8 +37,25 @@ export const SAVINGS_EVENT_TYPES = Object.freeze({
   COMPACTION_RECLAIMED: 'COMPACTION_RECLAIMED',
   PROMPT_HYGIENE_STEERED: 'PROMPT_HYGIENE_STEERED',
   PROMPT_HYGIENE_BLOCKED: 'PROMPT_HYGIENE_BLOCKED',
-  SIGHTSEEING_TOOL_PREVENTED: 'SIGHTSEEING_TOOL_PREVENTED'
+  SIGHTSEEING_TOOL_PREVENTED: 'SIGHTSEEING_TOOL_PREVENTED',
+  REALIZED_PROMPT_BILL_SAVINGS: 'REALIZED_PROMPT_BILL_SAVINGS'
 });
+
+export function classifyLedgerBucket(eventTypeOrObj = '') {
+  if (eventTypeOrObj && typeof eventTypeOrObj === 'object') {
+    const explicit = String(eventTypeOrObj.ledgerBucket || '').trim();
+    if (Object.values(LEDGER_BUCKETS).includes(explicit)) return explicit;
+    return classifyLedgerBucket(eventTypeOrObj.eventType || eventTypeOrObj.category || '');
+  }
+  const upper = String(eventTypeOrObj || '').trim().toUpperCase();
+  if (upper === 'REALIZED_PROMPT_BILL_SAVINGS' || upper.includes('REALIZED_PROMPT_BILL')) {
+    return LEDGER_BUCKETS.REALIZED_PROMPT_BILL;
+  }
+  if (upper === 'CACHE_HIT_PRESERVED' || upper === 'CACHE_READ_DISCOUNT' || upper.includes('CACHE_READ')) {
+    return LEDGER_BUCKETS.PLATFORM_CACHE_DISCOUNT;
+  }
+  return LEDGER_BUCKETS.AVOIDED_WRITE;
+}
 
 /** Plain-English labels for the Simple View Auto-fix log. */
 export const AUTO_FIX_LABELS = Object.freeze({
@@ -119,11 +142,13 @@ export class SavedQuotaReceiptLedger {
     createdAt = new Date().toISOString()
   } = {}) {
     const type = String(eventType || SAVINGS_EVENT_TYPES.EFFORT_DOWNSHIFT).toUpperCase();
+    const isRealized = type === SAVINGS_EVENT_TYPES.REALIZED_PROMPT_BILL_SAVINGS;
     const bytes = Math.max(0, Math.round(Number(rawBytesSaved) || 0));
     const derivedTokens = bytes > 0 ? Math.floor(bytes / 4) : 0;
-    const saved = Math.max(0, Math.round(Number(argonEquivTokensSaved ?? tokensSaved ?? derivedTokens) || 0));
+    const rawSaved = Number(argonEquivTokensSaved ?? tokensSaved ?? derivedTokens) || 0;
+    const saved = isRealized ? Math.round(rawSaved) : Math.max(0, Math.round(rawSaved));
     const usd = dollarsSaved !== undefined
-      ? Math.max(0, Number(dollarsSaved) || 0)
+      ? (isRealized ? Number(dollarsSaved) || 0 : Math.max(0, Number(dollarsSaved) || 0))
       : Number(((saved / 1_000_000) * Math.max(0, Number(inputPricePer1M) || 0)).toFixed(6));
     const detailStr = dedupeKey
       ? `[key:${dedupeKey}] ${String(detail || '')}`.trim()
@@ -233,7 +258,8 @@ export class SavedQuotaReceiptLedger {
       [SAVINGS_EVENT_TYPES.COMPACTION_RECLAIMED]: 0,
       [SAVINGS_EVENT_TYPES.PROMPT_HYGIENE_STEERED]: 0,
       [SAVINGS_EVENT_TYPES.PROMPT_HYGIENE_BLOCKED]: 0,
-      [SAVINGS_EVENT_TYPES.SIGHTSEEING_TOOL_PREVENTED]: 0
+      [SAVINGS_EVENT_TYPES.SIGHTSEEING_TOOL_PREVENTED]: 0,
+      [SAVINGS_EVENT_TYPES.REALIZED_PROMPT_BILL_SAVINGS]: 0
     };
 
     const totalsByType = {
@@ -246,23 +272,34 @@ export class SavedQuotaReceiptLedger {
       [SAVINGS_EVENT_TYPES.COMPACTION_RECLAIMED]: 0,
       [SAVINGS_EVENT_TYPES.PROMPT_HYGIENE_STEERED]: 0,
       [SAVINGS_EVENT_TYPES.PROMPT_HYGIENE_BLOCKED]: 0,
-      [SAVINGS_EVENT_TYPES.SIGHTSEEING_TOOL_PREVENTED]: 0
+      [SAVINGS_EVENT_TYPES.SIGHTSEEING_TOOL_PREVENTED]: 0,
+      [SAVINGS_EVENT_TYPES.REALIZED_PROMPT_BILL_SAVINGS]: 0
     };
 
     let totalArgonEquivTokensSaved = 0;
     let totalRawBytesSaved = 0;
     let totalDollarsSaved = 0;
+    let realizedPromptBillUsd = 0;
     const distinctSessions = new Set();
 
     for (const row of rows) {
       const t = String(row.eventType || '');
-      const tok = Math.max(0, Number(row.argonEquivTokensSaved || 0));
+      const isRealized = t === SAVINGS_EVENT_TYPES.REALIZED_PROMPT_BILL_SAVINGS;
+      const rawTok = Number(row.argonEquivTokensSaved || 0);
+      const tok = isRealized ? Math.round(rawTok) : Math.max(0, Math.round(rawTok));
       const b = Math.max(0, Number(row.rawBytesSaved || 0));
-      const usd = Math.max(0, Number(row.dollarsSaved || 0));
+      const rawUsd = Number(row.dollarsSaved || 0);
+      const usd = isRealized ? rawUsd : Math.max(0, rawUsd);
+      if (row.sessionId) distinctSessions.add(String(row.sessionId));
+      if (isRealized) {
+        realizedPromptBillUsd += usd;
+        counts[t]++;
+        totalsByType[t] += tok;
+        continue;
+      }
       totalArgonEquivTokensSaved += tok;
       totalRawBytesSaved += b;
       totalDollarsSaved += usd;
-      if (row.sessionId) distinctSessions.add(String(row.sessionId));
       if (counts[t] !== undefined) {
         counts[t]++;
         totalsByType[t] += tok;
@@ -308,6 +345,7 @@ export class SavedQuotaReceiptLedger {
       sessionsCount: distinctSessions.size,
       counts,
       totalsByType,
+      realizedPromptBillUsd: Number(realizedPromptBillUsd.toFixed(6)),
       measuredPromptHygiene: {
         steeredPrompts,
         blockedPrompts,
@@ -332,6 +370,7 @@ export class SavedQuotaReceiptLedger {
 
     let totalTokens = 0;
     let totalDollarsSaved = 0;
+    let realizedPromptBillUsd = 0;
     const sessions = new Set();
     const counts = {
       [SAVINGS_EVENT_TYPES.COLD_PREFILL_AVOIDED]: 0,
@@ -343,19 +382,29 @@ export class SavedQuotaReceiptLedger {
       [SAVINGS_EVENT_TYPES.COMPACTION_RECLAIMED]: 0,
       [SAVINGS_EVENT_TYPES.PROMPT_HYGIENE_STEERED]: 0,
       [SAVINGS_EVENT_TYPES.PROMPT_HYGIENE_BLOCKED]: 0,
-      [SAVINGS_EVENT_TYPES.SIGHTSEEING_TOOL_PREVENTED]: 0
+      [SAVINGS_EVENT_TYPES.SIGHTSEEING_TOOL_PREVENTED]: 0,
+      [SAVINGS_EVENT_TYPES.REALIZED_PROMPT_BILL_SAVINGS]: 0
     };
     const totalsByType = { ...counts };
 
     for (const ev of allSummary.events) {
       const ts = Date.parse(ev.createdAt || '');
       if (Number.isFinite(ts) && ts < cutoffMs) continue;
-      const tok = Math.max(0, Number(ev.argonEquivTokensSaved || 0));
-      const usd = Math.max(0, Number(ev.dollarsSaved || 0));
       const t = String(ev.eventType || '');
+      const isRealized = t === SAVINGS_EVENT_TYPES.REALIZED_PROMPT_BILL_SAVINGS;
+      const rawTok = Number(ev.argonEquivTokensSaved || 0);
+      const tok = isRealized ? Math.round(rawTok) : Math.max(0, Math.round(rawTok));
+      const rawUsd = Number(ev.dollarsSaved || 0);
+      const usd = isRealized ? rawUsd : Math.max(0, rawUsd);
+      if (ev.sessionId) sessions.add(String(ev.sessionId));
+      if (isRealized) {
+        realizedPromptBillUsd += usd;
+        counts[t]++;
+        totalsByType[t] += tok;
+        continue;
+      }
       totalTokens += tok;
       totalDollarsSaved += usd;
-      if (ev.sessionId) sessions.add(String(ev.sessionId));
       if (counts[t] !== undefined) {
         counts[t]++;
         totalsByType[t] += tok;
@@ -367,6 +416,7 @@ export class SavedQuotaReceiptLedger {
       workspace30d: {
         totalTokens,
         totalDollarsSaved: Number(totalDollarsSaved.toFixed(6)),
+        realizedPromptBillUsd: Number(realizedPromptBillUsd.toFixed(6)),
         formattedTokens: formatTokensHuman(totalTokens),
         formattedDollarsSaved: totalDollarsSaved === 0 ? '$0.00' : `$${totalDollarsSaved.toFixed(2)}`,
         sessionsCount: sessions.size,
@@ -577,6 +627,45 @@ export function computeUnifiedSavings(state = {}, {
     baseSessionsCount + (sessionTotalTokens > 0 && !hasCurrentInLedger ? 1 : 0)
   );
 
+  // 3-bucket telemetry breakdown (orthogonally separating avoided writes, ex-post realized prompt bill, and KV-cache discounts)
+  const sessionAvoidedWriteUsd = Number(((physicalTokensAvoided / 1_000_000) * inputRatePer1M).toFixed(4));
+  const sessionPlatformCacheDiscountUsd = Number(
+    ((billingEquivalentCacheTokens / 1_000_000) * inputRatePer1M).toFixed(4)
+  );
+  const realizedInput = state?.savings?.realizedPromptBill || state?.realizedPromptBill || null;
+  const sessionRealizedTokens = realizedInput
+    ? Math.round(Number(realizedInput.tokens ?? realizedInput.realizedPromptBillTokens ?? 0))
+    : Math.round(Number(sessionLedger?.totalsByType?.REALIZED_PROMPT_BILL_SAVINGS || 0));
+  const sessionRealizedUsd = realizedInput
+    ? Number(Number(realizedInput.usd ?? realizedInput.realizedCostUSD ?? 0).toFixed(4))
+    : Number(Number(sessionLedger?.realizedPromptBillUsd || 0).toFixed(4));
+
+  const wsNonSessionCacheTokens = Math.max(
+    0,
+    Number(workspaceLedger?.totalsByType?.CACHE_HIT_PRESERVED || 0) -
+      Number(sessionLedger?.totalsByType?.CACHE_HIT_PRESERVED || 0)
+  );
+  const wsPlatformCacheDiscountTokens = billingEquivalentCacheTokens + wsNonSessionCacheTokens;
+  const wsPlatformCacheDiscountUsd = Number(
+    ((wsPlatformCacheDiscountTokens / 1_000_000) * inputRatePer1M).toFixed(4)
+  );
+  const wsAvoidedWriteTokens = Math.max(
+    physicalTokensAvoided,
+    workspaceTotalTokens - wsPlatformCacheDiscountTokens
+  );
+  const wsAvoidedWriteUsd = Number(
+    Math.max(
+      (wsAvoidedWriteTokens / 1_000_000) * inputRatePer1M,
+      workspaceEstimatedUsd - wsPlatformCacheDiscountUsd
+    ).toFixed(4)
+  );
+  const wsRealizedTokens = realizedInput
+    ? sessionRealizedTokens
+    : Math.round(Number(workspaceLedger?.totalsByType?.REALIZED_PROMPT_BILL_SAVINGS ?? sessionRealizedTokens));
+  const wsRealizedUsd = realizedInput
+    ? sessionRealizedUsd
+    : Number(Number(workspaceLedger?.realizedPromptBillUsd ?? sessionRealizedUsd).toFixed(4));
+
   return {
     session: {
       totalTokens: sessionTotalTokens,
@@ -588,6 +677,26 @@ export function computeUnifiedSavings(state = {}, {
       estimatedUsd: sessionEstimatedUsd,
       estimatedInputValueUsd: sessionEstimatedUsd,
       formattedUsd: sessionEstimatedUsd === 0 ? '$0.00' : `$${sessionEstimatedUsd.toFixed(2)}`,
+      buckets: {
+        avoidedWrites: {
+          id: LEDGER_BUCKETS.AVOIDED_WRITE,
+          provenance: 'realtime_avoided_write',
+          tokens: physicalTokensAvoided,
+          usd: sessionAvoidedWriteUsd
+        },
+        realizedPromptBill: {
+          id: LEDGER_BUCKETS.REALIZED_PROMPT_BILL,
+          provenance: 'ex_post_realized_prompt_bill',
+          tokens: sessionRealizedTokens,
+          usd: sessionRealizedUsd
+        },
+        platformCacheDiscount: {
+          id: LEDGER_BUCKETS.PLATFORM_CACHE_DISCOUNT,
+          provenance: 'platform_kv_cache_discount',
+          tokens: billingEquivalentCacheTokens,
+          usd: sessionPlatformCacheDiscountUsd
+        }
+      },
       bySource: {
         subagentIsolated,
         subagentIsolation: subagentIsolated,
@@ -607,7 +716,27 @@ export function computeUnifiedSavings(state = {}, {
       estimatedUsd: workspaceEstimatedUsd,
       estimatedInputValueUsd: workspaceEstimatedUsd,
       formattedUsd: workspaceEstimatedUsd === 0 ? '$0.00' : `$${workspaceEstimatedUsd.toFixed(2)}`,
-      sessionsCount
+      sessionsCount,
+      buckets: {
+        avoidedWrites: {
+          id: LEDGER_BUCKETS.AVOIDED_WRITE,
+          provenance: 'realtime_avoided_write',
+          tokens: wsAvoidedWriteTokens,
+          usd: wsAvoidedWriteUsd
+        },
+        realizedPromptBill: {
+          id: LEDGER_BUCKETS.REALIZED_PROMPT_BILL,
+          provenance: 'ex_post_realized_prompt_bill',
+          tokens: wsRealizedTokens,
+          usd: wsRealizedUsd
+        },
+        platformCacheDiscount: {
+          id: LEDGER_BUCKETS.PLATFORM_CACHE_DISCOUNT,
+          provenance: 'platform_kv_cache_discount',
+          tokens: wsPlatformCacheDiscountTokens,
+          usd: wsPlatformCacheDiscountUsd
+        }
+      }
     }
   };
 }

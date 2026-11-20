@@ -545,8 +545,12 @@ export function runPreToolUseHook(event = {}, options = {}) {
                 cwdOptions
               );
             }
+            const unreadVerifyParts = [];
+            if (win.windowStart > 1) unreadVerifyParts.push(`L1..L${win.windowStart - 1}`);
+            if (win.windowEnd < totalFoldLines) unreadVerifyParts.push(`L${win.windowEnd + 1}..L${totalFoldLines}`);
+            const unreadVerifySuffix = unreadVerifyParts.length > 0 ? `; unread: ${unreadVerifyParts.join(', ')}` : '';
             const foldReason =
-              `[GUARD-4 Post-Edit Verify Fold] Clamped immediate re-read of ${path.basename(absFoldPath)} (${totalFoldLines} lines) to L${win.windowStart}-L${win.windowEnd} (limit ${win.windowLimit}, +${savedTokens} tokens saved).` +
+              `[GUARD-4 Post-Edit Verify Fold] Clamped immediate re-read of ${path.basename(absFoldPath)} to L${win.windowStart}..L${win.windowEnd} of ${totalFoldLines} lines${unreadVerifySuffix} (pass offset & limit for other ranges).` +
               (delta.wasDiffed ? `\n${delta.diffText}` : '');
             const allowOut = {
               hookSpecificOutput: {
@@ -671,7 +675,7 @@ export function runPreToolUseHook(event = {}, options = {}) {
                 if (shouldPersistState) {
                   saveBreakerWithBoundaryPreserved();
                 }
-                const reasonMsg = `[Highbeam Read-Interval Cache] L${reqStart}-L${reqEnd} of ${path.basename(absIntPath)} already in context (unmodified); clamped to 5-line anchor (+${savedTok} tok saved).`;
+                const reasonMsg = `[Highbeam Read-Interval Cache] L${reqStart}..L${reqEnd} of ${path.basename(absIntPath)} (${totalFileLines} lines) already in context (unmodified); clamped to 5-line anchor L${trimRes.anchorOffset}..L${trimRes.anchorOffset + trimRes.anchorLimit - 1}.`;
                 const allowOut = {
                   hookSpecificOutput: {
                     hookEventName: 'PreToolUse',
@@ -886,7 +890,7 @@ export function runPreToolUseHook(event = {}, options = {}) {
     delete updatedInput.EndLine;
     updatedInput.offset = trimmedByInterval.offset;
     updatedInput.limit = trimmedByInterval.limit;
-    const trimReason = `[Highbeam Read-Interval Trim] L${trimmedByInterval.reqStart}-L${trimmedByInterval.reqEnd} overlapped already-loaded lines of ${path.basename(trimmedByInterval.absPath)}; clamped to unread L${trimmedByInterval.offset}-L${trimmedByInterval.offset + trimmedByInterval.limit - 1} (+${trimmedByInterval.savedTokens} tok saved).`;
+    const trimReason = `[Highbeam Read-Interval Trim] L${trimmedByInterval.reqStart}..L${trimmedByInterval.reqEnd} overlapped already-loaded lines of ${path.basename(trimmedByInterval.absPath)}; clamped to unread L${trimmedByInterval.offset}..L${trimmedByInterval.offset + trimmedByInterval.limit - 1}.`;
     const allowOut = {
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
@@ -1090,8 +1094,8 @@ export function runPreToolUseHook(event = {}, options = {}) {
           );
         }
 
-        // OPT-5A: Auto-tier unmistakable read-only scouts to Haiku in AUTO_PILOT unless user pinned Frontier
-        if (/^(?:Task|Agent)$/i.test(toolName) && effectiveMode === 'AUTO_PILOT') {
+        // OPT-5A: Auto-tier unmistakable read-only scouts to Haiku (AUTO_PILOT or COACH opt-in), offer ask/hint otherwise
+        if (/^(?:Task|Agent)$/i.test(toolName)) {
           const scoutGov = shadowRes.activeRecords.find(
             (r) =>
               r.verdict?.code === 'SUBAGENT_TEAM_GOVERNOR' &&
@@ -1104,9 +1108,40 @@ export function runPreToolUseHook(event = {}, options = {}) {
               userPromptTxt
             );
           if (scoutGov && !hasExplicitFrontierPin) {
-            verdict.updatedInput = { ...tIn, model: 'haiku' };
-            verdict.autoTieredModel = 'haiku';
-            verdict.decision = 'allow';
+            let shieldCfg = null;
+            if (effectiveMode === 'COACH') {
+              try {
+                shieldCfg = getShieldMod().loadShieldConfig(cwdOptions);
+              } catch (err) {
+                void err;
+              }
+            }
+            const rawScoutTierMode = String(
+              event.scoutTierMode || options.scoutTierMode || horizonConfig?.scoutTierMode || 'off'
+            ).trim().toLowerCase();
+            const scoutOptInAuto =
+              effectiveMode === 'AUTO_PILOT' ||
+              (effectiveMode === 'COACH' &&
+                (event.autoTierReadOnlyScouts === true ||
+                  options.autoTierReadOnlyScouts === true ||
+                  globalThis.process?.env?.HIGHBEAM_AUTO_TIER_SCOUTS === '1' ||
+                  horizonConfig?.thresholds?.autoTierReadOnlyScouts === true ||
+                  rawScoutTierMode === 'auto' ||
+                  Boolean(shieldCfg?.autoTierReadOnlyScouts)));
+            const scoutAskInCoach =
+              effectiveMode === 'COACH' && !scoutOptInAuto && rawScoutTierMode === 'ask';
+
+            if (scoutOptInAuto) {
+              verdict.updatedInput = { ...tIn, model: 'haiku' };
+              verdict.autoTieredModel = 'haiku';
+              verdict.decision = 'allow';
+              verdict.reason = `[Highbeam Scout Auto-Tier] Re-tiered read-only scout "${tIn.subagent_type || tIn.description || 'Explore'}" -> haiku (4x-20x cheaper input). Pin "use sonnet/opus" in prompt to override.`;
+            } else if (scoutAskInCoach) {
+              verdict.decision = 'ask';
+              verdict.reason = `${verdict.reason}\nRe-tier this read-only scout to Haiku (or use \`ah-haiku-scout\`)? Run \`highbeam scout --enable\` to auto-tier in COACH.`;
+            } else if (effectiveMode === 'COACH') {
+              verdict.reason = `${verdict.reason}\nTip: Use \`ah-haiku-scout\` or run \`highbeam scout --enable\` to auto-tier read-only scouts to Haiku.`;
+            }
           }
         }
       }

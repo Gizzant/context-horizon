@@ -187,12 +187,37 @@ export function runCompactLifecycleHook(event = {}, options = {}) {
   }
 
   if (phase === 'pre' || event.hook_event_name === 'PreCompact') {
+    const needLiveTelemetry =
+      event.cacheExpired === undefined ||
+      (event.cachedTokens === undefined && event.cached_tokens === undefined);
+    const liveTelemetry = needLiveTelemetry
+      ? (options.telemetryState ||
+          (event.cwd || cwdOptions.cwd ? readLiveStateSnapshot(sessionId, cwdOptions) : null))
+      : null;
+    const priorPreSnap =
+      event.cachedTokens === undefined &&
+      event.cached_tokens === undefined &&
+      (event.cwd || cwdOptions.cwd)
+        ? readBreakerStateSnapshot(sessionId, cwdOptions)
+        : null;
+    const resolvedCacheExpired =
+      event.cacheExpired !== undefined
+        ? Boolean(event.cacheExpired)
+        : Boolean(liveTelemetry?.promptCache?.expired);
+    const resolvedCachedTokens = Number(
+      event.cachedTokens ??
+        event.cached_tokens ??
+        liveTelemetry?.contextWindow?.cachedTokens ??
+        priorPreSnap?.lastContextTokens ??
+        0
+    );
+
     const det17 = evaluateDet17AutoCompactionDeferral({
       trigger: event.trigger || 'auto',
       midBatchEditInProgress: Boolean(event.midBatchEditInProgress),
       unbalancedSyntaxDetected: Boolean(event.unbalancedSyntaxDetected),
-      cacheExpired: Boolean(event.cacheExpired),
-      cachedTokens: Number(event.cachedTokens ?? event.cached_tokens ?? 0)
+      cacheExpired: resolvedCacheExpired,
+      cachedTokens: resolvedCachedTokens
     });
     if (det17.triggered) {
       // ISS-034: Never emit invalid hookSpecificOutput.permissionDecision on PreCompact!

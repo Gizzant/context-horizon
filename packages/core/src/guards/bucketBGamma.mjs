@@ -50,7 +50,13 @@ export function evaluateSubagentGovernor(input = {}) {
   const typeName = String(input.typeName || '').trim();
   const role = String(input.role || '').trim();
   const prompt = String(input.prompt || '').trim();
-  const model = String(input.model || 'inherit').trim();
+  const rawModel = String(input.model || 'inherit').trim();
+  const model =
+    (!input.model || /^inherit$/i.test(rawModel)) && /^ah-haiku-scout$/i.test(typeName)
+      ? 'haiku'
+      : (!input.model || /^inherit$/i.test(rawModel)) && /^ah-flash-scout$/i.test(typeName)
+        ? 'flash'
+        : rawModel;
   const workspace = String(input.workspace || 'inherit').trim().toLowerCase();
   const maxBriefTokens = Number(input.maxBriefTokens) || 2500;
 
@@ -96,7 +102,7 @@ export function evaluateSubagentGovernor(input = {}) {
     workspace === 'branch' || workspace === 'share' || workspace === 'worktree';
   const tools = Array.isArray(input.allowedTools) ? input.allowedTools : null;
   const hasWriteToolGrant = tools ? tools.some((t) => WRITE_CAPABLE_TOOL_RE.test(String(t))) : false;
-  const isKnownReadOnlyType = /^(?:research|explore|ah-flash-scout|scout)$/i.test(typeName);
+  const isKnownReadOnlyType = /^(?:research|explore|ah-flash-scout|ah-haiku-scout|scout)$/i.test(typeName);
   const hasWriteIntentInPrompt = WRITE_ACTION_PROMPT_RE.test(prompt);
 
   const isReadOnlyScout =

@@ -35,6 +35,51 @@ export function isCompressibleCliCommand(command = '') {
   return FTS5_COMPRESSOR_CONSTANTS.TARGET_COMMAND_REGEX.test(String(command || ''));
 }
 
+const POWERSHELL_HEREDOC_OR_SEARCH_RE =
+  /(?:(?:^|[\s;|&])@['"]|\b(?:select-string|get-childitem|gci)\b)/i;
+const BOUNDED_PIPE_FILTER_RE =
+  /\|\s*(?:head|tail|sed|awk|cut|wc|grep|egrep|fgrep|rg|ripgrep)\b/i;
+const INLINE_SCRIPT_OR_HEREDOC_RE =
+  /\b(?:node(?:\.exe)?\s+(?:-[ep]\b|--eval\b|--print\b)|python3?(?:\.exe)?\s+(?:-c\b|-\s*<<|<<))|\bcat\s*>\s*\S+[\s\S]*<</i;
+const FILE_INSPECTION_SEGMENT_RE =
+  /^\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*(?:(?:\/[\w./-]+)?\/)?(?:cat|head|tail|sed|awk|cut|wc|nl|tac|rev|less|more|bat|stat|file(?=\s+\S)|ls|dir|tree|grep|egrep|fgrep|rg|ripgrep|get-content)(?=\s|$)(?![.\w-])/i;
+const GIT_INSPECTION_CMD_RE = /\bgit\s+(?:diff|show|status|blame|log)\b/i;
+const NOISY_PRIMARY_RUNNER_RE =
+  /\b(?:(?:npm|pnpm|yarn|bun)\s+(?:test|install|ci|run|build|lint|typecheck)|node\s+--test|pytest|jest|vitest|cargo|go\s+test|tsc|eslint|biome|ruff|next\s+build|vite\s+build|docker|kubectl|diag_check)\b/i;
+
+/**
+ * Determines whether a live `PostToolUse` shell command should allow FTS5 compression
+ * and/or >4K artifact offloading. Protects explicit file-inspection, bounded pipeline,
+ * standalone git inspection, and inline inspection commands from lossy re-read loops.
+ *
+ * @param {string} [command='']
+ * @returns {{ allowFts5: boolean, allowOffload: boolean, reason: string }}
+ */
+export function classifyShellPostToolPolicy(command = '') {
+  const cmd = String(command || '').trim();
+  if (!cmd) {
+    return { allowFts5: false, allowOffload: true, reason: 'empty_command' };
+  }
+  if (BOUNDED_PIPE_FILTER_RE.test(cmd)) {
+    return { allowFts5: false, allowOffload: false, reason: 'explicitly_bounded_shell_output' };
+  }
+  const segments = cmd.split(/(?:&&|\|\||;|\||\r?\n)/);
+  const hasInspectionSegment = segments.some((seg) => FILE_INSPECTION_SEGMENT_RE.test(seg));
+  if (POWERSHELL_HEREDOC_OR_SEARCH_RE.test(cmd) && !hasInspectionSegment) {
+    return { allowFts5: true, allowOffload: true, reason: 'eligible_powershell_cli' };
+  }
+  if (INLINE_SCRIPT_OR_HEREDOC_RE.test(cmd)) {
+    return { allowFts5: false, allowOffload: false, reason: 'inline_script_or_heredoc' };
+  }
+  if (hasInspectionSegment) {
+    return { allowFts5: false, allowOffload: false, reason: 'file_inspection_shell_command' };
+  }
+  if (GIT_INSPECTION_CMD_RE.test(cmd) && !NOISY_PRIMARY_RUNNER_RE.test(cmd)) {
+    return { allowFts5: false, allowOffload: false, reason: 'git_inspection_command' };
+  }
+  return { allowFts5: true, allowOffload: true, reason: 'eligible_cli_output' };
+}
+
 export function classifyCliCommandFamily(command = '') {
   const cmd = String(command || '').toLowerCase();
   if (/\bgit\s+(diff|log|show|status)\b/.test(cmd)) return 'git';
@@ -191,8 +236,11 @@ export function buildDeterministicSummary(rawOutput = '', {
     for (const rawLine of lines) {
       const line = rawLine.trim();
       if (!line) continue;
-      if (/\b(ERROR|FATAL|Exception|AssertionError|TypeError|ReferenceError|SyntaxError|ERR!|FAILED|fail)\b/i.test(line)) {
-        pushUniqueBounded(errors, line, 8, 140);
+      if (
+        /\b(ERROR|FATAL|WARN|WARNING|Exception|AssertionError|TypeError|ReferenceError|SyntaxError|ERR!|FAILED|fail)\b/i.test(line) ||
+        /^(?:ℹ\s*(?:tests|suites|pass|fail)\b|#\s*(?:tests|suites|pass|fail)\b)/i.test(line)
+      ) {
+        pushUniqueBounded(errors, line, 10, 240);
       }
       nonEmpty.push(line);
     }
@@ -214,6 +262,8 @@ export function buildDeterministicSummary(rawOutput = '', {
   const failingTests = [];
   const fileLineTraces = [];
   const assertionLines = [];
+  const summaryLines = [];
+  const warningLines = [];
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
@@ -227,6 +277,18 @@ export function buildDeterministicSummary(rawOutput = '', {
     ) {
       const cleaned = line.replace(/^_{3,}\s*|\s*_{3,}$/g, '').trim();
       pushUniqueBounded(failingTests, cleaned, 6, 120);
+    }
+
+    if (
+      /^(?:ℹ\s*(?:tests|suites|pass|fail|cancelled|skipped|todo|duration_ms)\b|#\s*(?:tests|suites|pass|fail|cancelled|skipped|todo|ok)\b|Tests?:|Test Suites?:|Test Files?:|Ran\s+\d+\s+tests?|test result:|===+\s+\d+\s+(?:passed|failed)|\d+\s+(?:passed|passing|failed|failing)\b|PASS(?:\s+\S+)?$|ok\s+\S+\s+[\d.]+s)/i.test(
+        line
+      )
+    ) {
+      pushUniqueBounded(summaryLines, line, 8, 200);
+    }
+
+    if (/\b(?:WARN|WARNING)\b[:\s]/i.test(line)) {
+      pushUniqueBounded(warningLines, line, 4, 240);
     }
 
     if (
@@ -246,24 +308,50 @@ export function buildDeterministicSummary(rawOutput = '', {
 
   const out = [];
   out.push(`[FTS5 Compressed CLI Output] cmd="${command}" exit_code=${exitCode} raw_lines=${lines.length}`);
-  out.push(`Failing Tests (${failingTests.length}):`);
-  if (failingTests.length > 0) {
-    for (const ft of failingTests.slice(0, 6)) {
-      out.push(`  - ${ft}`);
+  if (failingTests.length === 0 && Number(exitCode) === 0) {
+    out.push('Result: PASS (0 failing tests)');
+    if (warningLines.length > 0) {
+      out.push(`Warnings (${warningLines.length}):`);
+      for (const w of warningLines) out.push(`  ${w}`);
+    }
+    out.push('Test Summary:');
+    if (summaryLines.length > 0) {
+      for (const s of summaryLines) out.push(`  ${s}`);
+    } else if (fileLineTraces.length > 0) {
+      for (const tr of fileLineTraces.slice(0, 8)) out.push(`  ${tr}`);
+    } else {
+      for (const tailLine of lines.slice(-6)) {
+        if (tailLine.trim()) out.push(`  ${tailLine.trim().slice(0, 140)}`);
+      }
     }
   } else {
-    out.push(`  - (No structured test header matched; see tracebacks below)`);
-  }
+    out.push(`Failing Tests (${failingTests.length}):`);
+    if (failingTests.length > 0) {
+      for (const ft of failingTests.slice(0, 6)) {
+        out.push(`  - ${ft}`);
+      }
+    } else {
+      out.push(`  - (No structured test header matched; see tracebacks below)`);
+    }
 
-  out.push(`File:Line Tracebacks & Assertions:`);
-  const combinedTraces = [...fileLineTraces, ...assertionLines].slice(0, 12);
-  if (combinedTraces.length > 0) {
-    for (const tr of combinedTraces) {
-      out.push(`  ${tr}`);
+    out.push(`File:Line Tracebacks & Assertions:`);
+    const combinedTraces = [...fileLineTraces, ...assertionLines].slice(0, summaryLines.length > 0 ? 8 : 10);
+    if (combinedTraces.length > 0) {
+      for (const tr of combinedTraces) {
+        out.push(`  ${tr}`);
+      }
+    } else {
+      for (const tailLine of lines.slice(-6)) {
+        if (tailLine.trim()) out.push(`  ${tailLine.trim().slice(0, 140)}`);
+      }
     }
-  } else {
-    for (const tailLine of lines.slice(-6)) {
-      if (tailLine.trim()) out.push(`  ${tailLine.trim().slice(0, 140)}`);
+    if (warningLines.length > 0) {
+      out.push(`Warnings (${warningLines.length}):`);
+      for (const w of warningLines.slice(0, 2)) out.push(`  ${w}`);
+    }
+    if (summaryLines.length > 0) {
+      out.push('Test Summary:');
+      for (const s of summaryLines.slice(0, 4)) out.push(`  ${s}`);
     }
   }
 
@@ -287,15 +375,19 @@ export function compressCliOutputFts5Sync({
   homeDir = getHomeDir(),
   DatabaseSync = null,
   forceCompress = false,
-  recordLedger = true
+  recordLedger = true,
+  minBytes = 0,
+  minTokensSaved = 0
 } = {}) {
   const rawStr = String(rawOutput || '');
   const rawLines = rawStr.split(/\r?\n/);
   const rawBytes = Buffer.byteLength(rawStr, 'utf8');
   const rawTokens = Math.ceil(rawStr.length / 4);
+  const meetsMinBytes = minBytes <= 0 || rawBytes >= Number(minBytes);
   const meetsSizeThreshold =
-    rawLines.length > FTS5_COMPRESSOR_CONSTANTS.MIN_LINES_TO_COMPRESS ||
-    rawBytes >= FTS5_COMPRESSOR_CONSTANTS.MIN_BYTES_TO_COMPRESS;
+    meetsMinBytes &&
+    (rawLines.length > FTS5_COMPRESSOR_CONSTANTS.MIN_LINES_TO_COMPRESS ||
+      rawBytes >= FTS5_COMPRESSOR_CONSTANTS.MIN_BYTES_TO_COMPRESS);
 
   if (!forceCompress && (!meetsSizeThreshold || !isCompressibleCliCommand(command))) {
     return {
@@ -365,6 +457,21 @@ export function compressCliOutputFts5Sync({
     const summaryLines = summary.split(/\r?\n/);
     const compressedTokens = Math.ceil(summary.length / 4);
     const tokensSaved = Math.max(0, rawTokens - compressedTokens);
+    if (!forceCompress && minTokensSaved > 0 && tokensSaved < Number(minTokensSaved)) {
+      return {
+        compressed: false,
+        failOpen: false,
+        dbPath: resolvedDbPath,
+        output: rawStr,
+        lineCount: rawLines.length,
+        rawTokens,
+        compressedTokens: rawTokens,
+        tokensSaved: 0,
+        reductionPct: 0,
+        turnId: String(turnId),
+        queryHandle: null
+      };
+    }
     const reductionPct = rawTokens > 0
       ? Number(((tokensSaved / rawTokens) * 100).toFixed(1))
       : 0;

@@ -91,6 +91,18 @@ const recordedInterventionKeys = new Set();
 export const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
+ * Orthogonal 3-bucket ledger taxonomy separating real-time avoided writes,
+ * ex-post realized prompt-bill savings, and platform KV-cache discounts.
+ */
+export const LEDGER_BUCKETS = Object.freeze({
+  AVOIDED_WRITE: 'avoided_write',
+  REALIZED_PROMPT_BILL: 'realized_prompt_bill',
+  PLATFORM_CACHE_DISCOUNT: 'platform_cache_discount'
+});
+
+const VALID_LEDGER_BUCKETS = new Set(Object.values(LEDGER_BUCKETS));
+
+/**
  * Canonical 5-category Claude Code savings taxonomy for Simple View (Rank 4) and Advanced View (Section 1).
  */
 export const SAVINGS_BUCKETS = Object.freeze({
@@ -121,7 +133,9 @@ export const SAVINGS_BUCKETS = Object.freeze({
     rawCategories: Object.freeze([
       'LOSSLESS_POST_SANITIZER',
       'ARTIFACT_OFFLOAD_4K',
-      'TOOL_OUTPUT_COMPRESSED'
+      'TOOL_OUTPUT_COMPRESSED',
+      'CLI_FTS5_COMPRESSED',
+      'BUCKET_B_POST_SHIELD'
     ])
   }),
   loopAndReadGuarded: Object.freeze({
@@ -146,7 +160,11 @@ export const SAVINGS_BUCKETS = Object.freeze({
     id: 'subagentIsolated',
     label: 'Task / Agent Subagent Context Isolation',
     shortLabel: 'Subagent Isolation',
-    rawCategories: Object.freeze(['SUBAGENT_ISOLATED', 'TASK_SUBAGENT_ISOLATED'])
+    rawCategories: Object.freeze([
+      'SUBAGENT_ISOLATED',
+      'TASK_SUBAGENT_ISOLATED',
+      'SUBAGENT_HANDOFF_CONDENSED'
+    ])
   })
 });
 
@@ -176,16 +194,63 @@ export function normalizeSavingsBucketId(rawCategory = '') {
   return 'loopAndReadGuarded';
 }
 
+/**
+ * Classifies a ledger entry or category name into one of the 3 orthogonal ledger buckets:
+ * `'avoided_write'`, `'realized_prompt_bill'`, or `'platform_cache_discount'`.
+ *
+ * @param {object|string} [entryOrCategory='']
+ * @returns {'avoided_write'|'realized_prompt_bill'|'platform_cache_discount'}
+ */
+export function classifyLedgerBucket(entryOrCategory = '') {
+  if (entryOrCategory && typeof entryOrCategory === 'object') {
+    const explicit = String(entryOrCategory.ledgerBucket || '').trim();
+    if (VALID_LEDGER_BUCKETS.has(explicit)) {
+      return explicit;
+    }
+    return classifyLedgerBucket(entryOrCategory.category || '');
+  }
+  const upper = String(entryOrCategory || '').trim().toUpperCase();
+  if (upper === 'REALIZED_PROMPT_BILL_SAVINGS' || upper.includes('REALIZED_PROMPT_BILL')) {
+    return LEDGER_BUCKETS.REALIZED_PROMPT_BILL;
+  }
+  if (normalizeSavingsBucketId(upper) === 'cacheReadDiscount') {
+    return LEDGER_BUCKETS.PLATFORM_CACHE_DISCOUNT;
+  }
+  return LEDGER_BUCKETS.AVOIDED_WRITE;
+}
+
 export function recordSavingsReceipt(receipt = {}, options = {}) {
   const filePath = getLedgerFilePath(options);
+  const category = String(receipt.category || 'CACHE_READ_DISCOUNT');
+  const ledgerBucket = classifyLedgerBucket({
+    ledgerBucket: receipt.ledgerBucket,
+    category
+  });
+  const isRealizedBucket = ledgerBucket === LEDGER_BUCKETS.REALIZED_PROMPT_BILL;
+  const rawTokens = Number(receipt.savedTokens || 0);
+  const rawUsd = Number(receipt.savedUSD || 0);
+  const savedTokens = isRealizedBucket
+    ? (Number.isFinite(rawTokens) ? Math.round(rawTokens) : 0)
+    : Math.max(0, Math.round(Number.isFinite(rawTokens) ? rawTokens : 0));
+  const savedUSD = isRealizedBucket
+    ? (Number.isFinite(rawUsd) ? Number(rawUsd.toFixed(6)) : 0)
+    : Math.max(0, Number((Number.isFinite(rawUsd) ? rawUsd : 0).toFixed(6)));
+  const hasWriteRate =
+    typeof receipt.writeRateUSD === 'number' &&
+    Number.isFinite(receipt.writeRateUSD) &&
+    receipt.writeRateUSD >= 0;
+
   const entry = {
     timestamp: receipt.timestamp || options.nowMs || Date.now(),
     sessionId: String(receipt.sessionId || 'default'),
-    category: String(receipt.category || 'CACHE_READ_DISCOUNT'),
+    category,
+    ledgerBucket,
     modelId: String(receipt.modelId || 'claude-sonnet-5-5'),
-    savedTokens: Math.max(0, Math.round(Number(receipt.savedTokens || 0))),
-    savedUSD: Math.max(0, Number(Number(receipt.savedUSD || 0).toFixed(6))),
+    savedTokens,
+    savedUSD,
     detail: String(receipt.detail || ''),
+    ...(hasWriteRate ? { writeRateUSD: Number(receipt.writeRateUSD.toFixed(6)) } : {}),
+    ...(receipt.exPost && typeof receipt.exPost === 'object' ? { exPost: receipt.exPost } : {}),
     ...(receipt.turnId ? { turnId: String(receipt.turnId) } : {})
   };
 
@@ -245,9 +310,13 @@ export function recordInterventionSavings(params = {}, options = {}) {
       sessionId,
       turnId: dedupeToken || undefined,
       category,
+      ledgerBucket: LEDGER_BUCKETS.AVOIDED_WRITE,
       modelId,
       savedTokens,
       savedUSD,
+      ...(typeof params.writeRateUSD === 'number' && Number.isFinite(params.writeRateUSD)
+        ? { writeRateUSD: params.writeRateUSD }
+        : {}),
       detail: String(params.detail || '')
     },
     options
@@ -256,6 +325,133 @@ export function recordInterventionSavings(params = {}, options = {}) {
   return {
     recorded: res.ok,
     deduplicated: false,
+    receipt: res.entry
+  };
+}
+
+/**
+ * Computes ex-post realized prompt-bill savings from paired baseline vs. actual
+ * wire/transcript totals, checking optional `±25%` prediction accuracy.
+ *
+ * @param {object} [params={}]
+ * @returns {object}
+ */
+export function computeExPostRealizedSavings(params = {}) {
+  const baselinePromptBillTokens = Math.round(Number(params.baselinePromptBillTokens || 0));
+  const actualPromptBillTokens = Math.round(Number(params.actualPromptBillTokens || 0));
+  const baselineCostUSD = Number(Number(params.baselineCostUSD || 0).toFixed(6));
+  const actualCostUSD = Number(Number(params.actualCostUSD || 0).toFixed(6));
+  const realizedPromptBillTokens = baselinePromptBillTokens - actualPromptBillTokens;
+  const realizedCostUSD = Number((baselineCostUSD - actualCostUSD).toFixed(6));
+  const avoidedWriteTokens = Math.max(0, Math.round(Number(params.avoidedWriteTokens || 0)));
+  const tolerancePct = Math.max(0, Number(params.tolerancePct ?? 25));
+
+  const hasEstTok =
+    params.estimatedRealizedTokens !== null &&
+    params.estimatedRealizedTokens !== undefined &&
+    Number.isFinite(Number(params.estimatedRealizedTokens));
+  const estimatedRealizedTokens = hasEstTok ? Math.round(Number(params.estimatedRealizedTokens)) : null;
+
+  let tokenErrorPct = null;
+  let withinTokenTolerance = null;
+  if (hasEstTok && realizedPromptBillTokens !== 0) {
+    tokenErrorPct = Number(
+      ((Math.abs(estimatedRealizedTokens - realizedPromptBillTokens) / Math.abs(realizedPromptBillTokens)) * 100).toFixed(2)
+    );
+    withinTokenTolerance = tokenErrorPct <= tolerancePct;
+  }
+
+  const hasEstUsd =
+    params.estimatedRealizedUSD !== null &&
+    params.estimatedRealizedUSD !== undefined &&
+    Number.isFinite(Number(params.estimatedRealizedUSD));
+  const estimatedRealizedUSD = hasEstUsd ? Number(Number(params.estimatedRealizedUSD).toFixed(6)) : null;
+
+  let usdErrorPct = null;
+  let withinUsdTolerance = null;
+  if (hasEstUsd && realizedCostUSD !== 0) {
+    usdErrorPct = Number(
+      ((Math.abs(estimatedRealizedUSD - realizedCostUSD) / Math.abs(realizedCostUSD)) * 100).toFixed(2)
+    );
+    withinUsdTolerance = usdErrorPct <= tolerancePct;
+  }
+
+  return {
+    bucket: LEDGER_BUCKETS.REALIZED_PROMPT_BILL,
+    provenance: 'ex_post_realized_prompt_bill',
+    baselinePromptBillTokens,
+    actualPromptBillTokens,
+    realizedPromptBillTokens,
+    baselineCostUSD,
+    actualCostUSD,
+    realizedCostUSD,
+    avoidedWriteTokens,
+    estimatedRealizedTokens,
+    estimatedRealizedUSD,
+    tolerancePct,
+    tokenErrorPct,
+    withinTokenTolerance,
+    usdErrorPct,
+    withinUsdTolerance
+  };
+}
+
+/**
+ * Records an ex-post realized prompt-bill delta receipt (signed; supports negative
+ * regressions such as high-output retries) in the `realized_prompt_bill` bucket.
+ *
+ * @param {object} [params={}]
+ * @param {object} [options={}]
+ */
+export function recordRealizedPromptBillSavings(params = {}, options = {}) {
+  const sessionId = String(params.sessionId || options.sessionId || 'default');
+  const modelId = String(params.modelId || 'claude-sonnet-5-5');
+  const exPost = computeExPostRealizedSavings({
+    baselinePromptBillTokens:
+      params.baselinePromptBillTokens ?? params.realizedPromptBillTokens ?? params.savedTokens ?? 0,
+    actualPromptBillTokens: params.actualPromptBillTokens ?? 0,
+    baselineCostUSD: params.baselineCostUSD ?? params.realizedCostUSD ?? params.savedUSD ?? 0,
+    actualCostUSD: params.actualCostUSD ?? 0,
+    avoidedWriteTokens: params.avoidedWriteTokens ?? 0,
+    estimatedRealizedTokens: params.estimatedRealizedTokens ?? null,
+    estimatedRealizedUSD: params.estimatedRealizedUSD ?? null,
+    tolerancePct: params.tolerancePct ?? 25
+  });
+
+  const dedupeToken = params.dedupeId || params.turnId || '';
+  const dedupeKey = dedupeToken
+    ? `${getLedgerFilePath(options)}::${sessionId}::REALIZED_PROMPT_BILL_SAVINGS::${dedupeToken}`
+    : null;
+  if (dedupeKey) {
+    if (recordedInterventionKeys.has(dedupeKey)) {
+      return { recorded: false, deduplicated: true, exPost, receipt: null };
+    }
+    recordedInterventionKeys.add(dedupeKey);
+  }
+
+  const signTok = exPost.realizedPromptBillTokens >= 0 ? '+' : '';
+  const res = recordSavingsReceipt(
+    {
+      sessionId,
+      turnId: dedupeToken || undefined,
+      category: 'REALIZED_PROMPT_BILL_SAVINGS',
+      ledgerBucket: LEDGER_BUCKETS.REALIZED_PROMPT_BILL,
+      modelId,
+      savedTokens: exPost.realizedPromptBillTokens,
+      savedUSD: exPost.realizedCostUSD,
+      exPost,
+      detail: String(
+        params.detail ||
+          `Ex-post realized prompt-bill delta (${signTok}${exPost.realizedPromptBillTokens} tok, $${exPost.realizedCostUSD.toFixed(4)})`
+      )
+    },
+    options
+  );
+
+  return {
+    recorded: res.ok,
+    deduplicated: false,
+    exPost,
     receipt: res.entry
   };
 }
@@ -321,6 +517,7 @@ export function recordTurnCacheSavings(usage = {}, options = {}) {
       sessionId,
       turnId,
       category: 'CACHE_READ_DISCOUNT',
+      ledgerBucket: LEDGER_BUCKETS.PLATFORM_CACHE_DISCOUNT,
       modelId: turnCost.modelId,
       savedTokens,
       savedUSD,
@@ -344,14 +541,13 @@ export function recordTurnCacheSavings(usage = {}, options = {}) {
  * Computes the deterministic Saved-Quota Receipt summary across all recorded entries
  * (or filtered by `options.sessionId`). Always starts strictly at `0`.
  *
+ * Exposes the 3 orthogonal ledger buckets (`buckets.avoidedWrites`,
+ * `buckets.realizedPromptBill`, `buckets.platformCacheDiscount`) while keeping legacy
+ * top-level fields compatible and excluding `realized_prompt_bill` entries from
+ * legacy totals so ex-post reconciliation never double-counts real-time avoided writes.
+ *
  * @param {object} [options={}]
- * @returns {{
- *   totalSavedTokens: number,
- *   totalSavedUSD: number,
- *   entryCount: number,
- *   byCategory: Record<string, { savedTokens: number, savedUSD: number, count: number }>,
- *   entries: Array<object>
- * }}
+ * @returns {object}
  */
 export function getSavedQuotaReceiptSummary(options = {}) {
   const nowMs = Number(options.nowMs || Date.now());
@@ -368,6 +564,7 @@ export function getSavedQuotaReceiptSummary(options = {}) {
 
   let totalSavedTokens = 0;
   let totalSavedUSD = 0;
+  let legacyEntryCount = 0;
   const byCategory = {};
 
   const categories = {};
@@ -384,13 +581,87 @@ export function getSavedQuotaReceiptSummary(options = {}) {
     };
   }
 
+  const buckets = {
+    avoidedWrites: {
+      id: LEDGER_BUCKETS.AVOIDED_WRITE,
+      label: 'Real-Time Avoided Writes (Highbeam Hooks & Guards)',
+      provenance: 'realtime_avoided_write',
+      tokens: 0,
+      usd: 0,
+      writeRateUSD: 0,
+      sessionTokens: 0,
+      sessionUSD: 0,
+      workspace30dTokens: 0,
+      workspace30dUSD: 0,
+      count: 0,
+      byCategory: {}
+    },
+    realizedPromptBill: {
+      id: LEDGER_BUCKETS.REALIZED_PROMPT_BILL,
+      label: 'Ex-Post Realized Prompt-Bill Savings',
+      provenance: 'ex_post_realized_prompt_bill',
+      tokens: 0,
+      usd: 0,
+      sessionTokens: 0,
+      sessionUSD: 0,
+      workspace30dTokens: 0,
+      workspace30dUSD: 0,
+      count: 0,
+      withinToleranceCount: 0,
+      checkedToleranceCount: 0
+    },
+    platformCacheDiscount: {
+      id: LEDGER_BUCKETS.PLATFORM_CACHE_DISCOUNT,
+      label: 'Platform KV-Cache Read Discount (Native Provider)',
+      provenance: 'platform_kv_cache_discount',
+      tokens: 0,
+      usd: 0,
+      sessionTokens: 0,
+      sessionUSD: 0,
+      workspace30dTokens: 0,
+      workspace30dUSD: 0,
+      count: 0,
+      byCategory: {}
+    }
+  };
+
   for (const entry of filtered) {
+    const ledgerBucket = classifyLedgerBucket(entry);
+    const cat = entry.category || 'OTHER';
+
+    if (ledgerBucket === LEDGER_BUCKETS.REALIZED_PROMPT_BILL) {
+      const signedTokens = Number.isFinite(Number(entry.savedTokens))
+        ? Math.round(Number(entry.savedTokens))
+        : 0;
+      const signedUsd = Number.isFinite(Number(entry.savedUSD)) ? Number(entry.savedUSD) : 0;
+      buckets.realizedPromptBill.tokens += signedTokens;
+      buckets.realizedPromptBill.usd = Number((buckets.realizedPromptBill.usd + signedUsd).toFixed(6));
+      buckets.realizedPromptBill.count += 1;
+
+      if (entry.exPost && typeof entry.exPost === 'object') {
+        const hasUsdTol =
+          entry.exPost.withinUsdTolerance !== null &&
+          entry.exPost.withinUsdTolerance !== undefined;
+        const hasTokTol =
+          entry.exPost.withinTokenTolerance !== null &&
+          entry.exPost.withinTokenTolerance !== undefined;
+        if (hasUsdTol) {
+          buckets.realizedPromptBill.checkedToleranceCount += 1;
+          if (entry.exPost.withinUsdTolerance) buckets.realizedPromptBill.withinToleranceCount += 1;
+        } else if (hasTokTol) {
+          buckets.realizedPromptBill.checkedToleranceCount += 1;
+          if (entry.exPost.withinTokenTolerance) buckets.realizedPromptBill.withinToleranceCount += 1;
+        }
+      }
+      continue;
+    }
+
     const tokens = Math.max(0, Number(entry.savedTokens || 0));
     const usd = Math.max(0, Number(entry.savedUSD || 0));
     totalSavedTokens += tokens;
     totalSavedUSD += usd;
+    legacyEntryCount += 1;
 
-    const cat = entry.category || 'OTHER';
     if (!byCategory[cat]) {
       byCategory[cat] = { savedTokens: 0, savedUSD: 0, count: 0 };
     }
@@ -405,6 +676,37 @@ export function getSavedQuotaReceiptSummary(options = {}) {
       bucket.savedUSD = Number((bucket.savedUSD + usd).toFixed(6));
       bucket.count += 1;
     }
+
+    if (ledgerBucket === LEDGER_BUCKETS.PLATFORM_CACHE_DISCOUNT) {
+      buckets.platformCacheDiscount.tokens += tokens;
+      buckets.platformCacheDiscount.usd = Number((buckets.platformCacheDiscount.usd + usd).toFixed(6));
+      buckets.platformCacheDiscount.count += 1;
+      if (!buckets.platformCacheDiscount.byCategory[cat]) {
+        buckets.platformCacheDiscount.byCategory[cat] = { savedTokens: 0, savedUSD: 0, count: 0 };
+      }
+      buckets.platformCacheDiscount.byCategory[cat].savedTokens += tokens;
+      buckets.platformCacheDiscount.byCategory[cat].savedUSD = Number(
+        (buckets.platformCacheDiscount.byCategory[cat].savedUSD + usd).toFixed(6)
+      );
+      buckets.platformCacheDiscount.byCategory[cat].count += 1;
+    } else {
+      const writeUsd =
+        typeof entry.writeRateUSD === 'number' && Number.isFinite(entry.writeRateUSD) && entry.writeRateUSD >= 0
+          ? Number(entry.writeRateUSD)
+          : usd;
+      buckets.avoidedWrites.tokens += tokens;
+      buckets.avoidedWrites.usd = Number((buckets.avoidedWrites.usd + usd).toFixed(6));
+      buckets.avoidedWrites.writeRateUSD = Number((buckets.avoidedWrites.writeRateUSD + writeUsd).toFixed(6));
+      buckets.avoidedWrites.count += 1;
+      if (!buckets.avoidedWrites.byCategory[cat]) {
+        buckets.avoidedWrites.byCategory[cat] = { savedTokens: 0, savedUSD: 0, count: 0 };
+      }
+      buckets.avoidedWrites.byCategory[cat].savedTokens += tokens;
+      buckets.avoidedWrites.byCategory[cat].savedUSD = Number(
+        (buckets.avoidedWrites.byCategory[cat].savedUSD + usd).toFixed(6)
+      );
+      buckets.avoidedWrites.byCategory[cat].count += 1;
+    }
   }
 
   let sessionSavedTokens = 0;
@@ -415,22 +717,56 @@ export function getSavedQuotaReceiptSummary(options = {}) {
   let workspace30dEntryCount = 0;
 
   for (const entry of allEntries) {
+    const ledgerBucket = classifyLedgerBucket(entry);
+    const ts = Number(entry.timestamp || nowMs);
+    const isTargetSession =
+      (!options.sessionId || entry.sessionId === targetSessionId) &&
+      (entry.sessionId === targetSessionId || !options.activeSessionId);
+
+    if (ledgerBucket === LEDGER_BUCKETS.REALIZED_PROMPT_BILL) {
+      const signedTokens = Number.isFinite(Number(entry.savedTokens))
+        ? Math.round(Number(entry.savedTokens))
+        : 0;
+      const signedUsd = Number.isFinite(Number(entry.savedUSD)) ? Number(entry.savedUSD) : 0;
+      if (isTargetSession) {
+        buckets.realizedPromptBill.sessionTokens += signedTokens;
+        buckets.realizedPromptBill.sessionUSD = Number(
+          (buckets.realizedPromptBill.sessionUSD + signedUsd).toFixed(6)
+        );
+      }
+      if (ts >= cutoff30d) {
+        buckets.realizedPromptBill.workspace30dTokens += signedTokens;
+        buckets.realizedPromptBill.workspace30dUSD = Number(
+          (buckets.realizedPromptBill.workspace30dUSD + signedUsd).toFixed(6)
+        );
+      }
+      continue;
+    }
+
     const tokens = Math.max(0, Number(entry.savedTokens || 0));
     const usd = Math.max(0, Number(entry.savedUSD || 0));
-    const ts = Number(entry.timestamp || nowMs);
     const bucketId = normalizeSavingsBucketId(entry.category || 'OTHER');
 
-    if (!options.sessionId || entry.sessionId === targetSessionId) {
-      if (entry.sessionId === targetSessionId || !options.activeSessionId) {
-        sessionSavedTokens += tokens;
-        sessionSavedUSD += usd;
-        sessionEntryCount += 1;
-        if (categories[bucketId]) {
-          categories[bucketId].sessionSavedTokens += tokens;
-          categories[bucketId].sessionSavedUSD = Number(
-            (categories[bucketId].sessionSavedUSD + usd).toFixed(6)
-          );
-        }
+    if (isTargetSession) {
+      sessionSavedTokens += tokens;
+      sessionSavedUSD += usd;
+      sessionEntryCount += 1;
+      if (categories[bucketId]) {
+        categories[bucketId].sessionSavedTokens += tokens;
+        categories[bucketId].sessionSavedUSD = Number(
+          (categories[bucketId].sessionSavedUSD + usd).toFixed(6)
+        );
+      }
+      if (ledgerBucket === LEDGER_BUCKETS.PLATFORM_CACHE_DISCOUNT) {
+        buckets.platformCacheDiscount.sessionTokens += tokens;
+        buckets.platformCacheDiscount.sessionUSD = Number(
+          (buckets.platformCacheDiscount.sessionUSD + usd).toFixed(6)
+        );
+      } else {
+        buckets.avoidedWrites.sessionTokens += tokens;
+        buckets.avoidedWrites.sessionUSD = Number(
+          (buckets.avoidedWrites.sessionUSD + usd).toFixed(6)
+        );
       }
     }
 
@@ -438,11 +774,46 @@ export function getSavedQuotaReceiptSummary(options = {}) {
       workspace30dSavedTokens += tokens;
       workspace30dSavedUSD += usd;
       workspace30dEntryCount += 1;
+      if (ledgerBucket === LEDGER_BUCKETS.PLATFORM_CACHE_DISCOUNT) {
+        buckets.platformCacheDiscount.workspace30dTokens += tokens;
+        buckets.platformCacheDiscount.workspace30dUSD = Number(
+          (buckets.platformCacheDiscount.workspace30dUSD + usd).toFixed(6)
+        );
+      } else {
+        buckets.avoidedWrites.workspace30dTokens += tokens;
+        buckets.avoidedWrites.workspace30dUSD = Number(
+          (buckets.avoidedWrites.workspace30dUSD + usd).toFixed(6)
+        );
+      }
     }
   }
 
   workspace30dSavedTokens = Math.max(workspace30dSavedTokens, sessionSavedTokens, totalSavedTokens);
   workspace30dSavedUSD = Math.max(workspace30dSavedUSD, sessionSavedUSD, totalSavedUSD);
+  buckets.avoidedWrites.workspace30dTokens = Math.max(
+    buckets.avoidedWrites.workspace30dTokens,
+    buckets.avoidedWrites.sessionTokens,
+    buckets.avoidedWrites.tokens
+  );
+  buckets.avoidedWrites.workspace30dUSD = Number(
+    Math.max(
+      buckets.avoidedWrites.workspace30dUSD,
+      buckets.avoidedWrites.sessionUSD,
+      buckets.avoidedWrites.usd
+    ).toFixed(6)
+  );
+  buckets.platformCacheDiscount.workspace30dTokens = Math.max(
+    buckets.platformCacheDiscount.workspace30dTokens,
+    buckets.platformCacheDiscount.sessionTokens,
+    buckets.platformCacheDiscount.tokens
+  );
+  buckets.platformCacheDiscount.workspace30dUSD = Number(
+    Math.max(
+      buckets.platformCacheDiscount.workspace30dUSD,
+      buckets.platformCacheDiscount.sessionUSD,
+      buckets.platformCacheDiscount.usd
+    ).toFixed(6)
+  );
 
   const categoryList = Object.values(categories);
   let topDriver = {
@@ -452,12 +823,33 @@ export function getSavedQuotaReceiptSummary(options = {}) {
     savedTokens: 0,
     savedUSD: 0
   };
+  let topHighbeamDriver = {
+    id: 'loopAndReadGuarded',
+    label: SAVINGS_BUCKETS.loopAndReadGuarded.label,
+    shortLabel: SAVINGS_BUCKETS.loopAndReadGuarded.shortLabel,
+    savedTokens: 0,
+    savedUSD: 0
+  };
   for (const bucket of categoryList) {
     if (
       bucket.savedTokens > topDriver.savedTokens ||
       (bucket.savedTokens === topDriver.savedTokens && bucket.savedUSD > topDriver.savedUSD)
     ) {
       topDriver = {
+        id: bucket.id,
+        label: bucket.label,
+        shortLabel: bucket.shortLabel,
+        savedTokens: bucket.savedTokens,
+        savedUSD: bucket.savedUSD
+      };
+    }
+    if (
+      bucket.id !== 'cacheReadDiscount' &&
+      (bucket.savedTokens > topHighbeamDriver.savedTokens ||
+        (bucket.savedTokens === topHighbeamDriver.savedTokens &&
+          bucket.savedUSD > topHighbeamDriver.savedUSD))
+    ) {
+      topHighbeamDriver = {
         id: bucket.id,
         label: bucket.label,
         shortLabel: bucket.shortLabel,
@@ -481,18 +873,29 @@ export function getSavedQuotaReceiptSummary(options = {}) {
   return {
     totalSavedTokens: Math.round(totalSavedTokens),
     totalSavedUSD: Number(totalSavedUSD.toFixed(6)),
-    entryCount: filtered.length,
+    entryCount: legacyEntryCount,
     sessionSavedTokens: Math.round(sessionSavedTokens),
     sessionSavedUSD: Number(sessionSavedUSD.toFixed(6)),
     sessionEntryCount,
     workspace30dSavedTokens: Math.round(workspace30dSavedTokens),
     workspace30dSavedUSD: Number(workspace30dSavedUSD.toFixed(6)),
     workspace30dEntryCount,
+    buckets,
+    highbeamAvoidedWriteTokens: Math.round(buckets.avoidedWrites.tokens),
+    highbeamAvoidedWriteUSD: Number(buckets.avoidedWrites.usd.toFixed(6)),
+    highbeamSessionAvoidedWriteTokens: Math.round(buckets.avoidedWrites.sessionTokens),
+    highbeamSessionAvoidedWriteUSD: Number(buckets.avoidedWrites.sessionUSD.toFixed(6)),
+    realizedPromptBillTokens: Math.round(buckets.realizedPromptBill.tokens),
+    realizedPromptBillUSD: Number(buckets.realizedPromptBill.usd.toFixed(6)),
+    realizedPromptBillEntryCount: buckets.realizedPromptBill.count,
+    platformCacheDiscountTokens: Math.round(buckets.platformCacheDiscount.tokens),
+    platformCacheDiscountUSD: Number(buckets.platformCacheDiscount.usd.toFixed(6)),
     measuredPromptHygiene,
     byCategory,
     categories,
     categoryList,
     topDriver,
+    topHighbeamDriver,
     entries: filtered
   };
 }
@@ -515,13 +918,17 @@ export class SavedQuotaReceiptLedger {
 }
 
 export default {
+  LEDGER_BUCKETS,
   SAVINGS_BUCKETS,
   normalizeSavingsBucketId,
+  classifyLedgerBucket,
   getLedgerFilePath,
   readLedgerEntries,
   recordSavingsReceipt,
   recordTurnCacheSavings,
   recordInterventionSavings,
+  computeExPostRealizedSavings,
+  recordRealizedPromptBillSavings,
   getSavedQuotaReceiptSummary,
   SavedQuotaReceiptLedger
 };

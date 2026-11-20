@@ -100,6 +100,15 @@ function extractPostToolText(event = {}) {
     const parts = [resp.stdout, resp.stderr, resp.output, resp.content, resp.result, resp.error]
       .filter((x) => typeof x === 'string' && x.length > 0);
     if (parts.length > 0) return parts.join('\n');
+    for (const arrKey of ['filenames', 'files']) {
+      if (
+        Array.isArray(resp[arrKey]) &&
+        resp[arrKey].length > 0 &&
+        resp[arrKey].every((item) => typeof item === 'string')
+      ) {
+        return resp[arrKey].join('\n');
+      }
+    }
     return '';
   }
   return resp !== undefined && resp !== null ? String(resp) : '';
@@ -108,8 +117,9 @@ function extractPostToolText(event = {}) {
 /**
  * Builds a replacement `tool_response` in the same shape the host sent, so Claude Code
  * accepts it as `updatedToolOutput` (a value that does not match a built-in tool's output
- * shape is ignored by the host). Returns `{ ok: false }` when the shape has no text field
- * we can safely replace.
+ * shape is ignored by the host). Supports both string fields (`stdout`, `content`, ...)
+ * and `Grep`/`Glob` string-array fields (`filenames`, `files`). Returns `{ ok: false }`
+ * when the shape has no text or file-list field we can safely replace.
  * @param {object} event
  * @param {string} finalOutput
  * @returns {{ ok: boolean, value?: string | object }}
@@ -127,12 +137,36 @@ export function buildReplacementToolOutput(event = {}, finalOutput = '') {
     }
     const textKeys = ['stdout', 'output', 'content', 'result', 'error', 'stderr'];
     const primary = textKeys.find((k) => typeof resp[k] === 'string' && resp[k].length > 0);
-    if (!primary) return { ok: false };
-    const next = { ...resp };
-    for (const k of textKeys) {
-      if (typeof next[k] === 'string') next[k] = k === primary ? finalOutput : '';
+    if (primary) {
+      const next = { ...resp };
+      for (const k of textKeys) {
+        if (typeof next[k] === 'string') next[k] = k === primary ? finalOutput : '';
+      }
+      if (primary === 'content' && typeof next.numLines === 'number') {
+        next.numLines = finalOutput ? String(finalOutput).split(/\r?\n/).length : 0;
+      }
+      return { ok: true, value: next };
     }
-    return { ok: true, value: next };
+    const arrayKeys = ['filenames', 'files'];
+    const primaryArr = arrayKeys.find(
+      (k) => Array.isArray(resp[k]) && resp[k].length > 0 && resp[k].every((item) => typeof item === 'string')
+    );
+    if (primaryArr) {
+      const nextItems = String(finalOutput || '')
+        .split(/\r?\n/)
+        .map((line) => line.trimEnd())
+        .filter((line) => line.length > 0);
+      const next = { ...resp, [primaryArr]: nextItems };
+      if (typeof next.numFiles === 'number') {
+        const pathCount = nextItems.filter((line) => !/^\[/.test(line.trim())).length;
+        next.numFiles = pathCount > 0 ? pathCount : nextItems.length;
+      }
+      if (typeof next.truncated === 'boolean') {
+        next.truncated = true;
+      }
+      return { ok: true, value: next };
+    }
+    return { ok: false };
   }
   return { ok: false };
 }
@@ -411,12 +445,21 @@ export function runPostToolUseHook(event = {}, options = {}) {
   let wasModified = Boolean(bAlphaPost.triggered);
   let ftsSavedTokens = 0;
 
-  // OPT-2A: Run CLI FTS5 compression BEFORE flat OFFLOAD_4K artifact dumps so structured failure/search summaries win
+  // OPT-2A: Run CLI FTS5 compression BEFORE flat OFFLOAD_4K artifact dumps, gated by shell policy & EV floor
+  let shellPolicy = { allowFts5: true, allowOffload: true, reason: 'default' };
+  if (isShellTool && cmdStr) {
+    try {
+      shellPolicy = getFts5Mod().classifyShellPostToolPolicy(cmdStr);
+    } catch (policyErr) {
+      void policyErr;
+    }
+  }
   if (
     hasExplicitCwd &&
     options.enableFts5CliCompression !== false &&
     cmdStr &&
-    isShellTool
+    isShellTool &&
+    shellPolicy.allowFts5 !== false
   ) {
     try {
       const ansiCleanShell = stripAnsiAndSpinners(effectiveRawOutput);
@@ -433,7 +476,9 @@ export function runPostToolUseHook(event = {}, options = {}) {
         exitCode: typeof rawExit === 'number' ? rawExit : (didToolExecutionFail(event) ? 1 : 0),
         rawOutput: ansiCleanShell,
         dbPath: ftsDbPath,
-        recordLedger: false
+        recordLedger: false,
+        minBytes: 4096,
+        minTokensSaved: 500
       });
       if (ftsComp.compressed && ftsComp.tokensSaved > 0) {
         const ansiSavedTokens = Math.max(
@@ -517,7 +562,8 @@ export function runPostToolUseHook(event = {}, options = {}) {
     sanitized = sanitizePostToolOutput(
       {
         toolName,
-        toolOutput: effectiveRawOutput
+        toolOutput: effectiveRawOutput,
+        disableOffload: isShellTool && shellPolicy.allowOffload === false
       },
       cwdOptions
     );
@@ -612,11 +658,20 @@ export function runPostToolUseHook(event = {}, options = {}) {
       rates && !rates.unknownModel && Number.isFinite(rates.inputPer1M)
         ? Number(((totalSavedTokens / 1_000_000) * rates.inputPer1M).toFixed(6))
         : 0;
+    const writeRatePer1M =
+      rates && !rates.unknownModel
+        ? (rates.write5mPer1M ?? rates.inputPer1M)
+        : 0;
+    const writeRateUSD =
+      Number.isFinite(writeRatePer1M) && writeRatePer1M > 0
+        ? Number(((totalSavedTokens / 1_000_000) * writeRatePer1M).toFixed(6))
+        : 0;
 
     getSavedQuotaMod().recordSavingsReceipt(
       {
         sessionId,
         modelId: rates.unknownModel ? (rates.rawModelId || modelId) : rates.modelId,
+        ledgerBucket: 'avoided_write',
         category: sanitized.offloaded
           ? 'ARTIFACT_OFFLOAD_4K'
           : ftsSavedTokens > 0
@@ -628,6 +683,7 @@ export function runPostToolUseHook(event = {}, options = {}) {
                 : bAlphaPost.code || 'BUCKET_B_POST_SHIELD',
         savedTokens: totalSavedTokens,
         savedUSD: computedSavedUSD,
+        writeRateUSD,
         detail: `${toolName} output compressed (+${totalSavedTokens} tokens saved)`
       },
       cwdOptions

@@ -11,7 +11,9 @@ import {
   runDocIndexerCli
 } from '../src/core/doc_indexer.mjs';
 import {
+  SHIELD_MODES,
   evaluateShieldReadGuard,
+  loadShieldConfig,
   configureShield,
   getShieldStatus
 } from '../src/core/shield_manager.mjs';
@@ -543,5 +545,155 @@ test('6. P1-1 audit accuracy: Antigravity step_type=23 checkpoints & >5m idle pa
   } finally {
     fs.rmSync(tmpHome, { recursive: true, force: true });
     fs.rmSync(tmpCwd, { recursive: true, force: true });
+  }
+});
+
+test('7. Idea #2: Shield defaults to auto clamp-only on Claude Code (no off-cliff denies), stays passive on Antigravity off-cliff, and honors --disable / --auto / --enable', async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ctxtop-shield-auto-'));
+  try {
+    fs.mkdirSync(path.join(tmpDir, 'docs'), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+
+    // 1. Fresh workspace without ctxtop-shield.config.json defaults to auto clamp-only
+    const freshCfg = loadShieldConfig({ cwd: tmpDir });
+    assert.equal(freshCfg.mode, SHIELD_MODES.AUTO);
+    assert.equal(freshCfg.enabled, false);
+    const freshStatus = getShieldStatus({ cwd: tmpDir });
+    assert.equal(freshStatus.mode, 'auto');
+    assert.equal(freshStatus.autoClampClaude, true);
+    assert.equal(freshStatus.enabled, false);
+
+    const wideDoc = path.join(tmpDir, 'docs', 'WIDE_SPEC.md');
+    fs.writeFileSync(
+      wideDoc,
+      Array.from({ length: 180 }, (_, i) =>
+        i % 30 === 0 ? `## Section ${i / 30 + 1}` : `Spec line ${i}: ${'w'.repeat(200)}`
+      ).join('\n'),
+      'utf8'
+    );
+    const hugeFile = path.join(tmpDir, 'src', 'huge_module.mjs');
+    fs.writeFileSync(
+      hugeFile,
+      Array.from({ length: 1500 }, (_, i) => `export const line_${i} = ${i}; // ${'p'.repeat(30)}`).join('\n'),
+      'utf8'
+    );
+    const minifiedFile = path.join(tmpDir, 'src', 'minified.js');
+    fs.writeFileSync(minifiedFile, `export const data="${'x'.repeat(24_000)}";\n`, 'utf8');
+    const mutable250 = path.join(tmpDir, 'src', 'creditPool.mjs');
+    fs.writeFileSync(
+      mutable250,
+      Array.from({ length: 250 }, (_, i) => `export const pool_${i} = ${i}; // ${'q'.repeat(55)}`).join('\n'),
+      'utf8'
+    );
+
+    // 2. Claude Code in default auto mode clamps wide docs & >1,200L files, never hard-denies minified bundles, and bypasses low-EV mutable source files
+    const claudeWide = runPreToolUseHook(
+      { session_id: 'auto-1', cwd: tmpDir, tool_name: 'Read', tool_input: { file_path: wideDoc } },
+      { cwd: tmpDir }
+    );
+    assert.equal(claudeWide.verdict.decision, 'allow');
+    assert.equal(claudeWide.verdict.subType, 'BYTE_WIDTH_CLAMP');
+
+    const claudeHuge = evaluateShieldReadGuard({
+      platform: 'claude',
+      cwd: tmpDir,
+      filePath: hugeFile,
+      hasSliceBounds: false,
+      recordLedger: false
+    });
+    assert.equal(claudeHuge.action, 'clamp');
+    assert.equal(claudeHuge.shieldMode, 'auto');
+
+    const claudeMinified = evaluateShieldReadGuard({
+      platform: 'claude',
+      cwd: tmpDir,
+      filePath: minifiedFile,
+      hasSliceBounds: false,
+      recordLedger: false
+    });
+    assert.equal(claudeMinified.action, 'allow');
+    assert.equal(claudeMinified.autoDenySkipped, true);
+
+    const claudeMutable = evaluateShieldReadGuard({
+      platform: 'claude',
+      cwd: tmpDir,
+      filePath: mutable250,
+      hasSliceBounds: false,
+      recordLedger: false
+    });
+    assert.equal(claudeMutable.action, 'allow');
+    assert.equal(claudeMutable.evBypassed, true);
+
+    // 3. Antigravity stays passive off-cliff in auto mode and still enforces near pricing cliff
+    const agWideOffCliff = await handlePreToolUse({
+      conversationId: 'ag-auto-1',
+      cwd: tmpDir,
+      tool_name: 'read_file',
+      tool_input: { Path: wideDoc }
+    });
+    assert.notEqual(agWideOffCliff.decision, 'deny');
+
+    const agHugeOffCliff = evaluateShieldReadGuard({
+      platform: 'antigravity',
+      cwd: tmpDir,
+      filePath: hugeFile,
+      hasSliceBounds: false,
+      recordLedger: false
+    });
+    assert.equal(agHugeOffCliff.action, 'allow');
+
+    const agCliffDeny = evaluateShieldReadGuard({
+      platform: 'antigravity',
+      cwd: tmpDir,
+      filePath: hugeFile,
+      hasSliceBounds: false,
+      currentPromptTokens: 92_000,
+      modelId: 'claude-haiku-5-5',
+      recordLedger: false
+    });
+    assert.equal(agCliffDeny.action, 'deny');
+    assert.equal(agCliffDeny.detectorId, 'DET-12');
+
+    // 4. CLI transitions: --disable opts out completely, --auto restores clamp-only, --enable activates full denies
+    const disableRes = runCli(['shield', '--disable', '--json'], { cwd: tmpDir });
+    assert.equal(disableRes.exitCode, 0);
+    assert.equal(disableRes.data.mode, 'disabled');
+    assert.equal(disableRes.data.enabled, false);
+    assert.equal(
+      evaluateShieldReadGuard({ platform: 'claude', cwd: tmpDir, filePath: wideDoc, recordLedger: false }).action,
+      'allow'
+    );
+    assert.equal(
+      evaluateShieldReadGuard({ platform: 'claude', cwd: tmpDir, filePath: hugeFile, recordLedger: false }).action,
+      'allow'
+    );
+
+    const autoRes = runCli(['shield', '--auto', '--json'], { cwd: tmpDir });
+    assert.equal(autoRes.exitCode, 0);
+    assert.equal(autoRes.data.mode, 'auto');
+    assert.equal(autoRes.data.enabled, false);
+    assert.equal(
+      evaluateShieldReadGuard({ platform: 'claude', cwd: tmpDir, filePath: hugeFile, recordLedger: false }).action,
+      'clamp'
+    );
+    assert.equal(
+      evaluateShieldReadGuard({ platform: 'claude', cwd: tmpDir, filePath: minifiedFile, recordLedger: false }).action,
+      'allow'
+    );
+
+    const enableRes = runCli(['shield', '--enable', '--json'], { cwd: tmpDir });
+    assert.equal(enableRes.exitCode, 0);
+    assert.equal(enableRes.data.mode, 'enabled');
+    assert.equal(enableRes.data.enabled, true);
+    assert.equal(
+      evaluateShieldReadGuard({ platform: 'claude', cwd: tmpDir, filePath: hugeFile, recordLedger: false }).action,
+      'deny'
+    );
+    assert.equal(
+      evaluateShieldReadGuard({ platform: 'claude', cwd: tmpDir, filePath: minifiedFile, recordLedger: false }).action,
+      'deny'
+    );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });

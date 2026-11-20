@@ -128,16 +128,16 @@ test('ISS-018: hooks/hooks.json uses top-level "hooks" wrapper, nested command a
     );
   }
 
-  // Verify asymmetric lean tool matchers (v4.0: strips Grep|Glob subprocess spawns by default)
+  // Verify asymmetric lean tool matchers (v4.0+: keeps Grep|Glob out of PreToolUse while filtering oversized Grep|Glob results in PostToolUse)
   assert.equal(parsed.hooks.PreToolUse[0].matcher, 'Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Task|Agent|WebFetch|mcp__.*');
-  assert.equal(parsed.hooks.PostToolUse[0].matcher, 'Bash|PowerShell|Task|Agent|WebFetch|mcp__.*');
+  assert.equal(parsed.hooks.PostToolUse[0].matcher, 'Bash|PowerShell|Grep|Glob|Task|Agent|WebFetch|mcp__.*');
   for (const tool of ['MultiEdit', 'NotebookEdit', 'Read', 'Task', 'Agent']) {
     assert.ok(
       new RegExp(`^(?:${parsed.hooks.PreToolUse[0].matcher})$`).test(tool),
       `PreToolUse matcher must match ${tool}`
     );
   }
-  for (const tool of ['Bash', 'Task', 'Agent', 'mcp__github__search']) {
+  for (const tool of ['Bash', 'Grep', 'Glob', 'Task', 'Agent', 'mcp__github__search']) {
     assert.ok(
       new RegExp(`^(?:${parsed.hooks.PostToolUse[0].matcher})$`).test(tool),
       `PostToolUse matcher must match ${tool}`

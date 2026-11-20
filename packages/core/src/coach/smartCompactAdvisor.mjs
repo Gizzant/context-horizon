@@ -32,6 +32,7 @@ const EDIT_TOOL_REGEX =
 export const DEFAULT_POST_COMPACT_COOLDOWN_TURNS = 4;
 export const DEFAULT_IDLE_PRE_COMPACT_MIN_TOKENS = 60_000;
 export const DEFAULT_IDLE_PRE_COMPACT_TARGET_TOKENS = 24_000;
+export const DEFAULT_COLD_RESUME_BATON_TOKENS = 300;
 export const IDLE_TTL_MS_5M = 300_000;
 export const IDLE_TTL_MS_1H = 3_600_000;
 
@@ -335,8 +336,8 @@ export function evaluateSmartCompactSuggestion(params = {}, options = {}) {
 
 /**
  * OPT-4A: Evaluates whether a session resuming after an expired KV cache TTL (`>5m` or `>1h`)
- * at high context (`>=60k` tokens default) should `/compact` before paying a cold cache rewrite.
- * Compressing at an expired boundary incurs zero cache-bust penalty.
+ * at high context (`>=60k` tokens default) should flush a `<300`-tok StateBaton (`/handoff`)
+ * and run `/clear` rather than paying full uncached input rates for `/compact` (aligned with `DET-17`).
  *
  * @param {object} [params={}]
  * @param {object} [options={}]
@@ -357,13 +358,15 @@ export function evaluateIdleTtlPreCompactGate(params = {}, options = {}) {
     };
   }
 
-  if (/^\s*\/(?:compact|clear)\b/i.test(String(params.promptText || ''))) {
+  const promptStr = String(params.promptText || '');
+  if (/^\s*\/(?:clear|handoff)\b/i.test(promptStr)) {
     return {
       shouldSuggest: false,
-      suppressedReason: 'already_compacting',
+      suppressedReason: 'already_resetting',
       message: null
     };
   }
+  const coldCompactRedirect = /^\s*\/compact\b/i.test(promptStr);
 
   const turnsSinceLastCompact =
     params.turnsSinceLastCompact !== undefined && params.turnsSinceLastCompact !== null
@@ -428,8 +431,11 @@ export function evaluateIdleTtlPreCompactGate(params = {}, options = {}) {
     (cacheTtlTier === '1h' ? rates.write1hPer1M : rates.write5mPer1M) ?? rates.inputPer1M ?? 3.0
   );
   const targetTokens = Math.max(
-    2_000,
-    Math.min(contextTokens, Number(params.postCompactTargetTokens ?? DEFAULT_IDLE_PRE_COMPACT_TARGET_TOKENS))
+    100,
+    Math.min(
+      contextTokens,
+      Number(params.postClearBatonTokens ?? params.postCompactTargetTokens ?? DEFAULT_COLD_RESUME_BATON_TOKENS)
+    )
   );
   const coldTokensAvoided = Math.max(0, contextTokens - targetTokens);
   const immediateColdRewriteSavingUSD = Number(
@@ -438,12 +444,17 @@ export function evaluateIdleTtlPreCompactGate(params = {}, options = {}) {
   const idleMinutes = Math.max(1, Math.round(idleGapMs / 60_000));
 
   const message =
-    `[Highbeam Idle-TTL Pre-Compact] Cache expired after ${idleMinutes}m idle at ~${Math.round(contextTokens / 1000)}k tok (0 cache-bust penalty). ` +
-    `Run /compact before resuming to avoid ~${Math.round(coldTokensAvoided / 1000)}k cold rewrite (~$${immediateColdRewriteSavingUSD.toFixed(2)} immediate saving).`;
+    `[Highbeam Idle-TTL Cold-Resume] Cache expired after ${idleMinutes}m idle at ~${Math.round(contextTokens / 1000)}k tok (0 cache-bust penalty). ` +
+    `Avoid /compact (pays full uncached input rates and is deferred by DET-17); flush a <300-tok StateBaton (/handoff) and run /clear before resuming to avoid ~${Math.round(coldTokensAvoided / 1000)}k cold rewrite (~$${immediateColdRewriteSavingUSD.toFixed(2)} immediate saving).`;
 
   return {
     shouldSuggest: true,
     suppressedReason: null,
+    recommendedAction: 'STATE_BATON_CLEAR',
+    recommendedCommand: '/handoff + /clear',
+    det17Aligned: true,
+    coldCompactRedirect,
+    targetTokens,
     idleGapMs,
     ttlMs,
     cacheTtlTier,
@@ -460,6 +471,7 @@ export default {
   DEFAULT_POST_COMPACT_COOLDOWN_TURNS,
   DEFAULT_IDLE_PRE_COMPACT_MIN_TOKENS,
   DEFAULT_IDLE_PRE_COMPACT_TARGET_TOKENS,
+  DEFAULT_COLD_RESUME_BATON_TOKENS,
   IDLE_TTL_MS_5M,
   IDLE_TTL_MS_1H,
   isNonCodeDocOrArtifactPath,

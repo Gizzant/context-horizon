@@ -81,8 +81,8 @@ describe('Full VC Teardown (Sections 1–4) & Claude Code Extension Parity Suite
       const postMatcher = ccHooks.hooks.PostToolUse[0].matcher;
       assert.ok(!preMatcher.includes('Grep'), 'Default PreToolUse matcher must exclude Grep');
       assert.ok(!preMatcher.includes('Glob'), 'Default PreToolUse matcher must exclude Glob');
-      assert.ok(!postMatcher.includes('Grep'), 'Default PostToolUse matcher must exclude Grep');
-      assert.ok(!postMatcher.includes('Glob'), 'Default PostToolUse matcher must exclude Glob');
+      assert.ok(postMatcher.includes('Grep'), 'Default PostToolUse matcher must include Grep for output filtering');
+      assert.ok(postMatcher.includes('Glob'), 'Default PostToolUse matcher must include Glob for output filtering');
       const { LEAN_PRE_TOOL_USE_MATCHER, LEAN_POST_TOOL_USE_MATCHER } = await import('../bin/ctxtop.mjs');
       assert.equal(preMatcher, LEAN_PRE_TOOL_USE_MATCHER, 'Plugin manifest PreToolUse matcher must equal the installer lean default');
       assert.equal(postMatcher, LEAN_POST_TOOL_USE_MATCHER, 'Plugin manifest PostToolUse matcher must equal the installer lean default');

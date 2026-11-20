@@ -14,7 +14,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash|PowerShell|Task|Agent|WebFetch|mcp__.*",
+        "matcher": "Bash|PowerShell|Grep|Glob|Task|Agent|WebFetch|mcp__.*",
         "hooks": [
           {
             "type": "command",

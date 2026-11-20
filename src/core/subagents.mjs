@@ -12,10 +12,10 @@ import {
 } from './constants.mjs';
 
 /**
- * Multi-Agent (`invoke_subagent`) Context Tree & Handoff Inspector.
+ * Multi-Agent (`invoke_subagent`, Claude Code `Task` / `Agent`) Context Tree & Handoff Inspector.
  *
- * Scans parent transcript steps for `invoke_subagent` tool calls, resolves child
- * session transcripts across `inherit`, `branch`, and `share` workspace modes,
+ * Scans parent transcript steps for `invoke_subagent`, `Task`, and `Agent` tool calls, resolves child
+ * session transcripts across `inherit`, `branch`, `share`, and `worktree` modes,
  * and computes isolated child exploration bloat vs. parent handoff compression.
  */
 
@@ -32,25 +32,50 @@ export function inspectSubagentTree(steps = [], {
     const step = steps[i] || {};
     const calls = step.toolCalls || [];
     for (const call of calls) {
-      const name = String(call.name || '').toLowerCase();
-      if (name === 'invoke_subagent') {
+      const rawName = String(call.name || '');
+      const name = rawName.toLowerCase();
+      const isClaudeSubagent = name === 'task' || name === 'agent';
+      if (name === 'invoke_subagent' || isClaudeSubagent) {
         const args = call.args || {};
-        const role = args.Role || args.role || 'Subagent';
-        const typeName = args.TypeName || args.typeName || 'self';
-        const workspaceMode = args.Workspace || args.workspace || 'inherit';
-        const model = args.Model || args.model || 'inherit';
+        const role = args.Role || args.role || args.description || args.name || 'Subagent';
+        const typeName =
+          args.TypeName ||
+          args.typeName ||
+          args.subagent_type ||
+          args.subagentType ||
+          (isClaudeSubagent ? 'Agent' : 'self');
+        const workspaceMode = args.Workspace || args.workspace || args.isolation || 'inherit';
+        const model =
+          args.Model ||
+          args.model ||
+          (/^ah-haiku-scout$/i.test(typeName)
+            ? 'haiku'
+            : /^ah-flash-scout$/i.test(typeName)
+              ? 'flash'
+              : 'inherit');
+        const toolUseId = call.id || call.tool_use_id || null;
 
-        // Extract returned conversationId or subagent response from subsequent steps
-        let childConversationId = call.result?.conversationId || call.conversationId || args.conversationId || null;
+        // Extract returned conversationId/agentId or subagent response from subsequent steps
+        let childConversationId =
+          call.result?.conversationId ||
+          call.result?.agentId ||
+          call.conversationId ||
+          args.conversationId ||
+          null;
         let handoffTokens = 0;
         let handoffStepIdx = i;
 
-        // Look ahead up to 6 steps for the subagent completion/response or conversationId
-        for (let j = i; j < Math.min(steps.length, i + 7); j++) {
+        // Look ahead up to 10 steps for the subagent completion/response or conversationId/agentId
+        for (let j = i; j < Math.min(steps.length, i + 11); j++) {
           const lookStep = steps[j] || {};
           const text = String(lookStep.content || '');
+          const stepToolUseId = lookStep.toolUseId || lookStep.tool_use_id || null;
+          const matchesToolUseId = Boolean(toolUseId && stepToolUseId && stepToolUseId === toolUseId);
+
           if (!childConversationId) {
-            const matches = text.matchAll(/conversation(?:Id|_id)["'\s:=]+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi);
+            const matches = text.matchAll(
+              /conversation(?:Id|_id)["'\s:=]+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/gi
+            );
             for (const m of matches) {
               if (m[1] && !childIdsSeen.has(m[1])) {
                 childConversationId = m[1];
@@ -58,9 +83,30 @@ export function inspectSubagentTree(steps = [], {
               }
             }
           }
+          if (!childConversationId && isClaudeSubagent) {
+            if (toolUseId && (lookStep.parentToolUseId === toolUseId || lookStep.parent_tool_use_id === toolUseId) && lookStep.agentId) {
+              if (!childIdsSeen.has(lookStep.agentId)) childConversationId = lookStep.agentId;
+            }
+            if (!childConversationId && (j === i || matchesToolUseId || lookStep.type === 'TOOL_RESPONSE')) {
+              const agentMatches = text.matchAll(/\bagent(?:Id|_id)["'\s:=]+([A-Za-z0-9_-]{4,64})/gi);
+              for (const m of agentMatches) {
+                if (m[1] && !childIdsSeen.has(m[1])) {
+                  childConversationId = m[1];
+                  break;
+                }
+              }
+            }
+          }
+
           const isParentStep = !lookStep.agentId || lookStep.agentId === 'parent';
-          if (j > i && isParentStep && (text.toLowerCase().includes('subagent') || text.includes(role))) {
-            const est = lookStep.outputTokens || Math.ceil(text.length / 4) || 0;
+          const looksLikeHandoff =
+            matchesToolUseId ||
+            (isParentStep && (text.toLowerCase().includes('subagent') || text.includes(role)));
+          if (j > i && isParentStep && looksLikeHandoff) {
+            const est =
+              lookStep.outputTokens ||
+              Math.ceil((text.length || lookStep.untruncatedLength || 0) / 4) ||
+              0;
             if (est > handoffTokens) {
               handoffTokens = est;
               handoffStepIdx = j;
@@ -88,15 +134,33 @@ export function inspectSubagentTree(steps = [], {
                 return sum + tok;
               }, 0);
             }
-          } catch {}
+          } catch (err) {
+            void err;
+          }
         }
 
-        // Fallback estimate for child steps embedded via agentId === `child:...`
+        // Fallback estimate for child / sidechain steps embedded directly in steps[]
         if (isolatedTokens === 0) {
-          const embeddedChildSteps = steps.filter(s => s.agentId && s.agentId !== 'parent');
+          const matchedChildSteps = steps.filter(
+            (s) =>
+              (toolUseId && (s.parentToolUseId === toolUseId || s.parent_tool_use_id === toolUseId)) ||
+              (childConversationId && s.agentId === childConversationId)
+          );
+          const embeddedChildSteps =
+            matchedChildSteps.length > 0
+              ? matchedChildSteps
+              : steps.filter((s) => s.agentId && s.agentId !== 'parent');
           if (embeddedChildSteps.length > 0) {
             childStepCount = embeddedChildSteps.length;
-            isolatedTokens = embeddedChildSteps.reduce((sum, cs) => sum + (cs.outputTokens || Math.ceil((cs.untruncatedLength || 0) / 4) || 800), 0);
+            isolatedTokens = embeddedChildSteps.reduce(
+              (sum, cs) =>
+                sum +
+                (cs.outputTokens ||
+                  cs.totalTokens ||
+                  Math.ceil((cs.untruncatedLength || String(cs.content || '').length || 0) / 4) ||
+                  800),
+              0
+            );
           } else {
             isolatedTokens = Math.max(handoffTokens * 12, 18000);
             childStepCount = 8;
@@ -115,6 +179,8 @@ export function inspectSubagentTree(steps = [], {
           stepIndex: i,
           handoffStepIndex: handoffStepIdx,
           conversationId: resolvedConvId,
+          toolName: rawName || name,
+          platform: isClaudeSubagent ? 'claude' : 'antigravity',
           role,
           typeName,
           workspaceMode,

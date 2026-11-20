@@ -1,0 +1,2591 @@
+{
+  "recordedAtUtc": "2026-11-20T03:44:46.642Z",
+  "model": "anthropic/claude-sonnet-5.5",
+  "arms": [
+    "BASELINE",
+    "HIGHBEAM",
+    "HIGHBEAM_SCOUT"
+  ],
+  "reps": 3,
+  "rawArtifactsDir": "experiments/model-switch-benchmark/results/highbeam_ab_raw",
+  "keyDeltaUsd": 3.911656,
+  "summedRunUsd": 3.962644,
+  "summary": {
+    "baseline": {
+      "runs": 9,
+      "completed": 9,
+      "completionPct": 100,
+      "totalBilledUsd": 1.234613,
+      "meanBilledUsdPerRun": 0.137179,
+      "costPerCompletedTaskUsd": 0.137179,
+      "inputTokens": 138,
+      "cacheCreateTokens": 219612,
+      "cacheReadTokens": 1270174,
+      "outputTokens": 55829,
+      "totalPromptBillTokens": 1489924,
+      "requests": 69,
+      "turns": 18,
+      "wallTimeS": 461.36,
+      "byModel": {
+        "anthropic/claude-sonnet-5.5": {
+          "requests": 69,
+          "billedUsd": 1.234611,
+          "inputTokens": 138,
+          "cacheCreateTokens": 219612,
+          "cacheReadTokens": 1270174,
+          "outputTokens": 55829
+        }
+      },
+      "wireObs": {
+        "requests": 69,
+        "haikuRequests": 0,
+        "sonnetRequests": 69,
+        "subagentSpawns": 0,
+        "estCumulativeMessagesTok": 585019,
+        "totalToolResultChars": 239938
+      },
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "ledgerSavedTokens": 0,
+        "ledgerAvoidedWriteTokens": 0,
+        "ledgerAvoidedWriteUsd": 0,
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      }
+    },
+    "highbeam": {
+      "runs": 9,
+      "completed": 9,
+      "completionPct": 100,
+      "totalBilledUsd": 1.319539,
+      "meanBilledUsdPerRun": 0.146615,
+      "costPerCompletedTaskUsd": 0.146615,
+      "inputTokens": 142,
+      "cacheCreateTokens": 221819,
+      "cacheReadTokens": 1355973,
+      "outputTokens": 62911,
+      "totalPromptBillTokens": 1577934,
+      "requests": 71,
+      "turns": 18,
+      "wallTimeS": 511.88,
+      "byModel": {
+        "anthropic/claude-sonnet-5.5": {
+          "requests": 71,
+          "billedUsd": 1.319538,
+          "inputTokens": 142,
+          "cacheCreateTokens": 221819,
+          "cacheReadTokens": 1355973,
+          "outputTokens": 62911
+        }
+      },
+      "wireObs": {
+        "requests": 71,
+        "haikuRequests": 0,
+        "sonnetRequests": 71,
+        "subagentSpawns": 0,
+        "estCumulativeMessagesTok": 627020,
+        "totalToolResultChars": 243009
+      },
+      "highbeamHooks": {
+        "totalReceipts": 9,
+        "ledgerSavedTokens": 895,
+        "ledgerAvoidedWriteTokens": 895,
+        "ledgerAvoidedWriteUsd": 0.00179,
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      }
+    },
+    "highbeamScout": {
+      "runs": 9,
+      "completed": 9,
+      "completionPct": 100,
+      "totalBilledUsd": 1.408492,
+      "meanBilledUsdPerRun": 0.156499,
+      "costPerCompletedTaskUsd": 0.156499,
+      "inputTokens": 138,
+      "cacheCreateTokens": 263255,
+      "cacheReadTokens": 1354284,
+      "outputTokens": 61465,
+      "totalPromptBillTokens": 1617677,
+      "requests": 69,
+      "turns": 18,
+      "wallTimeS": 501.85,
+      "byModel": {
+        "anthropic/claude-sonnet-5.5": {
+          "requests": 69,
+          "billedUsd": 1.408492,
+          "inputTokens": 138,
+          "cacheCreateTokens": 263255,
+          "cacheReadTokens": 1354284,
+          "outputTokens": 61465
+        }
+      },
+      "wireObs": {
+        "requests": 69,
+        "haikuRequests": 0,
+        "sonnetRequests": 69,
+        "subagentSpawns": 0,
+        "estCumulativeMessagesTok": 653352,
+        "totalToolResultChars": 324537
+      },
+      "highbeamHooks": {
+        "totalReceipts": 12,
+        "ledgerSavedTokens": 24418,
+        "ledgerAvoidedWriteTokens": 24418,
+        "ledgerAvoidedWriteUsd": 0.048836,
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      }
+    },
+    "costDeltaUsd": 0.084926,
+    "costDeltaPct": 6.88,
+    "highbeamScoutVsBaseline": {
+      "costDeltaUsd": 0.173879,
+      "costDeltaPct": 14.08,
+      "requestsDelta": 0
+    },
+    "highbeamScoutVsHighbeam": {
+      "costDeltaUsd": 0.088953,
+      "costDeltaPct": 6.74,
+      "requestsDelta": -2
+    },
+    "exPostLedgerReconciliation": {
+      "highbeamVsBaseline": {
+        "bucket": "realized_prompt_bill",
+        "provenance": "ex_post_realized_prompt_bill",
+        "baselinePromptBillTokens": 1489924,
+        "actualPromptBillTokens": 1577934,
+        "realizedPromptBillTokens": -88010,
+        "baselineCostUSD": 1.234613,
+        "actualCostUSD": 1.319539,
+        "realizedCostUSD": -0.084926,
+        "avoidedWriteTokens": 895,
+        "estimatedRealizedTokens": null,
+        "estimatedRealizedUSD": null,
+        "tolerancePct": 25,
+        "tokenErrorPct": null,
+        "withinTokenTolerance": null,
+        "usdErrorPct": null,
+        "withinUsdTolerance": null
+      },
+      "highbeamScoutVsBaseline": {
+        "bucket": "realized_prompt_bill",
+        "provenance": "ex_post_realized_prompt_bill",
+        "baselinePromptBillTokens": 1489924,
+        "actualPromptBillTokens": 1617677,
+        "realizedPromptBillTokens": -127753,
+        "baselineCostUSD": 1.234613,
+        "actualCostUSD": 1.408492,
+        "realizedCostUSD": -0.173879,
+        "avoidedWriteTokens": 24418,
+        "estimatedRealizedTokens": null,
+        "estimatedRealizedUSD": null,
+        "tolerancePct": 25,
+        "tokenErrorPct": null,
+        "withinTokenTolerance": null,
+        "usdErrorPct": null,
+        "withinUsdTolerance": null
+      }
+    }
+  },
+  "byTask": [
+    {
+      "task_id": "T09",
+      "reps": 3,
+      "baselineUsd": 0.128253,
+      "shieldOffUsd": null,
+      "highbeamUsd": 0.155667,
+      "highbeamScoutUsd": 0.14554,
+      "deltaUsd": 0.027414,
+      "shieldOffDeltaUsd": null,
+      "scoutDeltaUsd": 0.017287,
+      "baselineOk": true,
+      "shieldOffOk": null,
+      "highbeamOk": true,
+      "highbeamScoutOk": true,
+      "shieldOffHooks": null,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 97,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 97,
+          "avoidedWriteUsd": 0.000194,
+          "avoidedWriteRateUsd": 0.000242,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "highbeamScoutHooks": {
+        "totalReceipts": 2,
+        "byCategory": {
+          "GREP_GLOB_FIREWALL": 1,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 13048,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 13048,
+          "avoidedWriteUsd": 0.026096,
+          "avoidedWriteRateUsd": 0.03262,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      }
+    },
+    {
+      "task_id": "T10",
+      "reps": 3,
+      "baselineUsd": 0.141691,
+      "shieldOffUsd": null,
+      "highbeamUsd": 0.146261,
+      "highbeamScoutUsd": 0.149617,
+      "deltaUsd": 0.00457,
+      "shieldOffDeltaUsd": null,
+      "scoutDeltaUsd": 0.007926,
+      "baselineOk": true,
+      "shieldOffOk": null,
+      "highbeamOk": true,
+      "highbeamScoutOk": true,
+      "shieldOffHooks": null,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 100,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 100,
+          "avoidedWriteUsd": 0.0002,
+          "avoidedWriteRateUsd": 0.00025,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "highbeamScoutHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 170,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 170,
+          "avoidedWriteUsd": 0.00034,
+          "avoidedWriteRateUsd": 0.000425,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      }
+    },
+    {
+      "task_id": "T11",
+      "reps": 3,
+      "baselineUsd": 0.141594,
+      "shieldOffUsd": null,
+      "highbeamUsd": 0.137919,
+      "highbeamScoutUsd": 0.17434,
+      "deltaUsd": -0.003675,
+      "shieldOffDeltaUsd": null,
+      "scoutDeltaUsd": 0.032746,
+      "baselineOk": true,
+      "shieldOffOk": null,
+      "highbeamOk": true,
+      "highbeamScoutOk": true,
+      "shieldOffHooks": null,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 101,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 101,
+          "avoidedWriteUsd": 0.000202,
+          "avoidedWriteRateUsd": 0.000253,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "highbeamScoutHooks": {
+        "totalReceipts": 2,
+        "byCategory": {
+          "GREP_GLOB_FIREWALL": 1,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 5352,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 5352,
+          "avoidedWriteUsd": 0.010704,
+          "avoidedWriteRateUsd": 0.01338,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      }
+    }
+  ],
+  "results": [
+    {
+      "run_id": "T09_BASELINE_r1_live",
+      "arm": "BASELINE",
+      "rep": 1,
+      "task_id": "T09",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 44.07,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "byCategory": {},
+        "ledgerSavedTokens": 0,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 0,
+          "avoidedWriteUsd": 0,
+          "avoidedWriteRateUsd": 0,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T09_BASELINE_r1_live.jsonl",
+        "ledgerPath": null,
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 7,
+        "totalMessagesChars": 204280,
+        "finalMessagesChars": 46172,
+        "totalToolResultChars": 20557,
+        "totalBashResultChars": 20187,
+        "toolCallsByName": {
+          "Bash": 5,
+          "Write": 1,
+          "ExitPlanMode": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 7
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 7,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 767,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 51070,
+        "estFinalMessagesTok": 11543
+      },
+      "billing": {
+        "requests": 7,
+        "billedUsd": 0.133327,
+        "inputTokens": 14,
+        "cacheCreateTokens": 26797,
+        "cacheReadTokens": 109368,
+        "outputTokens": 5537,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 7,
+            "billedUsd": 0.133327,
+            "inputTokens": 14,
+            "cacheCreateTokens": 26797,
+            "cacheReadTokens": 109368,
+            "outputTokens": 5537
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T09_HIGHBEAM_r1_live",
+      "arm": "HIGHBEAM",
+      "rep": 1,
+      "task_id": "T09",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 55.66,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 97,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 97,
+          "avoidedWriteUsd": 0.000194,
+          "avoidedWriteRateUsd": 0.000242,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T09_HIGHBEAM_r1_live.jsonl",
+        "ledgerPath": "ledgers/T09_HIGHBEAM_r1_live.ledger.jsonl",
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 9,
+        "totalMessagesChars": 336214,
+        "finalMessagesChars": 58721,
+        "totalToolResultChars": 31275,
+        "totalBashResultChars": 30905,
+        "toolCallsByName": {
+          "Bash": 6,
+          "Write": 1,
+          "ExitPlanMode": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 9
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 9,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 391,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 84054,
+        "estFinalMessagesTok": 14681
+      },
+      "billing": {
+        "requests": 9,
+        "billedUsd": 0.155407,
+        "inputTokens": 18,
+        "cacheCreateTokens": 27158,
+        "cacheReadTokens": 186861,
+        "outputTokens": 6879,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 9,
+            "billedUsd": 0.155406,
+            "inputTokens": 18,
+            "cacheCreateTokens": 27158,
+            "cacheReadTokens": 186861,
+            "outputTokens": 6879
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T09_HIGHBEAM_SCOUT_r1_live",
+      "arm": "HIGHBEAM_SCOUT",
+      "rep": 1,
+      "task_id": "T09",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 63.39,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 97,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 97,
+          "avoidedWriteUsd": 0.000194,
+          "avoidedWriteRateUsd": 0.000242,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T09_HIGHBEAM_SCOUT_r1_live.jsonl",
+        "ledgerPath": "ledgers/T09_HIGHBEAM_SCOUT_r1_live.ledger.jsonl",
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 9,
+        "totalMessagesChars": 327824,
+        "finalMessagesChars": 58966,
+        "totalToolResultChars": 29903,
+        "totalBashResultChars": 29527,
+        "toolCallsByName": {
+          "Bash": 6,
+          "Write": 1,
+          "ExitPlanMode": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 9
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 9,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 398,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 81956,
+        "estFinalMessagesTok": 14742
+      },
+      "billing": {
+        "requests": 9,
+        "billedUsd": 0.153342,
+        "inputTokens": 18,
+        "cacheCreateTokens": 26306,
+        "cacheReadTokens": 179714,
+        "outputTokens": 6957,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 9,
+            "billedUsd": 0.153342,
+            "inputTokens": 18,
+            "cacheCreateTokens": 26306,
+            "cacheReadTokens": 179714,
+            "outputTokens": 6957
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T10_HIGHBEAM_r1_live",
+      "arm": "HIGHBEAM",
+      "rep": 1,
+      "task_id": "T10",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 63.61,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 100,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 100,
+          "avoidedWriteUsd": 0.0002,
+          "avoidedWriteRateUsd": 0.00025,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T10_HIGHBEAM_r1_live.jsonl",
+        "ledgerPath": "ledgers/T10_HIGHBEAM_r1_live.ledger.jsonl",
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 8,
+        "totalMessagesChars": 263523,
+        "finalMessagesChars": 52780,
+        "totalToolResultChars": 22565,
+        "totalBashResultChars": 22198,
+        "toolCallsByName": {
+          "Bash": 5,
+          "Write": 1,
+          "ExitPlanMode": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 8
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 8,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 430,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 65881,
+        "estFinalMessagesTok": 13195
+      },
+      "billing": {
+        "requests": 8,
+        "billedUsd": 0.145203,
+        "inputTokens": 16,
+        "cacheCreateTokens": 22327,
+        "cacheReadTokens": 142239,
+        "outputTokens": 7513,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 8,
+            "billedUsd": 0.145203,
+            "inputTokens": 16,
+            "cacheCreateTokens": 22327,
+            "cacheReadTokens": 142239,
+            "outputTokens": 7513
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T10_HIGHBEAM_SCOUT_r1_live",
+      "arm": "HIGHBEAM_SCOUT",
+      "rep": 1,
+      "task_id": "T10",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 58.93,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 100,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 100,
+          "avoidedWriteUsd": 0.0002,
+          "avoidedWriteRateUsd": 0.00025,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T10_HIGHBEAM_SCOUT_r1_live.jsonl",
+        "ledgerPath": "ledgers/T10_HIGHBEAM_SCOUT_r1_live.ledger.jsonl",
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 8,
+        "totalMessagesChars": 259284,
+        "finalMessagesChars": 52501,
+        "totalToolResultChars": 23809,
+        "totalBashResultChars": 23432,
+        "toolCallsByName": {
+          "Bash": 5,
+          "Write": 1,
+          "ExitPlanMode": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 8
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 8,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 436,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 64821,
+        "estFinalMessagesTok": 13126
+      },
+      "billing": {
+        "requests": 8,
+        "billedUsd": 0.145696,
+        "inputTokens": 16,
+        "cacheCreateTokens": 23522,
+        "cacheReadTokens": 144986,
+        "outputTokens": 7236,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 8,
+            "billedUsd": 0.145697,
+            "inputTokens": 16,
+            "cacheCreateTokens": 23522,
+            "cacheReadTokens": 144986,
+            "outputTokens": 7236
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T10_BASELINE_r1_live",
+      "arm": "BASELINE",
+      "rep": 1,
+      "task_id": "T10",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 52.17,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "byCategory": {},
+        "ledgerSavedTokens": 0,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 0,
+          "avoidedWriteUsd": 0,
+          "avoidedWriteRateUsd": 0,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T10_BASELINE_r1_live.jsonl",
+        "ledgerPath": null,
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 7,
+        "totalMessagesChars": 220805,
+        "finalMessagesChars": 51878,
+        "totalToolResultChars": 25001,
+        "totalBashResultChars": 24633,
+        "toolCallsByName": {
+          "Bash": 4,
+          "Write": 1,
+          "ExitPlanMode": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 7
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 7,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 1459,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 55202,
+        "estFinalMessagesTok": 12970
+      },
+      "billing": {
+        "requests": 7,
+        "billedUsd": 0.134939,
+        "inputTokens": 14,
+        "cacheCreateTokens": 22435,
+        "cacheReadTokens": 118731,
+        "outputTokens": 6695,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 7,
+            "billedUsd": 0.134938,
+            "inputTokens": 14,
+            "cacheCreateTokens": 22435,
+            "cacheReadTokens": 118731,
+            "outputTokens": 6695
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T11_HIGHBEAM_SCOUT_r1_live",
+      "arm": "HIGHBEAM_SCOUT",
+      "rep": 1,
+      "task_id": "T11",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 41.89,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 102,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 102,
+          "avoidedWriteUsd": 0.000204,
+          "avoidedWriteRateUsd": 0.000255,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T11_HIGHBEAM_SCOUT_r1_live.jsonl",
+        "ledgerPath": "ledgers/T11_HIGHBEAM_SCOUT_r1_live.ledger.jsonl",
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 7,
+        "totalMessagesChars": 176061,
+        "finalMessagesChars": 37876,
+        "totalToolResultChars": 14371,
+        "totalBashResultChars": 14148,
+        "toolCallsByName": {
+          "Bash": 4,
+          "Write": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 7
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 7,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 486,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 44016,
+        "estFinalMessagesTok": 9469
+      },
+      "billing": {
+        "requests": 7,
+        "billedUsd": 0.100543,
+        "inputTokens": 14,
+        "cacheCreateTokens": 16727,
+        "cacheReadTokens": 106680,
+        "outputTokens": 4803,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 7,
+            "billedUsd": 0.100543,
+            "inputTokens": 14,
+            "cacheCreateTokens": 16727,
+            "cacheReadTokens": 106680,
+            "outputTokens": 4803
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T11_BASELINE_r1_live",
+      "arm": "BASELINE",
+      "rep": 1,
+      "task_id": "T11",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 43.27,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "byCategory": {},
+        "ledgerSavedTokens": 0,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 0,
+          "avoidedWriteUsd": 0,
+          "avoidedWriteRateUsd": 0,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T11_BASELINE_r1_live.jsonl",
+        "ledgerPath": null,
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 6,
+        "totalMessagesChars": 155614,
+        "finalMessagesChars": 43132,
+        "totalToolResultChars": 18392,
+        "totalBashResultChars": 17611,
+        "toolCallsByName": {
+          "Bash": 4,
+          "Edit": 5
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 6
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 6,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 663,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 38904,
+        "estFinalMessagesTok": 10783
+      },
+      "billing": {
+        "requests": 6,
+        "billedUsd": 0.113556,
+        "inputTokens": 12,
+        "cacheCreateTokens": 19656,
+        "cacheReadTokens": 89520,
+        "outputTokens": 5544,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 6,
+            "billedUsd": 0.113556,
+            "inputTokens": 12,
+            "cacheCreateTokens": 19656,
+            "cacheReadTokens": 89520,
+            "outputTokens": 5544
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T11_HIGHBEAM_r1_live",
+      "arm": "HIGHBEAM",
+      "rep": 1,
+      "task_id": "T11",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 45.48,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 102,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 102,
+          "avoidedWriteUsd": 0.000204,
+          "avoidedWriteRateUsd": 0.000255,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T11_HIGHBEAM_r1_live.jsonl",
+        "ledgerPath": "ledgers/T11_HIGHBEAM_r1_live.ledger.jsonl",
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 7,
+        "totalMessagesChars": 196803,
+        "finalMessagesChars": 44478,
+        "totalToolResultChars": 19058,
+        "totalBashResultChars": 16559,
+        "toolCallsByName": {
+          "Read": 1,
+          "Bash": 5,
+          "Write": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 7
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 7,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 2210,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 49201,
+        "estFinalMessagesTok": 11120
+      },
+      "billing": {
+        "requests": 7,
+        "billedUsd": 0.116761,
+        "inputTokens": 14,
+        "cacheCreateTokens": 19484,
+        "cacheReadTokens": 112326,
+        "outputTokens": 5679,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 7,
+            "billedUsd": 0.11676,
+            "inputTokens": 14,
+            "cacheCreateTokens": 19484,
+            "cacheReadTokens": 112326,
+            "outputTokens": 5679
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T09_HIGHBEAM_r2_live",
+      "arm": "HIGHBEAM",
+      "rep": 2,
+      "task_id": "T09",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 63,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 97,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 97,
+          "avoidedWriteUsd": 0.000194,
+          "avoidedWriteRateUsd": 0.000242,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T09_HIGHBEAM_r2_live.jsonl",
+        "ledgerPath": "ledgers/T09_HIGHBEAM_r2_live.ledger.jsonl",
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 9,
+        "totalMessagesChars": 404251,
+        "finalMessagesChars": 68374,
+        "totalToolResultChars": 33640,
+        "totalBashResultChars": 30812,
+        "toolCallsByName": {
+          "Bash": 6,
+          "Read": 1,
+          "Write": 1,
+          "ExitPlanMode": 1,
+          "Edit": 3
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 9
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 9,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 252,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 101063,
+        "estFinalMessagesTok": 17094
+      },
+      "billing": {
+        "requests": 9,
+        "billedUsd": 0.182863,
+        "inputTokens": 18,
+        "cacheCreateTokens": 29953,
+        "cacheReadTokens": 209643,
+        "outputTokens": 8698,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 9,
+            "billedUsd": 0.182862,
+            "inputTokens": 18,
+            "cacheCreateTokens": 29953,
+            "cacheReadTokens": 209643,
+            "outputTokens": 8698
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T09_HIGHBEAM_SCOUT_r2_live",
+      "arm": "HIGHBEAM_SCOUT",
+      "rep": 2,
+      "task_id": "T09",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 46.2,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 97,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 97,
+          "avoidedWriteUsd": 0.000194,
+          "avoidedWriteRateUsd": 0.000242,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T09_HIGHBEAM_SCOUT_r2_live.jsonl",
+        "ledgerPath": "ledgers/T09_HIGHBEAM_SCOUT_r2_live.ledger.jsonl",
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 7,
+        "totalMessagesChars": 215549,
+        "finalMessagesChars": 51204,
+        "totalToolResultChars": 25765,
+        "totalBashResultChars": 25765,
+        "toolCallsByName": {
+          "Bash": 5
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 7
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 7,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 263,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 53888,
+        "estFinalMessagesTok": 12801
+      },
+      "billing": {
+        "requests": 7,
+        "billedUsd": 0.126178,
+        "inputTokens": 14,
+        "cacheCreateTokens": 23189,
+        "cacheReadTokens": 120574,
+        "outputTokens": 5612,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 7,
+            "billedUsd": 0.126178,
+            "inputTokens": 14,
+            "cacheCreateTokens": 23189,
+            "cacheReadTokens": 120574,
+            "outputTokens": 5612
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T09_BASELINE_r2_live",
+      "arm": "BASELINE",
+      "rep": 2,
+      "task_id": "T09",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 54.4,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "byCategory": {},
+        "ledgerSavedTokens": 0,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 0,
+          "avoidedWriteUsd": 0,
+          "avoidedWriteRateUsd": 0,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T09_BASELINE_r2_live.jsonl",
+        "ledgerPath": null,
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 8,
+        "totalMessagesChars": 241079,
+        "finalMessagesChars": 47013,
+        "totalToolResultChars": 18646,
+        "totalBashResultChars": 18272,
+        "toolCallsByName": {
+          "Bash": 6,
+          "Write": 1,
+          "ExitPlanMode": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 8
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 8,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 934,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 60270,
+        "estFinalMessagesTok": 11754
+      },
+      "billing": {
+        "requests": 8,
+        "billedUsd": 0.13153,
+        "inputTokens": 16,
+        "cacheCreateTokens": 20440,
+        "cacheReadTokens": 136676,
+        "outputTokens": 6673,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 8,
+            "billedUsd": 0.131528,
+            "inputTokens": 16,
+            "cacheCreateTokens": 20440,
+            "cacheReadTokens": 136676,
+            "outputTokens": 6673
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T10_HIGHBEAM_SCOUT_r2_live",
+      "arm": "HIGHBEAM_SCOUT",
+      "rep": 2,
+      "task_id": "T10",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 58.4,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 100,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 100,
+          "avoidedWriteUsd": 0.0002,
+          "avoidedWriteRateUsd": 0.00025,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T10_HIGHBEAM_SCOUT_r2_live.jsonl",
+        "ledgerPath": "ledgers/T10_HIGHBEAM_SCOUT_r2_live.ledger.jsonl",
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 7,
+        "totalMessagesChars": 212501,
+        "finalMessagesChars": 49211,
+        "totalToolResultChars": 21074,
+        "totalBashResultChars": 20700,
+        "toolCallsByName": {
+          "Bash": 4,
+          "Write": 1,
+          "ExitPlanMode": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 7
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 7,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 436,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 53126,
+        "estFinalMessagesTok": 12303
+      },
+      "billing": {
+        "requests": 7,
+        "billedUsd": 0.136051,
+        "inputTokens": 14,
+        "cacheCreateTokens": 21604,
+        "cacheReadTokens": 117232,
+        "outputTokens": 7029,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 7,
+            "billedUsd": 0.136052,
+            "inputTokens": 14,
+            "cacheCreateTokens": 21604,
+            "cacheReadTokens": 117232,
+            "outputTokens": 7029
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T10_BASELINE_r2_live",
+      "arm": "BASELINE",
+      "rep": 2,
+      "task_id": "T10",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 58.51,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "byCategory": {},
+        "ledgerSavedTokens": 0,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 0,
+          "avoidedWriteUsd": 0,
+          "avoidedWriteRateUsd": 0,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T10_BASELINE_r2_live.jsonl",
+        "ledgerPath": null,
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 9,
+        "totalMessagesChars": 317857,
+        "finalMessagesChars": 56776,
+        "totalToolResultChars": 27562,
+        "totalBashResultChars": 27193,
+        "toolCallsByName": {
+          "Bash": 6,
+          "Write": 1,
+          "ExitPlanMode": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 9
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 9,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 945,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 79465,
+        "estFinalMessagesTok": 14194
+      },
+      "billing": {
+        "requests": 9,
+        "billedUsd": 0.146703,
+        "inputTokens": 18,
+        "cacheCreateTokens": 24024,
+        "cacheReadTokens": 169673,
+        "outputTokens": 6964,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 9,
+            "billedUsd": 0.146705,
+            "inputTokens": 18,
+            "cacheCreateTokens": 24024,
+            "cacheReadTokens": 169673,
+            "outputTokens": 6964
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T10_HIGHBEAM_r2_live",
+      "arm": "HIGHBEAM",
+      "rep": 2,
+      "task_id": "T10",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 63.72,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 99,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 99,
+          "avoidedWriteUsd": 0.000198,
+          "avoidedWriteRateUsd": 0.000247,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T10_HIGHBEAM_r2_live.jsonl",
+        "ledgerPath": "ledgers/T10_HIGHBEAM_r2_live.ledger.jsonl",
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 7,
+        "totalMessagesChars": 228644,
+        "finalMessagesChars": 53542,
+        "totalToolResultChars": 25036,
+        "totalBashResultChars": 24665,
+        "toolCallsByName": {
+          "Bash": 4,
+          "Write": 1,
+          "ExitPlanMode": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 7
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 7,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 545,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 57161,
+        "estFinalMessagesTok": 13386
+      },
+      "billing": {
+        "requests": 7,
+        "billedUsd": 0.145493,
+        "inputTokens": 14,
+        "cacheCreateTokens": 23346,
+        "cacheReadTokens": 121896,
+        "outputTokens": 7491,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 7,
+            "billedUsd": 0.145492,
+            "inputTokens": 14,
+            "cacheCreateTokens": 23346,
+            "cacheReadTokens": 121896,
+            "outputTokens": 7491
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T11_BASELINE_r2_live",
+      "arm": "BASELINE",
+      "rep": 2,
+      "task_id": "T11",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 49.37,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "byCategory": {},
+        "ledgerSavedTokens": 0,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 0,
+          "avoidedWriteUsd": 0,
+          "avoidedWriteRateUsd": 0,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T11_BASELINE_r2_live.jsonl",
+        "ledgerPath": null,
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 8,
+        "totalMessagesChars": 345488,
+        "finalMessagesChars": 68246,
+        "totalToolResultChars": 42639,
+        "totalBashResultChars": 42415,
+        "toolCallsByName": {
+          "Bash": 5,
+          "Write": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 8
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 8,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 882,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 86372,
+        "estFinalMessagesTok": 17062
+      },
+      "billing": {
+        "requests": 8,
+        "billedUsd": 0.150805,
+        "inputTokens": 16,
+        "cacheCreateTokens": 30871,
+        "cacheReadTokens": 177958,
+        "outputTokens": 5580,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 8,
+            "billedUsd": 0.150805,
+            "inputTokens": 16,
+            "cacheCreateTokens": 30871,
+            "cacheReadTokens": 177958,
+            "outputTokens": 5580
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T11_HIGHBEAM_r2_live",
+      "arm": "HIGHBEAM",
+      "rep": 2,
+      "task_id": "T11",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 51.16,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 102,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 102,
+          "avoidedWriteUsd": 0.000204,
+          "avoidedWriteRateUsd": 0.000255,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T11_HIGHBEAM_r2_live.jsonl",
+        "ledgerPath": "ledgers/T11_HIGHBEAM_r2_live.ledger.jsonl",
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 7,
+        "totalMessagesChars": 255201,
+        "finalMessagesChars": 61010,
+        "totalToolResultChars": 31267,
+        "totalBashResultChars": 30117,
+        "toolCallsByName": {
+          "Bash": 4,
+          "Write": 1,
+          "ExitPlanMode": 1,
+          "Edit": 5
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 7
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 7,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 382,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 63801,
+        "estFinalMessagesTok": 15253
+      },
+      "billing": {
+        "requests": 7,
+        "billedUsd": 0.153465,
+        "inputTokens": 14,
+        "cacheCreateTokens": 27748,
+        "cacheReadTokens": 133367,
+        "outputTokens": 7073,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 7,
+            "billedUsd": 0.153466,
+            "inputTokens": 14,
+            "cacheCreateTokens": 27748,
+            "cacheReadTokens": 133367,
+            "outputTokens": 7073
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T11_HIGHBEAM_SCOUT_r2_live",
+      "arm": "HIGHBEAM_SCOUT",
+      "rep": 2,
+      "task_id": "T11",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 54.27,
+      "highbeamHooks": {
+        "totalReceipts": 2,
+        "byCategory": {
+          "GREP_GLOB_FIREWALL": 1,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 5352,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 5352,
+          "avoidedWriteUsd": 0.010704,
+          "avoidedWriteRateUsd": 0.01338,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T11_HIGHBEAM_SCOUT_r2_live.jsonl",
+        "ledgerPath": "ledgers/T11_HIGHBEAM_SCOUT_r2_live.ledger.jsonl",
+        "hintsPath": "telemetry/T11_HIGHBEAM_SCOUT_r2_live.hints.jsonl"
+      },
+      "wireObs": {
+        "requests": 7,
+        "totalMessagesChars": 453529,
+        "finalMessagesChars": 111986,
+        "totalToolResultChars": 81696,
+        "totalBashResultChars": 305,
+        "toolCallsByName": {
+          "Glob": 1,
+          "Grep": 1,
+          "Read": 5,
+          "Write": 1,
+          "Edit": 5,
+          "Bash": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 7
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 7,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 305,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 113383,
+        "estFinalMessagesTok": 27997
+      },
+      "billing": {
+        "requests": 7,
+        "billedUsd": 0.220893,
+        "inputTokens": 14,
+        "cacheCreateTokens": 51658,
+        "cacheReadTokens": 202097,
+        "outputTokens": 7151,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 7,
+            "billedUsd": 0.220893,
+            "inputTokens": 14,
+            "cacheCreateTokens": 51658,
+            "cacheReadTokens": 202097,
+            "outputTokens": 7151
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T09_HIGHBEAM_SCOUT_r3_live",
+      "arm": "HIGHBEAM_SCOUT",
+      "rep": 3,
+      "task_id": "T09",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 62.07,
+      "highbeamHooks": {
+        "totalReceipts": 2,
+        "byCategory": {
+          "GREP_GLOB_FIREWALL": 1,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 13048,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 13048,
+          "avoidedWriteUsd": 0.026096,
+          "avoidedWriteRateUsd": 0.03262,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T09_HIGHBEAM_SCOUT_r3_live.jsonl",
+        "ledgerPath": "ledgers/T09_HIGHBEAM_SCOUT_r3_live.ledger.jsonl",
+        "hintsPath": "telemetry/T09_HIGHBEAM_SCOUT_r3_live.hints.jsonl"
+      },
+      "wireObs": {
+        "requests": 10,
+        "totalMessagesChars": 336836,
+        "finalMessagesChars": 60902,
+        "totalToolResultChars": 25773,
+        "totalBashResultChars": 16642,
+        "toolCallsByName": {
+          "Glob": 1,
+          "Bash": 4,
+          "Write": 1,
+          "ExitPlanMode": 1,
+          "Read": 3,
+          "Edit": 3
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 10
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 10,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 439,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 84209,
+        "estFinalMessagesTok": 15226
+      },
+      "billing": {
+        "requests": 10,
+        "billedUsd": 0.157101,
+        "inputTokens": 20,
+        "cacheCreateTokens": 25132,
+        "cacheReadTokens": 183709,
+        "outputTokens": 7586,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 10,
+            "billedUsd": 0.157099,
+            "inputTokens": 20,
+            "cacheCreateTokens": 25132,
+            "cacheReadTokens": 183709,
+            "outputTokens": 7586
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T09_BASELINE_r3_live",
+      "arm": "BASELINE",
+      "rep": 3,
+      "task_id": "T09",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 41.83,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "byCategory": {},
+        "ledgerSavedTokens": 0,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 0,
+          "avoidedWriteUsd": 0,
+          "avoidedWriteRateUsd": 0,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T09_BASELINE_r3_live.jsonl",
+        "ledgerPath": null,
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 6,
+        "totalMessagesChars": 217370,
+        "finalMessagesChars": 54404,
+        "totalToolResultChars": 30856,
+        "totalBashResultChars": 30856,
+        "toolCallsByName": {
+          "Bash": 4
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 6
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 6,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 766,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 54343,
+        "estFinalMessagesTok": 13601
+      },
+      "billing": {
+        "requests": 6,
+        "billedUsd": 0.119901,
+        "inputTokens": 12,
+        "cacheCreateTokens": 24431,
+        "cacheReadTokens": 112798,
+        "outputTokens": 4752,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 6,
+            "billedUsd": 0.119901,
+            "inputTokens": 12,
+            "cacheCreateTokens": 24431,
+            "cacheReadTokens": 112798,
+            "outputTokens": 4752
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T09_HIGHBEAM_r3_live",
+      "arm": "HIGHBEAM",
+      "rep": 3,
+      "task_id": "T09",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 53.38,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 97,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 97,
+          "avoidedWriteUsd": 0.000194,
+          "avoidedWriteRateUsd": 0.000242,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T09_HIGHBEAM_r3_live.jsonl",
+        "ledgerPath": "ledgers/T09_HIGHBEAM_r3_live.ledger.jsonl",
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 8,
+        "totalMessagesChars": 231394,
+        "finalMessagesChars": 46296,
+        "totalToolResultChars": 18774,
+        "totalBashResultChars": 18405,
+        "toolCallsByName": {
+          "Bash": 5,
+          "Write": 1,
+          "ExitPlanMode": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 8
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 8,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 392,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 57849,
+        "estFinalMessagesTok": 11574
+      },
+      "billing": {
+        "requests": 8,
+        "billedUsd": 0.12873,
+        "inputTokens": 16,
+        "cacheCreateTokens": 20461,
+        "cacheReadTokens": 134658,
+        "outputTokens": 6408,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 8,
+            "billedUsd": 0.128731,
+            "inputTokens": 16,
+            "cacheCreateTokens": 20461,
+            "cacheReadTokens": 134658,
+            "outputTokens": 6408
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T10_BASELINE_r3_live",
+      "arm": "BASELINE",
+      "rep": 3,
+      "task_id": "T10",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 60.19,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "byCategory": {},
+        "ledgerSavedTokens": 0,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 0,
+          "avoidedWriteUsd": 0,
+          "avoidedWriteRateUsd": 0,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T10_BASELINE_r3_live.jsonl",
+        "ledgerPath": null,
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 8,
+        "totalMessagesChars": 270557,
+        "finalMessagesChars": 54488,
+        "totalToolResultChars": 26553,
+        "totalBashResultChars": 26180,
+        "toolCallsByName": {
+          "Bash": 5,
+          "Write": 1,
+          "ExitPlanMode": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 8
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 8,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 816,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 67640,
+        "estFinalMessagesTok": 13622
+      },
+      "billing": {
+        "requests": 8,
+        "billedUsd": 0.143432,
+        "inputTokens": 16,
+        "cacheCreateTokens": 23705,
+        "cacheReadTokens": 146479,
+        "outputTokens": 6949,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 8,
+            "billedUsd": 0.143432,
+            "inputTokens": 16,
+            "cacheCreateTokens": 23705,
+            "cacheReadTokens": 146479,
+            "outputTokens": 6949
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T10_HIGHBEAM_r3_live",
+      "arm": "HIGHBEAM",
+      "rep": 3,
+      "task_id": "T10",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 67.37,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 100,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 100,
+          "avoidedWriteUsd": 0.0002,
+          "avoidedWriteRateUsd": 0.00025,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T10_HIGHBEAM_r3_live.jsonl",
+        "ledgerPath": "ledgers/T10_HIGHBEAM_r3_live.ledger.jsonl",
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 8,
+        "totalMessagesChars": 272405,
+        "finalMessagesChars": 54288,
+        "totalToolResultChars": 25385,
+        "totalBashResultChars": 25016,
+        "toolCallsByName": {
+          "Bash": 5,
+          "Write": 1,
+          "ExitPlanMode": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 8
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 8,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 1830,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 68102,
+        "estFinalMessagesTok": 13572
+      },
+      "billing": {
+        "requests": 8,
+        "billedUsd": 0.148086,
+        "inputTokens": 16,
+        "cacheCreateTokens": 23405,
+        "cacheReadTokens": 146119,
+        "outputTokens": 7493,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 8,
+            "billedUsd": 0.148087,
+            "inputTokens": 16,
+            "cacheCreateTokens": 23405,
+            "cacheReadTokens": 146119,
+            "outputTokens": 7493
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T10_HIGHBEAM_SCOUT_r3_live",
+      "arm": "HIGHBEAM_SCOUT",
+      "rep": 3,
+      "task_id": "T10",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 70.19,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 170,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 170,
+          "avoidedWriteUsd": 0.00034,
+          "avoidedWriteRateUsd": 0.000425,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T10_HIGHBEAM_SCOUT_r3_live.jsonl",
+        "ledgerPath": "ledgers/T10_HIGHBEAM_SCOUT_r3_live.ledger.jsonl",
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 9,
+        "totalMessagesChars": 299951,
+        "finalMessagesChars": 56809,
+        "totalToolResultChars": 20896,
+        "totalBashResultChars": 19197,
+        "toolCallsByName": {
+          "Bash": 6,
+          "Write": 1,
+          "ExitPlanMode": 1,
+          "Edit": 8
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 9
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 9,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 619,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 74988,
+        "estFinalMessagesTok": 14203
+      },
+      "billing": {
+        "requests": 9,
+        "billedUsd": 0.167103,
+        "inputTokens": 18,
+        "cacheCreateTokens": 24574,
+        "cacheReadTokens": 164115,
+        "outputTokens": 8922,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 9,
+            "billedUsd": 0.167103,
+            "inputTokens": 18,
+            "cacheCreateTokens": 24574,
+            "cacheReadTokens": 164115,
+            "outputTokens": 8922
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T11_HIGHBEAM_r3_live",
+      "arm": "HIGHBEAM",
+      "rep": 3,
+      "task_id": "T11",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 48.5,
+      "highbeamHooks": {
+        "totalReceipts": 1,
+        "byCategory": {
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 101,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 101,
+          "avoidedWriteUsd": 0.000202,
+          "avoidedWriteRateUsd": 0.000253,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T11_HIGHBEAM_r3_live.jsonl",
+        "ledgerPath": "ledgers/T11_HIGHBEAM_r3_live.ledger.jsonl",
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 8,
+        "totalMessagesChars": 319629,
+        "finalMessagesChars": 61749,
+        "totalToolResultChars": 36009,
+        "totalBashResultChars": 33362,
+        "toolCallsByName": {
+          "Read": 1,
+          "Bash": 5,
+          "Write": 1,
+          "ExitPlanMode": 1
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 8
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 8,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 382,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 79908,
+        "estFinalMessagesTok": 15438
+      },
+      "billing": {
+        "requests": 8,
+        "billedUsd": 0.143531,
+        "inputTokens": 16,
+        "cacheCreateTokens": 27937,
+        "cacheReadTokens": 168864,
+        "outputTokens": 5677,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 8,
+            "billedUsd": 0.143531,
+            "inputTokens": 16,
+            "cacheCreateTokens": 27937,
+            "cacheReadTokens": 168864,
+            "outputTokens": 5677
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T11_HIGHBEAM_SCOUT_r3_live",
+      "arm": "HIGHBEAM_SCOUT",
+      "rep": 3,
+      "task_id": "T11",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 46.51,
+      "highbeamHooks": {
+        "totalReceipts": 2,
+        "byCategory": {
+          "GREP_GLOB_FIREWALL": 1,
+          "LOSSLESS_POST_SANITIZER": 1
+        },
+        "ledgerSavedTokens": 5352,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 5352,
+          "avoidedWriteUsd": 0.010704,
+          "avoidedWriteRateUsd": 0.01338,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T11_HIGHBEAM_SCOUT_r3_live.jsonl",
+        "ledgerPath": "ledgers/T11_HIGHBEAM_SCOUT_r3_live.ledger.jsonl",
+        "hintsPath": "telemetry/T11_HIGHBEAM_SCOUT_r3_live.hints.jsonl"
+      },
+      "wireObs": {
+        "requests": 5,
+        "totalMessagesChars": 331858,
+        "finalMessagesChars": 109194,
+        "totalToolResultChars": 81250,
+        "totalBashResultChars": 1674,
+        "toolCallsByName": {
+          "Glob": 1,
+          "Bash": 2,
+          "Read": 5,
+          "Edit": 5
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 5
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 5,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 305,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 82965,
+        "estFinalMessagesTok": 27299
+      },
+      "billing": {
+        "requests": 5,
+        "billedUsd": 0.201585,
+        "inputTokens": 10,
+        "cacheCreateTokens": 50543,
+        "cacheReadTokens": 135177,
+        "outputTokens": 6169,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 5,
+            "billedUsd": 0.201585,
+            "inputTokens": 10,
+            "cacheCreateTokens": 50543,
+            "cacheReadTokens": 135177,
+            "outputTokens": 6169
+          }
+        }
+      }
+    },
+    {
+      "run_id": "T11_BASELINE_r3_live",
+      "arm": "BASELINE",
+      "rep": 3,
+      "task_id": "T11",
+      "difficulty": "hard",
+      "completed": true,
+      "turns": 2,
+      "cap_reason": "",
+      "constraint_violations": 0,
+      "wall_time_s": 57.55,
+      "highbeamHooks": {
+        "totalReceipts": 0,
+        "byCategory": {},
+        "ledgerSavedTokens": 0,
+        "ledgerBuckets": {
+          "avoidedWriteTokens": 0,
+          "avoidedWriteUsd": 0,
+          "avoidedWriteRateUsd": 0,
+          "platformCacheDiscountTokens": 0,
+          "platformCacheDiscountUsd": 0
+        },
+        "shieldBlocksByteCap": 0,
+        "shieldClampsByteCap": 0,
+        "shieldClampsExplicitSlice": 0,
+        "shieldClampsTotal": 0,
+        "shieldBlocksLineCap": 0,
+        "shieldBlocksOversizedSlice": 0,
+        "shieldBlocksTotal": 0
+      },
+      "artifacts": {
+        "transcriptPath": "transcripts/T11_BASELINE_r3_live.jsonl",
+        "ledgerPath": null,
+        "hintsPath": null
+      },
+      "wireObs": {
+        "requests": 10,
+        "totalMessagesChars": 367012,
+        "finalMessagesChars": 58939,
+        "totalToolResultChars": 29732,
+        "totalBashResultChars": 28426,
+        "toolCallsByName": {
+          "Bash": 6,
+          "Write": 1,
+          "ExitPlanMode": 1,
+          "Edit": 6
+        },
+        "modelsSeen": {
+          "claude-sonnet-5-5": 10
+        },
+        "haikuRequests": 0,
+        "sonnetRequests": 10,
+        "subagentSpawns": [],
+        "specReadResultChars": 0,
+        "specShieldDenied": false,
+        "specShieldClamped": false,
+        "bashDiagResultChars": 662,
+        "postEditReadResultChars": 0,
+        "postEditFoldContextInjected": false,
+        "estCumulativeMessagesTok": 91753,
+        "estFinalMessagesTok": 14735
+      },
+      "billing": {
+        "requests": 10,
+        "billedUsd": 0.16042,
+        "inputTokens": 20,
+        "cacheCreateTokens": 27253,
+        "cacheReadTokens": 208971,
+        "outputTokens": 7135,
+        "byModel": {
+          "anthropic/claude-sonnet-5.5": {
+            "requests": 10,
+            "billedUsd": 0.160419,
+            "inputTokens": 20,
+            "cacheCreateTokens": 27253,
+            "cacheReadTokens": 208971,
+            "outputTokens": 7135
+          }
+        }
+      }
+    }
+  ]
+}

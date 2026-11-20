@@ -192,8 +192,8 @@ describe('OPT-1C: Antigravity Task-Boundary Compaction & Out-of-Workspace Baton 
   });
 });
 
-describe('OPT-4A: Idle-TTL Pre-Compact Gate (Zero Cache-Bust Cold-Rewrite Avoidance)', () => {
-  it('fires accurately only after TTL expiry (>5m or >1h) and >=60k context while skipping /compact and warm turns', async () => {
+describe('OPT-4A: Idle-TTL Cold-Resume Gate (DET-17 Aligned Cold-Rewrite Avoidance)', () => {
+  it('fires accurately only after TTL expiry (>5m or >1h) and >=60k context, aligns with DET-17 (/handoff + /clear), and redirects /compact', async () => {
     const warmSkip = evaluateIdleTtlPreCompactGate({
       idleGapMs: 120_000,
       contextTokens: 120_000,
@@ -210,14 +210,37 @@ describe('OPT-4A: Idle-TTL Pre-Compact Gate (Zero Cache-Bust Cold-Rewrite Avoida
     assert.equal(smallCtxSkip.shouldSuggest, false);
     assert.equal(smallCtxSkip.suppressedReason, 'below_min_context');
 
-    const compactSkip = evaluateIdleTtlPreCompactGate({
+    const clearSkip = evaluateIdleTtlPreCompactGate({
+      idleGapMs: 600_000,
+      contextTokens: 120_000,
+      modelId: 'claude-sonnet-5-5',
+      promptText: '/clear'
+    });
+    assert.equal(clearSkip.shouldSuggest, false);
+    assert.equal(clearSkip.suppressedReason, 'already_resetting');
+
+    const handoffSkip = evaluateIdleTtlPreCompactGate({
+      idleGapMs: 600_000,
+      contextTokens: 120_000,
+      modelId: 'claude-sonnet-5-5',
+      promptText: '/handoff save baton'
+    });
+    assert.equal(handoffSkip.shouldSuggest, false);
+    assert.equal(handoffSkip.suppressedReason, 'already_resetting');
+
+    const compactRedirect = evaluateIdleTtlPreCompactGate({
       idleGapMs: 600_000,
       contextTokens: 120_000,
       modelId: 'claude-sonnet-5-5',
       promptText: '/compact focus on Wave 2'
     });
-    assert.equal(compactSkip.shouldSuggest, false);
-    assert.equal(compactSkip.suppressedReason, 'already_compacting');
+    assert.equal(compactRedirect.shouldSuggest, true);
+    assert.equal(compactRedirect.coldCompactRedirect, true);
+    assert.equal(compactRedirect.recommendedAction, 'STATE_BATON_CLEAR');
+    assert.equal(compactRedirect.det17Aligned, true);
+    assert.ok(compactRedirect.message.includes('Avoid /compact'));
+    assert.ok(compactRedirect.message.includes('/handoff'));
+    assert.ok(compactRedirect.message.includes('/clear'));
 
     const fireEval = evaluateIdleTtlPreCompactGate({
       idleGapMs: 600_000,
@@ -226,9 +249,25 @@ describe('OPT-4A: Idle-TTL Pre-Compact Gate (Zero Cache-Bust Cold-Rewrite Avoida
       promptText: 'Continue fixing router tests'
     });
     assert.equal(fireEval.shouldSuggest, true);
-    assert.equal(fireEval.coldTokensAvoided, 96_000);
+    assert.equal(fireEval.coldCompactRedirect, false);
+    assert.equal(fireEval.det17Aligned, true);
+    assert.equal(fireEval.recommendedAction, 'STATE_BATON_CLEAR');
+    assert.equal(fireEval.coldTokensAvoided, 119_700);
     assert.ok(fireEval.immediateColdRewriteSavingUSD >= 0.24);
-    assert.ok(fireEval.message.includes('0 cache-bust penalty'));
+    assert.ok(fireEval.message.includes('Idle-TTL Cold-Resume'));
+    assert.ok(fireEval.message.includes('DET-17'));
+    assert.ok(fireEval.message.includes('/clear'));
+    assert.ok(!fireEval.message.includes('Run /compact'));
+
+    // Cross-check DET-17 PreCompact block agrees (no contradiction)
+    const det17Block = runCompactLifecycleHook({
+      hook_event_name: 'PreCompact',
+      trigger: 'manual',
+      cacheExpired: true,
+      cachedTokens: 120_000
+    });
+    assert.equal(det17Block.stdoutJson?.decision, 'block');
+    assert.equal(det17Block.result?.subType, 'COLD_CACHE_COMPACT_BLOCKED');
 
     // Live Claude Code UserPromptSubmit hook + 60s dedupe
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hb-opt4a-cc-'));
@@ -247,7 +286,8 @@ describe('OPT-4A: Idle-TTL Pre-Compact Gate (Zero Cache-Bust Cold-Rewrite Avoida
         { cwd: tmpDir }
       );
       assert.equal(ccIdle.verdict.subType, 'IDLE_TTL_PRE_COMPACT');
-      assert.ok(ccIdle.stdoutJson?.hookSpecificOutput?.additionalContext?.includes('Idle-TTL Pre-Compact'));
+      assert.ok(ccIdle.stdoutJson?.hookSpecificOutput?.additionalContext?.includes('Idle-TTL Cold-Resume'));
+      assert.ok(ccIdle.stdoutJson?.hookSpecificOutput?.additionalContext?.includes('/clear'));
 
       // Duplicate prompt 10s later is deduplicated silently
       const ccDup = runUserPromptSubmitHook(
@@ -282,8 +322,9 @@ describe('OPT-4A: Idle-TTL Pre-Compact Gate (Zero Cache-Bust Cold-Rewrite Avoida
         modelName: 'claude-sonnet-5-5'
       });
       assert.equal(agIdle.subType, 'IDLE_TTL_PRE_COMPACT');
-      assert.ok(agIdle.systemMessage?.includes('Idle-TTL Pre-Compact'));
-      assert.ok(agIdle.idlePreCompactSuggestion?.coldTokensAvoided >= 96_000);
+      assert.ok(agIdle.systemMessage?.includes('Idle-TTL Cold-Resume'));
+      assert.ok(agIdle.systemMessage?.includes('/clear'));
+      assert.ok(agIdle.idlePreCompactSuggestion?.coldTokensAvoided >= 119_700);
     } finally {
       cleanupDir(tmpAgWs);
       cleanupDir(tmpAgHome);

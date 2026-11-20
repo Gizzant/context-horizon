@@ -526,6 +526,7 @@ export function deriveSurfaceMetrics(state = {}, options = {}) {
     workspace30dSavedTokens,
     workspace30dSavedUSD,
     savingsCategories,
+    savingsBuckets: ledgerSummary?.buckets || null,
     topSavingsDriver,
     flightMode: ['OFF', 'COACH', 'AUTO_PILOT'].includes(flightMode) ? flightMode : 'COACH',
     negativeCacheRoi,

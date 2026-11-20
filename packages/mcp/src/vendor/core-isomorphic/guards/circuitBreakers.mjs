@@ -610,7 +610,7 @@ export class CircuitBreakerEngine {
         toolInput.subagent_type || toolInput.subagentType || toolInput.agent_type || toolInput.type || ''
       ).trim();
       const isReadOnlySubagent =
-        /^(?:Explore|Plan|research|claude-code-guide|ah-flash-scout)$/i.test(subagentType) ||
+        /^(?:Explore|Plan|research|claude-code-guide|ah-flash-scout|ah-haiku-scout)$/i.test(subagentType) ||
         toolInput.readonly === true;
       if (!isReadOnlySubagent) {
         const isolation = String(toolInput.isolation || '').trim().toLowerCase();

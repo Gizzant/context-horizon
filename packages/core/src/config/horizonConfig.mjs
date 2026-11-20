@@ -244,7 +244,8 @@ export const DEFAULT_HORIZON_CONFIG = Object.freeze({
     outputShrinkageMinTurns: 5,
     outputShrinkagePriorTokens: 500,
     smartCompactBoundarySuggest: true,
-    resumeToolsetWarnMinTokens: 10000
+    resumeToolsetWarnMinTokens: 10000,
+    autoTierReadOnlyScouts: false
   }
 });
 
@@ -556,6 +557,7 @@ export function loadHorizonConfig(options = {}) {
   let autoPilotDecision = null;
   let expectedRemainingTurns = null;
   let useEmpiricalHorizonPrior = false;
+  let scoutTierMode = 'off';
 
   const mergeHabitSlugsFromMap = (mapObj) => {
     if (!mapObj || typeof mapObj !== 'object' || Array.isArray(mapObj)) return;
@@ -683,6 +685,13 @@ export function loadHorizonConfig(options = {}) {
     if (typeof layer.smartCompactBoundarySuggest === 'boolean') {
       thresholds.smartCompactBoundarySuggest = layer.smartCompactBoundarySuggest;
     }
+    if (typeof layer.autoTierReadOnlyScouts === 'boolean') {
+      thresholds.autoTierReadOnlyScouts = layer.autoTierReadOnlyScouts;
+    }
+    const rawScoutTier = String(layer.scoutTierMode || '').trim().toLowerCase();
+    if (rawScoutTier === 'off' || rawScoutTier === 'auto' || rawScoutTier === 'ask') {
+      scoutTierMode = rawScoutTier;
+    }
     if (
       layer.resumeToolsetWarnMinTokens !== undefined &&
       layer.resumeToolsetWarnMinTokens !== null &&
@@ -719,6 +728,7 @@ export function loadHorizonConfig(options = {}) {
     schemaVersion: '1.0.0',
     detectorNamespace: resolvedNamespace,
     flightMode,
+    scoutTierMode,
     detectors,
     semanticDetectors,
     thresholds,

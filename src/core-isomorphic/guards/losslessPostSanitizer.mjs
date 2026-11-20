@@ -212,12 +212,13 @@ export function sanitizePostToolOutput(params = {}, options = {}) {
   const postFilterTokens = estimateTokenCount(sanitizedText);
 
   // Step 6: Programmatic Artifact Offloading when structured/command output exceeds 4,000 tokens
+  const allowOffload = !(params.disableOffload === true || options.disableOffload === true);
   let offloaded = false;
   let artifactPath = null;
   let artifactIndexPath = null;
   let finalOutput = sanitizedText;
 
-  if (originalTokens > offloadThresholdTokens || postFilterTokens > offloadThresholdTokens) {
+  if (allowOffload && (originalTokens > offloadThresholdTokens || postFilterTokens > offloadThresholdTokens)) {
     const sha256 = computeSha256(cleaned, options);
     const cwd = getCwd(options);
     const relativeArtifactPath = `.claude/cache/artifacts/ah_${sha256}.txt`;

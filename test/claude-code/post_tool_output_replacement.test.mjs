@@ -191,3 +191,134 @@ test('shell output at Claude Code\'s 30,000-char cap is left alone and records n
     ws.cleanup();
   }
 });
+
+test('buildReplacementToolOutput refuses empty or non-string array shapes', () => {
+  assert.equal(buildReplacementToolOutput({ tool_response: { filenames: [] } }, 'S').ok, false);
+  assert.equal(buildReplacementToolOutput({ tool_response: { filenames: [123] } }, 'S').ok, false);
+});
+
+test('Grep files_with_matches array shape: replaces filenames, updates numFiles, and records savings', () => {
+  const ws = makeWorkspace();
+  try {
+    const filenames = Array.from({ length: 30 }, (_, i) =>
+      i < 22 ? `src/core/module_${String(i).padStart(2, '0')}.mjs` : `archive/legacy_${i}.mjs`
+    );
+    const res = runPostToolUseHook(
+      {
+        session_id: 'grep-arr-1',
+        cwd: ws.dir,
+        tool_name: 'Grep',
+        tool_input: { pattern: 'handleToken', output_mode: 'files_with_matches' },
+        tool_response: { mode: 'files_with_matches', filenames, numFiles: 30, totalFiles: 30 }
+      },
+      { cwd: ws.dir }
+    );
+    assert.equal(res.exitCode, 0);
+    const hso = JSON.parse(res.stdout).hookSpecificOutput;
+    assert.equal('additionalContext' in hso, false);
+    assert.ok(Array.isArray(hso.updatedToolOutput.filenames));
+    assert.ok(hso.updatedToolOutput.filenames.every((x) => typeof x === 'string'));
+    assert.ok(hso.updatedToolOutput.filenames.length < filenames.length);
+    assert.ok(hso.updatedToolOutput.numFiles <= 8 && hso.updatedToolOutput.numFiles > 0);
+    const ledger = readLedger(ws.dir);
+    assert.ok(ledger.length >= 1 && ledger.some((e) => e.savedTokens > 0));
+  } finally {
+    ws.cleanup();
+  }
+});
+
+test('Glob array shape: replaces filenames, sets truncated=true, updates numFiles, and records savings', () => {
+  const ws = makeWorkspace();
+  try {
+    const filenames = Array.from({ length: 30 }, (_, i) => `src/components/feature_${String(i).padStart(2, '0')}.mjs`);
+    const res = runPostToolUseHook(
+      {
+        session_id: 'glob-arr-1',
+        cwd: ws.dir,
+        tool_name: 'Glob',
+        tool_input: { pattern: 'src/**/*.mjs' },
+        tool_response: {
+          filenames,
+          durationMs: 42,
+          numFiles: 30,
+          truncated: false,
+          totalMatches: 30,
+          countIsComplete: true
+        }
+      },
+      { cwd: ws.dir }
+    );
+    assert.equal(res.exitCode, 0);
+    const hso = JSON.parse(res.stdout).hookSpecificOutput;
+    assert.ok(Array.isArray(hso.updatedToolOutput.filenames));
+    assert.ok(hso.updatedToolOutput.filenames.length < filenames.length);
+    assert.equal(hso.updatedToolOutput.truncated, true);
+    assert.equal(hso.updatedToolOutput.countIsComplete, true);
+    assert.ok(hso.updatedToolOutput.numFiles <= 8 && hso.updatedToolOutput.numFiles > 0);
+    const ledger = readLedger(ws.dir);
+    assert.ok(ledger.length >= 1 && ledger.some((e) => e.savedTokens > 0));
+  } finally {
+    ws.cleanup();
+  }
+});
+
+test('Grep content shape: replaces content string and updates numLines', () => {
+  const ws = makeWorkspace();
+  try {
+    const contentLines = [];
+    for (let f = 0; f < 25; f += 1) {
+      for (let ln = 1; ln <= 12; ln += 1) {
+        contentLines.push(`src/mod_${String(f).padStart(2, '0')}.mjs:${ln}:export const matchToken_${f}_${ln} = true;`);
+      }
+    }
+    const contentStr = contentLines.join('\n');
+    const res = runPostToolUseHook(
+      {
+        session_id: 'grep-content-1',
+        cwd: ws.dir,
+        tool_name: 'Grep',
+        tool_input: { pattern: 'matchToken', output_mode: 'content' },
+        tool_response: { mode: 'content', content: contentStr, filenames: [], numLines: 300, totalLines: 300 }
+      },
+      { cwd: ws.dir }
+    );
+    assert.equal(res.exitCode, 0);
+    const hso = JSON.parse(res.stdout).hookSpecificOutput;
+    assert.equal(typeof hso.updatedToolOutput.content, 'string');
+    assert.ok(hso.updatedToolOutput.content.length < contentStr.length);
+    assert.ok(hso.updatedToolOutput.numLines > 0 && hso.updatedToolOutput.numLines < 300);
+    const ledger = readLedger(ws.dir);
+    assert.ok(ledger.length >= 1 && ledger.some((e) => e.savedTokens > 0));
+  } finally {
+    ws.cleanup();
+  }
+});
+
+test('PostToolUse matchers across CLI installer, Shield sync, and A/B harness include Grep|Glob and exclude Read', async () => {
+  const ws = makeWorkspace();
+  try {
+    const { LEAN_POST_TOOL_USE_MATCHER, POST_TOOL_USE_MATCHER } = await import('../../bin/ctxtop.mjs');
+    const { syncClaudeShieldHooks } = await import('../../src/core/shield_manager.mjs');
+    const { buildSettingsPayload } = await import('../../experiments/model-switch-benchmark/cost_per_task/run_highbeam_ab.mjs');
+
+    const shieldRes = syncClaudeShieldHooks({ mode: 'enable', cwd: ws.dir });
+    const shieldMatcher = shieldRes.document.hooks.PostToolUse[0].matcher;
+    const abSettings = buildSettingsPayload('HIGHBEAM', ws.dir);
+    const abMatcher = abSettings.hooks.PostToolUse[0].matcher;
+
+    for (const [label, matcher] of [
+      ['LEAN_POST_TOOL_USE_MATCHER', LEAN_POST_TOOL_USE_MATCHER],
+      ['POST_TOOL_USE_MATCHER', POST_TOOL_USE_MATCHER],
+      ['syncClaudeShieldHooks', shieldMatcher],
+      ['buildSettingsPayload', abMatcher]
+    ]) {
+      const rx = new RegExp(`^(?:${matcher})$`);
+      assert.equal(rx.test('Grep'), true, `${label} must match Grep`);
+      assert.equal(rx.test('Glob'), true, `${label} must match Glob`);
+      assert.equal(rx.test('Bash'), true, `${label} must match Bash`);
+      assert.equal(rx.test('Read'), false, `${label} must never match Read`);
+    }
+  } finally {
+    ws.cleanup();
+  }
+});

@@ -29,9 +29,18 @@ import {
   RETRY_PROMPT_HEADER,
   buildTurn1Prompt
 } from './tasks_manifest.mjs';
+import {
+  EXPLORATION_TASKS,
+  applyExplorationOverlay,
+  buildExplorationPadLines
+} from './exploration_tasks_manifest.mjs';
 import { redactSensitiveText } from '../tests_3_to_8/prefix_lab.mjs';
 import { evaluateHiddenSuite } from './run_cost_per_task.mjs';
-import { configureShield } from '../../../src/core/shield_manager.mjs';
+import { configureShield, configureScout } from '../../../src/core/shield_manager.mjs';
+import {
+  computeExPostRealizedSavings,
+  getSavedQuotaReceiptSummary
+} from '../../../src/core-isomorphic/coach/savedQuotaLedger.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -39,7 +48,54 @@ const TEMPLATE_DIR = path.join(__dirname, 'task_repo_template');
 const VISIBLE_DIR = path.join(__dirname, 'visible_suites');
 const HIDDEN_DIR = path.join(__dirname, 'hidden_suites');
 const REF_DIR = path.join(__dirname, 'reference_solutions');
+const EXP_VISIBLE_DIR = path.join(__dirname, 'exploration_suites', 'visible');
+const EXP_HIDDEN_DIR = path.join(__dirname, 'exploration_suites', 'hidden');
+const EXP_REF_DIR = path.join(__dirname, 'exploration_suites', 'reference');
+const ALL_TASKS = [...TASKS, ...EXPLORATION_TASKS];
 const SONNET_CLI = 'claude-sonnet-5-5';
+
+export function rmDirBestEffort(dirPath, { label = 'temp', retries = 10, retryDelayMs = 150 } = {}) {
+  if (!dirPath || !fs.existsSync(dirPath)) return true;
+  try {
+    fs.rmSync(dirPath, {
+      recursive: true,
+      force: true,
+      maxRetries: retries,
+      retryDelay: retryDelayMs
+    });
+    return true;
+  } catch (err) {
+    console.warn(`[cleanup-warn:${label}] Could not remove ${dirPath}: ${err?.code || err?.message}`);
+    return false;
+  }
+}
+
+export function pruneOrphanWireLog(wireLogPath, keepRunIds = new Set()) {
+  if (!wireLogPath || !fs.existsSync(wireLogPath)) {
+    return { kept: 0, pruned: 0 };
+  }
+  const keepSet = keepRunIds instanceof Set ? keepRunIds : new Set(keepRunIds || []);
+  const lines = fs.readFileSync(wireLogPath, 'utf8').split(/\r?\n/).filter(Boolean);
+  const retained = [];
+  let pruned = 0;
+  for (const line of lines) {
+    try {
+      const rec = JSON.parse(line);
+      const runId = rec?.context?.runId;
+      if (runId && keepSet.has(runId)) {
+        retained.push(line);
+      } else {
+        pruned += 1;
+      }
+    } catch {
+      pruned += 1;
+    }
+  }
+  if (pruned > 0) {
+    fs.writeFileSync(wireLogPath, retained.length > 0 ? retained.join('\n') + '\n' : '', 'utf8');
+  }
+  return { kept: retained.length, pruned };
+}
 
 function findClaudeExe() {
   if (fs.existsSync(CLAUDE_EXE)) return CLAUDE_EXE;
@@ -146,15 +202,26 @@ function applyRealisticScaleOverlay(repoDir, task) {
   }
 }
 
-function readHighbeamHookStats(repoDir) {
+export const AB_ARMS = ['BASELINE', 'HIGHBEAM_SHIELD_OFF', 'HIGHBEAM'];
+
+export function readHighbeamHookStats(repoDir) {
   const byCategory = {};
   let totalReceipts = 0;
   let ledgerSavedTokens = 0;
   let shieldBlocksByteCap = 0;
   let shieldClampsByteCap = 0;
+  let shieldClampsExplicitSlice = 0;
   let shieldBlocksLineCap = 0;
+  let shieldBlocksOversizedSlice = 0;
 
   const ledgerPath = path.join(repoDir, '.claude', 'cache', 'horizon_ledger.jsonl');
+  let ledgerBuckets = {
+    avoidedWriteTokens: 0,
+    avoidedWriteUsd: 0,
+    avoidedWriteRateUsd: 0,
+    platformCacheDiscountTokens: 0,
+    platformCacheDiscountUsd: 0
+  };
   if (fs.existsSync(ledgerPath)) {
     const lines = fs.readFileSync(ledgerPath, 'utf8').split(/\r?\n/).filter(Boolean);
     for (const line of lines) {
@@ -167,6 +234,18 @@ function readHighbeamHookStats(repoDir) {
       } catch (err) {
         void err;
       }
+    }
+    try {
+      const summary = getSavedQuotaReceiptSummary({ ledgerPath });
+      ledgerBuckets = {
+        avoidedWriteTokens: Number(summary.buckets?.avoidedWrites?.tokens || 0),
+        avoidedWriteUsd: Number(summary.buckets?.avoidedWrites?.usd || 0),
+        avoidedWriteRateUsd: Number(summary.buckets?.avoidedWrites?.writeRateUSD || 0),
+        platformCacheDiscountTokens: Number(summary.buckets?.platformCacheDiscount?.tokens || 0),
+        platformCacheDiscountUsd: Number(summary.buckets?.platformCacheDiscount?.usd || 0)
+      };
+    } catch (err) {
+      void err;
     }
   }
 
@@ -181,8 +260,12 @@ function readHighbeamHookStats(repoDir) {
           if (hint.event === 'blocked_unsliced_read') {
             if (hint.trigger_reason === 'byte_width_cap') shieldBlocksByteCap += 1;
             else shieldBlocksLineCap += 1;
+          } else if (hint.event === 'blocked_oversized_slice') {
+            shieldBlocksOversizedSlice += 1;
           } else if (hint.event === 'clamped_unsliced_read') {
             shieldClampsByteCap += 1;
+          } else if (hint.event === 'clamped_explicit_slice') {
+            shieldClampsExplicitSlice += 1;
           }
         } catch (err) {
           void err;
@@ -191,21 +274,60 @@ function readHighbeamHookStats(repoDir) {
     }
   }
 
+  const shieldBlocksTotal = shieldBlocksByteCap + shieldBlocksLineCap + shieldBlocksOversizedSlice;
+  const shieldClampsTotal = shieldClampsByteCap + shieldClampsExplicitSlice;
+
   return {
     totalReceipts,
     byCategory,
     ledgerSavedTokens,
+    ledgerBuckets,
     shieldBlocksByteCap,
     shieldClampsByteCap,
-    shieldBlocksLineCap
+    shieldClampsExplicitSlice,
+    shieldClampsTotal,
+    shieldBlocksLineCap,
+    shieldBlocksOversizedSlice,
+    shieldBlocksTotal
   };
 }
 
-function buildSettingsPayload(arm, repoDir) {
+export function buildHaikuScoutAgentsPayload() {
+  const agentPath = path.join(REPO_ROOT, 'agents', 'ah-haiku-scout.md');
+  const raw = fs.existsSync(agentPath) ? fs.readFileSync(agentPath, 'utf8') : '';
+  const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
+  const fm = fmMatch ? fmMatch[1] : '';
+  const body = (fmMatch ? fmMatch[2] : raw).trim() ||
+    'Read-only repository scout. Use Glob, Grep, and bounded Read (offset/limit) to return File:StartLine-EndLine coordinates concisely.';
+  const descMatch = fm.match(/^\s*description\s*:\s*([^\r\n]+)/im);
+  const description = descMatch
+    ? descMatch[1].trim().replace(/^['"]|['"]$/g, '')
+    : 'Lean Haiku read-only repository scout for multi-file exploration.';
+  return {
+    'ah-haiku-scout': {
+      description,
+      prompt: body,
+      tools: ['Read', 'Grep', 'Glob'],
+      model: 'haiku'
+    }
+  };
+}
+
+export function buildSettingsPayload(arm, repoDir) {
   if (arm === 'BASELINE') {
     return { hooks: {}, autoMemoryEnabled: false };
   }
-  configureShield({ action: 'enable', platform: 'claude', cwd: repoDir });
+  if (arm === 'HIGHBEAM_SHIELD_OFF') {
+    configureShield({ action: 'disable', platform: 'claude', cwd: repoDir });
+  } else if (arm === 'HIGHBEAM_AUTO') {
+    configureShield({ action: 'auto', platform: 'claude', cwd: repoDir });
+  } else {
+    configureShield({ action: 'enable', platform: 'claude', cwd: repoDir });
+  }
+  const isScoutArm = arm === 'HIGHBEAM_SCOUT';
+  if (isScoutArm) {
+    configureScout({ action: 'enable', cwd: repoDir, pkgRoot: REPO_ROOT });
+  }
   const preHookPath = path.join(REPO_ROOT, 'hooks', 'handlers', 'pre-tool-use.mjs').replace(/\\/g, '/');
   const postHookPath = path.join(REPO_ROOT, 'hooks', 'handlers', 'post-tool-use.mjs').replace(/\\/g, '/');
   return {
@@ -213,7 +335,9 @@ function buildSettingsPayload(arm, repoDir) {
     hooks: {
       PreToolUse: [
         {
-          matcher: 'Read|Edit|Write|MultiEdit|Bash|PowerShell',
+          matcher: isScoutArm
+            ? 'Read|Edit|Write|MultiEdit|Bash|PowerShell|Task|Agent'
+            : 'Read|Edit|Write|MultiEdit|Bash|PowerShell',
           hooks: [
             {
               type: 'command',
@@ -224,7 +348,9 @@ function buildSettingsPayload(arm, repoDir) {
       ],
       PostToolUse: [
         {
-          matcher: 'Bash|PowerShell',
+          matcher: isScoutArm
+            ? 'Bash|PowerShell|Grep|Glob|Task|Agent'
+            : 'Bash|PowerShell|Grep|Glob',
           hooks: [
             {
               type: 'command',
@@ -282,21 +408,230 @@ function extractResultText(block) {
   return JSON.stringify(block.content || '');
 }
 
-async function executeAbRun({ spec, task, claudeExe, proxy, caps, workBaseDir, onWireObserve }) {
+export function createEmptyWireObs() {
+  return {
+    requests: 0,
+    totalMessagesChars: 0,
+    finalMessagesChars: 0,
+    totalToolResultChars: 0,
+    totalBashResultChars: 0,
+    toolCallsByName: {},
+    modelsSeen: {},
+    haikuRequests: 0,
+    sonnetRequests: 0,
+    subagentSpawns: [],
+    specReadResultChars: 0,
+    specShieldDenied: false,
+    specShieldClamped: false,
+    bashDiagResultChars: 0,
+    postEditReadResultChars: 0,
+    postEditFoldContextInjected: false
+  };
+}
+
+export function observeWireRequest(obs, parsedReq, context = {}) {
+  if (!obs || !parsedReq) return obs;
+  const messages = Array.isArray(parsedReq.messages) ? parsedReq.messages : [];
+  const msgsStr = JSON.stringify(messages);
+  obs.requests += 1;
+  obs.totalMessagesChars += msgsStr.length;
+  obs.finalMessagesChars = msgsStr.length;
+
+  const rawModel = String(parsedReq.model || 'unknown');
+  obs.modelsSeen[rawModel] = (obs.modelsSeen[rawModel] || 0) + 1;
+  if (/haiku/i.test(rawModel)) obs.haikuRequests += 1;
+  else if (/sonnet/i.test(rawModel)) obs.sonnetRequests += 1;
+
+  const trailingUser = [];
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i]?.role === 'assistant') break;
+    trailingUser.unshift(messages[i]);
+  }
+  const trailingBlocks = trailingUser.flatMap((m) =>
+    Array.isArray(m?.content) ? m.content : [{ type: 'text', text: String(m?.content || '') }]
+  );
+  const trailingText = trailingBlocks
+    .filter((b) => b && b.type === 'text')
+    .map((b) => String(b.text || ''))
+    .join('\n');
+  const trailingResults = trailingBlocks.filter((b) => b && b.type === 'tool_result');
+
+  if (trailingText.includes('GUARD-4 Post-Edit Verify Fold')) {
+    obs.postEditFoldContextInjected = true;
+  }
+
+  const allToolUses = [];
+  const toolUseById = new Map();
+  const editedPathsBeforeTrailing = new Set();
+  const cutoffIdx = messages.length - trailingUser.length;
+  for (let i = 0; i < cutoffIdx; i += 1) {
+    const m = messages[i];
+    if (m?.role === 'assistant' && Array.isArray(m.content)) {
+      for (const b of m.content) {
+        if (b?.type === 'tool_use') {
+          allToolUses.push(b);
+          if (b.id) toolUseById.set(b.id, b);
+          if (i < cutoffIdx - 1 && /^(?:Edit|Write|MultiEdit)$/i.test(String(b.name || ''))) {
+            const ep = String(b.input?.file_path || '');
+            if (ep) editedPathsBeforeTrailing.add(ep.replace(/\\/g, '/'));
+          }
+        }
+      }
+    }
+  }
+
+  const lastToolFallback = allToolUses[allToolUses.length - 1] || null;
+  for (const resBlock of trailingResults) {
+    const tu = (resBlock.tool_use_id && toolUseById.get(resBlock.tool_use_id)) || lastToolFallback;
+    const resText = extractResultText(resBlock);
+    obs.totalToolResultChars += resText.length;
+
+    const tName = String(tu?.name || 'unknown');
+    obs.toolCallsByName[tName] = (obs.toolCallsByName[tName] || 0) + 1;
+
+    if (resText.includes('GUARD-4 Post-Edit Verify Fold')) {
+      obs.postEditFoldContextInjected = true;
+    }
+
+    if (tName === 'Read') {
+      const fpath = String(tu?.input?.file_path || '').replace(/\\/g, '/');
+      if (fpath.includes('ARCHITECTURE_SPEC.md') || fpath.endsWith('.index.md')) {
+        obs.specReadResultChars += resText.length;
+        if (fpath.includes('ARCHITECTURE_SPEC.md') && tu?.input?.limit === undefined) {
+          if (
+            !resBlock.is_error &&
+            (trailingText.includes('Highbeam Shield clamped') || resText.includes('Highbeam Shield clamped'))
+          ) {
+            obs.specShieldClamped = true;
+          }
+          if (resBlock.is_error && resText.includes('.agents/cache/indices/')) {
+            obs.specShieldDenied = true;
+          }
+        }
+      } else {
+        const isEditedTarget =
+          editedPathsBeforeTrailing.has(fpath) ||
+          Array.from(editedPathsBeforeTrailing).some((ep) => ep && fpath.endsWith(path.posix.basename(ep)));
+        if (tu?.input?.limit === undefined && isEditedTarget) {
+          obs.postEditReadResultChars += resText.length;
+        }
+      }
+    } else if (tName === 'Bash') {
+      obs.totalBashResultChars += resText.length;
+      const cmd = String(tu?.input?.command || '');
+      if (cmd.includes('diag_check') || String(context?.phase || '').startsWith('implement')) {
+        if (cmd.includes('diag_check') || obs.bashDiagResultChars === 0) {
+          obs.bashDiagResultChars += resText.length;
+        }
+      }
+    } else if (tName === 'Agent' || tName === 'Task') {
+      obs.subagentSpawns.push({
+        toolName: tName,
+        subagentType: String(tu?.input?.subagent_type || 'unknown'),
+        requestedModel: String(tu?.input?.model || 'inherit')
+      });
+    }
+  }
+
+  return obs;
+}
+
+export function findSessionJsonlFiles(rootDir, acc = []) {
+  if (!rootDir || !fs.existsSync(rootDir)) return acc;
+  for (const entry of fs.readdirSync(rootDir, { withFileTypes: true })) {
+    const full = path.join(rootDir, entry.name);
+    if (entry.isDirectory()) findSessionJsonlFiles(full, acc);
+    else if (entry.name.endsWith('.jsonl')) acc.push(full);
+  }
+  return acc;
+}
+
+export function sanitizeArtifactText(raw = '', repoDir = '') {
+  let text = String(raw || '');
+  if (repoDir) {
+    text = text.split(repoDir).join('<REPO_DIR>').split(repoDir.replace(/\\/g, '/')).join('<REPO_DIR>');
+  }
+  return redactSensitiveText(text);
+}
+
+export function persistRunArtifacts({ rawDir, spec, repoDir, cfgDir, homeDir }) {
+  if (!rawDir) {
+    return { transcriptPath: null, ledgerPath: null, hintsPath: null };
+  }
+  fs.mkdirSync(rawDir, { recursive: true });
+  const runId = String(spec?.run_id || 'run');
+  let transcriptPath = null;
+  let ledgerPath = null;
+  let hintsPath = null;
+
+  const jsonls = [
+    ...findSessionJsonlFiles(cfgDir),
+    ...findSessionJsonlFiles(path.join(homeDir || '', '.claude'))
+  ].sort((a, b) => {
+    try {
+      return fs.statSync(b).size - fs.statSync(a).size;
+    } catch {
+      return 0;
+    }
+  });
+  if (jsonls.length > 0) {
+    const tDir = path.join(rawDir, 'transcripts');
+    fs.mkdirSync(tDir, { recursive: true });
+    const dst = path.join(tDir, `${runId}.jsonl`);
+    fs.writeFileSync(dst, sanitizeArtifactText(fs.readFileSync(jsonls[0], 'utf8'), repoDir), 'utf8');
+    transcriptPath = path.relative(rawDir, dst).replace(/\\/g, '/');
+  }
+
+  const srcLedger = path.join(repoDir, '.claude', 'cache', 'horizon_ledger.jsonl');
+  if (fs.existsSync(srcLedger)) {
+    const lDir = path.join(rawDir, 'ledgers');
+    fs.mkdirSync(lDir, { recursive: true });
+    const dst = path.join(lDir, `${runId}.ledger.jsonl`);
+    fs.writeFileSync(dst, sanitizeArtifactText(fs.readFileSync(srcLedger, 'utf8'), repoDir), 'utf8');
+    ledgerPath = path.relative(rawDir, dst).replace(/\\/g, '/');
+  }
+
+  const telemetryDir = path.join(repoDir, '.agents', 'telemetry');
+  if (fs.existsSync(telemetryDir)) {
+    const hintChunks = [];
+    for (const fname of fs.readdirSync(telemetryDir)) {
+      if (!fname.endsWith('.hints.jsonl')) continue;
+      hintChunks.push(fs.readFileSync(path.join(telemetryDir, fname), 'utf8').trimEnd());
+    }
+    if (hintChunks.length > 0) {
+      const hDir = path.join(rawDir, 'telemetry');
+      fs.mkdirSync(hDir, { recursive: true });
+      const dst = path.join(hDir, `${runId}.hints.jsonl`);
+      fs.writeFileSync(dst, sanitizeArtifactText(hintChunks.filter(Boolean).join('\n') + '\n', repoDir), 'utf8');
+      hintsPath = path.relative(rawDir, dst).replace(/\\/g, '/');
+    }
+  }
+
+  return { transcriptPath, ledgerPath, hintsPath };
+}
+
+async function executeAbRun({ spec, task, claudeExe, proxy, caps, workBaseDir, rawDir = null, onWireObserve }) {
   const workRoot = path.join(workBaseDir, spec.run_id);
   const repoDir = path.join(workRoot, 'repo');
   const homeDir = path.join(workRoot, 'home');
   const cfgDir = path.join(workRoot, 'cfg');
   const settingsPath = path.join(workRoot, 'settings.json');
+  const isExploration = Boolean(task?.is_exploration);
+  const visibleDir = isExploration ? EXP_VISIBLE_DIR : VISIBLE_DIR;
+  const hiddenDir = isExploration ? EXP_HIDDEN_DIR : HIDDEN_DIR;
   const nonce = crypto.createHash('sha256').update(`${spec.run_id}_${Date.now()}`).digest('hex').slice(0, 10);
   const salt = `Benchmark-Run-Salt: ${spec.run_id}_${nonce}`;
 
-  fs.rmSync(workRoot, { recursive: true, force: true });
+  rmDirBestEffort(workRoot, { label: 'pre_work' });
   fs.mkdirSync(homeDir, { recursive: true });
   fs.mkdirSync(cfgDir, { recursive: true });
   copyDirClean(TEMPLATE_DIR, repoDir);
-  fs.copyFileSync(path.join(VISIBLE_DIR, `${task.task_id}.visible.test.mjs`), path.join(repoDir, 'test', 'task_visible.test.mjs'));
-  applyRealisticScaleOverlay(repoDir, task);
+  fs.copyFileSync(path.join(visibleDir, `${task.task_id}.visible.test.mjs`), path.join(repoDir, 'test', 'task_visible.test.mjs'));
+  if (isExploration) {
+    applyExplorationOverlay(repoDir, task);
+  } else {
+    applyRealisticScaleOverlay(repoDir, task);
+  }
 
   for (const gitArgs of [
     ['init'],
@@ -325,7 +660,14 @@ async function executeAbRun({ spec, task, claudeExe, proxy, caps, workBaseDir, o
   env.CLAUDE_CONFIG_DIR = cfgDir;
   env.HOME = homeDir;
   env.USERPROFILE = homeDir;
+  if (isExploration || spec.arm === 'HIGHBEAM_SCOUT') {
+    env.ANTHROPIC_DEFAULT_HAIKU_MODEL = 'claude-haiku-5-5';
+  }
 
+  const toolsArg =
+    isExploration || spec.arm === 'HIGHBEAM_SCOUT'
+      ? 'Read,Edit,Write,Bash,Grep,Glob,Agent'
+      : 'Read,Edit,Write,Bash,Grep,Glob';
   const args = [
     '-p',
     '--input-format', 'stream-json',
@@ -334,14 +676,20 @@ async function executeAbRun({ spec, task, claudeExe, proxy, caps, workBaseDir, o
     '--permission-mode', 'plan',
     '--allow-dangerously-skip-permissions',
     '--permission-prompts', 'none',
-    '--tools', 'Read,Edit,Write,Bash,Grep,Glob',
+    '--tools', toolsArg,
     '--model', SONNET_CLI,
     '--effort', 'medium',
     '--append-system-prompt', salt,
     '--settings', settingsPath,
     '--setting-sources', 'local'
   ];
+  if (spec.arm === 'HIGHBEAM_SCOUT') {
+    const agentsJsonPath = path.join(workRoot, 'agents.json');
+    fs.writeFileSync(agentsJsonPath, JSON.stringify(buildHaikuScoutAgentsPayload(), null, 2), 'utf8');
+    args.push('--agents', agentsJsonPath);
+  }
 
+  const wireLogOffsetBytes = fs.existsSync(proxy.wireLogPath) ? fs.statSync(proxy.wireLogPath).size : 0;
   proxy.beginRun(spec.run_id);
   const runStartMs = Date.now();
   const child = spawn(claudeExe, args, {
@@ -412,26 +760,17 @@ async function executeAbRun({ spec, task, claudeExe, proxy, caps, workBaseDir, o
   let completed = false;
   let capReason = '';
   let constraintViolations = 0;
-  const wireObs = {
-    requests: 0,
-    totalMessagesChars: 0,
-    finalMessagesChars: 0,
-    specReadResultChars: 0,
-    specShieldDenied: false,
-    specShieldClamped: false,
-    bashDiagResultChars: 0,
-    postEditReadResultChars: 0,
-    postEditFoldContextInjected: false
-  };
+  const wireObs = createEmptyWireObs();
   if (onWireObserve) onWireObserve(spec.run_id, wireObs);
 
   try {
-    // Turn 1: Plan mode (neutral prompt identical on both arms)
-    proxy.beginTurn(1, { runId: spec.run_id, arm: spec.arm, rep: 1, taskId: task.task_id, difficulty: task.difficulty, phase: 'plan' });
+    // Turn 1: Plan mode (neutral prompt identical across all arms)
+    proxy.beginTurn(1, { runId: spec.run_id, arm: spec.arm, rep: spec.rep ?? 1, taskId: task.task_id, difficulty: task.difficulty, phase: 'plan' });
     const t1Idx = events.length;
+    const turn1Prompt = isExploration ? buildTurn1Prompt(task) : buildAbTurn1Prompt(task);
     child.stdin.write(JSON.stringify({
       type: 'user',
-      message: { role: 'user', content: buildAbTurn1Prompt(task) }
+      message: { role: 'user', content: turn1Prompt }
     }) + '\n');
     const t1Res = await waitForEvent((e) => e.type === 'result', 240_000, t1Idx);
     turnsCompleted = 1;
@@ -452,12 +791,12 @@ async function executeAbRun({ spec, task, claudeExe, proxy, caps, workBaseDir, o
       }
 
       // Turn 2+: Implement + retry loop
-      let nextPrompt = AB_TURN2_IMPLEMENT_PROMPT;
+      let nextPrompt = isExploration ? TURN2_IMPLEMENT_PROMPT : AB_TURN2_IMPLEMENT_PROMPT;
       for (let turn = 2; turn <= caps.maxHarnessTurns; turn += 1) {
         proxy.beginTurn(turn, {
           runId: spec.run_id,
           arm: spec.arm,
-          rep: 1,
+          rep: spec.rep ?? 1,
           taskId: task.task_id,
           difficulty: task.difficulty,
           phase: turn === 2 ? 'implement' : `retry_${turn - 2}`
@@ -473,7 +812,7 @@ async function executeAbRun({ spec, task, claudeExe, proxy, caps, workBaseDir, o
           capReason = tRes.capReason || proxy.getState().capReason;
           break;
         }
-        const evalRes = evaluateHiddenSuite({ runId: spec.run_id, turn, taskId: task.task_id, repoDir, hiddenDir: HIDDEN_DIR });
+        const evalRes = evaluateHiddenSuite({ runId: spec.run_id, turn, taskId: task.task_id, repoDir, hiddenDir });
         constraintViolations = evalRes.constraintViolations;
         if (evalRes.passed) {
           completed = true;
@@ -502,7 +841,9 @@ async function executeAbRun({ spec, task, claudeExe, proxy, caps, workBaseDir, o
   }
 
   const wallTimeS = (Date.now() - runStartMs) / 1000;
-  const wireAll = fs.readFileSync(proxy.wireLogPath, 'utf8')
+  const wireBuf = fs.existsSync(proxy.wireLogPath) ? fs.readFileSync(proxy.wireLogPath) : Buffer.alloc(0);
+  const rawWireText = wireBuf.subarray(Math.min(wireLogOffsetBytes, wireBuf.length)).toString('utf8');
+  const wireAll = rawWireText
     .split(/\r?\n/)
     .filter(Boolean)
     .map((l) => JSON.parse(l))
@@ -514,12 +855,35 @@ async function executeAbRun({ spec, task, claudeExe, proxy, caps, workBaseDir, o
   const billedRead = wireAll.reduce((s, w) => s + Number(w.usage?.cache_read_input_tokens || 0), 0);
   const highbeamHooks = readHighbeamHookStats(repoDir);
   const billedOut = wireAll.reduce((s, w) => s + Number(w.usage?.output_tokens || 0), 0);
+  const byModel = {};
+  for (const w of wireAll) {
+    const mk = String(w.mappedModel || w.requestedModel || 'unknown');
+    if (!byModel[mk]) {
+      byModel[mk] = {
+        requests: 0,
+        billedUsd: 0,
+        inputTokens: 0,
+        cacheCreateTokens: 0,
+        cacheReadTokens: 0,
+        outputTokens: 0
+      };
+    }
+    const bm = byModel[mk];
+    bm.requests += 1;
+    bm.billedUsd = Number((bm.billedUsd + Number(w.billedCostUsd ?? w.cost?.totalCostUsd ?? 0)).toFixed(6));
+    bm.inputTokens += Number(w.usage?.input_tokens || 0);
+    bm.cacheCreateTokens += Number(w.usage?.cache_creation_input_tokens || 0);
+    bm.cacheReadTokens += Number(w.usage?.cache_read_input_tokens || 0);
+    bm.outputTokens += Number(w.usage?.output_tokens || 0);
+  }
+  const artifacts = persistRunArtifacts({ rawDir, spec, repoDir, cfgDir, homeDir });
 
-  fs.rmSync(workRoot, { recursive: true, force: true });
+  rmDirBestEffort(workRoot, { label: spec.run_id });
 
   return {
     run_id: spec.run_id,
     arm: spec.arm,
+    rep: spec.rep ?? 1,
     task_id: task.task_id,
     difficulty: task.difficulty,
     completed,
@@ -528,6 +892,7 @@ async function executeAbRun({ spec, task, claudeExe, proxy, caps, workBaseDir, o
     constraint_violations: constraintViolations,
     wall_time_s: Number(wallTimeS.toFixed(2)),
     highbeamHooks,
+    artifacts,
     wireObs: {
       ...wireObs,
       estCumulativeMessagesTok: Math.ceil(wireObs.totalMessagesChars / 4),
@@ -539,7 +904,8 @@ async function executeAbRun({ spec, task, claudeExe, proxy, caps, workBaseDir, o
       inputTokens: billedIn,
       cacheCreateTokens: billedCreate,
       cacheReadTokens: billedRead,
-      outputTokens: billedOut
+      outputTokens: billedOut,
+      byModel
     }
   };
 }
@@ -585,14 +951,6 @@ async function runDryRunMock() {
 
       const pState = proxy.getState();
       const ctxRun = pState.runId || pState.activeContext?.runId || '';
-      const obs = wireObsByRun.get(ctxRun);
-      const msgsStr = JSON.stringify(parsed.messages || []);
-      if (obs) {
-        obs.requests += 1;
-        obs.totalMessagesChars += msgsStr.length;
-        obs.finalMessagesChars = msgsStr.length;
-      }
-
       const messages = parsed.messages || [];
       const trailingUser = [];
       for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -618,8 +976,110 @@ async function runDryRunMock() {
       const lastResult = trailingResults[trailingResults.length - 1];
       const lastResText = extractResultText(lastResult);
       const phase = pState.activeContext?.phase || 'plan';
-      if (lastResult?.is_error && obs && !lastResText.includes('.agents/cache/indices/')) {
+      if (lastResult?.is_error && wireObsByRun.has(ctxRun) && !lastResText.includes('.agents/cache/indices/')) {
         console.log('[WIRE_ERR]', ctxRun, phase, lastTool?.name, lastResText.slice(0, 160));
+      }
+
+      if (ctxRun.startsWith('T09_')) {
+        if (/haiku/i.test(String(parsed.model || ''))) {
+          writeMockSse(res, {
+            model: parsed.model,
+            msgId: `m_${reqSeq}`,
+            stopReason: 'end_turn',
+            isWarm: false,
+            cost: 0.0005,
+            contentBlocks: [
+              {
+                type: 'text',
+                text: 'Files & Coordinates:\n- src/policies/discountStackingPolicy.mjs:L12-L44\n- src/policies/fxConversionPolicy.mjs:L16-L52\n- src/services/billingOrchestrator.mjs:L12-L60'
+              }
+            ]
+          });
+          return;
+        }
+        const refT09Disc =
+          fs.readFileSync(path.join(EXP_REF_DIR, 'T09', 'src', 'policies', 'discountStackingPolicy.mjs'), 'utf8').trimEnd() +
+          '\n\n// Standard coupon schedule reference helpers\n' +
+          buildExplorationPadLines('discountSchedule', 92) +
+          '\n';
+        const refT09Fx =
+          fs.readFileSync(path.join(EXP_REF_DIR, 'T09', 'src', 'policies', 'fxConversionPolicy.mjs'), 'utf8').trimEnd() +
+          '\n\n// Triangulated FX corridor reference helpers\n' +
+          buildExplorationPadLines('fxCorridor', 90) +
+          '\n';
+        const refT09Orch =
+          fs.readFileSync(path.join(EXP_REF_DIR, 'T09', 'src', 'services', 'billingOrchestrator.mjs'), 'utf8').trimEnd() +
+          '\n\n' +
+          buildExplorationPadLines('billingPipeline', 90) +
+          '\n';
+        if (phase === 'plan') {
+          if (trailingResults.length === 0) {
+            writeMockSse(res, {
+              model: parsed.model,
+              msgId: `m_${reqSeq}`,
+              stopReason: 'tool_use',
+              contentBlocks: [
+                {
+                  type: 'tool_use',
+                  id: `tu_agent_${reqSeq}`,
+                  name: 'Agent',
+                  input: {
+                    subagent_type: 'Explore',
+                    description: 'Locate billing policies and FX orchestrator',
+                    prompt: 'Search src/ policies, services, and docs/runbooks/ to locate discount stacking, FX conversion, and cross-border invoice code.'
+                  }
+                }
+              ]
+            });
+            return;
+          }
+          writeMockSse(res, {
+            model: parsed.model,
+            msgId: `m_${reqSeq}`,
+            stopReason: 'end_turn',
+            isWarm: true,
+            contentBlocks: [{ type: 'text', text: 'Plan: Haiku scout located T09 policy and billing orchestrator modules.' }]
+          });
+          return;
+        }
+        if (trailingText.includes('Now implement your plan') && trailingResults.length === 0) {
+          writeMockSse(res, {
+            model: parsed.model,
+            msgId: `m_${reqSeq}`,
+            stopReason: 'tool_use',
+            isWarm: true,
+            contentBlocks: [{ type: 'tool_use', id: `tu_w1_${reqSeq}`, name: 'Write', input: { file_path: 'src/policies/discountStackingPolicy.mjs', content: refT09Disc } }]
+          });
+          return;
+        }
+        if (lastTool?.name === 'Write' && String(lastTool.input?.file_path).endsWith('discountStackingPolicy.mjs')) {
+          writeMockSse(res, {
+            model: parsed.model,
+            msgId: `m_${reqSeq}`,
+            stopReason: 'tool_use',
+            isWarm: true,
+            contentBlocks: [{ type: 'tool_use', id: `tu_w2_${reqSeq}`, name: 'Write', input: { file_path: 'src/policies/fxConversionPolicy.mjs', content: refT09Fx } }]
+          });
+          return;
+        }
+        if (lastTool?.name === 'Write' && String(lastTool.input?.file_path).endsWith('fxConversionPolicy.mjs')) {
+          writeMockSse(res, {
+            model: parsed.model,
+            msgId: `m_${reqSeq}`,
+            stopReason: 'tool_use',
+            isWarm: true,
+            contentBlocks: [{ type: 'tool_use', id: `tu_w3_${reqSeq}`, name: 'Write', input: { file_path: 'src/services/billingOrchestrator.mjs', content: refT09Orch } }]
+          });
+          return;
+        }
+        writeMockSse(res, {
+          model: parsed.model,
+          msgId: `m_${reqSeq}`,
+          stopReason: 'end_turn',
+          isWarm: true,
+          contentBlocks: [{ type: 'text', text: 'Implemented and verified T09.' }]
+        });
+        return;
       }
 
       const refT01 = fs.readFileSync(path.join(REF_DIR, 'T01', 'src', 'tierEngine.mjs'), 'utf8');
@@ -635,9 +1095,7 @@ async function runDryRunMock() {
           return;
         }
         if (lastTool?.name === 'Read' && String(lastTool.input?.file_path).includes('ARCHITECTURE_SPEC.md') && lastTool.input?.limit === undefined) {
-          if (obs) obs.specReadResultChars += lastResText.length;
           if (!lastResult?.is_error && trailingText.includes('Highbeam Shield clamped wide unsliced Read')) {
-            if (obs) obs.specShieldClamped = true;
             writeMockSse(res, {
               model: parsed.model,
               msgId: `m_${reqSeq}`,
@@ -649,7 +1107,6 @@ async function runDryRunMock() {
           }
           const idxMatch = lastResText.match(/(\.agents\/cache\/indices\/[^\s:]+\.index\.md)/);
           if (lastResult?.is_error && idxMatch) {
-            if (obs) obs.specShieldDenied = true;
             writeMockSse(res, {
               model: parsed.model,
               msgId: `m_${reqSeq}`,
@@ -669,7 +1126,6 @@ async function runDryRunMock() {
           return;
         }
         if (lastTool?.name === 'Read' && String(lastTool.input?.file_path).endsWith('.index.md')) {
-          if (obs) obs.specReadResultChars += lastResText.length;
           writeMockSse(res, {
             model: parsed.model,
             msgId: `m_${reqSeq}`,
@@ -678,9 +1134,6 @@ async function runDryRunMock() {
             contentBlocks: [{ type: 'tool_use', id: `tu_slice_${reqSeq}`, name: 'Read', input: { file_path: 'docs/ARCHITECTURE_SPEC.md', offset: 115, limit: 35 } }]
           });
           return;
-        }
-        if (lastTool?.name === 'Read' && lastTool.input?.limit === 35) {
-          if (obs) obs.specReadResultChars += lastResText.length;
         }
         writeMockSse(res, {
           model: parsed.model,
@@ -704,7 +1157,6 @@ async function runDryRunMock() {
         return;
       }
       if (lastTool?.name === 'Bash') {
-        if (obs) obs.bashDiagResultChars += lastResText.length;
         writeMockSse(res, {
           model: parsed.model,
           msgId: `m_${reqSeq}`,
@@ -734,12 +1186,6 @@ async function runDryRunMock() {
         });
         return;
       }
-      if (lastTool?.name === 'Read' && String(lastTool.input?.file_path).endsWith('tierEngine.mjs') && lastTool.input?.limit === undefined) {
-        if (obs) {
-          obs.postEditReadResultChars += lastResText.length;
-          obs.postEditFoldContextInjected = trailingText.includes('GUARD-4 Post-Edit Verify Fold');
-        }
-      }
       writeMockSse(res, {
         model: parsed.model,
         msgId: `m_${reqSeq}`,
@@ -760,14 +1206,18 @@ async function runDryRunMock() {
     apiKey: 'sk-or-v1-dryrun-ab-00000000',
     wireLogPath,
     pinProvider: true,
-    caps
+    caps,
+    onRequestObserve: ({ runId, parsedReq, context }) => {
+      const obs = wireObsByRun.get(runId);
+      if (obs) observeWireRequest(obs, parsedReq, context);
+    }
   });
 
   try {
     const taskT01 = TASKS.find((t) => t.task_id === 'T01');
     const runs = [];
-    for (const arm of ['BASELINE', 'HIGHBEAM']) {
-      const spec = { run_id: `T01_${arm}_dry`, arm, task_id: 'T01', difficulty: taskT01.difficulty };
+    for (const arm of AB_ARMS) {
+      const spec = { run_id: `T01_${arm}_dry`, arm, rep: 1, task_id: 'T01', difficulty: taskT01.difficulty };
       const r = await executeAbRun({
         spec,
         task: taskT01,
@@ -775,38 +1225,100 @@ async function runDryRunMock() {
         proxy,
         caps,
         workBaseDir,
+        rawDir,
         onWireObserve: (runId, obj) => wireObsByRun.set(runId, obj)
       });
       assert.equal(r.completed, true, `${spec.run_id} must pass hidden T01 tests (cap=${r.cap_reason}, turns=${r.turns})`);
+      assert.ok(r.wireObs.requests > 0, `${spec.run_id} must capture wireObs.requests > 0`);
+      assert.ok(r.wireObs.estCumulativeMessagesTok > 0, `${spec.run_id} must capture estCumulativeMessagesTok > 0`);
       runs.push(r);
     }
 
-    const [base, hb] = runs;
+    const [base, shieldOff, hb] = runs;
+    assert.equal(shieldOff.highbeamHooks.shieldClampsTotal, 0, 'HIGHBEAM_SHIELD_OFF must have 0 Shield clamps');
+    assert.equal(shieldOff.highbeamHooks.shieldBlocksTotal, 0, 'HIGHBEAM_SHIELD_OFF must have 0 Shield blocks');
+    assert.ok(
+      shieldOff.wireObs.bashDiagResultChars < base.wireObs.bashDiagResultChars,
+      'HIGHBEAM_SHIELD_OFF must still compress Bash diagnostic output via PostToolUse'
+    );
+    assert.ok(
+      hb.highbeamHooks.shieldClampsTotal >= 1 || hb.highbeamHooks.shieldBlocksTotal >= 1,
+      'HIGHBEAM must trigger at least one Shield clamp or block on unsliced T01 read'
+    );
+    assert.ok(
+      hb.wireObs.specReadResultChars < base.wireObs.specReadResultChars,
+      'HIGHBEAM must reduce specReadResultChars relative to BASELINE'
+    );
+    assert.ok(fs.existsSync(wireLogPath), 'wireLogPath must exist on disk');
+    assert.ok(
+      hb.artifacts?.transcriptPath && fs.existsSync(path.join(rawDir, hb.artifacts.transcriptPath)),
+      'Persisted redacted transcript must exist for HIGHBEAM dry run'
+    );
+    assert.ok(
+      hb.artifacts?.ledgerPath && fs.existsSync(path.join(rawDir, hb.artifacts.ledgerPath)),
+      'Persisted ledger JSONL must exist for HIGHBEAM dry run'
+    );
+
     const savedTotalTok = base.wireObs.estCumulativeMessagesTok - hb.wireObs.estCumulativeMessagesTok;
     const pctSaved = base.wireObs.estCumulativeMessagesTok > 0
       ? Number(((savedTotalTok / base.wireObs.estCumulativeMessagesTok) * 100).toFixed(1))
       : 0;
 
+    // Verify HIGHBEAM_SCOUT on exploration task T09: real claude.exe accepts --agents & re-tiers Explore -> haiku in COACH
+    const taskT09 = EXPLORATION_TASKS.find((t) => t.task_id === 'T09');
+    const scoutRun = await executeAbRun({
+      spec: {
+        run_id: 'T09_HIGHBEAM_SCOUT_dry',
+        arm: 'HIGHBEAM_SCOUT',
+        rep: 1,
+        task_id: 'T09',
+        difficulty: taskT09.difficulty
+      },
+      task: taskT09,
+      claudeExe,
+      proxy,
+      caps,
+      workBaseDir,
+      rawDir,
+      onWireObserve: (runId, obj) => wireObsByRun.set(runId, obj)
+    });
+    assert.equal(
+      scoutRun.completed,
+      true,
+      `T09_HIGHBEAM_SCOUT_dry must pass hidden T09 tests (cap=${scoutRun.cap_reason}, turns=${scoutRun.turns})`
+    );
+    assert.ok(
+      scoutRun.wireObs.haikuRequests >= 1,
+      `T09_HIGHBEAM_SCOUT_dry must route child read-only scout to haiku on the wire (seen=${JSON.stringify(scoutRun.wireObs.modelsSeen)})`
+    );
+    assert.ok(
+      Number(scoutRun.billing?.byModel?.['anthropic/claude-haiku-5.5']?.requests || 0) >= 1,
+      `T09_HIGHBEAM_SCOUT_dry must record anthropic/claude-haiku-5.5 billing breakdown (${JSON.stringify(scoutRun.billing?.byModel)})`
+    );
+
     console.log('TEST_B_DRY_RUN_AB_PASS');
     console.log(JSON.stringify({
       baseline: base,
+      highbeamShieldOff: shieldOff,
       highbeam: hb,
+      highbeamScout: scoutRun,
       delta: {
         estCumulativeMessagesTokSaved: savedTotalTok,
         estCumulativeMessagesPctSaved: pctSaved,
         specReadCharsDelta: base.wireObs.specReadResultChars - hb.wireObs.specReadResultChars,
         bashDiagCharsDelta: base.wireObs.bashDiagResultChars - hb.wireObs.bashDiagResultChars,
+        bashDiagCharsDeltaShieldOff: base.wireObs.bashDiagResultChars - shieldOff.wireObs.bashDiagResultChars,
         postEditReadCharsDelta: base.wireObs.postEditReadResultChars - hb.wireObs.postEditReadResultChars
       }
     }, null, 2));
   } finally {
     await proxy.close();
     mockUpstream.close();
-    fs.rmSync(root, { recursive: true, force: true });
+    rmDirBestEffort(root, { label: 'dry_run_root' });
   }
 }
 
-function summarizeAbArm(list = []) {
+export function summarizeAbArm(list = []) {
   const count = list.length;
   const completedCount = list.filter((r) => r.completed).length;
   const billedUsd = list.reduce((s, r) => s + Number(r.billing?.billedUsd || 0), 0);
@@ -818,10 +1330,84 @@ function summarizeAbArm(list = []) {
   const turns = list.reduce((s, r) => s + Number(r.turns || 0), 0);
   const wallTimeS = list.reduce((s, r) => s + Number(r.wall_time_s || 0), 0);
   const ledgerSavedTokens = list.reduce((s, r) => s + Number(r.highbeamHooks?.ledgerSavedTokens || 0), 0);
+  const ledgerAvoidedWriteTokens = list.reduce(
+    (s, r) => s + Number(r.highbeamHooks?.ledgerBuckets?.avoidedWriteTokens ?? r.highbeamHooks?.ledgerSavedTokens ?? 0),
+    0
+  );
+  const ledgerAvoidedWriteUsd = list.reduce(
+    (s, r) => s + Number(r.highbeamHooks?.ledgerBuckets?.avoidedWriteUsd || 0),
+    0
+  );
   const totalReceipts = list.reduce((s, r) => s + Number(r.highbeamHooks?.totalReceipts || 0), 0);
   const shieldBlocksByteCap = list.reduce((s, r) => s + Number(r.highbeamHooks?.shieldBlocksByteCap || 0), 0);
   const shieldClampsByteCap = list.reduce((s, r) => s + Number(r.highbeamHooks?.shieldClampsByteCap || 0), 0);
+  const shieldClampsExplicitSlice = list.reduce(
+    (s, r) => s + Number(r.highbeamHooks?.shieldClampsExplicitSlice || 0),
+    0
+  );
+  const shieldClampsTotal = list.reduce(
+    (s, r) =>
+      s +
+      Number(
+        r.highbeamHooks?.shieldClampsTotal ??
+          (Number(r.highbeamHooks?.shieldClampsByteCap || 0) +
+            Number(r.highbeamHooks?.shieldClampsExplicitSlice || 0))
+      ),
+    0
+  );
   const shieldBlocksLineCap = list.reduce((s, r) => s + Number(r.highbeamHooks?.shieldBlocksLineCap || 0), 0);
+  const shieldBlocksOversizedSlice = list.reduce(
+    (s, r) => s + Number(r.highbeamHooks?.shieldBlocksOversizedSlice || 0),
+    0
+  );
+  const shieldBlocksTotal = list.reduce(
+    (s, r) =>
+      s +
+      Number(
+        r.highbeamHooks?.shieldBlocksTotal ??
+          (Number(r.highbeamHooks?.shieldBlocksByteCap || 0) +
+            Number(r.highbeamHooks?.shieldBlocksLineCap || 0) +
+            Number(r.highbeamHooks?.shieldBlocksOversizedSlice || 0))
+      ),
+    0
+  );
+  const wireObsRequests = list.reduce((s, r) => s + Number(r.wireObs?.requests || 0), 0);
+  const wireObsHaikuRequests = list.reduce((s, r) => s + Number(r.wireObs?.haikuRequests || 0), 0);
+  const wireObsSonnetRequests = list.reduce((s, r) => s + Number(r.wireObs?.sonnetRequests || 0), 0);
+  const wireObsSubagentSpawns = list.reduce(
+    (s, r) => s + (Array.isArray(r.wireObs?.subagentSpawns) ? r.wireObs.subagentSpawns.length : 0),
+    0
+  );
+  const wireObsEstCumulativeMessagesTok = list.reduce(
+    (s, r) => s + Number(r.wireObs?.estCumulativeMessagesTok || 0),
+    0
+  );
+  const wireObsTotalToolResultChars = list.reduce(
+    (s, r) => s + Number(r.wireObs?.totalToolResultChars || 0),
+    0
+  );
+  const byModel = {};
+  for (const r of list) {
+    for (const [mk, bm] of Object.entries(r.billing?.byModel || {})) {
+      if (!byModel[mk]) {
+        byModel[mk] = {
+          requests: 0,
+          billedUsd: 0,
+          inputTokens: 0,
+          cacheCreateTokens: 0,
+          cacheReadTokens: 0,
+          outputTokens: 0
+        };
+      }
+      byModel[mk].requests += Number(bm.requests || 0);
+      byModel[mk].billedUsd = Number((byModel[mk].billedUsd + Number(bm.billedUsd || 0)).toFixed(6));
+      byModel[mk].inputTokens += Number(bm.inputTokens || 0);
+      byModel[mk].cacheCreateTokens += Number(bm.cacheCreateTokens || 0);
+      byModel[mk].cacheReadTokens += Number(bm.cacheReadTokens || 0);
+      byModel[mk].outputTokens += Number(bm.outputTokens || 0);
+    }
+  }
+
   return {
     runs: count,
     completed: completedCount,
@@ -837,18 +1423,35 @@ function summarizeAbArm(list = []) {
     requests,
     turns,
     wallTimeS: Number(wallTimeS.toFixed(2)),
+    byModel,
+    wireObs: {
+      requests: wireObsRequests,
+      haikuRequests: wireObsHaikuRequests,
+      sonnetRequests: wireObsSonnetRequests,
+      subagentSpawns: wireObsSubagentSpawns,
+      estCumulativeMessagesTok: wireObsEstCumulativeMessagesTok,
+      totalToolResultChars: wireObsTotalToolResultChars
+    },
     highbeamHooks: {
       totalReceipts,
       ledgerSavedTokens,
+      ledgerAvoidedWriteTokens,
+      ledgerAvoidedWriteUsd: Number(ledgerAvoidedWriteUsd.toFixed(6)),
       shieldBlocksByteCap,
       shieldClampsByteCap,
-      shieldBlocksLineCap
+      shieldClampsExplicitSlice,
+      shieldClampsTotal,
+      shieldBlocksLineCap,
+      shieldBlocksOversizedSlice,
+      shieldBlocksTotal
     }
   };
 }
 
 async function runLiveAb({
   taskIds = ['T01', 'T02', 'T03', 'T04', 'T05', 'T06', 'T07', 'T08'],
+  arms = AB_ARMS,
+  reps = 1,
   maxStageSpendUsd = 5,
   resume = false
 }) {
@@ -857,7 +1460,10 @@ async function runLiveAb({
   const claudeExe = findClaudeExe();
   const keyBefore = await httpsGetKeyUsage(apiKey);
   fs.mkdirSync(RESULTS_DIR, { recursive: true });
+  const rawDir = path.join(RESULTS_DIR, 'highbeam_ab_raw');
+  fs.mkdirSync(rawDir, { recursive: true });
   const checkpointPath = path.join(RESULTS_DIR, 'highbeam_ab_checkpoint.jsonl');
+  const wireLogPath = path.join(rawDir, 'proxy_wire_log.jsonl');
 
   const priorById = new Map();
   if (resume && fs.existsSync(checkpointPath)) {
@@ -869,14 +1475,26 @@ async function runLiveAb({
         void err;
       }
     }
-  } else if (!resume && fs.existsSync(checkpointPath)) {
-    fs.writeFileSync(checkpointPath, '', 'utf8');
+    const pruned = pruneOrphanWireLog(wireLogPath, new Set(priorById.keys()));
+    if (pruned.pruned > 0) {
+      console.log(`[AB resume] Pruned ${pruned.pruned} orphan wire log rows not in checkpoint`);
+    }
+  } else if (!resume) {
+    if (fs.existsSync(checkpointPath)) fs.writeFileSync(checkpointPath, '', 'utf8');
+    if (fs.existsSync(wireLogPath)) fs.writeFileSync(wireLogPath, '', 'utf8');
   }
 
   const runRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'hb-ab-live-'));
-  const wireLogPath = path.join(runRoot, 'wire.jsonl');
   const workBaseDir = path.join(runRoot, 'work');
-  const caps = { ...resolveCptCaps(), maxRunCostUsd: 1.50 };
+  const hasExplorationTasks = taskIds.some((id) => EXPLORATION_TASKS.some((t) => t.task_id === id));
+  const caps = {
+    ...resolveCptCaps({
+      maxRequestsPerRun: hasExplorationTasks ? 140 : 100,
+      maxRequestsPerTurn: hasExplorationTasks ? 50 : 30
+    }),
+    maxRunCostUsd: hasExplorationTasks ? 2.0 : 1.50
+  };
+  const wireObsByRun = new Map();
   const proxy = await startCptProxyServer({
     port: 0,
     upstreamBaseUrl: 'https://openrouter.ai',
@@ -884,21 +1502,30 @@ async function runLiveAb({
     apiKey,
     wireLogPath,
     pinProvider: true,
-    caps
+    caps,
+    onRequestObserve: ({ runId, parsedReq, context }) => {
+      const obs = wireObsByRun.get(runId);
+      if (obs) observeWireRequest(obs, parsedReq, context);
+    }
   });
 
+  const activeArms = arms.length > 0 ? arms : AB_ARMS;
+  const repCount = Math.max(1, Math.round(Number(reps) || 1));
   const schedule = [];
-  for (let i = 0; i < taskIds.length; i += 1) {
-    const taskId = taskIds[i];
-    const task = TASKS.find((t) => t.task_id === taskId);
-    if (!task) throw new Error(`Unknown task_id: ${taskId}`);
-    const order = i % 2 === 0 ? ['BASELINE', 'HIGHBEAM'] : ['HIGHBEAM', 'BASELINE'];
-    for (const arm of order) {
-      schedule.push({ run_id: `${taskId}_${arm}_live`, arm, task_id: taskId, difficulty: task.difficulty, task });
+  for (let rep = 1; rep <= repCount; rep += 1) {
+    for (let i = 0; i < taskIds.length; i += 1) {
+      const taskId = taskIds[i];
+      const task = ALL_TASKS.find((t) => t.task_id === taskId);
+      if (!task) throw new Error(`Unknown task_id: ${taskId}`);
+      const shift = (i + rep - 1) % activeArms.length;
+      const orderedArms = [...activeArms.slice(shift), ...activeArms.slice(0, shift)];
+      for (const arm of orderedArms) {
+        const run_id = repCount === 1 ? `${taskId}_${arm}_live` : `${taskId}_${arm}_r${rep}_live`;
+        schedule.push({ run_id, arm, rep, task_id: taskId, difficulty: task.difficulty, task });
+      }
     }
   }
 
-  const wireObsByRun = new Map();
   const results = [];
   let spendSoFar = 0;
   for (const r of priorById.values()) {
@@ -924,56 +1551,159 @@ async function runLiveAb({
         proxy,
         caps,
         workBaseDir,
+        rawDir,
         onWireObserve: (id, obj) => wireObsByRun.set(id, obj)
       });
       fs.appendFileSync(checkpointPath, JSON.stringify(res) + '\n', 'utf8');
       spendSoFar += Number(res.billing?.billedUsd || 0);
       results.push(res);
       console.log(
-        `[AB ${idx + 1}/${schedule.length}] ${res.run_id} | ok=${res.completed} | turns=${res.turns} | reqs=${res.billing.requests} | billed=$${res.billing.billedUsd.toFixed(4)} | hooks=${res.highbeamHooks.totalReceipts}(saved=${res.highbeamHooks.ledgerSavedTokens}tok) | cum=$${spendSoFar.toFixed(4)}`
+        `[AB ${idx + 1}/${schedule.length}] ${res.run_id} | ok=${res.completed} | turns=${res.turns} | reqs=${res.billing.requests} | wire=${res.wireObs.requests} | billed=$${res.billing.billedUsd.toFixed(4)} | clamps=${res.highbeamHooks.shieldClampsTotal} | hooks=${res.highbeamHooks.totalReceipts}(saved=${res.highbeamHooks.ledgerSavedTokens}tok) | cum=$${spendSoFar.toFixed(4)}`
       );
     }
   } finally {
     await proxy.close();
-    fs.rmSync(runRoot, { recursive: true, force: true });
+    rmDirBestEffort(runRoot, { label: 'live_run_root' });
   }
 
   await new Promise((r) => setTimeout(r, 15_000));
   const keyAfter = await httpsGetKeyUsage(apiKey);
 
   const baseRuns = results.filter((r) => r.arm === 'BASELINE');
+  const shieldOffRuns = results.filter((r) => r.arm === 'HIGHBEAM_SHIELD_OFF');
   const hbRuns = results.filter((r) => r.arm === 'HIGHBEAM');
+  const scoutRuns = results.filter((r) => r.arm === 'HIGHBEAM_SCOUT');
   const baseSum = summarizeAbArm(baseRuns);
+  const shieldOffSum = shieldOffRuns.length > 0 ? summarizeAbArm(shieldOffRuns) : null;
   const hbSum = summarizeAbArm(hbRuns);
+  const scoutSum = scoutRuns.length > 0 ? summarizeAbArm(scoutRuns) : null;
   const costDeltaUsd = Number((hbSum.totalBilledUsd - baseSum.totalBilledUsd).toFixed(6));
   const costDeltaPct = baseSum.totalBilledUsd > 0
     ? Number((((hbSum.totalBilledUsd - baseSum.totalBilledUsd) / baseSum.totalBilledUsd) * 100).toFixed(2))
     : 0;
+  const shieldOffVsBaseline = shieldOffSum
+    ? {
+        costDeltaUsd: Number((shieldOffSum.totalBilledUsd - baseSum.totalBilledUsd).toFixed(6)),
+        costDeltaPct:
+          baseSum.totalBilledUsd > 0
+            ? Number((((shieldOffSum.totalBilledUsd - baseSum.totalBilledUsd) / baseSum.totalBilledUsd) * 100).toFixed(2))
+            : 0,
+        requestsDelta: shieldOffSum.requests - baseSum.requests
+      }
+    : null;
+  const highbeamVsShieldOff = shieldOffSum
+    ? {
+        costDeltaUsd: Number((hbSum.totalBilledUsd - shieldOffSum.totalBilledUsd).toFixed(6)),
+        costDeltaPct:
+          shieldOffSum.totalBilledUsd > 0
+            ? Number((((hbSum.totalBilledUsd - shieldOffSum.totalBilledUsd) / shieldOffSum.totalBilledUsd) * 100).toFixed(2))
+            : 0,
+        requestsDelta: hbSum.requests - shieldOffSum.requests
+      }
+    : null;
+  const highbeamScoutVsBaseline = scoutSum
+    ? {
+        costDeltaUsd: Number((scoutSum.totalBilledUsd - baseSum.totalBilledUsd).toFixed(6)),
+        costDeltaPct:
+          baseSum.totalBilledUsd > 0
+            ? Number((((scoutSum.totalBilledUsd - baseSum.totalBilledUsd) / baseSum.totalBilledUsd) * 100).toFixed(2))
+            : 0,
+        requestsDelta: scoutSum.requests - baseSum.requests
+      }
+    : null;
+  const highbeamScoutVsHighbeam = scoutSum && hbRuns.length > 0
+    ? {
+        costDeltaUsd: Number((scoutSum.totalBilledUsd - hbSum.totalBilledUsd).toFixed(6)),
+        costDeltaPct:
+          hbSum.totalBilledUsd > 0
+            ? Number((((scoutSum.totalBilledUsd - hbSum.totalBilledUsd) / hbSum.totalBilledUsd) * 100).toFixed(2))
+            : 0,
+        requestsDelta: scoutSum.requests - hbSum.requests
+      }
+    : null;
+  const exPostLedgerReconciliation = {
+    highbeamVsBaseline: computeExPostRealizedSavings({
+      baselinePromptBillTokens: baseSum.totalPromptBillTokens,
+      actualPromptBillTokens: hbSum.totalPromptBillTokens,
+      baselineCostUSD: baseSum.totalBilledUsd,
+      actualCostUSD: hbSum.totalBilledUsd,
+      avoidedWriteTokens: hbSum.highbeamHooks.ledgerAvoidedWriteTokens
+    }),
+    ...(shieldOffSum
+      ? {
+          shieldOffVsBaseline: computeExPostRealizedSavings({
+            baselinePromptBillTokens: baseSum.totalPromptBillTokens,
+            actualPromptBillTokens: shieldOffSum.totalPromptBillTokens,
+            baselineCostUSD: baseSum.totalBilledUsd,
+            actualCostUSD: shieldOffSum.totalBilledUsd,
+            avoidedWriteTokens: shieldOffSum.highbeamHooks.ledgerAvoidedWriteTokens
+          })
+        }
+      : {}),
+    ...(scoutSum
+      ? {
+          highbeamScoutVsBaseline: computeExPostRealizedSavings({
+            baselinePromptBillTokens: baseSum.totalPromptBillTokens,
+            actualPromptBillTokens: scoutSum.totalPromptBillTokens,
+            baselineCostUSD: baseSum.totalBilledUsd,
+            actualCostUSD: scoutSum.totalBilledUsd,
+            avoidedWriteTokens: scoutSum.highbeamHooks.ledgerAvoidedWriteTokens
+          })
+        }
+      : {})
+  };
 
   const byTask = taskIds.map((tid) => {
-    const b = baseRuns.find((r) => r.task_id === tid) || null;
-    const h = hbRuns.find((r) => r.task_id === tid) || null;
+    const bList = baseRuns.filter((r) => r.task_id === tid);
+    const sList = shieldOffRuns.filter((r) => r.task_id === tid);
+    const hList = hbRuns.filter((r) => r.task_id === tid);
+    const scList = scoutRuns.filter((r) => r.task_id === tid);
+    const meanUsd = (arr) =>
+      arr.length > 0 ? Number((arr.reduce((s, r) => s + Number(r.billing?.billedUsd || 0), 0) / arr.length).toFixed(6)) : null;
+    const bUsd = meanUsd(bList);
+    const sUsd = meanUsd(sList);
+    const hUsd = meanUsd(hList);
+    const scUsd = meanUsd(scList);
     return {
       task_id: tid,
-      baselineUsd: b?.billing?.billedUsd ?? null,
-      highbeamUsd: h?.billing?.billedUsd ?? null,
-      deltaUsd: b && h ? Number((h.billing.billedUsd - b.billing.billedUsd).toFixed(6)) : null,
-      baselineOk: b?.completed ?? null,
-      highbeamOk: h?.completed ?? null,
-      highbeamHooks: h?.highbeamHooks ?? null
+      reps: Math.max(bList.length, sList.length, hList.length, scList.length),
+      baselineUsd: bUsd,
+      shieldOffUsd: sUsd,
+      highbeamUsd: hUsd,
+      ...(scList.length > 0 ? { highbeamScoutUsd: scUsd } : {}),
+      deltaUsd: bUsd !== null && hUsd !== null ? Number((hUsd - bUsd).toFixed(6)) : null,
+      shieldOffDeltaUsd: bUsd !== null && sUsd !== null ? Number((sUsd - bUsd).toFixed(6)) : null,
+      ...(scList.length > 0 ? { scoutDeltaUsd: bUsd !== null && scUsd !== null ? Number((scUsd - bUsd).toFixed(6)) : null } : {}),
+      baselineOk: bList.length > 0 ? bList.every((r) => r.completed) : null,
+      shieldOffOk: sList.length > 0 ? sList.every((r) => r.completed) : null,
+      highbeamOk: hList.length > 0 ? hList.every((r) => r.completed) : null,
+      ...(scList.length > 0 ? { highbeamScoutOk: scList.every((r) => r.completed) } : {}),
+      shieldOffHooks: sList[sList.length - 1]?.highbeamHooks ?? null,
+      highbeamHooks: hList[hList.length - 1]?.highbeamHooks ?? null,
+      ...(scList.length > 0 ? { highbeamScoutHooks: scList[scList.length - 1]?.highbeamHooks ?? null } : {})
     };
   });
 
   const report = {
     recordedAtUtc: new Date().toISOString(),
     model: mapCliModelToOpenRouter(SONNET_CLI),
+    arms: activeArms,
+    reps: repCount,
+    rawArtifactsDir: path.relative(REPO_ROOT, rawDir).replace(/\\/g, '/'),
     keyDeltaUsd: Number(((keyAfter.usage ?? 0) - (keyBefore.usage ?? 0)).toFixed(6)),
     summedRunUsd: Number(spendSoFar.toFixed(6)),
     summary: {
       baseline: baseSum,
+      ...(shieldOffSum ? { highbeamShieldOff: shieldOffSum } : {}),
       highbeam: hbSum,
+      ...(scoutSum ? { highbeamScout: scoutSum } : {}),
       costDeltaUsd,
-      costDeltaPct
+      costDeltaPct,
+      ...(shieldOffVsBaseline ? { shieldOffVsBaseline } : {}),
+      ...(highbeamVsShieldOff ? { highbeamVsShieldOff } : {}),
+      ...(highbeamScoutVsBaseline ? { highbeamScoutVsBaseline } : {}),
+      ...(highbeamScoutVsHighbeam ? { highbeamScoutVsHighbeam } : {}),
+      exPostLedgerReconciliation
     },
     byTask,
     results
@@ -984,21 +1714,42 @@ async function runLiveAb({
   console.log('SUMMARY:', JSON.stringify(report.summary, null, 2));
 }
 
-function parseArgs(argv = []) {
+export function parseArgs(argv = []) {
   const out = {
     dryRunMock: false,
     confirmLiveSpend: false,
     resume: false,
+    suite: 'default',
     tasks: ['T01', 'T02', 'T03', 'T04', 'T05', 'T06', 'T07', 'T08'],
+    arms: [...AB_ARMS],
+    reps: 1,
     maxStageSpendUsd: 5
   };
+  let explicitTasks = false;
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--dry-run-mock') out.dryRunMock = true;
     else if (a === '--confirm-live-spend') out.confirmLiveSpend = true;
     else if (a === '--resume') out.resume = true;
-    else if (a === '--tasks' && argv[i + 1]) out.tasks = String(argv[++i]).split(',').map((s) => s.trim()).filter(Boolean);
-    else if (a === '--max-stage-spend' && argv[i + 1]) out.maxStageSpendUsd = Number(argv[++i]) || 5;
+    else if (a === '--suite' && argv[i + 1]) {
+      const s = String(argv[++i]).trim().toLowerCase();
+      out.suite = s;
+      if (s === 'exploration' && !explicitTasks) {
+        out.tasks = EXPLORATION_TASKS.map((t) => t.task_id);
+      }
+    } else if (a === '--tasks' && argv[i + 1]) {
+      explicitTasks = true;
+      out.tasks = String(argv[++i]).split(',').map((s) => s.trim()).filter(Boolean);
+    } else if (a === '--arms' && argv[i + 1]) {
+      const allowedArms = [...AB_ARMS, 'HIGHBEAM_AUTO', 'HIGHBEAM_SCOUT'];
+      const parsed = String(argv[++i])
+        .split(',')
+        .map((s) => s.trim().toUpperCase())
+        .filter((s) => allowedArms.includes(s));
+      if (parsed.length > 0) out.arms = parsed;
+    } else if (a === '--reps' && argv[i + 1]) {
+      out.reps = Math.max(1, Math.round(Number(argv[++i]) || 1));
+    } else if (a === '--max-stage-spend' && argv[i + 1]) out.maxStageSpendUsd = Number(argv[++i]) || 5;
   }
   return out;
 }
@@ -1011,11 +1762,17 @@ if (import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/')}`) {
       process.exit(1);
     });
   } else if (flags.confirmLiveSpend) {
-    runLiveAb({ taskIds: flags.tasks, maxStageSpendUsd: flags.maxStageSpendUsd, resume: flags.resume }).catch((err) => {
+    runLiveAb({
+      taskIds: flags.tasks,
+      arms: flags.arms,
+      reps: flags.reps,
+      maxStageSpendUsd: flags.maxStageSpendUsd,
+      resume: flags.resume
+    }).catch((err) => {
       console.error('TEST_B_LIVE_FAIL:', err);
       process.exit(1);
     });
   } else {
-    console.log('Usage: node run_highbeam_ab.mjs [--dry-run-mock | --confirm-live-spend [--tasks T01..T08] [--max-stage-spend 5] [--resume]]');
+    console.log('Usage: node run_highbeam_ab.mjs [--dry-run-mock | --confirm-live-spend [--tasks T01..T08] [--arms BASELINE,HIGHBEAM_SHIELD_OFF,HIGHBEAM] [--reps 1] [--max-stage-spend 5] [--resume]]');
   }
 }
