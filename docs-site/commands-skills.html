@@ -85,7 +85,7 @@
         Shows your live context window health without changing any repo files.
       </p>
       <ul>
-        <li><strong>In Claude Code:</strong> Runs <code>npx ah-claude receipt</code> or <code>npx ah-claude panel --json</code>.</li>
+        <li><strong>In Claude Code:</strong> Runs <code>npx highbeam-cli receipt</code> (or <code>npx highbeam-cli receipt --share</code> for a zero-PII Markdown card) or <code>npx highbeam-cli panel --json</code>.</li>
         <li><strong>In Google Antigravity:</strong> Runs <code>node --no-warnings ./src/cli/horizon_hud.mjs --emit-widget</code> to write <code>&lt;artifactDirectoryPath&gt;/horizon_widget.html</code>. It shows the card inline via <code>&lt;agent-embed&gt;</code> and adds a 1-click <code>sidecar://agy-horizon-flightcheck/horizon-daemon/</code> panel link.</li>
       </ul>
 
@@ -169,10 +169,14 @@
         </table>
       </div>
 
-      <h2 id="delegation-scout-subagent">Delegation Scout Subagent (<code>@ah-flash-scout</code>)</h2>
+      <h2 id="delegation-scout-subagent">Delegation Scout Subagents (<code>@ah-flash-scout</code> &amp; Opt-In <code>ah-haiku-scout</code>)</h2>
       <p>
-        Defined in <code>agents/ah-flash-scout.md</code>, <code>@ah-flash-scout</code> keeps warm frontier chats (<code>gemini-4-carbon</code>, <code>gemini-4-argon</code>) free of huge search dumps during repo lookup:
+        Highbeam supports two distinct subagent patterns depending on your host IDE:
       </p>
+      <ul>
+        <li><strong>Google Antigravity (<code>@ah-flash-scout</code>):</strong> Defined in <code>agents/ah-flash-scout.md</code>, keeping warm frontier chats (<code>gemini-4-carbon</code>, <code>gemini-4-argon</code>) free of huge search dumps during repo lookup.</li>
+        <li><strong>Claude Code (<code>ah-haiku-scout</code> via <code>npx highbeam-cli scout</code> &mdash; Strictly Opt-In):</strong> In our 27-run live Anthropic subagent benchmark (<a href="benchmark.html"><code>T09</code>&ndash;<code>T11</code></a>), spawning a separate Haiku subagent via Claude Code's <code>Task</code> tool incurred an extra ~15k&ndash;25k system-prompt and tool-schema cold write in the child session plus parent delegation overhead, resulting in a neutral <strong>+0.88%</strong> cost delta (<code>p = 0.78</code>) once main-thread <code>auto</code> Shield clamping and 19-family FTS5 compression were active. Accordingly, <code>autoTierReadOnlyScouts</code> defaults to <code>false</code> and <code>.claude/agents/ah-haiku-scout.md</code> is not auto-provisioned unless explicitly enabled via <code>npx highbeam-cli scout --enable</code>.</li>
+      </ul>
       <div class="code-block">
         <div class="code-header"><span>agents/ah-flash-scout.md Manifest Contract</span></div>
         <pre><code>name: ah-flash-scout
@@ -184,7 +188,7 @@ commandExecutionPolicy: off
 tools: [view_file, grep_search, find_by_name, list_dir]</code></pre>
       </div>
       <p>
-        <strong>Hard Output Contract:</strong> <code>@ah-flash-scout</code> never runs shell commands or edits files. It replies in under <code>200</code> tokens formatted as <code>path/to/file.mjs:L10-L42 - Symbol / invariant summary</code>.
+        <strong>Hard Output Contract:</strong> Both scout profiles never run destructive shell commands or edit files, and reply in under <code>200</code> tokens formatted as <code>path/to/file.mjs:L10-L42 - Symbol / invariant summary</code>.
       </p>
 
       <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>

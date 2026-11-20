@@ -32,6 +32,15 @@
         Run <code>--dry-run</code> first if you maintain custom hooks in <code>settings.json</code> or <code>hooks.json</code>.
       </p>
 
+      <h3 id="install-audit">0. Zero-Write 10-Second 5-Host Audit (Optional Pre-Install Check)</h3>
+      <p>
+        Before installing any hooks, you can scan your existing local transcripts across Claude Code, Cursor, Codex CLI, Gemini CLI, and Antigravity in read-only mode to see your last 7&ndash;30 days of avoidable token spend:
+      </p>
+      <div class="code-block terminal">
+        <div class="code-header"><span>Read-Only 5-Host Historical ROI Audit</span></div>
+        <pre><code>npx highbeam-cli audit --days 7</code></pre>
+      </div>
+
       <h3 id="install-dual-host">1. Unified Dual-Host Installation</h3>
       <p>
         Use <code>highbeam init --all-hosts</code> to configure Google Antigravity, Claude Code, and supported MCP hosts (Cursor, Windsurf, Codex CLI, Gemini CLI) in one pass:
@@ -77,7 +86,7 @@ node bin/ctxtop.mjs verify --json</code></pre>
 npx highbeam-cli init --claude --global --lean-hooks
 
 # Project-local full hook profile (.claude/settings.json)
-npx ah-claude install --project --full-hooks</code></pre>
+npx highbeam-cli init --claude --full-hooks</code></pre>
       </div>
       <p>
         You can also build and install the VS Code / Cursor / Antigravity sidebar extension locally from <code>extensions/vscode-highbeam/highbeam-4.4.1.vsix</code> via <code>npm run build:vsix</code>, or load the plugin folder directly via <code>.claude-plugin/plugin.json</code> and <code>.claude-plugin/marketplace.json</code>. That adds all six slash commands (<code>/horizon</code>, <code>/cost-radar</code>, <code>/inspect</code>, <code>/handoff</code>, <code>/precheck</code>, <code>/evolve</code>) and wires up <code>hooks/hooks.json</code>. During <code>highbeam install</code> or <code>highbeam init --claude</code>, <code>inspectClaudeBinaryCapabilities()</code> scans your Claude Code binary so older CLI builds remain compatible.
@@ -128,7 +137,7 @@ npx highbeam-cli init --mcp --global</code></pre>
   [PASS] hook_diagnostics: 0 recent non-fatal error(s)
 
 $ npx highbeam-cli verify
-[Highbeam Verify] PASS - 148 release files verified against CHECKSUMS.sha256 (0 mismatches)</code></pre>
+[Highbeam Verify] PASS - 174 release files verified against CHECKSUMS.sha256 (0 mismatches)</code></pre>
       </div>
 
       <p>
@@ -140,7 +149,7 @@ $ npx highbeam-cli verify
         Upgrading from v3.x (`ga-visualizer` / `agy-horizon` IDs) or moving from project hooks to global hooks takes two quick steps:
       </p>
       <ul>
-        <li><strong>Legacy Config Migration:</strong> <code>migrateLegacyHorizonConfig</code> maps old v3 rule names to v4.0 <code>DET-01..DET-32</code> IDs automatically.</li>
+        <li><strong>Legacy Config Migration:</strong> <code>migrateLegacyHorizonConfig</code> maps old v3/v4.0 rule names to v4.4.1 <code>DET-01..DET-32</code> IDs automatically.</li>
         <li><strong>Hook Deduplication:</strong> Run <code>npx highbeam-cli init --claude --dedupe</code> to clean out duplicate or old Highbeam entries from <code>settings.json</code>. Your other third-party hooks stay intact.</li>
         <li><strong>Orphaned Antigravity Brain Recovery:</strong> After an Antigravity IDE profile move, run <code>npx highbeam-cli doctor --recover-brain --dry-run</code> first. Then run it without <code>--dry-run</code> to relink orphaned brain folders.</li>
       </ul>

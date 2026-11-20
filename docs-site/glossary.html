@@ -35,6 +35,21 @@
       <div class="glossary-list">
         <h2 id="terms-a-d">A to D</h2>
 
+        <div class="glossary-entry" data-tags="core claude antigravity">
+          <p class="glossary-term">3-Bucket Savings Ledger (<code>avoidedWrites</code>, <code>realizedPromptBill</code>, <code>platformCacheDiscount</code>) <span class="badge accent">Core Physics</span></p>
+          <p class="glossary-def">Highbeam v4.4.1's strictly orthogonal accounting model in <code>savedQuotaLedger.mjs</code>. Separates (1) <strong>Avoided Context Writes</strong> (tokens kept out of the transcript by clamp-only <code>auto</code> Shield, 19-family FTS5 CLI indexing, and <code>Grep|Glob</code> filtering), (2) <strong>Realized Prompt-Bill Delta</strong> (cumulative multi-turn prompt-bill reduction), and (3) <strong>Platform Cache Read Discount</strong> (native provider cache-hit savings, displayed separately and never summed into Highbeam intervention ROI).</p>
+        </div>
+
+        <div class="glossary-entry" data-tags="core claude antigravity">
+          <p class="glossary-term">5-Host Session ROI Audit (<code>highbeam audit</code>) <span class="badge safe">CLI</span></p>
+          <p class="glossary-def">Zero-write historical log scanner (<code>npx highbeam-cli audit --days 7</code>) that inspects existing local transcripts across Claude Code, Cursor, Codex CLI, Gemini CLI, and Antigravity IDE to quantify retroactive cache-bust waste, compaction drag, and reclaimable USD in under 10 seconds before installing any hooks.</p>
+        </div>
+
+        <div class="glossary-entry" data-tags="claude security">
+          <p class="glossary-term">Active Context Shield (<code>mode: 'auto'</code> Clamp-Only) <span class="badge">Claude Code</span></p>
+          <p class="glossary-def">PreToolUse input clamping policy (<code>npx highbeam-cli shield --mode auto</code>) that transparently bounds oversized unbound file reads to <code>&lt;=250</code> lines / <code>&lt;=16 KB</code> via <code>updatedInput</code> without issuing coaching blocks or forcing extra agent turns on small files.</p>
+        </div>
+
         <div class="glossary-entry" data-tags="core antigravity">
           <p class="glossary-term"><code>ACTIVE_SET</code> <span class="badge safe">Antigravity</span></p>
           <p class="glossary-def">Clean file reads, edits, and command outputs from your last 16 steps (~8 chat turns). Files already in <code>ACTIVE_SET</code> pass Antigravity's <code>PreInvocation</code> check quietly via <code>ALLOW_ACTIVE_SET</code>.</p>

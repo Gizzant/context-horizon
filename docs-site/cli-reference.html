@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CLI &amp; Binaries Reference - Highbeam User Guide</title>
-  <meta name="description" content="Complete reference for all 12 Highbeam CLI binaries, 3 command shims, 22 subcommands, flags, defaults, exit codes, and JSON output contracts." />
+  <title>CLI &amp; Binaries Reference (v4.4.1) - Highbeam User Guide</title>
+  <meta name="description" content="Complete reference for all 16 Highbeam v4.4.1 CLI binaries, 3 command shims, and 28+ subcommands including audit, shield, scout, search, receipt --share, sync, pr-cost, team-rollup, and ci-gate." />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body data-page="cli-reference">
@@ -17,7 +17,7 @@
       <p class="doc-eyebrow">Reference</p>
       <h1 class="doc-title">CLI &amp; Binaries Reference</h1>
       <p class="doc-lead">
-        Highbeam ships 12 CLI commands and 3 shell shims across four runtime targets. Every subcommand below matches the flags in <code>bin/ctxtop.mjs</code>, <code>bin/ah-statusline.mjs</code>, and <code>src/cli/*.mjs</code>.
+        Highbeam v4.4.1 ships 16 CLI binary aliases, 3 shell shims, and 28+ subcommands across five runtime targets. Every subcommand below matches the flags in <code>bin/ctxtop.mjs</code>, <code>bin/ah-statusline.mjs</code>, and <code>src/cli/*.mjs</code>.
       </p>
 
       <h2 id="package-binaries">Package Binaries &amp; Entrypoints</h2>
@@ -191,23 +191,51 @@ highbeam roast [--demo] [--markdown | --md] [--json]</code></pre>
       </div>
 
       <div class="cli-cmd-section" data-tags="telemetry">
-        <h3 id="cmd-ui-demo-exec">Antigravity Server, Demos &amp; FTS5 Execution Wrappers</h3>
-        <p>Run through <code>agy-horizon</code> (<code>src/cli/init.mjs</code>) or <code>src/cli/horizon_hud.mjs</code>:</p>
+        <h3 id="cmd-audit"><code>highbeam audit</code> (Zero-Write 5-Host Historical ROI Audit)</h3>
+        <p>Scans existing local session logs across Claude Code, Cursor, Codex CLI, Gemini CLI, and Antigravity IDE in strictly read-only mode to estimate historical token spend, prefix-cache busts, and reclaimable USD in under 10 seconds.</p>
         <div class="code-block terminal">
           <div class="code-header"><span>Synopsis</span></div>
-          <pre><code># Start loopback HTTP/SSE daemon on 127.0.0.1:62935..62945
-agy-horizon ui [--open | --no-open] [--demo]
+          <pre><code>highbeam audit [--days &lt;7|30&gt;] [--host &lt;all|claude|cursor|codex|gemini|antigravity&gt;] [--json]</code></pre>
+        </div>
+      </div>
+
+      <div class="cli-cmd-section" data-tags="control">
+        <h3 id="cmd-shield"><code>highbeam shield</code> (Active Context Shield Mode Control)</h3>
+        <p>Inspects or configures the <code>PreToolUse</code> Active Context Shield policy. Defaults to clamp-only <code>--mode auto</code>, which transparently bounds oversized unbound file reads (<code>&lt;=250</code> lines / <code>&lt;=16 KB</code> via <code>updatedInput</code>) without coaching blocks on small files.</p>
+        <div class="code-block terminal">
+          <div class="code-header"><span>Synopsis</span></div>
+          <pre><code>highbeam shield [--status] [--mode &lt;auto|enforce|warn|off&gt;] [--json]</code></pre>
+        </div>
+      </div>
+
+      <div class="cli-cmd-section" data-tags="control">
+        <h3 id="cmd-scout"><code>highbeam scout</code> (Opt-In Haiku Exploration Subagent Management)</h3>
+        <p>Enables, disables, or inspects the opt-in <code>ah-haiku-scout</code> read-only exploration subagent for Claude Code (<code>autoTierReadOnlyScouts</code> defaults to <code>false</code> based on the 27-run <code>T09</code>&ndash;<code>T11</code> benchmark).</p>
+        <div class="code-block terminal">
+          <div class="code-header"><span>Synopsis</span></div>
+          <pre><code>highbeam scout [--status] [--enable | --disable] [--json]</code></pre>
+        </div>
+      </div>
+
+      <div class="cli-cmd-section" data-tags="telemetry">
+        <h3 id="cmd-ui-demo-exec"><code>highbeam search</code>, <code>ui</code>, <code>demo</code> &amp; <code>exec</code></h3>
+        <p>Query the local 19-family SQLite FTS5 compressed CLI log index with 100% recall, launch the local telemetry dashboard, run synthetic crisis demos, or wrap a verbose shell command in FTS5 indexing:</p>
+        <div class="code-block terminal">
+          <div class="code-header"><span>Synopsis</span></div>
+          <pre><code># Query archived 19-family FTS5 CLI logs by keyword across turns
+highbeam search "&lt;fts5-query&gt;" [--limit &lt;20&gt;] [--json]
+agy-horizon log-search "&lt;fts5-query&gt;"
+
+# Start loopback HTTP/SSE daemon on 127.0.0.1:62935..62945
+highbeam ui [--open | --no-open] [--demo]
 highbeam --serve
 
 # Run 5-stage synthetic terminal crisis showcase or emit Studio HTML widget
-agy-horizon demo [--demo-animate] [--scenario &lt;1..5&gt;] [--harness &lt;antigravity|claude-code&gt;]
+highbeam demo [--demo-animate] [--scenario &lt;1..5&gt;] [--harness &lt;antigravity|claude-code&gt;]
 node src/cli/horizon_hud.mjs --emit-widget
 
 # Execute a verbose shell command through the lossless FTS5 compressor (&gt;4,096 chars archived)
-agy-horizon exec &lt;command...&gt;
-
-# Query archived FTS5 CLI logs by keyword across turns
-agy-horizon log-search "&lt;fts5-query&gt;"</code></pre>
+highbeam exec &lt;command...&gt;</code></pre>
         </div>
       </div>
 
@@ -234,13 +262,17 @@ highbeam config reset [--global | -g]</code></pre>
       </div>
 
       <div class="cli-cmd-section" data-tags="pro">
-        <h3 id="cmd-pro-team"><code>highbeam license</code> (<code>pro</code>), <code>tiers</code> &amp; <code>team-pack</code></h3>
-        <p>Manages offline Ed25519 Pro keys, 14-day local trials, and Grafana or Datadog OpenTelemetry packs.</p>
+        <h3 id="cmd-pro-team"><code>highbeam license</code> (<code>pro</code>), <code>sync</code>, <code>pr-cost</code>, <code>team-rollup</code> &amp; <code>ci-gate</code></h3>
+        <p>Manages offline Ed25519 Pro/Team keys (14-day instant local trial, 30-day emailed trial, <code>$199</code> Founder Lifetime Cap-200, <code>$149/yr</code> Pro, <code>$299/yr</code> Founding Team Intro, or <code>$15/seat/mo</code> Team), AES-256-GCM encrypted E2EE sync envelopes, Git PR cost attribution, multi-seat FinOps rollups, and CI budget gates.</p>
         <div class="code-block terminal">
           <div class="code-header"><span>Synopsis</span></div>
           <pre><code>highbeam tiers [--json]
 highbeam license [status | tiers | trial | activate &lt;ed25519-token&gt; | deactivate] [--json]
 highbeam mode [coach | auto | silent | off] [--project] [--json]
+highbeam sync [--push | --pull | --status] [--json]
+highbeam pr-cost [--branch &lt;name&gt;] [--base &lt;main&gt;] [--markdown | --json]
+highbeam team-rollup [--days &lt;30&gt;] [--format &lt;csv|json|markdown&gt;]
+highbeam ci-gate [--max-usd &lt;5.00&gt;] [--max-waste-pct &lt;20&gt;] [--json]
 highbeam team-pack [--out &lt;dir&gt;] [--org "&lt;Org Name&gt;"] [--preview] [--json]</code></pre>
         </div>
       </div>

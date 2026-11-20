@@ -133,11 +133,15 @@ npx highbeam-cli --serve</code></pre>
         <div class="tab-panel" data-panel="claude" hidden>
           <div class="code-block terminal">
             <div class="code-header"><span><span class="window-dots"><span></span><span></span><span></span></span>Terminal &middot; Claude Code</span></div>
-            <pre><code>npx ah-claude install --global
-npx ah-claude statusline --demo
-npx ah-claude receipt</code></pre>
+            <pre><code># Option A: Native Claude Code Plugin Marketplace
+/plugin marketplace add https://github.com/Gizzant/context-horizon
+
+# Option B: NPM CLI installer + 3-bucket ROI receipt
+npx highbeam-cli init --claude --global
+npx highbeam-cli statusline --demo
+npx highbeam-cli receipt --share</code></pre>
           </div>
-          <p>Adds Highbeam hooks and <code>statusLine</code> to <code>~/.claude/settings.json</code>. It registers the command hooks, which run every check, and prints your live context receipt.</p>
+          <p>Adds Highbeam hooks and <code>statusLine</code> to <code>~/.claude/settings.json</code> (or installs via Claude Code's native plugin marketplace), activates clamp-only <code>auto</code> Active Context Shield + 19-family FTS5 compression, and prints a zero-PII 3-bucket savings receipt.</p>
         </div>
 
         <div class="tab-panel" data-panel="mcp" hidden>
@@ -218,11 +222,11 @@ npx highbeam-cli doctor --json</code></pre>
 
         <div class="bento-card bento-span-4">
           <div>
-            <p class="bento-kicker">Lossless CLI Compression</p>
-            <h3>SQLite FTS5 Offloader</h3>
-            <div class="bento-metric">&gt;4,096 chars</div>
+            <p class="bento-kicker">19-Stack FTS5 &amp; Auto Shield</p>
+            <h3>96% CLI Reduction &amp; -24.31% Prompt-Bill</h3>
+            <div class="bento-metric">19 Families &middot; 100% Recall</div>
             <p>
-              Strips ANSI color codes, saves big test logs into local FTS5 search, and sends the model a short summary with every error line intact.
+              Clamp-only default <code>auto</code> Active Context Shield (<code>&lt;=250L</code> / <code>&lt;=16 KB</code>) plus 19 explicit FTS5 CLI parsers and <code>Grep|Glob</code> filtering cut mean task API cost by <strong>-13.31%</strong> across 72 live runs.
             </p>
           </div>
           <a href="architecture.html#fts5-compressor">How compression works &rarr;</a>

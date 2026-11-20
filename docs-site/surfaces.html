@@ -34,9 +34,9 @@
           <tbody>
             <tr>
               <td><strong>Manifest Root</strong></td>
-              <td><code>plugin.json</code> &amp; <code>.antigravity-plugin/plugin.json</code></td>
-              <td><code>.claude-plugin/plugin.json</code> &amp; <code>settings.json</code></td>
-              <td><code>.cursor/mcp.json</code> (stdio JSON-RPC 2.0)</td>
+              <td><code>plugin.json</code>, <code>.antigravity-plugin/plugin.json</code> &amp; <code>highbeam-4.4.1.vsix</code></td>
+              <td><code>.claude-plugin/plugin.json</code>, <code>marketplace.json</code> &amp; <code>settings.json</code></td>
+              <td><code>.cursor/mcp.json</code> (stdio JSON-RPC 2.0) &amp; <code>highbeam-4.4.1.vsix</code></td>
             </tr>
             <tr>
               <td><strong>Install Locations</strong></td>
@@ -194,9 +194,13 @@ AH sonnet-5.5 [COACH] [██▓▓▓▓▓▓▓▓▓▓▓▓▒█░░░
         <div class="tab-panel" data-panel="claude" hidden>
           <div class="code-block terminal">
             <div class="code-header"><span>Claude Code Slash Commands &amp; CLI Workflow</span></div>
-            <pre><code># 1. Open docked Mod pane or print the 4-rank terminal receipt
+            <pre><code># 0. Zero-write 10-second historical ROI audit across local logs
+npx highbeam-cli audit --days 7
+
+# 1. Open docked Mod pane or print the 3-bucket terminal receipt / zero-PII share card
 /horizon
-npx ah-claude receipt --advanced
+npx highbeam-cli receipt --advanced
+npx highbeam-cli receipt --share
 
 # 2. Check warm KV-cache gravity and C* break-even before switching models
 /precheck

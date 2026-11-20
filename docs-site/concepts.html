@@ -217,6 +217,17 @@ C_max = [ O * (P_out,A - P_out,B) * (H_post + 1) ]
       <ul>
         <li><strong>Dual-TTL Countdown (<code>dualTtl.mjs</code>):</strong> Watches both the <strong>5-minute (<code>300s</code>)</strong> prompt-cache timer and the <strong>1-hour (<code>3,600s</code>)</strong> billing block. The status bar turns amber at <code>&lt;= 45s</code>, shows a keep-warm tip at <code>&lt;= 15s</code>, saves the <strong>State Baton</strong> at <code>T-10s</code>, and suggests 1-hour caching if at least <code>3.1%</code> of your breaks last 5 to 60 minutes.</li>
         <li><strong>Haiku 100k 5x Cliff Breaker (<code>DET-12</code>, <code>cliffBreaker.mjs</code>):</strong> Guards Haiku chats against the <code>100,000</code>-token <code>5x</code> price jump. Prompts under <code>90k</code> pass quietly. At <code>90k-98k</code> you get a soft compact tip, <code>98k-100k</code> triggers a strong warning, and <code>&gt;= 100k</code> stops the turn before billing spikes. Other models are exempt.</li>
+        <li><strong>Model-Aware Effort Cache Capabilities (<code>DET-09</code>, <code>MODEL_EFFORT_CACHE_CAPABILITIES</code>):</strong> On Claude <code>4.6</code> (Sonnet/Opus 4.6), changing reasoning effort mid-conversation invalidates the prompt prefix cache (verified <code>0.0%</code> hit rate / <code>+$0.0853</code> single-turn spike in live probes), whereas <code>claude-sonnet-5-5</code> and <code>claude-opus-5-5</code> preserve prefix cache across effort changes. Highbeam checks per-model capability flags before warning.</li>
+      </ul>
+
+      <h2 id="three-bucket-ledger">Orthogonal 3-Bucket Savings Ledger &amp; Clamp-Only <code>auto</code> Shield</h2>
+      <p>
+        Highbeam v4.4.1 separates token and dollar telemetry into three strictly orthogonal accounting buckets in <code>src/core-isomorphic/coach/savedQuotaLedger.mjs</code> (rendered via <code>npx highbeam-cli receipt</code> and <code>npx highbeam-cli receipt --share</code>), preventing double-counting between provider cache discounts and Highbeam interventions:
+      </p>
+      <ul>
+        <li><strong>Bucket 1 &mdash; Avoided Context Writes (<code>avoidedWrites</code>):</strong> Bytes and tokens prevented from ever entering the conversation transcript by the clamp-only default <code>mode: 'auto'</code> Active Context Shield (rewriting oversized unbound <code>Read</code> calls into bounded <code>&lt;=250L</code> / <code>&lt;=16 KB</code> slices via <code>updatedInput</code> without blocking small files), 19-family FTS5 <code>PostToolUse</code> CLI compression, <code>Grep|Glob</code> path-array filtering, and large payload scratch offloading.</li>
+        <li><strong>Bucket 2 &mdash; Realized Prompt-Bill Delta (<code>realizedPromptBill</code>):</strong> Measured reduction in cumulative billed input tokens and USD across multi-turn sessions (<code>-24.31%</code> prompt-bill cost and <code>-13.31%</code> net API cost across 72 paired live Anthropic runs, reaching <code>-28.43%</code> net cost and <code>-41.15%</code> prompt-bill cost on long-horizon compaction runs).</li>
+        <li><strong>Bucket 3 &mdash; Platform Cache Read Discount (<code>platformCacheDiscount</code>):</strong> Native provider prefix-cache read savings (<code>0.1x</code> vs <code>1.0x</code> base input rate), tracked separately for FinOps visibility and <strong>never</strong> added to Highbeam's own intervention ROI total.</li>
       </ul>
 
       <h2 id="conductor-vs-executor">Conductor vs. Executor Division of Labor</h2>

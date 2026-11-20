@@ -32,7 +32,10 @@
           <p>Run the unified installer from your repo root. Then run <code>doctor</code> to make sure all checks pass.</p>
           <div class="code-block terminal">
             <div class="code-header"><span>Step 1 &middot; Input &amp; Expected Output</span></div>
-            <pre><code>$ npx highbeam-cli init --all-hosts
+            <pre><code>$ npx highbeam-cli audit --days 7
+[Highbeam Audit] Scanned 5 hosts (last 7d) · Est. Reclaimable Spend: $14.80 (-24.3% prompt-bill)
+
+$ npx highbeam-cli init --all-hosts
 ⚡ Highbeam (highbeam-cli v4.4.1) - Zero-Config Unified Installer
   [PASS] Claude Code hooks merged into .claude/settings.json
   [PASS] Antigravity workspace plugin verified
@@ -80,8 +83,9 @@ Bypass once: prefix with `!`  •  Lock model/effort: include `!lock`</code></pr
           <h3>Print a Git-ready savings receipt</h3>
           <p>Print a Markdown receipt ready to paste into pull request notes:</p>
           <div class="code-block terminal">
-            <div class="code-header"><span>Step 4 &middot; Verify Receipt</span></div>
-            <pre><code>$ npx highbeam-cli receipt --markdown</code></pre>
+            <div class="code-header"><span>Step 4 &middot; Verify 3-Bucket Receipt &amp; Zero-PII Share Card</span></div>
+            <pre><code>$ npx highbeam-cli receipt --markdown
+$ npx highbeam-cli receipt --share</code></pre>
           </div>
         </div>
       </div>
@@ -108,7 +112,7 @@ git worktree list</code></pre>
           <p>Lock <code>src/core/pro_license.mjs</code> for Worker A (`session-alpha`) via the <code>scope_lock_claim</code> MCP tool (or let <code>PreToolUse</code> claim it automatically). That writes to <code>.agents/locks/active_scopes.json</code>:</p>
           <div class="code-block terminal">
             <div class="code-header"><span>Step 2 &middot; Claim Lease via @ctxtop/mcp JSON-RPC</span></div>
-            <pre><code>$ printf '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"scope_lock_claim","arguments":{"sessionId":"session-alpha","agentId":"claude-code","paths":["src/core/pro_license.mjs"],"ttlSeconds":900}}}\n' | npx highbeam-cli-mcp</code></pre>
+            <pre><code>$ printf '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"scope_lock_claim","arguments":{"sessionId":"session-alpha","agentId":"claude-code","paths":["src/core/pro_license.mjs"],"ttlSeconds":900}}}\n' | npx highbeam-mcp</code></pre>
           </div>
         </div>
 

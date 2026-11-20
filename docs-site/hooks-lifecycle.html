@@ -110,13 +110,13 @@
               <td><code>PreToolUse</code></td>
               <td><code>handlers/pre-tool-use.mjs</code></td>
               <td><code>Bash|PowerShell|Edit|MultiEdit|Write|NotebookEdit|Read|Task|Agent|WebFetch|mcp__.*</code></td>
-              <td>Runs <code>CircuitBreakerEngine</code>, saves strike counts across turns, folds 3rd full reads into stubs (Pro), and skips <code>Grep|Glob</code> only if the in-process module has already handled them (not the case today).</td>
+              <td>Executes the default clamp-only <code>mode: 'auto'</code> Active Context Shield (transparently bounding oversized unbound <code>Read</code> calls to <code>&lt;=250L</code> / <code>&lt;=16 KB</code> via <code>updatedInput</code> without blocking small files), runs <code>CircuitBreakerEngine</code>, saves strike counts across turns, and folds repeated full reads into stubs.</td>
             </tr>
             <tr>
               <td><code>PostToolUse</code></td>
               <td><code>handlers/post-tool-use.mjs</code></td>
-              <td><code>Bash|PowerShell|Task|Agent|WebFetch|mcp__.*</code></td>
-              <td>Trims huge shell logs, scrubs subagent and web text (<code>DET-19</code>), and counts failed command runs.</td>
+              <td><code>Bash|PowerShell|Grep|Glob|Task|Agent|WebFetch|mcp__.*</code></td>
+              <td>Compresses noisy CLI outputs across 19 explicit tool families into SQLite FTS5 (while excluding raw file-inspection commands <code>cat</code>/<code>head</code>/<code>tail</code>/<code>sed</code>/<code>awk</code>/<code>grep</code>/<code>rg</code>/<code>jq</code> to prevent re-read spiral loops), filters noisy directories from <code>Grep|Glob</code> path arrays, offloads large non-code payloads to scratch files, and scrubs untrusted text (<code>DET-19</code>).</td>
             </tr>
             <tr>
               <td><code>PreModelSwitch</code></td>
@@ -140,7 +140,7 @@
               <td><code>SessionStart</code></td>
               <td><code>handlers/compact-lifecycle.mjs</code></td>
               <td><code>startup|resume|clear|compact|fork</code> (<code>--phase=start</code>)</td>
-              <td>Reloads active rules from <code>HANDOFF_LATEST.md</code> and checks eager MCP schema size (<code>DET-13</code>).</td>
+              <td>Reloads active rules from <code>HANDOFF_LATEST.md</code>, checks eager MCP schema size (<code>DET-13</code>) and MCP/toolset drift on <code>resume</code> (<code>CC-T</code>), and emits a non-coercive <code>/model &lt;target&gt;</code> reminder on <code>compact</code> when a <code>pending_downshift</code> recommendation was deferred.</td>
             </tr>
             <tr>
               <td><code>Stop</code></td>

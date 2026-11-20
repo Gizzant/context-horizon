@@ -62,8 +62,8 @@
             </tr>
             <tr>
               <td><code>@ctxtop/pro</code></td>
-              <td>Offline Ed25519 + Polar worker</td>
-              <td>Offline Ed25519 license check, PDF 1.4 receipt writer, <code>team_finops_pack.mjs</code> (Grafana/Datadog), and webhook signer.</td>
+              <td>Offline Ed25519 + Polar &amp; Trial Worker</td>
+              <td>Offline Ed25519 license check (<code>pro_license.mjs</code>), AES-256-GCM encrypted E2EE sync (<code>encrypted_sync.mjs</code>), Git PR cost attribution (<code>pr_cost_attribution.mjs</code>), Team FinOps rollup (<code>team_finops_rollup.mjs</code>), CI budget gate (<code>ci_budget_gate.mjs</code>), PDF 1.4 receipt writer, <code>team_finops_pack.mjs</code>, and Cloudflare Worker (Polar webhook + <code>POST /trial</code> 30-day emailed trial key).</td>
             </tr>
           </tbody>
         </table>
@@ -87,9 +87,9 @@
       </p>
       <ol>
         <li><strong>ANSI &amp; Spinner Cleanup:</strong> Strips color codes and folds <code>\r</code> spinner lines <em>before</em> checking the <code>4,096</code>-char size limit.</li>
-        <li><strong>Smart Noise Filters:</strong> Trims boilerplate from <code>cargo test</code>, <code>npm install</code>, and test suites while keeping every failed assert, stack trace, and compiler error.</li>
-        <li><strong>SQLite FTS5 &amp; Polyfill Archive:</strong> Saves the full raw log to <code>.ctxtop/cache/artifacts/ah_&lt;sha256&gt;.txt</code> and indexes every line in <code>.ctxtop/cache/artifacts_fts5.db</code>. If a Node 22 build lacks <code>SQLITE_ENABLE_FTS5</code> (or <code>CTXTOP_FORCE_FTS5_POLYFILL=1</code> is set), <code>src/engine-node/db/probe.mjs</code> wraps <code>DatabaseSync</code> with <code>createFts5PolyfillClass()</code>. That provides drop-in <code>USING fts5(...)</code> tables, <code>MATCH</code>, <code>bm25()</code>, and centered <code>snippet()</code> windows (<code>evaluateFtsSnippet</code>).</li>
-        <li><strong>Searchable Summary:</strong> Sends the model a short head/tail + error summary plus an exact <code>agy-horizon log-search "&lt;query&gt;"</code> command so no debug detail is ever lost.</li>
+        <li><strong>19 Explicit CLI Tool-Family Parsers (Zero Generic Fallback):</strong> Implemented in <code>src/core-isomorphic/compressors/cli_output_compressor.mjs</code> and <code>packages/claude-code/src/fts5_indexer.mjs</code> across 19 explicit tool families (<code>F01</code>&ndash;<code>F19</code>: <code>git status</code>, <code>git diff</code>, <code>git log</code>, <code>pytest</code>, <code>jest</code>, <code>vitest</code>, <code>node --test</code>, <code>cargo test</code>, <code>go test</code>, <code>tsc</code>, <code>eslint</code>, <code>npm/pnpm/yarn install</code>, <code>docker build</code>, <code>kubectl</code>, <code>gh</code>, <code>curl</code>, build/bundle logs, JSON arrays, and stack traces). Raw file-inspection commands (<code>cat</code>, <code>head</code>, <code>tail</code>, <code>sed</code>, <code>awk</code>, <code>grep</code>, <code>rg</code>, <code>jq</code>) are explicitly excluded from Bash <code>PostToolUse</code> rewriting so agents never enter re-read spirals, while structured <code>Grep|Glob</code> tool arrays are filtered directly.</li>
+        <li><strong>SQLite FTS5 &amp; Polyfill Archive:</strong> Saves the full raw log to <code>.claude/cache/artifacts/ah_&lt;sha256&gt;.txt</code> (strict POSIX <code>0600</code> file / <code>0700</code> dir permissions) and indexes every line in <code>tool_logs_fts5.db</code> / <code>artifacts_fts5.db</code>. If a Node 22 build lacks <code>SQLITE_ENABLE_FTS5</code> (or <code>CTXTOP_FORCE_FTS5_POLYFILL=1</code> is set), <code>src/engine-node/db/probe.mjs</code> wraps <code>DatabaseSync</code> with <code>createFts5PolyfillClass()</code>. That provides drop-in <code>USING fts5(...)</code> tables, <code>MATCH</code>, <code>bm25()</code>, and centered <code>snippet()</code> windows (<code>evaluateFtsSnippet</code>).</li>
+        <li><strong>Searchable Summary:</strong> Sends the model a structured error summary plus an exact <code>npx highbeam-cli search "&lt;query&gt;"</code> (or <code>agy-horizon log-search "&lt;query&gt;"</code>) command so 100% recall is preserved at a 96% CLI token reduction.</li>
       </ol>
 
       <h2 id="turn-zero-gate">4. <code>PrefixCacheShield</code> &amp; <code>TurnZeroGate</code> Fencing</h2>
@@ -129,7 +129,8 @@
       <h2 id="ustf-and-mirror-parity">5. USTF v1 &amp; 3-Way SHA-256 Mirror Parity</h2>
       <ul>
         <li><strong>USTF v1 (<code>src/core-isomorphic/ustf/</code>):</strong> Maps Antigravity SQLite/JSONL steps and Claude Code events into one shared log format (<code>version: "1.0.0"</code>, <code>sessionId</code>, <code>harness</code>, <code>modelId</code>, <code>usage: { uncached, cacheWrite5m, cacheWrite1h, cacheRead, output, thinking, costUSD }</code>, <code>events</code>, <code>spans</code>).</li>
-        <li><strong>Release &amp; Mirror Sync:</strong> When core or WebView files change, run <code>node scripts/sync_mirrors.mjs</code> first. Then run <code>node scripts/generate_checksums.mjs</code> and <code>node bin/ctxtop.mjs verify --json</code> so root files and plugin copies stay byte-for-byte identical.</li>
+        <li><strong>Orthogonal 3-Bucket Savings Ledger:</strong> <code>src/core-isomorphic/coach/savedQuotaLedger.mjs</code> records Bucket 1 (<code>avoidedWrites</code>), Bucket 2 (<code>realizedPromptBill</code>), and Bucket 3 (<code>platformCacheDiscount</code>) independently so provider cache-hit discounts are never conflated with Highbeam intervention savings.</li>
+        <li><strong>Release &amp; Mirror Sync:</strong> When core or WebView files change, run <code>node scripts/sync_mirrors.mjs</code> first. Then run <code>node scripts/generate_checksums.mjs</code> and <code>node bin/ctxtop.mjs verify --json</code> so all 174 tracked distribution files across root and plugin mirrors match <code>CHECKSUMS.sha256</code> byte-for-byte.</li>
       </ul>
 
       <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>
