@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
-## [Unreleased] - 2026-11-20
+## [4.4.0] - 2026-11-20
 
 ### 72-Run Replicated Live A/B, 3-Bucket Savings UI & 19-Stack FTS5 Parsers
 

@@ -290,6 +290,9 @@ export function buildWebviewHtml({
     const compactCss = css
       .replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\/\*[\s\S]*?\*\//g, (tok) => (tok.startsWith('/*') ? '' : tok))
       .replace(/[ \t]*\n[ \t]*/g, '\n')
+      .replace(/([{;,])\n/g, '$1')
+      .replace(/\n}/g, '}')
+      .replace(/;}/g, '}')
       .replace(/\n{2,}/g, '\n')
       .trim();
     return `<style${attrs}>\n${compactCss}\n</style>`;
@@ -302,7 +305,8 @@ export function buildWebviewHtml({
       .slice(0, scriptOpenIdx + '<script>'.length)
       .replace(/<!--[\s\S]*?-->/g, '')
       .replace(/[ \t]*\n[ \t]*/g, '\n')
-      .replace(/\n{2,}/g, '\n');
+      .replace(/\n{2,}/g, '\n')
+      .replace(/>\n+</g, '><');
     const compactJs = compactWebviewScript(
       styleCompacted.slice(scriptOpenIdx + '<script>'.length, scriptCloseIdx)
     );

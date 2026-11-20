@@ -1,6 +1,6 @@
 <div align="center">
 
-# Highbeam (`highbeam-cli` v4.3) — Stop Wasting Context & Breaking Prompt Caches in Claude Code and Google Antigravity
+# Highbeam (`highbeam-cli` v4.4) — Stop Wasting Context & Breaking Prompt Caches in Claude Code and Google Antigravity
 
 **A zero-dependency, 100% local CLI, HUD, and IDE sidebar that watches your agent's context window, clamps oversized reads and verbose tool logs before they compound, and separates Highbeam avoided writes from provider KV-cache discounts** *(each hook runs as a short spawned Node process: `~60–80ms` Linux, `~200–275ms` Windows; in-process rule engine `<1ms` — see [Verification & Benchmarks](#verification--benchmarks))*
 
@@ -78,7 +78,7 @@ npx highbeam-cli audit --days 7
 Package or install the thin zero-dependency IDE sidebar & status bar extension from [`extensions/vscode-highbeam/`](extensions/vscode-highbeam/README.md):
 ```bash
 npm run build:vsix
-code --install-extension extensions/vscode-highbeam/highbeam-4.3.0.vsix
+code --install-extension extensions/vscode-highbeam/highbeam-4.4.0.vsix
 ```
 
 ---
