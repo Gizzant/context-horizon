@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [Unreleased] - 2026-11-20
+
+### 72-Run Replicated Live A/B, 3-Bucket Savings UI & 19-Stack FTS5 Parsers
+
+#### Added
+- **Step Zero Telemetry & Orthogonal 3-Bucket Ledger (`savedQuotaLedger.mjs`, `saved_quota_ledger.mjs`)**:
+  - Separated savings telemetry cleanly into **`avoidedWrites`** (real-time Highbeam interventions), **`realizedPromptBill`** (signed ex-post session vs. baseline wire delta), and **`platformCacheDiscount`** (provider KV-cache read discounts tracked separately and never credited to Highbeam ROI), plus wire/transcript capture (`wireObs`) and cold-resume `DET-17` fix.
+- **Default Clamp-Only `auto` Shield & Net-Positive `PostToolUse` Filtering (`shield_manager.mjs`, `pre-tool-use-core.mjs`, `post-tool-use-core.mjs`)**:
+  - Defaulted fresh Claude Code workspaces to clamp-only `mode: 'auto'` Shield (`updatedInput` `<=250L` / `<=16 KB` slices, `0` hard blocks), added net-positive FTS5/Shield gates, excluded file-inspection shell verbs (`cat`, `head`, `tail`, `sed`, `awk`, `grep`, `rg`, `jq`), and routed `Grep|Glob` through `PostToolUse` structured array filtering.
+- **Opt-In Haiku Read-Only Scout (`agents/ah-haiku-scout.md`, `bin/ctxtop.mjs scout`)**:
+  - Added `.claude-plugin/plugin.json` `agents[]` entry and `npx highbeam-cli scout <--enable | --disable | --status>` while keeping `autoTierReadOnlyScouts: false` by default.
+- **19-Stack FTS5 Parsers (`src/core/fts5_output_compressor.mjs`, `scripts/run_antigravity_and_compression_benchmark.mjs`)**:
+  - Added explicit structured parsers + fixtures (`F11-maven` through `F19-ctest`) for Maven, Gradle, .NET, Make, Playwright, RSpec, PHPUnit, Deno, and CTest with zero unmatched fallback (`96%` aggregate reduction, `100%` diagnostic recall, `100%` FTS5/MCP retrieval across `19` fixtures).
+
+#### Verified & Changed
+- **72-Run Replicated Live A/B (`T01`–`T08`, `n = 24`/arm, `anthropic/claude-sonnet-5.5`, [`highbeam_ab_results.json`](experiments/model-switch-benchmark/results/highbeam_ab_results.json))**:
+  - Measured **`-13.31%` mean billed cost** (`$4.8174` vs. `$5.5569`, **`-14.39%` median paired delta**), **`-24.31%` prompt-bill tokens** (`6.85M` vs. `9.05M`, `-24.78%` cache writes, `-24.25%` cache reads), **`20/24` paired wins**, **`3/3` replications**, **`7/8` tasks**, **`100%` completion (`24/24`)**, **`1.004x` request ratio (`241` vs. `240`)**, **`0` hard denies**, and **`-16.94%` vs. `HIGHBEAM_SHIELD_OFF`** (`$4.8174` vs. `$5.7998`). *(Supersedes the single-replicate `v4.3.0` `-16.18%` / `n=1` figure below.)*
+- **27-Run Exploration Scope Boundary (`T09`–`T11`, [`highbeam_ab_exploration_results.json`](experiments/model-switch-benchmark/results/highbeam_ab_exploration_results.json))**:
+  - Verified null result on pure small-file code navigation (`$1.2346` `BASELINE` vs. `$1.3195` `HIGHBEAM` `+6.88%` vs. `$1.4085` `HIGHBEAM_SCOUT` `+14.08%`; `0/27` Shield clamps, `0/27` subagent spawns), scoping savings claims strictly to doc/log/audit workloads.
+- **3-Bucket UI & Receipt Parity (`modViews.mjs`, `horizonPanelHtml.mjs`, `pdfReceiptGenerator.mjs`, WebView HUD & `docs/index.html`)**:
+  - Surfaced explicit `Highbeam Avoided Writes` vs. `Platform Cache Discount (Provider KV)` splits across WebView Simple/Advanced views, Claude Code HTML/terminal panes, `copyPlainSavingsReceipt`, and PDF/Markdown/HTML FinOps receipts.
+
+---
+
 ## [4.3.0] - 2026-11-19
 
 ### Waves 1–3 Token-Savings Suite, Zero-Round-Trip Shield & Tarball Compaction

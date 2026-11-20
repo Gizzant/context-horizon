@@ -102,6 +102,16 @@ function formatStatusBar(state = null, daemonInfo = { connected: false }) {
   } else if (saved30dTok > 0) {
     lines.push(`- **Est. 30d Saved**: \`+${formatTokensCompact(saved30dTok)} tokens\``);
   }
+  const sessBkts = state?.savings?.session?.buckets;
+  if (
+    sessBkts &&
+    (Number(sessBkts.avoidedWrites?.tokens || 0) > 0 ||
+      Number(sessBkts.platformCacheDiscount?.tokens || 0) > 0)
+  ) {
+    lines.push(
+      `  - Highbeam avoided: \`+${formatTokensCompact(sessBkts.avoidedWrites?.tokens || 0)}\` · Provider cache: \`+${formatTokensCompact(sessBkts.platformCacheDiscount?.tokens || 0)}\``
+    );
+  }
   lines.push(`- **Loopback**: \`${portLabel}\``);
   lines.push('', '_Click to open Highbeam sidebar._');
 

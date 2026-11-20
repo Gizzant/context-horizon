@@ -97,3 +97,4 @@ import './step_zero_telemetry_and_ledger.test.mjs';
 import './idea1_and_idea3_savings_fixes.test.mjs';
 import './idea4_haiku_scout.test.mjs';
 import './idea5_build_test_parsers.test.mjs';
+import './savings_ui_and_docs_truth.test.mjs';

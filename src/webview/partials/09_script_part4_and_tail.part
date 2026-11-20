@@ -16,6 +16,7 @@
     if (!md) {
       const sessVal = document.getElementById('tufteSavedTokensLabel')?.textContent || '+0.0k';
       const wsVal = document.getElementById('tufteWorkspaceSavedLabel')?.textContent || '+0.0k';
+      const avoidedVal = document.getElementById('savAvoidedTotalVal')?.textContent || '+0.0k';
       const subVal = document.getElementById('savSubagentVal')?.textContent || '+0.0k';
       const cacheVal = document.getElementById('savCacheVal')?.textContent || '+0.0k';
       const cliVal = document.getElementById('savCliVal')?.textContent || '+0.0k';
@@ -25,11 +26,13 @@
         '',
         `- **This Chat:** ${sessVal}`,
         `- **30-Day Workspace:** ${wsVal}`,
+        `- **Highbeam Avoided Writes:** ${avoidedVal} *(Shield/FTS5/guards/isolation)*`,
+        `- **Platform Prompt-Cache Discount (Provider KV):** ${cacheVal}`,
         '',
         '| Savings Source | Physical Tokens Saved |',
         '| :--- | ---: |',
         `| Subagent context isolation | ${subVal} |`,
-        `| Warm prompt cache (95% off) | ${cacheVal} |`,
+        `| Platform prompt-cache discount (provider KV) | ${cacheVal} |`,
         `| CLI & log output compression (FTS5) | ${cliVal} |`,
         `| Loops, re-reads & tail trims avoided | ${guardVal} |`
       ].join('\n');
@@ -590,6 +593,30 @@
     setIf('tsHeroSub', hasSaved
       ? `This chat${d30Txt ? ' \u00B7 ' + d30Txt : ''}`
       : (d30Txt ? `Nothing saved in this chat yet \u00B7 ${d30Txt}` : 'This chat \u00B7 nothing saved yet'));
+    {
+      const bktEl = document.getElementById('tsHeroBuckets');
+      if (bktEl) {
+        const bkts = raw?.savings?.session?.buckets;
+        const avoidedTxt = txtOf('savAvoidedTotalVal');
+        const cacheTxt = txtOf('savCacheVal');
+        const hasNonZeroBucket =
+          (bkts && (Number(bkts.avoidedWrites?.tokens || 0) > 0 || Number(bkts.platformCacheDiscount?.tokens || 0) > 0)) ||
+          (hasSaved && ((avoidedTxt && avoidedTxt !== '+0.0k') || (cacheTxt && cacheTxt !== '+0.0k')));
+        if (hasNonZeroBucket) {
+          const fmtBkt = (n) => {
+            const v = Math.max(0, Math.round(Number(n) || 0));
+            return v >= 1000000 ? `+${(v / 1000000).toFixed(1)}M` : `+${(v / 1000).toFixed(1)}k`;
+          };
+          const avStr = bkts?.avoidedWrites ? fmtBkt(bkts.avoidedWrites.tokens) : (avoidedTxt || '+0.0k');
+          const pcStr = bkts?.platformCacheDiscount ? fmtBkt(bkts.platformCacheDiscount.tokens) : (cacheTxt || '+0.0k');
+          bktEl.textContent = `Highbeam avoided: ${avStr} \u00B7 Provider cache: ${pcStr}`;
+          bktEl.hidden = false;
+        } else {
+          bktEl.textContent = '';
+          bktEl.hidden = true;
+        }
+      }
+    }
 
     // 2. One-line status (Coach and Auto): health, context used, cache.
     const strip = document.getElementById('tsStatusStrip');

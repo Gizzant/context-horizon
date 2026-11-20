@@ -283,6 +283,16 @@ function renderSessionOverviewHtml(tl, metrics, catList, shadowAuto = null, proE
     : 'Tracking ready';
   const saved30dTxt = `+${formatTokensCompact(metrics.workspace30dSavedTokens)} tokens (30d)`;
   const driverTxt = `${metrics.topSavingsDriver.label} (+${formatTokensCompact(metrics.topSavingsDriver.savedTokens)})`;
+  const avoidedSess = Number(metrics.savingsBuckets?.avoidedWrites?.sessionTokens || 0);
+  const platformSess = Number(metrics.savingsBuckets?.platformCacheDiscount?.sessionTokens || 0);
+  const realizedBucket = metrics.savingsBuckets?.realizedPromptBill || { count: 0, tokens: 0, usd: 0 };
+  const realizedSignedTok = realizedBucket.tokens >= 0
+    ? `+${formatTokensCompact(realizedBucket.tokens)}`
+    : `-${formatTokensCompact(Math.abs(realizedBucket.tokens))}`;
+  const realizedRowHtml =
+    Number(realizedBucket.count || 0) > 0
+      ? `<div class="ah-saved-cat-row" id="savedBucketRealized"><span>Ex-post realized prompt-bill</span><strong>${escapeHtml(realizedSignedTok)} tok</strong></div>`
+      : '';
 
   return `<section class="ah-card ts-card ah-flight" id="simpleFlightRecorder" aria-label="Session overview and savings">
       <div class="ah-fr-topbar">
@@ -295,6 +305,9 @@ function renderSessionOverviewHtml(tl, metrics, catList, shadowAuto = null, proE
           </summary>
           <div class="ah-saved-why">
             <div class="ah-saved-driver" id="savedTopDriver">Top driver: ${escapeHtml(driverTxt)}</div>
+            <div class="ah-saved-cat-row" id="savedBucketAvoided"><span>Highbeam avoided writes</span><strong>+${escapeHtml(formatTokensCompact(avoidedSess))} tok</strong></div>
+            <div class="ah-saved-cat-row" id="savedBucketPlatformCache"><span>Platform cache discount (provider)</span><strong>+${escapeHtml(formatTokensCompact(platformSess))} tok</strong></div>
+            ${realizedRowHtml}
             ${catList.map((c) => `<div class="ah-saved-cat-row"><span>${escapeHtml(c.label)}</span><strong>+${escapeHtml(formatTokensCompact(c.savedTokens))} tok</strong></div>`).join('')}
           </div>
         </details>
@@ -1392,13 +1405,20 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
 
   <!-- ADVANCED VIEW: 5 Progressive-Disclosure Accordions -->
   <section id="advancedViewContainer">
-    <!-- Accordion 1: Verified 5-Category Savings & Anthropic Cache ROI -->
+    <!-- Accordion 1: Estimated 5-Category Savings & Anthropic Cache ROI -->
     <details class="adv-accordion" id="advSavingsAccordion" open>
       <summary>
         <span>1. Estimated Token Savings &amp; Cache Efficiency</span>
         <span>+${escapeHtml(formatTokensCompact(metrics.sessionSavedTokens))} tokens</span>
       </summary>
       <div class="adv-body">
+        <div class="adv-row" id="advBucketAvoided"><span>Highbeam Avoided Writes (Session / 30d)</span><strong>+${escapeHtml(formatTokensCompact(metrics.savingsBuckets?.avoidedWrites?.sessionTokens || 0))} / +${escapeHtml(formatTokensCompact(metrics.savingsBuckets?.avoidedWrites?.workspace30dTokens || 0))} tok</strong></div>
+        <div class="adv-row" id="advBucketPlatformCache"><span>Platform Cache Discount (Provider KV)</span><strong>+${escapeHtml(formatTokensCompact(metrics.savingsBuckets?.platformCacheDiscount?.sessionTokens || 0))} tok</strong></div>
+        ${
+          Number(metrics.savingsBuckets?.realizedPromptBill?.count || 0) > 0
+            ? `<div class="adv-row" id="advBucketRealized"><span>Ex-Post Realized Prompt-Bill Delta</span><strong>${metrics.savingsBuckets.realizedPromptBill.tokens >= 0 ? '+' : '-'}${escapeHtml(formatTokensCompact(Math.abs(metrics.savingsBuckets.realizedPromptBill.tokens)))} tok</strong></div>`
+            : ''
+        }
         ${catList
           .map(
             (c) =>

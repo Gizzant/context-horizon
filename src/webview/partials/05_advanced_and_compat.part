@@ -204,7 +204,7 @@
         <span id="taKpi30d" class="ts-meta">30d: +0.0k</span>
       </div>
       <div class="ta-source-grid">
-        <div><span style="color:var(--hz-muted);">Warm KV</span><br><strong id="taSrcCache">+0.0k</strong></div>
+        <div><span style="color:var(--hz-muted);" title="Provider KV-cache read discount (tracked separately from Highbeam avoided writes)">Provider KV</span><br><strong id="taSrcCache">+0.0k</strong></div>
         <div><span style="color:var(--hz-muted);">Subagents</span><br><strong id="taSrcSub">+0.0k</strong></div>
         <div><span style="color:var(--hz-muted);">FTS5 CLI</span><br><strong id="taSrcCli">+0.0k</strong></div>
         <div><span style="color:var(--hz-muted);">Guards</span><br><strong id="taSrcGuards">+0.0k</strong></div>
@@ -661,8 +661,9 @@
           <span class="summary-status-pill mono" id="advQuotaSummaryPill">+0.0k saved</span>
         </div>
         <div class="savings-why-drawer mono" id="advSavingsBreakdownBox" style="border-top:none;padding-top:0;">
+          <div class="savings-why-row"><span>Highbeam avoided writes</span><strong id="advSavAvoidedTotalVal">+0.0k</strong></div>
           <div class="savings-why-row"><span>Subagent context isolation</span><strong id="advSavSubagentVal">+0.0k</strong></div>
-          <div class="savings-why-row"><span>Warm prompt cache (95% discount + shield)</span><strong id="advSavCacheVal">+0.0k</strong></div>
+          <div class="savings-why-row"><span>Platform cache discount (provider KV)</span><strong id="advSavCacheVal">+0.0k</strong></div>
           <div class="savings-why-row"><span>CLI &amp; log output compression (FTS5)</span><strong id="advSavCliVal">+0.0k</strong></div>
           <div class="savings-why-row"><span>Loops, re-reads &amp; tail trims avoided</span><strong id="advSavGuardsVal">+0.0k</strong></div>
         </div>
@@ -844,8 +845,9 @@
     </div>
 
     <div class="savings-why-drawer mono" id="simpleSavingsWhyDrawer" hidden>
+      <div class="savings-why-row"><span>Highbeam avoided writes</span><strong id="savAvoidedTotalVal">+0.0k</strong></div>
       <div class="savings-why-row"><span>Subagent context isolation</span><strong id="savSubagentVal">+0.0k</strong></div>
-      <div class="savings-why-row"><span>Warm prompt cache (95% off)</span><strong id="savCacheVal">+0.0k</strong></div>
+      <div class="savings-why-row"><span>Platform cache discount (provider KV)</span><strong id="savCacheVal">+0.0k</strong></div>
       <div class="savings-why-row"><span>CLI &amp; log compression</span><strong id="savCliVal">+0.0k</strong></div>
       <div class="savings-why-row"><span>Loops, re-reads &amp; trims avoided</span><strong id="savGuardsVal">+0.0k</strong></div>
       <div class="savings-why-foot">

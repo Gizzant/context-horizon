@@ -189,39 +189,45 @@ echo "highbeam: All pre-push checks passed."
 
 ---
 
-## 7. Step-by-Step Zone C Walkthrough: Triggering Live Auto-Interventions
+## 7. Step-by-Step Zone C Walkthrough: Active Context Shield, FTS5 Offloading & 3-Bucket Receipts
 
-Want to see Highbeam's **Zone C (Automated Activity)** and **Zone D (Estimated Savings Receipt)** react in real time? Run this 4-step workflow in any workspace:
+Want to see Highbeam's **Zone C (Automated Activity)** and **Zone D / E (Estimated 3-Bucket Savings Receipt)** react in real time? On Claude Code, **clamp-only `auto` Shield** (`npx highbeam-cli shield --status`) is enabled by default out of the box—no manual flag setup required:
+
+```bash
+# Check default auto (clamp-only) Shield status & FTS5 offload index
+npx highbeam-cli shield --status
+
+# Optional: install & enable opt-in Haiku Read-Only Scout (disabled by default)
+npx highbeam-cli scout --enable
+```
 
 ### Step 0: Baseline State (`0.0k` Saved, 32 Guards Armed)
-Open the Highbeam Sidepane (`npx highbeam-cli --serve`). On a cold session start, Zone C displays:
+Open the Highbeam Sidepane (`npx highbeam-cli ui`). On a cold session start, Zone C displays:
 `now · Auto-guards armed (FTS5 CLI compressor & PrefixCacheShield) · ready`
 
-### Step 1: Trigger `GUARD-4` Duplicate File-Read Folding + Warm KV Cache (`+95.8k` Saved)
-When an agent reads an 800-line file, makes a small edit, and immediately re-reads the entire unmodified file while a `100k` prompt prefix is warm (`5m` TTL active):
-- **What Highbeam Does Automatically**: `PreToolUse` (`GUARD-4`) intercepts the redundant full-file read, serves a compact structural signature/diff stub (`+800` physical tokens saved), and preserves the `95%` warm KV-cache discount (`+95.0k` billing-equivalent tokens saved).
-- **Zone C Output**:
-  - `T1 · Served system & history prefix from warm KV cache · +95.0k`
-  - `T1 · Deduped repeat file read on server.mjs (AST stub) · +800`
+### Step 1: Trigger Default `auto` Active Context Shield + `GUARD-4` Duplicate Folding (`Avoided Writes`)
+When an agent issues an unsliced `Read` on an oversized doc/file (`>250` lines / `>16 KB`) or immediately re-reads an unmodified file after editing:
+- **What Highbeam Does Automatically**: `PreToolUse` clamps oversized reads in-place via `updatedInput` (or serves a compact hunk/AST stub via `GUARD-4`) with **zero wasted denial round-trips**—the mechanism behind Highbeam's **`-16.94%`** cost edge over Shield-off (`72`-run A/B).
+- **3-Bucket Ledger Recording**:
+  - **Bucket 1 — Highbeam Avoided Writes (`avoidedWrites`)**: Records only the net positive physical tokens prevented from entering prompt history.
+  - **Bucket 3 — Platform Cache Discount (`platformCacheDiscount`)**: Any provider KV-cache read discount (`cacheReadTokens`) is tracked strictly in Bucket 3 so provider cache hits are never conflated with Highbeam write savings.
 
-### Step 2: Trigger `DET-07` SQLite FTS5 CLI Test Sieve (`+11.2k` Saved)
-When a test runner (`npm test`, `pytest`, or `cargo test`) outputs `120+` lines of passing suite noise plus 1 failing assertion (`~11,400` tokens):
-- **What Highbeam Does Automatically**: `PostToolUse` strips ANSI spinners, indexes raw stdout into an in-memory SQLite FTS5 (`porter unicode61`) table, and returns only the `160`-token failing stack trace to the model.
+### Step 2: Trigger `PostToolUse` SQLite FTS5 Compression (`Bash` + `Grep|Glob`)
+When a supported CLI runner across **19 stacks** (`pytest`, `vitest`, `cargo test`, `go test`, `mvn test`, `gradlew`, `dotnet test`, `playwright`, `rspec`, `phpunit`, `deno test`, `ctest`, `tsc`, `eslint`, `make`, `git diff/status`, `docker`, `kubectl`) or a noisy `Grep`/`Glob` dump exceeds threshold (`>=40` lines or `>=4,096` bytes):
+- **What Highbeam Does Automatically**: `PostToolUse` strips ANSI spinners, indexes raw stdout into local SQLite FTS5 (`porter unicode61`), and returns only failing assertions / structured diagnostics (**`96%` reduction**, **`100%` diagnostic recall** offline), while skipping file-inspection commands (`cat`, `head`, `tail`, `sed`, `awk`, `grep`, `rg`, `jq`).
 - **Zone C Output**:
-  - `T2 · Compressed verbose test runner output (FTS5) · +11.2k`
+  - `T2 · Compressed verbose test runner output (FTS5) · +11.2k` *(logged to `avoidedWrites`)*
 
-### Step 3: Trigger `DET-09` `PrefixCacheShield` Warm Rule Deferral (`+57.0k` Saved)
-When you or the agent attempts to edit `AGENTS.md` or `CLAUDE.md` while a `60k` prefix is still warm (`03:42` remaining on the 5-minute TTL clock):
-- **What Highbeam Does Automatically**: `PrefixCacheShield` stages the rule delta in `.agents/cache/pending_rule_deltas.json` until TTL expiry or `/compact`, preventing an immediate cold-prefill rebuild of the entire `60k` prefix.
-- **Zone C & Zone D Output**:
-  - `live · Staged 1 rule edit via PrefixCacheShield until TTL expiry · shielded`
-  - **Zone D Total**: **`+164.0k tokens saved`**
+### Step 3: Trigger `DET-09` `PrefixCacheShield` Warm Rule Deferral
+When you or the agent edits `AGENTS.md` or `CLAUDE.md` while a `5m`/`1h` prefix is still warm on cache-sensitive models:
+- **What Highbeam Does Automatically**: `PrefixCacheShield` stages the rule delta until TTL expiry or `/compact`, avoiding an immediate uncached prefix rewrite.
+- **Zone D / E Output**: Displays total session & 30d estimate alongside a clear split (`Highbeam avoided: +X · Provider cache: +Y`).
 
 ---
 
-## 8. Exporting Estimated FinOps & GreenOps Receipts (Markdown / PDF 1.4)
+## 8. Exporting Estimated 3-Bucket FinOps & GreenOps Receipts (Markdown / PDF 1.4)
 
-To generate a cryptographically signed (`SHA-256`) savings receipt for engineering expense reports:
+To generate a cryptographically signed (`SHA-256`) local estimate receipt for engineering expense reports:
 
 ```bash
 # Print Markdown FinOps + GreenOps receipt to terminal
@@ -231,5 +237,5 @@ npx highbeam-cli receipt --markdown
 npx highbeam-cli receipt --pdf
 ```
 
-Each receipt reconciles all 10 savings event categories (`CLI_DAMPENED`, `READ_DEDUPED`, `SUBAGENT_ISOLATED`, `CACHE_HIT_SAVED`, `PREFIX_SHIELD_SAVED`, `AUTO_PRUNED`, `TURN_ZERO_COMPACTED`, `PROMPT_HYGIENE_STEERED`, `PROMPT_HYGIENE_BLOCKED`, and `SIGHTSEEING_TOOL_PREVENTED`), alongside estimated USD saved, datacenter GPU energy avoided (`~650 Wh` per `1M` tokens), and `CO₂e` avoided (`~247g` per `1M` tokens).
+Each receipt separates **Highbeam Avoided Writes** (Shield clamps, FTS5 CLI compression, deduped reads, subagent isolation), **Platform Cache Discount (Provider KV)**, and (when recorded) **Ex-Post Realized Prompt-Bill Delta** alongside estimated USD saved (from list-price telemetry, not a provider invoice), datacenter GPU energy avoided (`~650 Wh` per `1M` tokens), and `CO₂e` avoided (`~247g` per `1M` tokens).
 

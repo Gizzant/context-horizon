@@ -393,7 +393,7 @@ test('UX-4: Self-contained Claude Code HTML HUD (renderHorizonPanelHtml & npx ah
       state
     });
     assert.equal(cliAdvReceipt.exitCode, 0);
-    assert.match(cliAdvReceipt.output, /\[Section 1\] Verified 5-Category Token Savings/);
+    assert.match(cliAdvReceipt.output, /\[Section 1\] Estimated 5-Category Token Savings/);
     assert.match(cliAdvReceipt.output, /\[Section 5\] PreCompact State Baton/);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });

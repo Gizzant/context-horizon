@@ -96,7 +96,48 @@ export function buildDemoPage(options = {}) {
   const precomputedStates = customStates || {};
   if (!customStates) {
     for (const s of customMeta) {
-      precomputedStates[s.id] = buildDemoHorizonState(s.id);
+      const st = buildDemoHorizonState(s.id);
+      if (!st.savings && s.id !== 1) {
+        const cacheReadTok = Math.max(0, Number(st.quota?.cache?.cacheReadTokens || 0));
+        const platformCacheTok = Math.round(cacheReadTok * 0.95);
+        const subTok = Math.max(0, Number(st.subagents?.tokensSaved || 0));
+        const cliTok = s.id >= 2 ? Math.round(Number(st.reclaimableTokens || 14000) * 0.65) : 0;
+        const guardTok = s.id >= 2 ? 2800 : 0;
+        const avoidedTok = subTok + cliTok + guardTok;
+        const totalTok = avoidedTok + platformCacheTok;
+        const avoidedUsd = Number(((avoidedTok / 1_000_000) * 3.0).toFixed(2));
+        const platformUsd = Number(((platformCacheTok / 1_000_000) * 3.0).toFixed(2));
+        st.savings = {
+          session: {
+            totalTokens: totalTok,
+            totalPhysicalTokens: totalTok,
+            physicalTokensAvoided: avoidedTok,
+            billingEquivalentCacheTokens: platformCacheTok,
+            estimatedUsd: Number((avoidedUsd + platformUsd).toFixed(2)),
+            buckets: {
+              avoidedWrites: { tokens: avoidedTok, usd: avoidedUsd },
+              platformCacheDiscount: { tokens: platformCacheTok, usd: platformUsd },
+              realizedPromptBill: { tokens: 0, usd: 0 }
+            },
+            bySource: {
+              subagentIsolated: subTok,
+              cachePreserved: platformCacheTok,
+              cliCompressed: cliTok,
+              avoidedBloat: guardTok
+            }
+          },
+          workspace30d: {
+            totalTokens: totalTok * 6,
+            totalPhysicalTokens: totalTok * 6,
+            buckets: {
+              avoidedWrites: { tokens: avoidedTok * 6, usd: Number((avoidedUsd * 6).toFixed(2)) },
+              platformCacheDiscount: { tokens: platformCacheTok * 6, usd: Number((platformUsd * 6).toFixed(2)) },
+              realizedPromptBill: { tokens: 0, usd: 0 }
+            }
+          }
+        };
+      }
+      precomputedStates[s.id] = st;
     }
   }
 

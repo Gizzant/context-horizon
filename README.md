@@ -1,8 +1,8 @@
 <div align="center">
 
-# Highbeam (`highbeam-cli` v4.2) — Stop Wasting Context & Breaking Prompt Caches in Claude Code and Google Antigravity
+# Highbeam (`highbeam-cli` v4.3) — Stop Wasting Context & Breaking Prompt Caches in Claude Code and Google Antigravity
 
-**A zero-dependency, 100% local CLI, HUD, and IDE sidebar that watches your agent's context window, trims noisy tool logs before they compound, and calculates whether switching models or effort will bust a warm prompt cache** *(each hook runs as a short spawned Node process: `~60–80ms` Linux, `~200–275ms` Windows; in-process rule engine `<1ms` — see [Verification & Benchmarks](#verification--benchmarks))*
+**A zero-dependency, 100% local CLI, HUD, and IDE sidebar that watches your agent's context window, clamps oversized reads and verbose tool logs before they compound, and separates Highbeam avoided writes from provider KV-cache discounts** *(each hook runs as a short spawned Node process: `~60–80ms` Linux, `~200–275ms` Windows; in-process rule engine `<1ms` — see [Verification & Benchmarks](#verification--benchmarks))*
 
 [![CI Matrix](https://github.com/Gizzant/context-horizon/actions/workflows/ci.yml/badge.svg)](https://github.com/Gizzant/context-horizon/actions/workflows/ci.yml)
 [![Zero Runtime Dependencies](https://img.shields.io/badge/dependencies-0_runtime-brightgreen.svg)](#systems-architecture--zero-trust-security)
@@ -42,7 +42,9 @@ npx highbeam-cli audit --days 7
   Un-Sliced Large Reads  : 11 | Oversized Tool Dumps: 38
 ```
 
-> **Why cache physics beats raw log trimming alone:** In our [45-run / 540-turn settled Anthropic wire benchmark](docs/EMPIRICAL_BENCHMARKS.md) (`540/540` wire parity), downgrading `Opus 4.6 -> Sonnet 4.6` mid-chat on a warm `~58k` prefix collapsed Turn-6 cache hits to `0.0%` and made the session **more expensive** (`$0.8611` vs. `$0.7789` staying on Opus). Highbeam computes break-even horizon math (`C_max`) live so you know when to **Hold** vs. **Switch**.
+> **Verified Live A/B (`Claude Code`, `anthropic/claude-sonnet-5.5`):** Across **72 live runs** (`T01`–`T08`, `n = 24`/arm, [`highbeam_ab_results.json`](experiments/model-switch-benchmark/results/highbeam_ab_results.json)), Highbeam cut **mean billed cost by `-13.31%`** (`$4.8174` vs. `$5.5569`, **`-14.39%` median paired delta**) and **prompt-bill tokens by `-24.31%`** (`6.85M` vs. `9.05M`), with `20/24` wins, `3/3` reps, `7/8` tasks, `100%` completion (`24/24`), `1.004x` requests (`241` vs. `240`), `0` hard denies, and `-16.94%` vs. Shield-off. Our [45-run / 540-turn wire benchmark](docs/EMPIRICAL_BENCHMARKS.md) also showed `Opus 4.6 -> Sonnet 4.6` mid-chat downgrades bust warm caches (`$0.8611` vs. `$0.7789`).
+>
+> **Scope Boundary:** Live savings apply to doc/log/audit workloads triggering clamping or FTS5 filtering. In a **27-run code-exploration suite (`T09`–`T11`)** with no oversized docs/logs ([`highbeam_ab_exploration_results.json`](experiments/model-switch-benchmark/results/highbeam_ab_exploration_results.json)), Shield fired `0/27` times and Claude spawned `0/27` subagents (`$1.2346` vs. `$1.3195`, `+6.88%` variance); `highbeam scout` (`ah-haiku-scout`) ships **opt-in**.
 
 ---
 
@@ -68,7 +70,7 @@ npx highbeam-cli audit --days 7
 1. **Install plugin & hooks**: Run `npx highbeam-cli init --claude` (current project) or `npx highbeam-cli init --claude --global` (all projects) to wire `.claude-plugin/plugin.json`, `hooks/hooks.json`, and the live terminal `statusLine`.
 2. **Watch the Live Terminal `statusLine`**: At the bottom of your terminal, Highbeam renders an auto-adapting (`80 / 110 / 144` col) telemetry bar:
    ```text
-   HB [SCCCCCCC................] sonnet-5-5 64k/200k (32%) · Cache 88% (4m12s) · COACH · Saved +164k
+   HB [SCCCCCCC................] sonnet-5-5 64k/200k (32%) · Cache 88% (4m12s) · COACH · Saved +14.8k
    ```
 3. **Open the In-Chat Docked HUD**: Type `/horizon` in chat (or run `npx highbeam-cli panel` for the standalone HTML workbench) to inspect cache gravity, active guards, and reclaimable tokens.
 
@@ -101,39 +103,32 @@ All 6 slash skills are registered identically in both **Google Antigravity** (`p
 
 ---
 
-## 🛡️ Example 4-Step Session Receipt: `+12.0k` Tokens Stripped + `+152.0k` Warm Cache Protected
+## 🛡️ 3-Bucket Savings & 72-Run Replicated Benchmark (`-13.31%` Cost / `-24.31%` Prompt-Bill Tokens)
 
-Most CLI trackers passively count tokens *after* your quota is already burned. Highbeam intercepts redundant reads, compresses noisy test dumps via local SQLite FTS5, and shields warm KV prefixes **before** they burn your context window and rate-limit quota:
+Highbeam separates its local ledger into **three orthogonal buckets** instead of crediting provider prompt-cache hits to itself:
 
-<div align="center">
-  <img src="https://raw.githubusercontent.com/Gizzant/context-horizon/main/assets/zone_c_step3_shield_full.png" alt="Highbeam Zone C Active Protection & Estimated Token Receipt (+12.0k stripped + 152.0k cache protected)" width="460" />
-</div>
+1. **Bucket 1 — Highbeam Avoided Writes (`avoidedWrites`):** Fresh uncached input prevented in real time via default clamp-only `auto` Active Context Shield (`16 KB` / `250L` slice clamping), `GUARD-4` duplicate-read folding, and `PostToolUse` FTS5 compression (`Bash` + `Grep|Glob`).
+2. **Bucket 2 — Ex-Post Realized Prompt-Bill Delta (`realizedPromptBill`):** Signed wire-verified delta vs. paired baseline (including negative variances).
+3. **Bucket 3 — Platform Prompt-Cache Discount (`platformCacheDiscount`):** Provider KV-cache read discounts tracked separately and **never** added into Highbeam ROI.
 
-| Step in Coding Loop | Developer / Agent Action | Highbeam Active Intervention (Zone C) | Impact & Unit |
-| :--- | :--- | :--- | :---: |
-| **1. Warm KV Cache + Repeat Read** | Agent re-reads an unmodified 800-line source file on a `100k` warm cache | **GUARD-4** intercepts the duplicate read (`AST signature stub`) and preserves the `95%` warm KV cache discount | **`+95.0k` tok** *(cache hit kept)*<br/>**`+800` tok** *(stripped from context)* |
-| **2. Failing Test Suite Dump** | `npm test` dumps `120+` lines of verbose stdout (`~11.4k` tokens) | **SQLite FTS5 BM25 Compressor** indexes raw stdout locally and injects only the 160-token failing assertion digest | **`+11.2k` tok** *(stripped from context)* |
-| **3. Mid-Session Rule Edit** | Agent updates `AGENTS.md` / `CLAUDE.md` while `60k` prefix is warm (`2m 55s` TTL left) | **PrefixCacheShield** queues the rule delta until TTL expiry or `/compact`, preventing a cold prefix rebuild | **`+57.0k` tok** *(rebuild avoided)* |
-| **Tokens Stripped From Context** | **Fresh uncached input removed (`100%` weight)** | **AST stub (`+0.8k`) + FTS5 digest (`+11.2k`)** | **`+12.0k` tok removed** |
-| **Warm Cache & Rebuilds Protected** | **Discounted cache reads & cold rebuilds avoided** | **Warm KV hit (`+95.0k`) + PrefixCacheShield (`+57.0k`)** | **`+152.0k` tok protected** |
+| Benchmark Arm (`T01`–`T08`, `3` reps × `8` tasks, `sonnet-5.5`) | Runs | Reqs | Total Billed | Prompt-Bill Tokens | Paired Result |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **`BASELINE`** (no Highbeam) | `24/24` | `240` | `$5.5569` | `9,047,750` (`1.062M`w + `7.985M`r) | Reference arm (`0` clamps, `0` FTS5) |
+| **`HIGHBEAM_SHIELD_OFF`** (`hooks`, Shield off) | `24/24` | `236` | `$5.7998` | `9,394,539` (`+4.37%`) | `0` clamps; proves Shield is required |
+| **`HIGHBEAM`** (Default `auto` Shield + `Grep\|Glob` + FTS5) | **`24/24`** | **`241`** | **`$4.8174`** (`-13.31%`) | **`6,847,992` (`-24.31%`)** (`-24.8%`w / `-24.3%`r) | **`-14.39%` median**, `20/24` wins, `3/3` reps, `7/8` tasks, `-16.94%` vs. Shield-off, `0` denies |
+| **`T09`–`T11` Exploration (`n = 9`/arm)** | `9/9` | `69/71/69` | `$1.2346` / `$1.3195` / `$1.4085` | `1.490M` / `1.578M` / `1.618M` | Null result: `0/27` clamps, `0/27` subagents (`+6.88%`/`+14.08%`); `ah-haiku-scout` is opt-in |
 
-> Highbeam tracks physical tokens removed (`physicalTokensAvoided`) separately from cache-read/rebuild-avoided tokens (`billingEquivalentCacheTokens`) in its local ledger (`+164.0k` combined HUD counter; cached reads bill at `5%–10%` of fresh input rates).
-
-> **Reconciled Weekly Expectation:** Across normal coding weeks without deliberate cache-busting, our bottom-up benchmark model estimates **`~2.5M–6M` redundant tokens stripped per week** (`~6%–11%` lower raw API input volume for metered org teams), translating into **`30%–50%` longer 5-hour subscription sprints** by cutting `O(N²)` tool-log compounding and cold prefix rebuilds.
+**Offline Multi-Stack Compression (`npm run bench:parity`):** Across **19 noisy CLI fixtures (`F01`–`F19`)**, structured FTS5 parsers achieve **`96%` token reduction** (`54,415 -> 2,176`), **`100%` diagnostic recall (`52/52`)**, and **`100%` BM25/MCP retrieval**, excluding `cat`/`head`/`tail`/`sed`/`awk`/`grep`/`rg`/`jq` with zero generic fallback.
 
 ---
 
-## 💡 Why Saved Tokens Multiply (`O(N²)` Turn Compounding, Quota Life & Model IQ)
+## 💡 Why Saved Tokens Multiply (`O(N²)` Turn Compounding & Model IQ)
 
-In agentic coding, every turn re-sends the entire prior conversation history. A single `15,000`-token raw test dump on Turn 5 is not billed once—it is re-sent on Turns 6 through 25, burning **`300,000` cumulative tokens** (`15,000 × 20`).
+In agentic coding, every turn re-sends prior history, so clamping oversized reads and noisy test dumps on early turns cuts cumulative cache writes and reads across the session:
 
-1. **For Fixed-Subscription Users (`Claude Pro / Max`, `Antigravity OAuth Seats`) — Stop 2:00 PM Quota Lockouts & Context Rot**:
-   - Compressing noisy tool outputs and duplicate file reads on early turns prevents `O(N²)` history compounding, **stretching 5-hour sprint quotas by `30%–50%`**.
-   - Staying below the **70% Safe Horizon** prevents **Context Rot** (middle-window attention decay where the model starts overlooking `AGENTS.md`/`CLAUDE.md` rules or hallucinating imports).
-2. **For Metered API & Enterprise FinOps Teams (`Bedrock / Vertex / Anthropic API`)**:
-   - Preventing accidental warm-cache busts plus automatic FTS5 log compression reduces raw API input volume by **`~6%–11%`** across multi-seat engineering orgs and adds per-PR token & budget guardrails (`pr-cost`, `team-rollup`, `ci-gate`, `receipt --pdf`).
-3. **Daily Cockpit Decisions No Human Can Calculate in Their Head (Zone B)**:
-   - *"If I downshift from Opus to Sonnet right now, will I save quota or pay a 10x cold-prefill penalty?"* — Highbeam computes the horizon-aware KV-cache break-even limit (`C_max`) and post-switch warm-request payback in real time and displays a 1-line verdict: **`Model: Hold (03:34) — switching busts warm cache`**.
+1. **Fixed Subscriptions (`Claude Pro / Max`, `Antigravity`):** Early read clamping and output filtering trimmed prompt-bill tokens by `-24.31%` (`-24.78%` cache writes) with `0` hard denies, helping keep active context below the **70% Safe Horizon** to avoid Context Rot.
+2. **Metered API & FinOps (`Bedrock / Vertex / Anthropic`):** Doc/log/audit loops saw `-13.31%` mean (`-14.39%` median) cost reduction (`0` false Bash offload hits), paired with `pr-cost`, `team-rollup`, `ci-gate`, and `receipt --pdf`. Opt-in scout tiering: `npx highbeam-cli scout --enable` (`ah-haiku-scout`, `false` by default).
+3. **Horizon Cache Math (Zone B):** Computes break-even (`C_max`) and post-switch payback live before a mid-session model switch triggers a cold-prefill penalty (`Model: Hold (03:34) — switching busts warm cache`).
 
 ---
 
@@ -143,8 +138,8 @@ Highbeam defaults to **`COACH` mode**—trimming tokens silently in the backgrou
 
 | Automated Feature | How It Works Under the Hood | Developer Experience |
 | :--- | :--- | :--- |
-| **1. SQLite FTS5 CLI & Test Output Compression** (`PostToolUse`) | Strips ANSI/progress noise, indexes full stdout in local SQLite FTS5 (`porter unicode61`), and injects only the compact failing assertion digest | **Automatic** — typically saves `50%–90%` of test/build log tokens while keeping failing assertions and error lines (full output stays searchable locally) |
-| **2. Post-Edit Delta Diffs & 3rd-Read AST Stubs** (`GUARD-4` in `PreToolUse`) | When the agent re-reads a file after editing 5 lines (or reads the same unclipped file `>=3` times), returns a unified line diff or function-signature AST stub | **100% automatic** — cuts repeat-read token burn by `80%+` without interrupting the agent |
+| **1. Net-Positive SQLite FTS5 CLI & Search Compression** (`PostToolUse`) | Strips ANSI/spinners, runs explicit parsers (`>=40` lines or `>=4,096` bytes) across 19 tool families plus `Grep\|Glob` path array filtering, indexes raw output locally, and skips raw file-inspection commands (`cat`/`head`/`tail`/`sed`/`awk`/`grep`/`rg`/`jq`) | **Automatic** — **`96%` offline reduction (`100%` recall)** on noisy test/build suites with `0` false Bash offload hits in 72 live runs |
+| **2. Auto Clamp-Only Active Context Shield + `GUARD-4`** (`PreToolUse`) | Defaults to clamp-only `mode: 'auto'` on Claude Code (`updatedInput` slices `<=250L` / `<=16 KB` on oversized reads with `0` hard blocks), plus post-edit hunk windows and 3rd-read AST stubs | **Zero-round-trip default** — delivers **`-16.94%` cost vs. Shield-off** while preserving `100%` completion |
 | **3. `PrefixCacheShield` Warm Rule & Effort Deferral** (`DET-09`) | Intercepts mid-session edits to `AGENTS.md` / `CLAUDE.md` while a KV cache is warm, and checks `MODEL_EFFORT_CACHE_CAPABILITIES` on effort changes (defers on `4.6`, silent on cache-preserving `5.5` models, warns on untested models) | **Model-aware cache protection** — prevents silent cold prefix rebuilds without false-positiving on `5.5` effort |
 | **4. Live Model & Effort Switch Verdict** (`Zone B`) | Evaluates remaining KV cache TTL (`5m`/`1h`) and horizon break-even (`C_max` & warm-request payback) across `MODEL / HOLD / SWITCH / LOCK` states | **Instant visual guidance** — tells you when to hold vs. switch models or lower thinking effort |
 | **5. Held Downshift & Boundary Lifecycle** (`SessionStart:compact` / `Stop`) | Surfaces held `pending_downshift` after compaction via a zero-token `SessionStart:compact` `systemMessage` reminder (`/model <target>`), with optional boundary prompts disabled by default | **Post-compact downshift handoff** — reminds `/model <target>` cleanly right after compaction |
@@ -371,6 +366,8 @@ When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incomi
 | `npx highbeam-cli audit [--platform all\|antigravity\|claude\|codex\|gemini\|cursor] [--days 7] [--json]` | Zero-write, hookless 5-host audit of Sludge Tax, cold-cache spikes, and oversized tool dumps. |
 | `npx highbeam-cli init [--cursor \| --windsurf \| --codex \| --gemini-cli \| --all-hosts]` | Installs Google Antigravity, Claude Code, and 1-command MCP configurations across editors & CLIs. |
 | `npx highbeam-cli search [<turn-id>] "<keyword>" [--json]` | Searches local SQLite FTS5 offloaded CLI dumps and artifacts via BM25 matching. |
+| `npx highbeam-cli shield [--auto \| --enable \| --disable \| --status]` | Inspects or switches Active Context Shield mode (`auto` clamp-only is default on Claude Code; `enable` enforces hard blocks on unclipped overrides). |
+| `npx highbeam-cli scout [--enable \| --disable \| --status]` | Toggles opt-in `ah-haiku-scout` agent installation and read-only subagent Haiku auto-tiering (`false` by default). |
 | `npx highbeam-cli init --claude [--global]` | Installs only the Claude Code `.claude-plugin` manifest, command hooks, and terminal `statusLine` (current project, or all projects with `--global`). |
 | `npx highbeam-cli ui [--demo]` | Launches the local HTTP/SSE telemetry daemon (`127.0.0.1`) and interactive WebView (`/` Simple, `/advanced` Advanced). |
 | `npx highbeam-cli mcp` | Starts the standalone zero-network 7-tool JSON-RPC stdio MCP server (`@ctxtop/mcp`). |
@@ -390,22 +387,22 @@ When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incomi
 
 ## Verification & Benchmarks
 
-Run the full zero-dependency test and verification suites (**1,300+ tests** — see [**Empirical Benchmarks**](docs/EMPIRICAL_BENCHMARKS.md) & [**Compression & Antigravity Parity Report**](docs/ANTIGRAVITY_AND_COMPRESSION_BENCHMARK.md)):
+Run the full zero-dependency test and verification suites (**1,450+ tests** — see [**Empirical Benchmarks**](docs/EMPIRICAL_BENCHMARKS.md) & [**Compression & Antigravity Parity Report**](docs/ANTIGRAVITY_AND_COMPRESSION_BENCHMARK.md)):
 
 ```bash
-# Full Coach, UI, & 360° Capability-Proof suite
+# Full Coach, UI, & 360° Capability-Proof suite (~1,119+ tests)
 npm run test:coach
 
-# Claude Code hooks, statusLine, and 5-category ledger suite (~230 tests)
+# Claude Code hooks, statusLine, and 3-bucket / 5-category ledger suite (~250 tests)
 npm run test:claude
 
-# Unit & Multi-Harness Wedge suite (~85 tests)
+# Unit & Multi-Harness Wedge suite (~87+ tests)
 npm run test:unit
 
 # Architectural verification suite (Gates 0-6 & Phases 1-7: SQLite read-only locks, JSDOM UI, MCP audit)
 npm run test:gates && npm run test:phases
 
-# Reproducible 10-family CLI compression + 12-session Antigravity & 5-host parity benchmark
+# Reproducible 19-fixture CLI compression + 12-session Antigravity & 5-host parity benchmark
 npm run bench:parity
 
 # Latency benchmark: prints p50/p95 per path (in-process rule engine: 200 iterations; spawned hook: 6 samples, wall time incl. Node startup). Re-run on your machine; numbers vary by OS and load.

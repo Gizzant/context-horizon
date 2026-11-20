@@ -5317,6 +5317,7 @@ color: #1f2328 !important;
 <span id="tsHeroUsd" class="ts-saved-hero-usd" hidden></span>
 </span>
 <span id="tsHeroSub" class="ts-saved-hero-sub">This chat &middot; nothing saved yet</span>
+<span id="tsHeroBuckets" class="ts-saved-hero-sub" hidden></span>
 </section>
 <p id="tsOffNote" class="ts-mode-note mode-only-off" role="status">Watching only. Highbeam tracks context and the cache timer but does not trim logs or give advice. Switch to Coach for advice.</p>
 <div id="tsStatusStrip" class="ts-status-strip mode-hide-off" role="status" aria-live="polite" data-tone="nominal">
@@ -5499,7 +5500,7 @@ color: #1f2328 !important;
 <div class="ts-micro-bullet-tick" title="80% cache hit target"></div>
 </div>
 </div>
-<div class="ts-metric-row" title="Tokens saved locally by trimming verbose logs, skipping duplicate reads, and keeping your prompt cache warm.">
+<div class="ts-metric-row" title="Keeps tokens Highbeam trimmed out separate from provider cache discounts.">
 <div class="ts-metric-main">
 <span class="ts-metric-label">Saved</span>
 <span id="tsKpiSaved" class="ts-kpi-inline" title="Estimated tokens saved during this active chat session.">+0.0k</span>
@@ -5508,7 +5509,7 @@ color: #1f2328 !important;
 <span id="tsKpi30d" class="ts-kpi-sub" title="Cumulative estimated tokens saved across this workspace over the last 30 days.">30d: +0.0k</span>
 <span id="tsSprintMeta" class="ts-kpi-sub" hidden title="Estimated share of your 5-hour rolling seat quota used so far."></span>
 </div>
-<span id="tsSavedHint" class="ts-kpi-sub" title="All savings are counted once per turn from Highbeam's local ledger with zero estimates padded in.">estimated</span>
+<span id="tsSavedHint" class="ts-kpi-sub" title="Counted once per turn from Highbeam's local log. Avoided writes and provider cache discounts stay separate.">estimated</span>
 </div>
 <div id="tsSessionExtraRow" class="ts-metric-row" hidden>
 <div class="ts-metric-main">
@@ -5718,7 +5719,7 @@ KV Gravity Router ready &middot; Turn-boundary switch buffer armed
 <span id="taKpi30d" class="ts-meta">30d: +0.0k</span>
 </div>
 <div class="ta-source-grid">
-<div><span style="color:var(--hz-muted);">Warm KV</span><br><strong id="taSrcCache">+0.0k</strong></div>
+<div><span style="color:var(--hz-muted);" title="Provider KV-cache read discount (tracked separately from Highbeam avoided writes)">Provider KV</span><br><strong id="taSrcCache">+0.0k</strong></div>
 <div><span style="color:var(--hz-muted);">Subagents</span><br><strong id="taSrcSub">+0.0k</strong></div>
 <div><span style="color:var(--hz-muted);">FTS5 CLI</span><br><strong id="taSrcCli">+0.0k</strong></div>
 <div><span style="color:var(--hz-muted);">Guards</span><br><strong id="taSrcGuards">+0.0k</strong></div>
@@ -6129,8 +6130,9 @@ Cache is currently warm (95% token cost discount). Defer compaction until work p
 <span class="summary-status-pill mono" id="advQuotaSummaryPill">+0.0k saved</span>
 </div>
 <div class="savings-why-drawer mono" id="advSavingsBreakdownBox" style="border-top:none;padding-top:0;">
+<div class="savings-why-row"><span>Highbeam avoided writes</span><strong id="advSavAvoidedTotalVal">+0.0k</strong></div>
 <div class="savings-why-row"><span>Subagent context isolation</span><strong id="advSavSubagentVal">+0.0k</strong></div>
-<div class="savings-why-row"><span>Warm prompt cache (95% discount + shield)</span><strong id="advSavCacheVal">+0.0k</strong></div>
+<div class="savings-why-row"><span>Platform cache discount (provider KV)</span><strong id="advSavCacheVal">+0.0k</strong></div>
 <div class="savings-why-row"><span>CLI &amp; log output compression (FTS5)</span><strong id="advSavCliVal">+0.0k</strong></div>
 <div class="savings-why-row"><span>Loops, re-reads &amp; tail trims avoided</span><strong id="advSavGuardsVal">+0.0k</strong></div>
 </div>
@@ -6303,8 +6305,9 @@ Cache is currently warm (95% token cost discount). Defer compaction until work p
 </div>
 </div>
 <div class="savings-why-drawer mono" id="simpleSavingsWhyDrawer" hidden>
+<div class="savings-why-row"><span>Highbeam avoided writes</span><strong id="savAvoidedTotalVal">+0.0k</strong></div>
 <div class="savings-why-row"><span>Subagent context isolation</span><strong id="savSubagentVal">+0.0k</strong></div>
-<div class="savings-why-row"><span>Warm prompt cache (95% off)</span><strong id="savCacheVal">+0.0k</strong></div>
+<div class="savings-why-row"><span>Platform cache discount (provider KV)</span><strong id="savCacheVal">+0.0k</strong></div>
 <div class="savings-why-row"><span>CLI &amp; log compression</span><strong id="savCliVal">+0.0k</strong></div>
 <div class="savings-why-row"><span>Loops, re-reads &amp; trims avoided</span><strong id="savGuardsVal">+0.0k</strong></div>
 <div class="savings-why-foot">
@@ -9966,6 +9969,16 @@ const savCli = bySrc ? Number(bySrc.cliCompressed ?? bySrc.cliCompression ?? 0) 
 const savGuards = bySrc
 ? Number(bySrc.avoidedBloat ?? ((bySrc.guardsPrevented || 0) + (bySrc.compactionReclaimed || 0)))
 : Math.max(0, ledgerSavedFallback - fts5SavedFallback);
+const savAvoidedWrites = srvSav?.session?.buckets?.avoidedWrites?.tokens != null
+? Math.max(0, Number(srvSav.session.buckets.avoidedWrites.tokens))
+: srvSav?.session?.physicalTokensAvoided != null
+? Math.max(0, Number(srvSav.session.physicalTokensAvoided))
+: (savSubagent + savCli + savGuards);
+const savPlatformCache = srvSav?.session?.buckets?.platformCacheDiscount?.tokens != null
+? Math.max(0, Number(srvSav.session.buckets.platformCacheDiscount.tokens))
+: srvSav?.session?.billingEquivalentCacheTokens != null
+? Math.max(0, Number(srvSav.session.billingEquivalentCacheTokens))
+: savCache;
 const sessSavedTotal = srvSav?.session != null
 ? Number(srvSav.session.totalTokens ?? srvSav.session.totalPhysicalTokens ?? 0)
 : (savSubagent + savCache + savCli + savGuards);
@@ -9995,13 +10008,15 @@ tufteSavedUsdEl.hidden = true;
 const tufteWsSavedEl = document.getElementById('tufteWorkspaceSavedLabel');
 if (tufteWsSavedEl) tufteWsSavedEl.textContent = fmtPlusTok(wsSavedTotal);
 const setById = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+setById('savAvoidedTotalVal', fmtPlusTok(savAvoidedWrites));
 setById('savSubagentVal', fmtPlusTok(savSubagent));
-setById('savCacheVal', fmtPlusTok(savCache));
+setById('savCacheVal', fmtPlusTok(savPlatformCache));
 setById('savCliVal', fmtPlusTok(savCli));
 setById('savGuardsVal', fmtPlusTok(savGuards));
 setById('savEstUsdLabel', `30d workspace: ${fmtPlusTok(wsSavedTotal)}`);
+setById('advSavAvoidedTotalVal', fmtPlusTok(savAvoidedWrites));
 setById('advSavSubagentVal', fmtPlusTok(savSubagent));
-setById('advSavCacheVal', fmtPlusTok(savCache));
+setById('advSavCacheVal', fmtPlusTok(savPlatformCache));
 setById('advSavCliVal', fmtPlusTok(savCli));
 setById('advSavGuardsVal', fmtPlusTok(savGuards));
 setById('advQuotaSummaryPill', `${fmtPlusTok(sessSavedTotal)} saved`);
@@ -11396,6 +11411,7 @@ void err;
 if (!md) {
 const sessVal = document.getElementById('tufteSavedTokensLabel')?.textContent || '+0.0k';
 const wsVal = document.getElementById('tufteWorkspaceSavedLabel')?.textContent || '+0.0k';
+const avoidedVal = document.getElementById('savAvoidedTotalVal')?.textContent || '+0.0k';
 const subVal = document.getElementById('savSubagentVal')?.textContent || '+0.0k';
 const cacheVal = document.getElementById('savCacheVal')?.textContent || '+0.0k';
 const cliVal = document.getElementById('savCliVal')?.textContent || '+0.0k';
@@ -11405,11 +11421,13 @@ md = [
 '',
 `- **This Chat:** ${sessVal}`,
 `- **30-Day Workspace:** ${wsVal}`,
+`- **Highbeam Avoided Writes:** ${avoidedVal} *(Shield/FTS5/guards/isolation)*`,
+`- **Platform Prompt-Cache Discount (Provider KV):** ${cacheVal}`,
 '',
 '| Savings Source | Physical Tokens Saved |',
 '| :--- | ---: |',
 `| Subagent context isolation | ${subVal} |`,
-`| Warm prompt cache (95% off) | ${cacheVal} |`,
+`| Platform prompt-cache discount (provider KV) | ${cacheVal} |`,
 `| CLI & log output compression (FTS5) | ${cliVal} |`,
 `| Loops, re-reads & tail trims avoided | ${guardVal} |`
 ].join('\n');
@@ -11924,6 +11942,30 @@ const d30Txt = d30 && !d30.hidden ? txtOf('tsKpi30d') : '';
 setIf('tsHeroSub', hasSaved
 ? `This chat${d30Txt ? ' \u00B7 ' + d30Txt : ''}`
 : (d30Txt ? `Nothing saved in this chat yet \u00B7 ${d30Txt}` : 'This chat \u00B7 nothing saved yet'));
+{
+const bktEl = document.getElementById('tsHeroBuckets');
+if (bktEl) {
+const bkts = raw?.savings?.session?.buckets;
+const avoidedTxt = txtOf('savAvoidedTotalVal');
+const cacheTxt = txtOf('savCacheVal');
+const hasNonZeroBucket =
+(bkts && (Number(bkts.avoidedWrites?.tokens || 0) > 0 || Number(bkts.platformCacheDiscount?.tokens || 0) > 0)) ||
+(hasSaved && ((avoidedTxt && avoidedTxt !== '+0.0k') || (cacheTxt && cacheTxt !== '+0.0k')));
+if (hasNonZeroBucket) {
+const fmtBkt = (n) => {
+const v = Math.max(0, Math.round(Number(n) || 0));
+return v >= 1000000 ? `+${(v / 1000000).toFixed(1)}M` : `+${(v / 1000).toFixed(1)}k`;
+};
+const avStr = bkts?.avoidedWrites ? fmtBkt(bkts.avoidedWrites.tokens) : (avoidedTxt || '+0.0k');
+const pcStr = bkts?.platformCacheDiscount ? fmtBkt(bkts.platformCacheDiscount.tokens) : (cacheTxt || '+0.0k');
+bktEl.textContent = `Highbeam avoided: ${avStr} \u00B7 Provider cache: ${pcStr}`;
+bktEl.hidden = false;
+} else {
+bktEl.textContent = '';
+bktEl.hidden = true;
+}
+}
+}
 const strip = document.getElementById('tsStatusStrip');
 if (strip) {
 const tone = document.getElementById('tsStatusDot')?.dataset?.tone || 'nominal';

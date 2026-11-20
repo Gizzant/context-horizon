@@ -250,6 +250,16 @@
     const savGuards = bySrc
       ? Number(bySrc.avoidedBloat ?? ((bySrc.guardsPrevented || 0) + (bySrc.compactionReclaimed || 0)))
       : Math.max(0, ledgerSavedFallback - fts5SavedFallback);
+    const savAvoidedWrites = srvSav?.session?.buckets?.avoidedWrites?.tokens != null
+      ? Math.max(0, Number(srvSav.session.buckets.avoidedWrites.tokens))
+      : srvSav?.session?.physicalTokensAvoided != null
+        ? Math.max(0, Number(srvSav.session.physicalTokensAvoided))
+        : (savSubagent + savCli + savGuards);
+    const savPlatformCache = srvSav?.session?.buckets?.platformCacheDiscount?.tokens != null
+      ? Math.max(0, Number(srvSav.session.buckets.platformCacheDiscount.tokens))
+      : srvSav?.session?.billingEquivalentCacheTokens != null
+        ? Math.max(0, Number(srvSav.session.billingEquivalentCacheTokens))
+        : savCache;
     const sessSavedTotal = srvSav?.session != null
       ? Number(srvSav.session.totalTokens ?? srvSav.session.totalPhysicalTokens ?? 0)
       : (savSubagent + savCache + savCli + savGuards);
@@ -280,13 +290,15 @@
     const tufteWsSavedEl = document.getElementById('tufteWorkspaceSavedLabel');
     if (tufteWsSavedEl) tufteWsSavedEl.textContent = fmtPlusTok(wsSavedTotal);
     const setById = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setById('savAvoidedTotalVal', fmtPlusTok(savAvoidedWrites));
     setById('savSubagentVal', fmtPlusTok(savSubagent));
-    setById('savCacheVal', fmtPlusTok(savCache));
+    setById('savCacheVal', fmtPlusTok(savPlatformCache));
     setById('savCliVal', fmtPlusTok(savCli));
     setById('savGuardsVal', fmtPlusTok(savGuards));
     setById('savEstUsdLabel', `30d workspace: ${fmtPlusTok(wsSavedTotal)}`);
+    setById('advSavAvoidedTotalVal', fmtPlusTok(savAvoidedWrites));
     setById('advSavSubagentVal', fmtPlusTok(savSubagent));
-    setById('advSavCacheVal', fmtPlusTok(savCache));
+    setById('advSavCacheVal', fmtPlusTok(savPlatformCache));
     setById('advSavCliVal', fmtPlusTok(savCli));
     setById('advSavGuardsVal', fmtPlusTok(savGuards));
     setById('advQuotaSummaryPill', `${fmtPlusTok(sessSavedTotal)} saved`);

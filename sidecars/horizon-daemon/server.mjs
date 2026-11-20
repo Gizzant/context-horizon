@@ -2059,11 +2059,18 @@ const server = http.createServer(async (req, res) => {
     const sessionKey = pinnedConversationId || cachedLiveState?.sessionId || 'default';
     const ledgerSum = savedQuotaLedger ? savedQuotaLedger.getSummary(sessionKey) : {};
     const unified = cachedLiveState?.savings || {};
+    const sessUnified = unified.session || {};
+    const wsUnified = unified.workspace30d || sessUnified || {};
     const rcpt = generateCorporateExpenseReceipt({
-      sessionSavedTokens: Number(unified.totalSavedTokens || ledgerSum.totalArgonEquivTokensSaved || 0),
-      sessionSavedUSD: Number(unified.estimatedSavedUSD || (Number(ledgerSum.totalArgonEquivTokensSaved || 0) * 0.000015) || 0),
-      workspace30dSavedTokens: Number(unified.totalSavedTokens || ledgerSum.totalArgonEquivTokensSaved || 0),
-      workspace30dSavedUSD: Number(unified.estimatedSavedUSD || (Number(ledgerSum.totalArgonEquivTokensSaved || 0) * 0.000015) || 0)
+      sessionSavedTokens: Number(sessUnified.totalTokens ?? unified.totalSavedTokens ?? ledgerSum.totalArgonEquivTokensSaved ?? 0),
+      sessionSavedUSD: Number(sessUnified.estimatedUsd ?? unified.estimatedSavedUSD ?? (Number(ledgerSum.totalArgonEquivTokensSaved || 0) * 0.000015) ?? 0),
+      workspace30dSavedTokens: Number(wsUnified.totalTokens ?? unified.totalSavedTokens ?? ledgerSum.totalArgonEquivTokensSaved ?? 0),
+      workspace30dSavedUSD: Number(wsUnified.estimatedUsd ?? unified.estimatedSavedUSD ?? (Number(ledgerSum.totalArgonEquivTokensSaved || 0) * 0.000015) ?? 0),
+      buckets: wsUnified.buckets || sessUnified.buckets || null,
+      highbeamAvoidedWriteTokens: Number(wsUnified.buckets?.avoidedWrites?.tokens ?? sessUnified.buckets?.avoidedWrites?.tokens ?? 0),
+      platformCacheDiscountTokens: Number(wsUnified.buckets?.platformCacheDiscount?.tokens ?? sessUnified.buckets?.platformCacheDiscount?.tokens ?? 0),
+      realizedPromptBillTokens: Number(wsUnified.buckets?.realizedPromptBill?.tokens ?? sessUnified.buckets?.realizedPromptBill?.tokens ?? 0),
+      realizedPromptBillUSD: Number(wsUnified.buckets?.realizedPromptBill?.usd ?? sessUnified.buckets?.realizedPromptBill?.usd ?? 0)
     });
     if (fmt === 'pdf') {
       const proCheck = requireProFeature('corporate_expense_receipts', {

@@ -204,6 +204,15 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
   const breakerTok = Number(byCategory.CIRCUIT_BREAKER_INTERVENTION?.savedTokens || 0);
   const breakerUsd = Number(byCategory.CIRCUIT_BREAKER_INTERVENTION?.savedUSD || 0);
 
+  const buckets = summary.buckets || {};
+  const avoidedWriteTokens = Math.max(0, Number(buckets.avoidedWrites?.workspace30dTokens ?? buckets.avoidedWrites?.tokens ?? summary.highbeamAvoidedWriteTokens ?? (cacheTok + sanitizeTok + readTok + breakerTok)));
+  const platformCacheTokens = Math.max(0, Number(buckets.platformCacheDiscount?.workspace30dTokens ?? buckets.platformCacheDiscount?.tokens ?? summary.platformCacheDiscountTokens ?? summary.platformCacheDiscount?.tokens ?? 0));
+  const realizedDeltaTokens = Number(buckets.realizedPromptBill?.workspace30dTokens ?? buckets.realizedPromptBill?.tokens ?? summary.realizedPromptBillTokens ?? 0);
+  const realizedDeltaUsd = Number(buckets.realizedPromptBill?.workspace30dUSD ?? buckets.realizedPromptBill?.usd ?? summary.realizedPromptBillUSD ?? 0);
+  const hasRealizedDelta = Number(buckets.realizedPromptBill?.count || summary.realizedPromptBillEntryCount || 0) > 0 || realizedDeltaTokens !== 0 || realizedDeltaUsd !== 0;
+  const fmtSigned = (n) => `${n >= 0 ? '+' : '-'}${Math.abs(n).toLocaleString('en-US')}`;
+  const fmtUsdSigned = (n) => `${n >= 0 ? '+' : '-'}$${Math.abs(n).toFixed(2)}`;
+
   const canonicalAuditString = JSON.stringify({
     v: 1,
     periodLabel,
@@ -222,8 +231,11 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
     `Product Tier         : ${tierLabel}`,
     `Subscription Fee     : $${subscriptionCostUSD.toFixed(2)} USD`,
     '-'.repeat(86),
-    'ITEMIZED LLM API & KV-CACHE SAVINGS (30-DAY VERIFIED LEDGER)',
+    'ITEMIZED LLM API & KV-CACHE SAVINGS (30-DAY ESTIMATED LEDGER)',
     '-'.repeat(86),
+    `Highbeam Avoided Writes               : +${avoidedWriteTokens.toLocaleString('en-US').padStart(10)} tok   (Shield/FTS5/guards)`,
+    `Platform Cache Discount (Provider KV) : +${platformCacheTokens.toLocaleString('en-US').padStart(10)} tok   (tracked separately)`,
+    ...(hasRealizedDelta ? [`Ex-Post Realized Prompt-Bill Delta    : ${fmtSigned(realizedDeltaTokens).padStart(11)} tok   (${fmtUsdSigned(realizedDeltaUsd)})`] : []),
     `1. KV-Cache Prefix Fences (DET-09)    : +${cacheTok.toLocaleString('en-US').padStart(10)} tok   ($${cacheUsd.toFixed(2)})`,
     `2. Lossless CLI Output Offloader      : +${sanitizeTok.toLocaleString('en-US').padStart(10)} tok   ($${sanitizeUsd.toFixed(2)})`,
     `3. Bounded File Reads (DET-11)        : +${readTok.toLocaleString('en-US').padStart(10)} tok   ($${readUsd.toFixed(2)})`,
@@ -234,7 +246,7 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
     `Net FinOps ROI vs. $${subscriptionCostUSD.toFixed(2)}${costPeriodLabel} License  : ${netRoiMultiplier}x Return on Investment`,
     `GreenOps GPU Compute Energy Avoided   : ~${estimatedGpuWhSaved} Wh (~${estimatedCo2GramsSaved}g CO2e, rough estimate)`,
     '-'.repeat(86),
-    'Zero-Trust Privacy Attestation: Computed 100% locally from token counters.',
+    'Methodology: Local list-price estimates from session logs, not a provider invoice.',
     'Zero prompt text, source code, or PII transmitted off-device.',
     `Verification Hash (SHA-256): ${sha256}`
   ];
@@ -256,8 +268,11 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
     `| **Seat / Account** | \`${employeeEmail}\` |`,
     `| **Product Tier** | ${tierLabel} |`,
     `| **Subscription Cost** | **$${subscriptionCostUSD.toFixed(2)} USD** |`,
-    `| **30-Day Verified API Savings** | **+$${workspace30dSavedUSD.toFixed(2)} USD** (+${workspace30dSavedTokens.toLocaleString('en-US')} tokens) |`,
+    `| **30-Day Estimated API Savings** | **+$${workspace30dSavedUSD.toFixed(2)} USD** (+${workspace30dSavedTokens.toLocaleString('en-US')} tokens) |`,
     `| **Current Session Savings** | **+$${sessionSavedUSD.toFixed(2)} USD** (+${sessionSavedTokens.toLocaleString('en-US')} tokens) |`,
+    `| **Highbeam Avoided Writes** | **+${avoidedWriteTokens.toLocaleString('en-US')} tokens** *(Shield/FTS5/guards/isolation)* |`,
+    `| **Platform Cache Discount (Provider)** | **+${platformCacheTokens.toLocaleString('en-US')} tokens** *(provider KV read discount)* |`,
+    ...(hasRealizedDelta ? [`| **Ex-Post Realized Prompt-Bill** | **${fmtSigned(realizedDeltaTokens)} tokens** (${fmtUsdSigned(realizedDeltaUsd)}) |`] : []),
     `| **Net FinOps ROI** | **${netRoiMultiplier}x** |`,
     `| **GreenOps Compute Energy Avoided** | **~${estimatedGpuWhSaved} Wh** (~${estimatedCo2GramsSaved}g CO₂e, rough estimate) |`,
     ``,
@@ -270,7 +285,7 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
     `| Circuit Breaker Interventions | +${breakerTok.toLocaleString('en-US')} | $${breakerUsd.toFixed(2)} |`,
     ``,
     `> **SHA-256 Audit Digest**: \`${sha256}\`  `,
-    `> *Computed 100% locally via Highbeam (\`ctxtop receipt\`) with zero network calls or PII.*`
+    `> *Computed 100% locally via Highbeam (\`highbeam-cli receipt\`) from list-price token estimates (not a provider invoice), with zero network calls or PII.*`
   ].join('\n');
 
   const html = `<!DOCTYPE html>
@@ -286,7 +301,8 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
   th, td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: left; }
   th { background: #f9fafb; font-weight: 600; }
   td.num, th.num { text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  . digest { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #6b7280; margin-top: 16px; word-break: break-all; }
+  .digest { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #6b7280; margin-top: 16px; word-break: break-all; }
+  .note { font-size: 11px; color: #6b7280; margin-top: 8px; }
   @media print { body { border: none; margin: 0; } }
 </style>
 </head>
@@ -297,6 +313,8 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
     <tr><th>Product Tier</th><td>${escapeHtml(tierLabel)}</td><th class="num">Subscription Cost</th><td class="num">$${subscriptionCostUSD.toFixed(2)} USD</td></tr>
     <tr><th>30-Day Estimated Savings</th><td class="num">+${workspace30dSavedTokens.toLocaleString('en-US')} tok</td><th class="num">30-Day USD Saved</th><td class="num">+$${workspace30dSavedUSD.toFixed(2)} USD</td></tr>
     <tr><th>Session Estimated Savings</th><td class="num">+${sessionSavedTokens.toLocaleString('en-US')} tok</td><th class="num">Net FinOps ROI</th><td class="num">${netRoiMultiplier}x</td></tr>
+    <tr><th>Highbeam Avoided Writes</th><td class="num">+${avoidedWriteTokens.toLocaleString('en-US')} tok</td><th class="num">Platform Cache Discount (Provider)</th><td class="num">+${platformCacheTokens.toLocaleString('en-US')} tok</td></tr>
+    ${hasRealizedDelta ? `<tr><th>Ex-Post Realized Prompt-Bill</th><td class="num">${fmtSigned(realizedDeltaTokens)} tok</td><th class="num">Realized USD Delta</th><td class="num">${fmtUsdSigned(realizedDeltaUsd)} USD</td></tr>` : ''}
     <tr><th>GreenOps Energy Avoided</th><td class="num">~${estimatedGpuWhSaved} Wh</td><th class="num">CO2e Avoided (rough est.)</th><td class="num">~${estimatedCo2GramsSaved}g CO2e</td></tr>
   </table>
   <table>
@@ -308,6 +326,7 @@ export function generateCorporateExpenseReceipt(summary = {}, options = {}) {
       <tr><td>Circuit Breaker Interventions</td><td class="num">+${breakerTok.toLocaleString('en-US')}</td><td class="num">$${breakerUsd.toFixed(2)}</td></tr>
     </tbody>
   </table>
+  <div class="note">Methodology: Local list-price estimates derived from recorded token telemetry (not a provider invoice). Avoided writes (Shield/FTS5/guards) and provider KV-cache read discounts are reported separately.</div>
   <div class="digest">SHA-256 Audit Digest: ${escapeHtml(sha256)}</div>
 </body>
 </html>`;

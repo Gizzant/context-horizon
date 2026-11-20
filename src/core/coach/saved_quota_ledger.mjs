@@ -454,15 +454,43 @@ export class SavedQuotaReceiptLedger {
       totalTokens: ws.workspace30d.totalTokens,
       estimatedUsd: ws.workspace30d.totalDollarsSaved
     };
+    const avoidedTok = Math.max(
+      0,
+      Number(
+        s.buckets?.avoidedWrites?.tokens ??
+          s.physicalTokensAvoided ??
+          ((s.bySource?.subagentIsolated || 0) +
+            (s.bySource?.cliCompressed || 0) +
+            (s.bySource?.guardsPrevented || 0) +
+            (s.bySource?.compactionReclaimed || 0))
+      )
+    );
+    const platformCacheTok = Math.max(
+      0,
+      Number(
+        s.buckets?.platformCacheDiscount?.tokens ??
+          s.billingEquivalentCacheTokens ??
+          (s.bySource?.cachePreserved || 0)
+      )
+    );
+    const realizedTok = Number(s.buckets?.realizedPromptBill?.tokens ?? ws.session.totalsByType.REALIZED_PROMPT_BILL_SAVINGS ?? 0);
+    const realizedUsd = Number(s.buckets?.realizedPromptBill?.usd ?? ws.session.realizedPromptBillUsd ?? 0);
     const lines = [
       `### 🛡️ Highbeam — Estimated Tokens Saved Receipt`,
       ``,
       `**This Chat:** \`+${formatTokensHuman(s.totalTokens)}\` (\`~$${Number(s.estimatedUsd || 0).toFixed(2)}\` est.) · **30-Day Workspace:** \`+${formatTokensHuman(w30.totalTokens)}\``,
+      `- **Highbeam Avoided Writes:** \`+${formatTokensHuman(avoidedTok)}\` *(Shield fences, FTS5 CLI compression, deduped reads, subagent isolation)*`,
+      `- **Platform Prompt-Cache Discount (Provider KV):** \`+${formatTokensHuman(platformCacheTok)}\` *(provider cache-read discount, tracked separately)*`,
+      ...(realizedTok !== 0 || realizedUsd !== 0
+        ? [
+            `- **Ex-Post Realized Prompt-Bill Delta:** \`${realizedTok >= 0 ? '+' : '-'}${formatTokensHuman(Math.abs(realizedTok))}\` (\`${realizedUsd >= 0 ? '+' : '-'}$${Math.abs(realizedUsd).toFixed(2)}\`)`
+          ]
+        : []),
       ``,
       `| Source | Tokens Saved |`,
       `| :--- | :---: |`,
       `| Subagent context isolation | +${formatTokensHuman(s.bySource?.subagentIsolated || 0)} |`,
-      `| Warm prompt cache preserved (95% off) | +${formatTokensHuman(s.bySource?.cachePreserved || 0)} |`,
+      `| Platform prompt-cache discount (provider KV) | +${formatTokensHuman(s.bySource?.cachePreserved || 0)} |`,
       `| CLI & log output compressed | +${formatTokensHuman(s.bySource?.cliCompressed || 0)} |`,
       `| Loops, re-reads & tail trims avoided | +${formatTokensHuman((s.bySource?.guardsPrevented || 0) + (s.bySource?.compactionReclaimed || 0))} |`
     ];

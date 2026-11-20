@@ -1,10 +1,51 @@
 # Highbeam (`highbeam-cli`) — Empirical Benchmarks, Wire Findings & Runtime Mechanics
 
-This document consolidates the granular wire-level measurements, model-catalog mechanics, and explicit verification boundaries behind **Highbeam (highbeam-cli v4.1)**.
+This document consolidates the granular wire-level measurements, replicated live OpenRouter A/B trials, model-catalog mechanics, and explicit verification boundaries behind **Highbeam (`highbeam-cli` v4.3)**.
 
 ---
 
-## 1. Measured Prompt-Cache & Hook Behavior (`Claude Code 2.1.325`)
+## 1. 72-Run Replicated Live A/B (`T01`–`T08`, Claude Code + `anthropic/claude-sonnet-5.5`)
+
+Source artifact: [`highbeam_ab_results.json`](../experiments/model-switch-benchmark/results/highbeam_ab_results.json) (`recordedAtUtc: 2026-11-20T02:30:12.549Z`, `8` tasks × `3` replications × `3` arms = **`72` live runs**, with full `wireObs` HTTP request telemetry and `exPostLedgerReconciliation`).
+
+| Arm | Runs Completed | Requests | Total Billed USD | Mean USD / Run | Prompt-Bill Tokens (`cacheCreate` + `cacheRead` + `input`) | Delta vs. `BASELINE` | Notes |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
+| **`BASELINE`** (no Highbeam) | `24 / 24` (`100%`) | `240` | `$5.5569` | `$0.2315` | `9,047,750` (`1,062,008` write + `7,985,262` read + `480` input) | — | Control arm (`0` clamps, `0` FTS5 receipts) |
+| **`HIGHBEAM_SHIELD_OFF`** (`hooks` without Shield) | `24 / 24` (`100%`) | `236` | `$5.7998` | `$0.2417` | `9,394,539` (`1,083,543` write + `8,310,518` read + `478` input) | **`+4.37%` USD** (`+$0.2429`) | Proves hooks without Active Context Shield do not deliver net cost wins |
+| **`HIGHBEAM`** (Default `mode: 'auto'` Shield + `Grep\|Glob` + FTS5) | **`24 / 24` (`100%`)** | **`241`** (`1.004x`) | **`$4.8174`** | **`$0.2007`** | **`6,847,992`** (`798,874` write + `6,048,636` read + `482` input) | **`-13.31%` mean USD** (`-$0.7396`) · **`-14.39%` median paired** | **`-24.31%` prompt-bill** (`-24.78%` write, `-24.25%` read), **`20/24` paired wins**, **`3/3` reps**, **`7/8` tasks**, **`-16.94%` vs. Shield-off**, **`15` Shield byte-cap clamps**, **`0` hard denies**, **`0` false Bash offload hits** |
+
+- **Per-Replication Consistency (`BASELINE` -> `HIGHBEAM`):** Rep 1 `-13.31%` (`$1.8802 -> $1.6300`), Rep 2 `-11.06%` (`$1.8239 -> $1.6221`), Rep 3 `-15.52%` (`$1.8528 -> $1.5652`).
+- **Per-Task Breakdown (`BASELINE` -> `HIGHBEAM`, `3` reps/task):** `T01` (`-28.52%`), `T03` (`-22.39%`), `T07` (`-16.78%`), `T08` (`-15.51%`), `T04` (`-14.98%`), `T05` (`-7.53%`), `T02` (`-4.45%`), `T06` (`+13.43%`).
+- **Out-of-the-Box Delivery:** Fresh workspaces without `.attention-horizon.json` now default to clamp-only `mode: 'auto'` Shield on Claude Code, `net-positive` FTS5/Bash exclusion rules (`cat`/`head`/`tail`/`sed`/`awk`/`grep`/`rg`/`jq`), `Grep|Glob` `PostToolUse` array filtering, and 3-bucket ledger separation (`avoidedWrites` vs. `realizedPromptBill` vs. `platformCacheDiscount`).
+
+---
+
+## 2. 27-Run Code-Exploration Benchmark (`T09`–`T11`) — Null Result & Scope Boundary
+
+Source artifact: [`highbeam_ab_exploration_results.json`](../experiments/model-switch-benchmark/results/highbeam_ab_exploration_results.json) (`3` pure multi-file code-exploration tasks × `3` replications × `3` arms = **`27` live runs** on `anthropic/claude-sonnet-5.5` with no oversized docs/logs).
+
+| Arm | Runs Completed | Requests | Total Billed USD | Prompt-Bill Tokens | Cost Delta vs. `BASELINE` | Key Observation |
+| :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| **`BASELINE`** | `9 / 9` (`100%`) | `69` | `$1.2346` | `1,489,924` | — | `0` subagent spawns |
+| **`HIGHBEAM`** (`auto` Shield, no scout) | `9 / 9` (`100%`) | `71` | `$1.3195` | `1,577,934` | **`+6.88%`** (`+$0.0849`) | `0/9` Shield clamps, `0` subagent spawns (`T09 +21.37%`, `T10 +3.23%`, `T11 -2.60%`) |
+| **`HIGHBEAM_SCOUT`** (`autoTierReadOnlyScouts` enabled) | `9 / 9` (`100%`) | `69` | `$1.4085` | `1,617,677` | **`+14.08%`** (`+$0.1739`) | `0/9` Shield clamps, `0` Haiku/subagent spawns (`T09 +13.48%`, `T10 +5.59%`, `T11 +23.13%`) |
+
+- **Explicit Scope Boundary:** On pure small-file code navigation (`T09`–`T11`), Shield never triggered (`0/27` clamps) and Claude chose direct file tools instead of spawning subagents (`0/27` spawns), leaving both active arms within normal single-digit LLM turn variance (`+6.88%` / `+14.08%`).
+- **Product Consequence:** Highbeam ships **`ah-haiku-scout` strictly opt-in** (`autoTierReadOnlyScouts: false` by default; enable via `npx highbeam-cli scout --enable`), claims **zero** live benchmark cost savings from the scout, and scopes its `-13.31%` / `-24.31%` benchmark claim strictly to doc-, log-, and audit-heavy sessions where oversized reads, verbose CLI logs, or wide search outputs occur.
+
+---
+
+## 3. 19-Fixture Offline Multi-Stack CLI Compression (`npm run bench:parity`)
+
+Source artifact: [`ANTIGRAVITY_AND_COMPRESSION_BENCHMARK.md`](ANTIGRAVITY_AND_COMPRESSION_BENCHMARK.md) (`scripts/run_antigravity_and_compression_benchmark.mjs`).
+
+- **Aggregate Offline Reduction:** **`96%` token reduction** (`54,415` raw tokens -> `2,176` summary tokens across **`19` structured CLI fixtures `F01`–`F19`**), **`100%` diagnostic recall (`52/52` ground-truth markers)**, and **`100%` SQLite FTS5 & MCP retrieval (`19/19`)**.
+- **Covered Tool Families:** Pytest, Vitest/Jest, `tsc`, Cargo, `go test`, ESLint, `git diff`, `git status`, `docker build`, `kubectl logs`, Maven (`mvn test`), Gradle (`./gradlew test`), .NET (`dotnet test`), Make (`make all`), Playwright, RSpec, PHPUnit, Deno test, and CTest.
+- **Explicit Exclusions:** Raw file inspection commands (`cat`, `head`, `tail`, `sed`, `awk`, `grep`, `rg`, `jq`) are excluded from Bash offload, and unmatched arbitrary shell commands fall back safely without synthetic compression.
+
+---
+
+## 4. Measured Prompt-Cache & Hook Behavior (`Claude Code 2.1.325`)
 
 Every empirical claim below cites its source dataset under [`experiments/model-switch-benchmark/`](../experiments/model-switch-benchmark/README.md); unmeasured behaviors are explicitly marked **unverified**.
 
@@ -24,7 +65,7 @@ Every empirical claim below cites its source dataset under [`experiments/model-s
 
 ---
 
-## 2. Model-Aware Switch (`DET-08`), Effort (`DET-09`), & Resume Guards
+## 5. Model-Aware Switch (`DET-08`), Effort (`DET-09`), & Resume Guards
 
 - **`DET-08` Catalog-Derived Horizon Break-Even (`PreModelSwitch`):**
   - All break-even thresholds (`C*`, `C_max`), cold-write penalties, and warm-request paybacks (`~a / b`, where `a = P_write,B - P_read,A` and `b = P_read,A - P_read,B`, less output credit and `R - 1` switch-turn reads) are computed at runtime from `src/config/anthropicModelCatalog.json` with zero hardcoded prices.
@@ -41,13 +82,12 @@ Every empirical claim below cites its source dataset under [`experiments/model-s
 
 ---
 
-## 3. Reconciled Virtual Mode ROI & Unverified Boundaries
+## 6. Historical Virtual Mode Model & Remaining Unverified Boundaries
 
-- **Calibrated Mode Accuracy & Developer ROI ([`VIRTUAL_AUTO_EFFECTIVENESS_REPORT.md`](../experiments/model-switch-benchmark/results/virtual_auto_v4_1/VIRTUAL_AUTO_EFFECTIVENESS_REPORT.md)):**
-  - Across `14` empirical arms / `58` sessions (`181` checks, `13.66ms` median / `16.71ms` p95 hook eval), v4.1 Zero-Cfg Auto achieved `54/58` (`93.1%`) accuracy and Horizon-Calibrated Auto reached `100%` across Track 2 horizon stress tests (`L1 +$0.1248`, `TH +$0.3218`).
-  - Reconciled bottom-up monthly API savings vs. `OFF` for an average full-time agentic developer (`~40` chats/wk, `$390–$650/mo` raw API spend) are **`$9.42/wk` / `$40.79/mo` (`~6%–11%`, midpoint `~8%`)**, scaling from `$9.83/mo` (light dev) to `$149.13/mo` (heavy Opus swarm dev).
+- **Historical Calibration Note (v4.1 vs. v4.3):** Earlier v4.1 bottom-up modeling ([`VIRTUAL_AUTO_EFFECTIVENESS_REPORT.md`](../experiments/model-switch-benchmark/results/virtual_auto_v4_1/VIRTUAL_AUTO_EFFECTIVENESS_REPORT.md)) checked `14` arms / `58` sessions (`54/58`, `93.1%` Zero-Cfg Auto accuracy) and estimated `~6%–11%` monthly API reduction. For current user-facing benchmarks, Section 1 (`72`-run live replicated A/B: `-13.31%` mean / `-14.39%` median billed cost on doc/log/audit workloads) and Section 2 (`27`-run code-exploration null result) supersede those virtual projections.
 - **Explicitly Unverified Items:**
   - `claude-opus-5-5` reasoning output behavior under mid-session effort changes (`currency_55.csv` verified cache preservation only).
   - `DET-09` effort behavior on models outside the `4.6` and `5.5` families (`"unverified for this model"`).
   - `evaluateTaskBoundaryTurn` compaction suggestions (`phase1_boundary_detector.csv`: `80.00%` precision on scripted plans, `0` organic boundaries in `78` historical transcripts; `smartCompactBoundarySuggest` defaults to `false`).
+  - Opt-in `ah-haiku-scout` (`npx highbeam-cli scout --enable`): zero live A/B cost savings demonstrated (`T09`–`T11` recorded `0/27` spawns).
   - Multi-replicate live task-completion A/B benchmark on Google Antigravity (currently validated via unit, JSDOM, and local `.rsl_steps.jsonl` telemetry suites rather than a paid wire benchmark).

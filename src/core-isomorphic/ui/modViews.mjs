@@ -465,6 +465,35 @@ export function deriveSurfaceMetrics(state = {}, options = {}) {
     }
   }
 
+  const buildBucketSummary = (srcBkt, catTok, catUsd) => {
+    const sessionTokens = Math.max(0, Number(srcBkt?.sessionTokens ?? 0), catTok);
+    const sessionUSD = Number(Math.max(0, Number(srcBkt?.sessionUSD ?? 0), catUsd).toFixed(4));
+    const wsTok = Math.max(sessionTokens, Number(srcBkt?.workspace30dTokens ?? srcBkt?.tokens ?? 0));
+    const wsUsd = Number(Math.max(sessionUSD, Number(srcBkt?.workspace30dUSD ?? srcBkt?.usd ?? 0)).toFixed(4));
+    return { tokens: wsTok, usd: wsUsd, sessionTokens, sessionUSD, workspace30dTokens: wsTok, workspace30dUSD: wsUsd };
+  };
+  const savingsBuckets = {
+    avoidedWrites: buildBucketSummary(
+      ledgerSummary?.buckets?.avoidedWrites,
+      savingsCategories.prefixBustAvoided.savedTokens +
+        savingsCategories.toolOutputCompressed.savedTokens +
+        savingsCategories.loopAndReadGuarded.savedTokens +
+        savingsCategories.subagentIsolated.savedTokens,
+      savingsCategories.prefixBustAvoided.savedUSD +
+        savingsCategories.toolOutputCompressed.savedUSD +
+        savingsCategories.loopAndReadGuarded.savedUSD +
+        savingsCategories.subagentIsolated.savedUSD
+    ),
+    platformCacheDiscount: buildBucketSummary(
+      ledgerSummary?.buckets?.platformCacheDiscount,
+      savingsCategories.cacheReadDiscount.savedTokens,
+      savingsCategories.cacheReadDiscount.savedUSD
+    ),
+    realizedPromptBill: ledgerSummary?.buckets?.realizedPromptBill || {
+      tokens: 0, usd: 0, sessionTokens: 0, sessionUSD: 0, workspace30dTokens: 0, workspace30dUSD: 0, count: 0
+    }
+  };
+
   const flightMode = String(
     options.flightMode || state.flightMode || 'COACH'
   ).toUpperCase();
@@ -526,7 +555,7 @@ export function deriveSurfaceMetrics(state = {}, options = {}) {
     workspace30dSavedTokens,
     workspace30dSavedUSD,
     savingsCategories,
-    savingsBuckets: ledgerSummary?.buckets || null,
+    savingsBuckets,
     topSavingsDriver,
     flightMode: ['OFF', 'COACH', 'AUTO_PILOT'].includes(flightMode) ? flightMode : 'COACH',
     negativeCacheRoi,
@@ -1042,9 +1071,12 @@ export function renderSimpleViewPane(state = {}, options = {}) {
     `Action: ${priorityAction.title}`,
     `Guide : ${priorityAction.instruction}`
   ];
+  const avoidedSess = metrics.savingsBuckets?.avoidedWrites?.sessionTokens || 0;
+  const platformSess = metrics.savingsBuckets?.platformCacheDiscount?.sessionTokens || 0;
   const rank4Lines = [
     `[Rank 4] Estimated Tokens Saved`,
     `Saved : +${formatTokensCompact(metrics.sessionSavedTokens)} this session · +${formatTokensCompact(metrics.workspace30dSavedTokens)} (30d)`,
+    `Split : Avoided +${formatTokensCompact(avoidedSess)} · Provider cache +${formatTokensCompact(platformSess)}`,
     `Driver: ${metrics.topSavingsDriver.shortLabel} (+${formatTokensCompact(metrics.topSavingsDriver.savedTokens)})`
   ];
 
@@ -1278,9 +1310,21 @@ export function renderAdvancedViewPane(state = {}, options = {}) {
     metrics.savingsCategories.loopAndReadGuarded,
     metrics.savingsCategories.subagentIsolated
   ];
+  const avoidedBucket = metrics.savingsBuckets?.avoidedWrites || { sessionTokens: 0, workspace30dTokens: 0 };
+  const platformBucket = metrics.savingsBuckets?.platformCacheDiscount || { sessionTokens: 0 };
+  const realizedBucket = metrics.savingsBuckets?.realizedPromptBill || { count: 0, tokens: 0, usd: 0 };
+  const realizedLine =
+    Number(realizedBucket.count || 0) > 0
+      ? [
+          `Ex-Post Realized Prompt-Bill: ${realizedBucket.tokens >= 0 ? '+' : '-'}${formatTokensCompact(Math.abs(realizedBucket.tokens))} tok (${realizedBucket.usd >= 0 ? '+' : '-'}$${Math.abs(Number(realizedBucket.usd || 0)).toFixed(2)})`
+        ]
+      : [];
   const sec1Lines = [
-    `[Section 1] Verified 5-Category Token Savings & Cache Efficiency`,
+    `[Section 1] Estimated 5-Category Token Savings & Cache Efficiency`,
     `Headline: +${formatTokensCompact(metrics.sessionSavedTokens)} tok session · +${formatTokensCompact(metrics.workspace30dSavedTokens)} tok (30d)`,
+    `Highbeam Avoided Writes: +${formatTokensCompact(avoidedBucket.sessionTokens)} tok session · +${formatTokensCompact(avoidedBucket.workspace30dTokens)} tok (30d)`,
+    `Platform Cache Discount (provider KV): +${formatTokensCompact(platformBucket.sessionTokens)} tok session`,
+    ...realizedLine,
     ...catOrder.map(
       (c, idx) =>
         `  ${idx + 1}. ${c.shortLabel}: +${formatTokensCompact(c.savedTokens)} tok [${c.count}x]`
