@@ -773,8 +773,8 @@ window.AH_SEARCH_INDEX = [
     "title": "Pro Licensing, FinOps & Troubleshooting",
     "section": "1. Three-Tier Entitlement Matrix",
     "href": "pro-troubleshooting.html#tier-matrix",
-    "keywords": "npx highbeam-cli tiers src/core/pro_license.mjs $0/mo HOLD_COMPACT GUARD-4 PreToolUse $149/yr $199 Founder Lifetime #tufteBaselineStrip AUTO_PILOT C* $299/yr 5 seats .agents/rules/ POST /api/export/sanitized highbeam team-pack",
-    "body": "Run npx highbeam-cli tiers anytime to view the plan table from src/core/pro_license.mjs: Tier Pricing Included Capabilities FreeMIT Core $0/mo Simple View HUD & 4-rank verdict bar, 40-cell U-curve context map, live 5m/1h cache timers, HOLD_COMPACT warm cache alerts, auto PreToolUse delta-reads & 3rd-read AST stubs (GUARD-4), multi-family FTS5 CLI compression, and all 32 guards. ProSolo Dev $149/yr or $199 one-time Founder Lifetime (first 200) AUTO_PILOT hands-free enforcement & C* switch holds, 30-day chronic offender memory & workspace savings ledger (#tufteBaselineStrip), and signed corporate PDF 1.4 expense receipts (highbeam receipt --pdf)."
+    "keywords": "npx highbeam-cli tiers src/core/pro_license.mjs $0/mo HOLD_COMPACT GUARD-4 PreToolUse $199 Founder Lifetime $149/yr #tufteBaselineStrip AUTO_PILOT C* $299/yr $15/seat/mo $900/yr 5 seats .agents/rules/ POST /api/export/sanitized highbeam team-pack receipt --share pilot audit",
+    "body": "Run npx highbeam-cli tiers anytime to view the plan table from src/core/pro_license.mjs: Tier Pricing Included Capabilities Free MIT Core $0/mo Simple View HUD, 40-cell U-curve map, 5m/1h cache timers, clamp-only auto Active Context Shield, GUARD-4, multi-family FTS5 compression, 32 guards. Pro Solo Dev $199 Founder Lifetime (cap 200) or $149/yr Annual: AUTO_PILOT, C_max holds, encrypted sync, pr-cost, PDF 1.4 receipts. Team: $299/yr Founding 5-Seat Intro; standard $15/seat/mo ($900/yr 5-seat min); Free 60-day Pilot & $1,500-$3,000 Context Audit via sales@highbeamdev.com."
   },
   {
     "pageTitle": "Pro Licensing, FinOps & Troubleshooting",
@@ -905,12 +905,20 @@ window.AH_SEARCH_INDEX = [
     "body": "Each guide below walks through a real coding workflow from setup to check. Every command runs locally with zero network calls."
   },
   {
+    "pageTitle": "144-Run Empirical Benchmark",
+    "title": "Does Compressing Tool Output Actually Lower AI Coding Bills?",
+    "section": "144 Live Runs on Claude Code (Wins, Losses, and Cache Math)",
+    "href": "benchmark.html",
+    "keywords": "benchmark -13.31% -24.31% 72 live runs T01-T08 T09-T11 null result ah-haiku-scout 45-run model-switch Opus Sonnet 3-bucket avoidedWrites realizedPromptBill platformCacheDiscount FTS5 96%",
+    "body": "Across 72 replicated live Claude Code runs (T01-T08, sonnet-5.5), Highbeam reduced mean billed cost by -13.31% ($4.8174 vs $5.5569; -14.39% median paired delta) and prompt-bill tokens by -24.31% (6,847,992 vs 9,047,750), winning 20/24 runs and 7/8 tasks while losing T06 (+13.43%). In 27 pure code-exploration runs (T09-T11), Shield triggered 0/27 times (+6.88% / +14.08% variance), proving scope boundaries honestly."
+  },
+  {
     "pageTitle": "Guided Step-by-Step Tutorials",
     "title": "Guided Step-by-Step Tutorials",
     "section": "Tutorial 1: First Setup, Live HUD & Prompt Precheck",
     "href": "tutorials.html#tutorial-1-first-task",
     "keywords": "doctor #check /precheck $ npx highbeam-cli receipt --markdown",
-    "body": "Goal: Set up Highbeam in a repo, preview the status bar, test a vague prompt before spending high-effort tokens, and print a savings receipt. Set up the project and run health checks Run the unified installer from your repo root. Then run doctor to make sure all checks pass. Step 1 · Input & Expected Output $ npx highbeam-cli init --all-hosts ⚡ Highbeam (highbeam-cli v4.1) - Zero-Config Unified Installer [PASS] Claude Code hooks mer"
+    "body": "Goal: Set up Highbeam in a repo, preview the status bar, test a vague prompt before spending high-effort tokens, and print a savings receipt. Set up the project and run health checks Run the unified installer from your repo root. Then run doctor to make sure all checks pass. Step 1 · Input & Expected Output $ npx highbeam-cli init --all-hosts ⚡ Highbeam (highbeam-cli v4.4.1) - Zero-Config Unified Installer [PASS] Claude Code hooks merged"
   },
   {
     "pageTitle": "Guided Step-by-Step Tutorials",

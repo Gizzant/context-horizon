@@ -2,8 +2,8 @@
   "$schema": "https://antigravity.google/schemas/v1/plugin.json",
   "name": "attention-horizon-antigravity",
   "displayName": "Highbeam",
-  "version": "4.4.0",
-  "description": "40-cell context window telemetry HUD, KV-Cache Gravity effort router, and zero-token pre-write guardrails.",
+  "version": "4.4.1",
+  "description": "40-cell context window telemetry HUD, KV-Cache Gravity effort router, and zero-token pre-write guardrails (MIT Core + Commercial Pro).",
   "author": {
     "name": "Gizzant"
   },

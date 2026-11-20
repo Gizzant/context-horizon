@@ -28,8 +28,8 @@ export const PRO_PRICING_TIERS = Object.freeze({
   pro_monthly: { id: 'pro', label: 'Highbeam Pro (Monthly)', priceUSD: 15, priceRangeUSD: [12, 19], billing: 'month' },
   pro_annual: { id: 'pro', label: 'Highbeam Pro (Annual)', priceUSD: 149, effectiveMonthlyUSD: 12.42, billing: 'year' },
   pro_ltd: { id: 'ltd', label: 'Highbeam Pro (Founder Lifetime)', priceUSD: 199, cap: 200, billing: 'lifetime' },
-  team: { id: 'team', label: 'Highbeam Team (Annual 5-Seat Starter + OTel)', priceUSD: 299, seats: 5, seatMonthlyUSD: 39, billing: 'year' },
-  team_seat_monthly: { id: 'team', label: 'Highbeam Team FinOps (Per-Seat Monthly)', priceUSD: 39, seatMonthlyUSD: 39, billing: 'month' }
+  team: { id: 'team', label: 'Highbeam Team (Founding 5-Seat Intro + OTel)', priceUSD: 299, seats: 5, seatMonthlyUSD: 15, standardAnnual5SeatUSD: 900, billing: 'year' },
+  team_seat_monthly: { id: 'team', label: 'Highbeam Team FinOps (Per-Seat Standard)', priceUSD: 15, seatMonthlyUSD: 15, minSeats: 5, billing: 'month' }
 });
 
 /**
@@ -72,7 +72,9 @@ export const PLG_TIER_MATRIX = Object.freeze({
     name: 'Team / Enterprise Tier (Zero-Cloud FinOps)',
     starterAnnualUSD: 299,
     starterSeats: 5,
-    pricePerSeatMonthlyUSD: 39,
+    pricePerSeatMonthlyUSD: 15,
+    standardAnnual5SeatUSD: 900,
+    minSeatsStandard: 5,
     features: Object.freeze([
       'Shared .agents/rules/ Primacy-Band Governance',
       'Sanitized Cross-Developer Bloat Analytics (/api/export/sanitized)',
@@ -706,8 +708,8 @@ export function requireProFeature(featureId = 'pro_feature', options = {}) {
     source: status.source,
     status,
     upgradeHint: needsTeamTier
-      ? 'Requires Highbeam Team ($299/yr for 5 seats — Commercial License: packages/pro/LICENSE-COMMERCIAL.md) or an active 14-day trial (`npx highbeam-cli license trial`).'
-      : 'Requires Highbeam Pro ($149/yr · $199 Founder Lifetime — Commercial License: packages/pro/LICENSE-COMMERCIAL.md) or an active 14-day trial (`npx highbeam-cli license trial`).'
+      ? 'Requires Highbeam Team ($299/yr Founding 5-Seat Intro or $15/seat/mo standard [$900/yr 5-seat min] — packages/pro/LICENSE-COMMERCIAL.md) or a trial (`npx highbeam-cli license trial`, or 30d emailed key at https://gizzant.github.io/context-horizon/pro-troubleshooting.html).'
+      : 'Requires Highbeam Pro ($199 Founder Lifetime · $149/yr Annual — packages/pro/LICENSE-COMMERCIAL.md) or a 14d local (`npx highbeam-cli license trial`) / 30d emailed trial.'
   };
 }
 

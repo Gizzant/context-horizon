@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @file bin/ctxtop.mjs
- * Highbeam v4.4.0 Unified Cross-Platform CLI (`ctxtop`).
+ * Highbeam v4.4.1 Unified Cross-Platform CLI (`ctxtop`).
  *
  * Commands:
  *   - `ctxtop init [--antigravity | --claude | --all | --workspace | --project | --dry-run | --dedupe]`
@@ -804,7 +804,7 @@ export function generateReceiptReport(options = {}) {
       const ent = getProEntitlementStatus(options);
       if (ent && ent.entitled) {
         if (ent.tier === 'team') {
-          corpOptions.tierLabel = `Highbeam Team Starter ($299.00/yr · ~$24.92/mo · ${ent.seats || 5} seats)`;
+          corpOptions.tierLabel = `Highbeam Team Founding Intro ($299.00/yr · $15/seat/mo std · ${ent.seats || 5} seats)`;
           corpOptions.subscriptionCostUSD = Number(corpOptions.subscriptionCostUSD ?? 24.92);
         } else if (ent.tier === 'ltd') {
           corpOptions.tierLabel = 'Highbeam Pro Founder Lifetime ($199.00 one-time)';
@@ -818,7 +818,9 @@ export function generateReceiptReport(options = {}) {
           corpOptions.email = ent.email;
         }
       }
-    } catch {}
+    } catch (_entErr) {
+      void _entErr;
+    }
   }
   const corporateReceipt = generateCorporateExpenseReceipt(summary, corpOptions);
 
@@ -832,6 +834,40 @@ export function generateReceiptReport(options = {}) {
     html: corporateReceipt.html,
     pdfBytes: corporateReceipt.pdfBytes
   };
+}
+
+export function formatAnonymizedShareReceipt(report = {}, options = {}) {
+  const s = report?.summary || {};
+  const b = s.buckets || {};
+  const av30 = Number(b.avoidedWrites?.workspace30dTokens ?? b.avoidedWrites?.tokens ?? s.workspace30dSavedTokens ?? 0);
+  const avUsd = Number(b.avoidedWrites?.workspace30dUSD ?? b.avoidedWrites?.usd ?? s.workspace30dSavedUSD ?? 0);
+  const avSes = Number(b.avoidedWrites?.sessionTokens ?? s.sessionSavedTokens ?? 0);
+  const avSesUsd = Number(b.avoidedWrites?.sessionUSD ?? s.sessionSavedUSD ?? 0);
+  const kv30 = Number(b.platformCacheDiscount?.workspace30dTokens ?? b.platformCacheDiscount?.tokens ?? 0);
+  const kvUsd = Number(b.platformCacheDiscount?.workspace30dUSD ?? b.platformCacheDiscount?.usd ?? 0);
+  const real = b.realizedPromptBill || {};
+  const realCount = Number(real.count || 0);
+  const realTok = Number(real.workspace30dTokens ?? real.tokens ?? 0);
+  const realUsd = Number(real.workspace30dUSD ?? real.usd ?? 0);
+  const realLine = realCount > 0
+    ? `${realTok >= 0 ? '+' : '-'}${Math.abs(realTok).toLocaleString('en-US')} tok (${realUsd >= 0 ? '+' : '-'}$${Math.abs(realUsd).toFixed(4)})`
+    : 'n/a (local session — wire A/B only)';
+  let out = [
+    'Highbeam v4.4.1 — Anonymized Savings Snapshot (Local / Zero-PII)',
+    `  1. Highbeam Avoided Writes (Real-Time) : 30d +${av30.toLocaleString('en-US')} tok ($${avUsd.toFixed(2)}) | session +${avSes.toLocaleString('en-US')} tok ($${avSesUsd.toFixed(2)})`,
+    `  2. Ex-Post Realized Prompt-Bill Delta    : ${realLine}`,
+    `  3. Provider KV-Cache Discount (separate) : +${kv30.toLocaleString('en-US')} tok ($${kvUsd.toFixed(2)}) [never counted in Highbeam ROI]`,
+    '  Run read-only on your own logs: npx highbeam-cli audit --days 7'
+  ].join('\n');
+  let user = '';
+  try { user = os.userInfo().username || ''; } catch (_uErr) { void _uErr; }
+  const cwd = options.cwd || '';
+  const secrets = [cwd, cwd ? path.basename(cwd) : '', options.homeDir, os.homedir(), os.hostname(), user]
+    .filter((v) => typeof v === 'string' && v.trim().length >= 3);
+  for (const sec of secrets) {
+    out = out.split(sec).join('[redacted]');
+  }
+  return out.replace(/(?:[A-Za-z]:\\|\/(?:Users|home)\/)[^\s)\]]+/g, '[redacted]');
 }
 
 export function generateRoastCard(options = {}) {
@@ -1039,7 +1075,7 @@ export function executeInitSubcommand(args = [], options = {}) {
   if (isAll || isAntigravity) scopeParts.push(`Antigravity: ${antigravityScope === 'global' ? 'Global' : 'This workspace only'}`);
 
   const lines = [
-    `\x1b[1m\x1b[38;5;51m⚡ Highbeam (ctxtop v4.4.0) — Zero-Config Unified Installer\x1b[0m`,
+    `\x1b[1m\x1b[38;5;51m⚡ Highbeam (ctxtop v4.4.1) — Zero-Config Unified Installer\x1b[0m`,
     `  • Target Harnesses : ${targetLabel}`,
     ...(scopeParts.length
       ? [`  • Installation Scope: ${scopeParts.join(' · ')}${isDryRun ? ' [DRY RUN]' : ''}`]
@@ -1173,7 +1209,7 @@ export function runCli(args = [], options = {}) {
   }
 
   if (effectiveArgs.includes('--version') || effectiveArgs.includes('-v') || subcommand === 'version') {
-    return { exitCode: 0, output: '4.4.0', data: { version: '4.4.0' } };
+    return { exitCode: 0, output: '4.4.1', data: { version: '4.4.1' } };
   }
 
   // `<cmd> --help` must print help and never run the command (install/init/uninstall write files).
@@ -1791,17 +1827,18 @@ export function runCli(args = [], options = {}) {
     };
   }
 
+  const formatTierLines = () => [
+    'Highbeam — 3-Tier Self-Expensing PLG Funnel:',
+    `  • Free ($0/mo): ${PLG_TIER_MATRIX.free.features.join(', ')}`,
+    `  • Pro ($${PLG_TIER_MATRIX.pro.priceLtdUSD} Founder Lifetime Cap-${PLG_TIER_MATRIX.pro.ltdCap} · $${PLG_TIER_MATRIX.pro.priceAnnualUSD}/yr expensable): ${PLG_TIER_MATRIX.pro.features.join(', ')}`,
+    `  • Team ($${PLG_TIER_MATRIX.team.starterAnnualUSD}/yr Founding ${PLG_TIER_MATRIX.team.starterSeats}-Seat Intro; $${PLG_TIER_MATRIX.team.pricePerSeatMonthlyUSD}/seat/mo std [$${PLG_TIER_MATRIX.team.standardAnnual5SeatUSD}/yr 5-seat min]; Free 60d Pilot & $1.5k-$3k Audit: sales@highbeamdev.com): ${PLG_TIER_MATRIX.team.features.join(', ')}`
+  ];
+
   if (subcommand === 'tiers') {
     if (isJson) {
       return { exitCode: 0, output: JSON.stringify(PLG_TIER_MATRIX, null, 2), data: PLG_TIER_MATRIX };
     }
-    const lines = [
-      'Highbeam — 3-Tier Self-Expensing PLG Funnel:',
-      `  • Free ($0/mo): ${PLG_TIER_MATRIX.free.features.join(', ')}`,
-      `  • Pro ($${PLG_TIER_MATRIX.pro.priceAnnualUSD}/yr, or $${PLG_TIER_MATRIX.pro.priceLtdUSD} one-time Founder Lifetime for the first ${PLG_TIER_MATRIX.pro.ltdCap}): ${PLG_TIER_MATRIX.pro.features.join(', ')}`,
-      `  • Team ($${PLG_TIER_MATRIX.team.starterAnnualUSD}/yr for ${PLG_TIER_MATRIX.team.starterSeats} seats; more seats: sales@highbeamdev.com): ${PLG_TIER_MATRIX.team.features.join(', ')}`
-    ];
-    return { exitCode: 0, output: lines.join('\n'), data: PLG_TIER_MATRIX };
+    return { exitCode: 0, output: formatTierLines().join('\n'), data: PLG_TIER_MATRIX };
   }
 
   if (subcommand === 'license' || subcommand === 'pro') {
@@ -1810,13 +1847,7 @@ export function runCli(args = [], options = {}) {
       if (isJson) {
         return { exitCode: 0, output: JSON.stringify(PLG_TIER_MATRIX, null, 2), data: PLG_TIER_MATRIX };
       }
-      const lines = [
-        'Highbeam — 3-Tier Self-Expensing PLG Funnel:',
-        `  • Free ($0/mo): ${PLG_TIER_MATRIX.free.features.join(', ')}`,
-        `  • Pro ($${PLG_TIER_MATRIX.pro.priceAnnualUSD}/yr, or $${PLG_TIER_MATRIX.pro.priceLtdUSD} one-time Founder Lifetime for the first ${PLG_TIER_MATRIX.pro.ltdCap}): ${PLG_TIER_MATRIX.pro.features.join(', ')}`,
-        `  • Team ($${PLG_TIER_MATRIX.team.starterAnnualUSD}/yr for ${PLG_TIER_MATRIX.team.starterSeats} seats; more seats: sales@highbeamdev.com): ${PLG_TIER_MATRIX.team.features.join(', ')}`
-      ];
-      return { exitCode: 0, output: lines.join('\n'), data: PLG_TIER_MATRIX };
+      return { exitCode: 0, output: formatTierLines().join('\n'), data: PLG_TIER_MATRIX };
     }
     if (action === 'activate' && args[2]) {
       const actRes = activateProLicense(args[2], options);
@@ -2094,6 +2125,7 @@ export function runCli(args = [], options = {}) {
     const isFourRank = args.includes('--4-rank') || args.includes('--simple');
     const isPdf = args.includes('--pdf') || Boolean(options.pdf);
     const isHtml = args.includes('--html') || Boolean(options.html);
+    const isShare = args.includes('--share') || Boolean(options.share);
     const outIdx = args.indexOf('--out');
     const outPath = outIdx !== -1 && args[outIdx + 1]
       ? path.resolve(args[outIdx + 1])
@@ -2105,6 +2137,18 @@ export function runCli(args = [], options = {}) {
       advanced: isAdvanced,
       fourRank: isFourRank
     });
+    if (isShare) {
+      const shareText = formatAnonymizedShareReceipt(res, options);
+      if (outPath) {
+        fs.mkdirSync(path.dirname(outPath), { recursive: true });
+        writeTextAtomic(outPath, isJson ? JSON.stringify({ ok: true, card: shareText, buckets: res.summary?.buckets || {} }, null, 2) : shareText);
+      }
+      if (isJson) {
+        const shareData = { ok: true, zeroPii: true, card: shareText, buckets: res.summary?.buckets || {} };
+        return { exitCode: 0, output: JSON.stringify(shareData, null, 2), data: shareData };
+      }
+      return { exitCode: 0, output: shareText, data: { ok: true, zeroPii: true, card: shareText, buckets: res.summary?.buckets || {} } };
+    }
     if (isPdf) {
       const proCheck = requireProFeature('corporate_expense_receipts', options);
       if (!proCheck.allowed) {
@@ -2553,7 +2597,7 @@ export function runCli(args = [], options = {}) {
     'Governance, RSL & FinOps:',
     '  rsl <status|list|run|promote|prune> [--platform ...] [--json]       Dual-platform RSL post-mortem & rule ledger',
     '  handoff [--consolidate] [--session <id>] [--write] [--json]         Consolidate sharded spec constraints & diff',
-    '  receipt [--advanced | --markdown | --pdf | --json]                  Print Simple View, Git Receipt, or FinOps PDF',
+    '  receipt [--advanced | --markdown | --pdf | --share | --json]        Print Simple View, Share Card, Git Receipt, or PDF',
     '  sync <export|import|inspect> [--out|--in <file>] [--passphrase]     Pro: Encrypted cross-machine memory & ledger sync',
     '  pr-cost [--base main] [--head HEAD] [--markdown | --json]           Pro: Git branch & PR token/USD cost attribution',
     '  team-rollup [--export-snapshot | --in <dir>] [--format json|md|csv] Team: Zero-knowledge org FinOps rollup',
@@ -2620,6 +2664,7 @@ export default {
   inspectHookDiagnostics,
   runDoctorDiagnostics,
   generateReceiptReport,
+  formatAnonymizedShareReceipt,
   generateHorizonPanel,
   generateCostRadar,
   executeInitSubcommand,

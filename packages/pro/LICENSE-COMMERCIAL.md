@@ -11,7 +11,7 @@ All other components of this repository (`@ctxtop/core`, `@ctxtop/antigravity`, 
 You are permitted to view, inspect, and audit the source code in `packages/pro/**` to verify security, privacy, and zero-network compliance, and to evaluate Pro features during a 14-day local trial (`npx highbeam-cli license trial`).
 
 ## 3. Commercial Restrictions
-Without a valid, unexpired Highbeam Pro (`$149/yr` Annual, `$199` Founder Lifetime capped at 200 seats, or legacy `$15/mo` monthly) or Team (`$299/yr` 5-seat Team Starter intro pack, or `$39/seat/mo` for >5 seats / Enterprise FinOps) `CTXP1` Ed25519 license key issued to you or your organization, you may **NOT**:
+Without a valid, unexpired Highbeam Pro (`$199` Founder Lifetime capped at 200 seats, `$149/yr` Annual, or legacy `$15/mo` monthly) or Team (`$299/yr` Founding Team Intro for 5 seats, or `$15/seat/mo` standard with a 5-seat minimum = `$900/yr` — legacy `$39/seat/mo` keys remain valid; Free 60-day Pilot Teams and `$1,500–$3,000` Context Audits available via `sales@highbeamdev.com`) `CTXP1` Ed25519 license key issued to you or your organization, you may **NOT**:
 1. Remove, patch, stub, or bypass `verifyProLicenseKey()`, `getProEntitlementStatus()`, or `requireProFeature()` checks in production builds or forks.
 2. Redistribute, publish, or host modified packages that unlock `@ctxtop/pro` commercial features without a valid `CTXP1` cryptographic key.
 3. Generate or share forged `CTXP1` license keys for third parties.

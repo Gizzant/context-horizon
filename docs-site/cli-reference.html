@@ -133,12 +133,12 @@ highbeam uninstall [--global | -g | --project] [--json]</code></pre>
 
       <div class="cli-cmd-section" data-tags="telemetry">
         <h3 id="cmd-receipt"><code>highbeam receipt</code></h3>
-        <p>Prints your estimated Tokens &amp; USD Saved receipt as terminal text, Git Markdown, HTML, JSON, or a Pro SHA-256 PDF 1.4 file.</p>
+        <p>Prints your estimated Tokens &amp; USD Saved receipt as terminal text, a zero-PII share card (<code>--share</code>), Git Markdown, HTML, JSON, or a Pro SHA-256 PDF 1.4 file.</p>
         <div class="code-block terminal">
           <div class="code-header"><span>Synopsis</span></div>
           <pre><code>highbeam receipt [--simple | --4-rank | --advanced]
-               [--markdown | --md | --git | --html | --pdf | --json]
-               [--out &lt;path&gt;]</code></pre>
+                 [--share | --markdown | --md | --git | --html | --pdf | --json]
+                 [--out &lt;path&gt;]</code></pre>
         </div>
         <p>Note: Running <code>--pdf</code> on the Free tier exits with code <code>2</code>. It shows your 30-day USD savings and explains how to start a local trial (<code>highbeam license trial</code>).</p>
       </div>

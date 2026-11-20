@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [4.4.1] - 2026-11-20
+
+### Linux CI Offload Test Fix, Hybrid Pricing, 30-Day Emailed Trial & 144-Run Launch Pack
+
+#### Fixed
+- **Ubuntu CI Test Alignment (`test/claude-code/easy_fixes.test.mjs`)**: Replaced `cat dump.log` (intentionally excluded from flat Bash artifact offload by `classifyShellPostToolPolicy`) with non-FTS5 `curl -s https://example.com/dump.log` in the POSIX `0600`/`0700` file-permission test and added a cross-platform assertion covering both paths.
+- **MCP Server Title Metadata (`packages/mcp/server.json`)**: Aligned server title to `Highbeam Context & KV-Cache MCP Server` at `v4.4.1`.
+
+#### Added & Changed
+- **Hybrid Pricing & Pilot/Audit Funnel (`pro_license.mjs`, `polar_webhook_worker.mjs`, `LICENSE-COMMERCIAL.md`, `README.md`)**: Kept live Polar SKUs (`$199` Founder Lifetime Cap-200 lead, `$149/yr` Pro Annual expensable, `$299/yr` 5-seat Founding Team Intro), replaced the `$39/seat/mo` cliff with `$15/seat/mo` standard (`$900/yr` 5-seat min, preserving legacy `$39/seat` webhook parsing), and added the Free 60-day Team Pilot and `$1,500–$3,000` Fixed-Price Context Audit offer.
+- **30-Day Emailed Trial Worker Route (`packages/pro/workers/polar_webhook_worker.mjs`, `wrangler.toml`)**: Added `POST /trial` + `OPTIONS /trial` CORS routing to mint and email offline 30-day `CTXP1` evaluation tokens with email-hash KV deduplication.
+- **Offline Zero-PII Share Snapshot (`bin/ctxtop.mjs receipt --share`)**: Formats a scrubbed 3-bucket snapshot separating `Avoided Writes`, `Ex-Post Realized Prompt-Bill Delta`, and `Provider KV-Cache Discount` without emitting local paths, hostnames, or usernames.
+- **Claude Code Native Marketplace & `docs-site` Refresh (`.claude-plugin/marketplace.json`, `docs-site/`, `docs/launch/`)**: Added `/plugin marketplace add https://github.com/Gizzant/context-horizon`, refreshed `docs-site/` from stale `v4.1` copy to `v4.4.1`, published `docs-site/benchmark.html` + `docs/launch/BENCHMARK_LAUNCH_POST.md` (144 live runs including `T06` and `T09`–`T11` null results), and added `docs/launch/DISTRIBUTION_AND_PILOT_PACK.md`.
+
+---
+
 ## [4.4.0] - 2026-11-20
 
 ### 72-Run Replicated Live A/B, 3-Bucket Savings UI & 19-Stack FTS5 Parsers

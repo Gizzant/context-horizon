@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>144-Run Empirical Benchmark: Wins, Losses &amp; Cache Math - Highbeam</title>
+  <meta name="description" content="Does compressing tool output actually lower AI coding bills? 144 live Claude Code runs (T01-T08 -13.31% mean cost / -24.31% prompt-bill tokens, T09-T11 null result, and 45-run model-switch cache math)." />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body data-page="benchmark">
+  <header class="site-header" id="site-header"></header>
+
+  <div class="doc-shell">
+    <nav class="sidebar" id="site-sidebar" aria-label="Documentation chapters"></nav>
+
+    <main class="doc-main prose">
+      <p class="doc-eyebrow">Empirical Benchmark &middot; highbeam-cli v4.4.1</p>
+      <h1 class="doc-title">Does compressing tool output actually lower AI coding bills? 144 live runs on Claude Code.</h1>
+      <p class="doc-lead">
+        Independent studies (such as Quesma's 1,740-run Terminal-Bench analysis) showed that compressing shell logs alone often fails to reduce total API bills. Here are <strong>144 live API runs</strong> and <strong>19 offline CLI fixtures</strong> showing what reduced billed cost by <strong>-13.31%</strong>, what lost money, and why we separate 3 savings buckets strictly.
+      </p>
+
+      <div class="bento-grid">
+        <div class="bento-card bento-span-4">
+          <p class="bento-kicker">72-Run Doc/Log/Audit A/B</p>
+          <h3>-13.31% Mean Billed Cost</h3>
+          <div class="bento-metric">$4.8174 vs. $5.5569</div>
+          <p><code>-14.39%</code> median paired delta, <code>-24.31%</code> prompt-bill tokens (<code>6.85M</code> vs. <code>9.05M</code>), <code>20/24</code> wins, <code>3/3</code> reps, <code>100%</code> completion.</p>
+        </div>
+        <div class="bento-card bento-span-4">
+          <p class="bento-kicker">27-Run Exploration Null Result</p>
+          <h3>+6.88% / +14.08% Variance</h3>
+          <div class="bento-metric">0 / 27 Clamps &middot; 0 / 27 Scouts</div>
+          <p>On clean small-file code navigation (<code>T09</code>–<code>T11</code>), Shield never fired and Haiku scout stayed unused, keeping <code>ah-haiku-scout</code> strictly opt-in.</p>
+        </div>
+        <div class="bento-card bento-span-4">
+          <p class="bento-kicker">45-Run Model-Switch Study</p>
+          <h3>+10.6% Downgrade Penalty</h3>
+          <div class="bento-metric">$0.8611 vs. $0.7789</div>
+          <p>Mid-chat <code>Opus 4.6 -&gt; Sonnet 4.6</code> switches at Turn 6 wiped warm caches (<code>0.0%</code> hit rate), motivating horizon-aware <code>C_max</code> holds.</p>
+        </div>
+      </div>
+
+      <h2 id="study-1-ab">1. Replicated 72-Run Live A/B (<code>T01</code>–<code>T08</code>)</h2>
+      <p>
+        Source artifact: <a href="https://github.com/Gizzant/context-horizon/blob/main/experiments/model-switch-benchmark/results/highbeam_ab_results.json"><code>highbeam_ab_results.json</code></a> (<code>anthropic/claude-sonnet-5.5</code>, <code>8</code> doc/log/audit tasks &times; <code>3</code> replications &times; <code>3</code> arms = <code>72</code> runs with full HTTP <code>wireObs</code> telemetry). We included a middle ablation arm (<code>HIGHBEAM_SHIELD_OFF</code>) to test whether FTS5 and hooks alone work without pre-write read clamping.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Arm</th>
+              <th>Runs</th>
+              <th>Reqs</th>
+              <th>Total Billed</th>
+              <th>Prompt-Bill Tokens (<code>write + read + in</code>)</th>
+              <th>Delta vs. Baseline</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong><code>BASELINE</code></strong> (no Highbeam)</td>
+              <td><code>24/24</code></td>
+              <td><code>240</code></td>
+              <td><code>$5.5569</code></td>
+              <td><code>9,047,750</code> (<code>1.062M</code>w + <code>7.985M</code>r)</td>
+              <td>&mdash;</td>
+              <td>Control arm (<code>0</code> clamps, <code>0</code> FTS5)</td>
+            </tr>
+            <tr>
+              <td><strong><code>HIGHBEAM_SHIELD_OFF</code></strong></td>
+              <td><code>24/24</code></td>
+              <td><code>236</code></td>
+              <td><code>$5.7998</code></td>
+              <td><code>9,394,539</code> (<code>1.084M</code>w + <code>8.311M</code>r)</td>
+              <td><span class="badge warn">+4.37%</span> (<code>+$0.2429</code>)</td>
+              <td>Hooks + FTS5 without Shield did not lower cost</td>
+            </tr>
+            <tr>
+              <td><strong><code>HIGHBEAM</code></strong> (Default <code>auto</code> Shield)</td>
+              <td><strong><code>24/24</code></strong></td>
+              <td><code>241</code></td>
+              <td><strong><code>$4.8174</code></strong></td>
+              <td><strong><code>6,847,992</code></strong> (<code>799k</code>w + <code>6.049M</code>r)</td>
+              <td><span class="badge safe">-13.31% mean</span> (<code>-14.39%</code> med)</td>
+              <td><code>-24.31%</code> prompt-bill, <code>20/24</code> wins, <code>7/8</code> tasks, <code>-16.94%</code> vs. Shield-off, <code>0</code> hard denies</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ul>
+        <li><strong>Replication consistency:</strong> Rep 1 <code>-13.31%</code> (<code>$1.8802 -&gt; $1.6300</code>), Rep 2 <code>-11.06%</code> (<code>$1.8239 -&gt; $1.6221</code>), Rep 3 <code>-15.52%</code> (<code>$1.8528 -&gt; $1.5652</code>).</li>
+        <li><strong>Task breakdown (wins &amp; loss):</strong> <code>T01</code> (<code>-28.52%</code>), <code>T03</code> (<code>-22.39%</code>), <code>T07</code> (<code>-16.78%</code>), <code>T08</code> (<code>-15.51%</code>), <code>T04</code> (<code>-14.98%</code>), <code>T05</code> (<code>-7.53%</code>), <code>T02</code> (<code>-4.45%</code>), and <strong><code>T06</code> (<code>+13.43%</code> loss)</strong>.</li>
+        <li><strong>Why Shield + <code>Grep|Glob</code> + FTS5 worked together:</strong> Default clamp-only <code>mode: 'auto'</code> Active Context Shield trimmed oversized reads (<code>&le;250L</code> / <code>&le;16 KB</code>) at <code>PreToolUse</code> via <code>updatedInput</code> across <code>15</code> tool calls with <code>0</code> hard denies and <code>0</code> false Bash offload hits. Stopping prefix bloat early prevented cumulative <code>O(N&sup2;)</code> cache writes (<code>-24.78%</code>) and reads (<code>-24.25%</code>).</li>
+      </ul>
+
+      <h2 id="study-2-exploration">2. Honest Scope Boundary: 27-Run Exploration Null Result (<code>T09</code>–<code>T11</code>)</h2>
+      <p>
+        Source artifact: <a href="https://github.com/Gizzant/context-horizon/blob/main/experiments/model-switch-benchmark/results/highbeam_ab_exploration_results.json"><code>highbeam_ab_exploration_results.json</code></a> (<code>3</code> pure code-navigation tasks &times; <code>3</code> reps &times; <code>3</code> arms = <code>27</code> runs on <code>anthropic/claude-sonnet-5.5</code> with no large docs or noisy logs).
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Arm (<code>n = 9</code>/arm)</th>
+              <th>Runs</th>
+              <th>Reqs</th>
+              <th>Total Billed</th>
+              <th>Prompt-Bill Tokens</th>
+              <th>Delta vs. Baseline</th>
+              <th>Mechanism Observed</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong><code>BASELINE</code></strong></td>
+              <td><code>9/9</code></td>
+              <td><code>69</code></td>
+              <td><code>$1.2346</code></td>
+              <td><code>1,489,924</code></td>
+              <td>&mdash;</td>
+              <td><code>0</code> subagent spawns</td>
+            </tr>
+            <tr>
+              <td><strong><code>HIGHBEAM</code></strong> (no scout)</td>
+              <td><code>9/9</code></td>
+              <td><code>71</code></td>
+              <td><code>$1.3195</code></td>
+              <td><code>1,577,934</code></td>
+              <td><code>+6.88%</code> (<code>+$0.0849</code>)</td>
+              <td><code>0/9</code> Shield clamps, <code>0/9</code> spawns (<code>T09 +21.37%</code>, <code>T10 +3.23%</code>, <code>T11 -2.60%</code>)</td>
+            </tr>
+            <tr>
+              <td><strong><code>HIGHBEAM_SCOUT</code></strong> (opt-in Haiku)</td>
+              <td><code>9/9</code></td>
+              <td><code>69</code></td>
+              <td><code>$1.4085</code></td>
+              <td><code>1,617,677</code></td>
+              <td><code>+14.08%</code> (<code>+$0.1739</code>)</td>
+              <td><code>0/9</code> Shield clamps, <code>0/9</code> spawns (<code>T09 +13.48%</code>, <code>T10 +5.59%</code>, <code>T11 +23.13%</code>)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Because pure small-file browsing never triggered read clamping or subagent delegation, Highbeam scopes its <code>-13.31%</code> / <code>-24.31%</code> savings strictly to doc-, log-, and audit-heavy sessions and ships <code>ah-haiku-scout</code> strictly opt-in (<code>autoTierReadOnlyScouts: false</code> by default).
+      </p>
+
+      <h2 id="study-3-cache-math">3. 45-Run Model-Switch Wire Study &amp; 19-Fixture CLI Compression</h2>
+      <ul>
+        <li><strong>Model downgrade penalty (<code>45 runs / 540 turns</code>, <code>$22.72</code> settled):</strong> Switching <code>Opus 4.6 -&gt; Sonnet 4.6</code> at Turn 6 on a <code>~58k</code> context collapsed Turn-6 cache hits to <code>0.0%</code> (<code>+$0.1783</code> spike), increasing 12-turn spend from <code>$0.7789</code> to <code>$0.8611</code> (<code>+10.6%</code>). Effort changes on <code>4.6</code> also broke cache (<code>+$0.0853</code>), while <code>claude-sonnet-5-5</code> and <code>claude-opus-5-5</code> preserved prefix cache across effort steps (<a href="https://github.com/Gizzant/context-horizon/blob/main/docs/EMPIRICAL_BENCHMARKS.md"><code>EMPIRICAL_BENCHMARKS.md</code></a>).</li>
+        <li><strong>19-Fixture Offline FTS5 CLI Parity (<code>npm run bench:parity</code>):</strong> Across <code>19</code> noisy tool outputs (<code>F01</code>–<code>F19</code> across pytest, vitest, tsc, cargo, go test, eslint, git, docker, kubectl, maven, gradle, dotnet, make, playwright, rspec, phpunit, deno, ctest), Highbeam achieved <strong><code>96%</code> reduction</strong> (<code>54,415 -&gt; 2,176</code> tok), <strong><code>100%</code> recall</strong> (<code>52/52</code>), and <strong><code>100%</code> BM25 retrieval</strong> (<code>19/19</code>), while excluding <code>cat</code>/<code>head</code>/<code>tail</code>/<code>sed</code>/<code>awk</code>/<code>grep</code>/<code>rg</code>/<code>jq</code> (<a href="https://github.com/Gizzant/context-horizon/blob/main/docs/ANTIGRAVITY_AND_COMPRESSION_BENCHMARK.md"><code>ANTIGRAVITY_AND_COMPRESSION_BENCHMARK.md</code></a>).</li>
+      </ul>
+
+      <h2 id="try-and-pilot">4. Strict 3-Bucket Accounting &amp; Read-Only Trial</h2>
+      <p>
+        Highbeam never credits Anthropic or Google prompt-cache discounts to itself. Every receipt separates <strong>(1) Highbeam Avoided Writes</strong>, <strong>(2) Ex-Post Realized Prompt-Bill Delta</strong>, and <strong>(3) Provider Prompt-Cache Discount (separate)</strong>:
+      </p>
+      <div class="code-block terminal">
+        <div class="code-header"><span>Run Read-Only Audit or Export Zero-PII Share Snapshot</span></div>
+        <pre><code># 10-second zero-write 5-host audit of your last 7 days
+npx highbeam-cli audit --days 7
+
+# Print an anonymized 3-bucket savings snapshot (zero paths, branches, or usernames)
+npx highbeam-cli receipt --share</code></pre>
+      </div>
+      <div class="callout safe">
+        <p class="callout-title">Recruiting 3–5 Metered-API Pilot Teams (Free for 60 Days)</p>
+        <p>
+          Engineering teams running metered Anthropic / Bedrock / Vertex API billing can join the <strong>60-day Free Pilot</strong> (full <code>ci-gate</code>, <code>pr-cost</code>, and <code>team-rollup</code> setup) or book a <strong>$1,500–$3,000 Fixed-Price 2-Week Context &amp; Cache Audit</strong> (100% credited toward a standard <code>$15/seat/mo</code> Team license). Email <code>sales@highbeamdev.com</code>.
+        </p>
+      </div>
+
+      <nav class="chapter-pager" id="chapter-pager" aria-label="Chapter navigation"></nav>
+      <footer class="doc-footer" id="doc-footer"></footer>
+    </main>
+
+    <aside class="toc-rail" id="site-toc" aria-label="On this page"></aside>
+  </div>
+
+  <script src="assets/search-index.js"></script>
+  <script src="assets/site.js"></script>
+</body>
+</html>

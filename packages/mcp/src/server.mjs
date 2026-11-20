@@ -52,7 +52,7 @@ const [
 
 export const MCP_SERVER_INFO = Object.freeze({
   name: '@ctxtop/mcp',
-  version: '4.4.0',
+  version: '4.4.1',
   protocolVersion: '2024-11-05'
 });
 
@@ -262,8 +262,8 @@ function executeExportReceiptPdfTool(args = {}, options = {}) {
   let subscriptionCostUSD = 12.42;
   let costPeriodLabel = '/mo';
   if (entitled && entitlement.tier === 'team') {
-    tierLabel = `Highbeam Team Starter ($299.00/yr · ~$24.92/mo · ${entitlement.payload?.seats || 5} seats)`;
-    subscriptionCostUSD = 24.92; // $299/yr as a monthly equivalent, to match the /mo ROI line
+    tierLabel = `Highbeam Team Founding Intro ($299.00/yr · $15/seat/mo std · ${entitlement.payload?.seats || 5} seats)`;
+    subscriptionCostUSD = 24.92; // $299/yr intro as a monthly equivalent, to match the /mo ROI line
   } else if (entitled && entitlement.tier === 'ltd') {
     tierLabel = 'Highbeam Pro Founder Lifetime ($199.00 one-time)';
     subscriptionCostUSD = 199.0;

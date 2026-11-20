@@ -75,8 +75,25 @@ export const POLAR_LIVE_SKU_CATALOG = Object.freeze({
   pro_annual: Object.freeze({ sku: 'pro_annual', tier: 'pro', priceCents: 14900, billingInterval: 'year', defaultSeats: 1, durationDays: 366 }),
   pro_ltd: Object.freeze({ sku: 'pro_ltd', tier: 'ltd', priceCents: 19900, billingInterval: 'lifetime', defaultSeats: 1, durationDays: null, cap: 200 }),
   team_starter: Object.freeze({ sku: 'team_starter', tier: 'team', priceCents: 29900, billingInterval: 'year', defaultSeats: 5, durationDays: 366 }),
-  team_seat_monthly: Object.freeze({ sku: 'team_seat_monthly', tier: 'team', priceCents: 3900, billingInterval: 'month', defaultSeats: 1, durationDays: 32 })
+  team_standard_annual: Object.freeze({ sku: 'team_standard_annual', tier: 'team', priceCents: 90000, billingInterval: 'year', defaultSeats: 5, durationDays: 366 }),
+  team_seat_monthly: Object.freeze({ sku: 'team_seat_monthly', tier: 'team', priceCents: 1500, billingInterval: 'month', defaultSeats: 5, durationDays: 32 })
 });
+
+function computeTeamSeatCount({ rawSeats, amountCents, productName }) {
+  if (rawSeats > 0) return rawSeats;
+  if (amountCents > 0 && amountCents !== 29900) {
+    if (productName.includes('39') || (amountCents % 3900 === 0 && amountCents % 1500 !== 0)) {
+      return Math.max(1, Math.round(amountCents / 3900));
+    }
+    if (amountCents % 1500 === 0) {
+      return Math.max(1, Math.round(amountCents / 1500));
+    }
+    if (amountCents % 3900 === 0) {
+      return Math.max(1, Math.round(amountCents / 3900));
+    }
+  }
+  return 5;
+}
 
 function parsePolarProductMap(raw) {
   if (!raw) return {};
@@ -96,17 +113,29 @@ function resolveCatalogSkuSpec(skuKey, ctx) {
     recurringInterval === 'year' ||
     productName.includes('annual') ||
     productName.includes('year');
-  const isTeamSeatMultiple =
-    amountCents > 0 && amountCents !== 29900 && amountCents % 3900 === 0;
 
   if (skuKey === 'team_seat_monthly') {
     return {
       sku: 'team_seat_monthly',
       tier: 'team',
-      seats: rawSeats > 0 ? rawSeats : isTeamSeatMultiple ? Math.max(1, Math.round(amountCents / 3900)) : 5,
+      seats: computeTeamSeatCount({ rawSeats, amountCents, productName }),
       email,
       issuedAt,
       expiresAt: new Date(Date.now() + (isAnnual ? 366 : 32) * 86400 * 1000).toISOString(),
+      cap: null,
+      ltdEditionNumber: ltdEditionNumber || null,
+      orderId,
+      source: 'polar.sh'
+    };
+  }
+  if (skuKey === 'team_standard_annual') {
+    return {
+      sku: 'team_standard_annual',
+      tier: 'team',
+      seats: rawSeats > 0 ? rawSeats : amountCents >= 90000 && amountCents % 18000 === 0 ? Math.max(5, Math.round(amountCents / 18000)) : 5,
+      email,
+      issuedAt,
+      expiresAt: new Date(Date.now() + 366 * 86400 * 1000).toISOString(),
       cap: null,
       ltdEditionNumber: ltdEditionNumber || null,
       orderId,
@@ -248,32 +277,35 @@ export function mapPolarOrderToLicenseSpec(eventPayload = {}, env = {}) {
     productName.includes('per-seat') ||
     productName.includes('seat/mo') ||
     productName.includes('finops');
-  const isTeamSeatMultiple =
+  const isAnnual =
+    recurringInterval === 'year' ||
+    productName.includes('annual') ||
+    productName.includes('year');
+  const isLegacy39Multiple =
     amountCents > 0 && amountCents !== 29900 && amountCents % 3900 === 0;
+  const isStandardAnnualTeam =
+    skuHint === 'team_standard_annual' ||
+    ((isExplicitTeam || amountCents >= 90000) && isAnnual && amountCents >= 90000);
 
-  if (
+  if (isStandardAnnualTeam) {
+    sku = 'team_standard_annual';
+    tier = 'team';
+    seats = rawSeats > 0 ? rawSeats : amountCents % 18000 === 0 ? Math.max(5, Math.round(amountCents / 18000)) : 5;
+    expiresAt = new Date(Date.now() + 366 * 86400 * 1000).toISOString();
+  } else if (
     isExplicitPerSeat ||
     (isExplicitTeam &&
       skuHint !== 'team_starter' &&
-      (recurringInterval === 'month' || productName.includes('month') || isTeamSeatMultiple)) ||
+      (recurringInterval === 'month' || productName.includes('month') || isLegacy39Multiple)) ||
     (!productName.includes('pro') &&
       !productName.includes('founder') &&
       !productName.includes('ltd') &&
-      isTeamSeatMultiple &&
+      isLegacy39Multiple &&
       amountCents !== 19500)
   ) {
     sku = 'team_seat_monthly';
     tier = 'team';
-    seats =
-      rawSeats > 0
-        ? rawSeats
-        : isTeamSeatMultiple
-          ? Math.max(1, Math.round(amountCents / 3900))
-          : 5;
-    const isAnnual =
-      recurringInterval === 'year' ||
-      productName.includes('annual') ||
-      productName.includes('year');
+    seats = computeTeamSeatCount({ rawSeats, amountCents, productName });
     expiresAt = new Date(Date.now() + (isAnnual ? 366 : 32) * 86400 * 1000).toISOString();
   } else if (skuHint === 'team_starter' || isExplicitTeam || amountCents >= 25000) {
     sku = 'team_starter';
@@ -363,7 +395,8 @@ export function handlePolarWebhookRequest(reqInput = {}, env = {}) {
   let parsed = null;
   try {
     parsed = JSON.parse(reqInput.rawBody || '{}');
-  } catch {
+  } catch (_err) {
+    void _err;
     return {
       status: 400,
       body: { ok: false, error: 'INVALID_JSON_BODY' }
@@ -520,8 +553,9 @@ export async function processPolarWebhook(reqInput = {}, env = {}, deps = {}) {
   let orderId = '';
   try {
     orderId = String(JSON.parse(reqInput.rawBody || '{}')?.data?.id || '');
-  } catch {
+  } catch (_err) {
     // handlePolarWebhookRequest already validated the JSON
+    void _err;
   }
   const dedupeId =
     orderId || String(headers['webhook-id'] || headers['svix-id'] || '');
@@ -561,9 +595,167 @@ export async function processPolarWebhook(reqInput = {}, env = {}, deps = {}) {
   return jsonResponse(200, { ...publicBody, emailed: true });
 }
 
+const TRIAL_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const TRIAL_DURATION_30D_MS = 30 * 86400 * 1000;
+
+export function buildTrialEmail({ licenseKey, activationCommand, expiresAt }) {
+  const lines = [
+    'Your 30-day Highbeam Pro + Team evaluation license key is ready.',
+    '',
+    `Expires: ${expiresAt}`,
+    '',
+    'Activate offline with one command:',
+    activationCommand,
+    '',
+    'Your 30-day trial key (keep it private):',
+    licenseKey,
+    '',
+    'Try read-only first on your local logs:',
+    '  npx highbeam-cli audit --days 7',
+    '',
+    'Verification is 100% offline; Highbeam makes zero network calls.',
+    'Questions or pilot inquiry: reply or email sales@highbeamdev.com'
+  ];
+  return { subject: 'Your 30-day Highbeam Pro evaluation license key', text: lines.join('\n') };
+}
+
+/**
+ * Mints and emails a 30-day offline `CTXP1` trial key (`POST /trial`).
+ * Never returns `licenseKey` in the HTTP response body; dedupes by SHA-256 of lowercase email.
+ */
+export async function handleEmailTrialRequest(reqInput = {}, env = {}, deps = {}) {
+  const kv = env.LICENSE_KV;
+  if (!kv) {
+    return jsonResponse(500, { ok: false, error: 'LICENSE_KV_NOT_BOUND' });
+  }
+  const privateKeyPem =
+    env.CTXTOP_ED25519_PRIVATE_KEY_PEM || process.env.CTXTOP_ED25519_PRIVATE_KEY_PEM || '';
+  if (!privateKeyPem) {
+    return jsonResponse(500, { ok: false, error: 'SIGNING_KEY_NOT_CONFIGURED' });
+  }
+
+  let body = null;
+  try {
+    body = reqInput.rawBody ? JSON.parse(reqInput.rawBody) : (reqInput.body || {});
+  } catch (_err) {
+    void _err;
+    return jsonResponse(400, { ok: false, error: 'INVALID_JSON_BODY' });
+  }
+
+  const email = String(body?.email || '').trim().toLowerCase();
+  if (!email || email.length > 254 || !TRIAL_EMAIL_RE.test(email)) {
+    return jsonResponse(400, { ok: false, error: 'INVALID_EMAIL' });
+  }
+
+  const emailHash = crypto.createHash('sha256').update(email, 'utf8').digest('hex');
+  const trialKey = `trial:${emailHash}`;
+  if (await kv.get(trialKey)) {
+    return jsonResponse(409, {
+      ok: false,
+      error: 'TRIAL_ALREADY_ISSUED',
+      message: 'A 30-day trial key was already emailed to this address.'
+    });
+  }
+
+  const nowMs = Number(reqInput.nowMs || Date.now());
+  const issuedAt = new Date(nowMs).toISOString();
+  const expiresAt = new Date(nowMs + TRIAL_DURATION_30D_MS).toISOString();
+  const licenseKey = signProLicensePayload(
+    {
+      tier: 'trial',
+      email,
+      seats: 1,
+      issuedAt,
+      expiresAt,
+      source: 'email_trial',
+      features: [
+        'auto_pilot_locks',
+        'cross_harness_scope_locks',
+        'corporate_expense_receipts',
+        'otel_team_bundle',
+        'team_finops_pack',
+        'team_org_rollup',
+        'team_ci_budget_gate'
+      ]
+    },
+    privateKeyPem
+  );
+  const activationCommand = `npx highbeam-cli license activate ${licenseKey}`;
+
+  const sendEmail =
+    deps.sendEmail || ((msg) => sendLicenseEmailViaResend(msg, env, deps.fetch || fetch));
+  try {
+    await sendEmail({
+      to: email,
+      ...buildTrialEmail({ email, licenseKey, expiresAt, activationCommand })
+    });
+  } catch (err) {
+    return jsonResponse(500, {
+      ok: false,
+      error: 'TRIAL_EMAIL_FAILED',
+      detail: String(err?.message || err).slice(0, 80)
+    });
+  }
+
+  await kv.put(trialKey, JSON.stringify({ issuedAt, expiresAt }));
+  const prevCount = Number((await kv.get('metrics:email_trials_issued')) || 0);
+  await kv.put('metrics:email_trials_issued', String(prevCount + 1));
+
+  return jsonResponse(200, {
+    ok: true,
+    emailed: true,
+    tier: 'trial',
+    durationDays: 30,
+    expiresAt
+  });
+}
+
+function buildTrialCorsHeaders(request, env) {
+  const rawAllowed = String(env.CTXTOP_TRIAL_ALLOWED_ORIGINS || 'https://gizzant.github.io');
+  const allowed = rawAllowed.split(',').map((s) => s.trim()).filter(Boolean);
+  const reqOrigin = request.headers.get('origin') || '';
+  let origin = allowed[0] || 'https://gizzant.github.io';
+  if (allowed.includes('*')) {
+    origin = '*';
+  } else if (reqOrigin && allowed.includes(reqOrigin)) {
+    origin = reqOrigin;
+  }
+  return {
+    'access-control-allow-origin': origin,
+    'access-control-allow-methods': 'POST, OPTIONS',
+    'access-control-allow-headers': 'Content-Type',
+    vary: 'Origin'
+  };
+}
+
 export default {
   async fetch(request, env) {
     try {
+      const url = new URL(request.url, 'https://licenses.highbeamdev.com');
+      const headersObj = {};
+      request.headers.forEach((v, k) => {
+        headersObj[k.toLowerCase()] = v;
+      });
+
+      if (url.pathname === '/trial') {
+        const corsHeaders = buildTrialCorsHeaders(request, env);
+        if (request.method === 'OPTIONS') {
+          return new Response(null, { status: 204, headers: corsHeaders });
+        }
+        if (request.method !== 'POST') {
+          return new Response(JSON.stringify({ ok: false, error: 'METHOD_NOT_ALLOWED' }), {
+            status: 405,
+            headers: { 'content-type': 'application/json', ...corsHeaders }
+          });
+        }
+        const rawBody = await request.text();
+        const res = await handleEmailTrialRequest({ rawBody, headers: headersObj }, env);
+        return new Response(JSON.stringify(res.body), {
+          status: res.status,
+          headers: { 'content-type': 'application/json', ...corsHeaders }
+        });
+      }
+
       if (request.method !== 'POST') {
         return new Response(JSON.stringify({ ok: false, error: 'METHOD_NOT_ALLOWED' }), {
           status: 405,
@@ -571,10 +763,6 @@ export default {
         });
       }
       const rawBody = await request.text();
-      const headersObj = {};
-      request.headers.forEach((v, k) => {
-        headersObj[k.toLowerCase()] = v;
-      });
       const res = await processPolarWebhook({ rawBody, headers: headersObj }, env);
       return new Response(JSON.stringify(res.body), {
         status: res.status,

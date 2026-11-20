@@ -1,8 +1,8 @@
 {
   "name": "attention-horizon",
   "displayName": "Highbeam",
-  "version": "4.4.0",
-  "description": "Highbeam KV-Cache & Context Governor for Claude Code: 40-cell context visualizer, prompt cache TTL guardian, and zero-token pre-write guardrails.",
+  "version": "4.4.1",
+  "description": "Highbeam KV-Cache & Context Governor for Claude Code: 40-cell context visualizer, prompt cache TTL guardian, and zero-token pre-write guardrails (MIT Core + Commercial Pro).",
   "homepage": "https://gizzant.github.io/context-horizon/",
   "repository": "https://github.com/Gizzant/context-horizon",
   "author": {

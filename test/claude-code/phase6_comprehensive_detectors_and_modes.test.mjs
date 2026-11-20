@@ -881,10 +881,10 @@ test('C30: Lossless PostToolUse sanitizer never offloads workspace Read tool out
 // SECTION D: Plugin Layout, ${CLAUDE_PLUGIN_ROOT}, and Terminal Columns (12 Tests)
 // ============================================================================
 
-test('D01: .claude-plugin directory contains ONLY plugin.json (hooks.json lives at hooks/hooks.json)', () => {
+test('D01: .claude-plugin directory contains ONLY plugin.json and marketplace.json (hooks.json lives at hooks/hooks.json)', () => {
   const pluginDir = path.join(PROJECT_ROOT, '.claude-plugin');
-  const entries = fs.readdirSync(pluginDir);
-  assert.deepEqual(entries, ['plugin.json']);
+  const entries = fs.readdirSync(pluginDir).sort();
+  assert.deepEqual(entries, ['marketplace.json', 'plugin.json']);
   assert.ok(fs.existsSync(path.join(PROJECT_ROOT, 'hooks', 'hooks.json')));
 });
 

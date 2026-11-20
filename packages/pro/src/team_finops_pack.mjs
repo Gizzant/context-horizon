@@ -1,6 +1,6 @@
 /**
  * @file packages/pro/src/team_finops_pack.mjs
- * Roadmap Item #8: Packaged "BYO-Grafana" Team Policy & OpenTelemetry Bundle ($299/yr for 5 Seats).
+ * Roadmap Item #8: Packaged "BYO-Grafana" Team Policy & OpenTelemetry Bundle ($299/yr Founding 5-Seat Intro; $15/seat/mo standard, $900/yr 5-seat min).
  *
  * Generates zero-backend Team FinOps artifacts fed by `src/core-isomorphic/telemetry/otelExporter.mjs`:
  *   1. `grafana-dashboard.json` (Grafana v10+ dashboard)

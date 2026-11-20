@@ -1,9 +1,9 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.gizzant/highbeam",
-  "title": "Highbeam Context Horizon & KV-Cache MCP Server",
+  "title": "Highbeam Context & KV-Cache MCP Server",
   "description": "Zero-dependency 7-tool MCP stdio server providing 40-cell context visualizer, KV-cache gravity checks, file-scope locks, and offline CLI output compression for Cursor, Windsurf, Claude Code, and Antigravity.",
-  "version": "4.4.0",
+  "version": "4.4.1",
   "repository": {
     "url": "https://github.com/Gizzant/context-horizon",
     "source": "github"
@@ -12,7 +12,7 @@
     {
       "registryType": "npm",
       "identifier": "@ctxtop/mcp",
-      "version": "4.4.0",
+      "version": "4.4.1",
       "transport": {
         "type": "stdio"
       }

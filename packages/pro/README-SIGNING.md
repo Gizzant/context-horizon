@@ -37,13 +37,16 @@ npx wrangler secret put RESEND_API_KEY
 npx wrangler secret put CTXTOP_EMAIL_FROM        # e.g. Highbeam <licenses@your-verified-domain>
 npx wrangler deploy
 ```
-Behavior: a replayed/retried order id returns `{duplicate:true}` and sends nothing; if the email fails the worker returns `500` and records nothing, so Polar's retry delivers the key; LTD sales increment `ltd:sold_count` in KV and the 201st sale returns `409 LTD_CAP_200_EXCEEDED`. Before launch, do one real test purchase end to end and confirm the email arrives.
+Behavior:
+- **`POST /` (Polar.sh webhook):** A replayed/retried order id returns `{duplicate:true}` and sends nothing; if the email fails the worker returns `500` and records nothing, so Polar's retry delivers the key; LTD sales increment `ltd:sold_count` in KV and the 201st sale returns `409 LTD_CAP_200_EXCEEDED`. Before launch, do one real test purchase end to end and confirm the email arrives.
+- **`POST /trial` (Emailed 30-day evaluation key):** Accepts `{"email":"you@company.com"}` (CORS controlled by `CTXTOP_TRIAL_ALLOWED_ORIGINS`), mints a 30-day offline `CTXP1` trial key, emails it via Resend without returning the key in HTTP responses, and deduplicates by `SHA-256(email)` in KV (`409 TRIAL_ALREADY_ISSUED` on repeat requests).
 
 ### Live Polar.sh SKU Mapping (`POLAR_LIVE_SKU_CATALOG`)
 | SKU | Price | Billing Interval | Tier & Seats | Expiry / Cap |
 | :--- | :--- | :--- | :--- | :--- |
-| `pro_monthly` | `$15/mo` | Monthly | `pro`, `1` seat | `32` days |
-| `pro_annual` | `$149/yr` | Annual | `pro`, `1` seat | `366` days |
-| `pro_ltd` | `$199` | One-time | `ltd`, `1` seat | Lifetime (`null`), `200` cap (`409 LTD_CAP_200_EXCEEDED` above cap) |
-| `team_starter` | `$299/yr` | Annual | `team`, `5` seats | `366` days |
-| `team_seat_monthly` | `$39/seat/mo` | Monthly (`3900` cents/seat) | `team`, `quantity` seats | `32` days (`366` days if annual) |
+| `pro_ltd` | `$199` *(lead solo offer)* | One-time | `ltd`, `1` seat | Lifetime (`null`), `200` cap (`409 LTD_CAP_200_EXCEEDED` above cap) |
+| `pro_annual` | `$149/yr` *(expensable)* | Annual | `pro`, `1` seat | `366` days |
+| `pro_monthly` | `$15/mo` *(legacy)* | Monthly | `pro`, `1` seat | `32` days |
+| `team_starter` | `$299/yr` *(Founding Team Intro)* | Annual | `team`, `5` seats | `366` days |
+| `team_standard_annual` | `$900/yr` *(Standard 5-Seat Min)* | Annual | `team`, `5+` seats (`$180/seat/yr`) | `366` days |
+| `team_seat_monthly` | `$15/seat/mo` *(legacy `$39/seat/mo` supported)* | Monthly (`1500` cents/seat) | `team`, `quantity` seats | `32` days (`366` days if annual) |

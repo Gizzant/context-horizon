@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Highbeam User Guide (highbeam-cli v4.1)</title>
-  <meta name="description" content="Official technical user guide for Highbeam (highbeam-cli v4.1), the 40-cell context visualizer, KV-cache gravity router, and zero-token guardrail suite for Google Antigravity and Claude Code." />
+  <title>Highbeam User Guide (highbeam-cli v4.4.1)</title>
+  <meta name="description" content="Official technical user guide for Highbeam (highbeam-cli v4.4.1), the 40-cell context visualizer, clamp-only Active Context Shield (-13.31% mean cost / -24.31% prompt-bill tokens in 72 live runs), KV-cache gravity router, and zero-token guardrails for Google Antigravity and Claude Code." />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body data-page="index">
@@ -14,11 +14,18 @@
     <nav class="sidebar" id="site-sidebar" aria-label="Documentation chapters"></nav>
 
     <main class="doc-main prose">
-      <p class="doc-eyebrow">Highbeam &middot; highbeam-cli v4.1</p>
-      <h1 class="doc-title">Context visibility and zero-token guards for AI coding chats.</h1>
+      <p class="doc-eyebrow">Highbeam &middot; highbeam-cli v4.4.1</p>
+      <h1 class="doc-title">Stop wasting context and breaking prompt caches in AI coding sessions.</h1>
       <p class="doc-lead">
-        Highbeam (<code>highbeam</code>) maps your live context window across a 40-cell bar, keeps warm KV caches safe from mistimed model switches, and blocks unsafe shell or file edits before tokens leave your machine.
+        Highbeam (<code>highbeam</code>) audits your local session logs read-only in 10 seconds (<code>npx highbeam-cli audit --days 7</code>), clamps oversized reads and noisy test dumps before they compound across turns (<strong>-13.31% mean billed cost / -24.31% prompt-bill tokens</strong> across 72 replicated live runs on Claude Code), and guards warm prompt caches against mid-session model switches.
       </p>
+
+      <div class="callout safe">
+        <p class="callout-title">Empirical Benchmark &amp; 10-Second Audit</p>
+        <p>
+          Try read-only with zero hooks or file writes: <code>npx highbeam-cli audit --days 7</code>. Read the full <a href="benchmark.html">144-Run Empirical Benchmark Post</a> (including the <code>T09</code>–<code>T11</code> code-exploration null result and the 45-run model-switch cache bust study) or explore the <a href="demo/">Live Interactive HUD Demo</a>.
+        </p>
+      </div>
 
       <!-- Hero Architectural Diagram -->
       <figure class="diagram-frame" aria-label="Highbeam dual-host architecture">
@@ -252,9 +259,13 @@ npx highbeam-cli doctor --json</code></pre>
           <div class="goal-card-title"><span>Compare Host Surfaces</span><span>&rarr;</span></div>
           <p class="goal-card-desc">See how Antigravity sidecar panels and Claude Code command hooks work together on the same repo.</p>
         </a>
+        <a class="goal-card" href="benchmark.html">
+          <div class="goal-card-title"><span>Read the 144-Run Benchmark</span><span>&rarr;</span></div>
+          <p class="goal-card-desc">Examine replicated A/B billed costs, wins, losses (<code>T06</code> &amp; <code>T09</code>–<code>T11</code>), and 3-bucket savings math.</p>
+        </a>
         <a class="goal-card" href="cli-reference.html">
           <div class="goal-card-title"><span>Look Up CLI Flags</span><span>&rarr;</span></div>
-          <p class="goal-card-desc">Check every command, flag, exit code, and JSON output in <code>highbeam</code> v4.1.</p>
+          <p class="goal-card-desc">Check every command, flag, exit code, and JSON output in <code>highbeam</code> v4.4.1.</p>
         </a>
         <a class="goal-card" href="detectors.html">
           <div class="goal-card-title"><span>Tune Guardrails</span><span>&rarr;</span></div>

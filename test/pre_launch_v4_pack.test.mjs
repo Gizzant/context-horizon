@@ -255,7 +255,7 @@ describe('Pre-Launch v4.0 Finishing Pack (Dual-License, Lean Hooks, BYO-Grafana 
       assert.equal(verified.payload.email, 'buyer@acme.dev');
       assert.equal(verified.payload.tier, 'pro');
 
-      // Polar.sh 5-SKU mapping: $15/mo Pro, $149/yr Pro, $199 Cap-200 LTD, $299/yr 5-Seat Team Starter, $39/seat/mo Team FinOps
+      // Polar.sh SKU mapping: $15/mo Pro, $149/yr Pro, $199 Cap-200 LTD, $299/yr 5-Seat Founding Team Intro, $900/yr Standard 5-Seat Team, $15/seat/mo Team FinOps (+ legacy $39/seat/mo)
       const monthly = mapPolarOrderToLicenseSpec({
         data: { amount: 1500, product: { name: 'Highbeam Pro' }, customer: { email: 'm@acme.dev' } }
       });
@@ -263,6 +263,42 @@ describe('Pre-Launch v4.0 Finishing Pack (Dual-License, Lean Hooks, BYO-Grafana 
       assert.equal(monthly.tier, 'pro');
       assert.equal(monthly.seats, 1);
       assert.ok(monthly.expiresAt !== null);
+
+      const standardTeamOneSeat = mapPolarOrderToLicenseSpec({
+        data: {
+          amount: 1500,
+          quantity: 1,
+          product: { name: 'Highbeam Team FinOps ($15/seat/mo)', recurring_interval: 'month' },
+          customer: { email: 's1@acme.dev' }
+        }
+      });
+      assert.equal(standardTeamOneSeat.sku, 'team_seat_monthly');
+      assert.equal(standardTeamOneSeat.tier, 'team');
+      assert.equal(standardTeamOneSeat.seats, 1);
+
+      const standardTeamSevenSeats = mapPolarOrderToLicenseSpec({
+        data: {
+          amount: 10500,
+          product: { name: 'Highbeam Team', recurring_interval: 'month' },
+          customer: { email: 's7@acme.dev' }
+        }
+      });
+      assert.equal(standardTeamSevenSeats.sku, 'team_seat_monthly');
+      assert.equal(standardTeamSevenSeats.tier, 'team');
+      assert.equal(standardTeamSevenSeats.seats, 7);
+
+      const standardTeamAnnual = mapPolarOrderToLicenseSpec({
+        data: {
+          amount: 90000,
+          product: { name: 'Highbeam Team Standard Annual', recurring_interval: 'year' },
+          customer: { email: 'sa@acme.dev' }
+        }
+      });
+      assert.equal(standardTeamAnnual.sku, 'team_standard_annual');
+      assert.equal(standardTeamAnnual.tier, 'team');
+      assert.equal(standardTeamAnnual.seats, 5);
+      const stdDays = (new Date(standardTeamAnnual.expiresAt).getTime() - Date.now()) / (86400 * 1000);
+      assert.ok(stdDays > 360 && stdDays < 370, 'Standard $900/yr Team must expire in ~366d');
 
       // Regression guard: $149 (14900 cents) WITHOUT 'annual' in product name MUST still mint expiring annual Pro, NEVER ltd
       const annualUntitled = mapPolarOrderToLicenseSpec({

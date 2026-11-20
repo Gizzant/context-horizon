@@ -1,6 +1,6 @@
 <div align="center">
 
-# Highbeam (`highbeam-cli` v4.4) — Stop Wasting Context & Breaking Prompt Caches in Claude Code and Google Antigravity
+# Highbeam (`highbeam-cli` v4.4.1) — Stop Wasting Context & Breaking Prompt Caches in Claude Code and Google Antigravity
 
 **A zero-dependency, 100% local CLI, HUD, and IDE sidebar that watches your agent's context window, clamps oversized reads and verbose tool logs before they compound, and separates Highbeam avoided writes from provider KV-cache discounts** *(each hook runs as a short spawned Node process: `~60–80ms` Linux, `~200–275ms` Windows; in-process rule engine `<1ms` — see [Verification & Benchmarks](#verification--benchmarks))*
 
@@ -11,7 +11,7 @@
 [![License: MIT Core + Commercial Pro](https://img.shields.io/badge/license-MIT_Core_%2B_Commercial_Pro-blue.svg)](LICENSE)
 [![Multi-Host Parity](https://img.shields.io/badge/Hosts-Antigravity_%7C_Claude_%7C_Codex_%7C_Gemini_%7C_Cursor-blueviolet.svg)](#-installation--quick-start)
 
-[**Live Interactive Demo**](https://gizzant.github.io/context-horizon/demo/) • [**User Guide**](https://gizzant.github.io/context-horizon/) • [**10-Second 5-Host Audit**](#try-in-10-seconds-zero-hooks--zero-writes) • [**Quick Start**](#-installation--quick-start) • [**Cookbook**](docs/COOKBOOK.md) • [**Benchmarks**](docs/ANTIGRAVITY_AND_COMPRESSION_BENCHMARK.md) • [**Enterprise MDM**](docs/ENTERPRISE_MDM.md)
+[**144-Run Benchmark**](docs/launch/BENCHMARK_LAUNCH_POST.md) • [**Live Demo**](https://gizzant.github.io/context-horizon/demo/) • [**User Guide**](https://gizzant.github.io/context-horizon/) • [**10-Second Audit**](#try-in-10-seconds-zero-hooks--zero-writes) • [**Quick Start**](#-installation--quick-start) • [**Cookbook**](docs/COOKBOOK.md) • [**Enterprise MDM**](docs/ENTERPRISE_MDM.md)
 
 <br/>
 
@@ -67,7 +67,7 @@ npx highbeam-cli audit --days 7
 3. **Code normally**: Highbeam runs in **`COACH` mode** by default—automatically compressing verbose CLI test dumps via SQLite FTS5 and folding repeat file reads without interrupting your prompts.
 
 #### 2. Claude Code Workflow
-1. **Install plugin & hooks**: Run `npx highbeam-cli init --claude` (current project) or `npx highbeam-cli init --claude --global` (all projects) to wire `.claude-plugin/plugin.json`, `hooks/hooks.json`, and the live terminal `statusLine`.
+1. **Install plugin & hooks**: Run `/plugin marketplace add https://github.com/Gizzant/context-horizon` in Claude Code, or `npx highbeam-cli init --claude --global` in your terminal to wire `.claude-plugin/plugin.json`, `hooks/hooks.json`, and `statusLine`.
 2. **Watch the Live Terminal `statusLine`**: At the bottom of your terminal, Highbeam renders an auto-adapting (`80 / 110 / 144` col) telemetry bar:
    ```text
    HB [SCCCCCCC................] sonnet-5-5 64k/200k (32%) · Cache 88% (4m12s) · COACH · Saved +14.8k
@@ -78,7 +78,7 @@ npx highbeam-cli audit --days 7
 Package or install the thin zero-dependency IDE sidebar & status bar extension from [`extensions/vscode-highbeam/`](extensions/vscode-highbeam/README.md):
 ```bash
 npm run build:vsix
-code --install-extension extensions/vscode-highbeam/highbeam-4.4.0.vsix
+code --install-extension extensions/vscode-highbeam/highbeam-4.4.1.vsix
 ```
 
 ---
@@ -318,29 +318,19 @@ For centralized organization deployment (Jamf / Intune / GPO), `CHECKSUMS.sha256
 
 ## 📦 Editions: Free (`MIT` Core + `COACH`) vs. Pro & Team
 
-| Feature / Capability | Free Core (`MIT`, `$0`) | [Highbeam Pro](https://buy.polar.sh/polar_cl_GYIDWrPsxnwsx58Ur6fIqMq3o1lrfK0o4hOFM4HOgpr) (`$149/yr` · `$199` Cap-200 LTD) | [Team Starter](https://buy.polar.sh/polar_cl_BDTd1Gru7L7BCE3jXBsqNpYmrATNtpgTfzAkQ2Emmt5) (`$299/yr` 5-Seat Intro · `$39/seat/mo` >5) |
+| Feature / Capability | Free Core (`MIT`, `$0`) | [Highbeam Pro](https://buy.polar.sh/polar_cl_qVD4MYra8gIe9uDvkRtJUzv6Ou4PTES4Jp3nj1nAOff) (`$199` LTD Cap-200 · `$149/yr`) | [Team](https://buy.polar.sh/polar_cl_BDTd1Gru7L7BCE3jXBsqNpYmrATNtpgTfzAkQ2Emmt5) (`$299/yr` Intro · `$15/seat/mo` Std) |
 | :--- | :---: | :---: | :---: |
 | Simple & Advanced 40-Cell HUD + `5m/1h` Live TTL Timer | ✅ | ✅ | ✅ |
-| Multi-Family FTS5 Compression (`test`, `lint`, `git`, `docker`/`kubectl`) & `highbeam search` | ✅ | ✅ | ✅ |
-| Automated Repeat-Read Delta Diffs & AST Stubs (`GUARD-4`) | ✅ | ✅ | ✅ |
-| `COACH` Non-Blocking Advisories & 32 Auditable Guards across 5 Hosts | ✅ | ✅ | ✅ |
-| `AUTO_PILOT` Hands-Free Enforcement & Horizon `C_max` Holds | Preview | ✅ | ✅ |
-| 30-Day Chronic Offender Memory & Workspace Savings Ledger | — | ✅ | ✅ |
-| Signed Corporate PDF 1.4 FinOps + GreenOps Receipt (`highbeam receipt --pdf`) | — | ✅ | ✅ |
-| Cross-Machine Zero-Knowledge Encrypted Sync (`highbeam sync`) | — | ✅ | ✅ |
-| Git Branch & PR Token/USD Cost Attribution (`highbeam pr-cost`) | — | ✅ | ✅ |
-| Shared `.agents/rules/` Governance, MDM Policy & OTel / Grafana Pack | — | — | ✅ |
-| Zero-Knowledge Org FinOps Rollup & PII Firewall (`highbeam team-rollup`) | — | — | ✅ |
-| CI / PR Token-Budget Gate for GitHub Actions & GitLab CI (`highbeam ci-gate`) | — | — | ✅ |
+| FTS5 Compression + `search` + `GUARD-4` + 32 Guards | ✅ | ✅ | ✅ |
+| `AUTO_PILOT` Enforcement & Horizon `C_max` Holds | Preview | ✅ | ✅ |
+| 30d Chronic Memory + Signed PDF Receipt (`receipt --pdf`) | — | ✅ | ✅ |
+| Encrypted Sync (`sync`) + PR Attribution (`pr-cost`) | — | ✅ | ✅ |
+| `.agents/rules/` Policy, `team-rollup`, `ci-gate`, OTel Pack | — | — | ✅ |
 
-**How Free, the trial and Pro differ:** Free shows what `AUTO_PILOT` would have done and what it would have saved, but changes nothing. The 14-day trial (`npx highbeam-cli license trial`) unlocks everything; Auto stays off until you turn it on with `npx highbeam-cli mode auto`. When the trial ends, Auto pauses and Highbeam goes back to showing what it would have saved until you activate Pro. `npx highbeam-cli mode` shows which mode is running.
-
-**Commercial SKU Summary (Offline Ed25519 `CTXP1` Activation via `npx highbeam-cli license activate <key>`):**
-- **Free Core (`MIT`, `$0` forever)**: `COACH` non-blocking mode, 5-host read-only `audit`, FTS5 compression + `search`, `GUARD-4`, Simple/Advanced HUD, and 7-tool `@ctxtop/mcp`.
-- **[Pro Annual (`$149/yr`, `~$12.42/mo`)](https://buy.polar.sh/polar_cl_GYIDWrPsxnwsx58Ur6fIqMq3o1lrfK0o4hOFM4HOgpr)**: 1 developer seat, 14-day zero-network local trial (`npx highbeam-cli license trial`), `AUTO_PILOT` holds, encrypted sync (`highbeam sync`), PR cost attribution (`highbeam pr-cost`), and expensable PDF receipts (`npx highbeam-cli receipt --pdf`). *(Offline verifier also accepts legacy `$15/mo` monthly keys.)*
-- **[Pro Founder Lifetime (`$199` one-time, capped at `200` seats)](https://buy.polar.sh/polar_cl_qVD4MYra8gIe9uDvkRtJUzv6Ou4PTES4Jp3nj1nAOff)**: Lifetime solo Pro entitlement (`expiresAt: null`).
-- **[Team Starter (`$299/yr` for 5 seats — `$59.80/seat/yr` intro pack)](https://buy.polar.sh/polar_cl_BDTd1Gru7L7BCE3jXBsqNpYmrATNtpgTfzAkQ2Emmt5)**: Multi-seat MDM rollout, shared `.agents/rules/` primacy governance, zero-knowledge org rollups (`highbeam team-rollup`), CI token-budget gates (`highbeam ci-gate`), and BYO-Grafana OpenTelemetry pack (`npx highbeam-cli team-pack`).
-- **Team / Enterprise FinOps (`$39/seat/mo` for `>5` seats & volume invoicing)**: Contact `sales@highbeamdev.com`.
+**Trials & Hybrid Pricing (`CTXP1` offline Ed25519 keys via `npx highbeam-cli license activate <key>`):**
+- **Free Core (`MIT`, `$0` forever):** `COACH` mode, 5-host `audit`, FTS5, `GUARD-4`, HUD, `receipt --share`, `@ctxtop/mcp`. Preview shows what `AUTO_PILOT` would save; turn on after trial via `npx highbeam-cli mode auto`.
+- **[Founder Lifetime (`$199` once, cap `200`)](https://buy.polar.sh/polar_cl_qVD4MYra8gIe9uDvkRtJUzv6Ou4PTES4Jp3nj1nAOff)** or **[Pro Annual (`$149/yr`, expensable)](https://buy.polar.sh/polar_cl_GYIDWrPsxnwsx58Ur6fIqMq3o1lrfK0o4hOFM4HOgpr):** 14d local trial (`npx highbeam-cli license trial`) or 30d emailed key (`POST /trial` / `sales@highbeamdev.com`).
+- **[Founding Team Intro (`$299/yr` for 5 seats)](https://buy.polar.sh/polar_cl_BDTd1Gru7L7BCE3jXBsqNpYmrATNtpgTfzAkQ2Emmt5) · Standard `$15/seat/mo` (`$900/yr` 5-seat min):** Includes **Free 60-day Pilot** (3–5 metered-API teams) or **`$1,500–$3,000` Fixed-Price Context Audit** (credited 100% toward Team license) -> `sales@highbeamdev.com`.
 
 ---
 
@@ -373,7 +363,7 @@ When registered in `hooks.json`, `src/hooks/pre_invocation.mjs` evaluates incomi
 | `npx highbeam-cli mcp` | Starts the standalone zero-network 7-tool JSON-RPC stdio MCP server (`@ctxtop/mcp`). |
 | `npx highbeam-cli doctor [--diagnostic]` | Validates hook registration, FTS5 offload readiness, warm-IPC path, model ceilings, 3-way SHA-256 parity, and SQLite health. |
 | `npx highbeam-cli postmortem [--last N] [--json]` | Scans the last `N` local sessions, classifies root causes (`CONTEXT_ROT_DECAY`, `VERIFICATION_CHURN`, `SPEC_AMBIGUITY`, `CLEAN`), lists top duplicate-read files, and audits Turn-0 MCP schema overhead. |
-| `npx highbeam-cli receipt [--markdown \| --pdf]` | Exports a SHA-256 estimated FinOps + GreenOps token/USD savings receipt for the active workspace. |
+| `npx highbeam-cli receipt [--share \| --markdown \| --pdf]` | Exports a scrubbed zero-PII share card (`--share`) or SHA-256 estimated FinOps + GreenOps receipt. |
 | `npx highbeam-cli mode [coach \| auto \| silent \| off] [--project]` | Shows or sets the active flight mode (`auto` requires Pro or the 14-day local trial). |
 | `npx highbeam-cli sync <export \| import \| inspect> [--out \| --in <file>] [--passphrase]` | *(Pro)* Exports or merges zero-knowledge `scrypt` + `AES-256-GCM` encrypted memory and 30-day savings vaults across machines. |
 | `npx highbeam-cli pr-cost [--base main] [--head HEAD] [--markdown \| --json]` | *(Pro)* Correlates branch commits with local ledgers to attribute PR tokens, cache hit %, USD spend/saved, and USD per 100 LOC. |

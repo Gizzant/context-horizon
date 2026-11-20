@@ -1,9 +1,10 @@
-/* Highbeam v4.0 User Guide — Shared Navigation, Theme, Tabs, Copy, Scrollspy & Search */
+/* Highbeam v4.4.1 User Guide — Shared Navigation, Theme, Tabs, Copy, Scrollspy & Search */
 (function () {
   'use strict';
 
   var SITE_PAGES = [
     { id: 'index', href: 'index.html', title: 'Overview', group: 'Foundations' },
+    { id: 'benchmark', href: 'benchmark.html', title: '144-Run Empirical Benchmark', group: 'Foundations' },
     { id: 'concepts', href: 'concepts.html', title: 'Core Concepts & Mental Model', group: 'Foundations' },
     { id: 'flight-modes', href: 'flight-modes.html', title: 'Flight Modes & Enforcement', group: 'Foundations' },
     { id: 'surfaces', href: 'surfaces.html', title: 'Antigravity vs. Claude Code', group: 'Foundations' },
@@ -90,9 +91,10 @@
             '</a>' +
             '<span class="brand-divider">/</span>' +
             '<span class="brand-subtitle">Developer Guide</span>' +
-            '<span class="version-pill">Highbeam 4.1</span>' +
+            '<span class="version-pill">Highbeam 4.4.1</span>' +
           '</div>' +
           '<div class="header-actions">' +
+            '<a href="benchmark.html" class="theme-toggle" style="text-decoration:none;">144-Run Benchmark</a>' +
             '<a href="demo/" class="theme-toggle" style="text-decoration:none;">Live Demo</a>' +
             '<button type="button" class="search-trigger" id="search-open-btn" aria-label="Search documentation">' +
               '<span class="search-trigger-label">Search documentation...</span>' +
@@ -155,7 +157,7 @@
     var footerEl = document.getElementById('doc-footer');
     if (footerEl) {
       footerEl.innerHTML =
-        '<span>Highbeam (<code>highbeam-cli</code> v4.1.4) for Google Antigravity &amp; Claude Code.</span>' +
+        '<span>Highbeam (<code>highbeam-cli</code> v4.4.1) for Google Antigravity &amp; Claude Code.</span>' +
         '<span>100% Local Read-Only Telemetry &middot; Zero Network Calls &middot; MIT Core</span>';
     }
 

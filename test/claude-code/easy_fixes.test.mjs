@@ -56,14 +56,14 @@ test('offloaded command output is written owner-only (0600 files, 0700 directory
       }
     }
 
-    // 2. Non-FTS5 >4k-token command falls back to flat artifact offload (.claude/cache/artifacts/*.txt)
+    // 2. Non-FTS5 >4k-token tool output falls back to flat artifact offload (.claude/cache/artifacts/*.txt)
     runPostToolUseHook(
       {
         session_id: 'perm2',
         cwd: dir,
-        tool_name: 'Bash',
-        tool_input: { command: 'cat dump.log' },
-        tool_response: { stdout: log, stderr: '', exit_code: 0 }
+        tool_name: 'WebFetch',
+        tool_input: { url: 'https://example.com/dump.log' },
+        tool_response: { content: log }
       },
       { cwd: dir, persistState: true }
     );
@@ -77,5 +77,44 @@ test('offloaded command output is written owner-only (0600 files, 0700 directory
   } finally {
     process.umask(prevUmask);
     fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('file-inspection Bash commands skip artifact offload while non-FTS5 tools offload cleanly', () => {
+  const dirSkip = fs.mkdtempSync(path.join(os.tmpdir(), 'hb-cat-skip-'));
+  const dirWeb = fs.mkdtempSync(path.join(os.tmpdir(), 'hb-web-offload-'));
+  try {
+    const log = Array.from({ length: 900 }, (_, i) => `line ${i} output text ${(i * 7919) % 1000}`).join('\n');
+
+    runPostToolUseHook(
+      {
+        session_id: 'cat1',
+        cwd: dirSkip,
+        tool_name: 'Bash',
+        tool_input: { command: 'cat dump.log' },
+        tool_response: { stdout: log, stderr: '', exit_code: 0 }
+      },
+      { cwd: dirSkip, persistState: true }
+    );
+    const skipArtDir = path.join(dirSkip, '.claude', 'cache', 'artifacts');
+    const skipFiles = fs.existsSync(skipArtDir) ? fs.readdirSync(skipArtDir) : [];
+    assert.equal(skipFiles.length, 0, 'cat dump.log must intentionally skip flat artifact offload');
+
+    runPostToolUseHook(
+      {
+        session_id: 'web1',
+        cwd: dirWeb,
+        tool_name: 'WebFetch',
+        tool_input: { url: 'https://example.com/dump.log' },
+        tool_response: { content: log }
+      },
+      { cwd: dirWeb, persistState: true }
+    );
+    const webArtDir = path.join(dirWeb, '.claude', 'cache', 'artifacts');
+    const webFiles = fs.existsSync(webArtDir) ? fs.readdirSync(webArtDir) : [];
+    assert.ok(webFiles.length >= 1, 'WebFetch >4k output should fall back to flat artifact offload');
+  } finally {
+    fs.rmSync(dirSkip, { recursive: true, force: true });
+    fs.rmSync(dirWeb, { recursive: true, force: true });
   }
 });

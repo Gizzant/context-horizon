@@ -263,10 +263,11 @@ describe('VC 90-Day Playbook Verification Suite (Workstreams 1–5)', () => {
   });
 
   describe('Workstream 5: Three-Tier Self-Expensing PLG Funnel & CLI Subcommand', () => {
-    it('defines PLG_TIER_MATRIX with Free ($0), Pro ($15), and Team ($39/seat) tiers and exposes ctxtop license tiers --json', async () => {
+    it('defines PLG_TIER_MATRIX with Free ($0), Pro ($15/$199 LTD), and Team ($15/seat standard, $299 Founding Intro) tiers and exposes ctxtop license tiers --json', async () => {
       assert.equal(PLG_TIER_MATRIX.free.priceMonthlyUSD, 0);
       assert.equal(PLG_TIER_MATRIX.pro.priceMonthlyUSD, 15);
-      assert.equal(PLG_TIER_MATRIX.team.pricePerSeatMonthlyUSD, 39);
+      assert.equal(PLG_TIER_MATRIX.team.pricePerSeatMonthlyUSD, 15);
+      assert.equal(PLG_TIER_MATRIX.team.standardAnnual5SeatUSD, 900);
 
       const res = await runCli(['license', 'tiers', '--json']);
       assert.equal(res.exitCode, 0);

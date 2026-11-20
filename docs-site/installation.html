@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Installation, Verification &amp; Migration - Highbeam User Guide</title>
-  <meta name="description" content="Install, verify, migrate, and cleanly uninstall Highbeam (highbeam-cli v4.1) across Google Antigravity, Claude Code, and MCP editors." />
+  <meta name="description" content="Install, verify, migrate, and cleanly uninstall Highbeam (highbeam-cli v4.4.1) across Google Antigravity, Claude Code, VS Code/Open VSX, and MCP editors." />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body data-page="installation">
@@ -69,15 +69,18 @@ node bin/ctxtop.mjs verify --json</code></pre>
         For Claude Code, <code>npx highbeam-cli init --claude</code> (project) or <code>--global</code> (all projects) merges hooks and the <code>ah-statusline</code> bar into <code>.claude/settings.json</code> (project scope) or <code>~/.claude/settings.json</code> (<code>--global</code>). Your existing custom hooks stay untouched:
       </p>
       <div class="code-block terminal">
-        <div class="code-header"><span>Claude Code Project vs. Global Installation</span></div>
-        <pre><code># Recommended: Lean hook profile in global ~/.claude/settings.json
+        <div class="code-header"><span>Claude Code Project, Global &amp; Native Plugin Marketplace</span></div>
+        <pre><code># Native Claude Code Plugin Marketplace install
+/plugin marketplace add Gizzant/context-horizon
+
+# Recommended: Lean hook profile in global ~/.claude/settings.json
 npx highbeam-cli init --claude --global --lean-hooks
 
 # Project-local full hook profile (.claude/settings.json)
 npx ah-claude install --project --full-hooks</code></pre>
       </div>
       <p>
-        You can also load the plugin folder directly via <code>.claude-plugin/plugin.json</code>. That adds all six slash commands (<code>/horizon</code>, <code>/cost-radar</code>, <code>/inspect</code>, <code>/handoff</code>, <code>/precheck</code>, <code>/evolve</code>) and wires up <code>hooks/hooks.json</code>. During <code>highbeam install</code> or <code>highbeam init --claude</code>, <code>inspectClaudeBinaryCapabilities()</code> scans your Claude Code binary. It skips newer hooks like <code>PostModelSwitch</code> (<code>omittedUnsupportedHooks</code>) on older CLI builds so settings never break.
+        You can also build and install the VS Code / Cursor / Antigravity sidebar extension locally from <code>extensions/vscode-highbeam/highbeam-4.4.1.vsix</code> via <code>npm run build:vsix</code>, or load the plugin folder directly via <code>.claude-plugin/plugin.json</code> and <code>.claude-plugin/marketplace.json</code>. That adds all six slash commands (<code>/horizon</code>, <code>/cost-radar</code>, <code>/inspect</code>, <code>/handoff</code>, <code>/precheck</code>, <code>/evolve</code>) and wires up <code>hooks/hooks.json</code>. During <code>highbeam install</code> or <code>highbeam init --claude</code>, <code>inspectClaudeBinaryCapabilities()</code> scans your Claude Code binary so older CLI builds remain compatible.
       </p>
 
       <h3 id="install-mcp">4. Cursor &amp; Windsurf MCP Registration</h3>

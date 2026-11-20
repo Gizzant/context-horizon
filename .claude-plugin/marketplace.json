@@ -1,0 +1,33 @@
+{
+  "name": "highbeam-marketplace",
+  "owner": {
+    "name": "Gizzant",
+    "email": "sales@highbeamdev.com"
+  },
+  "metadata": {
+    "description": "Official Highbeam plugin marketplace for Claude Code: local 40-cell context telemetry, clamp-only Active Context Shield, FTS5 CLI compression, and warm KV-cache guardrails.",
+    "version": "4.4.1"
+  },
+  "plugins": [
+    {
+      "name": "highbeam",
+      "source": "./",
+      "description": "Zero-dependency local context profiler, clamp-only Active Context Shield (-13.31% mean billed cost / -24.31% prompt-bill tokens in 72 live runs), warm KV-cache guard, and 6 slash skills for Claude Code (MIT Core + Commercial Pro).",
+      "version": "4.4.1",
+      "author": {
+        "name": "Gizzant"
+      },
+      "homepage": "https://gizzant.github.io/context-horizon/",
+      "repository": "https://github.com/Gizzant/context-horizon",
+      "license": "MIT",
+      "keywords": [
+        "claude-code",
+        "context-window",
+        "prompt-cache",
+        "token-savings",
+        "fts5",
+        "finops"
+      ]
+    }
+  ]
+}
