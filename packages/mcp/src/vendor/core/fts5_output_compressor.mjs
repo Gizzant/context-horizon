@@ -24,7 +24,7 @@ export const FTS5_COMPRESSOR_CONSTANTS = Object.freeze({
   MIN_LINES_TO_COMPRESS: 40,
   MIN_BYTES_TO_COMPRESS: 4096,
   MAX_SUMMARY_LINES: 25,
-  TARGET_COMMAND_REGEX: /(?:(?:^|[\s;|&])@['"]|\b(?:pytest|jest|vitest|cargo\s+(?:test|clippy|check|build)|tsc|go\s+test|eslint|biome|ruff|next\s+build|vite\s+build|docker\s+(?:build|logs)|kubectl\s+(?:logs|get|describe)|gh\s+(?:pr|run|api|issue|release|workflow)|git\s+(?:diff|log|show|status|grep|ls-files|blame|branch|tag|stash|reflog|cherry-pick)|(?:npm|pnpm|yarn|bun)\s+(?:test|run\s+(?:test|lint|build|typecheck)|install|ci|add|update|audit|outdated|pack|publish)|(?:pip3?|uv|poetry)\s+(?:install|sync|audit|list|show)|node(?:\.exe)?|python3?(?:\.exe)?|select-string|get-childitem|gci|get-content|write-output|powershell|pwsh|rg|ripgrep|grep|find|fd|tree|curl|wget|aws|gcloud|terraform)\b)/i
+  TARGET_COMMAND_REGEX: /(?:(?:^|[\s;|&])@['"]|\b(?:pytest|jest|vitest|cargo\s+(?:test|clippy|check|build)|tsc|go\s+test|eslint|biome|ruff|next\s+build|vite\s+build|(?:mvn|mvnw(?:\.cmd)?|gradle|gradlew(?:\.bat)?)\b|dotnet\s+(?:test|build)\b|make\b|ctest\b|bazel\s+(?:test|build)\b|(?:(?:npx|pnpm(?:\s+exec)?)\s+)?playwright\s+test\b|(?:bundle\s+exec\s+)?rspec\b|phpunit\b|deno\s+test\b|docker\s+(?:build|logs)|kubectl\s+(?:logs|get|describe)|gh\s+(?:pr|run|api|issue|release|workflow)|git\s+(?:diff|log|show|status|grep|ls-files|blame|branch|tag|stash|reflog|cherry-pick)|(?:npm|pnpm|yarn|bun)\s+(?:test|run\s+(?:test|lint|build|typecheck)|install|ci|add|update|audit|outdated|pack|publish)|(?:pip3?|uv|poetry)\s+(?:install|sync|audit|list|show)|node(?:\.exe)?|python3?(?:\.exe)?|select-string|get-childitem|gci|get-content|write-output|powershell|pwsh|rg|ripgrep|grep|find|fd|tree|curl|wget|aws|gcloud|terraform)\b)/i
 });
 
 export function getDefaultToolLogsDbPath(homeDir = getHomeDir()) {
@@ -38,14 +38,14 @@ export function isCompressibleCliCommand(command = '') {
 const POWERSHELL_HEREDOC_OR_SEARCH_RE =
   /(?:(?:^|[\s;|&])@['"]|\b(?:select-string|get-childitem|gci)\b)/i;
 const BOUNDED_PIPE_FILTER_RE =
-  /\|\s*(?:head|tail|sed|awk|cut|wc|grep|egrep|fgrep|rg|ripgrep)\b/i;
+  /\|\s*(?:head|tail|sed|awk|cut|wc|grep|egrep|fgrep|rg|ripgrep|jq)\b/i;
 const INLINE_SCRIPT_OR_HEREDOC_RE =
   /\b(?:node(?:\.exe)?\s+(?:-[ep]\b|--eval\b|--print\b)|python3?(?:\.exe)?\s+(?:-c\b|-\s*<<|<<))|\bcat\s*>\s*\S+[\s\S]*<</i;
 const FILE_INSPECTION_SEGMENT_RE =
-  /^\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*(?:(?:\/[\w./-]+)?\/)?(?:cat|head|tail|sed|awk|cut|wc|nl|tac|rev|less|more|bat|stat|file(?=\s+\S)|ls|dir|tree|grep|egrep|fgrep|rg|ripgrep|get-content)(?=\s|$)(?![.\w-])/i;
+  /^\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)*(?:(?:\/[\w./-]+)?\/)?(?:cat|head|tail|sed|awk|cut|wc|nl|tac|rev|less|more|bat|jq|stat|file(?=\s+\S)|ls|dir|tree|grep|egrep|fgrep|rg|ripgrep|get-content)(?=\s|$)(?![.\w-])/i;
 const GIT_INSPECTION_CMD_RE = /\bgit\s+(?:diff|show|status|blame|log)\b/i;
 const NOISY_PRIMARY_RUNNER_RE =
-  /\b(?:(?:npm|pnpm|yarn|bun)\s+(?:test|install|ci|run|build|lint|typecheck)|node\s+--test|pytest|jest|vitest|cargo|go\s+test|tsc|eslint|biome|ruff|next\s+build|vite\s+build|docker|kubectl|diag_check)\b/i;
+  /\b(?:(?:npm|pnpm|yarn|bun)\s+(?:test|install|ci|run|build|lint|typecheck)|node\s+--test|pytest|jest|vitest|cargo|go\s+test|tsc|eslint|biome|ruff|next\s+build|vite\s+build|mvn|mvnw|gradle|gradlew|dotnet\s+(?:test|build)|make|ctest|bazel\s+(?:test|build)|playwright\s+test|rspec|phpunit|deno\s+test|docker|kubectl|diag_check)\b/i;
 
 /**
  * Determines whether a live `PostToolUse` shell command should allow FTS5 compression
@@ -84,15 +84,19 @@ export function classifyCliCommandFamily(command = '') {
   const cmd = String(command || '').toLowerCase();
   if (/\bgit\s+(diff|log|show|status)\b/.test(cmd)) return 'git';
   if (/\b(docker|kubectl)\b/.test(cmd) || /\bgh\s+(pr|run)\b/.test(cmd)) return 'infra';
-  if (/\b(eslint|biome|ruff|tsc|cargo\s+(clippy|check|build)|next\s+build|vite\s+build)\b/.test(cmd)) {
-    return 'lint_build';
-  }
   if (
-    /\b(pytest|jest|vitest|cargo\s+test|node\s+--test|(?:npm|pnpm|yarn|bun)\s+(?:test|run\s+(?:test|lint|build|typecheck))|go\s+test)\b/.test(
+    /\b(pytest|jest|vitest|cargo\s+test|node\s+--test|(?:npm|pnpm|yarn|bun)\s+(?:test|run\s+(?:test|lint|build|typecheck))|go\s+test|(?:mvn|mvnw(?:\.cmd)?)\s+[^\n]*(?:test|verify)|(?:gradle|gradlew(?:\.bat)?)\s+[^\n]*(?:test|check)|dotnet\s+test|bazel\s+test|playwright\s+test|rspec|phpunit|deno\s+test|ctest|make\s+(?:test|check))\b/.test(
       cmd
     )
   ) {
     return 'test';
+  }
+  if (
+    /\b(eslint|biome|ruff|tsc|cargo\s+(clippy|check|build)|next\s+build|vite\s+build|mvn|mvnw(?:\.cmd)?|gradle|gradlew(?:\.bat)?|dotnet\s+build|bazel\s+build|make)\b/.test(
+      cmd
+    )
+  ) {
+    return 'lint_build';
   }
   if (
     /\b(select-string|get-childitem|gci|rg|ripgrep|grep|find|fd|tree)\b/.test(cmd) ||
@@ -270,17 +274,30 @@ export function buildDeterministicSummary(rawOutput = '', {
     if (!line) continue;
 
     if (
-      /^(FAILED|FAIL|✖|✗|--- FAIL:)\s+/.test(line) ||
+      /^(FAILED|FAIL|✖|✗|✘|--- FAIL:)\s+/.test(line) ||
+      /^[✘✖×]\s+\d+\s+/.test(line) ||
+      /^\d+\)\s+(?:\[[^\]]+\]\s+›\s+|\S+)/.test(line) ||
       /^_{3,}\s+.+\s+_{3,}$/.test(line) ||
       /^test\s+[\w:./-]+\s+\.\.\.\s+FAILED/i.test(line) ||
-      /^FAIL\t\S+/.test(line)
+      /^FAIL\t\S+/.test(line) ||
+      /^\[ERROR\]\s+(?:Failures:|Errors:|BUILD\s+FAILURE|.+<<<\s*(?:FAILURE|ERROR)!|\S+:\d+\s+)/.test(line) ||
+      /^>\s+Task\s+:\S+\s+FAILED/.test(line) ||
+      /^.+\s+>\s+.+\s+FAILED$/.test(line) ||
+      /^FAILURE:\s+Build\s+failed/.test(line) ||
+      /^Failed\s+\S+/.test(line) ||
+      /^make(?:\[\d+\])?:\s*\*\*\*/.test(line) ||
+      /^\d+\/\d+\s+Test\s+#\d+:.+\*\*\*Failed/i.test(line) ||
+      /^(?:FAIL|ERROR):\s+(?:\/\/)?\S+/.test(line) ||
+      /^rspec\s+[\w./\\-]+:\d+/.test(line) ||
+      /^(?:FAILURES|ERRORS)!$/.test(line) ||
+      /^.+\s+\.\.\.\s+FAILED\s+\(/.test(line)
     ) {
       const cleaned = line.replace(/^_{3,}\s*|\s*_{3,}$/g, '').trim();
-      pushUniqueBounded(failingTests, cleaned, 6, 120);
+      pushUniqueBounded(failingTests, cleaned, 6, 160);
     }
 
     if (
-      /^(?:ℹ\s*(?:tests|suites|pass|fail|cancelled|skipped|todo|duration_ms)\b|#\s*(?:tests|suites|pass|fail|cancelled|skipped|todo|ok)\b|Tests?:|Test Suites?:|Test Files?:|Ran\s+\d+\s+tests?|test result:|===+\s+\d+\s+(?:passed|failed)|\d+\s+(?:passed|passing|failed|failing)\b|PASS(?:\s+\S+)?$|ok\s+\S+\s+[\d.]+s)/i.test(
+      /^(?:ℹ\s*(?:tests|suites|pass|fail|cancelled|skipped|todo|duration_ms)\b|#\s*(?:tests|suites|pass|fail|cancelled|skipped|todo|ok)\b|Tests?:|Test Suites?:|Test Files?:|Ran\s+\d+\s+tests?|test result:|===+\s+\d+\s+(?:passed|failed)|\d+\s+(?:passed|passing|failed|failing)\b|PASS(?:\s+\S+)?$|ok\s+\S+\s+[\d.]+s|\[(?:INFO|ERROR)\]\s+(?:Tests\s+run:\s*\d+|BUILD\s+(?:SUCCESS|FAILURE))|\d+\s+tests?\s+completed,\s*\d+\s+failed|BUILD\s+(?:SUCCESSFUL|FAILED)|(?:Failed|Passed)!\s+-\s+Failed:\s*\d+|Build\s+(?:FAILED|succeeded)|\d+%\s+tests\s+passed,\s*\d+\s+tests\s+failed|Executed\s+\d+\s+out\s+of\s+\d+\s+tests?:|\d+\s+examples?,\s*\d+\s+failures?|Tests:\s*\d+,\s*Assertions:\s*\d+|OK\s+\(\d+\s+tests?|(?:ok|FAILED)\s+\|\s+\d+\s+passed\s+\|\s+\d+\s+failed)/i.test(
         line
       )
     ) {
@@ -292,17 +309,24 @@ export function buildDeterministicSummary(rawOutput = '', {
     }
 
     if (
-      /\b[A-Za-z0-9_./\\-]+\.(?:py|ts|tsx|js|mjs|cjs|rs|go|java|cpp|c):\d+(?::\d+)?\b/.test(line) ||
-      /\b[A-Za-z0-9_./\\-]+\.(?:ts|tsx)\(\d+,\d+\):\s*error\s+TS\d+/i.test(line) ||
+      /\b[A-Za-z0-9_./\\-]+\.(?:py|ts|tsx|js|mjs|cjs|rs|go|java|kt|kts|groovy|scala|rb|php|cs|cpp|cc|cxx|c|h|hpp)(?::\d+(?::\d+)?|\[\d+,\d+\]|\(\d+,\d+\)|\s*:\s*line\s+\d+)/i.test(
+        line
+      ) ||
+      /\b[A-Za-z0-9_./\\-]+\.(?:ts|tsx|cs)\(\d+,\d+\):\s*error\s+(?:TS|CS)\d+/i.test(line) ||
+      /\bMakefile:\d+/.test(line) ||
       /^\d+:\d+\s+(?:error|warning)\s+/i.test(line) ||
       /\berror\[E\d+\]:/i.test(line) ||
-      (family === 'lint_build' && /^[A-Za-z0-9_./\\-]+\.(?:py|ts|tsx|js|mjs|cjs|rs|go|jsx)$/.test(line))
+      (family === 'lint_build' && /^[A-Za-z0-9_./\\-]+\.(?:py|ts|tsx|js|mjs|cjs|rs|go|jsx|java|kt|cs|cpp|c)$/.test(line))
     ) {
-      pushUniqueBounded(fileLineTraces, line, 9, 140);
+      pushUniqueBounded(fileLineTraces, line, 9, 180);
     }
 
-    if (/^(E\s+|AssertionError:|Error:|Expected\b|Received\b|assert\s+|error\s+)/i.test(line)) {
-      pushUniqueBounded(assertionLines, line, 5, 140);
+    if (
+      /^(E\s+|AssertionError:|Error:|Expected\b|Received\b|Actual\b|assert\s+|error\s+|Failed asserting|Caused by:|org\.junit|java\.lang\.AssertionError|Assert\.|\[ERROR\]\s+.*error:)/i.test(
+        line
+      )
+    ) {
+      pushUniqueBounded(assertionLines, line, 5, 180);
     }
   }
 

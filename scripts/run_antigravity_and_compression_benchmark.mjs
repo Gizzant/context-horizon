@@ -193,6 +193,151 @@ export function buildCompressionCorpus() {
         ...makeNoiseLines('INFO http_request method=GET status=200', 95),
         'FATAL KUBE_PG_FATAL_5432 connection refused postgres-primary:5432 CrashLoopBackOff'
       ].join('\n')
+    },
+    {
+      id: 'F11-maven',
+      family: 'test',
+      command: 'mvn test',
+      exitCode: 1,
+      turnId: 'turn-bench-11',
+      keyword: 'MVN_COUPON_STACK_42',
+      expectedMarkers: ['CartServiceTest.appliesCoupon:42', 'MVN_COUPON_STACK_42', 'Tests run: 96, Failures: 1'],
+      rawOutput: [
+        '[INFO] Scanning for projects...',
+        ...makeNoiseLines('[INFO] Running com.ledger.SuiteCase', 94),
+        '[ERROR] Failures:',
+        '[ERROR]   CartServiceTest.appliesCoupon:42 MVN_COUPON_STACK_42 expected: <6500> but was: <6800>',
+        '[ERROR] Tests run: 96, Failures: 1, Errors: 0, Skipped: 0',
+        '[ERROR] BUILD FAILURE'
+      ].join('\n')
+    },
+    {
+      id: 'F12-gradle',
+      family: 'test',
+      command: './gradlew test',
+      exitCode: 1,
+      turnId: 'turn-bench-12',
+      keyword: 'GRADLE_FX_ROUND_58',
+      expectedMarkers: ['FxConversionTest > triangulatesEurGbp FAILED', 'src/test/kotlin/FxTest.kt:58', 'GRADLE_FX_ROUND_58'],
+      rawOutput: [
+        ...makeNoiseLines('> Task :core:compileKotlin UP-TO-DATE check_step', 94),
+        'FxConversionTest > triangulatesEurGbp FAILED',
+        '    org.opentest4j.AssertionFailedError: GRADLE_FX_ROUND_58 at src/test/kotlin/FxTest.kt:58',
+        '95 tests completed, 1 failed',
+        'FAILURE: Build failed with an exception.'
+      ].join('\n')
+    },
+    {
+      id: 'F13-dotnet',
+      family: 'test',
+      command: 'dotnet test',
+      exitCode: 1,
+      turnId: 'turn-bench-13',
+      keyword: 'DOTNET_DISPUTE_HOLD_88',
+      expectedMarkers: ['Failed SettlementTests.HoldsDisputedBatch', 'src/Tests/SettlementTests.cs:88', 'DOTNET_DISPUTE_HOLD_88'],
+      rawOutput: [
+        'Determining projects to restore...',
+        ...makeNoiseLines('  Passed SettlementTests.OkCase', 94),
+        'Failed SettlementTests.HoldsDisputedBatch [14 ms]',
+        '  Assert.Equal() Failure: DOTNET_DISPUTE_HOLD_88 at src/Tests/SettlementTests.cs:88',
+        'Failed!  - Failed:     1, Passed:    94, Skipped:     0, Total:    95'
+      ].join('\n')
+    },
+    {
+      id: 'F14-make',
+      family: 'lint_build',
+      command: 'make all',
+      exitCode: 2,
+      turnId: 'turn-bench-14',
+      keyword: 'MAKE_CXX_ERR_48',
+      expectedMarkers: ['src/engine/pricer.cpp:42:12:', 'MAKE_CXX_ERR_48', 'make[1]: *** [Makefile:48: all] Error 2'],
+      rawOutput: [
+        ...makeNoiseLines('g++ -O2 -Wall -c src/modules/unit_part.cpp -o build/unit_part.o', 94),
+        "src/engine/pricer.cpp:42:12: error: 'roundHalfAway' was not declared MAKE_CXX_ERR_48",
+        'make[1]: *** [Makefile:48: all] Error 2'
+      ].join('\n')
+    },
+    {
+      id: 'F15-playwright',
+      family: 'test',
+      command: 'npx playwright test',
+      exitCode: 1,
+      turnId: 'turn-bench-15',
+      keyword: 'PW_CHECKOUT_STEP_64',
+      expectedMarkers: ['1) [chromium]', 'tests/e2e/checkout.spec.ts:64:5', 'PW_CHECKOUT_STEP_64'],
+      rawOutput: [
+        'Running 96 tests using 4 workers',
+        ...makeNoiseLines('  ✓  [chromium] › tests/e2e/smoke.spec.ts > health check ok', 94),
+        '  1) [chromium] › tests/e2e/checkout.spec.ts:64:5 › Checkout › applies VAT',
+        '    Error: expect(received).toBe(expected) PW_CHECKOUT_STEP_64',
+        '    at tests/e2e/checkout.spec.ts:64:5',
+        '  1 failed'
+      ].join('\n')
+    },
+    {
+      id: 'F16-rspec',
+      family: 'test',
+      command: 'bundle exec rspec',
+      exitCode: 1,
+      turnId: 'turn-bench-16',
+      keyword: 'RSPEC_PRORATION_31',
+      expectedMarkers: ['rspec ./spec/proration_spec.rb:31', 'RSPEC_PRORATION_31', '95 examples, 1 failure'],
+      rawOutput: [
+        ...makeNoiseLines('  passes proration helper check in spec/helpers_spec.rb', 94),
+        'Failures:',
+        '  1) ProrationPolicy handles 28-day February cycle RSPEC_PRORATION_31',
+        '     rspec ./spec/proration_spec.rb:31 # handles 28-day February',
+        '95 examples, 1 failure'
+      ].join('\n')
+    },
+    {
+      id: 'F17-phpunit',
+      family: 'test',
+      command: 'phpunit',
+      exitCode: 1,
+      turnId: 'turn-bench-17',
+      keyword: 'PHPUNIT_DEDUPE_73',
+      expectedMarkers: ['/app/tests/UsageMeterTest.php:73', 'PHPUNIT_DEDUPE_73', 'Tests: 95, Assertions: 190'],
+      rawOutput: [
+        'PHPUnit 11.2.0 by Sebastian Bergmann and contributors.',
+        ...makeNoiseLines('✔ UsageMeterTest :: aggregates window slice', 94),
+        'FAILURES!',
+        '  1) UsageMeterTest::testEventIdDedupe',
+        'Failed asserting that 100 matches expected 50 PHPUNIT_DEDUPE_73.',
+        '/app/tests/UsageMeterTest.php:73',
+        'Tests: 95, Assertions: 190, Failures: 1.'
+      ].join('\n')
+    },
+    {
+      id: 'F18-denotest',
+      family: 'test',
+      command: 'deno test',
+      exitCode: 1,
+      turnId: 'turn-bench-18',
+      keyword: 'DENO_DSL_PREC_29',
+      expectedMarkers: ['=> ./tests/dsl_test.ts:29:10', 'DENO_DSL_PREC_29', 'FAILED | 94 passed | 1 failed'],
+      rawOutput: [
+        ...makeNoiseLines('test case ok ... ok (4ms)', 94),
+        'DSL precedence NOT over AND ... FAILED (12ms)',
+        'AssertionError: DENO_DSL_PREC_29 expected true, actual false',
+        '    => ./tests/dsl_test.ts:29:10',
+        'FAILED | 94 passed | 1 failed (120ms)'
+      ].join('\n')
+    },
+    {
+      id: 'F19-ctest',
+      family: 'test',
+      command: 'ctest --output-on-failure',
+      exitCode: 8,
+      turnId: 'turn-bench-19',
+      keyword: 'CTEST_NEXUS_FAIL_42',
+      expectedMarkers: ['42/95 Test #42: TaxNexusTest', 'tests/tax_nexus_test.cpp:42', 'CTEST_NEXUS_FAIL_42'],
+      rawOutput: [
+        ...makeNoiseLines('1/95 Test #1: OkUnitTest ......................   Passed    0.01 sec', 94),
+        '42/95 Test #42: TaxNexusTest .....................***Failed    0.12 sec',
+        'tests/tax_nexus_test.cpp:42: AssertionError: CTEST_NEXUS_FAIL_42',
+        '99% tests passed, 1 tests failed out of 95'
+      ].join('\n')
     }
   ];
 }
@@ -534,7 +679,7 @@ export async function runParityBenchmarks({ writeDoc = true } = {}) {
         '',
         '---',
         '',
-        '## 1. Suite A — 10-Family CLI Output Compression & 100% Diagnostic Recall',
+        `## 1. Suite A — ${corpus.length}-Fixture Multi-Stack CLI Output Compression & 100% Diagnostic Recall`,
         '',
         `- **Aggregate Token Reduction:** **${aggregateReductionPct}%** (\`${totalRawTokens.toLocaleString('en-US')}\` raw tokens -> \`${totalCompressedTokens.toLocaleString('en-US')}\` summary tokens across \`${corpus.length}\` noisy CLI logs)`,
         `- **Critical Diagnostic & Hunk Header Recall:** **${aggregateRecallPct}%** (\`${preservedMarkers}/${totalMarkers}\` ground-truth markers preserved)`,

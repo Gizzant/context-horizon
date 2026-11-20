@@ -96,3 +96,4 @@ import './wave3_subagent_and_mcp_diet.test.mjs';
 import './step_zero_telemetry_and_ledger.test.mjs';
 import './idea1_and_idea3_savings_fixes.test.mjs';
 import './idea4_haiku_scout.test.mjs';
+import './idea5_build_test_parsers.test.mjs';
