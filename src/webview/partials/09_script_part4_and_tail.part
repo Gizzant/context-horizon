@@ -1346,37 +1346,43 @@
             : 'Match effort to task complexity: Low/Medium for routine edits, High for tricky specs or debugging.' };
       }
 
-      // Render 3-Category Next-Prompt Playbook inside #tsPlaybookCard
+      // Render 3-Category Next-Prompt Playbook inside #tsPlaybookCard (always visible, fixed height)
+      let pb = raw.coachState?.nextPromptPlaybook || null;
       {
         const isCCPb = (raw.storeSource || modelProvider || '').toLowerCase().includes('claude');
+        const gemPb = modelProvider === 'Gemini';
+        const gemNote = gemPb ? ' \u00B7 unverified on Gemini' : '';
         const pbCached = Math.max(0, Number(cache.cacheReadTokens || cache.costGate?.cachedTokens || (isWarm ? dispTotalT : 0)) || 0);
         const pbWarm = Boolean((isWarm || (isRebuilding && pbCached >= 2000)) && ttlRem > 0);
         const warmK = formatTokens(pbCached || dispTotalT);
-        const pbRows = (arr) => arr.map(([action, copyCommand, mechanism]) => ({ action, copyCommand, mechanism }));
-        let pb = raw.coachState?.nextPromptPlaybook || null;
+        const pbLabels = ['Quick \u00B7 typo/lookup', 'Standard \u00B7 feature/bug', 'Deep \u00B7 arch/refactor'];
+        const pbRows = (arr) => arr.map(([action, copyCommand, mechanism], idx) => ({ shortLabel: pbLabels[idx], action, copyCommand, mechanism }));
         if (!pb || !Array.isArray(pb.rows)) {
-          if (isCrisis || dispTotalT >= (modelProvider === 'Gemini' ? 220000 : 160000) || (safeCap > 0 && dispTotalT >= safeCap * 0.9)) {
+          if (isCrisis || dispTotalT >= (gemPb ? 220000 : 160000) || (safeCap > 0 && dispTotalT >= safeCap * 0.9)) {
             pb = {
+              regime: 'NEAR_CLIFF',
               badge: 'NEAR CLIFF',
               headline: `Compact first (${formatTokens(dispTotalT)} active) before right-sizing next turn`,
               rows: pbRows([
-                [isCCPb ? '/compact \u2192 Haiku + /effort low' : 'Run /compact \u2192 Flash \u00B7 Effort: Low', isCCPb ? '/compact' : null, 'avoids pricing cliff'],
-                [isCCPb ? '/compact \u2192 Sonnet + /effort medium' : 'Run /compact \u2192 Standard \u00B7 Effort: Medium', isCCPb ? '/compact' : null, 'clears clutter with StateBaton'],
-                [isCCPb ? '/compact \u2192 Opus + /effort high' : 'Run /compact \u2192 Frontier \u00B7 Effort: High', isCCPb ? '/compact' : null, 'preserves rules; trims noise']
+                [isCCPb ? '/compact \u2192 Haiku + /effort low' : 'Run /compact \u2192 Flash \u00B7 Effort: Low', null, `avoids ${gemPb ? '272k' : '200k'} 2x cliff${gemNote}`],
+                [isCCPb ? '/compact \u2192 Sonnet + /effort medium' : 'Run /compact \u2192 Standard \u00B7 Effort: Medium', null, `clears clutter with StateBaton${gemNote}`],
+                [isCCPb ? '/compact \u2192 Opus + /effort high' : 'Run /compact \u2192 Frontier \u00B7 Effort: High', null, `preserves rules; trims noise${gemNote}`]
               ])
             };
           } else if (!pbWarm) {
             pb = {
+              regime: 'COLD_BOUNDARY',
               badge: 'COLD BOUNDARY',
-              headline: 'Cache cold or expired \u2014 switching models or effort adds 0 bust penalty',
+              headline: gemPb ? 'Cache cold \u2014 switch adds 0 bust penalty (Gemini tiers unverified)' : 'Cache cold or expired \u2014 switching models or effort adds 0 bust penalty',
               rows: pbRows([
-                [isCCPb ? '/model haiku then /effort low' : 'Model: Flash \u00B7 Effort: Low', isCCPb ? '/effort low' : null, '0 warm prefix to bust'],
-                [isCCPb ? '/model sonnet then /effort medium' : 'Model: Standard \u00B7 Effort: Medium', isCCPb ? '/effort medium' : null, '0 warm prefix to bust'],
-                [isCCPb ? '/model opus then /effort high' : 'Model: Frontier \u00B7 Effort: High', isCCPb ? '/effort high' : null, 'fresh prefix \u00B7 full reasoning']
+                [isCCPb ? '/model haiku then /effort low' : 'Model: Flash \u00B7 Effort: Low', isCCPb ? '/effort low' : null, `0 warm prefix to bust${gemNote}`],
+                [isCCPb ? '/model sonnet then /effort medium' : 'Model: Standard \u00B7 Effort: Medium', isCCPb ? '/effort medium' : null, `0 warm prefix to bust${gemNote}`],
+                [isCCPb ? '/model opus then /effort high' : 'Model: Frontier \u00B7 Effort: High', isCCPb ? '/effort high' : null, `fresh prefix \u00B7 full reasoning${gemNote}`]
               ])
             };
           } else if (effCapStatus === 'safe') {
             pb = {
+              regime: 'WARM_EFFORT_SAFE',
               badge: 'WARM \u00B7 EFFORT SAFE',
               headline: `Warm ${warmK} cache \u2014 5.5 keeps prefix across /effort changes`,
               rows: pbRows([
@@ -1388,6 +1394,7 @@
             };
           } else if (effCapStatus === 'unsafe') {
             pb = {
+              regime: 'WARM_EFFORT_UNSAFE',
               badge: 'WARM \u00B7 4.6 LOCKED',
               headline: `Warm ${warmK} cache \u2014 4.6 effort change invalidates whole prefix`,
               rows: pbRows([
@@ -1398,6 +1405,7 @@
             };
           } else {
             pb = {
+              regime: 'WARM_EFFORT_UNVERIFIED',
               badge: 'WARM \u00B7 UNVERIFIED',
               headline: `Warm ${warmK} cache \u2014 effort cache impact unverified for ${activeModel}`,
               rows: pbRows([
@@ -1408,14 +1416,22 @@
             };
           }
         }
+        const pbCard = document.getElementById('tsPlaybookCard');
+        if (pbCard) {
+          const rName = String(pb.regime || '');
+          pbCard.dataset.regime = rName;
+          pbCard.dataset.tone = rName === 'NEAR_CLIFF' ? 'danger' : rName.startsWith('WARM_EFFORT_UN') ? 'avoid' : 'do';
+        }
         setTxt('tsPbRegimeBadge', pb.badge || 'PLAYBOOK');
         setTxt('tsPbHeadline', pb.headline || '');
         ['tsPbRowQuick', 'tsPbRowStandard', 'tsPbRowDeep'].forEach((rowId, idx) => {
           const rowEl = document.getElementById(rowId);
           const item = pb.rows?.[idx];
           if (!rowEl || !item) return;
+          const catEl = rowEl.querySelector('.ts-pb-cat');
           const actEl = rowEl.querySelector('.ts-pb-act');
           const copyBtn = rowEl.querySelector('.ts-pb-copy');
+          if (catEl) catEl.textContent = String(item.shortLabel || item.label || pbLabels[idx] || '');
           if (actEl) {
             actEl.textContent = `${item.action || ''}`;
             const mechSpan = document.createElement('span');
@@ -1499,7 +1515,7 @@
           tsGuidanceBadge.dataset.tone = (m.tone === 'danger' || e.tone === 'danger')
             ? 'danger'
             : ((m.tone === 'do' && e.tone === 'do' && !previewPrefix) ? 'muted' : 'warn');
-          tsGuidanceBadge.textContent = `${previewPrefix}Model: ${m.badge} \u00B7 Effort: ${e.badge}`;
+          tsGuidanceBadge.textContent = `${previewPrefix}${pb?.badge || `Model: ${m.badge} \u00B7 Effort: ${e.badge}`}`;
           tsGuidanceBadge.title = isCrisis
             ? 'Context is over the safe limit — run /compact before switching models so you do not re-send everything uncached.'
             : (isStuckErrorLoop

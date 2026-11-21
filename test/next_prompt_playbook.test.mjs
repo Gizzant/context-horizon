@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 import {
   PLAYBOOK_REGIMES,
   computeNextPromptPlaybook,
-  formatNextPromptPlaybookCli
+  formatNextPromptPlaybookCli,
+  formatNextPromptPlaybookOneLine
 } from '../src/core-isomorphic/coach/nextPromptPlaybook.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -63,6 +64,11 @@ describe('Next-Prompt Playbook (Layer 1 5x3x2 Matrix + Layer 2 Replay)', () => {
         assert.equal(pb.effortCacheStatus, sc.expectedEffStatus, `${sc.name} status`);
         assert.equal(pb.rows.length, 3, 'Must return exactly 3 workload categories');
         assert.deepEqual(pb.rows.map((r) => r.category), ['quick', 'standard', 'deep']);
+        assert.deepEqual(pb.rows.map((r) => r.cue), ['typo/lookup', 'feature/bug', 'arch/refactor']);
+        assert.ok(pb.rows.every((r) => typeof r.shortLabel === 'string' && r.shortLabel.includes('·')));
+        assert.ok(typeof pb.oneLine === 'string' && pb.oneLine.startsWith('Next:'));
+        assert.ok(typeof pb.compactHint === 'string' && pb.compactHint.length > 0 && pb.compactHint.length <= 20);
+        assert.ok(formatNextPromptPlaybookOneLine(pb, 44).length <= 44);
 
         if (sc.expectedRegime === PLAYBOOK_REGIMES.WARM_EFFORT_SAFE) {
           assert.equal(pb.optionalDetourNote, null, '5m TTL must NEVER recommend optional Haiku detour');
@@ -75,6 +81,7 @@ describe('Next-Prompt Playbook (Layer 1 5x3x2 Matrix + Layer 2 Replay)', () => {
         } else if (sc.expectedRegime === PLAYBOOK_REGIMES.NEAR_CLIFF) {
           for (const r of pb.rows) {
             assert.match(r.action, /\/compact/i);
+            assert.equal(r.copyCommand, null, 'NEAR_CLIFF rows stay plain text so Card 1 remains the sole /compact CTA');
           }
         } else if (sc.expectedRegime === PLAYBOOK_REGIMES.COLD_BOUNDARY) {
           assert.match(pb.rows[0].mechanism, /0 warm prefix/i);
@@ -95,6 +102,17 @@ describe('Next-Prompt Playbook (Layer 1 5x3x2 Matrix + Layer 2 Replay)', () => {
       }
     }
     assert.equal(totalCellsChecked, 30, 'Verified all 5 regimes x 2 hosts x 3 rows = 30 cells');
+
+    // Gemini cold & near-cliff rows must explicitly disclose unverified Gemini measurements
+    const pbGemCold = computeNextPromptPlaybook({ modelId: 'gemini-4-neon', cachedTokens: 0, totalTokens: 0, cacheWarm: false, host: 'antigravity' });
+    assert.equal(pbGemCold.regime, PLAYBOOK_REGIMES.COLD_BOUNDARY);
+    for (const r of pbGemCold.rows) assert.match(r.mechanism, /unverified on Gemini/i);
+    const pbGemCliff = computeNextPromptPlaybook({ modelId: 'gemini-4-argon', cachedTokens: 180_000, totalTokens: 230_000, safeLimit: 179_000, cacheWarm: true, ttlRemainingSec: 120, host: 'antigravity' });
+    assert.equal(pbGemCliff.regime, PLAYBOOK_REGIMES.NEAR_CLIFF);
+    for (const r of pbGemCliff.rows) {
+      assert.match(r.mechanism, /unverified on Gemini/i);
+      assert.equal(r.copyCommand, null);
+    }
 
     // Optional Haiku detour note appears ONLY on explicit `1h` cache tier for 5.5 models
     const pb1h = computeNextPromptPlaybook({

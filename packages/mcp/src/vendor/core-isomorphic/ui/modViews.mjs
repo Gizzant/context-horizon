@@ -17,6 +17,10 @@ import {
   computeBreakEvenCachedTokens,
   resolveNaturalDownshiftPeer
 } from '../coach/cacheGravityRouter.mjs';
+import {
+  computeNextPromptPlaybook,
+  formatNextPromptPlaybookOneLine
+} from '../coach/nextPromptPlaybook.mjs';
 import { formatRemainingTtl } from '../coach/ttlWatchdog.mjs';
 import { SAVINGS_BUCKETS, getSavedQuotaReceiptSummary } from '../coach/savedQuotaLedger.mjs';
 import {
@@ -842,11 +846,38 @@ export function deriveClaudeCodeVerdictAndActions(state = {}, grid, metrics, opt
  *   coachPill: string
  * }}
  */
+/**
+ * Computes the shared 3-Category Next-Prompt Playbook from canonical Claude Code grid + metrics.
+ * @param {object} [state={}]
+ * @param {object} grid
+ * @param {object} metrics
+ * @param {object} [options={}]
+ */
+export function derivePlaybookForSurface(state = {}, grid = {}, metrics = {}, options = {}) {
+  const safeLimit = Number(state.contextWindow?.safeLimit || grid.zoomTier?.ceilingTokens || 0) || 0;
+  return computeNextPromptPlaybook(
+    {
+      host: 'claude',
+      modelId: grid.modelId || state.modelId || 'claude-sonnet-5-5',
+      effort: state.effort || state.activeEffortProfile?.shortLabel || 'Auto',
+      cachedTokens: metrics.cachedTokens || 0,
+      totalTokens: grid.totalInputTokens || 0,
+      safeLimit,
+      ttlTier: metrics.ttlTier || '5m',
+      ttlRemainingSec: metrics.cacheWarm ? metrics.ttlRemainingSec : 0,
+      cacheWarm: Boolean(metrics.cacheWarm),
+      isCrisis: Boolean(state.cliffTriggered || state.preCliffWarningTriggered || (grid.utilizationPct || 0) >= 90)
+    },
+    options
+  );
+}
+
 export function renderAbovePromptBand(state = {}, options = {}) {
   const maxCols = Math.max(40, Number(options.maxCols || globalThis.process?.stdout?.columns || 80));
   const useAnsi = Boolean(options.ansi) && !isNoColorEnabled(options);
   const grid = computeHorizonGrid(state, options);
   const metrics = deriveSurfaceMetrics(state, options);
+  const playbook = derivePlaybookForSurface(state, grid, metrics, options);
 
   let coachAction = 'HOLD WARM PREFIX';
   if (options.breakerVerdict?.triggered) {
@@ -895,6 +926,15 @@ export function renderAbovePromptBand(state = {}, options = {}) {
     }
   }
 
+  // Append one-line Playbook cue when extra width is available without shrinking the bar.
+  for (const seg of [playbook.oneLine, playbook.compactHint]) {
+    if (seg && plainCandidate.length + 3 + seg.length <= maxCols) {
+      plainCandidate = `${plainCandidate} · ${seg}`;
+      ansiCandidate = `${ansiCandidate} · ${seg}`;
+      break;
+    }
+  }
+
   if (plainCandidate.length > maxCols) {
     plainCandidate = plainCandidate.slice(0, maxCols);
     ansiCandidate = truncateAnsiVisible(ansiCandidate, maxCols);
@@ -908,7 +948,9 @@ export function renderAbovePromptBand(state = {}, options = {}) {
     plainLine,
     grid,
     metrics,
-    coachPill
+    coachPill,
+    playbook,
+    playbookHint: formatNextPromptPlaybookOneLine(playbook, 40)
   };
 }
 
@@ -1049,6 +1091,13 @@ export function renderSimpleViewPane(state = {}, options = {}) {
   );
   const { verdict, priorityAction, secondaryActions, overflowActionCount } =
     deriveClaudeCodeVerdictAndActions(state, grid, metrics, options);
+  const playbook = derivePlaybookForSurface(state, grid, metrics, options);
+  const playbookPaneLines = [
+    `Next [${playbook.badge}]: ${playbook.compactHint}`,
+    `  Quick (typo/lookup)  : ${playbook.rows[0].action}`,
+    `  Std   (feature/bug)  : ${playbook.rows[1].action}`,
+    `  Deep  (arch/refactor): ${playbook.rows[2].action}`
+  ];
 
   const headroomTokens = Math.max(0, grid.zoomTier.ceilingTokens - grid.totalInputTokens);
 
@@ -1067,9 +1116,10 @@ export function renderSimpleViewPane(state = {}, options = {}) {
   const overflowNote =
     overflowActionCount > 0 ? ` (+${overflowActionCount} more in /horizon advanced)` : '';
   const rank3Lines = [
-    `[Rank 3] Next Action${overflowNote}`,
+    `[Rank 3] Next Action & Playbook${overflowNote}`,
     `Action: ${priorityAction.title}`,
-    `Guide : ${priorityAction.instruction}`
+    `Guide : ${priorityAction.instruction}`,
+    ...playbookPaneLines
   ];
   const avoidedSess = metrics.savingsBuckets?.avoidedWrites?.sessionTokens || 0;
   const platformSess = metrics.savingsBuckets?.platformCacheDiscount?.sessionTokens || 0;
@@ -1172,13 +1222,15 @@ export function renderSimpleViewPane(state = {}, options = {}) {
       ? [
           `[Box 3] Active Coach / Circuit Breaker Slot`,
           singleBox3Status,
-          `Action: ${priorityAction.title}`
+          `Action: ${priorityAction.title}`,
+          ...playbookPaneLines
         ]
       : [
           `[Box 3] Active Coach / Circuit Breaker Slot`,
           `Flight Mode: ${metrics.flightMode}`,
           `Status: ${activeBreaker}`,
-          `Action: ${priorityAction.title}`
+          `Action: ${priorityAction.title}`,
+          ...playbookPaneLines
         ];
 
   // Box 4: Top Context Offenders
@@ -1259,6 +1311,7 @@ export function renderSimpleViewPane(state = {}, options = {}) {
     priorityAction,
     secondaryActions,
     overflowActionCount,
+    playbook,
     grid,
     metrics
   };
@@ -1525,6 +1578,9 @@ export function renderStatusLine(state = {}, options = {}) {
   let ansiCandidate = '';
   let matchedFit = false;
 
+  const baseGrid = computeHorizonGrid(state, options);
+  const playbook = derivePlaybookForSurface(state, baseGrid, metrics, options);
+
   // Optional one-line notice (for example "Trial ended: saved 13.2k tokens ..."). It is dropped, longest
   // first, before the bar shrinks or the line is cut, so it can never hide the core status.
   const noticeIn = options.trialNotice;
@@ -1537,45 +1593,57 @@ export function renderStatusLine(state = {}, options = {}) {
   }
   noticeVariants.push('');
 
+  const widePbVariants = [playbook.oneLine, playbook.compactHint, ''];
+  const stdPbVariants = [playbook.compactHint, ''];
+  const outerPbVariants = layoutTier === 'standard-110' ? stdPbVariants : [''];
+
   for (const notice of noticeVariants) {
   const noticeP = notice ? ` · ${notice}` : '';
   const noticeA = notice ? ` · \x1b[38;5;214m${notice}\x1b[0m` : '';
+  for (const pbOuter of outerPbVariants) {
   for (const pill of pillVariants) {
     for (const barWidth of candidateBarWidths) {
-      const g = computeHorizonGrid(state, { ...options, cellCount: barWidth });
-      const tokStr = `${formatTokensCompact(g.totalInputTokens)}/${g.zoomTier.id}`;
-      const ttlStr = metrics.cacheWarm ? metrics.ttlCompact : 'COLD';
-      const savedStr = `+${formatTokensCompact(metrics.savedTokens)}`;
-      const loopStr = state.thinkingDrift?.loop?.triggered ? ` ${formatDriftCompact(state.thinkingDrift)}` : '';
-      const retStr = state.prefixRetention?.measured ? ` · ${formatRetentionCompact(state.prefixRetention)}` : '';
-      const swarmTok = layoutTier === 'wide-144' ? formatSwarmCompact(computeSwarmSummary(state, { nowMs: options.nowMs || Date.now() })) : '';
-      const swarmStr = swarmTok ? ` · ${swarmTok}` : '';
-      const rslData = options.rsl || state.rsl || null;
-      const rslTok = layoutTier !== 'compact-80' && rslData ? formatRslStatusSegment(rslData) : '';
-      const rslStr = rslTok ? ` · ${rslTok}` : '';
+      const innerPbVariants = layoutTier === 'wide-144' ? widePbVariants : [pbOuter];
+      for (const pbSeg of innerPbVariants) {
+        const pbSuffix = pbSeg ? ` · ${pbSeg}` : '';
+        const g = computeHorizonGrid(state, { ...options, cellCount: barWidth });
+        const tokStr = `${formatTokensCompact(g.totalInputTokens)}/${g.zoomTier.id}`;
+        const ttlStr = metrics.cacheWarm ? metrics.ttlCompact : 'COLD';
+        const savedStr = `+${formatTokensCompact(metrics.savedTokens)}`;
+        const loopStr = state.thinkingDrift?.loop?.triggered ? ` ${formatDriftCompact(state.thinkingDrift)}` : '';
+        const retStr = state.prefixRetention?.measured ? ` · ${formatRetentionCompact(state.prefixRetention)}` : '';
+        const swarmTok = layoutTier === 'wide-144' ? formatSwarmCompact(computeSwarmSummary(state, { nowMs: options.nowMs || Date.now() })) : '';
+        const swarmStr = swarmTok ? ` · ${swarmTok}` : '';
+        const rslData = options.rsl || state.rsl || null;
+        const rslTok = layoutTier !== 'compact-80' && rslData ? formatRslStatusSegment(rslData) : '';
+        const rslStr = rslTok ? ` · ${rslTok}` : '';
 
-      const prefix = options.legacyPrefix ? 'AH' : 'HB';
-      let p = '';
-      let a = '';
-      if (layoutTier === 'compact-80') {
-        p = `${prefix} ${g.bracketedBar} ${tokStr} C:${metrics.cacheHitPct}% ${ttlStr} ${pill}${loopStr} ${savedStr}${noticeP}`;
-        a = `${prefix} ${g.ansiCodeBar} ${tokStr} C:${metrics.cacheHitPct}% ${ttlStr} ${pill}${loopStr} ${savedStr}${noticeA}`;
-      } else {
-        const shortModel = g.modelId.replace(/^claude-/, '');
-        p = `${prefix} ${g.bracketedBar} ${shortModel} ${tokStr} (${g.utilizationPct}%) · Cache ${metrics.cacheHitPct}% (${ttlStr})${retStr} · ${pill}${loopStr} · Saved ${savedStr}${swarmStr}${rslStr}${noticeP}`;
-        a = `${prefix} ${g.ansiCodeBar} ${shortModel} ${tokStr} (${g.utilizationPct}%) · Cache ${metrics.cacheHitPct}% (${ttlStr})${retStr} · ${pill}${loopStr} · Saved ${savedStr}${swarmStr}${rslStr}${noticeA}`;
+        const prefix = options.legacyPrefix ? 'AH' : 'HB';
+        let p = '';
+        let a = '';
+        if (layoutTier === 'compact-80') {
+          p = `${prefix} ${g.bracketedBar} ${tokStr} C:${metrics.cacheHitPct}% ${ttlStr} ${pill}${loopStr} ${savedStr}${noticeP}`;
+          a = `${prefix} ${g.ansiCodeBar} ${tokStr} C:${metrics.cacheHitPct}% ${ttlStr} ${pill}${loopStr} ${savedStr}${noticeA}`;
+        } else {
+          const shortModel = g.modelId.replace(/^claude-/, '');
+          p = `${prefix} ${g.bracketedBar} ${shortModel} ${tokStr} (${g.utilizationPct}%) · Cache ${metrics.cacheHitPct}% (${ttlStr})${retStr} · ${pill}${loopStr}${pbSuffix} · Saved ${savedStr}${swarmStr}${rslStr}${noticeP}`;
+          a = `${prefix} ${g.ansiCodeBar} ${shortModel} ${tokStr} (${g.utilizationPct}%) · Cache ${metrics.cacheHitPct}% (${ttlStr})${retStr} · ${pill}${loopStr}${pbSuffix} · Saved ${savedStr}${swarmStr}${rslStr}${noticeA}`;
+        }
+
+        chosenGrid = g;
+        plainCandidate = p;
+        ansiCandidate = a;
+
+        if (p.length <= columns) {
+          matchedFit = true;
+          break;
+        }
       }
-
-      chosenGrid = g;
-      plainCandidate = p;
-      ansiCandidate = a;
-
-      if (p.length <= columns) {
-        matchedFit = true;
-        break;
-      }
+      if (matchedFit) break;
     }
     if (matchedFit) break;
+  }
+  if (matchedFit) break;
   }
   if (matchedFit) break;
   }
@@ -1596,7 +1664,8 @@ export function renderStatusLine(state = {}, options = {}) {
     columns,
     layoutTier,
     grid: chosenGrid,
-    metrics
+    metrics,
+    playbook
   };
 }
 

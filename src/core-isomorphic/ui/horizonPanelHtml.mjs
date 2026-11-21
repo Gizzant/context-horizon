@@ -24,6 +24,7 @@ import {
   formatUsd,
   deriveSurfaceMetrics,
   deriveClaudeCodeVerdictAndActions,
+  derivePlaybookForSurface,
   isIgnorableClaudePath,
   renderSimpleViewPane,
   renderAdvancedViewPane
@@ -359,6 +360,18 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
   const metrics = deriveSurfaceMetrics(state, options);
   const { verdict, priorityAction, secondaryActions, overflowActionCount } =
     deriveClaudeCodeVerdictAndActions(state, grid, metrics, options);
+  const playbook = derivePlaybookForSurface(state, grid, metrics, options);
+  const pbTone =
+    playbook.regime === 'NEAR_CLIFF' ? 'danger' : playbook.regime.startsWith('WARM_EFFORT_UN') ? 'avoid' : 'do';
+  const pbIds = ['ccPbRowQuick', 'ccPbRowStandard', 'ccPbRowDeep'];
+  const pbRowsHtml = playbook.rows
+    .map((r, idx) => {
+      const copyBtn = r.copyCommand
+        ? `<button type="button" class="cc-pb-copy" onclick="navigator.clipboard&&navigator.clipboard.writeText('${escapeHtml(r.copyCommand)}')">Copy</button>`
+        : '<span class="cc-pb-copy" aria-hidden="true"></span>';
+      return `<div id="${pbIds[idx]}" class="cc-pb-row"><span class="cc-pb-cat">${escapeHtml(r.shortLabel || r.label)}</span><span class="cc-pb-act">${escapeHtml(r.action)}<span class="cc-pb-mech">${escapeHtml(r.mechanism)}</span></span>${copyBtn}</div>`;
+    })
+    .join('');
   const simplePane = renderSimpleViewPane(state, options);
   const advancedPane = renderAdvancedViewPane(state, options);
 
@@ -1228,6 +1241,20 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
   .ah-shadow-auto-row { margin-top: 6px; padding: 6px 8px; border-radius: 5px; border: 1px solid var(--hairline); border-left: 2px solid var(--accent-focus); background: var(--bg-elevated); display: flex; flex-direction: column; gap: 2px; min-width: 0; max-width: 100%; }
   .ah-shadow-auto-head { font-size: 10.5px; font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
   .ah-shadow-auto-sub { font-family: var(--font-mono); font-size: 9.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .cc-playbook { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--hairline); }
+  .cc-pb-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 9.5px; color: var(--text-muted); }
+  .cc-pb-badge { font-family: var(--font-mono); font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; border: 1px solid var(--hairline); color: var(--text-primary); letter-spacing: 0.02em; }
+  .cc-playbook[data-tone="avoid"] .cc-pb-badge { border-color: var(--status-warning); }
+  .cc-playbook[data-tone="danger"] .cc-pb-badge { border-color: var(--status-critical); }
+  .cc-pb-headline { font-size: 10px; color: var(--text-secondary); margin: 3px 0 4px; min-height: 14px; }
+  .cc-pb-row { display: grid; grid-template-columns: minmax(104px, 124px) minmax(0, 1fr) auto; gap: 6px; align-items: center; min-height: 28px; padding: 3px 0; border-top: 1px solid var(--hairline); font-size: 10px; }
+  .cc-pb-row:first-child { border-top: none; }
+  .cc-pb-cat { font-weight: 600; color: var(--text-primary); }
+  .cc-pb-act { color: var(--text-secondary); overflow-wrap: anywhere; }
+  .cc-pb-mech { display: block; font-size: 9px; color: var(--text-muted); }
+  .cc-pb-copy { font-family: var(--font-mono); font-size: 9px; padding: 1px 6px; border: 1px solid var(--hairline); border-radius: 3px; background: transparent; color: var(--text-secondary); cursor: pointer; }
+  span.cc-pb-copy { border-color: transparent; visibility: hidden; }
+  .cc-pb-note { margin-top: 3px; font-size: 9.5px; color: var(--text-muted); }
 </style>
 </head>
 <body>
@@ -1364,13 +1391,13 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
         }
       </section>
 
-      <!-- Card 2: DIRECT GUIDANCE (DO / AVOID / Copy /compact) -->
+      <!-- Card 2: DIRECT GUIDANCE (DO / AVOID / Playbook / Copy /compact) -->
       <section class="ah-card ts-card" id="priorityActionCard" data-severity="${escapeHtml(verdict.severity)}" data-hold="${holdWarmActive ? 'true' : 'false'}" data-rank="3">
         <div class="ts-card-head">
           <span class="ah-sec-name">Direct guidance</span>
-          <span class="ts-kpi-sub">${metrics.cacheWarm ? 'Model: Hold · Effort: Hold' : 'Model: OK · Effort: OK'}</span>
+          <span class="ts-kpi-sub" id="ccGuidanceBadge">${escapeHtml(playbook.badge)}</span>
         </div>
-        <div class="ah-sec-blurb">The highest-leverage step right now and what to avoid to protect your cache.</div>
+        <div class="ah-sec-blurb">The highest-leverage step right now and how to right-size your next prompt.</div>
         <div id="ccDoRow" class="ts-guidance-row" data-tone="do">
           <span class="ts-tag">DO</span>
           <span id="priorityActionTitle">${escapeHtml(priorityAction.title)}</span>
@@ -1384,8 +1411,14 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
           <span class="ts-tag">AVOID</span>
           <span>${escapeHtml(avoidText)}</span>
         </div>
+        <div id="ccPlaybookCard" class="cc-playbook" data-regime="${escapeHtml(playbook.regime)}" data-tone="${pbTone}">
+          <div class="cc-pb-head"><span>NEXT-PROMPT PLAYBOOK (BY WORKLOAD)</span><span id="ccPbRegimeBadge" class="cc-pb-badge">${escapeHtml(playbook.badge)}</span></div>
+          <div id="ccPbHeadline" class="cc-pb-headline">${escapeHtml(playbook.headline)}</div>
+          <div id="ccPbRows">${pbRowsHtml}</div>
+          ${playbook.optionalDetourNote ? `<div id="ccPbOptionalNote" class="cc-pb-note">${escapeHtml(playbook.optionalDetourNote)}</div>` : ''}
+        </div>
         <details class="ts-drawer" id="ccSwitchDetailsDrawer">
-          <summary><span>Model &amp; effort switching</span><span class="ts-kpi-sub">C*: ${escapeHtml(breakEven.breakEvenTokens.toLocaleString('en-US'))} tok &rarr; ${escapeHtml(peerModel)}</span></summary>
+          <summary><span>Model &amp; effort switch rationale</span><span class="ts-kpi-sub">C*: ${escapeHtml(breakEven.breakEvenTokens.toLocaleString('en-US'))} tok &rarr; ${escapeHtml(peerModel)}</span></summary>
           <div class="ts-drawer-body">${metrics.cacheWarm ? `Cache is warm (${metrics.ttlCompact} left). Switching models rebuilds ${escapeHtml(formatTokensCompact(metrics.cachedTokens))} uncached.` : 'Cache is cold — switching model or effort adds zero rewrite penalty.'}</div>
         </details>
         ${
@@ -1509,6 +1542,7 @@ export function renderHorizonPanelHtml(state = {}, options = {}) {
     html,
     simplePane,
     advancedPane,
+    playbook,
     grid,
     metrics,
     verdict,

@@ -45,18 +45,18 @@ export const BUILTIN_PANELS = [
   {
     id: 'single-screen-simple-view',
     title: 'Tufte Single-Screen Simple View',
-    domSelector: '#highbeamSimpleScreen',
+    domSelector: '#argonSimpleSurface',
     route: '/simple',
-    dataKeys: ['window', 'breakdown', 'quota', 'brainSignals', 'savings', 'amputation'],
-    description: 'Calm, self-contained single-screen HUD (System State, Direct Guidance, Automated Activity Ledger, and Primary Clean/Saved KPI) without modals or secondary drill-downs.'
+    dataKeys: ['window', 'breakdown', 'quota', 'brainSignals', 'savings', 'amputation', 'coachState'],
+    description: 'Glanceable 4-Card Simple HUD in horizon_panel.html (System State, Direct Guidance + Next-Prompt Playbook, Automated Activity Ledger, and Session Overview).'
   },
   {
     id: 'tufte-advanced-workbench',
     title: 'Tufte Advanced Telemetry Workbench',
-    domSelector: '#highbeamAdvancedWorkbench',
+    domSelector: '#argonAdvancedSurface',
     route: '/advanced',
     dataKeys: ['cells', 'window', 'breakdown', 'quota', 'brainSignals', 'baseline', 'actionQueue', 'savings', 'coachState', 'hostHealth'],
-    description: 'High-density 4-zone forensic workbench (40-cell map, parabolic U-curve recall, ranked payoff queue, KV-cache gravity router, Turn-0 schema tax, DET-01..32 log, and surgical AST pruning).'
+    description: 'High-density Advanced Workbench mode in horizon_panel.html (40-cell map, U-curve recall, ranked action queue, KV-cache gravity router, DET-01..32 log, and AST pruning).'
   }
 ];
 

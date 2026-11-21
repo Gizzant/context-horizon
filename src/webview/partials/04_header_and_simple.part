@@ -262,8 +262,19 @@
         <span id="tsAvoidText">Avoid reading large files without StartLine/EndLine bounds so unneeded lines do not crowd working memory.</span>
       </div>
 
+      <div id="tsPlaybookCard" class="ts-playbook" data-regime="COLD_BOUNDARY" data-tone="do">
+        <div class="ts-pb-head"><span>NEXT-PROMPT PLAYBOOK (BY WORKLOAD)</span><span id="tsPbRegimeBadge" class="ts-pb-badge">COLD BOUNDARY</span></div>
+        <div id="tsPbHeadline" class="ts-sub">Cache cold &mdash; right-size model &amp; effort cleanly for your next prompt.</div>
+        <div id="tsPbRows">
+          <div id="tsPbRowQuick" class="ts-pb-row"><span class="ts-pb-cat">Quick &middot; typo/lookup</span><span class="ts-pb-act"></span><button type="button" class="ts-pb-copy" hidden>Copy</button></div>
+          <div id="tsPbRowStandard" class="ts-pb-row"><span class="ts-pb-cat">Standard &middot; feature/bug</span><span class="ts-pb-act"></span><button type="button" class="ts-pb-copy" hidden>Copy</button></div>
+          <div id="tsPbRowDeep" class="ts-pb-row"><span class="ts-pb-cat">Deep &middot; arch/refactor</span><span class="ts-pb-act"></span><button type="button" class="ts-pb-copy" hidden>Copy</button></div>
+        </div>
+        <div id="tsPbOptionalNote" class="ts-pb-note" hidden></div>
+      </div>
+
       <details id="tsSwitchDetailsDrawer" class="ts-drawer">
-        <summary title="Expand to see exact Model and Effort switching rules, warm cache hold countdowns, and last model switch impact."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Model &amp; effort switching <span id="tsSwitchActiveSummary" class="ts-kpi-sub">Auto &middot; Auto</span></span><span id="tsSwitchDrawerHint" class="ts-kpi-sub">Details</span></summary>
+        <summary title="Expand to see Model and Effort rationale, warm cache hold countdowns, and last model switch impact."><span><span class="ts-why-caret" aria-hidden="true">&#x25B8;</span>Model &amp; effort switch rationale <span id="tsSwitchActiveSummary" class="ts-kpi-sub">Auto &middot; Auto</span></span><span id="tsSwitchDrawerHint" class="ts-kpi-sub">Details</span></summary>
         <div class="ts-drawer-body">
           <div class="ts-switch-grid">
             <div id="tsModelCard" class="ts-guidance-row ts-switch-card" data-tone="do" title="Whether changing your AI model mid-chat will invalidate your discounted prompt cache.">
@@ -281,16 +292,6 @@
               <div id="tsEffortText" class="ts-sub">Match effort to the task: Low or Medium keeps edits fast, and High helps on tricky specs or bugs.</div>
               <div id="tsEffortHist" class="ts-sub" hidden></div>
             </div>
-          </div>
-          <div id="tsPlaybookCard" class="ts-playbook">
-            <div class="ts-pb-head"><span>NEXT-PROMPT PLAYBOOK (BY WORKLOAD)</span><span id="tsPbRegimeBadge" class="ts-pb-badge">COLD BOUNDARY</span></div>
-            <div id="tsPbHeadline" class="ts-sub">Cache cold — right-size model &amp; effort cleanly for your next prompt.</div>
-            <div id="tsPbRows">
-              <div id="tsPbRowQuick" class="ts-pb-row"><span class="ts-pb-cat">Quick</span><span class="ts-pb-act"></span><button type="button" class="ts-pb-copy" hidden>Copy</button></div>
-              <div id="tsPbRowStandard" class="ts-pb-row"><span class="ts-pb-cat">Standard</span><span class="ts-pb-act"></span><button type="button" class="ts-pb-copy" hidden>Copy</button></div>
-              <div id="tsPbRowDeep" class="ts-pb-row"><span class="ts-pb-cat">Deep</span><span class="ts-pb-act"></span><button type="button" class="ts-pb-copy" hidden>Copy</button></div>
-            </div>
-            <div id="tsPbOptionalNote" class="ts-pb-note" hidden></div>
           </div>
         </div>
       </details>

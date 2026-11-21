@@ -26,13 +26,23 @@ const normHost = (h = '', m = '') => {
   if (s.includes('antigravity') || s.includes('agy') || s.includes('vscode')) return 'antigravity';
   return /claude|sonnet|opus|haiku|fable/i.test(String(m)) ? 'claude' : 'antigravity';
 };
-const mkRow = (c, l, a, cp, m, t = 'do') => ({ category: c, label: l, action: a, copyCommand: cp, mechanism: m, tone: t });
+const mkRow = (c, l, cue, sl, a, cp, m, t = 'do') => ({
+  category: c,
+  label: l,
+  cue,
+  shortLabel: sl,
+  action: a,
+  copyCommand: cp,
+  mechanism: m,
+  tone: t
+});
 const LABELS = Object.freeze([
-  ['quick', 'Quick / Routine'],
-  ['standard', 'Standard Code / Debug'],
-  ['deep', 'Deep / Complex']
+  ['quick', 'Quick / Routine', 'typo/lookup', 'Quick · typo/lookup'],
+  ['standard', 'Standard Code / Debug', 'feature/bug', 'Standard · feature/bug'],
+  ['deep', 'Deep / Complex', 'arch/refactor', 'Deep · arch/refactor']
 ]);
-const mkRows = (specs) => specs.map(([a, cp, m, t], i) => mkRow(LABELS[i][0], LABELS[i][1], a, cp, m, t));
+const mkRows = (specs) =>
+  specs.map(([a, cp, m, t], i) => mkRow(LABELS[i][0], LABELS[i][1], LABELS[i][2], LABELS[i][3], a, cp, m, t));
 
 export function computeNextPromptPlaybook(state = {}, options = {}) {
   const s = state && typeof state === 'object' ? state : {};
@@ -65,8 +75,11 @@ export function computeNextPromptPlaybook(state = {}, options = {}) {
   );
 
   const warmK = fmtK(cachedTokens);
+  const gemNote = gem ? ' · unverified on Gemini' : '';
   let regime;
   let badge;
+  let oneLine;
+  let compactHint;
   let headline;
   let rows;
   let optionalDetourNote = null;
@@ -74,24 +87,32 @@ export function computeNextPromptPlaybook(state = {}, options = {}) {
   if (isNearCliff) {
     regime = PLAYBOOK_REGIMES.NEAR_CLIFF;
     badge = 'NEAR CLIFF';
+    oneLine = 'Next: /compact first (near cliff)';
+    compactHint = '/compact first';
     headline = `Compact first (${fmtK(totalTokens)} active) before right-sizing next turn`;
     rows = mkRows([
-      [isCC ? '/compact → Haiku + /effort low' : 'Run /compact → Flash · Effort: Low', isCC ? '/compact' : null, `avoids ${gem ? '272k' : '200k'} 2x cliff`, 'danger'],
-      [isCC ? '/compact → Sonnet + /effort medium' : 'Run /compact → Standard · Effort: Medium', isCC ? '/compact' : null, 'clears stale clutter with StateBaton', 'danger'],
-      [isCC ? '/compact → Opus + /effort high' : 'Run /compact → Frontier · Effort: High', isCC ? '/compact' : null, 'preserves rules; removes noise', 'danger']
+      [isCC ? '/compact → Haiku + /effort low' : 'Run /compact → Flash · Effort: Low', null, `avoids ${gem ? '272k' : '200k'} 2x cliff${gemNote}`, 'danger'],
+      [isCC ? '/compact → Sonnet + /effort medium' : 'Run /compact → Standard · Effort: Medium', null, `clears stale clutter with StateBaton${gemNote}`, 'danger'],
+      [isCC ? '/compact → Opus + /effort high' : 'Run /compact → Frontier · Effort: High', null, `preserves rules; removes noise${gemNote}`, 'danger']
     ]);
   } else if (!cacheWarm) {
     regime = PLAYBOOK_REGIMES.COLD_BOUNDARY;
     badge = 'COLD BOUNDARY';
-    headline = 'Cache cold or expired — switching models or effort adds 0 bust penalty';
+    oneLine = isCC ? 'Next: cold · free /model + /effort' : (gem ? 'Next: cold · free switch (unverified)' : 'Next: cold · free switch');
+    compactHint = 'cold · free switch';
+    headline = gem
+      ? 'Cache cold — switch adds 0 bust penalty (Gemini tiers unverified)'
+      : 'Cache cold or expired — switching models or effort adds 0 bust penalty';
     rows = mkRows([
-      [isCC ? '/model haiku then /effort low' : 'Model: Flash · Effort: Low', isCC ? '/effort low' : null, '0 warm prefix to bust', 'do'],
-      [isCC ? '/model sonnet then /effort medium' : 'Model: Standard · Effort: Medium', isCC ? '/effort medium' : null, '0 warm prefix to bust', 'do'],
-      [isCC ? '/model opus then /effort high' : 'Model: Frontier · Effort: High', isCC ? '/effort high' : null, 'fresh prefix · full reasoning', 'do']
+      [isCC ? '/model haiku then /effort low' : 'Model: Flash · Effort: Low', isCC ? '/effort low' : null, `0 warm prefix to bust${gemNote}`, 'do'],
+      [isCC ? '/model sonnet then /effort medium' : 'Model: Standard · Effort: Medium', isCC ? '/effort medium' : null, `0 warm prefix to bust${gemNote}`, 'do'],
+      [isCC ? '/model opus then /effort high' : 'Model: Frontier · Effort: High', isCC ? '/effort high' : null, `fresh prefix · full reasoning${gemNote}`, 'do']
     ]);
   } else if (effortCacheStatus === 'safe') {
     regime = PLAYBOOK_REGIMES.WARM_EFFORT_SAFE;
     badge = 'WARM · EFFORT SAFE';
+    oneLine = isCC ? 'Next: 5.5 warm · /effort low|med|high' : 'Next: 5.5 warm · effort safe';
+    compactHint = isCC ? '/effort OK' : 'effort safe';
     headline = `Warm ${warmK} cache (${ttlTier}) — 5.5 keeps prefix across /effort changes`;
     rows = mkRows([
       [isCC ? 'Stay on model + /effort low' : 'Stay on model · Effort: Low', isCC ? '/effort low' : null, `keeps ${warmK} warm cache · effort-safe 5.5`, 'do'],
@@ -107,6 +128,8 @@ export function computeNextPromptPlaybook(state = {}, options = {}) {
   } else if (effortCacheStatus === 'unsafe') {
     regime = PLAYBOOK_REGIMES.WARM_EFFORT_UNSAFE;
     badge = 'WARM · 4.6 LOCKED';
+    oneLine = 'Next: 4.6 warm · hold effort';
+    compactHint = '4.6 hold effort';
     headline = `Warm ${warmK} cache on ${cap.modelId} — effort change invalidates whole prefix`;
     rows = mkRows([
       ['Hold model & effort (scope prompt tighter)', null, `effort change busts ${warmK} warm cache [EF1_46]`, 'avoid'],
@@ -116,6 +139,8 @@ export function computeNextPromptPlaybook(state = {}, options = {}) {
   } else {
     regime = PLAYBOOK_REGIMES.WARM_EFFORT_UNVERIFIED;
     badge = 'WARM · UNVERIFIED';
+    oneLine = 'Next: warm · hold (unverified)';
+    compactHint = 'hold unverified';
     headline = `Warm ${warmK} cache — effort cache impact is unverified for ${modelId}`;
     rows = mkRows([
       ['Hold while warm (unverified)', null, 'effort cache impact unverified for this model', 'avoid'],
@@ -124,13 +149,39 @@ export function computeNextPromptPlaybook(state = {}, options = {}) {
     ]);
   }
 
-  return { regime, badge, host, modelId, effort, effortCacheStatus, ttlTier, cachedTokens, totalTokens, isNearCliff, cacheWarm, headline, rows, optionalDetourNote };
+  return {
+    regime,
+    badge,
+    oneLine,
+    compactHint,
+    host,
+    modelId,
+    effort,
+    effortCacheStatus,
+    ttlTier,
+    cachedTokens,
+    totalTokens,
+    isNearCliff,
+    cacheWarm,
+    headline,
+    rows,
+    optionalDetourNote
+  };
+}
+
+export function formatNextPromptPlaybookOneLine(pb, maxLen = 40) {
+  if (!pb) return '';
+  const limit = Math.max(8, Number(maxLen) || 40);
+  const full = String(pb.oneLine || '');
+  if (full && full.length <= limit) return full;
+  const compact = String(pb.compactHint || full);
+  return compact.length <= limit ? compact : compact.slice(0, limit);
 }
 
 export function formatNextPromptPlaybookCli(pb) {
   if (!pb || !Array.isArray(pb.rows)) return '';
   const out = [`  Playbook      : [${pb.badge}] ${pb.headline}`];
-  for (const r of pb.rows) out.push(`    - ${r.label.padEnd(21)}: ${r.action} (${r.mechanism})`);
+  for (const r of pb.rows) out.push(`    - ${(r.shortLabel || r.label).padEnd(23)}: ${r.action} (${r.mechanism})`);
   if (pb.optionalDetourNote) out.push(`    * ${pb.optionalDetourNote}`);
   return out.join('\n');
 }

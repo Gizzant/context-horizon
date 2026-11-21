@@ -16,7 +16,6 @@ import { renderAdvancedViewPane } from '../src/core-isomorphic/ui/modViews.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HTML_PATH = path.join(ROOT, 'src', 'webview', 'horizon_panel.html');
-const ADVANCED_PATH = path.join(ROOT, 'src', 'webview', 'advanced_view.html');
 
 function parseCompactK(str) {
   const s = String(str || '').trim().replace(/^\+/, '');
@@ -424,23 +423,14 @@ describe('AV-BUG-01..14: Primary Advanced View Math Parity, Honesty & Zero-Dead-
   });
 });
 
-describe('AV-BUG-15..17: Standalone /advanced Workbench & Claude Code Isomorphic Advanced Parity', () => {
-  it('fixes model label precedence, unmeasured quota dash, STALE_DUPLICATE/FOREIGN_BLEED clutter, and zero fake baseline splits in advanced_view.html', async () => {
-    const html = fs.readFileSync(ADVANCED_PATH, 'utf8');
-    const dom = new JSDOM(html, {
-      url: 'http://127.0.0.1:62935/advanced',
-      runScripts: 'dangerously',
-      pretendToBeVisual: true,
-      beforeParse(win) {
-        win.EventSource = class { close() {} };
-        win.fetch = async () => ({ ok: false, status: 204, json: async () => null });
-      }
-    });
-    await new Promise((r) => setTimeout(r, 25));
-    const d = dom.window.document;
+describe('AV-BUG-15..17: Unified /advanced Workbench & Claude Code Isomorphic Advanced Parity', () => {
+  it('fixes model label precedence, unmeasured quota dash, STALE_DUPLICATE/FOREIGN_BLEED clutter, and zero fake baseline splits in unified advanced mode', async () => {
+    assert.equal(fs.existsSync(path.join(ROOT, 'src', 'webview', 'advanced_view.html')), false);
+    const { dom, win, d } = await mountPanel({ initialView: 'advanced' });
     try {
-      dom.window.renderState({
+      win.renderState({
         sessionId: 'adv-standalone-audit',
+        routerMode: 'off',
         window: { totalTokens: 65000, maxTokens: 256000, safeLimit: 179000 },
         model: { displayName: 'Gemini 4 Hydrogen (XHigh)' },
         quota: { sprint5h: { modelPoolName: 'Gemini 3 Flash' } },
@@ -449,15 +439,16 @@ describe('AV-BUG-15..17: Standalone /advanced Workbench & Claude Code Isomorphic
         coachState: { mode: 'off', detectors: { totalCount: 32, armedCount: 32 } }
       });
 
-      assert.equal(d.getElementById('advHostModelBadge').textContent, 'Antigravity · Gemini 4 Hydrogen (XHigh)');
-      assert.equal(d.getElementById('sprint5hVal').textContent, '—');
-      assert.equal(d.getElementById('weekly7dVal').textContent, '—');
-      assert.equal(d.getElementById('advUsedTok').textContent, '65.0k');
-      assert.equal(d.getElementById('advClutterTok').textContent, '15.0k', 'must count STALE_DUPLICATE + FOREIGN_BLEED');
-      assert.equal(d.getElementById('advSignalTok').textContent, '50.0k');
-      assert.match(d.getElementById('advBaselineSummary').textContent, /10\.0k \/ 20\.0k budget \(total unsplit\)/);
-      assert.doesNotMatch(d.getElementById('advBaselineSummary').textContent, /4\.5k.*2\.0k.*3\.5k/, 'must never fabricate 45/20/35 baseline split');
-      assert.equal(d.getElementById('advDetArmedBadge').textContent, 'Guards paused');
+      assert.equal(d.body.getAttribute('data-view-mode'), 'advanced');
+      assert.equal(d.getElementById('tufteTopHostBadge').textContent, 'Antigravity · Gemini 4 Hydrogen (XHigh)');
+      assert.equal(d.getElementById('taSprint5h').textContent, '—');
+      assert.equal(d.getElementById('taWeekly7d').textContent, '—');
+      assert.equal(d.getElementById('taUsedTok').textContent, '65.0k');
+      assert.equal(d.getElementById('taClutterTok').textContent, '15.0k', 'must count STALE_DUPLICATE + FOREIGN_BLEED');
+      assert.equal(d.getElementById('taSigTok').textContent, '50.0k');
+      assert.match(d.getElementById('taBaselineText').textContent, /10\.0k \/ 20\.0k budget \(Rules 10\.0k · MCP\/Tools 0\.0k\)/);
+      assert.doesNotMatch(d.getElementById('taBaselineText').textContent, /4\.5k.*2\.0k.*3\.5k/, 'must never fabricate 45/20/35 baseline split');
+      assert.equal(d.getElementById('taDetBadge').textContent, 'Guards paused');
     } finally {
       dom.window.close();
     }

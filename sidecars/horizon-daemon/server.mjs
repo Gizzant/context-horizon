@@ -1293,116 +1293,59 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (url.pathname === '/simple' || url.pathname === '/simple.html') {
-    const qConv = url.searchParams.get('conversationId');
-    pinnedConversationId = (qConv && qConv !== 'auto') ? qConv : null;
-    const initState = await refreshLiveState(false, pinnedConversationId);
-    res.writeHead(200, {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'no-store, no-cache, must-revalidate'
-    });
-    const simpleViewHtml = path.resolve(__dirname, '../../src/webview/simple_view.html');
-    if (fs.existsSync(simpleViewHtml)) {
-      let html = fs.readFileSync(simpleViewHtml, 'utf8');
-      const mtimeMs = fs.statSync(simpleViewHtml).mtimeMs;
-      const mtimeScript = `<script id="liveInitialMtime">window.__INITIAL_UI_MTIME__ = ${mtimeMs}; window.__HORIZON_CSRF_TOKEN__ = ${JSON.stringify(HORIZON_CSRF_TOKEN)};</script>`;
-      if (initState) {
-        initState.uiMtimeMs = mtimeMs;
-        const safeJson = JSON.stringify(initState)
-          .replace(/</g, '\\u003c')
-          .replace(/\u2028/g, '\\u2028')
-          .replace(/\u2029/g, '\\u2029');
-        const stateScript = `<script id="liveInitialState">window.__LIVE_INITIAL_STATE__ = ${safeJson};</script>`;
-        html = html.replace(
-          '<script id="precomputedCatalogScript">',
-          () => `${mtimeScript}\n${stateScript}\n<script id="precomputedCatalogScript">`
-        );
-      } else {
-        html = html.replace(
-          '<script id="precomputedCatalogScript">',
-          () => `${mtimeScript}\n<script id="precomputedCatalogScript">`
-        );
-      }
-      res.end(html);
-    } else {
-      res.end('<h1>Highbeam Simple View</h1>');
-    }
-    return;
-  }
-
-  if (url.pathname === '/advanced' || url.pathname === '/advanced.html') {
-    const qConv = url.searchParams.get('conversationId');
-    pinnedConversationId = (qConv && qConv !== 'auto') ? qConv : null;
-    const initState = await refreshLiveState(false, pinnedConversationId);
-    res.writeHead(200, {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'no-store, no-cache, must-revalidate'
-    });
-    const advancedViewHtml = path.resolve(__dirname, '../../src/webview/advanced_view.html');
-    if (fs.existsSync(advancedViewHtml)) {
-      let html = fs.readFileSync(advancedViewHtml, 'utf8');
-      const mtimeMs = fs.statSync(advancedViewHtml).mtimeMs;
-      const mtimeScript = `<script id="liveInitialMtime">window.__INITIAL_UI_MTIME__ = ${mtimeMs}; window.__HORIZON_CSRF_TOKEN__ = ${JSON.stringify(HORIZON_CSRF_TOKEN)};</script>`;
-      if (initState) {
-        initState.uiMtimeMs = mtimeMs;
-        const safeJson = JSON.stringify(initState)
-          .replace(/</g, '\\u003c')
-          .replace(/\u2028/g, '\\u2028')
-          .replace(/\u2029/g, '\\u2029');
-        const stateScript = `<script id="liveInitialState">window.__LIVE_INITIAL_STATE__ = ${safeJson};</script>`;
-        html = html.replace(
-          '<script id="precomputedCatalogScript">',
-          () => `${mtimeScript}\n${stateScript}\n<script id="precomputedCatalogScript">`
-        );
-      } else {
-        html = html.replace(
-          '<script id="precomputedCatalogScript">',
-          () => `${mtimeScript}\n<script id="precomputedCatalogScript">`
-        );
-      }
-      res.end(html);
-    } else {
-      res.end('<h1>Highbeam Advanced View</h1>');
-    }
-    return;
-  }
-
-  if (url.pathname === '/' || url.pathname === '/index.html' || url.pathname === '/widget' || url.pathname === '/widget.html') {
-    const qConv = url.searchParams.get('conversationId');
-    pinnedConversationId = (qConv && qConv !== 'auto') ? qConv : null;
-    const initState = await refreshLiveState(false, pinnedConversationId);
-    res.writeHead(200, {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': 'no-store, no-cache, must-revalidate'
-    });
+  const serveUnifiedPanelHtml = (res, initState, initialView = null) => {
     const rawHtmlPath = fs.existsSync(horizonPanelHtml)
       ? horizonPanelHtml
       : (fs.existsSync(sidePaneHtml) ? sidePaneHtml : null);
-    if (rawHtmlPath) {
-      let html = fs.readFileSync(rawHtmlPath, 'utf8');
-      const mtimeMs = getHtmlMtimeMs();
-      const mtimeScript = `<script id="liveInitialMtime">window.__INITIAL_UI_MTIME__ = ${mtimeMs}; window.__HORIZON_CSRF_TOKEN__ = ${JSON.stringify(HORIZON_CSRF_TOKEN)};</script>`;
-      if (initState) {
-        initState.uiMtimeMs = mtimeMs;
-        const safeJson = JSON.stringify(initState)
-          .replace(/</g, '\\u003c')
-          .replace(/\u2028/g, '\\u2028')
-          .replace(/\u2029/g, '\\u2029');
-        const stateScript = `<script id="liveInitialState">window.__LIVE_INITIAL_STATE__ = ${safeJson};</script>`;
-        html = html.replace(
-          '<script id="precomputedCatalogScript">',
-          () => `${mtimeScript}\n${stateScript}\n<script id="precomputedCatalogScript">`
-        );
-      } else {
-        html = html.replace(
-          '<script id="precomputedCatalogScript">',
-          () => `${mtimeScript}\n<script id="precomputedCatalogScript">`
-        );
-      }
-      res.end(html);
-    } else {
+    if (!rawHtmlPath) {
       res.end('<h1>Highbeam Side-Pane</h1>');
+      return;
     }
+    let html = fs.readFileSync(rawHtmlPath, 'utf8');
+    const mtimeMs = getHtmlMtimeMs();
+    const modeStmt = initialView ? ` window.__INITIAL_VIEW_MODE__ = ${JSON.stringify(initialView)};` : '';
+    const mtimeScript = `<script id="liveInitialMtime">window.__INITIAL_UI_MTIME__ = ${mtimeMs}; window.__HORIZON_CSRF_TOKEN__ = ${JSON.stringify(HORIZON_CSRF_TOKEN)};${modeStmt}</script>`;
+    if (initState) {
+      initState.uiMtimeMs = mtimeMs;
+      const safeJson = JSON.stringify(initState)
+        .replace(/</g, '\\u003c')
+        .replace(/\u2028/g, '\\u2028')
+        .replace(/\u2029/g, '\\u2029');
+      const stateScript = `<script id="liveInitialState">window.__LIVE_INITIAL_STATE__ = ${safeJson};</script>`;
+      html = html.replace(
+        '<script id="precomputedCatalogScript">',
+        () => `${mtimeScript}\n${stateScript}\n<script id="precomputedCatalogScript">`
+      );
+    } else {
+      html = html.replace(
+        '<script id="precomputedCatalogScript">',
+        () => `${mtimeScript}\n<script id="precomputedCatalogScript">`
+      );
+    }
+    res.end(html);
+  };
+
+  if (
+    url.pathname === '/' ||
+    url.pathname === '/index.html' ||
+    url.pathname === '/widget' ||
+    url.pathname === '/widget.html' ||
+    url.pathname === '/simple' ||
+    url.pathname === '/simple.html' ||
+    url.pathname === '/advanced' ||
+    url.pathname === '/advanced.html'
+  ) {
+    const qConv = url.searchParams.get('conversationId');
+    pinnedConversationId = (qConv && qConv !== 'auto') ? qConv : null;
+    const initState = await refreshLiveState(false, pinnedConversationId);
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store, no-cache, must-revalidate'
+    });
+    const routeMode = url.pathname.startsWith('/simple')
+      ? 'simple'
+      : (url.pathname.startsWith('/advanced') ? 'advanced' : null);
+    serveUnifiedPanelHtml(res, initState, routeMode);
     return;
   }
 

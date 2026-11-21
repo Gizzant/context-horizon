@@ -21,7 +21,6 @@ import { renderHorizonPanelHtml } from '../src/core-isomorphic/ui/horizonPanelHt
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HTML_PATH = path.join(ROOT, 'src', 'webview', 'horizon_panel.html');
-const SIMPLE_PATH = path.join(ROOT, 'src', 'webview', 'simple_view.html');
 const SERVER = path.join(ROOT, 'sidecars', 'horizon-daemon', 'server.mjs');
 const WS = 'c:/Projects/demo-workspace';
 
@@ -188,12 +187,15 @@ describe('SV-BUG-01..06: Context math parity, cachedHistory exclusion, over-limi
       dom.window.close();
     }
 
-    // simple_view.html over-ceiling percentage must not clamp to 100%
-    const svHtml = fs.readFileSync(SIMPLE_PATH, 'utf8');
+    // Unified horizon_panel.html (window.__INITIAL_VIEW_MODE__ = 'simple') replaces retired simple_view.html and never clamps >100%
+    assert.equal(fs.existsSync(path.join(ROOT, 'src', 'webview', 'simple_view.html')), false);
+    const svHtml = fs.readFileSync(HTML_PATH, 'utf8')
+      .replace(/window\.__LIVE_INITIAL_STATE__\s*=/, 'window.__LIVE_INITIAL_STATE_DISABLED__ =');
     const svDom = new JSDOM(svHtml, {
       url: 'http://127.0.0.1:43210/simple',
       runScripts: 'dangerously',
       beforeParse(win) {
+        win.__INITIAL_VIEW_MODE__ = 'simple';
         win.EventSource = class { close() {} };
         win.fetch = async () => ({ ok: false, status: 204, json: async () => null });
       }
@@ -204,7 +206,10 @@ describe('SV-BUG-01..06: Context math parity, cachedHistory exclusion, over-limi
       window: { maxTokens: 200000, safeLimit: 140000, totalActiveTokens: 220000 },
       breakdown: { ANCHOR: 10000, ACTIVE_WORKING_SET: 210000 }
     });
-    assert.match(svDom.window.document.getElementById('windowPctLabel').textContent, /110% of 200k ceiling/);
+    assert.equal(svDom.window.document.body.getAttribute('data-view-mode'), 'simple');
+    assert.equal(svDom.window.document.getElementById('tsUsedPct').textContent.trim(), '157%');
+    assert.equal(svDom.window.document.getElementById('tsGlassCaption').textContent.trim(), 'Over safe limit');
+    assert.match(svDom.window.document.getElementById('tsContextSummary').textContent, /157% of the safe limit/);
     svDom.window.close();
   });
 });

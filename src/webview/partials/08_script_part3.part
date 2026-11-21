@@ -1523,7 +1523,16 @@
   // the header button swaps to the Advanced diagnostics view and back. `data-view-tab` always names
   // the view a click opens next.
   const savedViewMode = (function() {
-    try { return localStorage.getItem('ah.viewMode') || localStorage.getItem('ctxtop.viewMode') || 'simple'; } catch { return 'simple'; }
+    try {
+      const wMode = String(window.__INITIAL_VIEW_MODE__ || '').toLowerCase();
+      if (wMode === 'simple' || wMode === 'advanced') return wMode;
+      const qMode = String(new URLSearchParams(window.location.search || '').get('mode') || '').toLowerCase();
+      if (qMode === 'simple' || qMode === 'advanced') return qMode;
+      return localStorage.getItem('ah.viewMode') || localStorage.getItem('ctxtop.viewMode') || 'simple';
+    } catch (vmErr) {
+      void vmErr;
+      return 'simple';
+    }
   })();
   function applyViewMode(mode) {
     document.body.setAttribute('data-view-mode', mode);

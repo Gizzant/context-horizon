@@ -101,3 +101,4 @@ import './savings_ui_and_docs_truth.test.mjs';
 import './launch_monetization_funnel.test.mjs';
 import './playbook_guard_replay.test.mjs';
 import './next_prompt_playbook.test.mjs';
+import './playbook_cross_surface.test.mjs';

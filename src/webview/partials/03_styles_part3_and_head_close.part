@@ -1586,10 +1586,13 @@
     }
     .ts-switch-lines li + li { margin-top: 2px; }
     .ts-switch-card .ts-sub { font-size: 10.5px; color: var(--text-muted); }
-    .ts-playbook { margin-top: 6px; padding-top: 5px; border-top: 1px solid var(--hairline); }
+    .ts-playbook { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--hairline); }
     .ts-pb-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); }
-    .ts-pb-badge { font-family: var(--font-mono); font-size: 9.5px; font-weight: 600; color: var(--text-secondary); letter-spacing: .02em; }
-    .ts-pb-row { display: grid; grid-template-columns: 78px minmax(0, 1fr) auto; gap: 6px; align-items: center; padding: 3px 0; border-top: 1px solid var(--hairline); font-size: 10.5px; }
+    .ts-pb-badge { font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 3px; border: 1px solid var(--hairline); color: var(--text-primary); letter-spacing: .02em; }
+    .ts-playbook[data-tone="avoid"] .ts-pb-badge { border-color: var(--status-warning); }
+    .ts-playbook[data-tone="danger"] .ts-pb-badge { border-color: var(--status-critical); }
+    #tsPbHeadline { min-height: 16px; margin: 3px 0 4px; }
+    .ts-pb-row { display: grid; grid-template-columns: minmax(104px, 122px) minmax(0, 1fr) auto; gap: 6px; align-items: center; min-height: 28px; padding: 3px 0; border-top: 1px solid var(--hairline); font-size: 10.5px; }
     .ts-pb-row:first-child { border-top: none; }
     .ts-pb-cat { font-weight: 600; color: var(--text-primary); }
     .ts-pb-act { color: var(--text-secondary); overflow-wrap: anywhere; }
