@@ -14,7 +14,7 @@
     <nav class="sidebar" id="site-sidebar" aria-label="Documentation chapters"></nav>
 
     <main class="doc-main prose">
-      <p class="doc-eyebrow">Empirical Benchmark &middot; highbeam-cli v4.4.1</p>
+      <p class="doc-eyebrow">Empirical Benchmark &middot; highbeam-cli v4.5.0</p>
       <h1 class="doc-title">Does compressing tool output actually lower AI coding bills? 144 live runs on Claude Code.</h1>
       <p class="doc-lead">
         Independent studies (such as Quesma's 1,740-run Terminal-Bench analysis) showed that compressing shell logs alone often fails to reduce total API bills. Here are <strong>144 live API runs</strong> and <strong>19 offline CLI fixtures</strong> showing what reduced billed cost by <strong>-13.31%</strong>, what lost money, and why we separate 3 savings buckets strictly.
@@ -43,7 +43,7 @@
 
       <h2 id="study-1-ab">1. Replicated 72-Run Live A/B (<code>T01</code>–<code>T08</code>)</h2>
       <p>
-        Source artifact: <a href="https://github.com/Gizzant/context-horizon/blob/main/experiments/model-switch-benchmark/results/highbeam_ab_results.json"><code>highbeam_ab_results.json</code></a> (<code>anthropic/claude-sonnet-5.5</code>, <code>8</code> seeded doc/log/audit tasks &times; <code>3</code> replications &times; <code>3</code> arms = <code>72</code> runs with full HTTP <code>wireObs</code> telemetry). To isolate <code>PreToolUse</code> Read clamping and <code>PostToolUse</code> FTS5 compression, <code>run_highbeam_ab.mjs</code> seeds <code>T01</code>–<code>T08</code> with synthetic oversized spec/audit docs and noisy diagnostic logs &mdash; in contrast to the unseeded small-file navigation suite in Section 2 (<code>T09</code>–<code>T11</code>, <code>0/27</code> clamps). We ran the <code>HIGHBEAM</code> arm with <code>configureShield({ action: 'enable' })</code> (and included a middle ablation arm, <code>HIGHBEAM_SHIELD_OFF</code>); fresh <code>v4.4.1</code> installs default to clamp-only <code>mode: 'auto'</code>.
+        Source artifact: <a href="https://github.com/Gizzant/context-horizon/blob/main/experiments/model-switch-benchmark/results/highbeam_ab_results.json"><code>highbeam_ab_results.json</code></a> (<code>anthropic/claude-sonnet-5.5</code>, <code>8</code> seeded doc/log/audit tasks &times; <code>3</code> replications &times; <code>3</code> arms = <code>72</code> runs with full HTTP <code>wireObs</code> telemetry). To isolate <code>PreToolUse</code> Read clamping and <code>PostToolUse</code> FTS5 compression, <code>run_highbeam_ab.mjs</code> seeds <code>T01</code>–<code>T08</code> with synthetic oversized spec/audit docs and noisy diagnostic logs &mdash; in contrast to the unseeded small-file navigation suite in Section 2 (<code>T09</code>–<code>T11</code>, <code>0/27</code> clamps). We ran the <code>HIGHBEAM</code> arm with <code>configureShield({ action: 'enable' })</code> (and included a middle ablation arm, <code>HIGHBEAM_SHIELD_OFF</code>); fresh <code>v4.5.0</code> installs default to clamp-only <code>mode: 'auto'</code>.
       </p>
 
       <div class="table-wrap">

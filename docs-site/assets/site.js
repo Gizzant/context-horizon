@@ -1,4 +1,4 @@
-/* Highbeam v4.4.1 User Guide — Shared Navigation, Theme, Tabs, Copy, Scrollspy & Search */
+/* Highbeam v4.5.0 User Guide — Shared Navigation, Theme, Tabs, Copy, Scrollspy & Search */
 (function () {
   'use strict';
 
@@ -91,7 +91,7 @@
             '</a>' +
             '<span class="brand-divider">/</span>' +
             '<span class="brand-subtitle">Developer Guide</span>' +
-            '<span class="version-pill">Highbeam 4.4.1</span>' +
+            '<span class="version-pill">Highbeam 4.5.0</span>' +
           '</div>' +
           '<div class="header-actions">' +
             '<a href="benchmark.html" class="theme-toggle" style="text-decoration:none;">144-Run Benchmark</a>' +
@@ -157,7 +157,7 @@
     var footerEl = document.getElementById('doc-footer');
     if (footerEl) {
       footerEl.innerHTML =
-        '<span>Highbeam (<code>highbeam-cli</code> v4.4.1) for Google Antigravity &amp; Claude Code.</span>' +
+        '<span>Highbeam (<code>highbeam-cli</code> v4.5.0) for Google Antigravity &amp; Claude Code.</span>' +
         '<span>100% Local Read-Only Telemetry &middot; Zero Network Calls &middot; MIT Core</span>';
     }
 

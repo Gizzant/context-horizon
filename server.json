@@ -3,7 +3,7 @@
   "name": "io.github.gizzant/highbeam",
   "title": "Highbeam Context & KV-Cache MCP Server",
   "description": "Zero-dependency 7-tool MCP stdio server providing 40-cell context visualizer, KV-cache gravity checks, file-scope locks, and offline CLI output compression for Cursor, Windsurf, Claude Code, and Antigravity.",
-  "version": "4.4.1",
+  "version": "4.5.0",
   "repository": {
     "url": "https://github.com/Gizzant/context-horizon",
     "source": "github"
@@ -12,7 +12,7 @@
     {
       "registryType": "npm",
       "identifier": "highbeam-cli",
-      "version": "4.4.1",
+      "version": "4.5.0",
       "transport": {
         "type": "stdio"
       }

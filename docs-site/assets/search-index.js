@@ -1,5 +1,5 @@
 /**
- * Highbeam (ctxtop v4.4.1) — Pre-built Offline Search Index
+ * Highbeam (ctxtop v4.5.0) — Pre-built Offline Search Index
  * Generated across 16 chapters (111 indexed sections).
  */
 window.AH_SEARCH_INDEX = [
@@ -514,10 +514,10 @@ window.AH_SEARCH_INDEX = [
     "title": "Orthogonal 3-Bucket Savings Ledger & Clamp-Only auto Shield",
     "section": "Orthogonal 3-Bucket Savings Ledger & Clamp-Only auto Shield",
     "href": "concepts.html#three-bucket-ledger",
-    "body": "Highbeam v4.4.1 separates token and dollar telemetry into three strictly orthogonal accounting buckets in src/core-isomorphic/coach/savedQuotaLedger.mjs (rendered via npx highbeam-cli receipt and npx highbeam-cli receipt --share ), preventi",
+    "body": "Highbeam v4.5.0 separates token and dollar telemetry into three strictly orthogonal accounting buckets in src/core-isomorphic/coach/savedQuotaLedger.mjs (rendered via npx highbeam-cli receipt and npx highbeam-cli receipt --share ), preventi",
     "chapter": "Core Concepts & Mental Model",
     "url": "concepts.html#three-bucket-ledger",
-    "snippet": "Highbeam v4.4.1 separates token and dollar telemetry into three strictly orthogonal accounting buckets in src/core-isomorphic/coach/savedQuotaLedger.mjs (rendered via npx highbeam-cli receipt and npx highbeam-cli receipt --share ), preventi",
+    "snippet": "Highbeam v4.5.0 separates token and dollar telemetry into three strictly orthogonal accounting buckets in src/core-isomorphic/coach/savedQuotaLedger.mjs (rendered via npx highbeam-cli receipt and npx highbeam-cli receipt --share ), preventi",
     "keywords": "orthogonal 3-bucket savings ledger & clamp-only auto shield core concepts & mental model three-bucket-ledger"
   },
   {
@@ -690,10 +690,10 @@ window.AH_SEARCH_INDEX = [
     "title": "A to D",
     "section": "A to D",
     "href": "glossary.html#terms-a-d",
-    "body": "3-Bucket Savings Ledger ( avoidedWrites , realizedPromptBill , platformCacheDiscount ) Core Physics Highbeam v4.4.1's strictly orthogonal accounting model in savedQuotaLedger.mjs . Separates (1) Avoided Context Writes (tokens kept out of th",
+    "body": "3-Bucket Savings Ledger ( avoidedWrites , realizedPromptBill , platformCacheDiscount ) Core Physics Highbeam v4.5.0's strictly orthogonal accounting model in savedQuotaLedger.mjs . Separates (1) Avoided Context Writes (tokens kept out of th",
     "chapter": "Terminology & Glossary",
     "url": "glossary.html#terms-a-d",
-    "snippet": "3-Bucket Savings Ledger ( avoidedWrites , realizedPromptBill , platformCacheDiscount ) Core Physics Highbeam v4.4.1's strictly orthogonal accounting model in savedQuotaLedger.mjs . Separates (1) Avoided Context Writes (tokens kept out of th",
+    "snippet": "3-Bucket Savings Ledger ( avoidedWrites , realizedPromptBill , platformCacheDiscount ) Core Physics Highbeam v4.5.0's strictly orthogonal accounting model in savedQuotaLedger.mjs . Separates (1) Avoided Context Writes (tokens kept out of th",
     "keywords": "a to d terminology & glossary terms-a-d"
   },
   {
@@ -932,10 +932,10 @@ window.AH_SEARCH_INDEX = [
     "title": "Safe Deduplication, Migration & Uninstallation",
     "section": "Safe Deduplication, Migration & Uninstallation",
     "href": "installation.html#migration-and-uninstall",
-    "body": "Upgrading from v3.x (`ga-visualizer` / `agy-horizon` IDs) or moving from project hooks to global hooks takes two quick steps: Legacy Config Migration: migrateLegacyHorizonConfig maps old v3/v4.0 rule names to v4.4.1 DET-01..DET-32 IDs autom",
+    "body": "Upgrading from v3.x (`ga-visualizer` / `agy-horizon` IDs) or moving from project hooks to global hooks takes two quick steps: Legacy Config Migration: migrateLegacyHorizonConfig maps old v3/v4.0 rule names to v4.5.0 DET-01..DET-32 IDs autom",
     "chapter": "Installation, Verification & Migration",
     "url": "installation.html#migration-and-uninstall",
-    "snippet": "Upgrading from v3.x (`ga-visualizer` / `agy-horizon` IDs) or moving from project hooks to global hooks takes two quick steps: Legacy Config Migration: migrateLegacyHorizonConfig maps old v3/v4.0 rule names to v4.4.1 DET-01..DET-32 IDs autom",
+    "snippet": "Upgrading from v3.x (`ga-visualizer` / `agy-horizon` IDs) or moving from project hooks to global hooks takes two quick steps: Legacy Config Migration: migrateLegacyHorizonConfig maps old v3/v4.0 rule names to v4.5.0 DET-01..DET-32 IDs autom",
     "keywords": "safe deduplication, migration & uninstallation installation, verification & migration migration-and-uninstall"
   },
   {
@@ -1108,10 +1108,10 @@ window.AH_SEARCH_INDEX = [
     "title": "Host Capability Matrix",
     "section": "Host Capability Matrix",
     "href": "surfaces.html#surface-comparison-matrix",
-    "body": "Dimension Google Antigravity Claude Code Cursor / Windsurf ( @ctxtop/mcp ) Manifest Root plugin.json , .antigravity-plugin/plugin.json & highbeam-4.4.1.vsix .claude-plugin/plugin.json , marketplace.json & settings.json .cursor/mcp.json (std",
+    "body": "Dimension Google Antigravity Claude Code Cursor / Windsurf ( @ctxtop/mcp ) Manifest Root plugin.json , .antigravity-plugin/plugin.json & highbeam-4.5.0.vsix .claude-plugin/plugin.json , marketplace.json & settings.json .cursor/mcp.json (std",
     "chapter": "Google Antigravity vs. Claude Code",
     "url": "surfaces.html#surface-comparison-matrix",
-    "snippet": "Dimension Google Antigravity Claude Code Cursor / Windsurf ( @ctxtop/mcp ) Manifest Root plugin.json , .antigravity-plugin/plugin.json & highbeam-4.4.1.vsix .claude-plugin/plugin.json , marketplace.json & settings.json .cursor/mcp.json (std",
+    "snippet": "Dimension Google Antigravity Claude Code Cursor / Windsurf ( @ctxtop/mcp ) Manifest Root plugin.json , .antigravity-plugin/plugin.json & highbeam-4.5.0.vsix .claude-plugin/plugin.json , marketplace.json & settings.json .cursor/mcp.json (std",
     "keywords": "host capability matrix google antigravity vs. claude code surface-comparison-matrix"
   },
   {

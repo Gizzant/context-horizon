@@ -222,7 +222,7 @@ C_max = [ O * (P_out,A - P_out,B) * (H_post + 1) ]
 
       <h2 id="three-bucket-ledger">Orthogonal 3-Bucket Savings Ledger &amp; Clamp-Only <code>auto</code> Shield</h2>
       <p>
-        Highbeam v4.4.1 separates token and dollar telemetry into three strictly orthogonal accounting buckets in <code>src/core-isomorphic/coach/savedQuotaLedger.mjs</code> (rendered via <code>npx highbeam-cli receipt</code> and <code>npx highbeam-cli receipt --share</code>), preventing double-counting between provider cache discounts and Highbeam interventions:
+        Highbeam v4.5.0 separates token and dollar telemetry into three strictly orthogonal accounting buckets in <code>src/core-isomorphic/coach/savedQuotaLedger.mjs</code> (rendered via <code>npx highbeam-cli receipt</code> and <code>npx highbeam-cli receipt --share</code>), preventing double-counting between provider cache discounts and Highbeam interventions:
       </p>
       <ul>
         <li><strong>Bucket 1 &mdash; Avoided Context Writes (<code>avoidedWrites</code>):</strong> Bytes and tokens prevented from ever entering the conversation transcript by the clamp-only default <code>mode: 'auto'</code> Active Context Shield (rewriting oversized unbound <code>Read</code> calls into bounded <code>&lt;=250L</code> / <code>&lt;=16 KB</code> slices via <code>updatedInput</code> without blocking small files), 19-family FTS5 <code>PostToolUse</code> CLI compression, <code>Grep|Glob</code> path-array filtering, and large payload scratch offloading.</li>

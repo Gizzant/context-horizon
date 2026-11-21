@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @file bin/ctxtop.mjs
- * Highbeam v4.4.1 Unified Cross-Platform CLI (`ctxtop`).
+ * Highbeam v4.5.0 Unified Cross-Platform CLI (`ctxtop`).
  *
  * Commands:
  *   - `ctxtop init [--antigravity | --claude | --all | --workspace | --project | --dry-run | --dedupe]`
@@ -857,7 +857,7 @@ export function formatAnonymizedShareReceipt(report = {}, options = {}) {
     ? `${realTok >= 0 ? '+' : '-'}${Math.abs(realTok).toLocaleString('en-US')} tok (${realUsd >= 0 ? '+' : '-'}$${Math.abs(realUsd).toFixed(4)})`
     : 'n/a (local session — wire A/B only)';
   let out = [
-    'Highbeam v4.4.1 — Anonymized Savings Snapshot (Local / Zero-PII)',
+    'Highbeam v4.5.0 — Anonymized Savings Snapshot (Local / Zero-PII)',
     `  1. Highbeam Avoided Writes (Real-Time) : 30d +${av30.toLocaleString('en-US')} tok ($${avUsd.toFixed(2)}) | session +${avSes.toLocaleString('en-US')} tok ($${avSesUsd.toFixed(2)})`,
     `  2. Ex-Post Realized Prompt-Bill Delta    : ${realLine}`,
     `  3. Provider KV-Cache Discount (separate) : +${kv30.toLocaleString('en-US')} tok ($${kvUsd.toFixed(2)}) [never counted in Highbeam ROI]`,
@@ -1079,7 +1079,7 @@ export function executeInitSubcommand(args = [], options = {}) {
   if (isAll || isAntigravity) scopeParts.push(`Antigravity: ${antigravityScope === 'global' ? 'Global' : 'This workspace only'}`);
 
   const lines = [
-    `\x1b[1m\x1b[38;5;51m⚡ Highbeam (ctxtop v4.4.1) — Zero-Config Unified Installer\x1b[0m`,
+    `\x1b[1m\x1b[38;5;51m⚡ Highbeam (ctxtop v4.5.0) — Zero-Config Unified Installer\x1b[0m`,
     `  • Target Harnesses : ${targetLabel}`,
     ...(scopeParts.length
       ? [`  • Installation Scope: ${scopeParts.join(' · ')}${isDryRun ? ' [DRY RUN]' : ''}`]
@@ -1213,7 +1213,7 @@ export function runCli(args = [], options = {}) {
   }
 
   if (effectiveArgs.includes('--version') || effectiveArgs.includes('-v') || subcommand === 'version') {
-    return { exitCode: 0, output: '4.4.1', data: { version: '4.4.1' } };
+    return { exitCode: 0, output: '4.5.0', data: { version: '4.5.0' } };
   }
 
   // `<cmd> --help` must print help and never run the command (install/init/uninstall write files).

@@ -1,6 +1,6 @@
 # Highbeam (`highbeam-cli`) — Empirical Benchmarks, Wire Findings & Runtime Mechanics
 
-This document consolidates the granular wire-level measurements, replicated live OpenRouter A/B trials, model-catalog mechanics, and explicit verification boundaries behind **Highbeam (`highbeam-cli` v4.4.1)**.
+This document consolidates the granular wire-level measurements, replicated live OpenRouter A/B trials, model-catalog mechanics, and explicit verification boundaries behind **Highbeam (`highbeam-cli` v4.5.0)**.
 
 ---
 

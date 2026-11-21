@@ -16,3 +16,6 @@
    - Never read or touch Antigravity/Cloud Code OAuth credentials (`~/.gemini/oauth_creds.json`, Windows Credential Manager `gemini:antigravity`) or poll internal Google Cloud Code endpoints.
    - Never spawn headless `gemini` or `agy` CLI processes inside test runners (`e2e_harness.mjs` or integration tests) using `"selectedAuthType": "oauth-personal"`.
    - Avoid unthrottled repo-wide grep/read loops and parallel subagent fan-out (`/teamwork` or concurrent `invoke_subagent` bursts) on an interactive OAuth seat; batch searches or edits into 1–2 consolidated tool calls per turn.
+6. **Strategic Focus & Mandatory Feature Triage Gate**:
+   - Highbeam's active mandate is an **indie, high-margin (`>=92%`), zero-egress cross-host FinOps & pre-decision harness tool** ([docs/PATH_FORWARD_PLAN.md](docs/PATH_FORWARD_PLAN.md)).
+   - Before planning or building **any** new feature, evaluate it against the 6-gate rubric in [.agents/rules/focus-and-feature-triage.md](.agents/rules/focus-and-feature-triage.md), output an explicit **`ACCEPTED`**, **`DEFERRED`**, or **`REJECTED`** Verdict Card, challenge Phase 0 / WIP=1 detours, and log the decision in the Feature Request Triage Ledger.

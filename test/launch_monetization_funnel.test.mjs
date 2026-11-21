@@ -176,12 +176,12 @@ test('formatAnonymizedShareReceipt and receipt --share separate 3 buckets and st
   }
 });
 
-test('Claude Code marketplace manifest and 144-run benchmark launch kit exist with v4.4.1 parity', () => {
+test('Claude Code marketplace manifest and 144-run benchmark launch kit exist with v4.5.0 parity', () => {
   const mp = JSON.parse(fs.readFileSync(path.resolve('.claude-plugin/marketplace.json'), 'utf8'));
   assert.equal(mp.name, 'highbeam-marketplace');
-  assert.equal(mp.metadata.version, '4.4.1');
+  assert.equal(mp.metadata.version, '4.5.0');
   assert.equal(mp.plugins[0].name, 'highbeam');
-  assert.equal(mp.plugins[0].version, '4.4.1');
+  assert.equal(mp.plugins[0].version, '4.5.0');
 
   for (const docPath of [
     'docs-site/benchmark.html',

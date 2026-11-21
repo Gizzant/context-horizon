@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Installation, Verification &amp; Migration - Highbeam User Guide</title>
-  <meta name="description" content="Install, verify, migrate, and cleanly uninstall Highbeam (highbeam-cli v4.4.1) across Google Antigravity, Claude Code, VS Code/Open VSX, and MCP editors." />
+  <meta name="description" content="Install, verify, migrate, and cleanly uninstall Highbeam (highbeam-cli v4.5.0) across Google Antigravity, Claude Code, VS Code/Open VSX, and MCP editors." />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body data-page="installation">
@@ -89,7 +89,7 @@ npx highbeam-cli init --claude --global --lean-hooks
 npx highbeam-cli init --claude --full-hooks</code></pre>
       </div>
       <p>
-        You can also build and install the VS Code / Cursor / Antigravity sidebar extension locally from <code>extensions/vscode-highbeam/highbeam-4.4.1.vsix</code> via <code>npm run build:vsix</code>, or load the plugin folder directly via <code>.claude-plugin/plugin.json</code> and <code>.claude-plugin/marketplace.json</code>. That adds all six slash commands (<code>/horizon</code>, <code>/cost-radar</code>, <code>/inspect</code>, <code>/handoff</code>, <code>/precheck</code>, <code>/evolve</code>) and wires up <code>hooks/hooks.json</code>. During <code>highbeam install</code> or <code>highbeam init --claude</code>, <code>inspectClaudeBinaryCapabilities()</code> scans your Claude Code binary so older CLI builds remain compatible.
+        You can also build and install the VS Code / Cursor / Antigravity sidebar extension locally from <code>extensions/vscode-highbeam/highbeam-4.5.0.vsix</code> via <code>npm run build:vsix</code>, or load the plugin folder directly via <code>.claude-plugin/plugin.json</code> and <code>.claude-plugin/marketplace.json</code>. That adds all six slash commands (<code>/horizon</code>, <code>/cost-radar</code>, <code>/inspect</code>, <code>/handoff</code>, <code>/precheck</code>, <code>/evolve</code>) and wires up <code>hooks/hooks.json</code>. During <code>highbeam install</code> or <code>highbeam init --claude</code>, <code>inspectClaudeBinaryCapabilities()</code> scans your Claude Code binary so older CLI builds remain compatible.
       </p>
 
       <h3 id="install-mcp">4. Cursor &amp; Windsurf MCP Registration</h3>
@@ -149,7 +149,7 @@ $ npx highbeam-cli verify
         Upgrading from v3.x (`ga-visualizer` / `agy-horizon` IDs) or moving from project hooks to global hooks takes two quick steps:
       </p>
       <ul>
-        <li><strong>Legacy Config Migration:</strong> <code>migrateLegacyHorizonConfig</code> maps old v3/v4.0 rule names to v4.4.1 <code>DET-01..DET-32</code> IDs automatically.</li>
+        <li><strong>Legacy Config Migration:</strong> <code>migrateLegacyHorizonConfig</code> maps old v3/v4.0 rule names to v4.5.0 <code>DET-01..DET-32</code> IDs automatically.</li>
         <li><strong>Hook Deduplication:</strong> Run <code>npx highbeam-cli init --claude --dedupe</code> to clean out duplicate or old Highbeam entries from <code>settings.json</code>. Your other third-party hooks stay intact.</li>
         <li><strong>Orphaned Antigravity Brain Recovery:</strong> After an Antigravity IDE profile move, run <code>npx highbeam-cli doctor --recover-brain --dry-run</code> first. Then run it without <code>--dry-run</code> to relink orphaned brain folders.</li>
       </ul>

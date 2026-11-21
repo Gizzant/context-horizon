@@ -2,7 +2,7 @@
 
 In September 2026, Quesma ran 1,740 Terminal-Bench attempts and published a sharp, uncomfortable result for CLI-compression tools: **shrinking terminal output didn't automatically lower API bills**, because terminal logs were a small, mostly cached share of total spend unless early uncached cache writes or turn growth actually dropped.
 
-That forced us to stop guessing and benchmark **Highbeam (`highbeam-cli` v4.4.1)** on live API billing (`wireObs` token telemetry and settled USD), publishing the losses alongside the wins. Across **144 live Claude Code runs** (`72` replicated doc/log/audit A/B runs + `27` code-exploration null-result runs + `45` model-switch wire runs) plus **19 offline multi-stack CLI fixtures**, here is what actually moved the bill, what did not, and why.
+That forced us to stop guessing and benchmark **Highbeam (`highbeam-cli` v4.5.0)** on live API billing (`wireObs` token telemetry and settled USD), publishing the losses alongside the wins. Across **144 live Claude Code runs** (`72` replicated doc/log/audit A/B runs + `27` code-exploration null-result runs + `45` model-switch wire runs) plus **19 offline multi-stack CLI fixtures**, here is what actually moved the bill, what did not, and why.
 
 ---
 
@@ -21,7 +21,7 @@ That forced us to stop guessing and benchmark **Highbeam (`highbeam-cli` v4.4.1)
 
 **Source artifact:** [`experiments/model-switch-benchmark/results/highbeam_ab_results.json`](../../experiments/model-switch-benchmark/results/highbeam_ab_results.json) (`recordedAtUtc: 2026-11-20T02:30:12.549Z`, `anthropic/claude-sonnet-5.5`, full HTTP `wireObs` capture and `exPostLedgerReconciliation`).
 
-To isolate `PreToolUse` Read clamping and `PostToolUse` FTS5 compression, `run_highbeam_ab.mjs` seeds `T01`–`T08` repos with synthetic oversized spec/audit docs and noisy diagnostic logs — contrasting directly with Study 2 (`T09`–`T11`), where unseeded small-file code navigation produced a null result (`0/27` clamps). We ran **3 arms × 8 tasks × 3 replications = 72 runs** with `HIGHBEAM` configured via `configureShield({ action: 'enable' })`, deliberately including a **middle ablation arm (`HIGHBEAM_SHIELD_OFF`)** with hooks and FTS5 active but Active Context Shield disabled *(note: fresh `v4.4.1` installs default to clamp-only `mode: 'auto'`)*:
+To isolate `PreToolUse` Read clamping and `PostToolUse` FTS5 compression, `run_highbeam_ab.mjs` seeds `T01`–`T08` repos with synthetic oversized spec/audit docs and noisy diagnostic logs — contrasting directly with Study 2 (`T09`–`T11`), where unseeded small-file code navigation produced a null result (`0/27` clamps). We ran **3 arms × 8 tasks × 3 replications = 72 runs** with `HIGHBEAM` configured via `configureShield({ action: 'enable' })`, deliberately including a **middle ablation arm (`HIGHBEAM_SHIELD_OFF`)** with hooks and FTS5 active but Active Context Shield disabled *(note: fresh `v4.5.0` installs default to clamp-only `mode: 'auto'`)*:
 
 | Arm | Runs Completed | HTTP Reqs | Total Billed USD | Mean / Run | Prompt-Bill Tokens (`write` + `read` + `input`) | Delta vs. `BASELINE` | Notes |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
@@ -33,7 +33,7 @@ To isolate `PreToolUse` Read clamping and `PostToolUse` FTS5 compression, `run_h
 - **All 3 replications won independently:** Rep 1 `-13.31%` (`$1.8802 -> $1.6300`), Rep 2 `-11.06%` (`$1.8239 -> $1.6221`), Rep 3 `-15.52%` (`$1.8528 -> $1.5652`).
 - **7 of 8 tasks won (`BASELINE` -> `HIGHBEAM`):** `T01` (`-28.52%`), `T03` (`-22.39%`), `T07` (`-16.78%`), `T08` (`-15.51%`), `T04` (`-14.98%`), `T05` (`-7.53%`), `T02` (`-4.45%`).
 - **The loss (`T06`, `+13.43%`):** On `T06`, extra exploration turns outweighed clamping gains. No selective filtering or omitted runs.
-- **Zero broken workflows:** `24/24` (`100%`) task completion, `241` vs. `240` requests (`1.004x`), `15` clamp-only `updatedInput` slices (`HIGHBEAM` arm ran `configureShield({ action: 'enable' })`, where `>=20`-line wide reads clamp in-place via `updatedInput`; fresh `v4.4.1` installs default to clamp-only `mode: 'auto'`), `0` hard blocks, and `0` false Bash offload hits.
+- **Zero broken workflows:** `24/24` (`100%`) task completion, `241` vs. `240` requests (`1.004x`), `15` clamp-only `updatedInput` slices (`HIGHBEAM` arm ran `configureShield({ action: 'enable' })`, where `>=20`-line wide reads clamp in-place via `updatedInput`; fresh `v4.5.0` installs default to clamp-only `mode: 'auto'`), `0` hard blocks, and `0` false Bash offload hits.
 
 ### Why Shield + Clamp-Only Was Crucial (Answer to Quesma)
 Post-hoc terminal compression alone (`HIGHBEAM_SHIELD_OFF`) did **not** save money (`+4.37%`). What moved the needle (`-13.31%` cost / `-24.31%` prompt-bill) was preventing multi-thousand-line `Read` and wide `Grep`/`Glob` payloads from entering the prefix at `PreToolUse` (`updatedInput` slices capped to `<=250` lines / `<=16 KB` without rejecting the tool call) paired with net-positive FTS5 filtering on noisy CLI output. Because every subsequent turn re-pays read/write costs on active prefix history, stopping bloated tool inputs early cuts both cache creation (`-24.78%`) and cache read tokens (`-24.25%`).

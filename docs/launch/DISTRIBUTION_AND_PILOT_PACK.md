@@ -1,6 +1,6 @@
-# Highbeam (`highbeam-cli` v4.4.1) — Distribution, Launch & Pilot Playbook
+# Highbeam (`highbeam-cli` v4.5.0) — Distribution, Launch & Pilot Playbook
 
-All assets below are ready to copy-paste once **`v4.4.1` CI is green on `main`**.
+All assets below are ready to copy-paste once **`v4.5.0` CI is green on `main`**.
 
 ---
 
@@ -17,10 +17,10 @@ Hey HN — I built Highbeam (MIT core CLI/MCP/IDE sidebar + commercial team FinO
 
 After reading Quesma's Terminal-Bench post showing that shrinking CLI output alone didn't lower AI coding bills, we ran 144 live API runs (wire-captured HTTP tokens + settled USD) and are publishing the losses alongside the wins:
 
-1. 72 replicated live A/B runs on doc/log/audit tasks (T01–T08, sonnet-5.5, 3 reps × 8 tasks × 3 arms):
+1. 72 replicated live A/B runs on doc/log/audit tasks (T01–T08 seeded repos, sonnet-5.5, 3 reps × 8 tasks × 3 arms):
 - BASELINE (no Highbeam): 24/24 complete, 240 reqs, $5.5569 total, 9,047,750 prompt-bill tokens
 - HIGHBEAM_SHIELD_OFF (hooks + FTS5, Shield disabled): 24/24, 236 reqs, $5.7998 (+4.37%), 9,394,539 prompt-bill — confirms hooks without pre-write clamping don't save money here
-- HIGHBEAM (default auto clamp-only Shield + Grep|Glob + FTS5): 24/24, 241 reqs (1.004x), $4.8174 (-13.31% mean, -14.39% median paired, -16.94% vs Shield-off), 6,847,992 prompt-bill tokens (-24.31%; -24.78% write, -24.25% read), 20/24 paired wins, 3/3 reps, 7/8 tasks (T06 lost +13.43%), 0 hard denies
+- HIGHBEAM (configureShield({ action: 'enable' }) clamp-only + Grep|Glob + FTS5; fresh v4.5.0 installs default to clamp-only mode: 'auto'): 24/24, 241 reqs (1.004x), $4.8174 (-13.31% mean, -14.39% median paired, -16.94% vs Shield-off), 6,847,992 prompt-bill tokens (-24.31%; -24.78% write, -24.25% read), 20/24 paired wins, 3/3 reps, 7/8 tasks (T06 lost +13.43%), 0 hard denies
 
 2. 27 live pure code-exploration runs (T09–T11, small clean files, n=9/arm) — honest null result:
 - BASELINE: $1.2346 vs HIGHBEAM: $1.3195 (+6.88%) vs HIGHBEAM_SCOUT: $1.4085 (+14.08%)
@@ -53,10 +53,10 @@ Happy to answer questions on the wire setup, Windows vs Linux hook latency (~60�
 ```markdown
 After seeing benchmarks show that CLI output compression alone doesn't lower total API cost, I tested Highbeam (`highbeam-cli`, local MIT CLI/hooks/statusline for Claude Code) across 144 live billed runs with wire token capture.
 
-**Where it worked (`T01`–`T08`, 72 runs, `sonnet-5.5`, doc/log/audit tasks):**
+**Where it worked (`T01`–`T08` seeded doc/log/audit repos, 72 runs, `sonnet-5.5`):**
 - `BASELINE`: `$5.5569` across 24 runs (`9.05M` prompt-bill tokens)
 - `HIGHBEAM_SHIELD_OFF` (FTS5 on, read clamping off): `$5.7998` (`+4.37%` — lost!)
-- `HIGHBEAM` (default clamp-only `auto` Shield + `Grep|Glob` filter + FTS5): **`$4.8174` (`-13.31%` mean, `-14.39%` median paired)**, **`-24.31%` prompt-bill tokens**, `20/24` wins, `7/8` tasks (lost `T06 +13.43%`), `0` hard blocks.
+- `HIGHBEAM` (`configureShield({ action: 'enable' })` clamp-only + `Grep|Glob` filter + FTS5; fresh `v4.5.0` installs default to clamp-only `mode: 'auto'`): **`$4.8174` (`-13.31%` mean, `-14.39%` median paired)**, **`-24.31%` prompt-bill tokens**, `20/24` wins, `7/8` tasks (lost `T06 +13.43%`), `0` hard blocks.
 
 **Where it did NOT help (`T09`–`T11`, 27 runs, clean small-file code navigation):**
 - Shield triggered `0/27` times and Claude ignored the optional Haiku scout (`0/27` spawns), landing at `+6.88%` / `+14.08%` noise. So Haiku scout stays opt-in (`false` default).
@@ -74,17 +74,18 @@ Full writeup + raw benchmark JSONs ("144-Run Benchmark" tab): https://gizzant.gi
 ```
 
 ### B. Antigravity / AI Coding Developer Communities
-**Title:** `Highbeam v4.4.1 — Read-only 5-host context audit + 40-cell HUD + warm cache guard (with 144-run Claude Code benchmark)`
+**Title:** `Highbeam v4.5.0 — Read-only 5-host context audit + 40-cell HUD + warm cache guard (with 144-run Claude Code benchmark)`
 
 **Body:**
 ```markdown
-Sharing Highbeam (`highbeam-cli` v4.4.1), a zero-dependency local CLI, 40-cell WebView HUD, IDE extension (VS Code / Cursor / Antigravity `.vsix`), and 7-tool MCP server (`@ctxtop/mcp`).
+Sharing Highbeam (`highbeam-cli` v4.5.0), a zero-dependency local CLI, 40-cell WebView HUD, IDE extension (VS Code / Cursor / Antigravity `.vsix`), and 7-tool MCP server (`@ctxtop/mcp`).
 
 Before touching any config or hooks, run a strictly read-only 10-second audit across Antigravity, Claude Code, Codex CLI, Gemini CLI, and Cursor logs:
 `npx highbeam-cli audit --days 7`
 
-Highlights in v4.4.1:
-- **144-run empirical benchmark (`benchmark.html`):** `-13.31%` mean billed cost (`-24.31%` prompt-bill tokens) on replicated doc/log/audit tasks (`T01`–`T08`), honest `T09`–`T11` code-browsing null result, and 45-run mid-session model-switch cache math.
+Highlights in v4.5.0:
+- **Next-Prompt Playbook (line-of-sight Claude Code status line + Card 2):** Recommends `Quick`, `Standard`, and `Deep` next-prompt tiers (`model` + `/effort`) right where you compose your next turn, with explicit `unverified on Gemini` labeling and `DET-08` `5m` round-trip TTL expiry guard.
+- **144-run empirical benchmark (`benchmark.html`):** `-13.31%` mean billed cost (`-24.31%` prompt-bill tokens) on replicated seeded doc/log/audit tasks (`T01`–`T08`), honest `T09`–`T11` unseeded code-browsing null result, and 45-run mid-session model-switch cache math.
 - **3-bucket savings ledger + `npx highbeam-cli receipt --share`:** Separates avoided writes, wire delta, and provider KV-cache discounts without mixing units or leaking paths/usernames.
 - **Zero-network local telemetry:** Opens SQLite DBs strictly `SQLITE_OPEN_READONLY`; local loopback UI only.
 
@@ -95,9 +96,9 @@ Guide & benchmark: https://gizzant.github.io/context-horizon/
 
 ## 3. Exact Publish, Registry & Marketplace Checklist
 
-### A. Publish `highbeam-cli@4.4.1` and `@ctxtop/mcp@4.4.1` (after CI Matrix is green on `v4.4.1`)
+### A. Publish `highbeam-cli@4.5.0` and `@ctxtop/mcp@4.5.0` (after CI Matrix is green on `v4.5.0`)
 ```bash
-gh workflow run release.yml -f tag_name=v4.4.1 -f publish_npm=true
+gh workflow run release.yml -f tag_name=v4.5.0 -f publish_npm=true
 ```
 Verify live packages afterwards:
 ```bash
@@ -105,11 +106,11 @@ npm view highbeam-cli version dist-tags
 npm view @ctxtop/mcp version dist-tags
 ```
 
-### B. Publish VS Code / Open VSX Extension (`extensions/vscode-highbeam/highbeam-4.4.1.vsix`)
+### B. Publish VS Code / Open VSX Extension (`extensions/vscode-highbeam/highbeam-4.5.0.vsix`)
 ```bash
 cd extensions/vscode-highbeam
-npx ovsx publish highbeam-4.4.1.vsix -p "$OVSX_TOKEN"
-npx @vscode/vsce publish --packagePath highbeam-4.4.1.vsix
+npx ovsx publish highbeam-4.5.0.vsix -p "$OVSX_TOKEN"
+npx @vscode/vsce publish --packagePath highbeam-4.5.0.vsix
 ```
 
 ### C. Deploy License & 30-Day Emailed Trial Worker (`packages/pro`)
@@ -126,12 +127,12 @@ curl -sS -X POST https://<your-worker-subdomain>.workers.dev/trial \
 ```
 
 ### D. Refresh MCP Registries (Glama, Smithery, Official MCP Registry)
-1. **Official MCP Registry (`server.json`):** `server.json` points to `io.github.gizzant/highbeam` (`v4.4.1`, `identifier: "highbeam-cli"`, `source: "github"`). Publish with `mcp-publisher`:
+1. **Official MCP Registry (`server.json`):** `server.json` points to `io.github.gizzant/highbeam` (`v4.5.0`, `identifier: "highbeam-cli"`, `source: "github"`). Publish with `mcp-publisher`:
    ```bash
    mcp-publisher login github
    mcp-publisher publish
    ```
-2. **Glama (`glama.json`):** Open `https://glama.ai/mcp/servers` (your server listing for `highbeam-cli` / `Gizzant`) -> **Trigger Re-sync / Inspect** so title updates from `ctxtop v4.1` to `Highbeam Context & KV-Cache MCP Server` (`highbeam-cli@4.4.1`, `smithery.yaml` stdio command `npx -y highbeam-cli mcp`).
+2. **Glama (`glama.json`):** Open `https://glama.ai/mcp/servers` (your server listing for `highbeam-cli` / `Gizzant`) -> **Trigger Re-sync / Inspect** so title updates from `ctxtop v4.1` to `Highbeam Context & KV-Cache MCP Server` (`highbeam-cli@4.5.0`, `smithery.yaml` stdio command `npx -y highbeam-cli mcp`).
 3. **Smithery (`smithery.yaml`):** `smithery.yaml` is already synced to `npx -y highbeam-cli mcp` -> click **Refresh / Redeploy from GitHub `main`** on `https://smithery.ai/`.
 
 ### E. Submit Google Antigravity Partner Form & Claude Code Plugin Marketplace

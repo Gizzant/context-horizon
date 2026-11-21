@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ---
 
+## [4.5.0] - 2026-11-21
+
+### 3-Category Next-Prompt Playbook, Line-of-Sight Claude Code Surfaces, Unified WebView & Run 2 Disclosures
+
+#### Added
+- **3-Category Next-Prompt Playbook (`src/core-isomorphic/coach/nextPromptPlaybook.mjs`, `modViews.mjs`, `horizonPanelHtml.mjs`, WebView partials `03`/`04`/`08`/`09`)**: Added zero-I/O pre-send guidance (`Quick · typo/lookup`, `Standard · feature/bug`, `Deep · arch/refactor`) wired into the Claude Code terminal status line, above-prompt band, Simple View Rank 3 & Box 3, `#ccPlaybookCard` (visible above `#ccSwitchDetailsDrawer`), and fixed-height Card 2 `#tsPlaybookCard`, with plain-text `NEAR_CLIFF` rows (no `/compact` copy button) and explicit `unverified on Gemini` labels where Gemini empirical data does not yet exist.
+- **`DET-08` `5m` Round-Trip TTL Expiry Guard & 39-Run Playbook A/B (`cacheGravityRouter.mjs`, `experiments/model-switch-benchmark/results/playbook_ab_results.json`)**: Guards against cold-cache round-trip penalties across `5m` TTL boundaries, incorporates measured `claude-opus-5-5` capability entries (keeping Gemini strictly `unverified`), and adds `playbook_guard_replay.test.mjs`, `next_prompt_playbook.test.mjs`, and `playbook_cross_surface.test.mjs`.
+
+#### Changed & Fixed
+- **Unified WebView Routes (`src/webview/horizon_panel.html`, `sidecars/horizon-daemon/server.mjs`, `src/webview/registry.mjs`)**: Retired standalone `simple_view.html` and `advanced_view.html`, unifying `/simple` and `/advanced` onto `horizon_panel.html` (`window.__INITIAL_VIEW_MODE__`) to eliminate multi-surface mirror drift and preserve npm tarball headroom (`<= 1,250,000` B).
+- **Run 2 Benchmark Disclosures (`BENCHMARK_LAUNCH_POST.md`, `docs-site/benchmark.html`, `README.md`, `DISTRIBUTION_AND_PILOT_PACK.md`)**: Explicitly disclosed seeded `T01`–`T08` repos vs. unseeded `T09`–`T11` tasks, `configureShield({ action: 'enable' })` in the benchmarked `HIGHBEAM` arm vs. fresh-install `mode: 'auto'` default, and dynamic `DET-08` threshold behavior.
+
+---
+
 ## [4.4.1] - 2026-11-20
 
 ### Linux CI Offload Test Fix, Hybrid Pricing, 30-Day Emailed Trial & 144-Run Launch Pack

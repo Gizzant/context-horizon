@@ -2,7 +2,7 @@
   "$schema": "https://antigravity.google/schemas/v1/plugin.json",
   "name": "attention-horizon-antigravity",
   "displayName": "Highbeam",
-  "version": "4.4.1",
+  "version": "4.5.0",
   "description": "40-cell context memory visualizer, KV-Cache Gravity router, and zero-token pre-write guardrails for Google Antigravity (MIT Core + Commercial Pro).",
   "author": {
     "name": "Gizzant",

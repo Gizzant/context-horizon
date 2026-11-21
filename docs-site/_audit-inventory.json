@@ -3,7 +3,7 @@
   "product": {
     "name": "ctxtop",
     "displayName": "Highbeam",
-    "version": "4.4.1",
+    "version": "4.5.0",
     "nodeEngine": ">=22.13.0",
     "license": "MIT",
     "commercialLicense": "SEE LICENSE IN packages/pro/LICENSE-COMMERCIAL.md",
@@ -47,7 +47,7 @@
   },
   "discrepanciesResolved": [
     {
-      "area": "Detector Numbering in Legacy README vs v4.4.1 Isomorphic Catalog",
+      "area": "Detector Numbering in Legacy README vs v4.5.0 Isomorphic Catalog",
       "legacyDocClaim": "README.md references DET-14b for ANSI/CR CLI compression",
       "groundTruthCode": "src/core-isomorphic/catalog/detectorCatalog.mjs maps Exit-Safe CLI Compressor & Output Bomb Guard to canonical DET-07 across DET-01..DET-32 (with LEGACY_GA_V3_ID_MAP preserving backward migration)."
     },

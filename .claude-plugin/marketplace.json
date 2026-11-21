@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Official Highbeam plugin marketplace for Claude Code: local 40-cell context telemetry, clamp-only Active Context Shield, FTS5 CLI compression, and warm KV-cache guardrails.",
-    "version": "4.4.1"
+    "version": "4.5.0"
   },
   "plugins": [
     {
       "name": "highbeam",
       "source": "./",
       "description": "Zero-dependency local context profiler, clamp-only Active Context Shield (-13.31% mean billed cost / -24.31% prompt-bill tokens in 72 live runs), warm KV-cache guard, and 6 slash skills for Claude Code (MIT Core + Commercial Pro).",
-      "version": "4.4.1",
+      "version": "4.5.0",
       "author": {
         "name": "Gizzant"
       },
