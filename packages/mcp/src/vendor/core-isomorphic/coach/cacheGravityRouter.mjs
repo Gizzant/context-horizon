@@ -54,9 +54,9 @@ export const MODEL_EFFORT_CACHE_CAPABILITIES = Object.freeze({
     modelId: 'claude-opus-5-5',
     invalidatesCache: 'no',
     invalidationScope: 'none',
-    status: 'measured for cache only; behaviour unverified',
+    status: 'measured, n = 6 with behaviour change',
     provenance:
-      'currency_55.csv effort_only_55 (Opus 5.5: cache kept 26,130 vs 26,126 control; behaviour unverified)'
+      'currency_55.csv + playbook_ab_results.json (Opus 5.5, n = 6: T2-T4 90.9%-98.5% 1st-req hit, -16.7% output, -17.6% T2-T4 USD, 6/6 hidden pass)'
   })
 });
 
@@ -385,7 +385,15 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
   const uncachedWriteTokens = Math.max(0, Number(params.uncachedWriteTokens ?? 0));
   const request1UncachedTokens = uncachedDeltaTokens + uncachedWriteTokens;
   const cacheWarm = params.cacheWarm !== undefined ? Boolean(params.cacheWarm) : cachedTokens > 0;
-  const ttlTier = params.cacheTtlTier === '1h' ? '1h' : '5m';
+  const ttlTier = (params.cacheTtlTier || params.ttlTier) === '1h' ? '1h' : '5m';
+  const isRoundTripDetour = Boolean(params.isRoundTripDetour);
+  const rawReturnRisk = params.returnExpiryRiskProb ?? options.returnExpiryRiskProb;
+  const returnExpiryRiskProb =
+    isRoundTripDetour && cacheWarm && ttlTier === '5m'
+      ? Number.isFinite(Number(rawReturnRisk))
+        ? Math.max(0, Math.min(1, Number(rawReturnRisk)))
+        : 0.25
+      : 0;
 
   const totalPromptTokens = Math.max(
     cachedTokens + request1UncachedTokens,
@@ -443,6 +451,7 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
       horizonMaxCachedTokens: null,
       horizonNetSavingsUSD: null,
       horizonPriorSource: null,
+      roundTripDetour: null,
       ruleVersion: hasExplicitRemaining || useEmpirical ? 'rule_v2' : 'rule_v1',
       shouldHold: false,
       shouldHoldModel: false
@@ -722,13 +731,53 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
   );
 
   // Never hold/deny on capability upshifts, coldWritePenaltyUSD <= 0, or unbounded horizon limit C_max = Infinity
-  const shouldHoldModel = hasHorizonTurns
+  const baseShouldHoldModel = hasHorizonTurns
     ? Boolean(
         singleTurnShouldHold &&
           horizonMaxCachedTokens !== Infinity &&
           postSwitchRemainingTurns < paybackTurns
       )
     : singleTurnShouldHold;
+
+  // Opt-in round-trip detour guard (`isRoundTripDetour: true`): prices risk that leaving the anchor
+  // unrefreshed during a 5m detour causes its warm KV prefix to expire before returning.
+  const anchorColdRewritePenaltyUSD = Number(
+    ((cachedTokens / 1_000_000) * Math.max(0, pWriteCurr - pReadCurr)).toFixed(6)
+  );
+  const singleTurnDetourSavingUSD = Number((stayOnCurrentModelUSD - switchToTargetModelUSD).toFixed(6));
+  const roundTripBreakEvenExpiryProb =
+    anchorColdRewritePenaltyUSD > 0 && singleTurnDetourSavingUSD > 0
+      ? Number(Math.min(1, singleTurnDetourSavingUSD / anchorColdRewritePenaltyUSD).toFixed(4))
+      : 0;
+  const roundTripExpiryRiskUSD =
+    isRoundTripDetour && cacheWarm && ttlTier === '5m' && anchorColdRewritePenaltyUSD > 0
+      ? Number((anchorColdRewritePenaltyUSD * returnExpiryRiskProb).toFixed(6))
+      : 0;
+  const effectiveDetourNetSavingsUSD = Number(
+    (singleTurnDetourSavingUSD - roundTripExpiryRiskUSD).toFixed(6)
+  );
+  const ttlTierSafeForDetour = !cacheWarm || ttlTier === '1h';
+  const roundTripTriggeredHold = Boolean(
+    isRoundTripDetour &&
+      cacheWarm &&
+      ttlTier === '5m' &&
+      !isCapabilityUpshift &&
+      currentModel !== targetModel &&
+      anchorColdRewritePenaltyUSD > 0 &&
+      effectiveDetourNetSavingsUSD <= 0
+  );
+  const roundTripDetour = {
+    isRoundTripDetour,
+    anchorColdRewritePenaltyUSD,
+    singleTurnDetourSavingUSD,
+    roundTripBreakEvenExpiryProb,
+    returnExpiryRiskProb,
+    roundTripExpiryRiskUSD,
+    effectiveDetourNetSavingsUSD,
+    ttlTierSafeForDetour,
+    triggeredHold: roundTripTriggeredHold
+  };
+  const shouldHoldModel = baseShouldHoldModel || roundTripTriggeredHold;
 
   return {
     unknownModel: false,
@@ -779,6 +828,7 @@ export function computeBreakEvenCachedTokens(params = {}, options = {}) {
     initialPrefixTokensUsed,
     horizonNetSavingsUSD,
     horizonPriorSource,
+    roundTripDetour,
     ruleVersion: hasHorizonTurns ? 'rule_v2' : 'rule_v1',
     shouldHold: shouldHoldModel,
     shouldHoldModel
@@ -1097,8 +1147,10 @@ export class CacheGravityRouter {
       Number.isFinite(Number(rawNotablePenalty))
         ? Math.max(0, Number(rawNotablePenalty))
         : minSwitchPenaltyUSD;
+    const rtDetour = breakEven.roundTripDetour;
+    const rtTriggered = Boolean(rtDetour && rtDetour.triggeredHold);
     const belowMinSwitchPenaltyUSD = Boolean(
-      breakEven.shouldHoldModel && breakEven.coldWritePenaltyUSD < minSwitchPenaltyUSD
+      breakEven.shouldHoldModel && !rtTriggered && breakEven.coldWritePenaltyUSD < minSwitchPenaltyUSD
     );
 
     if (breakEven.shouldHoldModel && !belowMinSwitchPenaltyUSD) {
@@ -1126,13 +1178,21 @@ export class CacheGravityRouter {
         Number.isFinite(breakEven.horizonMaxCachedTokens)
           ? `exceeds horizon break-even C_max = ${breakEven.horizonMaxCachedTokens.toLocaleString()} tokens and `
           : '';
-      const reasonText =
-        `[DET-08 Warm KV-Cache Hold] Switching from ${breakEven.currentModel} to ${breakEven.targetModel} ` +
-        `with ${breakEven.cachedTokens.toLocaleString()} warm cached tokens ${thresholdClause}incurs a ` +
-        `+$${breakEven.coldWritePenaltyUSD.toFixed(4)} cold ${writeMultLabel} prefix rewrite penalty` +
-        `${paybackDetail}${horizonDetail}. ` +
-        `Keep main thread on ${breakEven.currentModel} or confirm if this session will run past payback ` +
-        `(in headless -p/SDK, override via "DET-08": "warn" in .attention-horizon/config.json or pass expectedRemainingTurns).`;
+      const breakEvenOdds =
+        rtTriggered && rtDetour.roundTripBreakEvenExpiryProb > 0
+          ? `~1 in ${Math.max(1, Math.round(1 / rtDetour.roundTripBreakEvenExpiryProb))}`
+          : 'high';
+      const reasonText = rtTriggered && breakEven.coldWritePenaltyUSD <= 0
+        ? `[DET-08 5m Round-Trip TTL Guard] Switching from ${breakEven.currentModel} to ${breakEven.targetModel} ` +
+          `does not refresh the anchor 5m cache; losing the ${breakEven.cachedTokens.toLocaleString()} warm prefix ` +
+          `costs +$${rtDetour.anchorColdRewritePenaltyUSD.toFixed(4)} on return vs. ~$${Math.max(0, rtDetour.singleTurnDetourSavingUSD).toFixed(4)} ` +
+          `single-turn saving (break-even expiry probability ${breakEvenOdds}). Stay on ${breakEven.currentModel} with /effort low or use the 1h cache tier.`
+        : `[DET-08 Warm KV-Cache Hold] Switching from ${breakEven.currentModel} to ${breakEven.targetModel} ` +
+          `with ${breakEven.cachedTokens.toLocaleString()} warm cached tokens ${thresholdClause}incurs a ` +
+          `+$${breakEven.coldWritePenaltyUSD.toFixed(4)} cold ${writeMultLabel} prefix rewrite penalty` +
+          `${paybackDetail}${horizonDetail}. ` +
+          `Keep main thread on ${breakEven.currentModel} or confirm if this session will run past payback ` +
+          `(in headless -p/SDK, override via "DET-08": "warn" in .attention-horizon/config.json or pass expectedRemainingTurns).`;
 
       // In COACH mode (default), remain 100% advisory and non-blocking unless strictBlock is explicitly set
       if (this.mode === FLIGHT_MODES.COACH && !request.strictBlock && !this.options.strictBlock) {

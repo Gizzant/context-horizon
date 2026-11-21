@@ -294,6 +294,8 @@ export function buildWebviewHtml({
       .replace(/\n}/g, '}')
       .replace(/;}/g, '}')
       .replace(/\n{2,}/g, '\n')
+      .replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|;\s+(?=[A-Za-z-]+\s*:)/g, (tok) => (tok[0] === '"' || tok[0] === "'" ? tok : ';'))
+      .replace(/\}\n+(?=[.#@a-zA-Z*\[:])/g, '}')
       .trim();
     return `<style${attrs}>\n${compactCss}\n</style>`;
   });

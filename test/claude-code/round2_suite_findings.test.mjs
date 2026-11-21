@@ -264,10 +264,10 @@ test('Item 3: DET-09 model-aware effort capability table covers all 5 provenance
   assert.equal(getEffortMutationCacheCapability('claude-opus-4-6').invalidatesCache, 'yes');
   // Row 3: Sonnet 5.5 -> No (n=3 with behaviour change)
   assert.equal(getEffortMutationCacheCapability('claude-sonnet-5-5').invalidatesCache, 'no');
-  // Row 4: Opus 5.5 -> No (cache only; behaviour unverified)
+  // Row 4: Opus 5.5 -> No (measured n = 6 across playbook A/B with behaviour change)
   const opus55Cap = getEffortMutationCacheCapability('claude-opus-5-5');
   assert.equal(opus55Cap.invalidatesCache, 'no');
-  assert.match(opus55Cap.status, /behaviour unverified/i);
+  assert.match(opus55Cap.status, /measured.*behaviour/i);
   // Row 5: All others -> Unknown ("unverified for this model")
   const haikuCap = getEffortMutationCacheCapability('claude-haiku-5-5');
   assert.equal(haikuCap.invalidatesCache, 'unknown');

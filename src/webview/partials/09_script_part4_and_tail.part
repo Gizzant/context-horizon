@@ -1298,9 +1298,14 @@
           ? "switches to Gemini's 256.0k IDE cap (1.0M pool)"
           : "uses the new model's window");
       const crossFamTxt = `To ${otherFamily}: prompt cache rebuilds from scratch, tokens are re-counted, and ${targetWindowTxt}.`;
-      // Claude (and unknown providers, conservatively): effort/thinking changes invalidate cached chat history.
-      // Gemini: thinking level is not part of the cached prompt prefix.
-      const effortBustsCache = modelProvider !== 'Gemini';
+      // Anthropic 5.5 keeps prefix cache across effort steps (measured n=6 Opus/Sonnet 5.5);
+      // 4.6 invalidates whole prefix (EF1_46); Gemini & all others are unverified until measured.
+      const normEffModel = modelId.replace(/\s+/g, '-');
+      const effCapStatus = /sonnet[-_. ]?5[-_. ]?5|opus[-_. ]?5[-_. ]?5/i.test(normEffModel)
+        ? 'safe'
+        : /sonnet[-_. ]?4[-_. ]?6|opus[-_. ]?4[-_. ]?6/i.test(normEffModel)
+          ? 'unsafe'
+          : 'unverified';
 
       let m = { tone: 'do', verdict: 'OK', badge: 'OK', same: '', cross: crossFamTxt };
       let e = { tone: 'do', verdict: 'OK', badge: 'OK', text: '' };
@@ -1318,15 +1323,19 @@
       } else if (isWarm) {
         m = { tone: 'avoid', verdict: `HOLD ${ttlTxt}`, badge: `Hold ${ttlTxt}`,
           same: `Within ${modelProvider} (${familyHint}): switching now forces a full cache rebuild${costTxt}.`, cross: crossFamTxt };
-        e = effortBustsCache
-          ? { tone: 'avoid', verdict: `HOLD ${ttlTxt}`, badge: `Hold ${ttlTxt}`, text: 'Changing effort right now re-bills cached chat history; startup tools and system prompt stay cached.' }
-          : { tone: 'do', verdict: 'OK', badge: 'OK', text: 'Thinking level stays outside this model\'s cached prompt — your warm cache stays intact.' };
+        e = effCapStatus === 'safe'
+          ? { tone: 'do', verdict: 'OK', badge: 'OK', text: 'Measured 5.5 model — changing effort keeps your warm prompt cache intact.' }
+          : effCapStatus === 'unsafe'
+            ? { tone: 'avoid', verdict: `HOLD ${ttlTxt}`, badge: `Hold ${ttlTxt}`, text: 'Changing effort right now re-bills cached chat history (4.6 whole-prefix bust).' }
+            : { tone: 'avoid', verdict: 'UNVERIFIED', badge: 'Unverified', text: 'Effort cache impact is unverified for this model — hold while warm.' };
       } else if (isRebuilding) {
         m = { tone: 'avoid', verdict: 'STAY', badge: 'Stay',
           same: `Cache is warming up on ${activeModel} — staying on it reuses the cache next turn.`, cross: crossFamTxt };
-        e = effortBustsCache
-          ? { tone: 'avoid', verdict: 'STAY', badge: 'Stay', text: 'Changing effort now resets the chat cache that just started warming.' }
-          : { tone: 'do', verdict: 'OK', badge: 'OK', text: 'Thinking level stays outside this model\'s cached prompt — your cache stays intact.' };
+        e = effCapStatus === 'safe'
+          ? { tone: 'do', verdict: 'OK', badge: 'OK', text: 'Measured 5.5 model — changing effort keeps your warming cache intact.' }
+          : effCapStatus === 'unsafe'
+            ? { tone: 'avoid', verdict: 'STAY', badge: 'Stay', text: 'Changing effort now resets the chat cache that just started warming.' }
+            : { tone: 'avoid', verdict: 'UNVERIFIED', badge: 'Unverified', text: 'Effort cache impact is unverified for this model — hold while cache warms.' };
       } else {
         m = { tone: 'do', verdict: 'OK', badge: 'OK',
           same: `Cache is cold — switching within ${modelProvider} (${familyHint}) has no extra rewrite penalty.`,
@@ -1335,6 +1344,104 @@
           text: isHighEffort && usedPct >= 45
             ? 'Consider Low or Medium effort for routine edits now that memory is filling up.'
             : 'Match effort to task complexity: Low/Medium for routine edits, High for tricky specs or debugging.' };
+      }
+
+      // Render 3-Category Next-Prompt Playbook inside #tsPlaybookCard
+      {
+        const isCCPb = (raw.storeSource || modelProvider || '').toLowerCase().includes('claude');
+        const pbCached = Math.max(0, Number(cache.cacheReadTokens || cache.costGate?.cachedTokens || (isWarm ? dispTotalT : 0)) || 0);
+        const pbWarm = Boolean((isWarm || (isRebuilding && pbCached >= 2000)) && ttlRem > 0);
+        const warmK = formatTokens(pbCached || dispTotalT);
+        const pbRows = (arr) => arr.map(([action, copyCommand, mechanism]) => ({ action, copyCommand, mechanism }));
+        let pb = raw.coachState?.nextPromptPlaybook || null;
+        if (!pb || !Array.isArray(pb.rows)) {
+          if (isCrisis || dispTotalT >= (modelProvider === 'Gemini' ? 220000 : 160000) || (safeCap > 0 && dispTotalT >= safeCap * 0.9)) {
+            pb = {
+              badge: 'NEAR CLIFF',
+              headline: `Compact first (${formatTokens(dispTotalT)} active) before right-sizing next turn`,
+              rows: pbRows([
+                [isCCPb ? '/compact \u2192 Haiku + /effort low' : 'Run /compact \u2192 Flash \u00B7 Effort: Low', isCCPb ? '/compact' : null, 'avoids pricing cliff'],
+                [isCCPb ? '/compact \u2192 Sonnet + /effort medium' : 'Run /compact \u2192 Standard \u00B7 Effort: Medium', isCCPb ? '/compact' : null, 'clears clutter with StateBaton'],
+                [isCCPb ? '/compact \u2192 Opus + /effort high' : 'Run /compact \u2192 Frontier \u00B7 Effort: High', isCCPb ? '/compact' : null, 'preserves rules; trims noise']
+              ])
+            };
+          } else if (!pbWarm) {
+            pb = {
+              badge: 'COLD BOUNDARY',
+              headline: 'Cache cold or expired \u2014 switching models or effort adds 0 bust penalty',
+              rows: pbRows([
+                [isCCPb ? '/model haiku then /effort low' : 'Model: Flash \u00B7 Effort: Low', isCCPb ? '/effort low' : null, '0 warm prefix to bust'],
+                [isCCPb ? '/model sonnet then /effort medium' : 'Model: Standard \u00B7 Effort: Medium', isCCPb ? '/effort medium' : null, '0 warm prefix to bust'],
+                [isCCPb ? '/model opus then /effort high' : 'Model: Frontier \u00B7 Effort: High', isCCPb ? '/effort high' : null, 'fresh prefix \u00B7 full reasoning']
+              ])
+            };
+          } else if (effCapStatus === 'safe') {
+            pb = {
+              badge: 'WARM \u00B7 EFFORT SAFE',
+              headline: `Warm ${warmK} cache \u2014 5.5 keeps prefix across /effort changes`,
+              rows: pbRows([
+                [isCCPb ? 'Stay on model + /effort low' : 'Stay on model \u00B7 Effort: Low', isCCPb ? '/effort low' : null, `keeps ${warmK} warm cache \u00B7 effort-safe 5.5`],
+                [isCCPb ? 'Stay on model + /effort medium' : 'Stay on model \u00B7 Effort: Medium', isCCPb ? '/effort medium' : null, `keeps ${warmK} warm cache \u00B7 12/12 test parity`],
+                [isCCPb ? 'Stay on model + /effort high' : 'Stay on model \u00B7 Effort: High', isCCPb ? '/effort high' : null, `keeps ${warmK} warm cache \u00B7 full reasoning`]
+              ]),
+              optionalDetourNote: cache.cacheTtlTier === '1h' ? `Optional (1h TTL only): Haiku 5.5 / low keeps ${warmK} parent cache alive.` : null
+            };
+          } else if (effCapStatus === 'unsafe') {
+            pb = {
+              badge: 'WARM \u00B7 4.6 LOCKED',
+              headline: `Warm ${warmK} cache \u2014 4.6 effort change invalidates whole prefix`,
+              rows: pbRows([
+                ['Hold model & effort (scope prompt tighter)', null, `effort change busts ${warmK} warm cache [EF1_46]`],
+                ['Hold model & effort', null, `preserves ${warmK} warm cache [EF1_46]`],
+                ['Hold model & effort (wait for TTL/compact)', null, `avoids rebuilding ${warmK} prefix [EF1_46]`]
+              ])
+            };
+          } else {
+            pb = {
+              badge: 'WARM \u00B7 UNVERIFIED',
+              headline: `Warm ${warmK} cache \u2014 effort cache impact unverified for ${activeModel}`,
+              rows: pbRows([
+                ['Hold while warm (unverified)', null, 'effort cache impact unverified for this model'],
+                ['Hold while warm (unverified)', null, 'effort cache impact unverified for this model'],
+                ['Hold while warm (unverified)', null, 'effort cache unverified \u2014 wait for cold boundary or /compact']
+              ])
+            };
+          }
+        }
+        setTxt('tsPbRegimeBadge', pb.badge || 'PLAYBOOK');
+        setTxt('tsPbHeadline', pb.headline || '');
+        ['tsPbRowQuick', 'tsPbRowStandard', 'tsPbRowDeep'].forEach((rowId, idx) => {
+          const rowEl = document.getElementById(rowId);
+          const item = pb.rows?.[idx];
+          if (!rowEl || !item) return;
+          const actEl = rowEl.querySelector('.ts-pb-act');
+          const copyBtn = rowEl.querySelector('.ts-pb-copy');
+          if (actEl) {
+            actEl.textContent = `${item.action || ''}`;
+            const mechSpan = document.createElement('span');
+            mechSpan.className = 'ts-pb-mech';
+            mechSpan.textContent = String(item.mechanism || '');
+            actEl.appendChild(mechSpan);
+          }
+          if (copyBtn) {
+            copyBtn.hidden = !item.copyCommand;
+            copyBtn.onclick = item.copyCommand ? async (ev) => {
+              ev.stopPropagation();
+              try {
+                if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(item.copyCommand);
+              } catch (cpErr) {
+                void cpErr;
+              }
+              flashButton(copyBtn, '\u2713', 1400);
+              showToast(`&#x2713; <strong>Copied <code>${escHtml ? escHtml(item.copyCommand) : item.copyCommand}</code></strong>`);
+            } : null;
+          }
+        });
+        const optEl = document.getElementById('tsPbOptionalNote');
+        if (optEl) {
+          optEl.hidden = !pb.optionalDetourNote;
+          optEl.textContent = pb.optionalDetourNote || '';
+        }
       }
 
       const tsModelCard = document.getElementById('tsModelCard');

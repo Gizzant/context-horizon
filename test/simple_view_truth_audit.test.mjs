@@ -254,7 +254,7 @@ describe('SV-BUG-07..14 & SV-BUG-18: XSS escaping, Orchestrator, Cross-Family, S
         quota: { cache: { isCacheCold: false, cacheReadTokens: 0, hitRatePct: 0, ttlRemainingSec: 280, nextTurnLikelyWarm: true } }
       });
       assert.equal(txt('tufteTopHostBadge'), 'Antigravity · Orchestrator (Carbon) (High)');
-      assert.equal(txt('tsEffortVerdict'), 'OK');
+      assert.equal(txt('tsEffortVerdict'), 'UNVERIFIED');
       assert.match(txt('tsModelCrossFam'), /To Claude:.*200\.0k window/);
       assert.match(tip('tsGuidanceBadge'), /warming up/i);
 

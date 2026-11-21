@@ -36,5 +36,6 @@ packages/pro/wrangler.toml
 packages/pro/README-SIGNING.md
 packages/pro/src/pro_license.mjs
 packages/pro/src/index.mjs
+src/config/modelCatalog.json
 src/ui/horizon_panel.js
 src/ui/horizon_panel.css

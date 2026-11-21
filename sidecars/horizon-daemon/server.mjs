@@ -64,6 +64,7 @@ import {
   evaluateTaskBoundaryTurn,
   evaluateSmartCompactSuggestion
 } from '../../src/core-isomorphic/coach/smartCompactAdvisor.mjs';
+import { computeNextPromptPlaybook } from '../../src/core-isomorphic/coach/nextPromptPlaybook.mjs';
 import { generateCorporateExpenseReceipt } from '../../src/core-isomorphic/ui/pdfReceiptGenerator.mjs';
 import { DETECTOR_CATALOG } from '../../src/core-isomorphic/catalog/detectorCatalog.mjs';
 import {
@@ -815,6 +816,26 @@ function buildCoachState(state, targetConvId) {
         ? shadowAuto.recentIncidents
         : [],
       smartCompactSuggestion,
+      nextPromptPlaybook: (() => {
+        try {
+          return computeNextPromptPlaybook({
+            modelId: state?.model?.canonicalId || state?.model?.id || state?.activeModel || 'unknown',
+            effort: state?.activeEffortProfile?.shortLabel || state?.effortProfile?.shortLabel || 'Auto',
+            cachedTokens,
+            totalTokens: totalActive,
+            contextCeiling: Number(state?.window?.maxTokens || state?.model?.nativeCeilingTokens || 200_000) || 200_000,
+            safeLimit: Number(state?.window?.safeLimit || 0) || 0,
+            cacheWarm: trulyWarm,
+            cacheTtlTier: cacheBlock?.cacheTtlTier || '5m',
+            ttlRemainingSec: ttlSec,
+            isCrisis: Boolean(state?.window?.isCrisis),
+            host: state?.surface || 'antigravity'
+          });
+        } catch (pbErr) {
+          recordDaemonDiagnostic('buildCoachState:nextPromptPlaybook', pbErr);
+          return null;
+        }
+      })(),
       taskQuotaRouter: taskRoute
     };
   } catch (err) {

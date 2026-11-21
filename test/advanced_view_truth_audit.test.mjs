@@ -416,7 +416,7 @@ describe('AV-BUG-01..14: Primary Advanced View Math Parity, Honesty & Zero-Dead-
       });
       assert.match(txt('taEconModelLine'), /Pool: 256\.0k IDE cap \/ 1\.0M native$/);
       assert.doesNotMatch(txt('taEconModelLine'), /\$/);
-      assert.match(txt('taEconCacheLine'), /Thinking change: outside cached prefix \(safe\)/);
+      assert.match(txt('taEconCacheLine'), /Effort change: unverified \(hold while warm\)/);
       assert.deepEqual(jsdomErrors, []);
     } finally {
       dom.window.close();

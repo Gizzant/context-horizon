@@ -282,6 +282,16 @@
               <div id="tsEffortHist" class="ts-sub" hidden></div>
             </div>
           </div>
+          <div id="tsPlaybookCard" class="ts-playbook">
+            <div class="ts-pb-head"><span>NEXT-PROMPT PLAYBOOK (BY WORKLOAD)</span><span id="tsPbRegimeBadge" class="ts-pb-badge">COLD BOUNDARY</span></div>
+            <div id="tsPbHeadline" class="ts-sub">Cache cold — right-size model &amp; effort cleanly for your next prompt.</div>
+            <div id="tsPbRows">
+              <div id="tsPbRowQuick" class="ts-pb-row"><span class="ts-pb-cat">Quick</span><span class="ts-pb-act"></span><button type="button" class="ts-pb-copy" hidden>Copy</button></div>
+              <div id="tsPbRowStandard" class="ts-pb-row"><span class="ts-pb-cat">Standard</span><span class="ts-pb-act"></span><button type="button" class="ts-pb-copy" hidden>Copy</button></div>
+              <div id="tsPbRowDeep" class="ts-pb-row"><span class="ts-pb-cat">Deep</span><span class="ts-pb-act"></span><button type="button" class="ts-pb-copy" hidden>Copy</button></div>
+            </div>
+            <div id="tsPbOptionalNote" class="ts-pb-note" hidden></div>
+          </div>
         </div>
       </details>
     </section>

@@ -496,13 +496,11 @@
 
       const normEconId = modelId.replace(/\s+/g, '-');
       let effKvRule = '';
-      if (modelProvider === 'Gemini') {
-        effKvRule = 'Thinking change: outside cached prefix (safe)';
-      } else if (/sonnet[-_. ]?5[-_. ]?5|opus[-_. ]?5[-_. ]?5/.test(normEconId)) {
+      if (/sonnet[-_. ]?5[-_. ]?5|opus[-_. ]?5[-_. ]?5/.test(normEconId)) {
         effKvRule = 'Effort change: keeps prefix (99.3% read)';
       } else if (/sonnet[-_. ]?4[-_. ]?6|opus[-_. ]?4[-_. ]?6/.test(normEconId)) {
         effKvRule = 'Effort change: busts whole prefix (EF1_46)';
-      } else if (modelProvider === 'Claude') {
+      } else if (modelProvider === 'Claude' || modelProvider === 'Gemini') {
         effKvRule = 'Effort change: unverified (hold while warm)';
       } else {
         effKvRule = 'Effort change: unverified for host model';

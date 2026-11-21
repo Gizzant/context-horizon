@@ -122,6 +122,10 @@ import {
   formatPreEffortChangeCapability,
   inspectClaudeBinaryCapabilities
 } from '../src/diagnostics/claudeHookCapabilities.mjs';
+import {
+  computeNextPromptPlaybook,
+  formatNextPromptPlaybookCli
+} from '../src/core-isomorphic/coach/nextPromptPlaybook.mjs';
 import { installPlugin, runLiveOrDemoCli, openBrowserUrl } from '../src/cli/init.mjs';
 import { executeStatusLineBridge, runStatusLineCli } from './ah-statusline.mjs';
 import { runSessionAudit, formatSessionAuditReport, formatPastWasteLine } from '../src/core/session_auditor.mjs';
@@ -2451,9 +2455,23 @@ export function runCli(args = [], options = {}) {
             })()
           }
         : null;
+    const liveState = options.state || readLiveStateSnapshot(options.sessionId || 'default', { ...options, cwd: options.cwd || process.cwd() }) || {};
+    const nextPromptPlaybook = computeNextPromptPlaybook({
+      modelId: liveState?.model?.canonicalId || liveState?.model?.id || liveState?.activeModel || (platform === 'claude' ? 'claude-sonnet-5-5' : 'unknown'),
+      effort: liveState?.activeEffortProfile?.shortLabel || liveState?.thinkingEffort || 'Auto',
+      cachedTokens: Number(liveState?.quota?.cache?.cacheReadTokens ?? liveState?.window?.cachedTokens ?? 0),
+      totalTokens: Number(liveState?.window?.totalActiveTokens ?? liveState?.totalInputTokens ?? 0),
+      contextCeiling: Number(liveState?.window?.maxTokens ?? liveState?.model?.nativeCeilingTokens ?? 200_000),
+      safeLimit: Number(liveState?.window?.safeLimit ?? 0),
+      cacheWarm: typeof liveState?.sessionRisk?.isCacheTrulyWarm === 'boolean' ? liveState.sessionRisk.isCacheTrulyWarm : false,
+      cacheTtlTier: liveState?.quota?.cache?.cacheTtlTier || '5m',
+      ttlRemainingSec: liveState?.quota?.cache?.ttlRemainingSec ?? null,
+      isCrisis: Boolean(liveState?.window?.isCrisis),
+      host: platform === 'claude' ? 'claude' : (baseRes.platforms.claude && !baseRes.platforms.antigravity ? 'claude' : 'antigravity')
+    });
     const res =
       subcommand === 'status'
-        ? { ...baseRes, offloadIndex, ipcFastPath }
+        ? { ...baseRes, offloadIndex, ipcFastPath, nextPromptPlaybook }
         : baseRes;
 
     if (isJson) {
@@ -2461,6 +2479,7 @@ export function runCli(args = [], options = {}) {
     }
     const statusLabel = res.enabled ? 'ACTIVE' : res.mode === 'auto' ? 'AUTO (clamp-only)' : 'DISABLED';
     const claudeLabel = res.platforms.claude ? 'ON' : res.mode === 'auto' ? 'AUTO (clamp-only)' : 'OFF';
+    const playbookBlock = subcommand === 'status' ? formatNextPromptPlaybookCli(nextPromptPlaybook) : '';
     const lines = [
       `[Highbeam Shield] Status: ${statusLabel} (action=${res.action}, platform=${platform})`,
       `  Targets       : Antigravity=${res.platforms.antigravity ? 'ON' : 'OFF'} (hooks=${res.hooksConfigured.antigravity}) | Claude=${claudeLabel} (hooks=${res.hooksConfigured.claude})`,
@@ -2471,6 +2490,7 @@ export function runCli(args = [], options = {}) {
             `  Offload Index : ${offloadIndex.indexedToolLogs} FTS5 CLI logs · ${offloadIndex.indexedArtifacts} artifact(s) (query: npx highbeam-cli search "<keyword>")`
           ]
         : []),
+      ...(playbookBlock ? [playbookBlock] : []),
       ...(res.selfTest ? [`  Self-Test     : ${res.selfTest.detail}`] : [])
     ];
     return { exitCode: res.ok === false ? 1 : 0, output: lines.join('\n'), data: res };

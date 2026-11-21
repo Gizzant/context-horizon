@@ -61,6 +61,7 @@
     "packages/mcp/",
     "!packages/mcp/src/vendor/**",
     "src/",
+    "!src/config/modelCatalog.json",
     "!src/webview/partials/**",
     "!src/webview/.npmignore",
     "!src/ui/horizon_panel.js",

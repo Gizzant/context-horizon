@@ -137,7 +137,9 @@ describe('Top 10 Token Wasters — classifyHorizon + Horizon Panel UI Verificati
         assert.equal(txt('tsCacheMeta'), '88% hit · Warm (03:30)');
         assert.equal(txt('tsClutterKind'), 'Cached Old Turns');
         assert.equal(txt('tsModelVerdict'), 'HOLD 03:30');
-        assert.equal(txt('tsEffortVerdict'), 'HOLD 03:30');
+        assert.equal(txt('tsEffortVerdict'), 'OK');
+        assert.equal(txt('tsPbRegimeBadge'), 'WARM · EFFORT SAFE');
+        assert.match(txt('tsPbRowQuick'), /Effort: Low/);
         assert.equal(d.getElementById('tsBtnCleanPrimary').dataset.ctaState, 'guarded');
         assert.match(txt('tsWhyList'), /Earlier chat history.*10 old turns.*40\.0k/);
         assert.match(d.getElementById('taConsumersBody').textContent, /Cleared by \/compact/);
@@ -267,7 +269,7 @@ describe('Top 10 Token Wasters — classifyHorizon + Horizon Panel UI Verificati
         assert.match(txt('taActionQueue'), /2 idle eager MCPs.*~31\.7k/);
       }
 
-      // 8. Cross-Family Mid-TTL Model Switch (prefixBustCause + Gemini Effort Safety)
+      // 8. Cross-Family Mid-TTL Model Switch (prefixBustCause + Gemini Effort Unverified)
       {
         const steps = [
           makeStep(0, { inputTokens: 10000, content: 'rules/' }),
@@ -297,7 +299,7 @@ describe('Top 10 Token Wasters — classifyHorizon + Horizon Panel UI Verificati
         assert.equal(txt('tsCacheMeta'), '0% hit · Rebuilding (04:35)');
         assert.equal(txt('tsModelVerdict'), 'STAY');
         assert.match(txt('tsModelLast'), /Claude Opus 5\.5 → Gemini 4 Argon \(cache miss · cross-family\)/);
-        assert.equal(txt('tsEffortVerdict'), 'OK');
+        assert.equal(txt('tsEffortVerdict'), 'UNVERIFIED');
         assert.equal(txt('tsEffortHist'), '2 effort switches this chat');
       }
 

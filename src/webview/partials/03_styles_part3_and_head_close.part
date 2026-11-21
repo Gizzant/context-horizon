@@ -1586,6 +1586,17 @@
     }
     .ts-switch-lines li + li { margin-top: 2px; }
     .ts-switch-card .ts-sub { font-size: 10.5px; color: var(--text-muted); }
+    .ts-playbook { margin-top: 6px; padding-top: 5px; border-top: 1px solid var(--hairline); }
+    .ts-pb-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 10px; color: var(--text-muted); }
+    .ts-pb-badge { font-family: var(--font-mono); font-size: 9.5px; font-weight: 600; color: var(--text-secondary); letter-spacing: .02em; }
+    .ts-pb-row { display: grid; grid-template-columns: 78px minmax(0, 1fr) auto; gap: 6px; align-items: center; padding: 3px 0; border-top: 1px solid var(--hairline); font-size: 10.5px; }
+    .ts-pb-row:first-child { border-top: none; }
+    .ts-pb-cat { font-weight: 600; color: var(--text-primary); }
+    .ts-pb-act { color: var(--text-secondary); overflow-wrap: anywhere; }
+    .ts-pb-mech { display: block; font-size: 9.5px; color: var(--text-muted); }
+    .ts-pb-copy { font-family: var(--font-mono); font-size: 9.5px; padding: 1px 6px; border: 1px solid var(--hairline); border-radius: 3px; background: transparent; color: var(--text-secondary); cursor: pointer; }
+    .ts-pb-copy:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+    .ts-pb-note { margin-top: 3px; font-size: 10px; color: var(--text-muted); }
 
     .ts-ledger {
       list-style: none;

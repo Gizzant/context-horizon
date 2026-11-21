@@ -43,7 +43,7 @@
 
       <h2 id="study-1-ab">1. Replicated 72-Run Live A/B (<code>T01</code>–<code>T08</code>)</h2>
       <p>
-        Source artifact: <a href="https://github.com/Gizzant/context-horizon/blob/main/experiments/model-switch-benchmark/results/highbeam_ab_results.json"><code>highbeam_ab_results.json</code></a> (<code>anthropic/claude-sonnet-5.5</code>, <code>8</code> doc/log/audit tasks &times; <code>3</code> replications &times; <code>3</code> arms = <code>72</code> runs with full HTTP <code>wireObs</code> telemetry). We included a middle ablation arm (<code>HIGHBEAM_SHIELD_OFF</code>) to test whether FTS5 and hooks alone work without pre-write read clamping.
+        Source artifact: <a href="https://github.com/Gizzant/context-horizon/blob/main/experiments/model-switch-benchmark/results/highbeam_ab_results.json"><code>highbeam_ab_results.json</code></a> (<code>anthropic/claude-sonnet-5.5</code>, <code>8</code> seeded doc/log/audit tasks &times; <code>3</code> replications &times; <code>3</code> arms = <code>72</code> runs with full HTTP <code>wireObs</code> telemetry). To isolate <code>PreToolUse</code> Read clamping and <code>PostToolUse</code> FTS5 compression, <code>run_highbeam_ab.mjs</code> seeds <code>T01</code>–<code>T08</code> with synthetic oversized spec/audit docs and noisy diagnostic logs &mdash; in contrast to the unseeded small-file navigation suite in Section 2 (<code>T09</code>–<code>T11</code>, <code>0/27</code> clamps). We ran the <code>HIGHBEAM</code> arm with <code>configureShield({ action: 'enable' })</code> (and included a middle ablation arm, <code>HIGHBEAM_SHIELD_OFF</code>); fresh <code>v4.4.1</code> installs default to clamp-only <code>mode: 'auto'</code>.
       </p>
 
       <div class="table-wrap">
@@ -79,13 +79,13 @@
               <td>Hooks + FTS5 without Shield did not lower cost</td>
             </tr>
             <tr>
-              <td><strong><code>HIGHBEAM</code></strong> (Default <code>auto</code> Shield)</td>
+              <td><strong><code>HIGHBEAM</code></strong> (Shield <code>enable</code> + FTS5)</td>
               <td><strong><code>24/24</code></strong></td>
               <td><code>241</code></td>
               <td><strong><code>$4.8174</code></strong></td>
               <td><strong><code>6,847,992</code></strong> (<code>799k</code>w + <code>6.049M</code>r)</td>
               <td><span class="badge safe">-13.31% mean</span> (<code>-14.39%</code> med)</td>
-              <td><code>-24.31%</code> prompt-bill, <code>20/24</code> wins, <code>7/8</code> tasks, <code>-16.94%</code> vs. Shield-off, <code>0</code> hard denies</td>
+              <td><code>-24.31%</code> prompt-bill, <code>20/24</code> wins, <code>7/8</code> tasks, <code>-16.94%</code> vs. Shield-off, <code>15</code> clamps / <code>0</code> hard denies</td>
             </tr>
           </tbody>
         </table>
@@ -93,12 +93,12 @@
       <ul>
         <li><strong>Replication consistency:</strong> Rep 1 <code>-13.31%</code> (<code>$1.8802 -&gt; $1.6300</code>), Rep 2 <code>-11.06%</code> (<code>$1.8239 -&gt; $1.6221</code>), Rep 3 <code>-15.52%</code> (<code>$1.8528 -&gt; $1.5652</code>).</li>
         <li><strong>Task breakdown (wins &amp; loss):</strong> <code>T01</code> (<code>-28.52%</code>), <code>T03</code> (<code>-22.39%</code>), <code>T07</code> (<code>-16.78%</code>), <code>T08</code> (<code>-15.51%</code>), <code>T04</code> (<code>-14.98%</code>), <code>T05</code> (<code>-7.53%</code>), <code>T02</code> (<code>-4.45%</code>), and <strong><code>T06</code> (<code>+13.43%</code> loss)</strong>.</li>
-        <li><strong>Why Shield + <code>Grep|Glob</code> + FTS5 worked together:</strong> Default clamp-only <code>mode: 'auto'</code> Active Context Shield trimmed oversized reads (<code>&le;250L</code> / <code>&le;16 KB</code>) at <code>PreToolUse</code> via <code>updatedInput</code> across <code>15</code> tool calls with <code>0</code> hard denies and <code>0</code> false Bash offload hits. Stopping prefix bloat early prevented cumulative <code>O(N&sup2;)</code> cache writes (<code>-24.78%</code>) and reads (<code>-24.25%</code>).</li>
+        <li><strong>Why Shield + <code>Grep|Glob</code> + FTS5 worked together:</strong> Active Context Shield (run with <code>action: 'enable'</code> in <code>HIGHBEAM</code>; fresh installs default to clamp-only <code>mode: 'auto'</code>) trimmed oversized reads (<code>&le;250L</code> / <code>&le;16 KB</code>) at <code>PreToolUse</code> via <code>updatedInput</code> across <code>15</code> tool calls with <code>0</code> hard denies and <code>0</code> false Bash offload hits. Stopping prefix bloat early prevented cumulative <code>O(N&sup2;)</code> cache writes (<code>-24.78%</code>) and reads (<code>-24.25%</code>).</li>
       </ul>
 
       <h2 id="study-2-exploration">2. Honest Scope Boundary: 27-Run Exploration Null Result (<code>T09</code>–<code>T11</code>)</h2>
       <p>
-        Source artifact: <a href="https://github.com/Gizzant/context-horizon/blob/main/experiments/model-switch-benchmark/results/highbeam_ab_exploration_results.json"><code>highbeam_ab_exploration_results.json</code></a> (<code>3</code> pure code-navigation tasks &times; <code>3</code> reps &times; <code>3</code> arms = <code>27</code> runs on <code>anthropic/claude-sonnet-5.5</code> with no large docs or noisy logs).
+        Source artifact: <a href="https://github.com/Gizzant/context-horizon/blob/main/experiments/model-switch-benchmark/results/highbeam_ab_exploration_results.json"><code>highbeam_ab_exploration_results.json</code></a> (<code>3</code> unseeded pure code-navigation tasks &times; <code>3</code> reps &times; <code>3</code> arms = <code>27</code> runs on <code>anthropic/claude-sonnet-5.5</code> with no large docs or noisy logs). In <code>T09</code>–<code>T11</code>, <code>HIGHBEAM</code> also used Shield <code>enable</code> with no scout.
       </p>
       <div class="table-wrap">
         <table>
@@ -124,7 +124,7 @@
               <td><code>0</code> subagent spawns</td>
             </tr>
             <tr>
-              <td><strong><code>HIGHBEAM</code></strong> (no scout)</td>
+              <td><strong><code>HIGHBEAM</code></strong> (Shield <code>enable</code>, no scout)</td>
               <td><code>9/9</code></td>
               <td><code>71</code></td>
               <td><code>$1.3195</code></td>
